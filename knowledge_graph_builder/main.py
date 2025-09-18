@@ -16,9 +16,9 @@ The system uses IngestionService as the central coordinator for all operations.
 import sys
 import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
-from datetime import datetime
+
 
 from services.ingestion import IngestionService
 
@@ -56,8 +56,10 @@ class KnowledgeGraphBuilder:
             'processing_failed': 0,
             'topics_created': 0,
             'total_processing_time': 0,
-            'neo4j_ingestion_successful': False,
-            'final_database_stats': {},
+            'neo4j_insertions_successful': 0,
+            'neo4j_insertions_failed': 0,
+            'total_nodes_created': 0,
+            'total_relationships_created': 0,
             'processed_documents': [],
             'failed_documents': [],
             'topic_summary': {}
@@ -97,10 +99,11 @@ class KnowledgeGraphBuilder:
         logger.info(f"🔄 Processing: {docx_path.name}")
         
         try:
-            # Process document with topic-based organization
+            # Process document with topic-based organization and immediate Neo4j insertion
             result = self.ingestion_service.process_document_with_langextract(
-                str(docx_path), 
-                str(self.output_dir)
+                str(docx_path),
+                str(self.output_dir),
+                insert_to_neo4j=True  # Enable streaming insertion
             )
             
             processing_time = time.time() - start_time
@@ -119,7 +122,15 @@ class KnowledgeGraphBuilder:
                 for file_type, file_path in saved_files.items():
                     file_size = Path(file_path).stat().st_size
                     logger.info(f"   📄 {file_type}: {Path(file_path).name} ({file_size:,} bytes)")
-                
+
+                # Log Neo4j insertion results
+                neo4j_result = result.get('neo4j_insertion')
+                if neo4j_result:
+                    if neo4j_result.get('success'):
+                        logger.info(f"   🗄️  Neo4j: {neo4j_result['nodes_created']} nodes, {neo4j_result['relationships_created']} relationships")
+                    else:
+                        logger.warning(f"   ⚠️  Neo4j insertion failed: {neo4j_result.get('error', 'Unknown error')}")
+
                 # Update statistics
                 self.stats['processed_successfully'] += 1
                 self.stats['processed_documents'].append({
@@ -127,7 +138,10 @@ class KnowledgeGraphBuilder:
                     'topic': topic_name,
                     'sanitized_topic': sanitized_topic,
                     'processing_time': processing_time,
-                    'files_created': len(saved_files)
+                    'files_created': len(saved_files),
+                    'neo4j_success': neo4j_result.get('success', False) if neo4j_result else False,
+                    'nodes_created': neo4j_result.get('nodes_created', 0) if neo4j_result else 0,
+                    'relationships_created': neo4j_result.get('relationships_created', 0) if neo4j_result else 0
                 })
                 
                 # Track unique topics
@@ -140,6 +154,14 @@ class KnowledgeGraphBuilder:
                 
                 self.stats['topic_summary'][sanitized_topic]['documents'].append(docx_path.name)
                 self.stats['topic_summary'][sanitized_topic]['total_files'] += len(saved_files)
+
+                # Update Neo4j statistics
+                if neo4j_result and neo4j_result.get('success'):
+                    self.stats['neo4j_insertions_successful'] += 1
+                    self.stats['total_nodes_created'] += neo4j_result.get('nodes_created', 0)
+                    self.stats['total_relationships_created'] += neo4j_result.get('relationships_created', 0)
+                elif neo4j_result:
+                    self.stats['neo4j_insertions_failed'] += 1
                 
             else:
                 error_msg = result.get('error', 'Unknown error')
@@ -200,49 +222,20 @@ class KnowledgeGraphBuilder:
         
         return self.stats['processed_successfully'] > 0
 
-    def ingest_to_neo4j(self) -> bool:
+    def get_final_database_stats(self) -> Dict[str, Any]:
         """
-        Ingest all processed topics into Neo4j database.
+        Get final database statistics after streaming insertions.
 
         Returns:
-            True if ingestion was successful
+            Dictionary with database statistics
         """
-        if self.stats['processed_successfully'] == 0:
-            logger.warning("No documents were processed successfully - skipping Neo4j ingestion")
-            return False
-
-        logger.info(f"\n📋 Neo4j Database Ingestion")
-        logger.info("-" * 50)
-
         try:
-            # Perform topic-based Neo4j ingestion
-            ingestion_results = self.ingestion_service.ingest_topics_to_neo4j(str(self.output_dir))
-
-            if 'error' not in ingestion_results:
-                logger.info("✅ Neo4j ingestion completed successfully!")
-
-                # Store final database statistics
-                self.stats['neo4j_ingestion_successful'] = True
-                self.stats['final_database_stats'] = ingestion_results.get('database_stats', {})
-
-                # Log ingestion summary
-                logger.info(f"📊 Ingestion Summary:")
-                logger.info(f"   • Topics processed: {len(ingestion_results['topics_processed'])}")
-                logger.info(f"   • Topics failed: {len(ingestion_results['topics_failed'])}")
-                logger.info(f"   • Files processed: {ingestion_results['total_files_processed']}")
-                logger.info(f"   • Total nodes: {ingestion_results['total_nodes']}")
-                logger.info(f"   • Total relationships: {ingestion_results['total_relationships']}")
-
-                return True
-            else:
-                logger.error(f"❌ Neo4j ingestion failed: {ingestion_results['error']}")
-                return False
-
+            return self.ingestion_service.neo4j_service.get_database_stats()
         except Exception as e:
-            logger.error(f"❌ Exception during Neo4j ingestion: {e}")
-            return False
+            logger.warning(f"Could not retrieve database stats: {e}")
+            return {}
 
-    def print_final_summary(self):
+    def print_final_summary(self, final_db_stats: Optional[Dict[str, Any]] = None):
         """Print comprehensive final summary of the entire pipeline."""
         logger.info(f"\n🎉 Knowledge Graph Builder - Final Summary")
         logger.info("=" * 80)
@@ -262,24 +255,23 @@ class KnowledgeGraphBuilder:
 
         if self.stats['topic_summary']:
             logger.info(f"   • Topic breakdown:")
-            for sanitized_topic, topic_info in self.stats['topic_summary'].items():
+            for _, topic_info in self.stats['topic_summary'].items():
                 doc_count = len(topic_info['documents'])
                 file_count = topic_info['total_files']
                 logger.info(f"     - {topic_info['topic_name']}: {doc_count} docs, {file_count} files")
 
-        # Neo4j database summary
-        logger.info(f"\n🗄️  Neo4j Database:")
-        if self.stats['neo4j_ingestion_successful']:
-            logger.info(f"   • Ingestion: ✅ Successful")
+        # Neo4j database summary (streaming approach)
+        logger.info(f"\n🗄️  Neo4j Database (Streaming Insertion):")
+        logger.info(f"   • Successful insertions: {self.stats['neo4j_insertions_successful']}")
+        logger.info(f"   • Failed insertions: {self.stats['neo4j_insertions_failed']}")
+        logger.info(f"   • Total nodes created: {self.stats['total_nodes_created']}")
+        logger.info(f"   • Total relationships created: {self.stats['total_relationships_created']}")
 
-            db_stats = self.stats['final_database_stats']
-            if db_stats:
-                logger.info(f"   • Database contents:")
-                for stat_name, count in db_stats.items():
-                    if stat_name != 'error':
-                        logger.info(f"     - {stat_name}: {count}")
-        else:
-            logger.info(f"   • Ingestion: ❌ Failed")
+        if final_db_stats:
+            logger.info(f"   • Final database contents:")
+            for stat_name, count in final_db_stats.items():
+                if stat_name != 'error':
+                    logger.info(f"     - {stat_name}: {count}")
 
         # Failed documents (if any)
         if self.stats['failed_documents']:
@@ -289,11 +281,14 @@ class KnowledgeGraphBuilder:
 
         # Output location
         logger.info(f"\n📁 Output Location: {self.output_dir}/")
-        if self.stats['neo4j_ingestion_successful']:
+        if self.stats['neo4j_insertions_successful'] > 0:
             logger.info(f"🌐 Neo4j Browser: http://localhost:7474")
             logger.info(f"   Username: neo4j, Password: password123")
 
-        logger.info(f"\n🎯 Pipeline Status: {'✅ SUCCESS' if self.stats['processed_successfully'] > 0 else '❌ FAILED'}")
+        # Overall success criteria: documents processed and at least some Neo4j insertions successful
+        overall_success = (self.stats['processed_successfully'] > 0 and
+                          self.stats['neo4j_insertions_successful'] > 0)
+        logger.info(f"\n🎯 Pipeline Status: {'✅ SUCCESS' if overall_success else '❌ FAILED'}")
 
     def run_complete_pipeline(self) -> bool:
         """
@@ -305,23 +300,24 @@ class KnowledgeGraphBuilder:
         start_time = time.time()
 
         try:
-            # Step 1: Process all documents
+            # Step 1: Process all documents with streaming Neo4j insertion
             documents_processed = self.process_all_documents()
 
             if not documents_processed:
                 logger.error("No documents were processed successfully")
                 return False
 
-            # Step 2: Ingest to Neo4j
-            neo4j_success = self.ingest_to_neo4j()
+            # Step 2: Get final database statistics
+            logger.info(f"\n📊 Retrieving final database statistics...")
+            final_db_stats = self.get_final_database_stats()
 
             # Step 3: Final summary
             total_time = time.time() - start_time
             logger.info(f"\n⏱️  Total pipeline execution time: {total_time:.2f}s")
 
-            self.print_final_summary()
+            self.print_final_summary(final_db_stats)
 
-            return documents_processed and neo4j_success
+            return documents_processed
 
         except Exception as e:
             logger.error(f"❌ Pipeline failed with exception: {e}")

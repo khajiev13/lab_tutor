@@ -10,12 +10,11 @@ import json
 class ExtractionService:
     """
     LLM-based Text Compression and Concept Extraction Service
-    
+
     Uses LLM to compress text and extract concepts in a single operation.
     Includes preprocessing to remove numbers and nonsensical titles.
     """
-    def __init__(self, documents: List[Document], model_id: str = "gemini-2.5-pro") -> None:
-        self.documents: List[Document] = documents
+    def __init__(self, model_id: str = "gemini-2.5-pro") -> None:
         self.base_url = "https://api.xiaocaseai.com/v1"
         self.model_id = model_id
         self.api_key = os.environ.get('LANGEXTRACT_API_KEY')
@@ -25,55 +24,75 @@ class ExtractionService:
         
         # Enhanced prompt for LLM-based extraction of topic, summary, concepts, and keywords
         self.extraction_prompt = textwrap.dedent("""\
-            You are an expert at analyzing educational text to extract key information.
+        You are an expert at analyzing technical and educational lecture transcripts to extract structured knowledge.
 
-            **Task**: Your goal is to extract four types of information from the text:
-            1.  **Topic Title**: A single, concise title for the entire document.
-            2.  **Compressed Summary**: A detailed summary of the entire text, reduced to 30-50% of its original length while preserving all critical information.
-            3.  **Keywords**: A list of 5-10 most important keywords and key phrases that represent the main topics and concepts in the text.
-            4.  **Concepts**: A list of core technical terms, theories, and technologies mentioned.
+        **Task**: Extract the following four categories of information from the text:
+        1. **Topic Title (TOPIC)**: A single concise title summarizing the session's overall subject.
+        2. **Compressed Summary (SUMMARY)**: A clear and coherent summary of the session, reduced to 30–50% of the original length, covering all major sections and arguments.
+        3. **Keywords (KEYWORDS)**: A comma-separated list of 5–10 high-value terms, phrases, or entities most central to the lecture.
+        4. **Concepts (CONCEPT)**: All important theories, models, technologies, frameworks, or technical terms. For each, provide a `definition` attribute using the text’s exact meaning (avoid paraphrasing unless clarification is necessary).
 
-            **Extraction Rules**:
-            -   **Topic**: Extract exactly one `TOPIC`. The text should be a short, descriptive title.
-            -   **Summary**: Extract exactly one `SUMMARY`. The text should be the compressed version of the document.
-            -   **Keywords**: Extract exactly one `KEYWORDS` entity. The text should be a comma-separated list of 5-10 key terms that best represent the document's content.
-            -   **Concepts**: Extract all relevant `CONCEPT`s. For each concept, provide a `definition` attribute.
-            """)
+        **Extraction Rules**:
+        - **Topic**: Extract exactly one TOPIC.
+        - **Summary**: Extract exactly one SUMMARY that maintains logical flow.
+        - **Keywords**: Extract exactly one KEYWORDS entity with 5–10 items.
+        - **Concepts**: Extract multiple CONCEPT entities. Each must include a precise definition attribute derived from the text.
+        - Preserve specificity: keep technical names, acronyms, and terminology intact (e.g., “MapReduce,” “ODBC,” “DIKW pyramid”).
+        """)
+
+
         
         # Example showing LLM-based extraction of topic, summary, keywords, and concepts
         self.extraction_examples = [
             lx.data.ExampleData(
-            text="In-memory computation is a technique for running large-scale, complex calculations entirely in a computer cluster's collective RAM. This eliminates slower data access from disks to improve performance. A computer cluster is a group of computers that work together, pooling their RAM.",
-            extractions=[
-                lx.data.Extraction(
-                extraction_class="TOPIC",
-                extraction_text="In-Memory Computation and Computer Clusters"
-                ),
-                lx.data.Extraction(
-                extraction_class="SUMMARY",
-                extraction_text="In-memory computation uses cluster RAM for calculations, avoiding disk access for better performance."
-                ),
-                lx.data.Extraction(
-                extraction_class="KEYWORDS",
-                extraction_text="in-memory computation, computer cluster, RAM, distributed computing, performance optimization, large-scale calculations"
-                ),
-                lx.data.Extraction(
-                extraction_class="CONCEPT",
-                extraction_text="In-memory computation",
-                attributes={
-                    "definition": "A technique for running large-scale, complex calculations entirely in a computer cluster's collective RAM."
-                }
-                ),
-                lx.data.Extraction(
-                extraction_class="CONCEPT",
-                extraction_text="Computer Cluster",
-                attributes={
-                    "definition": "A group of computers that work together, pooling their RAM to perform large-scale calculations."
-                }
-                )
-            ]
+                text="The Big Data lifecycle has four stages: Collect, Store, Analyze, and Governance. Collecting involves gathering structured and unstructured data. Storage relies on platforms like HDFS and databases. Analysis applies tools like MapReduce, Spark, and MySQL. Governance ensures compliance, accuracy, and security. The DIKW pyramid explains the transformation from data to information, knowledge, and wisdom.",
+                extractions=[
+                    lx.data.Extraction(
+                        extraction_class="TOPIC",
+                        extraction_text="Big Data Lifecycle and Analysis Frameworks"
+                    ),
+                    lx.data.Extraction(
+                        extraction_class="SUMMARY",
+                        extraction_text="The Big Data lifecycle consists of four stages: collection, storage, analysis, and governance. Collection gathers structured and unstructured data, often automated. Storage uses HDFS, MySQL, and databases with SQL APIs. Analysis employs MapReduce and Spark for large-scale processing. Governance ensures compliance and data quality. The DIKW pyramid illustrates the progression from raw data to actionable wisdom. Business intelligence has evolved from OLTP and OLAP to real-time analytics, predictive modeling, and big data technologies like Hadoop and Cassandra."
+                    ),
+                    lx.data.Extraction(
+                        extraction_class="KEYWORDS",
+                        extraction_text="big data lifecycle, collect, store, analyze, governance, DIKW pyramid, Hadoop, Spark, HDFS, real-time analytics"
+                    ),
+                    lx.data.Extraction(
+                        extraction_class="CONCEPT",
+                        extraction_text="DIKW Pyramid",
+                        attributes={
+                            "definition": "A model showing the progression from data (facts) to information (organized data), to knowledge (meaningful information), and wisdom (actionable insights)."
+                        }
+                    ),
+                    lx.data.Extraction(
+                        extraction_class="CONCEPT",
+                        extraction_text="OLTP",
+                        attributes={
+                            "definition": "Online Transaction Processing, a method of handling routine transactions using databases in early stages of data analysis."
+                        }
+                    ),
+                    lx.data.Extraction(
+                        extraction_class="CONCEPT",
+                        extraction_text="OLAP",
+                        attributes={
+                            "definition": "Online Analytical Processing, which allows analysis of integrated organizational data for improved business decisions."
+                        }
+                    ),
+                    lx.data.Extraction(
+                        extraction_class="CONCEPT",
+                        extraction_text="HDFS",
+                        attributes={
+                            "definition": "Hadoop Distributed File System, the main storage platform for big data, supporting distributed processing and integration with tools like Hive."
+                        }
+                    )
+                ]
             )
         ]
+
+
+
         
     def preprocess_text(self, text: str) -> str:
         """
@@ -95,7 +114,7 @@ class ExtractionService:
         
         return text
 
-    def compress_and_extract_concepts(self, source_file_path: Optional[str] = None) -> Any:
+    def compress_and_extract_concepts(self, documents: List[Document], source_file_path: Optional[str] = None) -> Any:
         """
         Single method that uses preprocessing + LLM to compress text and extract concepts.
 
@@ -105,13 +124,17 @@ class ExtractionService:
         3. Add source file path to the results
 
         Args:
+            documents: List of Document objects to process
             source_file_path: Path to the source file being processed
 
         Returns:
             Dictionary containing extraction results with compressed concepts, keywords, and source info
         """
+        if not documents:
+            raise ValueError("No documents provided for extraction")
+
         # Get the raw document content
-        raw_text = self.documents[0].page_content
+        raw_text = documents[0].page_content
         
         # Preprocess to remove numbers and titles
         cleaned_text = self.preprocess_text(raw_text)
@@ -135,7 +158,7 @@ class ExtractionService:
             model_id=self.model_id,
             api_key=self.api_key,
             model_url=self.base_url,
-            max_char_buffer=12000,
+            max_char_buffer=16000,
         )
 
         # The result from lx.extract is already a list of AnnotatedDocument objects
@@ -277,23 +300,7 @@ class ExtractionService:
                 "relationships": []
             }
 
-    def set_documents(self, documents: List[Document]) -> None:
-        """
-        Set the documents to be processed.
 
-        Args:
-            documents: List of Document objects to process
-        """
-        self.documents = documents
-
-    def get_documents(self) -> List[Document]:
-        """
-        Get the currently loaded documents.
-
-        Returns:
-            List of Document objects
-        """
-        return self.documents
 
     def save_extraction_results(self, result: Any, output_dir: str, base_filename: str) -> Dict[str, str]:
         """
@@ -408,13 +415,15 @@ class ExtractionService:
             print(f"⚠️  Failed to generate visualization: {e}")
             return None
 
-    def process_document_with_visualization(self, source_file_path: Optional[str] = None,
+    def process_document_with_visualization(self, documents: List[Document],
+                                          source_file_path: Optional[str] = None,
                                           output_dir: str = "output",
                                           generate_viz: bool = True) -> Dict[str, Any]:
         """
         Complete processing pipeline: extract, save, and visualize.
 
         Args:
+            documents: List of Document objects to process
             source_file_path: Path to the source file being processed
             output_dir: Directory for output files
             generate_viz: Whether to generate HTML visualization
@@ -424,7 +433,7 @@ class ExtractionService:
         """
         try:
             # Perform extraction
-            extraction_result = self.compress_and_extract_concepts(source_file_path)
+            extraction_result = self.compress_and_extract_concepts(documents, source_file_path)
 
             # Determine base filename
             if source_file_path:

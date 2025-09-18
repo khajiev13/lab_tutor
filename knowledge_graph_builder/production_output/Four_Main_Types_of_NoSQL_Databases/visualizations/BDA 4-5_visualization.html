@@ -1,0 +1,250 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Hello everyone, I am Haiying Che, from  Institute of Data Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology , from this session ,
+we start to learn Data storing system, and in this session we discuss about  <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#C8E6C9;">Four main types</span> <span class="lx-highlight" data-idx="1" style="background-color:#D2E3FC;">NoSQL Database</span> .
+NoSQL Databases are mainly categorized into four types: Key-value pair, Column-oriented, Graph-based and <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">Document-oriented. 
+Every category has its unique attributes and limitations. None of the above-specified database</span> is better to solve all the problems. 
+Users should select the database based on their product needs.
+The <span class="lx-highlight" data-idx="3" style="background-color:#D2E3FC;">key-value database</span> is based on key-value pairs (key, value) to store and query data. 
+Data is stored in key/value pairs. It is designed in such a way to handle lots of data and heavy load.
+The basic idea is that the data value is queried by the key, the key can be a string type, and the value can be any type of data, such as integer, character, array, list, collection, JSON, BLOB(Binary Large Objects)etc. 
+The underlying structure can use the hash table to index and manage the keys to support fast query. 
+But the key-value database does not support queries based on data values
+It is one of the most basic NoSQL database example. 
+This kind of NoSQL database is used as a collection, dictionaries, associative arrays, etc. 
+Key value stores help the developer to store schema-less data. They work best for shopping cart contents.
+Advantages of key-value database is Good scalability, flexibility, and high performance when writing in large numbers.
+And disadvantage of key-value database is it Can&#x27;t store structured information and conditional query is inefficient
+<span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">Column-oriented databases</span> work on columns and are based on BigTable paper by Google. 
+The column storage database adopts the column storage structure, which is also called DSM (decomposition storage model), 
+which means that the data is retrieved, stored and managed based on the range (column). 
+Column storage still uses keys, but the keys point to columns. 
+The column storage database supports high compression ratios.
+The query on data fields under large-scale data is very efficient, but it is not suitable for real-time deletion or updating of entire records and does not support data tables. join operation
+Every column is treated separately. Values of single column databases are stored contiguously.
+Column based NoSQL database deliver high performance on aggregation queries like SUM, COUNT, AVG, MIN etc. as the data is readily available in a column.
+Column-based NoSQL databases are widely used to manage data warehouses, business intelligence, CRM, Library card catalogs.
+Advantages of column storage database is Fast search speed, strong scalability, easy distributed extension, low complexity.
+And disadvantage of column storage database is Fewer features, most do not support strong transaction consistency .
+Document-Oriented NoSQL DB stores and retrieves data as a key value pair but the value part is stored as a document. 
+The document is stored in JSON or XML formats. The value is understood by the DB and can be queried.
+The document database is organized around a series of semantically self-contained documents to organize data management. 
+Documents have no schema, which means that documents do not require a specific structure. which make it flexible.
+A document database is actually a collection of documents. A document is actually a data record. 
+This record can &quot;self-describe&quot; the type and content of the data contained.
+XML documents, HTML documents and JSON documents fall into this category.
+The data record contained in each document is a collection of a series of data items.
+Each data item has a name and a corresponding value. The value can be a simple data type such as a string, a number, and a date, or it can be a complex type, such as ordered lists and associated objects. 
+Document databases are particularly suitable for managing document-oriented data or similar semi-structured data, such as websites with many read and write operations in the background, 
+applications that use JSON data structures, or use nested structured non-standardized data
+Relational Vs. Document
+In this diagram on your left you can see we have rows and columns, and in the right, we have a document database which has a similar structure to JSON. 
+Now for the relational database, you must know what columns you have and so on. 
+However, for a document database, you have data store like JSON object.
+The document type is mostly used for CMS content management systems, blogging platforms, real-time analytics &amp; e-commerce applications. 
+It should not use for complex transactions which require multiple operations or queries against varying aggregate structures.
+Advantages of Document DB is Good performance (high concurrency), high flexibility, low complexity, and flexible data structure. Provides embedded document function to store frequently queried data in the same document. Indexes can be built based on either keys or content.
+And disadvantage is Lack of uniform query syntax.
+Graph database
+Describing social relations and other data as points (vertex) and edges (Edge) and their properties, each graph can be regarded as a structured data. 
+The dots here represent entities, such as persons, companies, accounts or any other data items, similar to data records in a relational database or files in a document database; 
+&quot;edges&quot; represent the relationship between points; &quot;attributes&quot; are It is the point-related feature that the user pays attention to. 
+Relational databases imply the association relationship between different data in the data range .
+while in the graphic database, This relationship is directly defined and stored in the database, 
+Traversing relationship is fast as they are already captured into the DB, and there is no need to calculate them.
+so the graph database is good at handling highly related data, suitable for social networking, pattern recognition, dependency analysis, recommendation systems, and path finding, and other problems that can be expressed as relationship graphs.
+Advantages of graph database is High flexibility, supporting for complex graphics algorithms, and it can be used to build complex relationship map
+And disadvantage of <span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">graph database</span> is High complexity, can only support a certain data size .
+Document database includes mongoDB，CouchDB etc.
+Graph database includes Neo4j, infiniteGraph etc.
+Column database includes Redis, DynamoDB etc.
+Key value database includes Hbase Cassandra, etc.
+In this session we learned Four main types NoSQL Database.
+thank you for your attention, if you have any question, feel free to contact me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="5" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/6</span> |
+          Pos <span id="posInfo">[254-269]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "Four Main Types of NoSQL Databases", "color": "#C8E6C9", "startPos": 254, "endPos": 269, "beforeText": "mputer Science, in Beijing Institute of Technology , from this session ,\nwe start to learn Data storing system, and in this session we discuss about  ", "extractionText": "Four main types", "afterText": " NoSQL Database .\nNoSQL Databases are mainly categorized into four types: Key-value pair, Column-oriented, Graph-based and Document-oriented. \nEvery c", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "CONCEPT", "text": "NoSQL Database", "color": "#D2E3FC", "startPos": 270, "endPos": 284, "beforeText": "in Beijing Institute of Technology , from this session ,\nwe start to learn Data storing system, and in this session we discuss about  Four main types ", "extractionText": "NoSQL Database", "afterText": " .\nNoSQL Databases are mainly categorized into four types: Key-value pair, Column-oriented, Graph-based and Document-oriented. \nEvery category has its", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A type of database categorized into four main types: Key-value pair, Column-oriented, Graph-based, and Document-oriented. The appropriate type is selected based on specific product needs as no single type is best for all problems.</span>}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Document-oriented Database", "color": "#D2E3FC", "startPos": 392, "endPos": 506, "beforeText": "cuss about  Four main types NoSQL Database .\nNoSQL Databases are mainly categorized into four types: Key-value pair, Column-oriented, Graph-based and ", "extractionText": "Document-oriented. \nEvery category has its unique attributes and limitations. None of the above-specified database", "afterText": " is better to solve all the problems. \nUsers should select the database based on their product needs.\nThe key-value database is based on key-value pai", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A NoSQL database that stores and retrieves data as a key-value pair where the value is a document, typically in JSON or XML format. These documents are schema-less, self-describing, and can contain complex nested data structures, making them suitable for content management systems and e-commerce applications.</span>}</div>"}, {"index": 3, "class": "CONCEPT", "text": "Key-value Database", "color": "#D2E3FC", "startPos": 612, "endPos": 630, "beforeText": "ations. None of the above-specified database is better to solve all the problems. \nUsers should select the database based on their product needs.\nThe ", "extractionText": "key-value database", "afterText": " is based on key-value pairs (key, value) to store and query data. \nData is stored in key/value pairs. It is designed in such a way to handle lots of ", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A NoSQL database that stores data in key/value pairs. It is designed to handle large amounts of data and heavy loads, where data values are queried by a key. The value can be any data type, and it is suitable for storing schema-less data like shopping cart contents.</span>}</div>"}, {"index": 4, "class": "CONCEPT", "text": "Column-oriented Database", "color": "#D2E3FC", "startPos": 1684, "endPos": 1709, "beforeText": "e when writing in large numbers.\nAnd disadvantage of key-value database is it Can&#x27;t store structured information and conditional query is inefficient\n", "extractionText": "Column-oriented databases", "afterText": " work on columns and are based on BigTable paper by Google. \nThe column storage database adopts the column storage structure, which is also called DSM", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A NoSQL database based on Google&#x27;s BigTable paper that works on columns. Data is retrieved, stored, and managed based on columns, where keys point to columns rather than rows. It delivers high performance on aggregation queries like SUM, COUNT, and AVG and is used for data warehouses and business intelligence.</span>}</div>"}, {"index": 5, "class": "CONCEPT", "text": "Graph Database", "color": "#D2E3FC", "startPos": 6300, "endPos": 6314, "beforeText": "ph database is High flexibility, supporting for complex graphics algorithms, and it can be used to build complex relationship map\nAnd disadvantage of ", "extractionText": "graph database", "afterText": " is High complexity, can only support a certain data size .\nDocument database includes mongoDB\uff0cCouchDB etc.\nGraph database includes Neo4j, infiniteGra", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A NoSQL database that models data as points (vertices) and edges, representing entities and the relationships between them. Relationships are directly stored in the database, making traversal fast. It is ideal for handling highly related data found in social networking, recommendation systems, and pattern recognition.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>

@@ -1,3 +1,5 @@
+import re
+import langextract as lx
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import json
@@ -10,27 +12,49 @@ from utils.doc_utils import (
     discover_json_files,
     load_single_docx_document
 )
-import langextract as lx
-import re
 
+from services.extraction import ExtractionService
+from services.embedding import EmbeddingService
+from services.neo4j_service import Neo4jService
 
 class IngestionService:
+    _neo4j_service : Neo4jService
+    _embedding_service: EmbeddingService
+    _extraction_service : ExtractionService
     """
     Handles the complete knowledge graph ingestion pipeline.
+    Uses dependency injection to auto-initialize required services.
     """
-    
+
     def __init__(self, neo4j_service=None, embedding_service=None, extraction_service=None):
         """
-        Initialize with optional services. Services will be created as needed.
+        Initialize with optional services. Services will be auto-initialized if not provided.
 
         Args:
             neo4j_service: Optional Neo4j service instance
             embedding_service: Optional embedding service instance
-            extraction_service: Optional extraction service instance
+            extraction_service: Optional extraction service instance (created lazily when needed)
         """
-        self.neo4j_service = neo4j_service
-        self.embedding_service = embedding_service
-        self.extraction_service = extraction_service
+        # Auto-initialize services using dependency injection (private attributes)
+        self._neo4j_service = neo4j_service or Neo4jService()
+        self._embedding_service = embedding_service or EmbeddingService()
+        # ExtractionService no longer requires documents in constructor
+        self._extraction_service = extraction_service or ExtractionService()
+
+    @property
+    def neo4j_service(self):
+        """Get the Neo4j service instance."""
+        return self._neo4j_service
+
+    @property
+    def embedding_service(self):
+        """Get the embedding service instance."""
+        return self._embedding_service
+
+    @property
+    def extraction_service(self):
+        """Get the extraction service instance."""
+        return self._extraction_service
     
     def create_topic_node_data(self, topic_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create TOPIC node data dictionary."""
@@ -100,7 +124,6 @@ class IngestionService:
         # First pass: Create all nodes
         for node_data in data.get('nodes', []):
             node_type = node_data.get('type')
-            node_name = node_data.get('name')
             
             if node_type == 'Topic':
                 # Create TOPIC and THEORY nodes
@@ -181,7 +204,9 @@ class IngestionService:
                 # Fallback: Find and load original DOCX content
                 docx_path = find_original_docx(json_filename, docx_directory)
                 if docx_path:
-                    original_text = load_and_preprocess_docx(docx_path, self.extraction_service)
+                    # Create a temporary extraction service for loading DOCX
+                    temp_extraction_service = ExtractionService()
+                    original_text = load_and_preprocess_docx(docx_path, temp_extraction_service)
                     print(f"📄 Loaded original text from DOCX: {docx_path}")
                 else:
                     print(f"⚠️  No original text found for: {json_filename}")
@@ -270,11 +295,6 @@ class IngestionService:
         Returns:
             Complete ingestion results and statistics
         """
-        # Initialize Neo4j service if not already done
-        if not self.neo4j_service:
-            from services.neo4j_service import Neo4jService
-            self.neo4j_service = Neo4jService()
-
         print("🚀 Starting topic-based Neo4j ingestion...")
 
         # Use the new Neo4j service to ingest all topics
@@ -369,9 +389,10 @@ class IngestionService:
 
         return ""
 
-    def process_document_with_langextract(self, docx_path: str, output_dir: str = "output") -> Dict[str, Any]:
+    def process_document_with_langextract(self, docx_path: str, output_dir: str = "output",
+                                        insert_to_neo4j: bool = True) -> Dict[str, Any]:
         """
-        Process a single DOCX document with structured three-folder output for Neo4j ingestion.
+        Process a single DOCX document with structured three-folder output and optional immediate Neo4j insertion.
 
         Creates organized outputs in three folders:
         1. langextract_outputs/ - JSONL files from LangExtract
@@ -381,6 +402,7 @@ class IngestionService:
         Args:
             docx_path: Path to the DOCX file
             output_dir: Base directory to create structured folders
+            insert_to_neo4j: Whether to immediately insert into Neo4j database
 
         Returns:
             Dictionary with processing results and file paths
@@ -397,17 +419,10 @@ class IngestionService:
                     'source_file': docx_path
                 }
 
-            # Initialize extraction service if not provided
-            if not self.extraction_service:
-                from services.extraction import ExtractionService
-                self.extraction_service = ExtractionService(documents=documents)
-            else:
-                # Update documents in existing service
-                self.extraction_service.documents = documents
-
             # Perform LangExtract extraction
             print(f"🔄 Extracting with LangExtract...")
             langextract_result = self.extraction_service.compress_and_extract_concepts(
+                documents=documents,
                 source_file_path=docx_path
             )
 
@@ -509,6 +524,23 @@ class IngestionService:
             except Exception as neo4j_error:
                 print(f"⚠️  Failed to create Neo4j JSON: {neo4j_error}")
 
+            # 4. Immediate Neo4j insertion if requested
+            neo4j_insertion_result = None
+            if insert_to_neo4j and 'neo4j_json' in saved_files:
+                try:
+                    print(f"🔄 Inserting into Neo4j database...")
+                    neo4j_insertion_result = self._insert_document_to_neo4j(
+                        neo4j_json_path=saved_files['neo4j_json'],
+                        original_text=documents[0].page_content if documents else ""
+                    )
+                    if neo4j_insertion_result['success']:
+                        print(f"✅ Successfully inserted into Neo4j: {neo4j_insertion_result['nodes_created']} nodes, {neo4j_insertion_result['relationships_created']} relationships")
+                    else:
+                        print(f"⚠️  Neo4j insertion failed: {neo4j_insertion_result.get('error', 'Unknown error')}")
+                except Exception as insert_error:
+                    print(f"⚠️  Failed to insert into Neo4j: {insert_error}")
+                    neo4j_insertion_result = {'success': False, 'error': str(insert_error)}
+
             return {
                 'success': True,
                 'source_file': docx_path,
@@ -517,7 +549,8 @@ class IngestionService:
                 'sanitized_topic': sanitized_topic,
                 'topic_folder': str(topic_folder),
                 'saved_files': saved_files,
-                'langextract_result': langextract_result
+                'langextract_result': langextract_result,
+                'neo4j_insertion': neo4j_insertion_result
             }
 
         except Exception as e:
@@ -582,12 +615,6 @@ class IngestionService:
         source_filename = Path(source_file).name
         topic_id = f"topic_{Path(source_file).stem}"
         theory_id = f"theory_{Path(source_file).stem}"
-
-        # Initialize embedding service if needed
-        if not self.embedding_service:
-            from services.embedding import EmbeddingService
-            self.embedding_service = EmbeddingService()
-            print(f"🔧 Initialized embedding service")
 
         # Generate embedding for the theory (compressed text/summary)
         theory_embedding = []
@@ -693,3 +720,53 @@ class IngestionService:
             neo4j_format["relationships"].append(mentions_relationship)
 
         return neo4j_format
+
+    def _insert_document_to_neo4j(self, neo4j_json_path: str, original_text: str = "") -> Dict[str, Any]:
+        """
+        Insert a single document's data into Neo4j database immediately.
+
+        Args:
+            neo4j_json_path: Path to the Neo4j-ready JSON file
+            original_text: Original text content for THEORY nodes
+
+        Returns:
+            Dictionary with insertion results
+        """
+        try:
+            # Ensure constraints and indexes exist (safe to call multiple times)
+            self.neo4j_service.create_constraints_and_indexes()
+
+            # Load the Neo4j-ready JSON data
+            with open(neo4j_json_path, 'r', encoding='utf-8') as f:
+                neo4j_data = json.load(f)
+
+            # Create GraphDocument using Neo4j service
+            if neo4j_data.get('nodes'):
+                graph_doc = self.neo4j_service._create_graph_document_from_construction_plan(neo4j_data)
+
+                # Insert into Neo4j
+                self.neo4j_service.graph.add_graph_documents([graph_doc])
+
+                # Count nodes and relationships
+                nodes_created = len(neo4j_data.get('nodes', []))
+                relationships_created = len(neo4j_data.get('relationships', []))
+
+                return {
+                    'success': True,
+                    'nodes_created': nodes_created,
+                    'relationships_created': relationships_created,
+                    'source_file': neo4j_json_path
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'No nodes found in Neo4j data',
+                    'source_file': neo4j_json_path
+                }
+
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'source_file': neo4j_json_path
+            }

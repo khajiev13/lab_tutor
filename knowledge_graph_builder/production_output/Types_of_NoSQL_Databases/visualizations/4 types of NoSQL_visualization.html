@@ -1,0 +1,212 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">KEYWORDS</span> <span class="lx-label" style="background-color:#FEF0C3;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#FEF0C3;">types of NoSQL</span>
+Key Value Pair Based
+Data is stored in key/value pairs. It is designed in such a way to handle lots of data and heavy load.
+Key-value pair storage databases store data as a hash table where each key is unique, and the value can be a JSON, BLOB(Binary Large Objects), string, etc.
+For example<span class="lx-highlight" data-idx="1" style="background-color:#C8E6C9;">, a <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">key-value pair may contain a key like “Website” associated with a value like “Guru99”.
+It is one of the most basic NoSQL database example. This kind of NoSQL database is used as a collection, dictionaries, associative arrays, etc. Key value stores help the developer to store schema-less data. They work best for shopping cart contents.
+Redis, Dynamo, Riak are some NoSQL examples of key-value store DataBases. They are all based on Amazon’s Dynamo paper.
+Column-based
+Column-oriented databases work on columns and are based on BigTable paper by Google. Every column is treated separately. Values of single column databases are stored contiguously.
+Column based NoSQL database
+They deliver high performance on aggregation queries like SUM, COUNT, AVG, MIN etc. as the data is readily available in a column.
+<span class="lx-highlight" data-idx="3" style="background-color:#D2E3FC;">Column-based NoSQL databases</span> are widely used to manage data warehouses, business intelligence, CRM, Library card catalogs,
+HBase, Cassandra, HBase, Hypertable are NoSQL query examples of column based database</span>.
+Document-Oriented:
+<span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">Document-Oriented NoSQL DB stores and retrieves data as a key value pair but the value part is stored as a document. The document is stored in JSON or XML formats. The value is understood by the DB and can be queried.
+Relational Vs. Document
+In this diagram on your left you can see we have rows and columns, and in the right, we have a document database</span> which has a similar structure to JSON. Now for the relational database, you have to know what columns you have and so on. However, for a document database, you have data store like JSON object. You do not require to define which make it flexible.
+The document type is mostly used for CMS systems, blogging platforms, real-time analytics &amp; e-commerce applications. It should not use for complex transactions which require multiple operations or queries against varying aggregate structures.
+Amazon SimpleDB, CouchDB, MongoDB, Riak, Lotus Notes, MongoDB, are popular Document originated DBMS systems.
+Graph-Based
+A graph type database stores entities as well the relations amongst those entities. The entity is stored as a node with the relationship as edges. An edge gives a relationship between nodes. Every node and edge has a unique identifier.
+Compared to a relational database where tables are loosely connected, a Graph database is a multi-relational in nature. Traversing relationship is fast as they are already captured into the DB, and there is no need to calculate them.
+Graph base database mostly used for social networks, logistics, spatial data.
+Neo4J, Infinite Graph, OrientDB, FlockDB are some popular <span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">graph-</span>based</span> databases.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="5" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/6</span> |
+          Pos <span id="posInfo">[0-14]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "Types of NoSQL Databases", "color": "#FEF0C3", "startPos": 0, "endPos": 14, "beforeText": "", "extractionText": "types of NoSQL", "afterText": "\nKey Value Pair Based\nData is stored in key/value pairs. It is designed in such a way to handle lots of data and heavy load.\nKey-value pair storage da", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "KEYWORDS", "text": "NoSQL, Key-Value Pair, Column-based, Document-Oriented, Graph-Based, MongoDB, Cassandra, HBase, Neo4J, schema-less", "color": "#C8E6C9", "startPos": 306, "endPos": 2924, "beforeText": "orage databases store data as a hash table where each key is unique, and the value can be a JSON, BLOB(Binary Large Objects), string, etc.\nFor example", "extractionText": ", a key-value pair may contain a key like \u201cWebsite\u201d associated with a value like \u201cGuru99\u201d.\nIt is one of the most basic NoSQL database example. This kind of NoSQL database is used as a collection, dictionaries, associative arrays, etc. Key value stores help the developer to store schema-less data. They work best for shopping cart contents.\nRedis, Dynamo, Riak are some NoSQL examples of key-value store DataBases. They are all based on Amazon\u2019s Dynamo paper.\nColumn-based\nColumn-oriented databases work on columns and are based on BigTable paper by Google. Every column is treated separately. Values of single column databases are stored contiguously.\nColumn based NoSQL database\nThey deliver high performance on aggregation queries like SUM, COUNT, AVG, MIN etc. as the data is readily available in a column.\nColumn-based NoSQL databases are widely used to manage data warehouses, business intelligence, CRM, Library card catalogs,\nHBase, Cassandra, HBase, Hypertable are NoSQL query examples of column based database.\nDocument-Oriented:\nDocument-Oriented NoSQL DB stores and retrieves data as a key value pair but the value part is stored as a document. The document is stored in JSON or XML formats. The value is understood by the DB and can be queried.\nRelational Vs. Document\nIn this diagram on your left you can see we have rows and columns, and in the right, we have a document database which has a similar structure to JSON. Now for the relational database, you have to know what columns you have and so on. However, for a document database, you have data store like JSON object. You do not require to define which make it flexible.\nThe document type is mostly used for CMS systems, blogging platforms, real-time analytics &amp; e-commerce applications. It should not use for complex transactions which require multiple operations or queries against varying aggregate structures.\nAmazon SimpleDB, CouchDB, MongoDB, Riak, Lotus Notes, MongoDB, are popular Document originated DBMS systems.\nGraph-Based\nA graph type database stores entities as well the relations amongst those entities. The entity is stored as a node with the relationship as edges. An edge gives a relationship between nodes. Every node and edge has a unique identifier.\nCompared to a relational database where tables are loosely connected, a Graph database is a multi-relational in nature. Traversing relationship is fast as they are already captured into the DB, and there is no need to calculate them.\nGraph base database mostly used for social networks, logistics, spatial data.\nNeo4J, Infinite Graph, OrientDB, FlockDB are some popular graph-", "afterText": "based databases.", "attributesHtml": "<div><strong>class:</strong> KEYWORDS</div><div><strong>attributes:</strong> {}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Key-Value Pair Based Database", "color": "#D2E3FC", "startPos": 310, "endPos": 1325, "beforeText": "e databases store data as a hash table where each key is unique, and the value can be a JSON, BLOB(Binary Large Objects), string, etc.\nFor example, a ", "extractionText": "key-value pair may contain a key like \u201cWebsite\u201d associated with a value like \u201cGuru99\u201d.\nIt is one of the most basic NoSQL database example. This kind of NoSQL database is used as a collection, dictionaries, associative arrays, etc. Key value stores help the developer to store schema-less data. They work best for shopping cart contents.\nRedis, Dynamo, Riak are some NoSQL examples of key-value store DataBases. They are all based on Amazon\u2019s Dynamo paper.\nColumn-based\nColumn-oriented databases work on columns and are based on BigTable paper by Google. Every column is treated separately. Values of single column databases are stored contiguously.\nColumn based NoSQL database\nThey deliver high performance on aggregation queries like SUM, COUNT, AVG, MIN etc. as the data is readily available in a column.\nColumn-based NoSQL databases are widely used to manage data warehouses, business intelligence, CRM, Library card catalogs,\nHBase, Cassandra, HBase, Hypertable are NoSQL query examples of column based database", "afterText": ".\nDocument-Oriented:\nDocument-Oriented NoSQL DB stores and retrieves data as a key value pair but the value part is stored as a document. The document", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A type of NoSQL database that stores data in key/value pairs, where each key is unique and the value can be a JSON, BLOB, or string. It is designed to handle large amounts of data and is schema-less.</span>}</div>"}, {"index": 3, "class": "CONCEPT", "text": "Column-based Database", "color": "#D2E3FC", "startPos": 1117, "endPos": 1145, "beforeText": "ased NoSQL database\nThey deliver high performance on aggregation queries like SUM, COUNT, AVG, MIN etc. as the data is readily available in a column.\n", "extractionText": "Column-based NoSQL databases", "afterText": " are widely used to manage data warehouses, business intelligence, CRM, Library card catalogs,\nHBase, Cassandra, HBase, Hypertable are NoSQL query exa", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A NoSQL database type, based on Google&#x27;s BigTable paper, that works on columns. Values of a single column are stored contiguously, delivering high performance on aggregation queries like SUM, COUNT, and AVG.</span>}</div>"}, {"index": 4, "class": "CONCEPT", "text": "Document-Oriented Database", "color": "#D2E3FC", "startPos": 1346, "endPos": 1700, "beforeText": "s intelligence, CRM, Library card catalogs,\nHBase, Cassandra, HBase, Hypertable are NoSQL query examples of column based database.\nDocument-Oriented:\n", "extractionText": "Document-Oriented NoSQL DB stores and retrieves data as a key value pair but the value part is stored as a document. The document is stored in JSON or XML formats. The value is understood by the DB and can be queried.\nRelational Vs. Document\nIn this diagram on your left you can see we have rows and columns, and in the right, we have a document database", "afterText": " which has a similar structure to JSON. Now for the relational database, you have to know what columns you have and so on. However, for a document dat", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A NoSQL database that stores and retrieves data as a key-value pair, but the value part is stored as a document in formats like JSON or XML. The database can understand and query the contents of the document.</span>}</div>"}, {"index": 5, "class": "CONCEPT", "text": "Graph-Based Database", "color": "#D2E3FC", "startPos": 2918, "endPos": 2929, "beforeText": "lculate them.\nGraph base database mostly used for social networks, logistics, spatial data.\nNeo4J, Infinite Graph, OrientDB, FlockDB are some popular ", "extractionText": "graph-based", "afterText": " databases.", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A type of database that stores entities as nodes and the relationships between them as edges. It is multi-relational in nature and allows for fast traversal of relationships, making it suitable for social networks and logistics.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>
