@@ -1,0 +1,225 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">KEYWORDS</span> <span class="lx-label" style="background-color:#FEF0C3;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology, in this session, we will discuss Data Quality 
+About data quality, we want to discuss, Data quality of Single Data resource and Data quality of Multiple Data resource 
+The classification of <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#FEF0C3;">data quality issues</span> has two dimensions,
+) Classified according to the number of data sources, data quality problems can be divided into two types: single data source and multiple data sources
+)Classified according to abstract level or concrete level. Data quality issues can be divided into model-level issues and <span class="lx-highlight" data-idx="1" style="background-color:#D2E3FC;">instance-level issues.
+Model level problems can be solved by improving model design, model conversion and model integration.
+instance level Data quality problems</span> refer to errors and inconsistencies in the actual data content. 
+These problems are often invisible at the model level and need to be resolved in the data cleaning process.
+For the Single data resource data quality problems , in model level it could be Uniqueness, <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">Integrity constraints</span>, Attribute dependence and so on.
+For the Single data resource data quality problems , in instance level it could be Spelling errors, Redundant and repeated records, Attribute value conflict and so on.
+For the Multiple data resources data quality problems , in model level it could be <span class="lx-highlight" data-idx="3" style="background-color:#D2E3FC;">Naming conflict</span>, Structure conflict  and so on.
+For the Multiple data resources data quality problems , in instance level it could be Different representations of values, Overlapping/duplicate records and so on.
+Let ‘s look at the Single Data resource Model level and Instance level data quality issues first
+For a single data source, the data quality problem at the model layer largely depends on the integrity constraints of the design model on the data.
+The integrity constraints of the database determine which data values are acceptable.
+For example, a data to represent a date, the format and type of the date need to be restricted to ensure that the format of all date data in the database is uniform.
+However, for data sources that do not have uniform constraints such as files and web data, the possibility of causing data value errors and inconsistencies is greatly increased.
+For a single data source, data quality problems at the instance level are unavoidable at the model design level, such as data input errors, etc.
+Single Data resource <span class="lx-highlight" data-idx="4" style="background-color:#C8E6C9;">data quality</span> errors categories include
+) Attribute internal: limited to a single attribute value, such as age: 2000
+) Inside the record (between attributes): Different attribute values in the same record are inconsistent, for example, age and birthday cannot correspond
+)Internal data source (between records): inconsistency between different records of the same data source, for example, the name of the same ID is inconsistent
+)Between data sources: Some attributes in the data source are inconsistent with related values in other data sources, for example, the age corresponding to the same ID is inconsistent
+The data quality problems of different levels and scopes correspond to different data cleaning methods. A clear data level range is the basis for finding a reasonable data cleaning method
+Now Let ‘s look at the Multiple Data resource <span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">Model</span> level and Instance level data quality issues
+In the case of multiple data sources, data from different data sources need to be integrated. Each data source is often created by a specific application to meet the needs of specific users, and the data model design of each data source will be very different. In addition, each data source may contain dirty data, and different data sources may have different representations, data duplication, or data conflicts for the same data. 
+Therefore, the data quality problem in the case of a single data source is in the case of multiple data sources The next still exists. In addition, in the case of multiple data sources, data cleaning faces many new problems, such as <span class="lx-highlight" data-idx="6" style="background-color:#D2E3FC;">structural conflicts</span>, naming conflicts, duplicate records, etc.
+The main problems at the multi-data source model level are naming conflicts and structural conflicts:
+Naming conflict refers to using the same name for different data objects or using different names for the same data object.
+There are many different situations of structural conflicts, which usually refer to different ways to represent the same data object in different data sources. For example, the same object has different attribute granularity in different data sets, different composition structures, different data types, and different Integrity constraints, etc.
+The conflict at the data instance level refers to the conflict of specific data. 
+The data quality problems existing in a single data source may appear in different forms in different data sources, such as record duplication and record conflict. Even if different data sources have the same attribute name and data type, there may be different data value representations. For example, the description of gender can be expressed as male, female, or as M, F.
+Or the data deserves different interpretations, such as the U.S. dollar, euro and other currency measurement units
+In addition, the information provided by different data sources may be aggregated at different levels. For example, a single record in a data source describes the sales information of a certain product, while a record in another data source describes a group of similar products. sales information
+In this session we discussed some concrete Data quality issues.
+thank you for your attention, if you have any question, feel free to contact me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="6" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/7</span> |
+          Pos <span id="posInfo">[345-364]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "Data Quality Issues in Single and Multiple Data Sources", "color": "#FEF0C3", "startPos": 345, "endPos": 364, "beforeText": "ality \nAbout data quality, we want to discuss, Data quality of Single Data resource and Data quality of Multiple Data resource \nThe classification of ", "extractionText": "data quality issues", "afterText": " has two dimensions,\n) Classified according to the number of data sources, data quality problems can be divided into two types: single data source and", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "CONCEPT", "text": "Instance-level data quality problems", "color": "#D2E3FC", "startPos": 659, "endPos": 820, "beforeText": "e and multiple data sources\n)Classified according to abstract level or concrete level. Data quality issues can be divided into model-level issues and ", "extractionText": "instance-level issues.\nModel level problems can be solved by improving model design, model conversion and model integration.\ninstance level Data quality problems", "afterText": " refer to errors and inconsistencies in the actual data content. \nThese problems are often invisible at the model level and need to be resolved in the", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Errors and inconsistencies in the actual data content that are often invisible at the model level and need to be resolved in the data cleaning process.</span>}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Integrity constraints", "color": "#D2E3FC", "startPos": 1086, "endPos": 1107, "beforeText": "vel and need to be resolved in the data cleaning process.\nFor the Single data resource data quality problems , in model level it could be Uniqueness, ", "extractionText": "Integrity constraints", "afterText": ", Attribute dependence and so on.\nFor the Single data resource data quality problems , in instance level it could be Spelling errors, Redundant and re", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Rules within a database that determine which data values are acceptable, ensuring uniformity in format and type.</span>}</div>"}, {"index": 3, "class": "CONCEPT", "text": "Naming conflict", "color": "#D2E3FC", "startPos": 1392, "endPos": 1407, "beforeText": "edundant and repeated records, Attribute value conflict and so on.\nFor the Multiple data resources data quality problems , in model level it could be ", "extractionText": "Naming conflict", "afterText": ", Structure conflict  and so on.\nFor the Multiple data resources data quality problems , in instance level it could be Different representations of va", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Using the same name for different data objects or using different names for the same data object across multiple data sources.</span>}</div>"}, {"index": 4, "class": "KEYWORDS", "text": "data quality, single data source, multiple data sources, model level, instance level, data cleaning, integrity constraints, naming conflict, structural conflict, redundant records", "color": "#C8E6C9", "startPos": 2445, "endPos": 2457, "beforeText": "a source, data quality problems at the instance level are unavoidable at the model design level, such as data input errors, etc.\nSingle Data resource ", "extractionText": "data quality", "afterText": " errors categories include\n) Attribute internal: limited to a single attribute value, such as age: 2000\n) Inside the record (between attributes): Diff", "attributesHtml": "<div><strong>class:</strong> KEYWORDS</div><div><strong>attributes:</strong> {}</div>"}, {"index": 5, "class": "CONCEPT", "text": "Model-level data quality issues", "color": "#D2E3FC", "startPos": 3292, "endPos": 3297, "beforeText": "a cleaning methods. A clear data level range is the basis for finding a reasonable data cleaning method\nNow Let \u2018s look at the Multiple Data resource ", "extractionText": "Model", "afterText": " level and Instance level data quality issues\nIn the case of multiple data sources, data from different data sources need to be integrated. Each data ", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Problems that can be solved by improving model design, model conversion, and model integration.</span>}</div>"}, {"index": 6, "class": "CONCEPT", "text": "Structural conflict", "color": "#D2E3FC", "startPos": 4010, "endPos": 4030, "beforeText": "ase of multiple data sources The next still exists. In addition, in the case of multiple data sources, data cleaning faces many new problems, such as ", "extractionText": "structural conflicts", "afterText": ", naming conflicts, duplicate records, etc.\nThe main problems at the multi-data source model level are naming conflicts and structural conflicts:\nNami", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Different ways to represent the same data object in different data sources, such as differences in attribute granularity, composition structures, data types, and integrity constraints.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>

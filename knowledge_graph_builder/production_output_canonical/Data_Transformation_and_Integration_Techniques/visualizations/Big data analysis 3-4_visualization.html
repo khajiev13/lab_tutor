@@ -1,0 +1,232 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">KEYWORDS</span> <span class="lx-label" style="background-color:#FEF0C3;">SUMMARY</span> <span class="lx-label" style="background-color:#F9DEDC;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Hello everyone, I am Haiying Che, from Institute of <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#F9DEDC;">Data</span> Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology, in <span class="lx-highlight" data-idx="1" style="background-color:#FEF0C3;">this session</span>, we will discuss  Data transform .
+Data transform can include <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">Data integration</span> and Data transform. Let’s look at Data integration first.
+<span class="lx-highlight" data-idx="3" style="background-color:#C8E6C9;">Data integration: 
+Integrate data from multiple data sources into a consistent storage, which could involve the task Pattern matching, Data redundancy processing and Data value conflict solving;
+Let’s look these 3 tasks one by one. 
+First one is <span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">Pattern matching</span>. Integrate metadata from different data sources.
+We can recognize the real-world entity from different data sources and mapping them together, 
+like A.cust-id=B.customer_no.
+Then deal with <span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">Data redundancy</span> issue,
+The same attribute will have different field names in different databases.
+One attribute can be derived from another attribute. For example, the average monthly income attribute in a customer data table can be calculated based on the monthly income attribute.
+And Some redundancy can be detected by correlation analysis.
+Then solve the <span class="lx-highlight" data-idx="6" style="background-color:#D2E3FC;">Data value conflict</span> problem.
+For a real-world entity, its attribute values from different data sources may be different.
+Such as Differences in representation, different scales, or differences in coding, etc. 
+For example: 
+the weight attribute uses the metric system, like kg, g in one system, but uses the imperial system like pound in another system. 
+Same price attributes in different locations using different currency units, $, pound, RMB
+After data integration , then let’ come to <span class="lx-highlight" data-idx="7" style="background-color:#D2E3FC;">data transform</span>.
+Data transform means, in order to facilitate efficient analysis , we need change the data from one form to another form.
+We can use smooth methods like Binning Clustering Regression to eliminate the noise Or discretize continuous data, and increase granularity.
+By doing this, we can reduce the data amount for further analysis.
+Second transformation is <span class="lx-highlight" data-idx="8" style="background-color:#D2E3FC;">Aggregation</span>. 
+By doing avg(), count(), sum(), min(), max()...calculation, 
+we can use calculation result to represent the detail data. 
+For example: daily sales (data) can be aggregated to get the monthly or annual total.
+And these aggregation data are more convenient for big data analysis.
+Third  transformation is <span class="lx-highlight" data-idx="9" style="background-color:#D2E3FC;">Data generalization</span>. Which means Replace low-level data objects with more abstract (higher-level) concepts.
+For example: 
+street attributes can be generalized to higher-level concepts, such as: city, country. 
+Similarly, numeric attributes, such as age attributes, can be mapped to higher-level concepts, such as young, middle-aged, and old.
+The fourth transformation is <span class="lx-highlight" data-idx="10" style="background-color:#D2E3FC;">Data Normalization</span>. 
+Which means The data is scaled proportionally to make it fall into a specific area, so as to eliminate the deviation of the mining results caused by the different sizes of the numerical attributes. 
+Such as mapping the salary income attribute value to the range of [-1.0,1.0].
+The methods for Data Normalization could be 
+(1) Min-Max normalization
+(2) Zero-mean normalization (z-score normalization)
+(3) Standardization of decimal calibration
+The fifth transformation is <span class="lx-highlight" data-idx="11" style="background-color:#D2E3FC;">Attribute construction</span></span>. 
+Use the existing attribute set to construct new attributes and add them to the existing attribute set to help dig deeper pattern knowledge and improve the accuracy of mining results.
+For example: According to the width and height attributes, a new attribute can be constructed: area.
+In this session we discussed Data integration and data transform.
+thank you for your attention, if you have any question, feel free to contact me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="11" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/12</span> |
+          Pos <span id="posInfo">[52-56]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "Data Transformation and Integration Techniques", "color": "#F9DEDC", "startPos": 52, "endPos": 56, "beforeText": "Hello everyone, I am Haiying Che, from Institute of ", "extractionText": "Data", "afterText": " Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss  Data transform .\n", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "SUMMARY", "text": "This session covers data transformation, which includes data integration and data transformation. Data integration involves combining data from multiple sources into a consistent storage by addressing three key tasks: pattern matching to map entities from different sources, handling data redundancy where attributes are duplicated or derivable, and resolving data value conflicts caused by differences in representation, scale, or coding. Following integration, data transformation changes data into a form suitable for efficient analysis. This is achieved through several methods: smoothing or discretization to reduce noise and data volume; aggregation using functions like sum() or avg() to summarize detailed data; data generalization to replace low-level data with higher-level concepts (e.g., street to city); data normalization to scale data into a specific range using methods like Min-Max or Z-score normalization; and attribute construction to create new, useful attributes from existing ones (e.g., creating 'area' from 'width' and 'height').", "color": "#FEF0C3", "startPos": 158, "endPos": 170, "beforeText": "eryone, I am Haiying Che, from Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in ", "extractionText": "this session", "afterText": ", we will discuss  Data transform .\nData transform can include Data integration and Data transform. Let\u2019s look at Data integration first.\nData integra", "attributesHtml": "<div><strong>class:</strong> SUMMARY</div><div><strong>attributes:</strong> {}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Data Integration", "color": "#D2E3FC", "startPos": 233, "endPos": 249, "beforeText": "neering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss  Data transform .\nData transform can include ", "extractionText": "Data integration", "afterText": " and Data transform. Let\u2019s look at Data integration first.\nData integration: \nIntegrate data from multiple data sources into a consistent storage, whi", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The process of integrating data from multiple data sources into a consistent storage, which involves tasks like pattern matching, data redundancy processing, and solving data value conflicts.</span>}</div>"}, {"index": 3, "class": "KEYWORDS", "text": "Data Integration, Data Transformation, Pattern Matching, Data Redundancy, Data Value Conflict, Aggregation, Data Generalization, Data Normalization, Attribute Construction", "color": "#C8E6C9", "startPos": 308, "endPos": 3180, "beforeText": "this session, we will discuss  Data transform .\nData transform can include Data integration and Data transform. Let\u2019s look at Data integration first.\n", "extractionText": "Data integration: \nIntegrate data from multiple data sources into a consistent storage, which could involve the task Pattern matching, Data redundancy processing and Data value conflict solving;\nLet\u2019s look these 3 tasks one by one. \nFirst one is Pattern matching. Integrate metadata from different data sources.\nWe can recognize the real-world entity from different data sources and mapping them together, \nlike A.cust-id=B.customer_no.\nThen deal with Data redundancy issue,\nThe same attribute will have different field names in different databases.\nOne attribute can be derived from another attribute. For example, the average monthly income attribute in a customer data table can be calculated based on the monthly income attribute.\nAnd Some redundancy can be detected by correlation analysis.\nThen solve the Data value conflict problem.\nFor a real-world entity, its attribute values from different data sources may be different.\nSuch as Differences in representation, different scales, or differences in coding, etc. \nFor example: \nthe weight attribute uses the metric system, like kg, g in one system, but uses the imperial system like pound in another system. \nSame price attributes in different locations using different currency units, $, pound, RMB\nAfter data integration , then let\u2019 come to data transform.\nData transform means, in order to facilitate efficient analysis , we need change the data from one form to another form.\nWe can use smooth methods like Binning Clustering Regression to eliminate the noise Or discretize continuous data, and increase granularity.\nBy doing this, we can reduce the data amount for further analysis.\nSecond transformation is Aggregation. \nBy doing avg(), count(), sum(), min(), max()...calculation, \nwe can use calculation result to represent the detail data. \nFor example: daily sales (data) can be aggregated to get the monthly or annual total.\nAnd these aggregation data are more convenient for big data analysis.\nThird  transformation is Data generalization. Which means Replace low-level data objects with more abstract (higher-level) concepts.\nFor example: \nstreet attributes can be generalized to higher-level concepts, such as: city, country. \nSimilarly, numeric attributes, such as age attributes, can be mapped to higher-level concepts, such as young, middle-aged, and old.\nThe fourth transformation is Data Normalization. \nWhich means The data is scaled proportionally to make it fall into a specific area, so as to eliminate the deviation of the mining results caused by the different sizes of the numerical attributes. \nSuch as mapping the salary income attribute value to the range of [-1.0,1.0].\nThe methods for Data Normalization could be \n(1) Min-Max normalization\n(2) Zero-mean normalization (z-score normalization)\n(3) Standardization of decimal calibration\nThe fifth transformation is Attribute construction", "afterText": ". \nUse the existing attribute set to construct new attributes and add them to the existing attribute set to help dig deeper pattern knowledge and impr", "attributesHtml": "<div><strong>class:</strong> KEYWORDS</div><div><strong>attributes:</strong> {}</div>"}, {"index": 4, "class": "CONCEPT", "text": "Pattern Matching", "color": "#D2E3FC", "startPos": 554, "endPos": 570, "beforeText": "uld involve the task Pattern matching, Data redundancy processing and Data value conflict solving;\nLet\u2019s look these 3 tasks one by one. \nFirst one is ", "extractionText": "Pattern matching", "afterText": ". Integrate metadata from different data sources.\nWe can recognize the real-world entity from different data sources and mapping them together, \nlike ", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A data integration task that involves integrating metadata from different sources to recognize and map real-world entities, such as matching &#x27;A.cust-id&#x27; with &#x27;B.customer_no&#x27;.</span>}</div>"}, {"index": 5, "class": "CONCEPT", "text": "Data Redundancy", "color": "#D2E3FC", "startPos": 760, "endPos": 775, "beforeText": " sources.\nWe can recognize the real-world entity from different data sources and mapping them together, \nlike A.cust-id=B.customer_no.\nThen deal with ", "extractionText": "Data redundancy", "afterText": " issue,\nThe same attribute will have different field names in different databases.\nOne attribute can be derived from another attribute. For example, t", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">An issue where the same attribute has different names in different databases, or one attribute can be derived from another. This can be detected through correlation analysis.</span>}</div>"}, {"index": 6, "class": "CONCEPT", "text": "Data Value Conflict", "color": "#D2E3FC", "startPos": 1119, "endPos": 1138, "beforeText": "tomer data table can be calculated based on the monthly income attribute.\nAnd Some redundancy can be detected by correlation analysis.\nThen solve the ", "extractionText": "Data value conflict", "afterText": " problem.\nFor a real-world entity, its attribute values from different data sources may be different.\nSuch as Differences in representation, different", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A problem where a real-world entity&#x27;s attribute values differ across data sources due to differences in representation, scale (e.g., metric vs. imperial systems), or coding.</span>}</div>"}, {"index": 7, "class": "CONCEPT", "text": "Data Transform", "color": "#D2E3FC", "startPos": 1608, "endPos": 1622, "beforeText": "nother system. \nSame price attributes in different locations using different currency units, $, pound, RMB\nAfter data integration , then let\u2019 come to ", "extractionText": "data transform", "afterText": ".\nData transform means, in order to facilitate efficient analysis , we need change the data from one form to another form.\nWe can use smooth methods l", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The process of changing data from one form to another to facilitate efficient analysis.</span>}</div>"}, {"index": 8, "class": "CONCEPT", "text": "Aggregation", "color": "#D2E3FC", "startPos": 1978, "endPos": 1989, "beforeText": " Or discretize continuous data, and increase granularity.\nBy doing this, we can reduce the data amount for further analysis.\nSecond transformation is ", "extractionText": "Aggregation", "afterText": ". \nBy doing avg(), count(), sum(), min(), max()...calculation, \nwe can use calculation result to represent the detail data. \nFor example: daily sales ", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A data transformation method that uses calculations like avg(), count(), sum(), min(), and max() to represent detailed data with a summary result, such as aggregating daily sales into a monthly total.</span>}</div>"}, {"index": 9, "class": "CONCEPT", "text": "Data Generalization", "color": "#D2E3FC", "startPos": 2295, "endPos": 2314, "beforeText": " can be aggregated to get the monthly or annual total.\nAnd these aggregation data are more convenient for big data analysis.\nThird  transformation is ", "extractionText": "Data generalization", "afterText": ". Which means Replace low-level data objects with more abstract (higher-level) concepts.\nFor example: \nstreet attributes can be generalized to higher-", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A transformation that replaces low-level data objects with more abstract or higher-level concepts, such as generalizing a street to a city or a specific age to a category like &#x27;young&#x27; or &#x27;middle-aged&#x27;.</span>}</div>"}, {"index": 10, "class": "CONCEPT", "text": "Data Normalization", "color": "#D2E3FC", "startPos": 2666, "endPos": 2684, "beforeText": "numeric attributes, such as age attributes, can be mapped to higher-level concepts, such as young, middle-aged, and old.\nThe fourth transformation is ", "extractionText": "Data Normalization", "afterText": ". \nWhich means The data is scaled proportionally to make it fall into a specific area, so as to eliminate the deviation of the mining results caused b", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The process of scaling data proportionally to make it fall into a specific area (e.g., [-1.0, 1.0]) to eliminate deviations caused by different attribute scales. Methods include Min-Max and Zero-mean normalization.</span>}</div>"}, {"index": 11, "class": "CONCEPT", "text": "Attribute Construction", "color": "#D2E3FC", "startPos": 3158, "endPos": 3180, "beforeText": "\n(1) Min-Max normalization\n(2) Zero-mean normalization (z-score normalization)\n(3) Standardization of decimal calibration\nThe fifth transformation is ", "extractionText": "Attribute construction", "afterText": ". \nUse the existing attribute set to construct new attributes and add them to the existing attribute set to help dig deeper pattern knowledge and impr", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The process of using an existing set of attributes to construct new attributes, which are then added to the set to help discover deeper patterns and improve mining accuracy.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>

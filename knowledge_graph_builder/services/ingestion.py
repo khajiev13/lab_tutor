@@ -389,6 +389,48 @@ class IngestionService:
 
         return ""
 
+    def _normalize_concept_name(self, concept_name: str) -> str:
+        """
+        Normalize concept names to canonical forms for the relationship-centric approach.
+
+        Args:
+            concept_name: Raw concept name from extraction
+
+        Returns:
+            Normalized canonical concept name
+        """
+        if not concept_name:
+            return concept_name
+
+        # Remove common redundant suffixes and patterns
+        redundant_patterns = [
+            r'\s+(Strategy|Strategies)$',
+            r'\s+(Model|Models)$',
+            r'\s+(Framework|Frameworks)$',
+            r'\s+(System|Systems)$',
+            r'\s+(Architecture|Architectures)$',
+            r'\s+(Algorithm|Algorithms)$',
+            r'\s+(Method|Methods)$',
+            r'\s+(Technique|Techniques)$',
+            r'\s+(Approach|Approaches)$',
+            r'\s+(Implementation|Implementations)$',
+            r'\s+(Programming|Processing)$',
+            r'\s+(Computing|Computation)$',
+            r'\s+Crawling\s+Strategy$',  # Specific to web crawler examples
+            r'\s+Analysis\s+(Framework|Model)$'
+        ]
+
+        normalized = concept_name.strip()
+
+        for pattern in redundant_patterns:
+            normalized = re.sub(pattern, '', normalized, flags=re.IGNORECASE)
+
+        # Clean up extra whitespace
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
+
+        # Return original if normalization resulted in empty string
+        return normalized if normalized else concept_name
+
     def process_document_with_langextract(self, docx_path: str, output_dir: str = "output",
                                         insert_to_neo4j: bool = True) -> Dict[str, Any]:
         """
@@ -663,33 +705,33 @@ class IngestionService:
         }
         neo4j_format["nodes"].append(theory_node)
 
-        # 3. CONCEPT Nodes with embeddings
-        print(f"🔄 Generating embeddings for {len(concepts_data)} concepts...")
+        # 3. CONCEPT Nodes (canonical approach - only store name, no definitions or embeddings)
+        canonical_concepts = {}  # Track canonical concepts to avoid duplicates
+
+        print(f"🔄 Creating canonical concept nodes for {len(concepts_data)} concepts...")
         for i, concept in enumerate(concepts_data):
-            concept_id = f"concept_{Path(source_file).stem}_{i}"
+            # Normalize concept name to canonical form
+            canonical_name = self._normalize_concept_name(concept['name'])
 
-            # Generate embedding for concept definition
-            concept_embedding = []
-            if concept['definition']:
-                try:
-                    concept_embedding = self.embedding_service.embed_text(concept['definition'])
-                    print(f"✅ Concept {i+1} embedding generated: {len(concept_embedding)} dimensions")
-                except Exception as e:
-                    print(f"⚠️  Failed to generate embedding for concept {i+1}: {e}")
-                    concept_embedding = []
-
-            concept_node = {
-                "id": concept_id,
-                "construction_type": "node",
-                "label": "CONCEPT",
-                "unique_column_name": "name",
-                "properties": {
-                    "name": concept['name'],
-                    "definition": concept['definition'],
-                    "embedding": concept_embedding
+            # Only create one canonical concept node per unique name
+            if canonical_name not in canonical_concepts:
+                concept_node = {
+                    "construction_type": "node",
+                    "label": "CONCEPT",
+                    "unique_column_name": "name",
+                    "properties": {
+                        "name": canonical_name  # Only store canonical name
+                        # No definition or embedding - these go in relationships
+                    }
                 }
-            }
-            neo4j_format["nodes"].append(concept_node)
+                neo4j_format["nodes"].append(concept_node)
+                canonical_concepts[canonical_name] = {
+                    'canonical_name': canonical_name,
+                    'original_concept': concept  # Keep reference for relationship creation
+                }
+                print(f"✅ Created canonical concept: '{canonical_name}'")
+            else:
+                print(f"🔄 Reusing canonical concept: '{canonical_name}'")
 
         # 4. Relationships
         # TOPIC -[HAS]-> THEORY relationship
@@ -705,17 +747,22 @@ class IngestionService:
             }
             neo4j_format["relationships"].append(has_relationship)
 
-        # THEORY -[MENTIONS]-> CONCEPT relationships
+        # THEORY -[MENTIONS]-> CONCEPT relationships (using canonical concepts)
         for i, concept in enumerate(concepts_data):
-            concept_id = f"concept_{Path(source_file).stem}_{i}"
+            # Get the canonical name (no manual ID needed)
+            canonical_name = self._normalize_concept_name(concept['name'])
+
             mentions_relationship = {
                 "construction_type": "relationship",
                 "relationship_type": "MENTIONS",
                 "from_node_id": theory_id,
                 "from_node_label": "THEORY",
-                "to_node_id": concept_id,
+                "to_node_id": canonical_name,  # Use canonical name directly as ID
                 "to_node_label": "CONCEPT",
-                "properties": {}
+                "properties": {
+                    "local_definition": concept.get('definition', ''),  # Context-specific definition
+                    "source_file": Path(source_file).name
+                }
             }
             neo4j_format["relationships"].append(mentions_relationship)
 
@@ -770,3 +817,4 @@ class IngestionService:
                 'error': str(e),
                 'source_file': neo4j_json_path
             }
+

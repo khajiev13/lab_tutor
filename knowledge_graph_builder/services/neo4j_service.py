@@ -78,8 +78,9 @@ class Neo4jService:
         # Node constraints for uniqueness
         constraints = [
             "CREATE CONSTRAINT topic_name_unique IF NOT EXISTS FOR (t:TOPIC) REQUIRE t.name IS UNIQUE",
-            "CREATE CONSTRAINT theory_id_unique IF NOT EXISTS FOR (th:THEORY) REQUIRE th.id IS UNIQUE", 
-            "CREATE CONSTRAINT concept_name_unique IF NOT EXISTS FOR (c:CONCEPT) REQUIRE c.name IS UNIQUE"
+            "CREATE CONSTRAINT theory_id_unique IF NOT EXISTS FOR (th:THEORY) REQUIRE th.id IS UNIQUE",
+            # Note: CONCEPT nodes should be shared across documents, so we use MERGE instead of unique constraint
+            # "CREATE CONSTRAINT concept_name_unique IF NOT EXISTS FOR (c:CONCEPT) REQUIRE c.name IS UNIQUE"
         ]
         
         # Regular indexes for performance
@@ -146,38 +147,49 @@ class Neo4jService:
     def process_topic_json_file(self, json_file_path: Union[str, Path]) -> bool:
         """
         Process a single Neo4j-ready JSON file from a topic folder.
-        
+        Handles concept deduplication and constraint conflicts gracefully.
+
         Args:
             json_file_path: Path to the Neo4j-ready JSON file
-            
+
         Returns:
             True if successful, False otherwise
         """
         try:
             json_path = Path(json_file_path)
             print(f"📄 Processing: {json_path.name}")
-            
+
             # Load JSON data
             with open(json_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             # Validate data structure
             if 'nodes' not in data or 'relationships' not in data:
                 print(f"❌ Invalid JSON structure in {json_path.name}")
                 return False
-            
-            # Create graph document from our construction plan format
-            graph_doc = self._create_graph_document_from_construction_plan(data)
-            
-            # Insert into Neo4j
-            self.graph.add_graph_documents([graph_doc])
-            
-            print(f"✅ Successfully processed: {json_path.name}")
-            print(f"   • Nodes: {len(data['nodes'])}")
-            print(f"   • Relationships: {len(data['relationships'])}")
-            
-            return True
-            
+
+            # Try to process with concept deduplication
+            try:
+                # Create graph document from our construction plan format
+                graph_doc = self._create_graph_document_from_construction_plan(data)
+
+                # Insert into Neo4j
+                self.graph.add_graph_documents([graph_doc])
+
+                print(f"✅ Successfully processed: {json_path.name}")
+                print(f"   • Nodes: {len(data['nodes'])}")
+                print(f"   • Relationships: {len(data['relationships'])}")
+
+                return True
+
+            except Exception as insert_error:
+                # If we still get constraint errors, try manual insertion with MERGE
+                if "IndexEntryConflictException" in str(insert_error) or "already exists" in str(insert_error):
+                    print(f"⚠️  Constraint conflict detected, trying manual MERGE approach...")
+                    return self._manual_merge_insertion(data, json_path.name)
+                else:
+                    raise insert_error
+
         except Exception as e:
             print(f"❌ Error processing {json_file_path}: {e}")
             return False
@@ -185,6 +197,7 @@ class Neo4jService:
     def _create_graph_document_from_construction_plan(self, data: Dict[str, Any]) -> GraphDocument:
         """
         Create a GraphDocument from our construction plan format.
+        Handles concept deduplication by using concept names as IDs for CONCEPT nodes.
 
         Args:
             data: Dictionary with 'nodes' and 'relationships' keys
@@ -195,6 +208,7 @@ class Neo4jService:
         # Create nodes
         nodes = []
         node_map = {}  # Map node IDs to Node objects
+        concept_name_to_node = {}  # Track concepts by name to handle duplicates
 
         for node_data in data['nodes']:
             # Extract node properties (handle both 'type' and 'label' formats)
@@ -202,14 +216,39 @@ class Neo4jService:
             node_type = node_data.get('type', '') or node_data.get('label', '')
             properties = node_data.get('properties', {})
 
-            # Create GraphNode
-            node = GraphNode(
-                id=node_id,
-                type=node_type,
-                properties=properties
-            )
-            nodes.append(node)
-            node_map[node_id] = node
+            # Special handling for CONCEPT nodes with relationship-centric approach
+            if node_type == 'CONCEPT':
+                concept_name = properties.get('name', '')
+                if concept_name in concept_name_to_node:
+                    # Concept already exists, just map this node_id to the existing node
+                    # Contextual definitions will be stored in MENTIONS relationships
+                    existing_node = concept_name_to_node[concept_name]
+                    node_map[node_id] = existing_node
+                    continue
+                else:
+                    # New concept, use concept name as the ID for consistency
+                    # Remove any manual 'id' from properties to avoid redundancy
+                    clean_properties = {k: v for k, v in properties.items() if k != 'id'}
+
+                    node = GraphNode(
+                        id=concept_name,  # Use name as ID for concepts
+                        type=node_type,
+                        properties=clean_properties
+                    )
+                    nodes.append(node)
+                    # Map both the original node_id AND the concept name to this node
+                    node_map[node_id] = node
+                    node_map[concept_name] = node  # Also map concept name for relationships
+                    concept_name_to_node[concept_name] = node
+            else:
+                # Regular node (TOPIC, THEORY)
+                node = GraphNode(
+                    id=node_id,
+                    type=node_type,
+                    properties=properties
+                )
+                nodes.append(node)
+                node_map[node_id] = node
 
         # Create relationships
         relationships = []
@@ -246,6 +285,150 @@ class Neo4jService:
             relationships=relationships,
             source=source_doc
         )
+
+    def _manual_merge_insertion(self, data: Dict[str, Any], filename: str) -> bool:
+        """
+        Manually insert nodes and relationships using MERGE to handle duplicates.
+
+        Args:
+            data: Dictionary with 'nodes' and 'relationships' keys
+            filename: Name of the file being processed (for logging)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            print(f"   🔄 Using manual MERGE insertion for {filename}")
+
+            # Insert nodes using MERGE
+            nodes_created = 0
+            for node_data in data['nodes']:
+                node_type = node_data.get('type', '') or node_data.get('label', '')
+                properties = node_data.get('properties', {})
+
+                if node_type == 'CONCEPT':
+                    # For canonical concepts, only store name (no definition or embedding)
+                    concept_name = properties.get('name', '')
+
+                    cypher = """
+                    MERGE (c:CONCEPT {name: $name})
+                    ON CREATE SET
+                        c.created_at = datetime(),
+                        c.total_mentions = 1
+                    ON MATCH SET
+                        c.total_mentions = c.total_mentions + 1,
+                        c.last_updated = datetime()
+                    RETURN c
+                    """
+
+                    result = self.graph.query(cypher, {
+                        'name': concept_name
+                    })
+
+                elif node_type == 'TOPIC':
+                    # For topics, merge by name
+                    topic_name = properties.get('name', '')
+
+                    cypher = """
+                    MERGE (t:TOPIC {name: $name})
+                    RETURN t
+                    """
+
+                    result = self.graph.query(cypher, {'name': topic_name})
+
+                elif node_type == 'THEORY':
+                    # For theories, merge by id
+                    theory_id = properties.get('id', '')
+                    original_text = properties.get('original_text', '')
+                    compressed_text = properties.get('compressed_text', '')
+                    source = properties.get('source', '')
+                    keywords = properties.get('keywords', [])
+                    embedding = properties.get('embedding', [])
+
+                    cypher = """
+                    MERGE (th:THEORY {id: $id})
+                    ON CREATE SET
+                        th.original_text = $original_text,
+                        th.compressed_text = $compressed_text,
+                        th.source = $source,
+                        th.keywords = $keywords,
+                        th.embedding = $embedding
+                    RETURN th
+                    """
+
+                    result = self.graph.query(cypher, {
+                        'id': theory_id,
+                        'original_text': original_text,
+                        'compressed_text': compressed_text,
+                        'source': source,
+                        'keywords': keywords,
+                        'embedding': embedding
+                    })
+
+                if result:
+                    nodes_created += 1
+
+            # Insert relationships using MERGE
+            relationships_created = 0
+            for rel_data in data['relationships']:
+                source_id = rel_data.get('source_id', '') or rel_data.get('from_node_id', '')
+                target_id = rel_data.get('target_id', '') or rel_data.get('to_node_id', '')
+                rel_type = rel_data.get('type', '') or rel_data.get('relationship_type', '')
+
+                # Determine node types for matching
+                source_label = rel_data.get('from_node_label', 'TOPIC')  # Default assumption
+                target_label = rel_data.get('to_node_label', 'CONCEPT')  # Default assumption
+
+                if rel_type == 'HAS':
+                    # TOPIC -[HAS]-> THEORY
+                    cypher = """
+                    MATCH (t:TOPIC {name: $source_name})
+                    MATCH (th:THEORY {id: $target_id})
+                    MERGE (t)-[r:HAS]->(th)
+                    RETURN r
+                    """
+                    result = self.graph.query(cypher, {
+                        'source_name': source_id.replace('topic_', ''),
+                        'target_id': target_id
+                    })
+
+                elif rel_type == 'MENTIONS':
+                    # THEORY -[MENTIONS]-> CONCEPT with simplified relationship properties
+                    rel_properties = rel_data.get('properties', {})
+
+                    cypher = """
+                    MATCH (th:THEORY {id: $source_id})
+                    MATCH (c:CONCEPT {name: $target_name})
+                    MERGE (th)-[r:MENTIONS]->(c)
+                    SET r.local_definition = $local_definition,
+                        r.source_file = $source_file
+                    RETURN r
+                    """
+                    # Extract concept name from target_id if it starts with 'concept_'
+                    target_name = target_id
+                    if target_id.startswith('concept_'):
+                        # Try to find the actual concept name from the nodes data
+                        for node in data['nodes']:
+                            if node.get('id') == target_id and node.get('type') == 'CONCEPT':
+                                target_name = node.get('properties', {}).get('name', target_id)
+                                break
+
+                    result = self.graph.query(cypher, {
+                        'source_id': source_id,
+                        'target_name': target_name,
+                        'local_definition': rel_properties.get('local_definition', ''),
+                        'source_file': rel_properties.get('source_file', '')
+                    })
+
+                if result:
+                    relationships_created += 1
+
+            print(f"   ✅ Manual insertion completed: {nodes_created} nodes, {relationships_created} relationships")
+            return True
+
+        except Exception as e:
+            print(f"   ❌ Manual insertion failed: {e}")
+            return False
 
     def process_topic_folder(self, topic_folder_path: Union[str, Path]) -> Dict[str, Any]:
         """

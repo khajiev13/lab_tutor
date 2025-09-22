@@ -37,7 +37,7 @@ class ExtractionService:
         - **Summary**: Extract exactly one SUMMARY that maintains logical flow.
         - **Keywords**: Extract exactly one KEYWORDS entity with 5–10 items.
         - **Concepts**: Extract multiple CONCEPT entities. Each must include a precise definition attribute derived from the text.
-        - Preserve specificity: keep technical names, acronyms, and terminology intact (e.g., “MapReduce,” “ODBC,” “DIKW pyramid”).
+        - Preserve specificity: keep technical names, acronyms, and terminology intact (e.g., “MapReduce,” “ODBC,” “DIKW).
         """)
 
 

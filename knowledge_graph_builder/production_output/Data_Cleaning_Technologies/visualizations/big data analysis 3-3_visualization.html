@@ -1,0 +1,250 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">KEYWORDS</span> <span class="lx-label" style="background-color:#FEF0C3;">SUMMARY</span> <span class="lx-label" style="background-color:#F9DEDC;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Hello everyone, I am Haiying Che, from Institute of <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#F9DEDC;">Data</span> Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology, in <span class="lx-highlight" data-idx="1" style="background-color:#FEF0C3;">this session</span>, we will discuss <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">Data Cleaning Technology</span>.
+Data Cleaning Technology can help to solve three kinds of problems, repeat record cleaning, Missing value cleaning and Eliminating noise data.
+First let’s look at the Repeat record cleaning
+Duplicate records will lead to erroneous analysis results, so it is necessary to remove duplicate records in the data set to improve the accuracy and speed of the analysis.
+what are the Causes of duplicate values
+1 Integrate data from multiple <span class="lx-highlight" data-idx="3" style="background-color:#C8E6C9;">data sources will result the duplicate values
+2 When inputting, some data is input repeatedly
+Duplicate values are combined after inference
+1 Delete completely duplicate records
+2 When merging different tables, some redundant attributes (such as time) is added
+It is necessary to compare the related attributes of two records. According to the similarity of each attribute and the weight of the attribute, the similarity of the record is obtained. 
+If the similarity exceeds a certain threshold, it is considered as a duplicate record.
+Now let’s look at the Missing value cleaning.
+Causes of missing values could be
+Equipment abnormal, or When entering, some data is not taken seriously and not entered.
+Missing values must be inferred and added. We can Ignore this record; Use default; Use attribute average; 
+Use the average of similar samples and Predict the most likely value
+The third Data Cleaning Technology is Eliminating noise data
+Data noise can be Eliminated by 
+Binning/split bin algorithm
+Clustering Algorithm
+Regression algorithm.
+First let’s look at <span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">Binning</span> algorithm
+Binning: 
+Put the data to be processed into some boxes according to certain rules, examine the data in each box, and use a certain method to process the data in each box separately.
+Box: 
+A sub-interval divided by attribute value. If an attribute value is within a certain sub-interval range, it is said to put the attribute value in the &quot;box&quot; represented by this sub-interval.
+The main issues:
+How to divide the box;
+<span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">Data smoothing method, that is, how to smooth the data in each box, which means use what methods to decide the value to present each box.
+In the example here, there are 4 different bins, grey, yellow green and purple, each age value is put to certain range, like age 10 is put into range from 10 to 16, the grey box. And so, on
+The ways of how to Sort the record set according to the size of the target attribute value before binning, include 
+<span class="lx-highlight" data-idx="6" style="background-color:#D2E3FC;">Equal depth binning</span>
+<span class="lx-highlight" data-idx="7" style="background-color:#D2E3FC;">Equal-width binning</span>
+User-defined interval
+Equal depth bin method <span class="lx-highlight" data-idx="8" style="background-color:#D2E3FC;">(unified weight): 
+Bins are divided according to the number of rows of records, 
+each bin has the same number of records, and the number of records in each bin is called the weight of the bin, also known as the depth of the bin.
+In this example, we have 16 records, and we decide the box depth is 4 , after binning, we have 4 boxes results and each box contain 4 records
+Equal-width binning method, evenly distributed over the entire attribute value interval, that is, the interval range of each box is a constant, called the box width. 
+In the example, Set the interval range (the width of the box)</span></span> to RMB 1,000, then the result is also 4 boxes, but the records in the boxes are different from the Equal depth bin method.
+After binning, we should choose a value to represent the boxes, which is called smooth. there are mainly 3 ways to smooth:
+Smooth by average：Average the data</span> in the same box value and replace all the data in the box with the average value.
+Smooth according to the boundary value：Replace each data in the box with a boundary value with a smaller distance.
+Smooth according to the median：Take the median value of the box and use it to replace all the data in the box.
+Second way of Eliminating Data noise is Clustering Algorithm. Now let’s look at Clustering Algorithm
+Cluster: 
+A collection of data objects. All objects in the same cluster are similar, and objects in different clusters are quite different.
+Clustering: 
+Grouping a collection of physical or abstract objects into different clusters, finding and clearing those values (outliers) that fall outside the clusters. These isolated points are regarded as noise.
+Unusual data is discovered through cluster analysis: 
+similar or adjacent data are aggregated to form clusters, and those data objects outside these clusters are naturally considered as abnormal data.
+Features: Directly form clusters and describe the clusters without any prior knowledge.
+The third way of Eliminating Data noise is Regression Algorithm. Now let’s look at Regression algorithm
+Regression: 
+Find the pattern of change between two related variables, which are x and y in the diagram, and smooth the data by fitting the data to a function, that is, using the fitting function to smooth the data.
+method:
+<span class="lx-highlight" data-idx="9" style="background-color:#D2E3FC;">Linear regression</span> (simple regression): Use straight line modeling to treat one variable as a linear function of another variable. 
+For example: Y=aX+b, where a and b are called regression coefficients, and the coefficients a and b can be obtained by the least square method.
+In this session we general introduced Data Preprocessing.
+thank you for your attention, if you have any question, feel free to contact me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="9" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/10</span> |
+          Pos <span id="posInfo">[52-56]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "Data Cleaning Technologies", "color": "#F9DEDC", "startPos": 52, "endPos": 56, "beforeText": "Hello everyone, I am Haiying Che, from Institute of ", "extractionText": "Data", "afterText": " Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss Data Cleaning Tech", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "SUMMARY", "text": "This session discusses Data Cleaning Technology, which addresses three primary issues: duplicate records, missing values, and noisy data. Duplicate records, caused by data integration or repeated input, are identified by comparing record similarity against a threshold and then removed. Missing values, resulting from equipment errors or input omissions, can be handled by ignoring the record, using a default value, or imputing a value using averages or predictive models. Noisy data can be eliminated using three main algorithms. The Binning algorithm groups data into 'boxes' (sub-intervals) of either equal depth (same number of records) or equal width (same interval range), and then smooths the data within each box using the average, boundary, or median value. The Clustering algorithm groups similar data objects, identifying outliers that fall outside these clusters as noise. The Regression algorithm fits data to a function, such as linear regression, to find patterns and smooth the data accordingly.", "color": "#FEF0C3", "startPos": 158, "endPos": 170, "beforeText": "eryone, I am Haiying Che, from Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in ", "extractionText": "this session", "afterText": ", we will discuss Data Cleaning Technology.\nData Cleaning Technology can help to solve three kinds of problems, repeat record cleaning, Missing value ", "attributesHtml": "<div><strong>class:</strong> SUMMARY</div><div><strong>attributes:</strong> {}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Data Cleaning Technology", "color": "#D2E3FC", "startPos": 188, "endPos": 212, "beforeText": " Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss ", "extractionText": "Data Cleaning Technology", "afterText": ".\nData Cleaning Technology can help to solve three kinds of problems, repeat record cleaning, Missing value cleaning and Eliminating noise data.\nFirst", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A technology that helps to solve three kinds of problems in datasets: cleaning duplicate records, handling missing values, and eliminating noise data.</span>}</div>"}, {"index": 3, "class": "KEYWORDS", "text": "Data Cleaning, Duplicate Records, Missing Values, Noise Data, Binning Algorithm, Clustering Algorithm, Regression Algorithm, Equal Depth Binning, Equal-Width Binning, Data Smoothing", "color": "#C8E6C9", "startPos": 648, "endPos": 3558, "beforeText": "ate records in the data set to improve the accuracy and speed of the analysis.\nwhat are the Causes of duplicate values\n1 Integrate data from multiple ", "extractionText": "data sources will result the duplicate values\n2 When inputting, some data is input repeatedly\nDuplicate values are combined after inference\n1 Delete completely duplicate records\n2 When merging different tables, some redundant attributes (such as time) is added\nIt is necessary to compare the related attributes of two records. According to the similarity of each attribute and the weight of the attribute, the similarity of the record is obtained. \nIf the similarity exceeds a certain threshold, it is considered as a duplicate record.\nNow let\u2019s look at the Missing value cleaning.\nCauses of missing values could be\nEquipment abnormal, or When entering, some data is not taken seriously and not entered.\nMissing values must be inferred and added. We can Ignore this record; Use default; Use attribute average; \nUse the average of similar samples and Predict the most likely value\nThe third Data Cleaning Technology is Eliminating noise data\nData noise can be Eliminated by \nBinning/split bin algorithm\nClustering Algorithm\nRegression algorithm.\nFirst let\u2019s look at Binning algorithm\nBinning: \nPut the data to be processed into some boxes according to certain rules, examine the data in each box, and use a certain method to process the data in each box separately.\nBox: \nA sub-interval divided by attribute value. If an attribute value is within a certain sub-interval range, it is said to put the attribute value in the &quot;box&quot; represented by this sub-interval.\nThe main issues:\nHow to divide the box;\nData smoothing method, that is, how to smooth the data in each box, which means use what methods to decide the value to present each box.\nIn the example here, there are 4 different bins, grey, yellow green and purple, each age value is put to certain range, like age 10 is put into range from 10 to 16, the grey box. And so, on\nThe ways of how to Sort the record set according to the size of the target attribute value before binning, include \nEqual depth binning\nEqual-width binning\nUser-defined interval\nEqual depth bin method (unified weight): \nBins are divided according to the number of rows of records, \neach bin has the same number of records, and the number of records in each bin is called the weight of the bin, also known as the depth of the bin.\nIn this example, we have 16 records, and we decide the box depth is 4 , after binning, we have 4 boxes results and each box contain 4 records\nEqual-width binning method, evenly distributed over the entire attribute value interval, that is, the interval range of each box is a constant, called the box width. \nIn the example, Set the interval range (the width of the box) to RMB 1,000, then the result is also 4 boxes, but the records in the boxes are different from the Equal depth bin method.\nAfter binning, we should choose a value to represent the boxes, which is called smooth. there are mainly 3 ways to smooth:\nSmooth by average\uff1aAverage the data", "afterText": " in the same box value and replace all the data in the box with the average value.\nSmooth according to the boundary value\uff1aReplace each data in the box", "attributesHtml": "<div><strong>class:</strong> KEYWORDS</div><div><strong>attributes:</strong> {}</div>"}, {"index": 4, "class": "CONCEPT", "text": "Binning", "color": "#D2E3FC", "startPos": 1713, "endPos": 1720, "beforeText": "is Eliminating noise data\nData noise can be Eliminated by \nBinning/split bin algorithm\nClustering Algorithm\nRegression algorithm.\nFirst let\u2019s look at ", "extractionText": "Binning", "afterText": " algorithm\nBinning: \nPut the data to be processed into some boxes according to certain rules, examine the data in each box, and use a certain method t", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A method to eliminate noise data by putting the data to be processed into some boxes according to certain rules, examining the data in each box, and using a certain method to process the data in each box separately.</span>}</div>"}, {"index": 5, "class": "CONCEPT", "text": "Data Smoothing (in Binning)", "color": "#D2E3FC", "startPos": 2149, "endPos": 3277, "beforeText": "tain sub-interval range, it is said to put the attribute value in the &quot;box&quot; represented by this sub-interval.\nThe main issues:\nHow to divide the box;\n", "extractionText": "Data smoothing method, that is, how to smooth the data in each box, which means use what methods to decide the value to present each box.\nIn the example here, there are 4 different bins, grey, yellow green and purple, each age value is put to certain range, like age 10 is put into range from 10 to 16, the grey box. And so, on\nThe ways of how to Sort the record set according to the size of the target attribute value before binning, include \nEqual depth binning\nEqual-width binning\nUser-defined interval\nEqual depth bin method (unified weight): \nBins are divided according to the number of rows of records, \neach bin has the same number of records, and the number of records in each bin is called the weight of the bin, also known as the depth of the bin.\nIn this example, we have 16 records, and we decide the box depth is 4 , after binning, we have 4 boxes results and each box contain 4 records\nEqual-width binning method, evenly distributed over the entire attribute value interval, that is, the interval range of each box is a constant, called the box width. \nIn the example, Set the interval range (the width of the box)", "afterText": " to RMB 1,000, then the result is also 4 boxes, but the records in the boxes are different from the Equal depth bin method.\nAfter binning, we should c", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The process of choosing a value to represent a bin after binning. Methods include smoothing by average, by boundary value, or by median.</span>}</div>"}, {"index": 6, "class": "CONCEPT", "text": "Equal depth binning", "color": "#D2E3FC", "startPos": 2593, "endPos": 2612, "beforeText": "0 to 16, the grey box. And so, on\nThe ways of how to Sort the record set according to the size of the target attribute value before binning, include \n", "extractionText": "Equal depth binning", "afterText": "\nEqual-width binning\nUser-defined interval\nEqual depth bin method (unified weight): \nBins are divided according to the number of rows of records, \neac", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A binning method where bins are divided according to the number of rows of records, so each bin has the same number of records.</span>}</div>"}, {"index": 7, "class": "CONCEPT", "text": "Equal-width binning", "color": "#D2E3FC", "startPos": 2613, "endPos": 2632, "beforeText": "x. And so, on\nThe ways of how to Sort the record set according to the size of the target attribute value before binning, include \nEqual depth binning\n", "extractionText": "Equal-width binning", "afterText": "\nUser-defined interval\nEqual depth bin method (unified weight): \nBins are divided according to the number of rows of records, \neach bin has the same n", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A binning method where the interval range of each box is a constant, called the box width.</span>}</div>"}, {"index": 8, "class": "CONCEPT", "text": "Box (in Binning)", "color": "#D2E3FC", "startPos": 2678, "endPos": 3277, "beforeText": " the size of the target attribute value before binning, include \nEqual depth binning\nEqual-width binning\nUser-defined interval\nEqual depth bin method ", "extractionText": "(unified weight): \nBins are divided according to the number of rows of records, \neach bin has the same number of records, and the number of records in each bin is called the weight of the bin, also known as the depth of the bin.\nIn this example, we have 16 records, and we decide the box depth is 4 , after binning, we have 4 boxes results and each box contain 4 records\nEqual-width binning method, evenly distributed over the entire attribute value interval, that is, the interval range of each box is a constant, called the box width. \nIn the example, Set the interval range (the width of the box)", "afterText": " to RMB 1,000, then the result is also 4 boxes, but the records in the boxes are different from the Equal depth bin method.\nAfter binning, we should c", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A sub-interval divided by attribute value. If an attribute value is within a certain sub-interval range, it is said to be put in the &#x27;box&#x27; represented by this sub-interval.</span>}</div>"}, {"index": 9, "class": "CONCEPT", "text": "Linear Regression", "color": "#D2E3FC", "startPos": 4939, "endPos": 4956, "beforeText": "ch are x and y in the diagram, and smooth the data by fitting the data to a function, that is, using the fitting function to smooth the data.\nmethod:\n", "extractionText": "Linear regression", "afterText": " (simple regression): Use straight line modeling to treat one variable as a linear function of another variable. \nFor example: Y=aX+b, where a and b a", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A regression method that uses a straight line (e.g., Y=aX+b) to model the relationship between two variables.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>

@@ -1,0 +1,221 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">KEYWORDS</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology, in this session, we will discuss Some idea about <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#C8E6C9;"><span class="lx-highlight" data-idx="1" style="background-color:#D2E3FC;">big data</span> concepts.
+<span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">Data is the new Oil</span>, this theme was picked up by Clive Humby, a man who has pioneered to use of data with his firm DunnHumby, at the ANA Senior Market Summit at the Kellogg School in 2006. This theme was picked up again by Gerd Leonhard in 2009 and has become part of the mainstream.
+Mark Getty is part of the Getty family that sold their oil empire to Texaco. He looked for something to do and decided that there was an opportunity to consolidate the market for photography. 
+In an Economist article in 2000 (http://www.economist.com/node/288515) he said: “Intellectual property is the oil of the 21st century. Look at the richest men a hundred years ago: they all made their money extracting natural resources or moving them around. All today’s richest men have made their money out of intellectual property.” 
+And we say Data is like Crude oil…., because normally, original data cannot be used directly, they must be processed before really being applied.
+Like the crude need to be refined before use.
+There are usually insights in big amount of data, but it cannot be easily found, the data scientist need analyze the data and found the pattern behind it.
+One data set can be adapted to be used across several different products. Which means one data set can be used for different purpose. For example, the Taobao transaction data can be used to analyze the sales number of different products to find what product sales well and what not.
+The same data can be also analyzed to find different customer’s purchasing preferences and recommend the customized related product to them.
+The Model of Generating/Consuming Data has Changed, in the old model Few companies are generating data, all others are consuming data. the few companies like newspaper agency, publishing house, the broadcast and TV station, which are the resource of data.
+In new model everyone could be the resource of data, all of us are generating data, and all of us are consuming data. we publish content in blog, twitter, Facebook, WeChat and YouTube, TikTok etc. and we also read the content there.
+Now comes what is big data, is that when the data gets big, it is called big data? The answer is No. 
+large, hard-to-manage volumes of data – both structured and unstructured .
+Which is not only big volume, but also is hard to manage by the traditional way we used before. 
+The traditional way we used to handle <span class="lx-highlight" data-idx="3" style="background-color:#D2E3FC;">structured data</span>, which is the data in table form with rows and columns.
+– that inundate businesses on a day-to-day basis. ... 
+It’s what organizations do with the data that matters. 
+From the generation of electronic data to today, we experienced several stages.
+In early stage, the data generated by the transaction systems as the business activity happened.
+For example, when you buy something in Walmart, it would generate a sales record data in Walmart system.
+Then when the social media and mobile device developed, the ordinary people can send message and publish the content in text voice and video.
+So, it is the <span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">user-generated content stage</span>.
+The 3rd stage-<span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">Perception stage</span> 
+Sensor with processing capability, automatic; (7*24) generate data, like video camera, wearable device etc., which generate data all the time, no stop.   ---This is the main reason for big data
+This diagram shows the IT progress, since 1980s, Von Neumann invented the computer, we entered information age, the PC can generate and process the data. 
+And then the internet connects all the computer together, which make the data move and share among all the PC, this promote the information generation and exchanging. The information can easily transfer from one place to another end of the earth.
+The popularity of mobile devices has liberated the limitation of computers on people&#x27;s physical space, then people can create and publish contents wherever they are and whenever they want. Which make Big Data.
+New York Times 2012 special column: The era of big data is here, decision-making relies more on data analysis. We have a lot of data from different aspects, connecting all this data and process it in the suitable way, we can extract useful information to support our decision making.
+After 2010, the AI era has come and it has become the second sprout of the technological ecology after the Internet. AI give the machine some intelligence, which can analyze the data itself, which help people analyze the data and react correspondingly.
+This enable us analyze more widely and deeper consequently get more insight.
+Four major technologies empower are Big Data, AI, IoT, 5G</span>.
+In this session we learned the bigdata concepts, Thank you for your attention, if you have any question, feel free to connect me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="5" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/6</span> |
+          Pos <span id="posInfo">[204-4768]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "KEYWORDS", "text": "Big Data, Data is the new Oil, data generation, structured data, unstructured data, user-generated content, perception stage, AI, IoT, 5G", "color": "#C8E6C9", "startPos": 204, "endPos": 4768, "beforeText": "ta Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss Some idea about ", "extractionText": "big data concepts.\nData is the new Oil, this theme was picked up by Clive Humby, a man who has pioneered to use of data with his firm DunnHumby, at the ANA Senior Market Summit at the Kellogg School in 2006. This theme was picked up again by Gerd Leonhard in 2009 and has become part of the mainstream.\nMark Getty is part of the Getty family that sold their oil empire to Texaco. He looked for something to do and decided that there was an opportunity to consolidate the market for photography. \nIn an Economist article in 2000 (http://www.economist.com/node/288515) he said: \u201cIntellectual property is the oil of the 21st century. Look at the richest men a hundred years ago: they all made their money extracting natural resources or moving them around. All today\u2019s richest men have made their money out of intellectual property.\u201d \nAnd we say Data is like Crude oil\u2026., because normally, original data cannot be used directly, they must be processed before really being applied.\nLike the crude need to be refined before use.\nThere are usually insights in big amount of data, but it cannot be easily found, the data scientist need analyze the data and found the pattern behind it.\nOne data set can be adapted to be used across several different products. Which means one data set can be used for different purpose. For example, the Taobao transaction data can be used to analyze the sales number of different products to find what product sales well and what not.\nThe same data can be also analyzed to find different customer\u2019s purchasing preferences and recommend the customized related product to them.\nThe Model of Generating/Consuming Data has Changed, in the old model Few companies are generating data, all others are consuming data. the few companies like newspaper agency, publishing house, the broadcast and TV station, which are the resource of data.\nIn new model everyone could be the resource of data, all of us are generating data, and all of us are consuming data. we publish content in blog, twitter, Facebook, WeChat and YouTube, TikTok etc. and we also read the content there.\nNow comes what is big data, is that when the data gets big, it is called big data? The answer is No. \nlarge, hard-to-manage volumes of data \u2013 both structured and unstructured .\nWhich is not only big volume, but also is hard to manage by the traditional way we used before. \nThe traditional way we used to handle structured data, which is the data in table form with rows and columns.\n\u2013 that inundate businesses on a day-to-day basis. ... \nIt\u2019s what organizations do with the data that matters. \nFrom the generation of electronic data to today, we experienced several stages.\nIn early stage, the data generated by the transaction systems as the business activity happened.\nFor example, when you buy something in Walmart, it would generate a sales record data in Walmart system.\nThen when the social media and mobile device developed, the ordinary people can send message and publish the content in text voice and video.\nSo, it is the user-generated content stage.\nThe 3rd stage-Perception stage \nSensor with processing capability, automatic; (7*24) generate data, like video camera, wearable device etc., which generate data all the time, no stop.   ---This is the main reason for big data\nThis diagram shows the IT progress, since 1980s, Von Neumann invented the computer, we entered information age, the PC can generate and process the data. \nAnd then the internet connects all the computer together, which make the data move and share among all the PC, this promote the information generation and exchanging. The information can easily transfer from one place to another end of the earth.\nThe popularity of mobile devices has liberated the limitation of computers on people&#x27;s physical space, then people can create and publish contents wherever they are and whenever they want. Which make Big Data.\nNew York Times 2012 special column: The era of big data is here, decision-making relies more on data analysis. We have a lot of data from different aspects, connecting all this data and process it in the suitable way, we can extract useful information to support our decision making.\nAfter 2010, the AI era has come and it has become the second sprout of the technological ecology after the Internet. AI give the machine some intelligence, which can analyze the data itself, which help people analyze the data and react correspondingly.\nThis enable us analyze more widely and deeper consequently get more insight.\nFour major technologies empower are Big Data, AI, IoT, 5G", "afterText": ".\nIn this session we learned the bigdata concepts, Thank you for your attention, if you have any question, feel free to connect me.", "attributesHtml": "<div><strong>class:</strong> KEYWORDS</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "CONCEPT", "text": "Big Data", "color": "#D2E3FC", "startPos": 204, "endPos": 212, "beforeText": "ta Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss Some idea about ", "extractionText": "big data", "afterText": " concepts.\nData is the new Oil, this theme was picked up by Clive Humby, a man who has pioneered to use of data with his firm DunnHumby, at the ANA Se", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Large, hard-to-manage volumes of data, both structured and unstructured, that inundate businesses and are difficult to manage using traditional methods.</span>}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Data is the new Oil", "color": "#D2E3FC", "startPos": 223, "endPos": 242, "beforeText": "ledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss Some idea about big data concepts.\n", "extractionText": "Data is the new Oil", "afterText": ", this theme was picked up by Clive Humby, a man who has pioneered to use of data with his firm DunnHumby, at the ANA Senior Market Summit at the Kell", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">An analogy explaining that original data, like crude oil, cannot be used directly and must be processed and refined to be valuable. It also implies that a single dataset can be adapted for multiple uses.</span>}</div>"}, {"index": 3, "class": "CONCEPT", "text": "Structured Data", "color": "#D2E3FC", "startPos": 2608, "endPos": 2623, "beforeText": "unstructured .\nWhich is not only big volume, but also is hard to manage by the traditional way we used before. \nThe traditional way we used to handle ", "extractionText": "structured data", "afterText": ", which is the data in table form with rows and columns.\n\u2013 that inundate businesses on a day-to-day basis. ... \nIt\u2019s what organizations do with the da", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Data that is in a table form with rows and columns.</span>}</div>"}, {"index": 4, "class": "CONCEPT", "text": "User-Generated Content Stage", "color": "#D2E3FC", "startPos": 3229, "endPos": 3257, "beforeText": "hen the social media and mobile device developed, the ordinary people can send message and publish the content in text voice and video.\nSo, it is the ", "extractionText": "user-generated content stage", "afterText": ".\nThe 3rd stage-Perception stage \nSensor with processing capability, automatic; (7*24) generate data, like video camera, wearable device etc., which g", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A stage in data generation, driven by the development of social media and mobile devices, where ordinary people can create and publish content in text, voice, and video formats.</span>}</div>"}, {"index": 5, "class": "CONCEPT", "text": "Perception Stage", "color": "#D2E3FC", "startPos": 3273, "endPos": 3289, "beforeText": "oped, the ordinary people can send message and publish the content in text voice and video.\nSo, it is the user-generated content stage.\nThe 3rd stage-", "extractionText": "Perception stage", "afterText": " \nSensor with processing capability, automatic; (7*24) generate data, like video camera, wearable device etc., which generate data all the time, no st", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The third stage of data generation, characterized by sensors with processing capabilities (like video cameras and wearable devices) that automatically and continuously generate data 24/7. This is cited as the main reason for big data.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>

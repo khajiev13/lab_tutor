@@ -1,0 +1,220 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology, in this session, we will discuss about <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#C8E6C9;">The <span class="lx-highlight" data-idx="1" style="background-color:#D2E3FC;">fourth <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">paradigm</span> of scientific research</span>, which is data intensive research methods.
+Jim gray, he is the founder of Relational database and he is also a Nautical sport enthusiast. 
+Jan,28,2007 he was disappeared on the sea forever, and just 11 days before that, Jan,17,2007 
+At the NRC-CSTB, National Research Council-Computer Science and Telecommunications Board meeting held in Mountain View, California, he delivered his last lecture, &quot;The Revolution of Scientific Method,&quot; Divide scientific research into four types of paradigms. (Paradigm, a certain norm that must be followed or a routine that everyone uses), Followed by Experimental induction, model deduction, simulation and data-intensive scientific discovery</span> (Data-Intensive Scientific Discovery). Among them, the last &quot;data-intensive&quot; is what we now call &quot;scientific big data&quot;.   
+） Thousand years ago, science was Empirical, people do the science by describing natural phenomena. Like in ancient China, farming was done by observing celestial phenomena.
+）last few hundred years, theoretical branch, using models, generalizations.  
+From the primitive drilling wood to make fire, it developed to the early stage of scientific development during the Renaissance， represented by Galileo. 
+It is difficult to complete a more accurate understanding of natural phenomena. Scientists began to try to simplify the experimental model as much as possible, remove some complex interference, and leave only the key factors (for example, “smooth enough&quot;, &quot; enough long time&quot;, &quot;sufficiently thin air&quot; and so on in our physics learning, which is the inexplicable condition description), and then sum up through calculus, this is the <span class="lx-highlight" data-idx="3" style="background-color:#D2E3FC;">second paradigm of scientific research</span>. 
+This research paradigm lasted until the end of the 19th century, and it was perfect. Newton&#x27;s three laws successfully explained classical mechanics, Maxwell&#x27;s theory successfully explained electromagnetism, and the classic physics building was magnificent. 
+But after the emergence of quantum mechanics and the theory of relativity, which focused on theoretical research, surpassing experimental design with extraordinary brain thinking and complex calculations. As the difficulty of verifying theories and higher and higher economic investment, scientific research began to appear incapable.
+). In the middle of the 20th century, von Neumann proposed a modern electronic computer architecture, and the model of using electronic computers to simulate scientific experiments has been rapidly popularized. People can deduce more and more complex phenomena by simulating. 
+Typical cases include simulated nuclear tests and weather forecasts. As computer simulation increasingly replaces experiments, it has gradually become a conventional method of scientific research, which is the <span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">third paradigm of scientific research</span>. 
+A major step in the use of computational science was taken when it was realized that nonmathematical models could be simulated as well as mathematical ones. That is, rules other than mathematical equations could be incorporated into computer programs and stepped through simulated time &quot;to see what happens&quot; to the state of the model. For example, traffic simulations can predict where bottlenecks and other problems may occur. Even simple rules can generate complex behavior, making it very valuable to observe the output of the simulation to understand what the rules imply. On the other hand, given a set of data, either observed or human-entered, can computers help us find rules to explain the data?
+) The future development trend of science is that with the explosive growth of data, computers will not only be able to do simulations, but also analyze and summarize, and generate theories. The data-intensive paradigm should be separated from the third paradigm and become a unique scientific research paradigm. This method of scientific research is called the fourth paradigm. The fourth paradigm of scientific research and the third paradigm of scientific research. both use computers to perform calculations. What is the difference between these two paradigms of scientific research? 
+“What is the scientific problem?&quot;, &quot;What are the scientific hypotheses?&quot; This is first to propose possible theories, then collect data, and then verify them through calculations. 
+The fourth paradigm based on big data is to <span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">first have a large amount of known data, and then calculate the previously unknown theory. In the &quot;Big Data Era&quot; written by Victor Meyer-Schoenberg, it is clearly pointed out that the biggest change in the big data era is to abandon the desire for causality, which are Cause and result, and focus on correlations instead. 
+(The paradigm is &quot;human brain + computer&quot;, the human brain is the protagonist主角, the lead, and the fourth paradigm is &quot;computer + human brain&quot;, the computer is the protagonist. However, to discover the causal connection between things, in most cases which is always difficult. The causal connection we humans derive is always based on past knowledge, obtain a &quot;deterministic&quot; mechanism decomposition, and then build a new model for derivation. However, this kind of past experience and common sense may be incomplete, and may even neglect important variables intentionally or unintentionally.)
+According to the existing mechanism understanding, the formation of haze weather is not only related to the chemical composition of the Source atmosphere, but also related to the terrain, wind direction, 
+temperature, Humidity and meteorological factors. 
+Only these limited parameters have exceeded the ability of conventional monitoring, and can only be simplified and artificially removed some seemingly unimportant factors, and only some simple parameters are retained. Will those seemingly unimportant parameters play a vital role under certain conditions?
+If we consider the spatial heterogeneity of different parameters, is the spatial distribution of these weather stations reasonable and sufficient? From this point of view, if we can obtain more comprehensive data, we may be able to truly make more scientific predictions. This is the starting point of the fourth paradigm, and perhaps the fastest and most practical way to solve problems.
+So, how will the fourth paradigm be studied? In the era of rampant mobile terminals and rapid development of sensors, the trend of the future seems to be in sight. Now, our mobile phones can monitor temperature and humidity, and can locate spatial coordinates. Soon there may be sensing devices that can monitor atmospheric environment chemistry and PM2.5. These mobile monitoring terminals increase the spatial coverage of the measurement, and at the same time a huge amount of data has been generated. Using these data, we can analyze the causes of the haze, and finally make a better prediction.
+The emergence of this kind of massive data not only exceeds the understanding and cognitive ability of ordinary people, but also brings huge challenges to computer science itself. Therefore, when the data volume of these large-scale calculations exceeds 1PB, the traditional storage system has been unable to meet the read and write needs of massive data processing, and the bottleneck of data transmission I/O bandwidth becomes more and more prominent. 
+However, simply dividing the data into blocks cannot meet the needs of data-intensive computing, and is contrary to the original intention of big data analysis. Therefore, the biggest problem many specific researches at present faced is not lack of data, but too much data without knowing how to deal with it.
+Another example of Abandoning causality, taking correlations.
+, In Wal-Mart shopping list, Wal-Mart recorded all the useful information, including consumption amount, items in the shopping basket, the specific time of purchase, and even the weather of the purchase. And they find whenever the seasonal hurricane comes, not only the sales of flashlights will increase, but the sales of egg tarts will also increase. 
+Therefore, when seasonal storms come, egg tarts close to hurricane supplies, and increased sales. It is hard to explain the reason.
+In other words, as long as you know the &quot;what&quot;, you don&#x27;t need to know the &quot;why&quot;. This has overturned human thinking conventions for thousands of years, and is said to pose a brand-new challenge to human cognition and the way of communicating with the world.  Because humans always think about the causal connection between things, and are not so sensitive to data-based correlations; on the contrary, computers can hardly understand causation by themselves, and are very good at correlation analysis. So, we can understand this.
+In the &quot;Big Data Era&quot; written by Victor Meyer-Schoenberg, it is clearly pointed out that the biggest change in the big data era is to abandon the desire for causality, which are Cause and result, and focus on correlations instead.
+In this session, we learned the fourth paradigm of scientific research</span>, which is based on big data and first have a large amount of known data, and then calculate the previously unknown theory. And the biggest change in the big data era is to abandon the desire for causality, which are Cause and result, and focus on correlations instead.
+Thank you for your attention, if you have any question, feel free to connect me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="5" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/6</span> |
+          Pos <span id="posInfo">[194-914]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "The Four Paradigms of Scientific Research and Data-Intensive Discovery", "color": "#C8E6C9", "startPos": 194, "endPos": 914, "beforeText": "tute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss about ", "extractionText": "The fourth paradigm of scientific research, which is data intensive research methods.\nJim gray, he is the founder of Relational database and he is also a Nautical sport enthusiast. \nJan,28,2007 he was disappeared on the sea forever, and just 11 days before that, Jan,17,2007 \nAt the NRC-CSTB, National Research Council-Computer Science and Telecommunications Board meeting held in Mountain View, California, he delivered his last lecture, &quot;The Revolution of Scientific Method,&quot; Divide scientific research into four types of paradigms. (Paradigm, a certain norm that must be followed or a routine that everyone uses), Followed by Experimental induction, model deduction, simulation and data-intensive scientific discovery", "afterText": " (Data-Intensive Scientific Discovery). Among them, the last &quot;data-intensive&quot; is what we now call &quot;scientific big data&quot;.   \n\uff09 Thousand years ago, scie", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "CONCEPT", "text": "Fourth Paradigm of Scientific Research", "color": "#D2E3FC", "startPos": 198, "endPos": 236, "beforeText": " of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss about The ", "extractionText": "fourth paradigm of scientific research", "afterText": ", which is data intensive research methods.\nJim gray, he is the founder of Relational database and he is also a Nautical sport enthusiast. \nJan,28,200", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A data-intensive scientific discovery method that begins with a large amount of known data and uses computation to find previously unknown theories. It focuses on correlation rather than causality.</span>}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Paradigm", "color": "#D2E3FC", "startPos": 205, "endPos": 213, "beforeText": "a Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss about The fourth ", "extractionText": "paradigm", "afterText": " of scientific research, which is data intensive research methods.\nJim gray, he is the founder of Relational database and he is also a Nautical sport ", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A certain norm that must be followed or a routine that everyone uses in a field.</span>}</div>"}, {"index": 3, "class": "CONCEPT", "text": "Second Paradigm of Scientific Research", "color": "#D2E3FC", "startPos": 1876, "endPos": 1914, "beforeText": "iciently thin air&quot; and so on in our physics learning, which is the inexplicable condition description), and then sum up through calculus, this is the ", "extractionText": "second paradigm of scientific research", "afterText": ". \nThis research paradigm lasted until the end of the 19th century, and it was perfect. Newton&#x27;s three laws successfully explained classical mechanics", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A theoretical approach using models and generalizations, where scientists simplify experimental models to key factors and use tools like calculus to summarize findings.</span>}</div>"}, {"index": 4, "class": "CONCEPT", "text": "Third Paradigm of Scientific Research", "color": "#D2E3FC", "startPos": 2997, "endPos": 3034, "beforeText": "recasts. As computer simulation increasingly replaces experiments, it has gradually become a conventional method of scientific research, which is the ", "extractionText": "third paradigm of scientific research", "afterText": ". \nA major step in the use of computational science was taken when it was realized that nonmathematical models could be simulated as well as mathemati", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A computational approach where electronic computers are used to simulate scientific experiments and deduce complex phenomena, such as nuclear tests and weather forecasts.</span>}</div>"}, {"index": 5, "class": "CONCEPT", "text": "First Paradigm of Scientific Research", "color": "#D2E3FC", "startPos": 4555, "endPos": 9166, "beforeText": "his is first to propose possible theories, then collect data, and then verify them through calculations. \nThe fourth paradigm based on big data is to ", "extractionText": "first have a large amount of known data, and then calculate the previously unknown theory. In the &quot;Big Data Era&quot; written by Victor Meyer-Schoenberg, it is clearly pointed out that the biggest change in the big data era is to abandon the desire for causality, which are Cause and result, and focus on correlations instead. \n(The paradigm is &quot;human brain + computer&quot;, the human brain is the protagonist\u4e3b\u89d2, the lead, and the fourth paradigm is &quot;computer + human brain&quot;, the computer is the protagonist. However, to discover the causal connection between things, in most cases which is always difficult. The causal connection we humans derive is always based on past knowledge, obtain a &quot;deterministic&quot; mechanism decomposition, and then build a new model for derivation. However, this kind of past experience and common sense may be incomplete, and may even neglect important variables intentionally or unintentionally.)\nAccording to the existing mechanism understanding, the formation of haze weather is not only related to the chemical composition of the Source atmosphere, but also related to the terrain, wind direction, \ntemperature, Humidity and meteorological factors. \nOnly these limited parameters have exceeded the ability of conventional monitoring, and can only be simplified and artificially removed some seemingly unimportant factors, and only some simple parameters are retained. Will those seemingly unimportant parameters play a vital role under certain conditions?\nIf we consider the spatial heterogeneity of different parameters, is the spatial distribution of these weather stations reasonable and sufficient? From this point of view, if we can obtain more comprehensive data, we may be able to truly make more scientific predictions. This is the starting point of the fourth paradigm, and perhaps the fastest and most practical way to solve problems.\nSo, how will the fourth paradigm be studied? In the era of rampant mobile terminals and rapid development of sensors, the trend of the future seems to be in sight. Now, our mobile phones can monitor temperature and humidity, and can locate spatial coordinates. Soon there may be sensing devices that can monitor atmospheric environment chemistry and PM2.5. These mobile monitoring terminals increase the spatial coverage of the measurement, and at the same time a huge amount of data has been generated. Using these data, we can analyze the causes of the haze, and finally make a better prediction.\nThe emergence of this kind of massive data not only exceeds the understanding and cognitive ability of ordinary people, but also brings huge challenges to computer science itself. Therefore, when the data volume of these large-scale calculations exceeds 1PB, the traditional storage system has been unable to meet the read and write needs of massive data processing, and the bottleneck of data transmission I/O bandwidth becomes more and more prominent. \nHowever, simply dividing the data into blocks cannot meet the needs of data-intensive computing, and is contrary to the original intention of big data analysis. Therefore, the biggest problem many specific researches at present faced is not lack of data, but too much data without knowing how to deal with it.\nAnother example of Abandoning causality, taking correlations.\n, In Wal-Mart shopping list, Wal-Mart recorded all the useful information, including consumption amount, items in the shopping basket, the specific time of purchase, and even the weather of the purchase. And they find whenever the seasonal hurricane comes, not only the sales of flashlights will increase, but the sales of egg tarts will also increase. \nTherefore, when seasonal storms come, egg tarts close to hurricane supplies, and increased sales. It is hard to explain the reason.\nIn other words, as long as you know the &quot;what&quot;, you don&#x27;t need to know the &quot;why&quot;. This has overturned human thinking conventions for thousands of years, and is said to pose a brand-new challenge to human cognition and the way of communicating with the world.  Because humans always think about the causal connection between things, and are not so sensitive to data-based correlations; on the contrary, computers can hardly understand causation by themselves, and are very good at correlation analysis. So, we can understand this.\nIn the &quot;Big Data Era&quot; written by Victor Meyer-Schoenberg, it is clearly pointed out that the biggest change in the big data era is to abandon the desire for causality, which are Cause and result, and focus on correlations instead.\nIn this session, we learned the fourth paradigm of scientific research", "afterText": ", which is based on big data and first have a large amount of known data, and then calculate the previously unknown theory. And the biggest change in ", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">An empirical approach to science based on describing natural phenomena, such as ancient farming practices based on observing celestial events.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>

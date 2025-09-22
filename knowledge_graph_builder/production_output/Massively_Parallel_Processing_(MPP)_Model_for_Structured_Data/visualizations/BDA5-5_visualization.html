@@ -1,0 +1,253 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">SUMMARY</span> <span class="lx-label" style="background-color:#FEF0C3;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology, 
+in this session, we discuss <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#FEF0C3;">Massively Parallel</span> Processing model for Structured Data.
+The data processing system provides big data computing and processing capabilities and an application development platform.
+From the perspective of computing architecture, the data processing system is divided into data algorithm layer, computing model layer, computing platform layer, computing engine layer, etc.
+Computing models are the way that different kinds of big data is processed in different scenarios, 
+which include batch processing, stream computing, Large-scale concurrent processing (MPP) model for structured data, In-memory Computing model, and Data Flow Graph models.
+Now let’s look at the third computing model Massively Parallel Processing.
+In <span class="lx-highlight" data-idx="1" style="background-color:#C8E6C9;">Massively Parallel Processing (MPP)</span> databases data is partitioned across multiple servers or nodes with each server/node having memory/processors to process data locally. 
+All communication is via a network interconnect — there is no disk-level sharing or contention to be concerned with (i.e. it is a ‘shared-nothing’ architecture).
+The massively parallel processing (MPP) architecture structures big data to enable easy querying for reporting and analytic purposes. 
+MPP systems are sometimes referred to as shared nothing systems.
+This means that data is partitioned across many servers (otherwise known as nodes) and each server processes queries locally.
+In the diagram , 4 nodes are using to replace one single server and reduce the query time from one hour to 15 minutes.
+The process begins by the Client issuing a query that is then passed to the Master Node.
+The Master Node contains information, such as the data dictionary and session information, 
+which it uses to generate an execution plan designed to retrieve the needed information from each underlying Node.
+Parallel Execution represents the implementation of the execution plan through the parallel computing of Node 1 to Node n.
+And the query results return to master node
+Massively Parallel Processing is the coordinated processing of a single task by multiple processor,
+Each processor using its own OS and memory and communicating with each other using some form of messaging interface
+MPP can be setup with a shared nothing or shared disk architecture
+In the shared nothing architecture, there is no single point of contention across the system and nodes do not share memory or disk storage.
+data is horizontally partitioned across nodes such that each node has a sub set of rows from each table in the DB
+Each node then processes only rows on its own disks.
+The “shared nothing” systems with distributed databases need a lot of coordination to complete a common task. 
+Each node owns slices of the database.
+Managing this database could be very difficult. Shared nothing systems with the replicated database are not suitable for applications with tremendous data requirements. 
+If the computation needs a lot of data modification operations like data insertion and join, then the “shared nothing” architecture may not be viable.
+Performance through segment instance parallelism
+Master host and standby master Host
+Master coordinates work with <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">segment host</span>
+Segment host with one or more segment instances
+Segment instances process queries in parallel
+Segment hosts have their own CPU disk memory(shared nothing)
+High speed interconnect for continuous pipelining of data processing
+Architecture of MPP databases. There are a master and 4 slaves, with 2 segments on each slave and a mirror for each segment on another machine.
+MPP Database Architecture
+Typical MPP databases usually adopt a shared-nothing architecture , composed of one master node and n slave nodes. 
+The master node is responsible for interacting with clients, managing the whole cluster and coordinating the query processing. 
+Each of the n salve nodes is responsible for storing a partition of the data and performing query processing on its partition. 
+Each slave node hosts d database instances, which will be referred to as segments subsequently. 
+Most MPP databases provide fault tolerance at storage level. A <span class="lx-highlight" data-idx="3" style="background-color:#D2E3FC;">mirror scheme</span>, i.e., replication, is commonly used to ensure durability and availability of data. 
+As Fig shows, each segment (primary segment) is allocated with a mirror (mirror segment) in another node. 
+The master node detects node failures by monitoring heartbeats of slave nodes. If a slave node stops responding for a certain amount of time, known as a system delay time (normally around 1 min), 
+the master will treat it as a failed node. Once a failure is detected, the corresponding mirror will be activated to replace the failed primary segment. 
+Similarly, a standby works as the replication/mirror of the master node. 
+Through the mirror scheme, the system’s availability can be significantly enhanced.
+However, such a mirror scheme does not support intra-query fault tolerance automatically. 
+When a node failure occurs, the running query’s state on the failed node will be lost.
+After the corresponding mirror is activated, the whole query has to be rerun.
+If it is a long running query, response to the client will be severely delayed. In the worst case, a query will run indefinitely, if the probability of failure is high.
+in <span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">Massively Parallel Processing (MPP)</span> databases data is partitioned across multiple servers or nodes with each server/node having memory/processors to process data locally. All communication is via a network interconnect — there is no disk-level sharing or
+contention to be concerned with (i.e. it is a ‘<span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">shared-nothing</span>’ architecture).
+<span class="lx-highlight" data-idx="6" style="background-color:#D2E3FC;">Master</span> Host – Separate physical server with its own OS/CPU/storage/memory. 
+Hosts master database. There is no user data in master database but stores metadata about segments – think in terms of system tables.
+、 2, 3, 4 <span class="lx-highlight" data-idx="7" style="background-color:#D2E3FC;">Segment</span> hosts – Individual physical servers with their own OS/CPU/storage/memory. 
+、Hosts segment database. Each database stores portion of user data.
+、 <span class="lx-highlight" data-idx="8" style="background-color:#D2E3FC;">Interconnect</span> switch – Segment server databases communicate through an interconnect switch
+the main characteristic of MPP database is data distribution. 
+Data is distributed across each segment database to achieve data and processing parallelism. 
+This is achieved by creating a database table with DISTRIBUTED BY clause. 
+By using this clause data is automatically distributed across segment databases. 
+In Greenplum you can either use hash or round-robin distribution.
+In this session we learned Large-scale concurrent processing (MPP Massively Parallel Processing) model for structured data. Thank you for your attention, if you have any question, feel free to contact me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="8" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/9</span> |
+          Pos <span id="posInfo">[184-202]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "Massively Parallel Processing (MPP) Model for Structured Data", "color": "#FEF0C3", "startPos": 184, "endPos": 202, "beforeText": "from Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, \nin this session, we discuss ", "extractionText": "Massively Parallel", "afterText": " Processing model for Structured Data.\nThe data processing system provides big data computing and processing capabilities and an application developme", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "SUMMARY", "text": "Massively Parallel Processing (MPP) is a computing model for structured data that utilizes a 'shared-nothing' architecture to process large-scale queries. In an MPP system, data is partitioned across multiple servers, known as nodes or segment hosts, each with its own processor, memory, and storage. This allows for the coordinated, parallel processing of a single task. The architecture consists of a Master Node that receives client queries, creates an execution plan using its metadata, and coordinates the segment hosts. The segment hosts then execute the query in parallel on their local data partitions and return the results to the master. To ensure high availability, MPP databases typically use a mirror scheme for fault tolerance, where each primary data segment has a replicated mirror on another node, and the master node has a standby. If a node fails, its mirror is activated. However, this scheme does not support intra-query fault tolerance, meaning a running query must be restarted from the beginning upon failure. Data distribution across segments is a key feature, often configured using a `DISTRIBUTED BY` clause with hash or round-robin methods.", "color": "#C8E6C9", "startPos": 906, "endPos": 941, "beforeText": "structured data, In-memory Computing model, and Data Flow Graph models.\nNow let\u2019s look at the third computing model Massively Parallel Processing.\nIn ", "extractionText": "Massively Parallel Processing (MPP)", "afterText": " databases data is partitioned across multiple servers or nodes with each server/node having memory/processors to process data locally. \nAll communica", "attributesHtml": "<div><strong>class:</strong> SUMMARY</div><div><strong>attributes:</strong> {}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Segment Host", "color": "#D2E3FC", "startPos": 3323, "endPos": 3335, "beforeText": "ng\u201d architecture may not be viable.\nPerformance through segment instance parallelism\nMaster host and standby master Host\nMaster coordinates work with ", "extractionText": "segment host", "afterText": "\nSegment host with one or more segment instances\nSegment instances process queries in parallel\nSegment hosts have their own CPU disk memory(shared not", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Individual physical servers in an MPP system with their own OS, CPU, storage, and memory. They host segment databases, where each database stores a portion of the user data.</span>}</div>"}, {"index": 3, "class": "CONCEPT", "text": "Mirror Scheme", "color": "#D2E3FC", "startPos": 4262, "endPos": 4275, "beforeText": " node hosts\u00a0d\u00a0database instances, which will be referred to as\u00a0segments\u00a0subsequently. \nMost MPP databases provide fault tolerance at storage level. A ", "extractionText": "mirror scheme", "afterText": ", i.e., replication, is commonly used to ensure durability and availability of data. \nAs Fig\u00a0shows, each segment (primary\u00a0segment) is allocated with a", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A fault tolerance method, commonly using replication, where each primary segment is allocated a mirror segment on another node. If a node with a primary segment fails, the corresponding mirror is activated to ensure data durability and availability.</span>}</div>"}, {"index": 4, "class": "CONCEPT", "text": "Massively Parallel Processing (MPP)", "color": "#D2E3FC", "startPos": 5405, "endPos": 5440, "beforeText": "g query, response to the client will be severely delayed. In the worst case, a query will run indefinitely, if the probability of failure is high.\nin ", "extractionText": "Massively Parallel Processing (MPP)", "afterText": " databases data is partitioned across multiple servers or nodes with each server/node having memory/processors to process data locally. All communicat", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The coordinated processing of a single task by multiple processors, where each processor uses its own OS and memory and communicates with others using a messaging interface. In MPP databases, data is partitioned across multiple servers or nodes, with each node having its own memory and processors to process data locally.</span>}</div>"}, {"index": 5, "class": "CONCEPT", "text": "Shared-Nothing Architecture", "color": "#D2E3FC", "startPos": 5707, "endPos": 5721, "beforeText": "cess data locally. All communication is via a network interconnect \u2014 there is no disk-level sharing or\ncontention to be concerned with (i.e. it is a \u2018", "extractionText": "shared-nothing", "afterText": "\u2019 architecture).\nMaster Host \u2013 Separate physical server with its own OS/CPU/storage/memory. \nHosts master database. There is no user data in master da", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">An architecture where data is partitioned across multiple servers or nodes, and each server processes queries locally using its own memory and processors. All communication is via a network interconnect, and there is no disk-level sharing or contention.</span>}</div>"}, {"index": 6, "class": "CONCEPT", "text": "Master Node", "color": "#D2E3FC", "startPos": 5738, "endPos": 5744, "beforeText": "ation is via a network interconnect \u2014 there is no disk-level sharing or\ncontention to be concerned with (i.e. it is a \u2018shared-nothing\u2019 architecture).\n", "extractionText": "Master", "afterText": " Host \u2013 Separate physical server with its own OS/CPU/storage/memory. \nHosts master database. There is no user data in master database but stores metad", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A component in an MPP architecture that interacts with clients, manages the cluster, and coordinates query processing. It contains metadata and session information to generate an execution plan for retrieving information from the underlying nodes.</span>}</div>"}, {"index": 7, "class": "CONCEPT", "text": "Segment", "color": "#D2E3FC", "startPos": 5958, "endPos": 5965, "beforeText": "ory. \nHosts master database. There is no user data in master database but stores metadata about segments \u2013 think in terms of system tables.\n\u3001 2, 3, 4 ", "extractionText": "Segment", "afterText": " hosts \u2013 Individual physical servers with their own OS/CPU/storage/memory. \n\u3001Hosts segment database. Each database stores portion of user data.\n\u3001 Inte", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">Database instances hosted on slave nodes (segment hosts) that are responsible for storing a partition of the data and performing query processing on that partition.</span>}</div>"}, {"index": 8, "class": "CONCEPT", "text": "Interconnect", "color": "#D2E3FC", "startPos": 6111, "endPos": 6123, "beforeText": "ment hosts \u2013 Individual physical servers with their own OS/CPU/storage/memory. \n\u3001Hosts segment database. Each database stores portion of user data.\n\u3001 ", "extractionText": "Interconnect", "afterText": " switch \u2013 Segment server databases communicate through an interconnect switch\nthe main characteristic of MPP database is data distribution. \nData is d", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A high-speed network switch through which segment server databases communicate, enabling continuous pipelining of data processing.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>

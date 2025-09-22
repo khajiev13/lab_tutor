@@ -1,0 +1,234 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">KEYWORDS</span> <span class="lx-label" style="background-color:#FEF0C3;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology, from this session,
+we start to learn <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#FEF0C3;">Data processing system</span>, and in this session, we discuss Data processing Architecture.
+The data processing system provides big data computing and processing capabilities and an application development platform.
+From the perspective of computing architecture, the <span class="lx-highlight" data-idx="1" style="background-color:#C8E6C9;">data processing system is divided into data algorithm layer, <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">computing model</span> layer, computing platform layer, computing engine layer, etc.
+Computing models are the way that different kinds of big data is processed in different scenarios, which include <span class="lx-highlight" data-idx="3" style="background-color:#D2E3FC;">batch processing</span>, stream computing, Large-scale concurrent processing (MPP) model for structured data, In-memory Computing model, and Data Flow Graph models.
+As far as the computing platform and engine, normally the typical representative big data processing platforms are Hadoop, Spark , storm, Pregel, etc,
+Data mining algorithms can be categorized into 4 groups, classification, clustering, correlation Analysis and anomaly detection.
+Machine learning algorithms include supervised learning, unsupervised learning semi-supervised learning and reinforcement learning.
+And in the scope of supervised learning there are regression, classification, and deep learning.
+And in the scope of unsupervised learning there are  clustering, dimensionality reduction ,and also anomaly detection.
+For semi-supervised learning , it include self-training and low density separation models.
+and reinforcement learning include dynamic programming and Monte Carlo methods.
+Basic big data processing start from Batch processing, Represented by MapReduce.
+Batch processing is the processing of a large volume of data all at once. 
+The data easily consists of millions of records for a day and can be stored in a variety of ways (file, record, etc). 
+The jobs are typically completed simultaneously in non-stop, sequential order.
+A go-to example of a batch processing job is all of the transactions a financial firm might submit over the course of a week. Batching can also be used in:
+Payroll processes
+Line item invoices
+Supply chain and fulfillment
+Batch data processing is an extremely efficient way to process large amounts of data that is collected over a period. It also helps to reduce the operational costs that businesses might spend on labor as it doesn’t require specialized data entry clerks to support its functioning. It can be used offline and gives managers complete control as to when to start the processing, whether it be overnight or at the end of a week or pay period.
+<span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">Stream processing</span> is the process of being able to almost instantaneously analyze data that is streaming from one device to another.
+This method of continuous computation happens as data flows through the system with no compulsory time limitations on the output. 
+With the almost instant flow, systems do not require large amounts of data to be stored.
+Stream processing is highly beneficial if the events you wish to track are happening frequently and close together in time. 
+It is also best to utilize if the event needs to be detected right away and responded to quickly Stream processing, then, is useful for tasks like fraud detection and cybersecurity. 
+If transaction data is stream-processed, fraudulent transactions can be identified and stopped before they are even complete.
+<span class="lx-highlight" data-idx="5" style="background-color:#D2E3FC;">Massively parallel processing (MPP)</span> is a storage structure designed to handle the coordinated processing of program operations by multiple processors. This coordinated processing can work on different parts of a program, with each processor using its own operating system and memory. This allows MPP databases to handle massive amounts of data and provide much faster analytics based on large datasets.
+MPP processors can have up to 200 or more processors working on application and most commonly communicate using a messaging interface. MPP works by allowing messages to be sent between processes through an “interconnect” arrangement of data paths. 
+In-memory computation (or in-memory computing) is the technique of running computer calculations entirely in computer memory (e.g., in RAM). This term typically implies large-scale, complex calculations which require specialized systems software to run the calculations on computers working together in a cluster. As a cluster, the computers pool together their RAM so the calculation is essentially run across computers and leverages the collective RAM space of all the computers together.
+In-memory computation works by eliminating all slow <span class="lx-highlight" data-idx="6" style="background-color:#D2E3FC;">data</span> accesses and relying exclusively on data stored <span class="lx-highlight" data-idx="7" style="background-color:#D2E3FC;">in</span> RAM. 
+Overall computation performance is greatly improved by removing the latency commonly seen when accessing hard disk drives or SSDs.
+Software running on one or more computers manages the computation as well as the data in memory, and in the case of multiple computers, the software divides the computation into smaller tasks which are distributed out to each computer to run in parallel. 
+<span class="lx-highlight" data-idx="8" style="background-color:#D2E3FC;">Massively Parallel Graph Computation</span>
+Graphs are useful theoretical representations of the connections between groups of entities, and have been used for a variety of purposes in data science, from ranking web pages by popularity and mapping out social networks, to assisting with navigation. 
+In many cases, such applications require the processing of graphs containing hundreds of billions of edges, which is far too large to be processed on a single consumer-grade machine. 
+A typical approach to scaling graph algorithms is to run in a distributed setting, i.e., to partition the data (and the algorithm) among multiple computers to perform the computation in parallel. 
+While this approach allows one to process graphs with trillions of edges, it also introduces new challenges. Namely, because each computer only sees a small piece of the input graph at a time, one needs to handle inter-machine communication and design algorithms that can be split across multiple computers.
+Applying the Data Algorithm Layer algorithms and combined with the Batch, stream , Massive Parallel Processing, In Memory Computing
+Or Graph Computing model, we can process big data problems, but it is hard for us to implement all the algorithm and computing model by ourselves, 
+The Computing Platform &amp; Computing Engine Layer can provide us the platform and engine which includes the needed tools, libraries to facilitate the implementing the complex Algorithms  and Computing models.
+<span class="lx-highlight" data-idx="9" style="background-color:#D2E3FC;">Computing platform and engine</span> refer to a development integrated environment that provides Technical Standards, Computing Architecture, and a series of Development Technologies And Tools for big data computing and analysis.
+The current representative computing platforms are: Hadoop, Cloudera, Spark,</span> Storm, and Google&#x27;s commercial platforms based on a series of big data computing technologies.
+In this session we learned the general architecture of the data processing system,
+thank you for your attention, if you have any question, feel free to contact me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="9" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/10</span> |
+          Pos <span id="posInfo">[192-214]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "Data Processing System Architecture", "color": "#FEF0C3", "startPos": 192, "endPos": 214, "beforeText": "titute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, from this session,\nwe start to learn ", "extractionText": "Data processing system", "afterText": ", and in this session, we discuss Data processing Architecture.\nThe data processing system provides big data computing and processing capabilities and", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "KEYWORDS", "text": "Data processing system, computing models, batch processing, stream processing, Massively Parallel Processing (MPP), in-memory computation, graph computation, Hadoop, Spark, machine learning", "color": "#C8E6C9", "startPos": 454, "endPos": 6876, "beforeText": " provides big data computing and processing capabilities and an application development platform.\nFrom the perspective of computing architecture, the ", "extractionText": "data processing system is divided into data algorithm layer, computing model layer, computing platform layer, computing engine layer, etc.\nComputing models are the way that different kinds of big data is processed in different scenarios, which include batch processing, stream computing, Large-scale concurrent processing (MPP) model for structured data, In-memory Computing model, and Data Flow Graph models.\nAs far as the computing platform and engine, normally the typical representative big data processing platforms are Hadoop, Spark , storm, Pregel, etc,\nData mining algorithms can be categorized into 4 groups, classification, clustering, correlation Analysis and anomaly detection.\nMachine learning algorithms include supervised learning, unsupervised learning semi-supervised learning and reinforcement learning.\nAnd in the scope of supervised learning there are regression, classification, and deep learning.\nAnd in the scope of unsupervised learning there are  clustering, dimensionality reduction ,and also anomaly detection.\nFor semi-supervised learning , it include self-training and low density separation models.\nand reinforcement learning include dynamic programming and Monte Carlo methods.\nBasic big data processing start from Batch processing, Represented by MapReduce.\nBatch processing is the processing of a large volume of data all at once. \nThe data easily consists of millions of records for a day and can be stored in a variety of ways (file, record, etc). \nThe jobs are typically completed simultaneously in non-stop, sequential order.\nA go-to example of a batch processing job is all of the transactions a financial firm might submit over the course of a week. Batching can also be used in:\nPayroll processes\nLine item invoices\nSupply chain and fulfillment\nBatch data processing is an extremely efficient way to process large amounts of data that is collected over a period. It also helps to reduce the operational costs that businesses might spend on labor as it doesn\u2019t require specialized data entry clerks to support its functioning. It can be used offline and gives managers complete control as to when to start the processing, whether it be overnight or at the end of a week or pay period.\nStream processing is the process of being able to almost instantaneously analyze data that is streaming from one device to another.\nThis method of continuous computation happens as data flows through the system with no compulsory time limitations on the output. \nWith the almost instant flow, systems do not require large amounts of data to be stored.\nStream processing is highly beneficial if the events you wish to track are happening frequently and close together in time. \nIt is also best to utilize if the event needs to be detected right away and responded to quickly Stream processing, then, is useful for tasks like fraud detection and\u00a0cybersecurity. \nIf transaction data is stream-processed, fraudulent transactions can be identified and stopped before they are even complete.\nMassively parallel processing (MPP) is a storage structure designed to handle the coordinated processing of program operations by multiple processors. This coordinated processing can work on different parts of a program, with each processor using its own operating system and memory. This allows MPP databases to handle massive amounts of data and provide much faster analytics based on large datasets.\nMPP processors can have up to 200 or more processors working on application and most commonly communicate using a messaging interface. MPP works by allowing messages to be sent between processes through an \u201cinterconnect\u201d arrangement of data paths. \nIn-memory computation (or in-memory computing) is the technique of running computer calculations entirely in computer memory (e.g., in RAM). This term typically implies large-scale, complex calculations which require specialized systems software to run the calculations on computers working together in a cluster. As a cluster, the computers pool together their RAM so the calculation is essentially run across computers and leverages the collective RAM space of all the computers together.\nIn-memory computation works by eliminating all slow data accesses and relying exclusively on data stored in RAM. \nOverall computation performance is greatly improved by removing the latency commonly seen when accessing hard disk drives or SSDs.\nSoftware running on one or more computers manages the computation as well as the data in memory, and in the case of multiple computers, the software divides the computation into smaller tasks which are distributed out to each computer to run in parallel. \nMassively Parallel Graph Computation\nGraphs are useful theoretical representations of the connections between groups of entities, and have been used for a variety of purposes in data science, from ranking web pages by popularity and mapping out social networks, to assisting with navigation. \nIn many cases, such applications require the processing of graphs containing hundreds of billions of edges, which is far too large to be processed on a single consumer-grade machine. \nA typical approach to scaling graph algorithms is to run in a distributed setting, i.e., to partition the data (and the algorithm) among multiple computers to perform the computation in parallel. \nWhile this approach allows one to process graphs with trillions of edges, it also introduces new challenges. Namely, because each computer only sees a small piece of the input graph at a time, one needs to handle inter-machine communication and design algorithms that can be split across multiple computers.\nApplying the Data Algorithm Layer algorithms and combined with the Batch, stream , Massive Parallel Processing, In Memory Computing\nOr Graph Computing model, we can process big data problems, but it is hard for us to implement all the algorithm and computing model by ourselves, \nThe Computing Platform &amp; Computing Engine Layer can provide us the platform and engine which includes the needed tools, libraries to facilitate the implementing the complex Algorithms  and Computing models.\nComputing platform and engine refer to a development integrated environment that provides Technical Standards, Computing Architecture, and a series of Development Technologies And Tools for big data computing and analysis.\nThe current representative computing platforms are: Hadoop, Cloudera, Spark,", "afterText": " Storm, and Google&#x27;s commercial platforms based on a series of big data computing technologies.\nIn this session we learned the general architecture of", "attributesHtml": "<div><strong>class:</strong> KEYWORDS</div><div><strong>attributes:</strong> {}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Computing models", "color": "#D2E3FC", "startPos": 515, "endPos": 530, "beforeText": "an application development platform.\nFrom the perspective of computing architecture, the data processing system is divided into data algorithm layer, ", "extractionText": "computing model", "afterText": " layer, computing platform layer, computing engine layer, etc.\nComputing models are the way that different kinds of big data is processed in different", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The way that different kinds of big data is processed in different scenarios, which include batch processing, stream computing, Large-scale concurrent processing (MPP) model, In-memory Computing model, and Data Flow Graph models.</span>}</div>"}, {"index": 3, "class": "CONCEPT", "text": "Batch processing", "color": "#D2E3FC", "startPos": 706, "endPos": 722, "beforeText": " layer, computing engine layer, etc.\nComputing models are the way that different kinds of big data is processed in different scenarios, which include ", "extractionText": "batch processing", "afterText": ", stream computing, Large-scale concurrent processing (MPP) model for structured data, In-memory Computing model, and Data Flow Graph models.\nAs far a", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The processing of a large volume of data all at once. The jobs are typically completed simultaneously in non-stop, sequential order.</span>}</div>"}, {"index": 4, "class": "CONCEPT", "text": "Stream processing", "color": "#D2E3FC", "startPos": 2678, "endPos": 2695, "beforeText": "e used offline and gives managers complete control as to when to start the processing, whether it be overnight or at the end of a week or pay period.\n", "extractionText": "Stream processing", "afterText": " is the process of being able to almost instantaneously analyze data that is streaming from one device to another.\nThis method of continuous computati", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The process of being able to almost instantaneously analyze data that is streaming from one device to another, with no compulsory time limitations on the output.</span>}</div>"}, {"index": 5, "class": "CONCEPT", "text": "Massively parallel processing (MPP)", "color": "#D2E3FC", "startPos": 3464, "endPos": 3499, "beforeText": "ion and\u00a0cybersecurity. \nIf transaction data is stream-processed, fraudulent transactions can be identified and stopped before they are even complete.\n", "extractionText": "Massively parallel processing (MPP)", "afterText": " is a storage structure designed to handle the coordinated processing of program operations by multiple processors. This coordinated processing can wo", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A storage structure designed to handle the coordinated processing of program operations by multiple processors, with each processor using its own operating system and memory.</span>}</div>"}, {"index": 6, "class": "CONCEPT", "text": "Data processing system", "color": "#D2E3FC", "startPos": 4659, "endPos": 4663, "beforeText": "tially run across computers and leverages the collective RAM space of all the computers together.\nIn-memory computation works by eliminating all slow ", "extractionText": "data", "afterText": " accesses and relying exclusively on data stored in RAM. \nOverall computation performance is greatly improved by removing the latency commonly seen wh", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A system that provides big data computing and processing capabilities and an application development platform.</span>}</div>"}, {"index": 7, "class": "CONCEPT", "text": "In-memory computation", "color": "#D2E3FC", "startPos": 4712, "endPos": 4714, "beforeText": "ive RAM space of all the computers together.\nIn-memory computation works by eliminating all slow data accesses and relying exclusively on data stored ", "extractionText": "in", "afterText": " RAM. \nOverall computation performance is greatly improved by removing the latency commonly seen when accessing hard disk drives or SSDs.\nSoftware run", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The technique of running computer calculations entirely in computer memory (e.g., in RAM), eliminating slow data accesses from disk drives.</span>}</div>"}, {"index": 8, "class": "CONCEPT", "text": "Massively Parallel Graph Computation", "color": "#D2E3FC", "startPos": 5108, "endPos": 5144, "beforeText": "e case of multiple computers, the software divides the computation into smaller tasks which are distributed out to each computer to run in parallel. \n", "extractionText": "Massively Parallel Graph Computation", "afterText": "\nGraphs are useful theoretical representations of the connections between groups of entities, and have been used for a variety of purposes in data sci", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">An approach to scaling graph algorithms by running them in a distributed setting, partitioning the data and algorithm among multiple computers to perform the computation in parallel.</span>}</div>"}, {"index": 9, "class": "CONCEPT", "text": "Computing platform and engine", "color": "#D2E3FC", "startPos": 6577, "endPos": 6606, "beforeText": "de us the platform and engine which includes the needed tools, libraries to facilitate the implementing the complex Algorithms  and Computing models.\n", "extractionText": "Computing platform and engine", "afterText": " refer to a development integrated environment that provides Technical Standards, Computing Architecture, and a series of Development Technologies And", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A development integrated environment that provides Technical Standards, Computing Architecture, and a series of Development Technologies And Tools for big data computing and analysis.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>

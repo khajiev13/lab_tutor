@@ -1,0 +1,249 @@
+<style>
+.lx-highlight { position: relative; border-radius:3px; padding:1px 2px;}
+.lx-highlight .lx-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  background: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 4px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1000;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  max-width: 240px;
+  white-space: normal;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.lx-highlight:hover .lx-tooltip { visibility: visible; opacity:1; }
+.lx-animated-wrapper { max-width: 100%; font-family: Arial, sans-serif; }
+.lx-controls {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 8px;
+  padding: 12px; margin-bottom: 16px;
+}
+.lx-button-row {
+  display: flex; justify-content: center; gap: 8px; margin-bottom: 12px;
+}
+.lx-control-btn {
+  background: #4285f4; color: white; border: none; border-radius: 4px;
+  padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500;
+  transition: background-color 0.2s;
+}
+.lx-control-btn:hover { background: #3367d6; }
+.lx-progress-container {
+  margin-bottom: 8px;
+}
+.lx-progress-slider {
+  width: 100%; margin: 0; appearance: none; height: 6px;
+  background: #ddd; border-radius: 3px; outline: none;
+}
+.lx-progress-slider::-webkit-slider-thumb {
+  appearance: none; width: 18px; height: 18px; background: #4285f4;
+  border-radius: 50%; cursor: pointer;
+}
+.lx-progress-slider::-moz-range-thumb {
+  width: 18px; height: 18px; background: #4285f4; border-radius: 50%;
+  cursor: pointer; border: none;
+}
+.lx-status-text {
+  text-align: center; font-size: 12px; color: #666; margin-top: 4px;
+}
+.lx-text-window {
+  font-family: monospace; white-space: pre-wrap; border: 1px solid #90caf9;
+  padding: 12px; max-height: 260px; overflow-y: auto; margin-bottom: 12px;
+  line-height: 1.6;
+}
+.lx-attributes-panel {
+  background: #fafafa; border: 1px solid #90caf9; border-radius: 6px;
+  padding: 8px 10px; margin-top: 8px; font-size: 13px;
+}
+.lx-current-highlight {
+  border-bottom: 4px solid #ff4444;
+  font-weight: bold;
+  animation: lx-pulse 1s ease-in-out;
+}
+@keyframes lx-pulse {
+  0% { text-decoration-color: #ff4444; }
+  50% { text-decoration-color: #ff0000; }
+  100% { text-decoration-color: #ff4444; }
+}
+.lx-legend {
+  font-size: 12px; margin-bottom: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;
+}
+.lx-label {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  color: #000;
+}
+.lx-attr-key {
+  font-weight: 600;
+  color: #1565c0;
+  letter-spacing: 0.3px;
+}
+.lx-attr-value {
+  font-weight: 400;
+  opacity: 0.85;
+  letter-spacing: 0.2px;
+}
+
+/* Add optimizations with larger fonts and better readability for GIFs */
+.lx-gif-optimized .lx-text-window { font-size: 16px; line-height: 1.8; }
+.lx-gif-optimized .lx-attributes-panel { font-size: 15px; }
+.lx-gif-optimized .lx-current-highlight { text-decoration-thickness: 4px; }
+</style>
+    <div class="lx-animated-wrapper lx-gif-optimized">
+      <div class="lx-attributes-panel">
+        <div class="lx-legend">Highlights Legend: <span class="lx-label" style="background-color:#D2E3FC;">CONCEPT</span> <span class="lx-label" style="background-color:#C8E6C9;">KEYWORDS</span> <span class="lx-label" style="background-color:#FEF0C3;">SUMMARY</span> <span class="lx-label" style="background-color:#F9DEDC;">TOPIC</span></div>
+        <div id="attributesContainer"></div>
+      </div>
+      <div class="lx-text-window" id="textWindow">
+        Bigdata analysis 3-5 <span class="lx-highlight lx-current-highlight" data-idx="0" style="background-color:#F9DEDC;">data reduction</span>
+Hello everyone, I am Haiying Che, from  Institute of Data Science and knowledge Engineering
+School of Computer Science, in Beijing Institute of Technology , in this session , we will discuss  Data reduction .
+Complex data analysis of large-scale database content usually takes a lot of time.
+<span class="lx-highlight" data-idx="1" style="background-color:#FEF0C3;">Data reduction</span> (subtraction) technology is used to help obtain a condensed data set from the original huge data set, and make this condensed data set maintain the integrity of the original data set, so that data analysis on the condensed data set is obviously efficient higher, and the results of analysis are basically the same as those obtained by using the original data set.
+Data reduction work should satisfy some standard. 
+The time spent on data reduction should not exceed or &quot;offset&quot; the time saved by analysis on the reduced data
+The data obtained by the reduction is much smaller than the original data, but can produce the same or almost the same analysis results
+Data reduction technology includes <span class="lx-highlight" data-idx="2" style="background-color:#D2E3FC;">dimensionality reduction</span> and <span class="lx-highlight" data-idx="3" style="background-color:#D2E3FC;">numerosity reduction</span>.
+And dimensionality reduction includes <span class="lx-highlight" data-idx="4" style="background-color:#D2E3FC;">attribute subset selection</span>, principal Component analysis and wavelet transform
+Numerosity reduction could be divided into parametric and non-parametric methods. 
+non-parametric methods include <span class="lx-highlight" data-idx="5" style="background-color:#C8E6C9;">data cube aggregation , clustering, sampling histogram etc.
+First let’ s look at Dimension reduction
+Remove irrelevant attributes and reduce the amount of data processed by data analysis.
+Attributes subset selection Goal is to Find the smallest attribute subset and ensure that the probability distribution of the new data subset is as close as possible to the probability distribution of the original data set
+For example, when digging into the classification rules of whether a customer will buy a player in a shopping mall, the customer&#x27;s phone number is likely to be irrelevant to the mining task and should be removed.
+<span class="lx-highlight" data-idx="6" style="background-color:#D2E3FC;">Step forward Attributes subset selection</span>
+Starting from an empty attribute set (as the initial value of the attribute subset), each time a current optimal attribute is selected from the original attribute set and added to the current attribute subset. Until the optimal attribute cannot be selected or a certain threshold constraint is met.
+<span class="lx-highlight" data-idx="7" style="background-color:#D2E3FC;">Remove gradually backward Attributes subset selection</span>
+Starting from a full attribute set (as the initial value of the attribute subset), each time a current worst attribute is selected from the current attribute subset and eliminated from the current attribute subset. Until the worst attribute cannot be selected or a certain threshold constraint is met.
+or Combine forward selection and backward deletion
+Decision tree (decision tree) induction
+Use the decision tree induction method to classify and induct the initial data to obtain an initial decision tree. 
+All attributes that do not appear on the decision tree are considered irrelevant attributes. 
+Therefore, delete these attributes from the initial attribute set to obtain an initial decision tree. A better subset of attributes.
+There is also Reduction based on statistical analysis
+Now let’s look at Data reduction by Data compression
+Compression algorithm can be classified into <span class="lx-highlight" data-idx="8" style="background-color:#D2E3FC;">Lossless compression</span> and <span class="lx-highlight" data-idx="9" style="background-color:#D2E3FC;">Lossy compression</span> .
+Lossless compression: Compressed data can be restored without losing any information.
+For example: string compression
+Have a broad theoretical foundation and sophisticated algorithms
+Lossy compression: Only an approximate representation of the original data can be reconstructed.
+For example: audio/video compression
+Sometimes it is possible to reconstruct a fragment without decompressing the overall data
+Data compression-use data encoding or transformation to obtain a compressed representation of the original data.
+The two data compression methods commonly used in the field of data mining are both lossy:
+<span class="lx-highlight" data-idx="10" style="background-color:#D2E3FC;">Principal component analysis (PCA)</span> assumes that the data to be compressed consists of N tuples or data vectors taken from k dimensions. Principal component analysis and search to obtain c “k-dimensional” orthogonal vectors that best represent the data, where c≤k. In this way, the original data can be projected into a smaller space to achieve data compression
+We talked some technologies of dimensionality reduction and now let’s look at some technologies of numerosity reduction.
+Numerosity reduction -use smaller data to represent data, or use shorter data units, or use data models to represent data to reduce the amount of data.
+Numerosity reduction includes Data cube aggregation , clustering, sampling, histogram etc.
+Let’s look at the data cube aggregation
+A <span class="lx-highlight" data-idx="11" style="background-color:#D2E3FC;">data</span> cube is a multi-dimensional modeling and representation of <span class="lx-highlight" data-idx="12" style="background-color:#D2E3FC;">data</span>, composed of dimensions and facts.
+Dimension: attribute
+Facts: data
+<span class="lx-highlight" data-idx="13" style="background-color:#D2E3FC;">Data cube aggregation</span> definition-gather n-dimensional data cubes into n-1 dimensional data cubes.
+Using Data cube Aggregates for approximate query
+In the diagram, 3 dimension data cube aggregate into 2 dimension, the men and women ’ sale amount aggregated together. 
+Now let’s look at Data reduction method <span class="lx-highlight" data-idx="14" style="background-color:#D2E3FC;">Discretization</span>.
+Attribute values could be Name type-e.g. value in an unordered set, Ordinal-e.g. value in an ordered set and Continuous value-e.g. real number.
+Discretization technology
+Reduce the number of values of a continuous (value) attribute by dividing the range of the attribute (continuous value) domain value into several intervals.
+Using Concept hierarchical generation to do the Data reduction 
+<span class="lx-highlight" data-idx="15" style="background-color:#D2E3FC;">Concept hierarchy</span></span> defines a set of mappings from low-level concept sets to high-level concept sets. 
+It allows data to be processed at various levels of abstraction, thereby discovering knowledge at multiple levels of abstraction.
+Use higher-level concepts to replace lower-level concepts (such as the value of age in this example) to reduce the number of values. 
+Although some details disappeared in the process of data generalization,
+But the generalized data obtained in this way may be easier to understand and more meaningful. 
+Data analysis on the reduced data set is obviously more efficient.
+The concept hierarchy can be represented by a tree, and each node of the tree represents a concept of certain level.
+In this session we learned Data reduction and related technologies.
+Thank you for your attention, if you have any question, feel free to contact me.
+      </div>
+      <div class="lx-controls">
+        <div class="lx-button-row">
+          <button class="lx-control-btn" onclick="playPause()">▶️ Play</button>
+          <button class="lx-control-btn" onclick="prevExtraction()">⏮ Previous</button>
+          <button class="lx-control-btn" onclick="nextExtraction()">⏭ Next</button>
+        </div>
+        <div class="lx-progress-container">
+          <input type="range" id="progressSlider" class="lx-progress-slider"
+                 min="0" max="15" value="0"
+                 onchange="jumpToExtraction(this.value)">
+        </div>
+        <div class="lx-status-text">
+          Entity <span id="entityInfo">1/16</span> |
+          Pos <span id="posInfo">[21-35]</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        const extractions = [{"index": 0, "class": "TOPIC", "text": "Data Reduction Techniques for Large-Scale Data Analysis", "color": "#F9DEDC", "startPos": 21, "endPos": 35, "beforeText": "Bigdata analysis 3-5 ", "extractionText": "data reduction", "afterText": "\nHello everyone, I am Haiying Che, from  Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Techn", "attributesHtml": "<div><strong>class:</strong> TOPIC</div><div><strong>attributes:</strong> {}</div>"}, {"index": 1, "class": "SUMMARY", "text": "Data reduction techniques are used to create a condensed, representative dataset from a large original dataset to improve the efficiency of data analysis while maintaining the integrity of the results. The time spent on reduction should not outweigh the time saved during analysis. Data reduction is broadly categorized into dimensionality reduction and numerosity reduction. Dimensionality reduction aims to remove irrelevant attributes through methods like attribute subset selection (which includes forward selection, backward deletion, and combined approaches), decision tree induction, and statistical analysis. Data compression, another dimensionality reduction technique, can be lossless (fully reversible) or lossy (approximate reconstruction), with Principal Component Analysis (PCA) being a common lossy method. Numerosity reduction uses smaller representations of data, employing parametric or non-parametric methods such as data cube aggregation, clustering, sampling, and histograms. Other techniques include discretization, which reduces continuous attribute values into intervals, and concept hierarchy generation, which replaces low-level concepts with higher-level ones to generalize the data, making it more meaningful and easier to analyze.", "color": "#FEF0C3", "startPos": 328, "endPos": 342, "beforeText": "f Technology , in this session , we will discuss  Data reduction .\nComplex data analysis of large-scale database content usually takes a lot of time.\n", "extractionText": "Data reduction", "afterText": " (subtraction) technology is used to help obtain a condensed data set from the original huge data set, and make this condensed data set maintain the i", "attributesHtml": "<div><strong>class:</strong> SUMMARY</div><div><strong>attributes:</strong> {}</div>"}, {"index": 2, "class": "CONCEPT", "text": "Dimensionality Reduction", "color": "#D2E3FC", "startPos": 1039, "endPos": 1063, "beforeText": "the reduction is much smaller than the original data, but can produce the same or almost the same analysis results\nData reduction technology includes ", "extractionText": "dimensionality reduction", "afterText": " and numerosity reduction.\nAnd dimensionality reduction includes attribute subset selection, principal Component analysis and wavelet transform\nNumero", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A data reduction technique that removes irrelevant attributes to reduce the amount of data processed by data analysis.</span>}</div>"}, {"index": 3, "class": "CONCEPT", "text": "Numerosity Reduction", "color": "#D2E3FC", "startPos": 1068, "endPos": 1088, "beforeText": " than the original data, but can produce the same or almost the same analysis results\nData reduction technology includes dimensionality reduction and ", "extractionText": "numerosity reduction", "afterText": ".\nAnd dimensionality reduction includes attribute subset selection, principal Component analysis and wavelet transform\nNumerosity reduction could be d", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A data reduction technique that uses smaller data representations, shorter data units, or data models to reduce the amount of data.</span>}</div>"}, {"index": 4, "class": "CONCEPT", "text": "Attribute Subset Selection", "color": "#D2E3FC", "startPos": 1128, "endPos": 1154, "beforeText": "the same analysis results\nData reduction technology includes dimensionality reduction and numerosity reduction.\nAnd dimensionality reduction includes ", "extractionText": "attribute subset selection", "afterText": ", principal Component analysis and wavelet transform\nNumerosity reduction could be divided into parametric and non-parametric methods. \nnon-parametric", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The goal is to find the smallest attribute subset that ensures the probability distribution of the new data subset is as close as possible to that of the original data set.</span>}</div>"}, {"index": 5, "class": "KEYWORDS", "text": "Data reduction, dimensionality reduction, numerosity reduction, attribute subset selection, Principal Component Analysis (PCA), data compression, data cube aggregation, discretization, concept hierarchy", "color": "#C8E6C9", "startPos": 1321, "endPos": 5518, "beforeText": "nent analysis and wavelet transform\nNumerosity reduction could be divided into parametric and non-parametric methods. \nnon-parametric methods include ", "extractionText": "data cube aggregation , clustering, sampling histogram etc.\nFirst let\u2019 s look at Dimension reduction\nRemove irrelevant attributes and reduce the amount of data processed by data analysis.\nAttributes subset selection Goal is to Find the smallest attribute subset and ensure that the probability distribution of the new data subset is as close as possible to the probability distribution of the original data set\nFor example, when digging into the classification rules of whether a customer will buy a player in a shopping mall, the customer&#x27;s phone number is likely to be irrelevant to the mining task and should be removed.\nStep forward Attributes subset selection\nStarting from an empty attribute set (as the initial value of the attribute subset), each time a current optimal attribute is selected from the original attribute set and added to the current attribute subset. Until the optimal attribute cannot be selected or a certain threshold constraint is met.\nRemove gradually backward Attributes subset selection\nStarting from a full attribute set (as the initial value of the attribute subset), each time a current worst attribute is selected from the current attribute subset and eliminated from the current attribute subset. Until the worst attribute cannot be selected or a certain threshold constraint is met.\nor Combine forward selection and backward deletion\nDecision tree (decision tree) induction\nUse the decision tree induction method to classify and induct the initial data to obtain an initial decision tree. \nAll attributes that do not appear on the decision tree are considered irrelevant attributes. \nTherefore, delete these attributes from the initial attribute set to obtain an initial decision tree. A better subset of attributes.\nThere is also Reduction based on statistical analysis\nNow let\u2019s look at Data reduction by Data compression\nCompression algorithm can be classified into Lossless compression and Lossy compression .\nLossless compression: Compressed data can be restored without losing any information.\nFor example: string compression\nHave a broad theoretical foundation and sophisticated algorithms\nLossy compression: Only an approximate representation of the original data can be reconstructed.\nFor example: audio/video compression\nSometimes it is possible to reconstruct a fragment without decompressing the overall data\nData compression-use data encoding or transformation to obtain a compressed representation of the original data.\nThe two data compression methods commonly used in the field of data mining are both lossy:\nPrincipal component analysis (PCA) assumes that the data to be compressed consists of N tuples or data vectors taken from k dimensions. Principal component analysis and search to obtain c \u201ck-dimensional\u201d orthogonal vectors that best represent the data, where c\u2264k. In this way, the original data can be projected into a smaller space to achieve data compression\nWe talked some technologies of dimensionality reduction and now let\u2019s look at some technologies of numerosity reduction.\nNumerosity reduction -use smaller data to represent data, or use shorter data units, or use data models to represent data to reduce the amount of data.\nNumerosity reduction includes Data cube aggregation , clustering, sampling, histogram etc.\nLet\u2019s look at the data cube aggregation\nA data cube is a multi-dimensional modeling and representation of data, composed of dimensions and facts.\nDimension: attribute\nFacts: data\nData cube aggregation definition-gather n-dimensional data cubes into n-1 dimensional data cubes.\nUsing Data cube Aggregates for approximate query\nIn the diagram, 3 dimension data cube aggregate into 2 dimension, the men and women \u2019 sale amount aggregated together. \nNow let\u2019s look at Data reduction method Discretization.\nAttribute values could be Name type-e.g. value in an unordered set, Ordinal-e.g. value in an ordered set and Continuous value-e.g. real number.\nDiscretization technology\nReduce the number of values of a continuous (value) attribute by dividing the range of the attribute (continuous value) domain value into several intervals.\nUsing Concept hierarchical generation to do the Data reduction \nConcept hierarchy", "afterText": " defines a set of mappings from low-level concept sets to high-level concept sets. \nIt allows data to be processed at various levels of abstraction, t", "attributesHtml": "<div><strong>class:</strong> KEYWORDS</div><div><strong>attributes:</strong> {}</div>"}, {"index": 6, "class": "CONCEPT", "text": "Step forward Attributes subset selection", "color": "#D2E3FC", "startPos": 1945, "endPos": 1985, "beforeText": "her a customer will buy a player in a shopping mall, the customer&#x27;s phone number is likely to be irrelevant to the mining task and should be removed.\n", "extractionText": "Step forward Attributes subset selection", "afterText": "\nStarting from an empty attribute set (as the initial value of the attribute subset), each time a current optimal attribute is selected from the origi", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">An approach starting with an empty attribute set, where the current optimal attribute is progressively added from the original set until a stopping condition is met.</span>}</div>"}, {"index": 7, "class": "CONCEPT", "text": "Remove gradually backward Attributes subset selection", "color": "#D2E3FC", "startPos": 2285, "endPos": 2338, "beforeText": "nal attribute set and added to the current attribute subset. Until the optimal attribute cannot be selected or a certain threshold constraint is met.\n", "extractionText": "Remove gradually backward Attributes subset selection", "afterText": "\nStarting from a full attribute set (as the initial value of the attribute subset), each time a current worst attribute is selected from the current a", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">An approach starting with a full attribute set, where the current worst attribute is progressively eliminated until a stopping condition is met.</span>}</div>"}, {"index": 8, "class": "CONCEPT", "text": "Lossless Compression", "color": "#D2E3FC", "startPos": 3227, "endPos": 3247, "beforeText": "ere is also Reduction based on statistical analysis\nNow let\u2019s look at Data reduction by Data compression\nCompression algorithm can be classified into ", "extractionText": "Lossless compression", "afterText": " and Lossy compression .\nLossless compression: Compressed data can be restored without losing any information.\nFor example: string compression\nHave a ", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A compression method where the compressed data can be restored without losing any information.</span>}</div>"}, {"index": 9, "class": "CONCEPT", "text": "Lossy Compression", "color": "#D2E3FC", "startPos": 3252, "endPos": 3269, "beforeText": "ed on statistical analysis\nNow let\u2019s look at Data reduction by Data compression\nCompression algorithm can be classified into Lossless compression and ", "extractionText": "Lossy compression", "afterText": " .\nLossless compression: Compressed data can be restored without losing any information.\nFor example: string compression\nHave a broad theoretical foun", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A compression method where only an approximate representation of the original data can be reconstructed.</span>}</div>"}, {"index": 10, "class": "CONCEPT", "text": "Principal Component Analysis (PCA)", "color": "#D2E3FC", "startPos": 3883, "endPos": 3917, "beforeText": "o obtain a compressed representation of the original data.\nThe two data compression methods commonly used in the field of data mining are both lossy:\n", "extractionText": "Principal component analysis (PCA)", "afterText": " assumes that the data to be compressed consists of N tuples or data vectors taken from k dimensions. Principal component analysis and search to obtai", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A data compression method that finds a set of orthogonal vectors (principal components) that best represent the data, allowing the original data to be projected into a smaller space.</span>}</div>"}, {"index": 11, "class": "CONCEPT", "text": "Data Reduction", "color": "#D2E3FC", "startPos": 4650, "endPos": 4654, "beforeText": " amount of data.\nNumerosity reduction includes Data cube aggregation , clustering, sampling, histogram etc.\nLet\u2019s look at the data cube aggregation\nA ", "extractionText": "data", "afterText": " cube is a multi-dimensional modeling and representation of data, composed of dimensions and facts.\nDimension: attribute\nFacts: data\nData cube aggrega", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A technology used to obtain a condensed data set from a huge original data set, which maintains the integrity of the original data, allowing for more efficient analysis with basically the same results.</span>}</div>"}, {"index": 12, "class": "CONCEPT", "text": "Data Compression", "color": "#D2E3FC", "startPos": 4714, "endPos": 4718, "beforeText": "tion , clustering, sampling, histogram etc.\nLet\u2019s look at the data cube aggregation\nA data cube is a multi-dimensional modeling and representation of ", "extractionText": "data", "afterText": ", composed of dimensions and facts.\nDimension: attribute\nFacts: data\nData cube aggregation definition-gather n-dimensional data cubes into n-1 dimensi", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">The use of data encoding or transformation to obtain a compressed representation of the original data.</span>}</div>"}, {"index": 13, "class": "CONCEPT", "text": "Data Cube Aggregation", "color": "#D2E3FC", "startPos": 4787, "endPos": 4808, "beforeText": "ggregation\nA data cube is a multi-dimensional modeling and representation of data, composed of dimensions and facts.\nDimension: attribute\nFacts: data\n", "extractionText": "Data cube aggregation", "afterText": " definition-gather n-dimensional data cubes into n-1 dimensional data cubes.\nUsing Data cube Aggregates for approximate query\nIn the diagram, 3 dimens", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A numerosity reduction technique that gathers n-dimensional data cubes into (n-1) dimensional data cubes.</span>}</div>"}, {"index": 14, "class": "CONCEPT", "text": "Discretization", "color": "#D2E3FC", "startPos": 5094, "endPos": 5108, "beforeText": "gram, 3 dimension data cube aggregate into 2 dimension, the men and women \u2019 sale amount aggregated together. \nNow let\u2019s look at Data reduction method ", "extractionText": "Discretization", "afterText": ".\nAttribute values could be Name type-e.g. value in an unordered set, Ordinal-e.g. value in an ordered set and Continuous value-e.g. real number.\nDisc", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A technique to reduce the number of values of a continuous attribute by dividing its range into several intervals.</span>}</div>"}, {"index": 15, "class": "CONCEPT", "text": "Concept Hierarchy", "color": "#D2E3FC", "startPos": 5501, "endPos": 5518, "beforeText": "ng the range of the attribute (continuous value) domain value into several intervals.\nUsing Concept hierarchical generation to do the Data reduction \n", "extractionText": "Concept hierarchy", "afterText": " defines a set of mappings from low-level concept sets to high-level concept sets. \nIt allows data to be processed at various levels of abstraction, t", "attributesHtml": "<div><strong>class:</strong> CONCEPT</div><div><strong>attributes:</strong> {<span class=\"lx-attr-key\">definition</span>: <span class=\"lx-attr-value\">A set of mappings from low-level concept sets to high-level concept sets, allowing data to be processed at various levels of abstraction for reduction.</span>}</div>"}];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let animationInterval = null;
+        let animationSpeed = 1.0;
+
+        function updateDisplay() {
+          const extraction = extractions[currentIndex];
+          if (!extraction) return;
+
+          document.getElementById('attributesContainer').innerHTML = extraction.attributesHtml;
+          document.getElementById('entityInfo').textContent = (currentIndex + 1) + '/' + extractions.length;
+          document.getElementById('posInfo').textContent = '[' + extraction.startPos + '-' + extraction.endPos + ']';
+          document.getElementById('progressSlider').value = currentIndex;
+
+          const playBtn = document.querySelector('.lx-control-btn');
+          if (playBtn) playBtn.textContent = isPlaying ? '⏸ Pause' : '▶️ Play';
+
+          const prevHighlight = document.querySelector('.lx-text-window .lx-current-highlight');
+          if (prevHighlight) prevHighlight.classList.remove('lx-current-highlight');
+          const currentSpan = document.querySelector('.lx-text-window span[data-idx="' + currentIndex + '"]');
+          if (currentSpan) {
+            currentSpan.classList.add('lx-current-highlight');
+            currentSpan.scrollIntoView({block: 'center', behavior: 'smooth'});
+          }
+        }
+
+        function nextExtraction() {
+          currentIndex = (currentIndex + 1) % extractions.length;
+          updateDisplay();
+        }
+
+        function prevExtraction() {
+          currentIndex = (currentIndex - 1 + extractions.length) % extractions.length;
+          updateDisplay();
+        }
+
+        function jumpToExtraction(index) {
+          currentIndex = parseInt(index);
+          updateDisplay();
+        }
+
+        function playPause() {
+          if (isPlaying) {
+            clearInterval(animationInterval);
+            isPlaying = false;
+          } else {
+            animationInterval = setInterval(nextExtraction, animationSpeed * 1000);
+            isPlaying = true;
+          }
+          updateDisplay();
+        }
+
+        window.playPause = playPause;
+        window.nextExtraction = nextExtraction;
+        window.prevExtraction = prevExtraction;
+        window.jumpToExtraction = jumpToExtraction;
+
+        updateDisplay();
+      })();
+    </script>
