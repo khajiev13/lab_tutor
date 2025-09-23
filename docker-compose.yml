@@ -18,7 +18,7 @@ services:
     networks:
       - lab_tutor_network
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_AUTH##*/} 'RETURN 1' || exit 1"]
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p $${NEO4J_AUTH##*/} 'RETURN 1' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

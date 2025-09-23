@@ -1,8 +1,8 @@
 # Docker
 .dockerignore
 
-#Output files
-knowledge_graph_builder/production_output/
+# #Output files
+# knowledge_graph_builder/production_output/
 
 # Environment variables
 .env.local

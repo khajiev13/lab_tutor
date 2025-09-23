@@ -1,0 +1,50 @@
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+
+# Build outputs
+dist/
+build/
+target/
+*.o
+*.so
+*.dll
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+
+# Database files
+*.db
+*.sqlite
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.zip
+*.tar.gz
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+knowledge_graph_builder/production_output/

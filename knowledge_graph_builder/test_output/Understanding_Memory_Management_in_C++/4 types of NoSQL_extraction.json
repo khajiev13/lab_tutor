@@ -1,0 +1,52 @@
+{
+  "topic": "Understanding Memory Management in C++",
+  "summary": "The document discusses memory management in C++, focusing on dynamic memory allocation using 'new' and 'delete' operators. It explains the importance of managing dynamically allocated memory to prevent memory leaks, where allocated memory is not properly deallocated, leading to resource exhaustion. The text also touches on smart pointers as a mechanism to automate memory management and reduce the risk of memory leaks by automatically deallocating memory when it is no longer needed.",
+  "keywords": [
+    "C++",
+    "memory management",
+    "dynamic memory allocation",
+    "new operator",
+    "delete operator",
+    "memory leaks",
+    "smart pointers",
+    "resource exhaustion"
+  ],
+  "concepts": [
+    {
+      "name": "memory management",
+      "definition": "The process of allocating and deallocating memory during the execution of a program.",
+      "text_evidence": "This article delves into memory management in C++"
+    },
+    {
+      "name": "dynamic memory allocation",
+      "definition": "Allocation of memory during the runtime of a program.",
+      "text_evidence": "In C++, dynamic memory allocation is typically done using the new operator."
+    },
+    {
+      "name": "new operator",
+      "definition": "An operator used in C++ to allocate memory dynamically.",
+      "text_evidence": "In C++, dynamic memory allocation is typically done using the new operator."
+    },
+    {
+      "name": "delete operator",
+      "definition": "An operator used in C++ to deallocate memory that was previously allocated using the new operator.",
+      "text_evidence": "The delete operator is then used to free the allocated memory."
+    },
+    {
+      "name": "memory leaks",
+      "definition": "Occur when memory is allocated but not properly deallocated, leading to resource exhaustion.",
+      "text_evidence": "If the allocated memory is not properly deallocated, it results in memory leaks, eventually leading to resource exhaustion."
+    },
+    {
+      "name": "smart pointers",
+      "definition": "A mechanism to automate memory management and reduce the risk of memory leaks.",
+      "text_evidence": "Smart pointers are a mechanism to automate this process and reduce the risk of memory leaks."
+    },
+    {
+      "name": "resource exhaustion",
+      "definition": "A state where the system runs out of available resources, such as memory.",
+      "text_evidence": "If the allocated memory is not properly deallocated, it results in memory leaks, eventually leading to resource exhaustion."
+    }
+  ],
+  "original_text": "4 types of NoSQL\nKey Value Pair Based\nData is stored in key/value pairs. It is designed in such a way to handle lots of data and heavy load.\nKey-value pair storage databases store data as a hash table where each key is unique, and the value can be a JSON, BLOB(Binary Large Objects), string, etc.\nFor example, a key-value pair may contain a key like “Website” associated with a value like “Guru99”.\nIt is one of the most basic NoSQL database example. This kind of NoSQL database is used as a collection, dictionaries, associative arrays, etc. Key value stores help the developer to store schema-less data. They work best for shopping cart contents.\nRedis, Dynamo, Riak are some NoSQL examples of key-value store DataBases. They are all based on Amazon’s Dynamo paper.\nColumn-based\nColumn-oriented databases work on columns and are based on BigTable paper by Google. Every column is treated separately. Values of single column databases are stored contiguously.\nColumn based NoSQL database\nThey deliver high performance on aggregation queries like SUM, COUNT, AVG, MIN etc. as the data is readily available in a column.\nColumn-based NoSQL databases are widely used to manage data warehouses, business intelligence, CRM, Library card catalogs,\nHBase, Cassandra, HBase, Hypertable are NoSQL query examples of column based database.\nDocument-Oriented:\nDocument-Oriented NoSQL DB stores and retrieves data as a key value pair but the value part is stored as a document. The document is stored in JSON or XML formats. The value is understood by the DB and can be queried.\nRelational Vs. Document\nIn this diagram on your left you can see we have rows and columns, and in the right, we have a document database which has a similar structure to JSON. Now for the relational database, you have to know what columns you have and so on. However, for a document database, you have data store like JSON object. You do not require to define which make it flexible.\nThe document type is mostly used for CMS systems, blogging platforms, real-time analytics & e-commerce applications. It should not use for complex transactions which require multiple operations or queries against varying aggregate structures.\nAmazon SimpleDB, CouchDB, MongoDB, Riak, Lotus Notes, MongoDB, are popular Document originated DBMS systems.\nGraph-Based\nA graph type database stores entities as well the relations amongst those entities. The entity is stored as a node with the relationship as edges. An edge gives a relationship between nodes. Every node and edge has a unique identifier.\nCompared to a relational database where tables are loosely connected, a Graph database is a multi-relational in nature. Traversing relationship is fast as they are already captured into the DB, and there is no need to calculate them.\nGraph base database mostly used for social networks, logistics, spatial data.\nNeo4J, Infinite Graph, OrientDB, FlockDB are some popular graph-based databases."
+}

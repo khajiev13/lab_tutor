@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
 import json
 import os
+import re
 from dotenv import load_dotenv
 
 from langchain_neo4j import Neo4jGraph
@@ -21,6 +22,14 @@ from langchain_neo4j.graphs.graph_document import GraphDocument
 from langchain_neo4j.graphs.graph_document import Node as GraphNode
 from langchain_neo4j.graphs.graph_document import Relationship as GraphRelationship
 from langchain_core.documents import Document
+
+from models.neo4j_models import (
+    Neo4jGraphData, Neo4jNode, Neo4jRelationship,
+    TopicNodeProperties, TheoryNodeProperties, ConceptNodeProperties,
+    HasTheoryRelationshipProperties, MentionsRelationshipProperties,
+    Neo4jInsertionResult
+)
+from services.embedding import EmbeddingService
 
 load_dotenv()
 
@@ -33,23 +42,28 @@ class Neo4jService:
         url: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
-        database: str = "neo4j"
+        database: str = "neo4j",
+        embedding_service: Optional[EmbeddingService] = None
     ):
         """
         Initialize Neo4j service with connection parameters.
-        
+
         Args:
             url: Neo4j database URL (defaults to NEO4J_URI env var or bolt://localhost:7687)
             username: Database username (defaults to NEO4J_USERNAME env var or neo4j)
             password: Database password (defaults to NEO4J_PASSWORD env var or password)
             database: Database name
+            embedding_service: Optional embedding service instance
         """
         # Use environment variables or defaults
         self.url = url or os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self.username = username or os.getenv("NEO4J_USERNAME", "neo4j")
         self.password = password or os.getenv("NEO4J_PASSWORD", "password")
         self.database = database
-        
+
+        # Initialize embedding service
+        self.embedding_service = embedding_service or EmbeddingService()
+
         # Initialize Neo4j connection
         try:
             self.graph = Neo4jGraph(
@@ -183,12 +197,9 @@ class Neo4jService:
                 return True
 
             except Exception as insert_error:
-                # If we still get constraint errors, try manual insertion with MERGE
-                if "IndexEntryConflictException" in str(insert_error) or "already exists" in str(insert_error):
-                    print(f"⚠️  Constraint conflict detected, trying manual MERGE approach...")
-                    return self._manual_merge_insertion(data, json_path.name)
-                else:
-                    raise insert_error
+                # Use LangChain's native error handling
+                print(f"⚠️  Insertion error: {insert_error}")
+                raise insert_error
 
         except Exception as e:
             print(f"❌ Error processing {json_file_path}: {e}")
@@ -253,10 +264,14 @@ class Neo4jService:
         # Create relationships
         relationships = []
         for rel_data in data['relationships']:
-            # Handle both formats: 'source_id'/'target_id' and 'from_node_id'/'to_node_id'
-            source_id = rel_data.get('source_id', '') or rel_data.get('from_node_id', '')
-            target_id = rel_data.get('target_id', '') or rel_data.get('to_node_id', '')
-            rel_type = rel_data.get('type', '') or rel_data.get('relationship_type', '')
+            # Handle multiple formats: prioritize Pydantic model format, then legacy formats
+            source_id = (rel_data.get('start_node_id', '') or
+                        rel_data.get('source_id', '') or
+                        rel_data.get('from_node_id', ''))
+            target_id = (rel_data.get('end_node_id', '') or
+                        rel_data.get('target_id', '') or
+                        rel_data.get('to_node_id', ''))
+            rel_type = rel_data.get('relationship_type', '') or rel_data.get('type', '')
             rel_properties = rel_data.get('properties', {})
 
             # Find source and target nodes
@@ -286,149 +301,9 @@ class Neo4jService:
             source=source_doc
         )
 
-    def _manual_merge_insertion(self, data: Dict[str, Any], filename: str) -> bool:
-        """
-        Manually insert nodes and relationships using MERGE to handle duplicates.
 
-        Args:
-            data: Dictionary with 'nodes' and 'relationships' keys
-            filename: Name of the file being processed (for logging)
 
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            print(f"   🔄 Using manual MERGE insertion for {filename}")
 
-            # Insert nodes using MERGE
-            nodes_created = 0
-            for node_data in data['nodes']:
-                node_type = node_data.get('type', '') or node_data.get('label', '')
-                properties = node_data.get('properties', {})
-
-                if node_type == 'CONCEPT':
-                    # For canonical concepts, only store name (no definition or embedding)
-                    concept_name = properties.get('name', '')
-
-                    cypher = """
-                    MERGE (c:CONCEPT {name: $name})
-                    ON CREATE SET
-                        c.created_at = datetime(),
-                        c.total_mentions = 1
-                    ON MATCH SET
-                        c.total_mentions = c.total_mentions + 1,
-                        c.last_updated = datetime()
-                    RETURN c
-                    """
-
-                    result = self.graph.query(cypher, {
-                        'name': concept_name
-                    })
-
-                elif node_type == 'TOPIC':
-                    # For topics, merge by name
-                    topic_name = properties.get('name', '')
-
-                    cypher = """
-                    MERGE (t:TOPIC {name: $name})
-                    RETURN t
-                    """
-
-                    result = self.graph.query(cypher, {'name': topic_name})
-
-                elif node_type == 'THEORY':
-                    # For theories, merge by id
-                    theory_id = properties.get('id', '')
-                    original_text = properties.get('original_text', '')
-                    compressed_text = properties.get('compressed_text', '')
-                    source = properties.get('source', '')
-                    keywords = properties.get('keywords', [])
-                    embedding = properties.get('embedding', [])
-
-                    cypher = """
-                    MERGE (th:THEORY {id: $id})
-                    ON CREATE SET
-                        th.original_text = $original_text,
-                        th.compressed_text = $compressed_text,
-                        th.source = $source,
-                        th.keywords = $keywords,
-                        th.embedding = $embedding
-                    RETURN th
-                    """
-
-                    result = self.graph.query(cypher, {
-                        'id': theory_id,
-                        'original_text': original_text,
-                        'compressed_text': compressed_text,
-                        'source': source,
-                        'keywords': keywords,
-                        'embedding': embedding
-                    })
-
-                if result:
-                    nodes_created += 1
-
-            # Insert relationships using MERGE
-            relationships_created = 0
-            for rel_data in data['relationships']:
-                source_id = rel_data.get('source_id', '') or rel_data.get('from_node_id', '')
-                target_id = rel_data.get('target_id', '') or rel_data.get('to_node_id', '')
-                rel_type = rel_data.get('type', '') or rel_data.get('relationship_type', '')
-
-                # Determine node types for matching
-                source_label = rel_data.get('from_node_label', 'TOPIC')  # Default assumption
-                target_label = rel_data.get('to_node_label', 'CONCEPT')  # Default assumption
-
-                if rel_type == 'HAS':
-                    # TOPIC -[HAS]-> THEORY
-                    cypher = """
-                    MATCH (t:TOPIC {name: $source_name})
-                    MATCH (th:THEORY {id: $target_id})
-                    MERGE (t)-[r:HAS]->(th)
-                    RETURN r
-                    """
-                    result = self.graph.query(cypher, {
-                        'source_name': source_id.replace('topic_', ''),
-                        'target_id': target_id
-                    })
-
-                elif rel_type == 'MENTIONS':
-                    # THEORY -[MENTIONS]-> CONCEPT with simplified relationship properties
-                    rel_properties = rel_data.get('properties', {})
-
-                    cypher = """
-                    MATCH (th:THEORY {id: $source_id})
-                    MATCH (c:CONCEPT {name: $target_name})
-                    MERGE (th)-[r:MENTIONS]->(c)
-                    SET r.local_definition = $local_definition,
-                        r.source_file = $source_file
-                    RETURN r
-                    """
-                    # Extract concept name from target_id if it starts with 'concept_'
-                    target_name = target_id
-                    if target_id.startswith('concept_'):
-                        # Try to find the actual concept name from the nodes data
-                        for node in data['nodes']:
-                            if node.get('id') == target_id and node.get('type') == 'CONCEPT':
-                                target_name = node.get('properties', {}).get('name', target_id)
-                                break
-
-                    result = self.graph.query(cypher, {
-                        'source_id': source_id,
-                        'target_name': target_name,
-                        'local_definition': rel_properties.get('local_definition', ''),
-                        'source_file': rel_properties.get('source_file', '')
-                    })
-
-                if result:
-                    relationships_created += 1
-
-            print(f"   ✅ Manual insertion completed: {nodes_created} nodes, {relationships_created} relationships")
-            return True
-
-        except Exception as e:
-            print(f"   ❌ Manual insertion failed: {e}")
-            return False
 
     def process_topic_folder(self, topic_folder_path: Union[str, Path]) -> Dict[str, Any]:
         """
@@ -647,6 +522,213 @@ class Neo4jService:
         except Exception as e:
             print(f"❌ Query error: {e}")
             return []
+
+    def create_graph_data_from_extraction(self, extraction_result, source_file: str) -> Neo4jGraphData:
+        """
+        Create Pydantic-based Neo4j graph data from LangChain extraction result.
+
+        This method handles the complete transformation from extraction results to Neo4j-ready data,
+        including embedding generation and concept normalization.
+
+        Args:
+            extraction_result: CompleteExtractionResult from LangChain extraction
+            source_file: Path to source DOCX file
+
+        Returns:
+            Neo4jGraphData with type-safe Pydantic models
+        """
+        # Extract data from LangChain result
+        extraction = extraction_result.extraction
+        topic_name = extraction.topic
+        summary_text = extraction.summary
+        keywords_data = extraction.keywords
+        concepts_data = extraction.concepts
+
+        # Get original text from extraction result
+        original_text = getattr(extraction, 'original_text', '')
+
+        # Generate unique IDs
+        source_filename = Path(source_file).name
+        topic_id = f"topic_{Path(source_file).stem}"
+        theory_id = f"theory_{Path(source_file).stem}"
+
+        # Generate embedding for the theory (compressed text/summary)
+        theory_embedding = []
+        if summary_text:
+            try:
+                theory_embedding = self.embedding_service.embed_text(summary_text)
+            except Exception as e:
+                print(f"⚠️  Failed to generate theory embedding: {e}")
+                theory_embedding = []
+
+        # Create lists for Pydantic models
+        nodes = []
+        relationships = []
+
+        # 1. TOPIC Node
+        if topic_name:
+            topic_node = Neo4jNode(
+                id=topic_id,
+                label="TOPIC",
+                properties=TopicNodeProperties(name=topic_name)
+            )
+            nodes.append(topic_node)
+
+        # 2. THEORY Node
+        theory_node = Neo4jNode(
+            id=theory_id,
+            label="THEORY",
+            properties=TheoryNodeProperties(
+                name=topic_name,
+                original_text=original_text,
+                compressed_text=summary_text,
+                embedding=theory_embedding,
+                keywords=keywords_data,
+                source=source_filename
+            )
+        )
+        nodes.append(theory_node)
+
+        # 3. TOPIC -> THEORY relationship
+        if topic_name:
+            topic_theory_rel = Neo4jRelationship(
+                id=f"rel_{topic_id}_to_{theory_id}",
+                relationship_type="HAS_THEORY",
+                start_node_id=topic_id,
+                end_node_id=theory_id,
+                properties=HasTheoryRelationshipProperties()
+            )
+            relationships.append(topic_theory_rel)
+
+        # 4. CONCEPT Nodes (canonical approach - no duplicates)
+        canonical_concepts = {}  # Track canonical concepts to avoid duplicates
+
+        for concept in concepts_data:
+            # Normalize concept name to canonical form
+            canonical_name = self._normalize_concept_name(concept.name)
+
+            # Skip if we've already processed this canonical concept
+            if canonical_name in canonical_concepts:
+                continue
+
+            # Create canonical concept node
+            concept_id = f"concept_{canonical_name.replace(' ', '_').replace('-', '_')}"
+            concept_node = Neo4jNode(
+                id=concept_id,
+                label="CONCEPT",
+                properties=ConceptNodeProperties(name=canonical_name)
+            )
+            nodes.append(concept_node)
+            canonical_concepts[canonical_name] = concept_id
+
+            # 5. THEORY -> CONCEPT relationship (MENTIONS)
+            mentions_relationship = Neo4jRelationship(
+                id=f"mentions_{theory_id}_to_{concept_id}",
+                relationship_type="MENTIONS",
+                start_node_id=theory_id,
+                end_node_id=concept_id,
+                properties=MentionsRelationshipProperties(
+                    original_name=concept.name,
+                    definition=concept.definition,
+                    text_evidence=concept.text_evidence,
+                    source_document=source_filename
+                )
+            )
+            relationships.append(mentions_relationship)
+
+        return Neo4jGraphData(nodes=nodes, relationships=relationships)
+
+    def _normalize_concept_name(self, concept_name: str) -> str:
+        """
+        Normalize concept names to canonical forms for the relationship-centric approach.
+
+        Args:
+            concept_name: Raw concept name from extraction
+
+        Returns:
+            Normalized canonical concept name
+        """
+        if not concept_name:
+            return concept_name
+
+        # Remove common redundant suffixes and patterns
+        redundant_patterns = [
+            r'\s+(Strategy|Strategies)$',
+            r'\s+(Model|Models)$',
+            r'\s+(Framework|Frameworks)$',
+            r'\s+(System|Systems)$',
+            r'\s+(Architecture|Architectures)$',
+            r'\s+(Algorithm|Algorithms)$',
+            r'\s+(Method|Methods)$',
+            r'\s+(Technique|Techniques)$',
+            r'\s+(Approach|Approaches)$',
+            r'\s+(Implementation|Implementations)$',
+            r'\s+(Programming|Processing)$',
+            r'\s+(Computing|Computation)$',
+            r'\s+Crawling\s+Strategy$',  # Specific to web crawler examples
+            r'\s+Analysis\s+(Framework|Model)$'
+        ]
+
+        normalized = concept_name.strip()
+
+        for pattern in redundant_patterns:
+            normalized = re.sub(pattern, '', normalized, flags=re.IGNORECASE)
+
+        # Clean up extra whitespace
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
+
+        # Return original if normalization resulted in empty string
+        return normalized if normalized else concept_name
+
+    def insert_graph_data(self, graph_data: Neo4jGraphData, source_file: str) -> Neo4jInsertionResult:
+        """
+        Insert Pydantic-based Neo4j graph data directly into the database using LangChain.
+
+        Args:
+            graph_data: Neo4jGraphData with type-safe Pydantic models
+            source_file: Path to source file for error reporting
+
+        Returns:
+            Neo4jInsertionResult with insertion status and statistics
+        """
+        try:
+            # Convert Pydantic models to dictionary format for existing method
+            neo4j_dict = graph_data.to_dict()
+
+            # Create GraphDocument using existing method
+            if neo4j_dict.get('nodes'):
+                graph_doc = self._create_graph_document_from_construction_plan(neo4j_dict)
+
+                # Insert into Neo4j using LangChain
+                self.graph.add_graph_documents([graph_doc])
+
+                # Count nodes and relationships
+                nodes_created = len(graph_data.nodes)
+                relationships_created = len(graph_data.relationships)
+
+                return Neo4jInsertionResult(
+                    success=True,
+                    nodes_created=nodes_created,
+                    relationships_created=relationships_created,
+                    source_file=source_file
+                )
+            else:
+                return Neo4jInsertionResult(
+                    success=False,
+                    nodes_created=0,
+                    relationships_created=0,
+                    source_file=source_file,
+                    error='No nodes to insert'
+                )
+
+        except Exception as e:
+            return Neo4jInsertionResult(
+                success=False,
+                nodes_created=0,
+                relationships_created=0,
+                source_file=source_file,
+                error=str(e)
+            )
 
     def close(self):
         """Close the database connection."""
