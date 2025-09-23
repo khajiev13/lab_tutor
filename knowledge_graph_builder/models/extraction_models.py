@@ -1,8 +1,8 @@
 """
-Pydantic models for structured concept extraction using LangChain.
+Pydantic models for structured concept extraction from technical and educational transcripts.
 
-These models define the expected output structure for canonical concept extraction
-in the relationship-centric approach.
+These models define the expected output structure for extracting topics, summaries,
+keywords, and concepts from lecture transcripts and technical documents.
 """
 
 from typing import List, Optional
@@ -10,40 +10,45 @@ from pydantic import BaseModel, Field
 
 
 class ConceptExtraction(BaseModel):
-    """A single concept with its canonical name, contextual definition, and text evidence."""
+    """A single concept representing theories, models, technologies, frameworks, or technical terms."""
 
     name: str = Field(
-        description="Canonical concept name without redundant suffixes (e.g., 'Machine Learning', 'HDFS'). "
-                   "Only extract concepts explicitly mentioned in source text."
+        description="Technical concept name preserving specificity and terminology intact "
+                   "(e.g., 'MapReduce', 'ODBC', 'DIKW pyramid'). Extract exactly as mentioned in text."
     )
     definition: str = Field(
-        description="Brief definition from the source text showing how this concept is used in the document."
+        description="Precise definition using the text's exact meaning. Avoid paraphrasing unless "
+                   "clarification is necessary. Derive definition directly from source text."
     )
     text_evidence: str = Field(
-        description="Exact verbatim quote from source where concept is mentioned. "
-                   "Word-for-word copy, not paraphrase."
+        description="Exact verbatim quote from source text where this concept is mentioned or defined. "
+                   "Must be word-for-word copy from the original text."
     )
 
 
 class CanonicalExtractionResult(BaseModel):
-    """Complete structured extraction result for canonical relationship-centric approach."""
-    
+    """Complete structured extraction result for technical document analysis."""
+
     topic: str = Field(
-        description="Concise title summarizing the document's subject."
+        description="Single concise title summarizing the session's overall subject. "
+                   "Extract exactly one TOPIC that captures the main theme."
     )
 
     summary: str = Field(
-        description="Clear summary covering major sections (30-50% of original length)."
+        description="Clear and coherent summary reduced to 30-50% of original length, "
+                   "covering all major sections and arguments while maintaining logical flow."
     )
 
     keywords: List[str] = Field(
-        description="5-10 central terms from the text.",
-        min_length=0,
-        max_length=15  # Allow some flexibility
+        description="Comma-separated list of 5-10 high-value terms, phrases, or entities "
+                   "most central to the lecture. Focus on technical terminology and key concepts.",
+        min_length=5,
+        max_length=10
     )
 
     concepts: List[ConceptExtraction] = Field(
-        description="Important concepts with canonical names and definitions.",
+        description="All important theories, models, technologies, frameworks, or technical terms. "
+                   "Each must include precise definition derived from the text.",
         min_length=0
     )
 

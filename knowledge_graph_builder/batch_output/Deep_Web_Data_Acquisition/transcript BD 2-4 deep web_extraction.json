@@ -1,0 +1,44 @@
+{
+  "topic": "Deep Web Data Acquisition",
+  "summary": "This session discusses deep web data acquisition, contrasting it with the surface and dark web. The deep web, coined by Bright Planet in 2000, contains information stored in searchable databases, including academic, financial, and government records. The dark web contains illegal information and uses tools like Tor for anonymity. Deep web information is highly relevant, fast-growing, and often stored in thematic databases, with most being publicly available. Deep web content includes pages lacking directed links, non-web files, dynamic pages from online databases, and restricted-access content. Deep web data collection involves query interface identification and automatic form filling, using methods like visual layout parsing, syntax analysis, text similarity heuristics, and page/form classifiers. Domain knowledge and domain-independent detection are used to automatically fill in forms. The session compares deep web data collection with traditional search engine queries, highlighting differences in interface, results, and sorting methods.",
+  "keywords": [
+    "deep web",
+    "surface web",
+    "dark web",
+    "Tor",
+    "data acquisition",
+    "query interface",
+    "HTML forms",
+    "crawler",
+    "structured data",
+    "databases"
+  ],
+  "concepts": [
+    {
+      "name": "Deep Web",
+      "definition": "Used to express those websites whose information content is stored in the search database and only responds to direct queries",
+      "text_evidence": "Deep Web concept is created by Bright Planet in 2000, which is Used to express those websites whose information content is stored in the search database and only responds to direct queries"
+    },
+    {
+      "name": "Surface web",
+      "definition": "Its content is basically unstructured HTML information, anyone can access it through the Internet.",
+      "text_evidence": "Surface web, its content is basically unstructured HTML information, anyone can access it through the Internet."
+    },
+    {
+      "name": "Dark web",
+      "definition": "Mostly is the illegal information, related to drugs, weapons and others.",
+      "text_evidence": "At Bottom is the dark web, which mostly is the illegal information, related to drugs, weapons and others."
+    },
+    {
+      "name": "TOR",
+      "definition": "The acronym for \"the onion router\", and users can communicate anonymously on the Internet through Tor.",
+      "text_evidence": "Tor is the acronym for \"the onion router\", and users can communicate anonymously on the Internet through Tor."
+    },
+    {
+      "name": "relay nodes",
+      "definition": "Volunteers around the world provide about 5,000 computers as nodes on the transmission path to cover up new pages or chat requests. The Tor Project calls these points relay nodes.",
+      "text_evidence": "Volunteers around the world provide about 5,000 computers as nodes on the transmission path to cover up new pages or chat requests. The Tor Project calls these points relay nodes."
+    }
+  ],
+  "original_text": "Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss\nDeep web data acquisition.\nAs the picture shows, the content of all internet information could be divided into 3 parts, surface web, deep web and dark web.\non top is the surface web, Surface web, its content is basically unstructured HTML information, anyone can access it through the Internet.\nIn the middle is deep web,\nDeep Web concept is created by Bright Planet in 2000, which is Used to express those websites whose information content is stored in the search database and only responds to direct queries;\nthe content is mostly structured DB information. The information could be academic records, financial records, legal documents, government records and science reports.\nAt Bottom is the dark web, which mostly is the illegal information, related to drugs, weapons and others.\nIn the dark web part, besides the onion is the “TOR”.\nTor is the acronym for \"the onion router\", and users can communicate anonymously on the Internet through Tor.\nThe project was originally sponsored by the U.S. Naval Research Laboratory to hide the whereabouts of government personnel collecting intelligence online;\nTor is designed and provided for free by Tor Project, a non-profit organization, and has been adopted by freedom advocates and criminals.\nTor sends chat messages, Google searches, purchase orders or emails through multiple computers in a circuitous manner, disguising the activities of Internet users like an onion wraps its core.\nInformation transmission is encrypted at every step, and there is no way to know where the user is , Location and destination of information transfer.\nVolunteers around the world provide about 5,000 computers as nodes on the transmission path to cover up new pages or chat requests.\nThe Tor Project calls these points relay nodes.\n3 American Internet experts and librarians Chris Sher-man and Gary Price defined:\n\"Available on the Internet, but those web pages, files or other high-quality, authoritative information that traditional search engines are unable to index due to technical limitations or are unwilling to index after careful consideration\"\nFeatures of Deep Web Information\n1 Highly related to information needs, markets and fields；\n2 Fastest growing new type of information on the Internet.\nmore specialized and deeper than the traditional surface web.\nThe full value of the deep web content is 1000-2000 times that of the surface web.\n3 More than half is stored in thematic databases;\n95% of the information on the deep web is publicly available without payment\nDeep web content includes\nPages that are not referred to by search engines due to lack of directed links .\nNon-web files accessible on the web, such as picture files, Pdf and word documents, etc.\nA dynamic page obtained by querying the back-end online database by filling in the form.\nContent that requires registration or other restrictions to access.\nLet ‘s compare deep web and the content searched by search engine,\n1) from interface, deep web content is Dynamic Web extracted from databases, which usually have complex interfaces, and each query interface supports queries on several attributes.\nsearch engine, the content is searched by keyword\n2) the results from deep web are mainly structured data, but the results from search engine is just web pages.\n3) in the aspect of how to sort search results, deep web sort search results according to the result of a certain attribute value in Deep Web, search engine sort search results by Similarity between search results and submitted query.\nNow let’s learn how to collect the deep web data. Deep web data collection task includes 2 stages, 1) is query interface identification. 2 fill in the form automatically, then execute the query.\nFor a specific website, you can obtain as much deep web data as possible by manually writing or giving crawler scripts with the assistance of wrappers and generators.\nHowever, this method not only requires a lot of manpower, but also its scalability is poor because of its Specific website and query interface,.\nConstruct a general deep web crawler in order to crawl the deep web data of many sites at once.\n1）Query interface recognition: Use a variety of methods including visual layout to parse HTML forms or perform syntax analysis on HTML forms to automatically discover deep web data resources;\n2) Add text similarity heuristic rules to associate HTML forms with specific fields to realize automatic filling of forms;\n3 ) By constructing page classifiers and form classifiers to automatically find deep web databases related to tasks\n4 ) Try to Automatically fill in the form.\n4.1Based on domain knowledge: Use heuristic rules to associate the field of the form with the domain, thereby inputting parameters related to the domain concept.\n4.2 Domain-independent detection: Iteratively obtain query keywords from query results based on sampling, to obtain as many query results as possible with fewer queries\nLet’ s summarize the deep web data acquisition topic.\nIn this session we learned\nThe concept of the deep web\nFeatures of Deep Web Information\nWhat is Deep web content\nWe Compared the results of Deep Web Data Collection and Traditional Search Engine Query\nWe analyzed Deep web data collection task, and we understand the solution to crawl the deep web content.\nIn this session we learned the bigdata resources, internal and external data.\nthank you for your attention, if you have any question, feel free to contact me."
+}

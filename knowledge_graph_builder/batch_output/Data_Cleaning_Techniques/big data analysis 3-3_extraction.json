@@ -1,0 +1,58 @@
+{
+  "topic": "Data Cleaning Techniques",
+  "summary": "This session discusses data cleaning techniques, focusing on repeat record cleaning, missing value cleaning, and eliminating noise data. Repeat record cleaning involves identifying and removing duplicate records, which can arise from integrating multiple data sources or repeated data input. Missing value cleaning addresses incomplete data by ignoring records, using default values, or employing imputation methods like attribute averages or predictive models. Eliminating noise data uses binning, clustering, and regression algorithms. Binning involves dividing data into sub-intervals and smoothing values within each bin using methods like averaging, boundary values, or medians. Clustering groups similar data points, identifying outliers as noise. Regression fits data to a function to smooth it, such as linear regression using the least squares method.",
+  "keywords": [
+    "data cleaning",
+    "repeat record cleaning",
+    "missing value cleaning",
+    "noise data",
+    "binning",
+    "clustering",
+    "regression",
+    "equal depth binning",
+    "equal-width binning"
+  ],
+  "concepts": [
+    {
+      "name": "Repeat record cleaning",
+      "definition": "Remove duplicate records in the data set to improve the accuracy and speed of the analysis.",
+      "text_evidence": "Duplicate records will lead to erroneous analysis results, so it is necessary to remove duplicate records in the data set to improve the accuracy and speed of the analysis."
+    },
+    {
+      "name": "Missing value cleaning",
+      "definition": "Missing values must be inferred and added.",
+      "text_evidence": "Missing values must be inferred and added."
+    },
+    {
+      "name": "Binning algorithm",
+      "definition": "Put the data to be processed into some boxes according to certain rules, examine the data in each box, and use a certain method to process the data in each box separately.",
+      "text_evidence": "Put the data to be processed into some boxes according to certain rules, examine the data in each box, and use a certain method to process the data in each box separately."
+    },
+    {
+      "name": "Equal depth binning",
+      "definition": "Bins are divided according to the number of rows of records, each bin has the same number of records, and the number of records in each bin is called the weight of the bin, also known as the depth of the bin.",
+      "text_evidence": "Bins are divided according to the number of rows of records, each bin has the same number of records, and the number of records in each bin is called the weight of the bin, also known as the depth of the bin."
+    },
+    {
+      "name": "Equal-width binning",
+      "definition": "Evenly distributed over the entire attribute value interval, that is, the interval range of each box is a constant, called the box width.",
+      "text_evidence": "Evenly distributed over the entire attribute value interval, that is, the interval range of each box is a constant, called the box width."
+    },
+    {
+      "name": "Clustering Algorithm",
+      "definition": "A collection of data objects. All objects in the same cluster are similar, and objects in different clusters are quite different.",
+      "text_evidence": "A collection of data objects. All objects in the same cluster are similar, and objects in different clusters are quite different."
+    },
+    {
+      "name": "Regression algorithm",
+      "definition": "Find the pattern of change between two related variables, which are x and y in the diagram, and smooth the data by fitting the data to a function, that is, using the fitting function to smooth the data.",
+      "text_evidence": "Find the pattern of change between two related variables, which are x and y in the diagram, and smooth the data by fitting the data to a function, that is, using the fitting function to smooth the data."
+    },
+    {
+      "name": "Linear regression",
+      "definition": "Use straight line modeling to treat one variable as a linear function of another variable.",
+      "text_evidence": "Use straight line modeling to treat one variable as a linear function of another variable."
+    }
+  ],
+  "original_text": "big data analysis 3-3\n1 Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss Data Cleaning Technology.\nData Cleaning Technology can help to solve three kinds of problems, repeat record cleaning, Missing value cleaning and Eliminating noise data.\nFirst let’s look at the Repeat record cleaning\nDuplicate records will lead to erroneous analysis results, so it is necessary to remove duplicate records in the data set to improve the accuracy and speed of the analysis.\n1 what are the Causes of duplicate values\n1.1 Integrate data from multiple data sources will result the duplicate values\n1.2 When inputting, some data is input repeatedly\n2Duplicate values are combined after inference\n2.1 Delete completely duplicate records\n2.2 When merging different tables, some redundant attributes (such as time) is added\nIt is necessary to compare the related attributes of two records. According to the similarity of each attribute and the weight of the attribute, the similarity of the record is obtained.\nIf the similarity exceeds a certain threshold, it is considered as a duplicate record.\nNow let’s look at the Missing value cleaning.\nCauses of missing values could be\nEquipment abnormal, or When entering, some data is not taken seriously and not entered.\nMissing values must be inferred and added. We can Ignore this record; Use default; Use attribute average;\nUse the average of similar samples and Predict the most likely value\nThe third Data Cleaning Technology is Eliminating noise data\nData noise can be Eliminated by\nBinning/split bin algorithm\nClustering Algorithm\nRegression algorithm.\nFirst let’s look at Binning algorithm\nPut the data to be processed into some boxes according to certain rules, examine the data in each box, and use a certain method to process the data in each box separately.\nA sub-interval divided by attribute value. If an attribute value is within a certain sub-interval range, it is said to put the attribute value in the \"box\" represented by this sub-interval.\nThe main issues:\nHow to divide the box;\nData smoothing method, that is, how to smooth the data in each box, which means use what methods to decide the value to present each box.\nIn the example here, there are 4 different bins, grey, yellow green and purple, each age value is put to certain range, like age 10 is put into range from 10 to 16, the grey box. And so, on\nThe ways of how to Sort the record set according to the size of the target attribute value before binning, include\nEqual depth binning\nEqual-width binning\nUser-defined interval\nEqual depth bin method (unified weight):\nBins are divided according to the number of rows of records,\neach bin has the same number of records, and the number of records in each bin is called the weight of the bin, also known as the depth of the bin.\nIn this example, we have 16 records, and we decide the box depth is 4 , after binning, we have 4 boxes results and each box contain 4 records\nEqual-width binning method, evenly distributed over the entire attribute value interval, that is, the interval range of each box is a constant, called the box width.\nIn the example, Set the interval range (the width of the box) to RMB 1,000, then the result is also 4 boxes, but the records in the boxes are different from the Equal depth bin method.\nAfter binning, we should choose a value to represent the boxes, which is called smooth. there are mainly 3 ways to smooth:\nSmooth by average：Average the data in the same box value and replace all the data in the box with the average value.\nSmooth according to the boundary value：Replace each data in the box with a boundary value with a smaller distance.\nSmooth according to the median：Take the median value of the box and use it to replace all the data in the box.\nSecond way of Eliminating Data noise is Clustering Algorithm. Now let’s look at Clustering Algorithm\nA collection of data objects. All objects in the same cluster are similar, and objects in different clusters are quite different.\nClustering:\nGrouping a collection of physical or abstract objects into different clusters, finding and clearing those values (outliers) that fall outside the clusters. These isolated points are regarded as noise.\nUnusual data is discovered through cluster analysis:\nsimilar or adjacent data are aggregated to form clusters, and those data objects outside these clusters are naturally considered as abnormal data.\nFeatures: Directly form clusters and describe the clusters without any prior knowledge.\nThe third way of Eliminating Data noise is Regression Algorithm. Now let’s look at Regression algorithm\nRegression:\nFind the pattern of change between two related variables, which are x and y in the diagram, and smooth the data by fitting the data to a function, that is, using the fitting function to smooth the data.\nLinear regression (simple regression): Use straight line modeling to treat one variable as a linear function of another variable.\nFor example: Y=aX+b, where a and b are called regression coefficients, and the coefficients a and b can be obtained by the least square method.\nIn this session we general introduced Data Preprocessing.\nthank you for your attention, if you have any question, feel free to contact me."
+}

@@ -1,5 +1,6 @@
+import time
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from utils.doc_utils import load_single_docx_document
 from utils.output_utils import organize_extraction_output
@@ -152,6 +153,104 @@ class IngestionService:
                 'error': str(e)
             }
 
+    def process_batch_documents(self, input_directory: str, output_directory: str,
+                              clear_database: bool = False, generate_embeddings: bool = True) -> Dict[str, Any]:
+        """
+        Process multiple DOCX files from a specified directory using batch processing.
 
+        Args:
+            input_directory: Path to directory containing DOCX files
+            output_directory: Base output directory for processed results
+            clear_database: Whether to clear Neo4j database before batch processing
+            generate_embeddings: Whether to generate embeddings for extracted concepts
 
+        Returns:
+            Dictionary containing batch processing results with total files, successful/failed counts,
+            failed file list, and processing time
+        """
+        start_time = time.time()
 
+        # Discover all DOCX files in input directory
+        input_path = Path(input_directory)
+        if not input_path.exists():
+            return {
+                "total_files": 0,
+                "successful": 0,
+                "failed": 1,
+                "failed_files": [f"Directory not found: {input_directory}"],
+                "processing_time": 0.0
+            }
+
+        docx_files = list(input_path.glob("*.docx"))
+        total_files = len(docx_files)
+
+        if total_files == 0:
+            print(f"📁 No DOCX files found in {input_directory}")
+            return {
+                "total_files": 0,
+                "successful": 0,
+                "failed": 0,
+                "failed_files": [],
+                "processing_time": time.time() - start_time
+            }
+
+        print(f"🚀 Starting batch processing of {total_files} DOCX files")
+        print(f"📁 Input directory: {input_directory}")
+        print(f"📁 Output directory: {output_directory}")
+
+        # Clear database once at the beginning if requested
+        if clear_database:
+            print("🗑️  Clearing Neo4j database...")
+            self.neo4j_service.clear_database()
+
+        # Process each file
+        successful = 0
+        failed = 0
+        failed_files: List[str] = []
+
+        for i, docx_file in enumerate(docx_files, 1):
+            filename = docx_file.name
+            print(f"🔄 Processing {i}/{total_files}: {filename}")
+
+            try:
+                result = self.process_single_document(
+                    docx_path=str(docx_file),
+                    output_dir=output_directory,
+                    insert_to_neo4j=True,
+                    generate_embeddings=generate_embeddings
+                )
+
+                if result.get('success', False):
+                    successful += 1
+                    print(f"✅ Successfully processed: {filename}")
+                else:
+                    failed += 1
+                    failed_files.append(filename)
+                    error_msg = result.get('error', 'Unknown error')
+                    print(f"❌ Failed to process: {filename} - {error_msg}")
+
+            except Exception as e:
+                failed += 1
+                failed_files.append(filename)
+                print(f"❌ Error processing {filename}: {e}")
+
+        processing_time = time.time() - start_time
+
+        # Print summary report
+        print(f"\n📊 BATCH PROCESSING SUMMARY")
+        print(f"{'='*50}")
+        print(f"📁 Total files: {total_files}")
+        print(f"✅ Successful: {successful}")
+        print(f"❌ Failed: {failed}")
+        print(f"⏱️  Processing time: {processing_time:.2f} seconds")
+
+        if failed_files:
+            print(f"📋 Failed files: {', '.join(failed_files)}")
+
+        return {
+            "total_files": total_files,
+            "successful": successful,
+            "failed": failed,
+            "failed_files": failed_files,
+            "processing_time": processing_time
+        }

@@ -1,0 +1,44 @@
+{
+  "topic": "Data Quality Issues in Single and Multiple Data Resources",
+  "summary": "This session discusses data quality issues in single and multiple data resources. Data quality problems are classified based on the number of data sources (single vs. multiple) and abstract level (model-level vs. instance-level). Model-level issues can be solved by improving model design, conversion, and integration, while instance-level issues, such as errors and inconsistencies in data content, require data cleaning. Single data resource problems include uniqueness and integrity constraints at the model level, and spelling errors and redundant records at the instance level. Multiple data resource problems involve naming and structural conflicts at the model level, and different value representations and overlapping records at the instance level. The data quality problems of different levels and scopes correspond to different data cleaning methods. In multiple data sources, data integration is crucial, but data sources often have different designs and may contain dirty data, leading to structural and naming conflicts, duplicate records, and data conflicts.",
+  "keywords": [
+    "data quality",
+    "single data resource",
+    "multiple data resources",
+    "model-level issues",
+    "instance-level issues",
+    "data cleaning",
+    "naming conflict",
+    "structural conflict",
+    "integrity constraints",
+    "data integration"
+  ],
+  "concepts": [
+    {
+      "name": "Model-level issues",
+      "definition": "Data quality problems that can be solved by improving model design, model conversion and model integration.",
+      "text_evidence": "Model level problems can be solved by improving model design, model conversion and model integration."
+    },
+    {
+      "name": "Instance-level issues",
+      "definition": "Data quality problems refer to errors and inconsistencies in the actual data content.",
+      "text_evidence": "instance level Data quality problems refer to errors and inconsistencies in the actual data content."
+    },
+    {
+      "name": "Naming conflict",
+      "definition": "Using the same name for different data objects or using different names for the same data object.",
+      "text_evidence": "Naming conflict refers to using the same name for different data objects or using different names for the same data object."
+    },
+    {
+      "name": "Structural conflicts",
+      "definition": "Different ways to represent the same data object in different data sources.",
+      "text_evidence": "There are many different situations of structural conflicts, which usually refer to different ways to represent the same data object in different data sources."
+    },
+    {
+      "name": "Integrity constraints",
+      "definition": "The integrity constraints of the database determine which data values are acceptable.",
+      "text_evidence": "The integrity constraints of the database determine which data values are acceptable."
+    }
+  ],
+  "original_text": "Big data 3-2\nHello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology, in this session, we will discuss Data Quality\nAbout data quality, we want to discuss, Data quality of Single Data resource and Data quality of Multiple Data resource\nThe classification of data quality issues has two dimensions,\n1) Classified according to the number of data sources, data quality problems can be divided into two types: single data source and multiple data sources\n2 )Classified according to abstract level or concrete level. Data quality issues can be divided into model-level issues and instance-level issues.\nModel level problems can be solved by improving model design, model conversion and model integration.\ninstance level Data quality problems refer to errors and inconsistencies in the actual data content.\nThese problems are often invisible at the model level and need to be resolved in the data cleaning process.\nFor the Single data resource data quality problems , in model level it could be Uniqueness, Integrity constraints, Attribute dependence and so on.\nFor the Single data resource data quality problems , in instance level it could be Spelling errors, Redundant and repeated records, Attribute value conflict and so on.\nFor the Multiple data resources data quality problems , in model level it could be Naming conflict, Structure conflict and so on.\nFor the Multiple data resources data quality problems , in instance level it could be Different representations of values, Overlapping/duplicate records and so on.\nLet ‘s look at the Single Data resource Model level and Instance level data quality issues first\nFor a single data source, the data quality problem at the model layer largely depends on the integrity constraints of the design model on the data.\nThe integrity constraints of the database determine which data values are acceptable.\nFor example, a data to represent a date, the format and type of the date need to be restricted to ensure that the format of all date data in the database is uniform.\nHowever, for data sources that do not have uniform constraints such as files and web data, the possibility of causing data value errors and inconsistencies is greatly increased.\nFor a single data source, data quality problems at the instance level are unavoidable at the model design level, such as data input errors, etc.\nSingle Data resource data quality errors categories include\n1) Attribute internal: limited to a single attribute value, such as age: 2000\n2) Inside the record (between attributes): Different attribute values in the same record are inconsistent, for example, age and birthday cannot correspond\n3 )Internal data source (between records): inconsistency between different records of the same data source, for example, the name of the same ID is inconsistent\n4 )Between data sources: Some attributes in the data source are inconsistent with related values in other data sources, for example, the age corresponding to the same ID is inconsistent\nThe data quality problems of different levels and scopes correspond to different data cleaning methods. A clear data level range is the basis for finding a reasonable data cleaning method\nNow Let ‘s look at the Multiple Data resource Model level and Instance level data quality issues\nIn the case of multiple data sources, data from different data sources need to be integrated. Each data source is often created by a specific application to meet the needs of specific users, and the data model design of each data source will be very different. In addition, each data source may contain dirty data, and different data sources may have different representations, data duplication, or data conflicts for the same data.\nTherefore, the data quality problem in the case of a single data source is in the case of multiple data sources The next still exists. In addition, in the case of multiple data sources, data cleaning faces many new problems, such as structural conflicts, naming conflicts, duplicate records, etc.\nThe main problems at the multi-data source model level are naming conflicts and structural conflicts:\nNaming conflict refers to using the same name for different data objects or using different names for the same data object.\nThere are many different situations of structural conflicts, which usually refer to different ways to represent the same data object in different data sources. For example, the same object has different attribute granularity in different data sets, different composition structures, different data types, and different Integrity constraints, etc.\nThe conflict at the data instance level refers to the conflict of specific data.\nThe data quality problems existing in a single data source may appear in different forms in different data sources, such as record duplication and record conflict. Even if different data sources have the same attribute name and data type, there may be different data value representations. For example, the description of gender can be expressed as male, female, or as M, F.\nOr the data deserves different interpretations, such as the U.S. dollar, euro and other currency measurement units\nIn addition, the information provided by different data sources may be aggregated at different levels. For example, a single record in a data source describes the sales information of a certain product, while a record in another data source describes a group of similar products. sales information\nIn this session we discussed some concrete Data quality issues.\nthank you for your attention, if you have any question, feel free to contact me."
+}

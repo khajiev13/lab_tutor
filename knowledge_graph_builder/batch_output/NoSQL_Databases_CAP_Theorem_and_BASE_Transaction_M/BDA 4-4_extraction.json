@@ -1,0 +1,88 @@
+{
+  "topic": "NoSQL Databases: CAP Theorem and BASE Transaction Model",
+  "summary": "This session discusses NoSQL databases, focusing on the CAP theorem and the BASE transaction model. The big data computing system is categorized into data storing, data processing, and data application systems, with the focus here on data storing systems. The CAP theorem states that a distributed system cannot simultaneously satisfy Consistency, Availability, and Partition tolerance; it can satisfy at most two. Different database systems prioritize different pairs of these properties. RDBMS choose Consistency and Availability, MongoDB, HBase and Redis choose Consistency and Partition tolerance and CouchDB and Cassandra choose Availability and Partition tolerance. The BASE model (Basically Available, Soft-state, Eventual consistency) contrasts with ACID properties (Atomicity, Consistency, Isolation, Durability) of traditional databases. BASE emphasizes availability over strong consistency, allowing for eventual consistency where data becomes consistent after a period. Strong consistency ensures that subsequent read operations reflect the latest updates, while weak consistency, including eventual consistency, does not guarantee this.",
+  "keywords": [
+    "NoSQL database",
+    "CAP theorem",
+    "BASE",
+    "ACID",
+    "Consistency",
+    "Availability",
+    "Partition tolerance",
+    "Eventual consistency",
+    "Distributed system"
+  ],
+  "concepts": [
+    {
+      "name": "CAP Theorem",
+      "definition": "A distributed system cannot meet 3 requirements of Consistency, Availability, and Partition tolerance at the same time. At most, only two of them can be satisfied at the same time.",
+      "text_evidence": "CAP Theorem means A distributed system cannot meet 3 requirements of Consistency, Availability, and Partition tolerance at the same time. At most, only two of them can be satisfied at the same time."
+    },
+    {
+      "name": "Consistency",
+      "definition": "Even in a distributed environment, the data of multiple storage nodes have the same data value at the same time, and all data backup updates should be synchronized",
+      "text_evidence": "C stands for Consistency, which means even in a distributed environment, the data of multiple storage nodes have the same data value at the same time, and all data backup updates should be synchronized"
+    },
+    {
+      "name": "Availability",
+      "definition": "Client can quickly read data, return operation results within a reasonable time, and ensure that every request has a response regardless of success or failure",
+      "text_evidence": "A stands for Availability, which means client can quickly read data, return operation results within a reasonable time, and ensure that every request has a response regardless of success or failure"
+    },
+    {
+      "name": "Partition tolerance",
+      "definition": "When a partition in the system cannot communicate with other nodes, it does not affect the normal operation of the rest of the system, or the error or loss of part of the system data does not affect the overall operation of the system.",
+      "text_evidence": "P stands for partition tolerance, which means that when a partition in the system cannot communicate with other nodes, it does not affect the normal operation of the rest of the system, or the error or loss of part of the system data does not affect the overall operation of the system."
+    },
+    {
+      "name": "BASE",
+      "definition": "Basically Available, Soft-state, and Eventual consistency",
+      "text_evidence": "The basic meaning of BASE is Basically Available, Soft-state, and Eventual consistency"
+    },
+    {
+      "name": "Atomicity",
+      "definition": "The transaction must be an atomic unit of work. For data modification, either all or none of them are performed.",
+      "text_evidence": "A (Atomicity): Atomicity means that the transaction must be an atomic unit of work. For data modification, either all or none of them are performed."
+    },
+    {
+      "name": "Consistency",
+      "definition": "When the transaction is completed, all data must be kept in a consistent state",
+      "text_evidence": "C (Consistency): Consistency means that when the transaction is completed, all data must be kept in a consistent state"
+    },
+    {
+      "name": "Isolation",
+      "definition": "Changes made by concurrent firms must be isolated from changes made by any other concurrent firms",
+      "text_evidence": "I (Isolation): Isolation means that changes made by concurrent firms must be isolated from changes made by any other concurrent firms"
+    },
+    {
+      "name": "Durability",
+      "definition": "After the transaction is completed, its impact on the system is permanent. This modification will be maintained even if a fatal system failure occurs",
+      "text_evidence": "D (Durability): Persistence means that after the transaction is completed, its impact on the system is permanent. This modification will be maintained even if a fatal system failure occurs"
+    },
+    {
+      "name": "Basically available",
+      "definition": "When a part of a distributed system becomes unavailable due to a problem, the other parts can still be used normally, that is, the situation where the partition fails",
+      "text_evidence": "Basically, available means that when a part of a distributed system becomes unavailable due to a problem, the other parts can still be used normally, that is, the situation where the partition fails"
+    },
+    {
+      "name": "Soft-state",
+      "definition": "The state can be out of sync for a period, with a certain lag",
+      "text_evidence": "\"Soft-state\" means that the state can be out of sync for a period, with a certain lag"
+    },
+    {
+      "name": "Eventual consistency",
+      "definition": "Subsequent access operations temporarily can fail to read the updated data, but after a period, the updated data must eventually be read.",
+      "text_evidence": "Eventual consistency means subsequent access operations temporarily can fail to read the updated data, but after a period, the updated data must eventually be read."
+    },
+    {
+      "name": "Strong consistency",
+      "definition": "After performing an update operation, other subsequent read operations can ensure that the latest updated data is read",
+      "text_evidence": "For strong consistency, after performing an update operation, other subsequent read operations can ensure that the latest updated data is read"
+    },
+    {
+      "name": "Weak consistency",
+      "definition": "If it cannot be guaranteed that all subsequent reads will read the latest updated data, then it is Just weak consistency.",
+      "text_evidence": "otherwise, if it cannot be guaranteed that all subsequent reads will read the latest updated data, then it is Just weak consistency."
+    }
+  ],
+  "original_text": "Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology,\nin this session, we discuss about NoSQL Database\nCore concepts CAP theorem and No SQL database transaction model BASE\nThe big data computing system can be summarized into three categories:\nData storing system, Data processing system, Data application system\nHere we still in the scope of Data storing system.\nIn data storing system, there are 4 parts to accomplish different tasks,\nwhich is Data collection and modeling, Distributed file system, Distributed database/data warehouse and Unified Data Access Interface.\nHere we still in NoSQL Database.in No SQL database, there are two important concepts, CAP theorem and No SQL database transaction model BASE.\nLet’s look at the CAP theorem first.\nCAP Theorem means A distributed system cannot meet 3 requirements of Consistency, Availability, and Partition tolerance at the same time.\nAt most, only two of them can be satisfied at the same time.\nC stands for Consistency, which means even in a distributed environment, the data of multiple storage nodes have the same data value at the same time, and all data backup updates should be synchronized\nA stands for Availability, which means client can quickly read data, return operation results within a reasonable time, and ensure that every request has a response regardless of success or failure\nP stands for partition tolerance, which means that when a partition in the system cannot communicate with other nodes, it does not affect the normal operation of the rest of the system, or the error or loss of part of the system data does not affect the overall operation of the system.\nAccording to the CAP theorem , a distributed system can only meet two of the CAPs in the mid-run data read and write operations, but not three at the same time.\nThe choice of CAP also leads to the difference between relational databases and NoSQL databases.\nLet’ s watch a video about CAP Theorem .\nFrom the video we understand why the CAP Consistency, Availability, and Partition tolerance cant be satisfied at the same time.\nThe diagram here shows different product choose different combination of C, A and P.\nRDBMS choose C and A,\nCA: That is to emphasize consistency (C) and availability (A), give up partition tolerance (P),\nthe simplest way is to put all transaction-related content on the same machine.\nObviously, this approach will seriously affect the scalability of the system. Traditional relational databases (MySQL, SQL Server, and PostgreSQL) all adopt this design principle, so they have poor scalability.\nMongoDB, HBase and Redis choose C and P,\nCP: That is to emphasize consistency (C) and partition tolerance (P), give up availability (A),\nwhen the network partition situation occurs, the affected services need to wait for the data to be consistent, so they cannot provide services to outside parties\nand CouchDB， Cassandra etc. choose A and P\nAP: That is to emphasize availability (A) and partition tolerance (P), give up consistency (C), which allow the system to return inconsistent data\nNow let’s learn the NoSQL characters BASE\nSpeaking of BASE (Basically Available, Soft-state, Eventual consistency), I have to talk about ACID.\nA database transaction has four ACID properties:\nA (Atomicity): Atomicity means that the transaction must be an atomic unit of work. For data modification, either all or none of them are performed.\nC (Consistency): Consistency means that when the transaction is completed, all data must be kept in a consistent state\nI (Isolation): Isolation means that changes made by concurrent firms must be isolated from changes made by any other concurrent firms\nD (Durability): Persistence means that after the transaction is completed, its impact on the system is permanent. This modification will be maintained even if a fatal system failure occurs\nThe basic meaning of BASE is Basically Available, Soft-state, and Eventual consistency:\nBasically, available means that when a part of a distributed system becomes unavailable due to a problem, the other parts can still be used normally, that is, the situation where the partition fails\n\"Soft-state\" is a term corresponding to \"hard-state\". When the data stored in the database is \"hard state\", data consistency can be guaranteed, that is, the data is always correct. \"Soft state\" means that the state can be out of sync for a period, with a certain lag\nEventual consistency means subsequent access operations temporarily can fail to read the updated data, but after a period, the updated data must eventually be read.\nAccording to whether the subsequent operations can obtain the latest data under high-concurrency data access operations.   The types of consistency include strong consistency and weak consistency\nThe main difference between the two is whether the subsequent operations can obtain the latest data under high-concurrency data access operations.\nFor strong consistency, after performing an update operation, other subsequent read operations can ensure that the latest updated data is read; otherwise, if it cannot be guaranteed that all subsequent reads will read the latest updated data, then it is Just weak consistency.\nEventual consistency is just a special case of weak consistency, allowing subsequent access operations to temporarily fail to read the updated data, but after a period, the updated data must eventually be read.\nIn this session we learned two important concepts, CAP theorem and No SQL database transaction model BASE-Basically Available, Soft-state, Eventual consistency.\nthank you for your attention, if you have any question, feel free to contact me."
+}

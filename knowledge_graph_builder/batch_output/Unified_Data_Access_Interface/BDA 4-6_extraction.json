@@ -1,0 +1,48 @@
+{
+  "topic": "Unified Data Access Interface",
+  "summary": "This session introduces the Unified Data Access Interface (UDAI) within the context of data storage systems. The big data computing system is categorized into data storing, data processing, and data application systems, with data storage architecture as its foundation. Data storing system comprises data collection and modeling, distributed file systems, distributed databases/data warehouses, and UDAI. UDAI sits atop data acquisition, DFS, and DB, providing data to upper-level data processing systems, supporting cross-platform heterogeneous data in distributed environments. ODBC is introduced as an early database access API using SQL. The data access layer (DAL) addresses limitations of ODBC and JDBC by providing functions like transaction management and heterogeneous data conversion, supporting CRUD operations. Common DAL implementations include DAO, ORM, and service data objects. UDAI is designed to handle cross-platform heterogeneous databases and diverse big data application layer technologies, offering unified data display, storage, and management, separating access interface from implementation, shielding data source differences, and providing a unified access interface and query language. UDAI components include a unified data access interface/query language, data model/metadata/service model, data conversion/service engine, and a data source wrapper.",
+  "keywords": [
+    "Unified Data Access Interface",
+    "UDAI",
+    "ODBC",
+    "Data Access Layer",
+    "DAL",
+    "DAO",
+    "ORM",
+    "heterogeneous data",
+    "data storage system"
+  ],
+  "concepts": [
+    {
+      "name": "Unified Data Access Interface",
+      "definition": "Based on a unified data interface to support Cross-platform heterogeneous data in a distributed environment",
+      "text_evidence": "Unified data access interface is Based on a unified data interface to support Cross-platform heterogeneous data in a distributed environment"
+    },
+    {
+      "name": "ODBC",
+      "definition": "The industry's earliest application programming interface to provide database access is ODBC (open database connectivity), and the structured query language SQL is used as the database access language.",
+      "text_evidence": "Access to databases and data exchange by applications is an important issue in distributed computing systems. The industry's earliest application programming interface to provide database access is ODBC (open database connectivity), and the structured query language SQL is used as the database access language."
+    },
+    {
+      "name": "Data Access Layer",
+      "definition": "A layer of software that provides data exchange functions on top of the database. Its function is mainly to realize the persistent storage of application data, that is, write data into the database, and read data from the database and pass it to the application to realize data exchange.",
+      "text_evidence": "This introduces the data access layer. DAL is a layer of software that provides data exchange functions on top of the database. Its function is mainly to realize the persistent storage of application data, that is, write data into the database, and read data from the database and pass it to the application to realize data exchange."
+    },
+    {
+      "name": "DAO",
+      "definition": "Data access object",
+      "text_evidence": "There are many ways to implement the data access layer, the common ones are data access object DAO (data access Object), implementation based on ORM (Object/relation Mapping), service data object (service data object) service middleware"
+    },
+    {
+      "name": "ORM",
+      "definition": "Object/relation Mapping",
+      "text_evidence": "There are many ways to implement the data access layer, the common ones are data access object DAO (data access Object), implementation based on ORM (Object/relation Mapping), service data object (service data object) service middleware"
+    },
+    {
+      "name": "CRUD",
+      "definition": "Create retrieve update and delete",
+      "text_evidence": "Specifically, it provides support for\nthe basic operations of CRUD (create retrieve update and delete) of the database."
+    }
+  ],
+  "original_text": "Hello everyone, I am Haiying Che, from Institute of Data Science and knowledge Engineering\nSchool of Computer Science, in Beijing Institute of Technology , from this session ,\nwe start to learn Data storing system, and in this session we discuss about Unified Data Access Interface.\nThe big data computing system can be summarized into three categories:\nData storing system, Data processing system, Data application system\nThe data storage architecture is the foundation of big data computing.\nIn data storing system , there are 4 parts to accomplish different tasks,\nwhich are Data collection and modeling, Distributed file system, Distributed database/data warehouse and Unified Data Access Interface.\nwe learned data collection and modeling, distributed file system, database and now we look at Unified Data Access Interface\nUnified data access interface is on top of data acquisition and modeling, DFS and DB， It provide the data to upper level data processing system.\nUDAI is Based on a unified data interface to support Cross-platform heterogeneous data in a distributed environment\nAccess to databases and data exchange by applications is an important issue in distributed computing systems. The industry's earliest application programming interface to provide database access is ODBC (open database connectivity), and the structured query language SQL is used as the database access language.\nODBC is essentially a set of database access APIs, composed of a set of function calls, and the core is SQL statements.\nAn ODBC-based operation on a database does not rely on any DBMS. The user directly transmits SQL statements to ODBC.\nAt the same time, ODBC does not rely on any DBMS for database operations, and does not directly deal with DBMS.\nAll database operations are completed by the corresponding ODBC driver. .\nHowever, database connection programming interfaces such as ODBC and JDBC can support SQL access by applications to the database,\nbut they cannot provide complex functions such as transaction management, concurrent scheduling, buffer management, heterogeneous database conversion and inheritance in a distributed computing environment. This introduces the data access layer. DAL is a layer of software that provides data exchange functions on top of the database. Its function is mainly to realize the persistent storage of application data, that is, write data into the database, and read data from the database and pass it to the application to realize data exchange. Specifically, it provides support for\nthe basic operations of CRUD (create retrieve update and delete) of the database.\nTransaction management,\nconcurrent processing\nheterogeneous data conversion.\nThere are many ways to implement the data access layer, the common ones are data access object DAO (data access Object), implementation based on ORM (Object/relation Mapping), service data object (service data object) service middleware\nWhen the system is extended to need to access cross-platform heterogeneous databases, the data type to be accessed may be UNIX, Linux or Windows, which can be forms, mails, XML documents, EJB components, Web services, images, audio/video files or For other unstructured data, it is difficult for a single DAO or ORM to support such cross-platform heterogeneous database access. And the technology of the big data application layer is also diversified and various standards. The design of the data access layer DAL needs to be compatible with various standard technologies and products, which introduces the Unified data access interface\nThe Definition is: Unified data access interface is Based on a unified data interface to support Cross-platform heterogeneous data in a distributed environment\nUDAI Functions include\nUnified data display, storage and management\nSeparation of access interface and implementation code, the change of the underlying database connection does not affect the unified data access interface\nShielding the differences of data sources and the details of database operations, making the application layer focus on data applications\nProvide a unified access interface and a unified query language\nUDAL -Unified data access layer\nShould include the following components\n1） Unified data access interface/unified query language;\n2） Data model/metadata/service model;\n3 ）Data conversion engine/data service engine/data source manager;\n4 ）Data source wrapper\nAll these can help to transform different format data from different data sources to unified data services and enable the data processing system to unified retrieve the needed data.\nUntil now, we learned all the four parts of Data storage system which include Data Acquisition / Extraction / Transforming / Modeling layer, distributed file system, non-relational database (NoSQL), and unified database Access interface. All these 4 parts work together to finish the getting data, cleaning and transforming data, logical and physical storing data, and unifying the data access.\nIn this session, we learned Unified Data Access Interface.\nthank you for your attention, if you have any question, feel free to contact me."
+}
