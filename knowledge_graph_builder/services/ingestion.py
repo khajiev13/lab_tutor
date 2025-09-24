@@ -15,6 +15,10 @@ class IngestionService:
     Simplified knowledge graph ingestion service using LangChain extraction.
     Handles document processing, concept extraction, and Neo4j insertion.
     """
+    _embedding_service: EmbeddingService
+    _canonical_extraction_service : LangChainCanonicalExtractionService
+    _embedding_service : EmbeddingService
+    _neo4j_service : Neo4jService
 
     def __init__(self, neo4j_service=None, embedding_service=None, canonical_extraction_service=None):
         """
