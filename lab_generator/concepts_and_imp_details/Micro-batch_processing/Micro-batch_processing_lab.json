@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Micro-batch processing in Big Data And Databases",
+    "topic": "Stream Computing Model and Storm Framework",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Micro-batch processing",
+        "title": "Exploring Micro-batch processing",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Micro-batch processing",
+            "starter_code": "# TODO: Implement Micro-batch processing\n# Your code here\n",
+            "solution": "# Solution for Micro-batch processing\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Micro-batch processing",
+          "Apply Micro-batch processing in practical scenarios",
+          "Implement solutions using Micro-batch processing"
+        ],
+        "background": "The practice of collecting data in small groups (“batches”) for the purposes of taking action on (processing) that data."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Micro-batch processing",
+    "concept_definition": "The practice of collecting data in small groups (“batches”) for the purposes of taking action on (processing) that data.",
+    "source_topic": "Stream Computing Model and Storm Framework",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

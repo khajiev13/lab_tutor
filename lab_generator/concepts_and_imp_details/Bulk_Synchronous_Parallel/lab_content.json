@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Bulk Synchronous Parallel in Big Data And Databases",
+  "topic": "Distributed Graph Computing",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Bulk Synchronous Parallel",
+      "title": "Exploring Bulk Synchronous Parallel",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Bulk Synchronous Parallel",
+          "starter_code": "# TODO: Implement Bulk Synchronous Parallel\n# Your code here\n",
+          "solution": "# Solution for Bulk Synchronous Parallel\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Bulk Synchronous Parallel to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Bulk Synchronous Parallel\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Bulk Synchronous Parallel",
+        "Apply Bulk Synchronous Parallel in practical scenarios",
+        "Implement solutions using Bulk Synchronous Parallel"
+      ],
+      "background": "Model of distributed computation introduced by Leslie Valiant."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

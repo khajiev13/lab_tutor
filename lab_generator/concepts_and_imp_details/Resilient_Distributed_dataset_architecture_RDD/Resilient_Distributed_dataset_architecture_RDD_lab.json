@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Resilient Distributed dataset architecture (RDD) in Big Data And Databases",
+    "topic": "In-Memory Computing with Spark",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Resilient Distributed dataset architecture (RDD)",
+        "title": "Exploring Resilient Distributed dataset architecture (RDD)",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Resilient Distributed dataset architecture (RDD)",
+            "starter_code": "# TODO: Implement Resilient Distributed dataset architecture (RDD)\n# Your code here\n",
+            "solution": "# Solution for Resilient Distributed dataset architecture (RDD)\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Resilient Distributed dataset architecture (RDD)",
+          "Apply Resilient Distributed dataset architecture (RDD) in practical scenarios",
+          "Implement solutions using Resilient Distributed dataset architecture (RDD)"
+        ],
+        "background": "a collection of elements partitioned across the nodes of the cluster that can be operated on in parallel."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Resilient Distributed dataset architecture (RDD)",
+    "concept_definition": "a collection of elements partitioned across the nodes of the cluster that can be operated on in parallel.",
+    "source_topic": "In-Memory Computing with Spark",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

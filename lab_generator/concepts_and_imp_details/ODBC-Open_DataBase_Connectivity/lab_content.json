@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: ODBC-Open DataBase Connectivity in Big Data And Databases",
+  "topic": "Big Data General Architecture",
+  "difficulty": "medium",
+  "estimated_time": 45,
+  "sections": [
+    {
+      "concept": "ODBC-Open DataBase Connectivity",
+      "title": "Exploring ODBC-Open DataBase Connectivity",
+      "difficulty": "medium",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating ODBC-Open DataBase Connectivity",
+          "starter_code": "# TODO: Implement ODBC-Open DataBase Connectivity\n# Your code here\n",
+          "solution": "# Solution for ODBC-Open DataBase Connectivity\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply ODBC-Open DataBase Connectivity to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced ODBC-Open DataBase Connectivity\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of ODBC-Open DataBase Connectivity",
+        "Apply ODBC-Open DataBase Connectivity in practical scenarios",
+        "Implement solutions using ODBC-Open DataBase Connectivity"
+      ],
+      "background": "The industry earlier used the database application programming access interface provided by Microsoft, ODBC-Open DataBase Connectivity, which uses the X/open and ISO/IEC call interface (CLI call-level interface) standards as the basis, and uses a structured query language-SQL as the database access language."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Linear regression in Big Data And Databases",
+  "topic": "Data Cleaning Techniques",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Linear regression",
+      "title": "Exploring Linear regression",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Linear regression",
+          "starter_code": "# TODO: Implement Linear regression\n# Your code here\n",
+          "solution": "# Solution for Linear regression\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Linear regression to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Linear regression\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Linear regression",
+        "Apply Linear regression in practical scenarios",
+        "Implement solutions using Linear regression"
+      ],
+      "background": "Use straight line modeling to treat one variable as a linear function of another variable."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

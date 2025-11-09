@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Self-operated data in Big Data And Databases",
+  "topic": "Data Resources: Internal and External Data",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Self-operated data",
+      "title": "Exploring Self-operated data",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Self-operated data",
+          "starter_code": "# TODO: Implement Self-operated data\n# Your code here\n",
+          "solution": "# Solution for Self-operated data\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Self-operated data to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Self-operated data\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Self-operated data",
+        "Apply Self-operated data in practical scenarios",
+        "Implement solutions using Self-operated data"
+      ],
+      "background": "The IT system, ERP, SCM, online office system, online transaction system, etc. of different organization."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

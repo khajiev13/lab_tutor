@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Social network analysis in Big Data And Databases",
+    "topic": "Social Network Analysis",
+    "difficulty": "medium",
+    "estimated_time": 45,
+    "sections": [
+      {
+        "concept": "Social network analysis",
+        "title": "Exploring Social network analysis",
+        "difficulty": "medium",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating Social network analysis",
+            "starter_code": "# TODO: Implement Social network analysis\n# Your code here\n",
+            "solution": "# Solution for Social network analysis\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply Social network analysis to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced Social network analysis\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Social network analysis",
+          "Apply Social network analysis in practical scenarios",
+          "Implement solutions using Social network analysis"
+        ],
+        "background": "The process of investigating social structures through the use of networks and graph theory."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Social network analysis",
+    "concept_definition": "The process of investigating social structures through the use of networks and graph theory.",
+    "source_topic": "Social Network Analysis",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

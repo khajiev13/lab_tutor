@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Key Value Pair Based in Big Data And Databases",
+    "topic": "NoSQL Database Types",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Key Value Pair Based",
+        "title": "Exploring Key Value Pair Based",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Key Value Pair Based",
+            "starter_code": "# TODO: Implement Key Value Pair Based\n# Your code here\n",
+            "solution": "# Solution for Key Value Pair Based\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Key Value Pair Based",
+          "Apply Key Value Pair Based in practical scenarios",
+          "Implement solutions using Key Value Pair Based"
+        ],
+        "background": "Data is stored in key/value pairs. It is designed in such a way to handle lots of data and heavy load."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Key Value Pair Based",
+    "concept_definition": "Data is stored in key/value pairs. It is designed in such a way to handle lots of data and heavy load.",
+    "source_topic": "NoSQL Database Types",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

@@ -1,4 +1,5 @@
 import time
+import logging
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -8,6 +9,8 @@ from services.extraction_langchain import LangChainCanonicalExtractionService
 from services.embedding import EmbeddingService
 from services.neo4j_service import Neo4jService
 from models.neo4j_models import Neo4jInsertionResult
+
+logger = logging.getLogger(__name__)
 
 
 class IngestionService:
@@ -122,9 +125,9 @@ class IngestionService:
                     )
 
                     if neo4j_insertion_result.success:
-                        print(f"✅ Successfully inserted into Neo4j: {neo4j_insertion_result.nodes_created} nodes, {neo4j_insertion_result.relationships_created} relationships")
+                        logger.info(f"Successfully inserted into Neo4j: {neo4j_insertion_result.nodes_created} nodes, {neo4j_insertion_result.relationships_created} relationships")
                     else:
-                        print(f"⚠️  Neo4j insertion failed: {neo4j_insertion_result.error or 'Unknown error'}")
+                        logger.warning(f"Neo4j insertion failed: {neo4j_insertion_result.error or 'Unknown error'}")
 
                 except Exception as insert_error:
                     neo4j_insertion_result = Neo4jInsertionResult(
@@ -150,7 +153,7 @@ class IngestionService:
             }
 
         except Exception as e:
-            print(f"❌ Error processing document: {e}")
+            logger.error(f"Error processing document: {e}")
             return {
                 'success': False,
                 'source_file': docx_path,
@@ -189,7 +192,7 @@ class IngestionService:
         total_files = len(docx_files)
 
         if total_files == 0:
-            print(f"📁 No DOCX files found in {input_directory}")
+            logger.warning(f"No DOCX files found in {input_directory}")
             return {
                 "total_files": 0,
                 "successful": 0,
@@ -204,7 +207,7 @@ class IngestionService:
 
         # Clear database once at the beginning if requested
         if clear_database:
-            print("🗑️  Clearing Neo4j database...")
+            logger.info("Clearing Neo4j database...")
             self.neo4j_service.clear_database()
 
         # Process each file
@@ -214,7 +217,7 @@ class IngestionService:
 
         for i, docx_file in enumerate(docx_files, 1):
             filename = docx_file.name
-            print(f"🔄 Processing {i}/{total_files}: {filename}")
+            logger.info(f"Processing {i}/{total_files}: {filename}")
 
             try:
                 result = self.process_single_document(
@@ -236,7 +239,7 @@ class IngestionService:
             except Exception as e:
                 failed += 1
                 failed_files.append(filename)
-                print(f"❌ Error processing {filename}: {e}")
+                logger.error(f"Error processing {filename}: {e}")
 
         processing_time = time.time() - start_time
 

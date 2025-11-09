@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Eager execution in Big Data And Databases",
+  "topic": "TensorFlow Concepts, Mechanism, and TensorFlow 2.0",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Eager execution",
+      "title": "Exploring Eager execution",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Eager execution",
+          "starter_code": "# TODO: Implement Eager execution\n# Your code here\n",
+          "solution": "# Solution for Eager execution\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Eager execution",
+        "Apply Eager execution in practical scenarios",
+        "Implement solutions using Eager execution"
+      ],
+      "background": "For immediate iteration"
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

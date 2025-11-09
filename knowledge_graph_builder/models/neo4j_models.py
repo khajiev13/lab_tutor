@@ -5,7 +5,7 @@ These models provide type safety and validation for Neo4j nodes and relationship
 replacing raw dictionary-based data structures in the ingestion pipeline.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 from pydantic import BaseModel, Field
 
 
@@ -112,3 +112,56 @@ class Neo4jInsertionResult(BaseModel):
     relationships_created: int = Field(description="Number of relationships created", default=0)
     source_file: str = Field(description="Source file path")
     error: Optional[str] = Field(description="Error message if failed", default=None)
+
+
+class ConceptRelationship(BaseModel):
+    """Semantic relationship between two concepts."""
+    s: str = Field(description="Source concept")
+    t: str = Field(description="Target concept")
+    rel: str = Field(description="SAME_AS, USED_FOR, or RELATED_TO")
+    r: str = Field(description="Concise explanation (max 80 chars)")
+
+    class Config:
+        # Enable validation
+        validate_assignment = True
+
+
+class RelationshipBatch(BaseModel):
+    """Batch of relationship proposals for LLM structured output."""
+    relationships: List[ConceptRelationship] = Field(description="List of proposed relationships")
+
+
+class RelationshipOperation(BaseModel):
+    """Modify or delete operation on a relationship."""
+    source: str = Field(description="Source concept (exact, case-sensitive)")
+    relation: str = Field(description="Current relation type")
+    target: str = Field(description="Target concept (exact, case-sensitive)")
+    action: Literal["modify", "delete"] = Field(description="modify or delete")
+    new_relation: Optional[str] = Field(None, description="New relation if modifying")
+    new_target: Optional[str] = Field(None, description="New target if modifying")
+    new_source: Optional[str] = Field(None, description="New source if modifying")
+    reason: str = Field(description="Why this change is needed (max 80 chars)")
+
+
+class RelationshipAddition(BaseModel):
+    """New relationship to add."""
+    source: str = Field(description="Source concept")
+    target: str = Field(description="Target concept")
+    relation: str = Field(description="SAME_AS, USED_FOR, or RELATED_TO")
+    reasoning: str = Field(description="Why critical to add (max 80 chars)")
+
+
+class FeedbackResult(BaseModel):
+    """Validation feedback with operations. Empty lists = convergence."""
+    modify: List[RelationshipOperation] = Field(
+        default_factory=list,
+        description="Fix relation type/direction. Empty = none needed"
+    )
+    delete: List[RelationshipOperation] = Field(
+        default_factory=list,
+        description="Remove duplicates/wrong relationships. Empty = none needed"
+    )
+    add: List[RelationshipAddition] = Field(
+        default_factory=list,
+        description="Add critical missing relationships. Empty = none needed"
+    )

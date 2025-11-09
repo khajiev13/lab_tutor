@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Fruchterman-Reingold algorithm in Big Data And Databases",
+  "topic": "Social Network Analysis",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Fruchterman-Reingold algorithm",
+      "title": "Exploring Fruchterman-Reingold algorithm",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Fruchterman-Reingold algorithm",
+          "starter_code": "# TODO: Implement Fruchterman-Reingold algorithm\n# Your code here\n",
+          "solution": "# Solution for Fruchterman-Reingold algorithm\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Fruchterman-Reingold algorithm to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Fruchterman-Reingold algorithm\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Fruchterman-Reingold algorithm",
+        "Apply Fruchterman-Reingold algorithm in practical scenarios",
+        "Implement solutions using Fruchterman-Reingold algorithm"
+      ],
+      "background": "One of the most commonly used algorithms. This algorithm uses electromagnetism theories, and generates a circular graph."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

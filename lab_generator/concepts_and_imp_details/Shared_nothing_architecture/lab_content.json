@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: shared nothing architecture in Big Data And Databases",
+  "topic": "Massively Parallel Processing (MPP) for Structured Data",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "shared nothing architecture",
+      "title": "Exploring shared nothing architecture",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating shared nothing architecture",
+          "starter_code": "# TODO: Implement shared nothing architecture\n# Your code here\n",
+          "solution": "# Solution for shared nothing architecture\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply shared nothing architecture to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced shared nothing architecture\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of shared nothing architecture",
+        "Apply shared nothing architecture in practical scenarios",
+        "Implement solutions using shared nothing architecture"
+      ],
+      "background": "There is no single point of contention across the system and nodes do not share memory or disk storage."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

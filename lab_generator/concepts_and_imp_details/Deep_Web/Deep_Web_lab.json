@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Deep Web in Big Data And Databases",
+    "topic": "Deep Web Data Acquisition",
+    "difficulty": "medium",
+    "estimated_time": 45,
+    "sections": [
+      {
+        "concept": "Deep Web",
+        "title": "Exploring Deep Web",
+        "difficulty": "medium",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating Deep Web",
+            "starter_code": "# TODO: Implement Deep Web\n# Your code here\n",
+            "solution": "# Solution for Deep Web\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply Deep Web to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced Deep Web\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Deep Web",
+          "Apply Deep Web in practical scenarios",
+          "Implement solutions using Deep Web"
+        ],
+        "background": "Used to express those websites whose information content is stored in the search database and only responds to direct queries"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Deep Web",
+    "concept_definition": "Used to express those websites whose information content is stored in the search database and only responds to direct queries",
+    "source_topic": "Deep Web Data Acquisition",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

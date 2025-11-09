@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Document-Oriented NoSQL DB in Big Data And Databases",
+    "topic": "Four Main Types of NoSQL Databases",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Document-Oriented NoSQL DB",
+        "title": "Exploring Document-Oriented NoSQL DB",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Document-Oriented NoSQL DB",
+            "starter_code": "# TODO: Implement Document-Oriented NoSQL DB\n# Your code here\n",
+            "solution": "# Solution for Document-Oriented NoSQL DB\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Document-Oriented NoSQL DB",
+          "Apply Document-Oriented NoSQL DB in practical scenarios",
+          "Implement solutions using Document-Oriented NoSQL DB"
+        ],
+        "background": "Stores and retrieves data as a key value pair but the value part is stored as a document."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Document-Oriented NoSQL DB",
+    "concept_definition": "Stores and retrieves data as a key value pair but the value part is stored as a document.",
+    "source_topic": "Four Main Types of NoSQL Databases",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

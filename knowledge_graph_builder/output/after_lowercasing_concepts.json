@@ -1,0 +1,1535 @@
+{
+  "metadata": {
+    "timestamp": "2025-10-16T16:10:31.348992",
+    "processing_time_seconds": 468.56,
+    "total_iterations": 15,
+    "total_concept_merges": 12,
+    "total_weak_merges": 10,
+    "total_valid_relationships": 60,
+    "total_weak_patterns": 28,
+    "convergence": {
+      "achieved": true,
+      "reason": "Maximum iterations (15) reached",
+      "merge_count_trend": [
+        5,
+        5,
+        8,
+        4,
+        6
+      ],
+      "valid_merge_trend": [
+        4,
+        2,
+        6,
+        3,
+        3
+      ],
+      "weak_merge_trend": [
+        1,
+        3,
+        2,
+        1,
+        3
+      ],
+      "total_merges_trend": [
+        4,
+        5,
+        10,
+        12,
+        12
+      ],
+      "valid_count_trend": [
+        8,
+        8,
+        8,
+        7,
+        5,
+        5,
+        7,
+        11,
+        6,
+        8,
+        7,
+        13,
+        5,
+        6,
+        8
+      ],
+      "weak_count_trend": [
+        7,
+        2,
+        2,
+        3,
+        1,
+        4,
+        3,
+        2,
+        2,
+        2,
+        3,
+        2,
+        5,
+        3,
+        1
+      ],
+      "total_accumulated_trend": [
+        8,
+        14,
+        18,
+        22,
+        25,
+        27,
+        31,
+        40,
+        42,
+        43,
+        45,
+        53,
+        54,
+        59,
+        60
+      ],
+      "quality_trend": null,
+      "operations_trend": null
+    },
+    "configuration": {
+      "model": "gpt-4o-2024-08-06",
+      "max_iterations": 15,
+      "relationship_types": [
+        "USED_FOR",
+        "RELATED_TO"
+      ]
+    }
+  },
+  "concept_merges": {
+    "total": 12,
+    "merges": [
+      {
+        "concept_a": "etl",
+        "concept_b": "etl (extract, transform, and load)",
+        "canonical": "etl",
+        "variants": [
+          "etl",
+          "etl (extract, transform, and load)"
+        ],
+        "reasoning": "Same concept, different formatting/punctuation."
+      },
+      {
+        "concept_a": "etl",
+        "concept_b": "etl (extract, transform, load)",
+        "canonical": "etl",
+        "variants": [
+          "etl",
+          "etl (extract, transform, load)"
+        ],
+        "reasoning": "Same concept, different formatting/punctuation."
+      },
+      {
+        "concept_a": "principal component analysis (pca)",
+        "concept_b": "pca",
+        "canonical": "principal component analysis (pca)",
+        "variants": [
+          "principal component analysis (pca)",
+          "pca"
+        ],
+        "reasoning": "Acronym match, both refer to the same concept."
+      },
+      {
+        "concept_a": "machine learning",
+        "concept_b": "ml",
+        "canonical": "machine learning",
+        "variants": [
+          "machine learning",
+          "ml"
+        ],
+        "reasoning": "Acronym match, both refer to the same concept."
+      },
+      {
+        "concept_a": "reinforcement learning",
+        "concept_b": "reinforcement learning(rl)",
+        "canonical": "reinforcement learning",
+        "variants": [
+          "reinforcement learning",
+          "reinforcement learning(rl)"
+        ],
+        "reasoning": "Acronym match, both refer to the same concept."
+      },
+      {
+        "concept_a": "ml pipelines",
+        "concept_b": "mllib (machine learning library)",
+        "canonical": "machine learning pipeline",
+        "variants": [
+          "ml pipelines",
+          "mllib (machine learning library)"
+        ],
+        "reasoning": "Both relate to machine learning pipeline concepts"
+      },
+      {
+        "concept_a": "etl",
+        "concept_b": "data transform",
+        "canonical": "ETL",
+        "variants": [
+          "etl",
+          "data transform"
+        ],
+        "reasoning": "Both describe processes related to data transformation"
+      },
+      {
+        "concept_a": "clustering",
+        "concept_b": "k-means clustering",
+        "canonical": "clustering",
+        "variants": [
+          "clustering",
+          "k-means clustering"
+        ],
+        "reasoning": "Both are related to clustering algorithms in machine learning"
+      },
+      {
+        "concept_a": "graph-based",
+        "concept_b": "graph database",
+        "canonical": "graph-based",
+        "variants": [
+          "graph-based",
+          "graph database"
+        ],
+        "reasoning": "Both pertain to graph-based structures or technologies"
+      },
+      {
+        "concept_a": "dataflow graphs",
+        "concept_b": "data flow graph",
+        "canonical": "dataflow graph",
+        "variants": [
+          "dataflow graphs",
+          "data flow graph"
+        ],
+        "reasoning": "Both describe the same concept of graph structures in data processing"
+      },
+      {
+        "concept_a": "principle component analysis (pca)",
+        "concept_b": "pca",
+        "canonical": "principal component analysis (pca)",
+        "variants": [
+          "principle component analysis (pca)",
+          "pca"
+        ],
+        "reasoning": "abbreviated form"
+      },
+      {
+        "concept_a": "hdfs",
+        "concept_b": "hdfs (hadoop distributed file system)",
+        "canonical": "hdfs (hadoop distributed file system)",
+        "variants": [
+          "hdfs",
+          "hdfs (hadoop distributed file system)"
+        ],
+        "reasoning": "abbreviated form"
+      }
+    ],
+    "weak_merges": [
+      {
+        "concept_a": "tensorflow",
+        "concept_b": "tensorflow lite",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "etl",
+        "concept_b": "etl (extract, transform, and load)",
+        "reason": "Different Meaning"
+      },
+      {
+        "concept_a": "etl",
+        "concept_b": "etl (extract, transform, load)",
+        "reason": "Different Meaning"
+      },
+      {
+        "concept_a": "web crawler",
+        "concept_b": "web crawlers",
+        "reason": "Different Scope"
+      },
+      {
+        "concept_a": "big data",
+        "concept_b": "big data era",
+        "reason": "Different Meaning"
+      },
+      {
+        "concept_a": "spark core",
+        "concept_b": "spark sql",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "tensorflow",
+        "concept_b": "tensorflow.js",
+        "reason": "Different Meaning"
+      },
+      {
+        "concept_a": "data flow graph",
+        "concept_b": "dataflow graphs",
+        "reason": "different scope (one describes model for algorithms, other describes data movement structure)"
+      },
+      {
+        "concept_a": "data transform",
+        "concept_b": "data transformation",
+        "reason": "different meaning (one refers to form change, other includes specific techniques)"
+      },
+      {
+        "concept_a": "distributed",
+        "concept_b": "distributed file",
+        "reason": "different scope (distributed file refers to system, distributed refers to processing/storage concept)"
+      }
+    ]
+  },
+  "relationships": {
+    "total": 60,
+    "original": [
+      {
+        "s": "tensorflow",
+        "t": "deep learning",
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for deep learning tasks"
+      },
+      {
+        "s": "hadoop",
+        "t": "distributed",
+        "rel": "RELATED_TO",
+        "r": "Hadoop is related to distributed systems."
+      },
+      {
+        "s": "reinforcement learning",
+        "t": "supervised learning",
+        "rel": "RELATED_TO",
+        "r": "Reinforcement learning and supervised learning are both ML techniques."
+      },
+      {
+        "s": "tensorflow",
+        "t": "tensorflow lite",
+        "rel": "RELATED_TO",
+        "r": "TensorFlow Lite is a mobile version of TensorFlow"
+      },
+      {
+        "s": "tensorflow",
+        "t": "tensorflow.js",
+        "rel": "RELATED_TO",
+        "r": "TensorFlow.js is a JavaScript library for TensorFlow."
+      },
+      {
+        "s": "clustering",
+        "t": "data mining",
+        "rel": "USED_FOR",
+        "r": "Clustering is a technique in data mining"
+      },
+      {
+        "s": "spark",
+        "t": "real-time analytics",
+        "rel": "USED_FOR",
+        "r": "Spark is used for real-time analytics"
+      },
+      {
+        "s": "cosine similarity",
+        "t": "content-based filtering recommendations",
+        "rel": "USED_FOR",
+        "r": "Cosine similarity is used in content-based filtering."
+      },
+      {
+        "s": "hadoop",
+        "t": "mapreduce",
+        "rel": "USED_FOR",
+        "r": "Hadoop uses MapReduce for data processing"
+      },
+      {
+        "s": "keras",
+        "t": "deep learning",
+        "rel": "USED_FOR",
+        "r": "Keras is used for building deep learning models."
+      },
+      {
+        "s": "spark streaming",
+        "t": "real-time analytics",
+        "rel": "USED_FOR",
+        "r": "Spark Streaming is used for real-time analytics"
+      },
+      {
+        "s": "machine learning",
+        "t": "reinforcement learning",
+        "rel": "RELATED_TO",
+        "r": "Reinforcement learning is a type of machine learning"
+      },
+      {
+        "s": "principal component analysis (pca)",
+        "t": "dimensionality reduction",
+        "rel": "USED_FOR",
+        "r": "PCA is used for Dimensionality Reduction"
+      },
+      {
+        "s": "distributed",
+        "t": "parallel execution",
+        "rel": "RELATED_TO",
+        "r": "Distributed computing is related to parallel execution"
+      },
+      {
+        "s": "tensorflow",
+        "t": "reinforcement learning",
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for reinforcement learning tasks"
+      },
+      {
+        "s": "spark",
+        "t": "spark sql",
+        "rel": "RELATED_TO",
+        "r": "Spark SQL is part of the Spark ecosystem"
+      },
+      {
+        "s": "clustering",
+        "t": "machine learning",
+        "rel": "RELATED_TO",
+        "r": "Clustering is a machine learning technique"
+      },
+      {
+        "s": "supervised learning",
+        "t": "machine learning",
+        "rel": "RELATED_TO",
+        "r": "Supervised learning is a type of machine learning"
+      },
+      {
+        "s": "tensorflow",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "TensorFlow is a framework used for machine learning"
+      },
+      {
+        "s": "deep learning",
+        "t": "machine learning",
+        "rel": "RELATED_TO",
+        "r": "Deep learning is a subset of machine learning"
+      },
+      {
+        "s": "data governance",
+        "t": "data integration",
+        "rel": "RELATED_TO",
+        "r": "Data governance supports data integration processes"
+      },
+      {
+        "s": "oltp",
+        "t": "database",
+        "rel": "RELATED_TO",
+        "r": "OLTP is often associated with relational databases"
+      },
+      {
+        "s": "spark",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "Spark is used for machine learning tasks"
+      },
+      {
+        "s": "pca",
+        "t": "dimensionality reduction",
+        "rel": "USED_FOR",
+        "r": "PCA is used for reducing the dimensionality of data"
+      },
+      {
+        "s": "reinforcement learning",
+        "t": "machine learning",
+        "rel": "RELATED_TO",
+        "r": "Reinforcement learning is a type of machine learning"
+      },
+      {
+        "s": "collaborative filtering",
+        "t": "recommendation",
+        "rel": "USED_FOR",
+        "r": "Collaborative filtering is used for recommendation systems"
+      },
+      {
+        "s": "graph-based",
+        "t": "graph database",
+        "rel": "RELATED_TO",
+        "r": "Graph-based systems include graph databases"
+      },
+      {
+        "s": "hdfs",
+        "t": "hadoop",
+        "rel": "USED_FOR",
+        "r": "HDFS is the storage layer of Hadoop."
+      },
+      {
+        "s": "batch",
+        "t": "spark",
+        "rel": "USED_FOR",
+        "r": "Batch processing can be done using Spark"
+      },
+      {
+        "s": "etl",
+        "t": "data transformation",
+        "rel": "USED_FOR",
+        "r": "ETL process includes data transformation"
+      },
+      {
+        "s": "supervised learning",
+        "t": "unsupervised learning",
+        "rel": "RELATED_TO",
+        "r": "Supervised and unsupervised learning are two machine learning paradigms"
+      },
+      {
+        "s": "data transformation",
+        "t": "data mining",
+        "rel": "USED_FOR",
+        "r": "Data transformation is used in data mining."
+      },
+      {
+        "s": "reinforcement learning",
+        "t": "machine learning",
+        "rel": "IS_A",
+        "r": "Reinforcement learning is a type of machine learning"
+      },
+      {
+        "s": "graphx",
+        "t": "spark",
+        "rel": "USED_FOR",
+        "r": "GraphX is used in Spark for graph processing."
+      },
+      {
+        "s": "clustering",
+        "t": "unsupervised learning",
+        "rel": "USED_FOR",
+        "r": "Clustering is a technique in unsupervised learning."
+      },
+      {
+        "s": "dimensionality reduction",
+        "t": "pca",
+        "rel": "USED_FOR",
+        "r": "PCA is a method for dimensionality reduction."
+      },
+      {
+        "s": "batch",
+        "t": "data transformation",
+        "rel": "USED_FOR",
+        "r": "Batch processing is used for data transformation"
+      },
+      {
+        "s": "etl",
+        "t": "data integration",
+        "rel": "USED_FOR",
+        "r": "ETL is used for data integration in systems."
+      },
+      {
+        "s": "mapreduce",
+        "t": "hadoop",
+        "rel": "USED_FOR",
+        "r": "MapReduce is used for Hadoop processing"
+      },
+      {
+        "s": "apache giraph",
+        "t": "bulk synchronous parallel",
+        "rel": "USED_FOR",
+        "r": "Giraph uses bulk synchronous parallel for processing."
+      },
+      {
+        "s": "hadoop",
+        "t": "big data",
+        "rel": "USED_FOR",
+        "r": "Hadoop is used for big data processing"
+      },
+      {
+        "s": "data cleaning",
+        "t": "data transformation",
+        "rel": "USED_FOR",
+        "r": "Data cleaning is used for data transformation"
+      },
+      {
+        "s": "spark mllib",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "Spark MLlib is used for machine learning."
+      },
+      {
+        "s": "scikit-learn (sklearn)",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "Scikit-learn is a tool for machine learning"
+      },
+      {
+        "s": "dimensionality reduction",
+        "t": "data reduction",
+        "rel": "USED_FOR",
+        "r": "Dimensionality reduction is used for data reduction"
+      },
+      {
+        "s": "apache giraph",
+        "t": "bulk synchronous parallel",
+        "rel": "RELATED_TO",
+        "r": "Giraph uses BSP for graph processing."
+      },
+      {
+        "s": "clustering",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "Clustering is a technique used in machine learning"
+      },
+      {
+        "s": "data mining",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "Data mining techniques are applied in machine learning."
+      },
+      {
+        "s": "data transformation",
+        "t": "etl",
+        "rel": "USED_FOR",
+        "r": "ETL processes involve data transformation."
+      },
+      {
+        "s": "deep learning",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "Deep learning is a subset of machine learning."
+      },
+      {
+        "s": "ml pipelines",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "ML pipelines streamline machine learning workflows."
+      },
+      {
+        "s": "reinforcement learning",
+        "t": "machine learning",
+        "rel": "USED_FOR",
+        "r": "Reinforcement learning is a branch of machine learning."
+      },
+      {
+        "s": "tensorflow",
+        "t": "tensorflow lite",
+        "rel": "USED_FOR",
+        "r": "TensorFlow Lite is used for running models on mobile devices."
+      },
+      {
+        "s": "data mining",
+        "t": "data transformation",
+        "rel": "USED_FOR",
+        "r": "Data mining uses data transformation techniques"
+      },
+      {
+        "s": "hadoop",
+        "t": "mapreduce",
+        "rel": "RELATED_TO",
+        "r": "MapReduce is a core component of Hadoop"
+      },
+      {
+        "s": "spark",
+        "t": "spark mllib",
+        "rel": "USED_FOR",
+        "r": "Spark MLlib is used for machine learning tasks in Spark"
+      },
+      {
+        "s": "machine learning",
+        "t": "deep learning",
+        "rel": "RELATED_TO",
+        "r": "Deep learning is a subset of machine learning"
+      },
+      {
+        "s": "tensorflow",
+        "t": "tensorflow.js",
+        "rel": "USED_FOR",
+        "r": "TensorFlow.js is used for machine learning in the browser"
+      },
+      {
+        "s": "hdfs",
+        "t": "hadoop",
+        "rel": "RELATED_TO",
+        "r": "HDFS is a distributed file system used in Hadoop"
+      },
+      {
+        "s": "data governance",
+        "t": "data transformation",
+        "rel": "USED_FOR",
+        "r": "Data governance aids in data transformation management"
+      }
+    ],
+    "canonical_preview": [
+      {
+        "original": {
+          "s": "tensorflow",
+          "t": "deep learning"
+        },
+        "canonical": {
+          "s": "tensorflow",
+          "t": "deep learning"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for deep learning tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "hadoop",
+          "t": "distributed"
+        },
+        "canonical": {
+          "s": "hadoop",
+          "t": "distributed"
+        },
+        "rel": "RELATED_TO",
+        "r": "Hadoop is related to distributed systems.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "reinforcement learning",
+          "t": "supervised learning"
+        },
+        "canonical": {
+          "s": "reinforcement learning",
+          "t": "supervised learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Reinforcement learning and supervised learning are both ML techniques.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "tensorflow",
+          "t": "tensorflow lite"
+        },
+        "canonical": {
+          "s": "tensorflow",
+          "t": "tensorflow lite"
+        },
+        "rel": "RELATED_TO",
+        "r": "TensorFlow Lite is a mobile version of TensorFlow",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "tensorflow",
+          "t": "tensorflow.js"
+        },
+        "canonical": {
+          "s": "tensorflow",
+          "t": "tensorflow.js"
+        },
+        "rel": "RELATED_TO",
+        "r": "TensorFlow.js is a JavaScript library for TensorFlow.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "clustering",
+          "t": "data mining"
+        },
+        "canonical": {
+          "s": "clustering",
+          "t": "data mining"
+        },
+        "rel": "USED_FOR",
+        "r": "Clustering is a technique in data mining",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "spark",
+          "t": "real-time analytics"
+        },
+        "canonical": {
+          "s": "spark",
+          "t": "real-time analytics"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark is used for real-time analytics",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "cosine similarity",
+          "t": "content-based filtering recommendations"
+        },
+        "canonical": {
+          "s": "cosine similarity",
+          "t": "content-based filtering recommendations"
+        },
+        "rel": "USED_FOR",
+        "r": "Cosine similarity is used in content-based filtering.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "hadoop",
+          "t": "mapreduce"
+        },
+        "canonical": {
+          "s": "hadoop",
+          "t": "mapreduce"
+        },
+        "rel": "USED_FOR",
+        "r": "Hadoop uses MapReduce for data processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "keras",
+          "t": "deep learning"
+        },
+        "canonical": {
+          "s": "keras",
+          "t": "deep learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Keras is used for building deep learning models.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "spark streaming",
+          "t": "real-time analytics"
+        },
+        "canonical": {
+          "s": "spark streaming",
+          "t": "real-time analytics"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark Streaming is used for real-time analytics",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "machine learning",
+          "t": "reinforcement learning"
+        },
+        "canonical": {
+          "s": "machine learning",
+          "t": "reinforcement learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Reinforcement learning is a type of machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "principal component analysis (pca)",
+          "t": "dimensionality reduction"
+        },
+        "canonical": {
+          "s": "principal component analysis (pca)",
+          "t": "dimensionality reduction"
+        },
+        "rel": "USED_FOR",
+        "r": "PCA is used for Dimensionality Reduction",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "distributed",
+          "t": "parallel execution"
+        },
+        "canonical": {
+          "s": "distributed",
+          "t": "parallel execution"
+        },
+        "rel": "RELATED_TO",
+        "r": "Distributed computing is related to parallel execution",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "tensorflow",
+          "t": "reinforcement learning"
+        },
+        "canonical": {
+          "s": "tensorflow",
+          "t": "reinforcement learning"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for reinforcement learning tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "spark",
+          "t": "spark sql"
+        },
+        "canonical": {
+          "s": "spark",
+          "t": "spark sql"
+        },
+        "rel": "RELATED_TO",
+        "r": "Spark SQL is part of the Spark ecosystem",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "clustering",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "clustering",
+          "t": "machine learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Clustering is a machine learning technique",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "supervised learning",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "supervised learning",
+          "t": "machine learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Supervised learning is a type of machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "tensorflow",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "tensorflow",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow is a framework used for machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "deep learning",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "deep learning",
+          "t": "machine learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Deep learning is a subset of machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "data governance",
+          "t": "data integration"
+        },
+        "canonical": {
+          "s": "data governance",
+          "t": "data integration"
+        },
+        "rel": "RELATED_TO",
+        "r": "Data governance supports data integration processes",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "oltp",
+          "t": "database"
+        },
+        "canonical": {
+          "s": "oltp",
+          "t": "database"
+        },
+        "rel": "RELATED_TO",
+        "r": "OLTP is often associated with relational databases",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "spark",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "spark",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark is used for machine learning tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "pca",
+          "t": "dimensionality reduction"
+        },
+        "canonical": {
+          "s": "principal component analysis (pca)",
+          "t": "dimensionality reduction"
+        },
+        "rel": "USED_FOR",
+        "r": "PCA is used for reducing the dimensionality of data",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "reinforcement learning",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "reinforcement learning",
+          "t": "machine learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Reinforcement learning is a type of machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "collaborative filtering",
+          "t": "recommendation"
+        },
+        "canonical": {
+          "s": "collaborative filtering",
+          "t": "recommendation"
+        },
+        "rel": "USED_FOR",
+        "r": "Collaborative filtering is used for recommendation systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "graph-based",
+          "t": "graph database"
+        },
+        "canonical": {
+          "s": "graph-based",
+          "t": "graph-based"
+        },
+        "rel": "RELATED_TO",
+        "r": "Graph-based systems include graph databases",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "hdfs",
+          "t": "hadoop"
+        },
+        "canonical": {
+          "s": "hdfs (hadoop distributed file system)",
+          "t": "hadoop"
+        },
+        "rel": "USED_FOR",
+        "r": "HDFS is the storage layer of Hadoop.",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "batch",
+          "t": "spark"
+        },
+        "canonical": {
+          "s": "batch",
+          "t": "spark"
+        },
+        "rel": "USED_FOR",
+        "r": "Batch processing can be done using Spark",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "etl",
+          "t": "data transformation"
+        },
+        "canonical": {
+          "s": "etl",
+          "t": "data transformation"
+        },
+        "rel": "USED_FOR",
+        "r": "ETL process includes data transformation",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "supervised learning",
+          "t": "unsupervised learning"
+        },
+        "canonical": {
+          "s": "supervised learning",
+          "t": "unsupervised learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Supervised and unsupervised learning are two machine learning paradigms",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "data transformation",
+          "t": "data mining"
+        },
+        "canonical": {
+          "s": "data transformation",
+          "t": "data mining"
+        },
+        "rel": "USED_FOR",
+        "r": "Data transformation is used in data mining.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "reinforcement learning",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "reinforcement learning",
+          "t": "machine learning"
+        },
+        "rel": "IS_A",
+        "r": "Reinforcement learning is a type of machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "graphx",
+          "t": "spark"
+        },
+        "canonical": {
+          "s": "graphx",
+          "t": "spark"
+        },
+        "rel": "USED_FOR",
+        "r": "GraphX is used in Spark for graph processing.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "clustering",
+          "t": "unsupervised learning"
+        },
+        "canonical": {
+          "s": "clustering",
+          "t": "unsupervised learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Clustering is a technique in unsupervised learning.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "dimensionality reduction",
+          "t": "pca"
+        },
+        "canonical": {
+          "s": "dimensionality reduction",
+          "t": "principal component analysis (pca)"
+        },
+        "rel": "USED_FOR",
+        "r": "PCA is a method for dimensionality reduction.",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "batch",
+          "t": "data transformation"
+        },
+        "canonical": {
+          "s": "batch",
+          "t": "data transformation"
+        },
+        "rel": "USED_FOR",
+        "r": "Batch processing is used for data transformation",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "etl",
+          "t": "data integration"
+        },
+        "canonical": {
+          "s": "etl",
+          "t": "data integration"
+        },
+        "rel": "USED_FOR",
+        "r": "ETL is used for data integration in systems.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "mapreduce",
+          "t": "hadoop"
+        },
+        "canonical": {
+          "s": "mapreduce",
+          "t": "hadoop"
+        },
+        "rel": "USED_FOR",
+        "r": "MapReduce is used for Hadoop processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "apache giraph",
+          "t": "bulk synchronous parallel"
+        },
+        "canonical": {
+          "s": "apache giraph",
+          "t": "bulk synchronous parallel"
+        },
+        "rel": "USED_FOR",
+        "r": "Giraph uses bulk synchronous parallel for processing.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "hadoop",
+          "t": "big data"
+        },
+        "canonical": {
+          "s": "hadoop",
+          "t": "big data"
+        },
+        "rel": "USED_FOR",
+        "r": "Hadoop is used for big data processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "data cleaning",
+          "t": "data transformation"
+        },
+        "canonical": {
+          "s": "data cleaning",
+          "t": "data transformation"
+        },
+        "rel": "USED_FOR",
+        "r": "Data cleaning is used for data transformation",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "spark mllib",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "spark mllib",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark MLlib is used for machine learning.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "scikit-learn (sklearn)",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "scikit-learn (sklearn)",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Scikit-learn is a tool for machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "dimensionality reduction",
+          "t": "data reduction"
+        },
+        "canonical": {
+          "s": "dimensionality reduction",
+          "t": "data reduction"
+        },
+        "rel": "USED_FOR",
+        "r": "Dimensionality reduction is used for data reduction",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "apache giraph",
+          "t": "bulk synchronous parallel"
+        },
+        "canonical": {
+          "s": "apache giraph",
+          "t": "bulk synchronous parallel"
+        },
+        "rel": "RELATED_TO",
+        "r": "Giraph uses BSP for graph processing.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "clustering",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "clustering",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Clustering is a technique used in machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "data mining",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "data mining",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Data mining techniques are applied in machine learning.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "data transformation",
+          "t": "etl"
+        },
+        "canonical": {
+          "s": "data transformation",
+          "t": "etl"
+        },
+        "rel": "USED_FOR",
+        "r": "ETL processes involve data transformation.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "deep learning",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "deep learning",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Deep learning is a subset of machine learning.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "ml pipelines",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "machine learning pipeline",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "ML pipelines streamline machine learning workflows.",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "reinforcement learning",
+          "t": "machine learning"
+        },
+        "canonical": {
+          "s": "reinforcement learning",
+          "t": "machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Reinforcement learning is a branch of machine learning.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "tensorflow",
+          "t": "tensorflow lite"
+        },
+        "canonical": {
+          "s": "tensorflow",
+          "t": "tensorflow lite"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow Lite is used for running models on mobile devices.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "data mining",
+          "t": "data transformation"
+        },
+        "canonical": {
+          "s": "data mining",
+          "t": "data transformation"
+        },
+        "rel": "USED_FOR",
+        "r": "Data mining uses data transformation techniques",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "hadoop",
+          "t": "mapreduce"
+        },
+        "canonical": {
+          "s": "hadoop",
+          "t": "mapreduce"
+        },
+        "rel": "RELATED_TO",
+        "r": "MapReduce is a core component of Hadoop",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "spark",
+          "t": "spark mllib"
+        },
+        "canonical": {
+          "s": "spark",
+          "t": "spark mllib"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark MLlib is used for machine learning tasks in Spark",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "machine learning",
+          "t": "deep learning"
+        },
+        "canonical": {
+          "s": "machine learning",
+          "t": "deep learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Deep learning is a subset of machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "tensorflow",
+          "t": "tensorflow.js"
+        },
+        "canonical": {
+          "s": "tensorflow",
+          "t": "tensorflow.js"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow.js is used for machine learning in the browser",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "hdfs",
+          "t": "hadoop"
+        },
+        "canonical": {
+          "s": "hdfs (hadoop distributed file system)",
+          "t": "hadoop"
+        },
+        "rel": "RELATED_TO",
+        "r": "HDFS is a distributed file system used in Hadoop",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "data governance",
+          "t": "data transformation"
+        },
+        "canonical": {
+          "s": "data governance",
+          "t": "data transformation"
+        },
+        "rel": "USED_FOR",
+        "r": "Data governance aids in data transformation management",
+        "was_mapped": false
+      }
+    ]
+  },
+  "iteration_history": [
+    {
+      "iteration": 0,
+      "timestamp": "2025-10-16T16:03:34.421540",
+      "valid_count": 8,
+      "weak_count": 7,
+      "total_accumulated": 8
+    },
+    {
+      "iteration": 1,
+      "timestamp": "2025-10-16T16:04:13.129843",
+      "valid_count": 8,
+      "weak_count": 2,
+      "total_accumulated": 14
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-10-16T16:04:47.547676",
+      "valid_count": 8,
+      "weak_count": 2,
+      "total_accumulated": 18
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-10-16T16:05:50.226168",
+      "valid_count": 7,
+      "weak_count": 3,
+      "total_accumulated": 22
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2025-10-16T16:06:37.882754",
+      "valid_count": 5,
+      "weak_count": 1,
+      "total_accumulated": 25
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2025-10-16T16:06:57.374437",
+      "valid_count": 5,
+      "weak_count": 4,
+      "total_accumulated": 27
+    },
+    {
+      "iteration": 6,
+      "timestamp": "2025-10-16T16:08:00.959244",
+      "valid_count": 7,
+      "weak_count": 3,
+      "total_accumulated": 31
+    },
+    {
+      "iteration": 7,
+      "timestamp": "2025-10-16T16:08:23.569965",
+      "valid_count": 11,
+      "weak_count": 2,
+      "total_accumulated": 40
+    },
+    {
+      "iteration": 8,
+      "timestamp": "2025-10-16T16:08:39.958691",
+      "valid_count": 6,
+      "weak_count": 2,
+      "total_accumulated": 42
+    },
+    {
+      "iteration": 9,
+      "timestamp": "2025-10-16T16:08:57.667827",
+      "valid_count": 8,
+      "weak_count": 2,
+      "total_accumulated": 43
+    },
+    {
+      "iteration": 10,
+      "timestamp": "2025-10-16T16:09:16.418177",
+      "valid_count": 7,
+      "weak_count": 3,
+      "total_accumulated": 45
+    },
+    {
+      "iteration": 11,
+      "timestamp": "2025-10-16T16:09:38.832887",
+      "valid_count": 13,
+      "weak_count": 2,
+      "total_accumulated": 53
+    },
+    {
+      "iteration": 12,
+      "timestamp": "2025-10-16T16:09:57.532322",
+      "valid_count": 5,
+      "weak_count": 5,
+      "total_accumulated": 54
+    },
+    {
+      "iteration": 13,
+      "timestamp": "2025-10-16T16:10:13.425983",
+      "valid_count": 6,
+      "weak_count": 3,
+      "total_accumulated": 59
+    },
+    {
+      "iteration": 14,
+      "timestamp": "2025-10-16T16:10:31.338710",
+      "valid_count": 8,
+      "weak_count": 1,
+      "total_accumulated": 60
+    }
+  ]
+}

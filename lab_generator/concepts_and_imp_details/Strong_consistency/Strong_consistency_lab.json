@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Strong consistency in Big Data And Databases",
+    "topic": "NoSQL Databases: CAP Theorem and BASE Transaction Model",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Strong consistency",
+        "title": "Exploring Strong consistency",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Strong consistency",
+            "starter_code": "# TODO: Implement Strong consistency\n# Your code here\n",
+            "solution": "# Solution for Strong consistency\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Strong consistency",
+          "Apply Strong consistency in practical scenarios",
+          "Implement solutions using Strong consistency"
+        ],
+        "background": "After performing an update operation, other subsequent read operations can ensure that the latest updated data is read"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Strong consistency",
+    "concept_definition": "After performing an update operation, other subsequent read operations can ensure that the latest updated data is read",
+    "source_topic": "NoSQL Databases: CAP Theorem and BASE Transaction Model",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

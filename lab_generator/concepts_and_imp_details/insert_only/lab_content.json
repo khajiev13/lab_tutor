@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: insert only in Big Data And Databases",
+  "topic": "In-Memory Database: HANA Architecture and Technologies",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "insert only",
+      "title": "Exploring insert only",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating insert only",
+          "starter_code": "# TODO: Implement insert only\n# Your code here\n",
+          "solution": "# Solution for insert only\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of insert only",
+        "Apply insert only in practical scenarios",
+        "Implement solutions using insert only"
+      ],
+      "background": "Whenever you update or delete data HANA will just insert."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

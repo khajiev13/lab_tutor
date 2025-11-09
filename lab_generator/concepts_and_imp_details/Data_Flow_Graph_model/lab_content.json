@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Data Flow Graph model in Big Data And Databases",
+  "topic": "Big Data General Architecture",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Data Flow Graph model",
+      "title": "Exploring Data Flow Graph model",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Data Flow Graph model",
+          "starter_code": "# TODO: Implement Data Flow Graph model\n# Your code here\n",
+          "solution": "# Solution for Data Flow Graph model\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Data Flow Graph model to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Data Flow Graph model\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Data Flow Graph model",
+        "Apply Data Flow Graph model in practical scenarios",
+        "Implement solutions using Data Flow Graph model"
+      ],
+      "background": "Data Flow Graph model for machine learning algorithms"
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Oracle CDC in Big Data And Databases",
+    "topic": "Internal Data Acquisition using ETL",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Oracle CDC",
+        "title": "Exploring Oracle CDC",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Oracle CDC",
+            "starter_code": "# TODO: Implement Oracle CDC\n# Your code here\n",
+            "solution": "# Solution for Oracle CDC\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Oracle CDC",
+          "Apply Oracle CDC in practical scenarios",
+          "Implement solutions using Oracle CDC"
+        ],
+        "background": "A special component in Oracle DBMS that can identify the changed data since last extraction; Use CDC to extract data while inserting, updating or deleting the source table, and the changed data is stored in the change table of the DB separately."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Oracle CDC",
+    "concept_definition": "A special component in Oracle DBMS that can identify the changed data since last extraction; Use CDC to extract data while inserting, updating or deleting the source table, and the changed data is stored in the change table of the DB separately.",
+    "source_topic": "Internal Data Acquisition using ETL",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

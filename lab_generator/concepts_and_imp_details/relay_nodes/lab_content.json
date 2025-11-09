@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: relay nodes in Big Data And Databases",
+  "topic": "Deep Web Data Acquisition",
+  "difficulty": "medium",
+  "estimated_time": 45,
+  "sections": [
+    {
+      "concept": "relay nodes",
+      "title": "Exploring relay nodes",
+      "difficulty": "medium",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating relay nodes",
+          "starter_code": "# TODO: Implement relay nodes\n# Your code here\n",
+          "solution": "# Solution for relay nodes\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply relay nodes to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced relay nodes\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of relay nodes",
+        "Apply relay nodes in practical scenarios",
+        "Implement solutions using relay nodes"
+      ],
+      "background": "Volunteers around the world provide about 5,000 computers as nodes on the transmission path to cover up new pages or chat requests. The Tor Project calls these points relay nodes."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

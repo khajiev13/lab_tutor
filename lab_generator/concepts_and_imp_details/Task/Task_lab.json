@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Task in Big Data And Databases",
+    "topic": "Batch Processing with MapReduce",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Task",
+        "title": "Exploring Task",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Task",
+            "starter_code": "# TODO: Implement Task\n# Your code here\n",
+            "solution": "# Solution for Task\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Task",
+          "Apply Task in practical scenarios",
+          "Implement solutions using Task"
+        ],
+        "background": "is divided into Map Task and Reduce Task, which are started by TaskTracker"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Task",
+    "concept_definition": "is divided into Map Task and Reduce Task, which are started by TaskTracker",
+    "source_topic": "Batch Processing with MapReduce",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

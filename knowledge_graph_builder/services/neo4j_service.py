@@ -15,6 +15,7 @@ from pathlib import Path
 import json
 import os
 import re
+import logging
 from dotenv import load_dotenv
 
 from langchain_neo4j import Neo4jGraph
@@ -32,6 +33,8 @@ from models.neo4j_models import (
 from services.embedding import EmbeddingService
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class Neo4jService:
@@ -72,22 +75,22 @@ class Neo4jService:
                 password=self.password,
                 database=self.database
             )
-            print(f"✅ Connected to Neo4j at {self.url}")
+            logger.info(f"Connected to Neo4j at {self.url}")
         except Exception as e:
-            print(f"❌ Failed to connect to Neo4j: {e}")
+            logger.error(f"Failed to connect to Neo4j: {e}")
             raise
     
     def clear_database(self):
         """Clear all data from the Neo4j database for fresh start."""
         try:
             self.graph.query("MATCH (n) DETACH DELETE n")
-            print("🗑️  Database cleared - fresh start ready")
+            logger.info("Database cleared - fresh start ready")
         except Exception as e:
-            print(f"⚠️  Error clearing database: {e}")
+            logger.warning(f"Error clearing database: {e}")
     
     def create_constraints_and_indexes(self):
         """Create constraints and indexes optimized for our knowledge graph schema."""
-        print("🔧 Setting up database constraints and indexes...")
+        logger.info("Setting up database constraints and indexes...")
         
         # Node constraints for uniqueness
         constraints = [
@@ -125,38 +128,38 @@ class Neo4jService:
             try:
                 self.graph.query(constraint)
                 constraint_name = constraint.split("FOR")[1].split("REQUIRE")[0].strip()
-                print(f"  ✅ Constraint: {constraint_name}")
+                logger.info(f"Constraint created: {constraint_name}")
             except Exception as e:
                 if "already exists" in str(e).lower():
-                    print(f"  ℹ️  Constraint already exists: {constraint.split()[2]}")
+                    logger.debug(f"Constraint already exists: {constraint.split()[2]}")
                 else:
-                    print(f"  ⚠️  Constraint error: {e}")
+                    logger.warning(f"Constraint error: {e}")
         
         # Execute regular indexes
         for index in indexes:
             try:
                 self.graph.query(index)
                 index_name = index.split()[2]
-                print(f"  ✅ Index: {index_name}")
+                logger.info(f"Index created: {index_name}")
             except Exception as e:
                 if "already exists" in str(e).lower():
-                    print(f"  ℹ️  Index already exists: {index.split()[2]}")
+                    logger.debug(f"Index already exists: {index.split()[2]}")
                 else:
-                    print(f"  ⚠️  Index error: {e}")
+                    logger.warning(f"Index error: {e}")
         
         # Execute vector indexes
         for vector_index in vector_indexes:
             try:
                 self.graph.query(vector_index)
                 index_name = vector_index.split()[3]
-                print(f"  ✅ Vector index: {index_name}")
+                logger.info(f"Vector index created: {index_name}")
             except Exception as e:
                 if "already exists" in str(e).lower():
-                    print(f"  ℹ️  Vector index already exists: {vector_index.split()[3]}")
+                    logger.debug(f"Vector index already exists: {vector_index.split()[3]}")
                 else:
-                    print(f"  ⚠️  Vector index error (may require Neo4j 5.0+): {e}")
+                    logger.warning(f"Vector index error (may require Neo4j 5.0+): {e}")
         
-        print("🎯 Database setup complete!")
+        logger.info("Database setup complete")
     
     def process_topic_json_file(self, json_file_path: Union[str, Path]) -> bool:
         """
@@ -171,7 +174,7 @@ class Neo4jService:
         """
         try:
             json_path = Path(json_file_path)
-            print(f"📄 Processing: {json_path.name}")
+            logger.info(f"Processing: {json_path.name}")
 
             # Load JSON data
             with open(json_path, 'r', encoding='utf-8') as f:
@@ -179,7 +182,7 @@ class Neo4jService:
 
             # Validate data structure
             if 'nodes' not in data or 'relationships' not in data:
-                print(f"❌ Invalid JSON structure in {json_path.name}")
+                logger.error(f"Invalid JSON structure in {json_path.name}")
                 return False
 
             # Try to process with concept deduplication
@@ -190,19 +193,17 @@ class Neo4jService:
                 # Insert into Neo4j
                 self.graph.add_graph_documents([graph_doc])
 
-                print(f"✅ Successfully processed: {json_path.name}")
-                print(f"   • Nodes: {len(data['nodes'])}")
-                print(f"   • Relationships: {len(data['relationships'])}")
+                logger.info(f"Successfully processed: {json_path.name} - Nodes: {len(data['nodes'])}, Relationships: {len(data['relationships'])}")
 
                 return True
 
             except Exception as insert_error:
                 # Use LangChain's native error handling
-                print(f"⚠️  Insertion error: {insert_error}")
+                logger.warning(f"Insertion error: {insert_error}")
                 raise insert_error
 
         except Exception as e:
-            print(f"❌ Error processing {json_file_path}: {e}")
+            logger.error(f"Error processing {json_file_path}: {e}")
             return False
 
     def _create_graph_document_from_construction_plan(self, data: Dict[str, Any]) -> GraphDocument:
@@ -287,7 +288,7 @@ class Neo4jService:
                 )
                 relationships.append(relationship)
             else:
-                print(f"⚠️  Skipping relationship: source={source_id}, target={target_id} (nodes not found)")
+                logger.warning(f"Skipping relationship: source={source_id}, target={target_id} (nodes not found)")
 
         # Create source document
         source_doc = Document(
@@ -327,18 +328,17 @@ class Neo4jService:
         }
 
         if not neo4j_ready_dir.exists():
-            print(f"❌ Neo4j ready directory not found: {neo4j_ready_dir}")
+            logger.error(f"Neo4j ready directory not found: {neo4j_ready_dir}")
             return results
 
         # Find all JSON files in neo4j_ready directory
         json_files = list(neo4j_ready_dir.glob("*.json"))
 
         if not json_files:
-            print(f"⚠️  No JSON files found in {neo4j_ready_dir}")
+            logger.warning(f"No JSON files found in {neo4j_ready_dir}")
             return results
 
-        print(f"📁 Processing topic folder: {topic_path.name}")
-        print(f"   Found {len(json_files)} JSON files")
+        logger.info(f"Processing topic folder: {topic_path.name} - Found {len(json_files)} JSON files")
 
         # Process each JSON file
         for json_file in json_files:
@@ -352,7 +352,7 @@ class Neo4jService:
                     results['total_nodes'] += len(data.get('nodes', []))
                     results['total_relationships'] += len(data.get('relationships', []))
                 except Exception as e:
-                    print(f"⚠️  Error counting data in {json_file.name}: {e}")
+                    logger.warning(f"Error counting data in {json_file.name}: {e}")
             else:
                 results['failed_files'].append(str(json_file.name))
 
@@ -371,7 +371,7 @@ class Neo4jService:
         base_path = Path(base_output_dir)
 
         if not base_path.exists():
-            print(f"❌ Base output directory not found: {base_path}")
+            logger.error(f"Base output directory not found: {base_path}")
             return {'error': 'Base directory not found'}
 
         # Find all topic folders (directories that contain neo4j_ready subdirectories)
@@ -381,10 +381,10 @@ class Neo4jService:
                 topic_folders.append(item)
 
         if not topic_folders:
-            print(f"⚠️  No topic folders found in {base_path}")
+            logger.warning(f"No topic folders found in {base_path}")
             return {'error': 'No topic folders found'}
 
-        print(f"🚀 Starting Neo4j ingestion for {len(topic_folders)} topics...")
+        logger.info(f"Starting Neo4j ingestion for {len(topic_folders)} topics")
 
         # Clear database and set up constraints
         self.clear_database()
@@ -402,7 +402,7 @@ class Neo4jService:
         }
 
         for topic_folder in topic_folders:
-            print(f"\n📋 Processing topic: {topic_folder.name}")
+            logger.info(f"Processing topic: {topic_folder.name}")
 
             topic_result = self.process_topic_folder(topic_folder)
 
@@ -452,7 +452,7 @@ class Neo4jService:
             stats["Total relationships"] = total_rels_result[0]['count'] if total_rels_result else 0
 
         except Exception as e:
-            print(f"⚠️  Error getting database stats: {e}")
+            logger.warning(f"Error getting database stats: {e}")
             stats["error"] = str(e)
 
         return stats
@@ -478,8 +478,8 @@ class Neo4jService:
         """
         # This would require embedding the query_text first
         # For now, return a placeholder implementation
-        print(f"🔍 Vector similarity search for '{query_text}' in {node_type} nodes")
-        print(f"   (Vector search requires embedding service integration)")
+        logger.info(f"Vector similarity search for '{query_text}' in {node_type} nodes")
+        logger.debug("Vector search requires embedding service integration")
 
         # Fallback to text-based search for now
         if node_type == "CONCEPT":
@@ -503,7 +503,7 @@ class Neo4jService:
             results = self.graph.query(cypher, {"query_text": query_text, "limit": limit})
             return results
         except Exception as e:
-            print(f"❌ Error in similarity search: {e}")
+            logger.error(f"Error in similarity search: {e}")
             return []
 
     def query(self, cypher_query: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
@@ -520,8 +520,71 @@ class Neo4jService:
         try:
             return self.graph.query(cypher_query, params or {})
         except Exception as e:
-            print(f"❌ Query error: {e}")
+            logger.error(f"Query error: {e}")
             return []
+
+    def get_all_concepts(self) -> List[Dict[str, str]]:
+        """
+        Get all concepts from the Neo4j database.
+
+        Returns:
+            List of concept dictionaries with id and name
+        """
+        query = """
+        MATCH (c:CONCEPT)
+        RETURN c.id as id, c.name as name
+        ORDER BY c.name
+        """
+
+        try:
+            results = self.graph.query(query)
+            concepts = [{"id": str(result["id"]), "name": result["name"]} for result in results]
+            return concepts
+        except Exception as e:
+            logger.error(f"Error fetching concepts: {e}")
+            return []
+
+    def get_concept_definitions(self, concept_names: List[str]) -> Dict[str, List[str]]:
+        """
+        Retrieve definitions for concepts from Neo4j MENTIONS relationships.
+
+        Args:
+            concept_names: List of concept names to retrieve definitions for
+
+        Returns:
+            Dictionary mapping concept names to lists of definitions
+        """
+        if not concept_names:
+            return {}
+
+        try:
+            # Create parameterized query to avoid injection
+            query = """
+            MATCH (c:CONCEPT)-[m:MENTIONS]-(d)
+            WHERE c.name IN $concept_names
+            RETURN c.name as concept_name, m.definition as definition
+            ORDER BY c.name, m.definition
+            """
+
+            results = self.graph.query(query, {"concept_names": concept_names})
+
+            # Group definitions by concept name
+            concept_definitions = {}
+            for record in results:
+                concept_name = record["concept_name"]
+                definition = record["definition"]
+
+                if definition:  # Only include non-empty definitions
+                    if concept_name not in concept_definitions:
+                        concept_definitions[concept_name] = []
+                    concept_definitions[concept_name].append(definition)
+
+            logger.debug(f"Retrieved definitions for {len(concept_definitions)} concepts")
+            return concept_definitions
+
+        except Exception as e:
+            logger.error(f"Error retrieving concept definitions: {e}")
+            return {}
 
     def create_graph_data_from_extraction(self, extraction_result, source_file: str) -> Neo4jGraphData:
         """
@@ -558,7 +621,7 @@ class Neo4jService:
             try:
                 theory_embedding = self.embedding_service.embed_text(summary_text)
             except Exception as e:
-                print(f"⚠️  Failed to generate theory embedding: {e}")
+                logger.warning(f"Failed to generate theory embedding: {e}")
                 theory_embedding = []
 
         # Create lists for Pydantic models
@@ -730,7 +793,322 @@ class Neo4jService:
                 error=str(e)
             )
 
+    def merge_concepts(
+        self,
+        canonical: str,
+        variants: List[str]
+    ) -> bool:
+        """
+        Merge multiple concept nodes into one canonical node using APOC.
+        
+        Handles ALL relationship types automatically (MENTIONS, USED_FOR, RELATED_TO, etc.)
+        
+        Args:
+            canonical: The canonical concept name to keep
+            variants: List of variant names to merge (including canonical)
+        
+        Returns:
+            True if merge was successful
+        """
+        try:
+            query = """
+            // Find canonical node
+            MATCH (canonical:CONCEPT {name: $canonical_name})
+            
+            // Find all variant nodes (excluding canonical)
+            MATCH (variant:CONCEPT)
+            WHERE variant.name IN $variant_names 
+              AND variant.name <> $canonical_name
+            
+            // Collect variants for merging
+            WITH canonical, collect(variant) AS variant_nodes
+            
+            // Use APOC to merge all variants into canonical
+            CALL apoc.refactor.mergeNodes(
+                [canonical] + variant_nodes,
+                {
+                    properties: {
+                        name: 'discard',           // Keep canonical name
+                        aliases: 'combine',        // Combine alias arrays
+                        definition: 'overwrite',   // Keep canonical definition
+                        `.*`: 'overwrite'          // Other props: keep canonical
+                    },
+                    mergeRels: true                // Merge duplicate relationships
+                }
+            )
+            YIELD node
+            
+            // Update metadata
+            SET node.aliases = [v IN $variant_names WHERE v <> $canonical_name]
+            SET node.merge_count = size(node.aliases)
+            SET node.last_merged_at = datetime()
+            
+            RETURN node.name AS canonical,
+                   node.merge_count AS merged_count,
+                   node.aliases AS variants
+            """
+            
+            result = self.graph.query(query, {
+                "canonical_name": canonical,
+                "variant_names": variants
+            })
+            
+            return len(result) > 0
+        
+        except Exception as e:
+            logger.error(f"Error merging concepts: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def create_concept_relationship(
+        self,
+        source: str,
+        target: str,
+        relation: str,
+        reasoning: str
+    ) -> bool:
+        """
+        Create a relationship between two concepts.
+        
+        Args:
+            source: Source concept name (canonical)
+            target: Target concept name (canonical)
+            relation: Relationship type (USED_FOR, RELATED_TO)
+            reasoning: Brief explanation
+        
+        Returns:
+            True if relationship was created
+        """
+        try:
+            query = """
+            // Find source and target nodes
+            MATCH (source:CONCEPT {name: $source})
+            MATCH (target:CONCEPT {name: $target})
+            
+            // Create relationship with properties
+            MERGE (source)-[r:CONCEPT_RELATION {type: $relation}]->(target)
+            SET r.reasoning = $reasoning
+            SET r.created_at = datetime()
+            
+            RETURN source.name AS source, target.name AS target, r.type AS relation
+            """
+            
+            result = self.graph.query(query, {
+                "source": source,
+                "target": target,
+                "relation": relation,
+                "reasoning": reasoning
+            })
+            
+            return len(result) > 0
+        
+        except Exception as e:
+            logger.error(f"Error creating relationship {source} -> {target}: {e}")
+            return False
+
+    def ingest_normalized_concepts(
+        self,
+        json_file_path: str,
+        dry_run: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Ingest normalized concepts from final.json into Neo4j.
+        
+        Process:
+        1. Load JSON file
+        2. Merge duplicate concept nodes (using APOC)
+        3. Create relationships between canonical concepts
+        
+        Args:
+            json_file_path: Path to final.json (e.g., "output/final.json")
+            dry_run: If True, only print what would be done without making changes
+        
+        Returns:
+            Dictionary with ingestion statistics
+        """
+        import json
+        from pathlib import Path
+        
+        print(f"\n{'='*80}")
+        print(f"🚀 INGESTING NORMALIZED CONCEPTS FROM: {json_file_path}")
+        print(f"{'='*80}")
+        
+        # Load JSON file
+        json_path = Path(json_file_path)
+        if not json_path.exists():
+            raise FileNotFoundError(f"JSON file not found: {json_file_path}")
+        
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Extract data
+        merges = data.get("concept_merges", {}).get("merges", [])
+        relationships = data.get("relationships", {}).get("canonical_preview", [])
+        
+        print(f"\n📊 Data Summary:")
+        print(f"   Total Merges: {len(merges)}")
+        print(f"   Total Relationships: {len(relationships)}")
+        print(f"   Dry Run: {dry_run}")
+        
+        stats = {
+            "preprocessing": {"lowercased": 0, "duplicates_merged": 0},
+            "merges": {"total": len(merges), "success": 0, "failed": 0, "skipped": 0},
+            "relationships": {"total": len(relationships), "success": 0, "failed": 0, "skipped": 0}
+        }
+        
+        # === PHASE 0: PRE-PROCESSING ===
+        print(f"\n{'='*80}")
+        print(f"🔧 PHASE 0: PRE-PROCESSING DATABASE")
+        print(f"{'='*80}")
+        
+        if dry_run:
+            print(f"   🔍 Would lowercase all CONCEPT names")
+            print(f"   🔍 Would merge exact duplicate CONCEPT nodes")
+        else:
+            # Step 1: Lowercase all CONCEPT names
+            print(f"   📝 Lowercasing all CONCEPT names...")
+            try:
+                lowercase_query = """
+                MATCH (c:CONCEPT)
+                WHERE c.name <> toLower(c.name)
+                SET c.name = toLower(c.name)
+                RETURN count(c) AS lowercased_count
+                """
+                result = self.graph.query(lowercase_query)
+                lowercased_count = result[0]["lowercased_count"] if result else 0
+                stats["preprocessing"]["lowercased"] = lowercased_count
+                logger.info(f"Lowercased {lowercased_count} concept names")
+            except Exception as e:
+                logger.warning(f"Error lowercasing concepts: {e}")
+            
+            # Step 2: Merge exact duplicate CONCEPT nodes (same name, multiple nodes)
+            print(f"   🔀 Merging exact duplicate CONCEPT nodes...")
+            try:
+                merge_duplicates_query = """
+                MATCH (c:CONCEPT)
+                WITH c.name AS name, collect(c) AS nodes
+                WHERE size(nodes) > 1
+                CALL apoc.refactor.mergeNodes(nodes, {mergeRels: true})
+                YIELD node
+                RETURN count(node) AS merged_count
+                """
+                result = self.graph.query(merge_duplicates_query)
+                merged_count = result[0]["merged_count"] if result else 0
+                stats["preprocessing"]["duplicates_merged"] = merged_count
+                logger.info(f"Merged {merged_count} duplicate concept nodes")
+            except Exception as e:
+                logger.warning(f"Error merging duplicates: {e}")
+        
+        # === PHASE 1: MERGE CONCEPTS ===
+        print(f"\n{'='*80}")
+        print(f"🔀 PHASE 1: MERGING CONCEPTS ({len(merges)} merges)")
+        print(f"{'='*80}")
+        
+        for i, merge in enumerate(merges, 1):
+            canonical = merge["canonical"]
+            variants = merge["variants"]
+            reasoning = merge.get("reasoning", "")
+            
+            # Skip exact duplicates (both variants are the same)
+            if len(set(variants)) == 1:
+                print(f"   ⏭️  [{i}/{len(merges)}] Skipped: {variants[0]} (no actual variants)")
+                stats["merges"]["skipped"] += 1
+                continue
+            
+            if dry_run:
+                print(f"   🔍 [{i}/{len(merges)}] Would merge: {variants} → {canonical}")
+                print(f"      Reason: {reasoning}")
+                stats["merges"]["success"] += 1
+            else:
+                try:
+                    success = self.merge_concepts(canonical=canonical, variants=variants)
+                    if success:
+                        print(f"   ✅ [{i}/{len(merges)}] Merged: {variants} → {canonical}")
+                        stats["merges"]["success"] += 1
+                    else:
+                        print(f"   ⚠️  [{i}/{len(merges)}] Failed: {canonical}")
+                        stats["merges"]["failed"] += 1
+                except Exception as e:
+                    print(f"   ❌ [{i}/{len(merges)}] Error: {e}")
+                    stats["merges"]["failed"] += 1
+        
+        # === PHASE 2: CREATE RELATIONSHIPS ===
+        print(f"\n{'='*80}")
+        print(f"🔗 PHASE 2: CREATING RELATIONSHIPS ({len(relationships)} relationships)")
+        print(f"{'='*80}")
+        
+        # Show examples of mapped relationships
+        mapped_count = sum(1 for r in relationships if r.get("was_mapped", False))
+        print(f"   Relationships with name mapping: {mapped_count}")
+        
+        if mapped_count > 0:
+            print(f"\n   Example Mappings:")
+            shown = 0
+            for rel in relationships:
+                if rel.get("was_mapped", False) and shown < 3:
+                    orig = rel["original"]
+                    canon = rel["canonical"]
+                    print(f"   • {orig['s']} → {canon['s']}")
+                    if orig['t'] != canon['t']:
+                        print(f"   • {orig['t']} → {canon['t']}")
+                    shown += 1
+        
+        print(f"\n   Creating relationships...")
+        
+        for i, rel in enumerate(relationships, 1):
+            canonical = rel["canonical"]
+            source = canonical["s"]
+            target = canonical["t"]
+            rel_type = rel["rel"]
+            reasoning = rel["r"]
+            
+            if dry_run:
+                if i <= 5:  # Show first 5 in dry run
+                    print(f"   🔍 [{i}/{len(relationships)}] Would create: {source} --[{rel_type}]--> {target}")
+                elif i == 6:
+                    print(f"   ... (showing first 5, {len(relationships) - 5} more)")
+                stats["relationships"]["success"] += 1
+            else:
+                try:
+                    success = self.create_concept_relationship(
+                        source=source,
+                        target=target,
+                        relation=rel_type,
+                        reasoning=reasoning
+                    )
+                    
+                    if success:
+                        if i % 20 == 0:  # Progress indicator every 20
+                            print(f"   ... processed {i}/{len(relationships)} relationships")
+                        stats["relationships"]["success"] += 1
+                    else:
+                        print(f"   ⚠️  [{i}/{len(relationships)}] Failed: {source} -> {target}")
+                        stats["relationships"]["failed"] += 1
+                
+                except Exception as e:
+                    print(f"   ❌ [{i}/{len(relationships)}] Error: {e}")
+                    stats["relationships"]["failed"] += 1
+        
+        # === FINAL SUMMARY ===
+        print(f"\n{'='*80}")
+        print(f"📊 INGESTION SUMMARY")
+        print(f"{'='*80}")
+        print(f"🔧 Pre-processing:")
+        print(f"   Lowercased: {stats['preprocessing']['lowercased']}")
+        print(f"   Duplicates Merged: {stats['preprocessing']['duplicates_merged']}")
+        print(f"\n🔀 Merges:")
+        print(f"   Success: {stats['merges']['success']}")
+        print(f"   Failed: {stats['merges']['failed']}")
+        print(f"   Skipped: {stats['merges']['skipped']}")
+        print(f"\n🔗 Relationships:")
+        print(f"   Success: {stats['relationships']['success']}")
+        print(f"   Failed: {stats['relationships']['failed']}")
+        print(f"{'='*80}")
+        
+        return stats
+
     def close(self):
         """Close the database connection."""
-        print("🔌 Neo4j connection closed")
+        logger.info("Neo4j connection closed")
         # LangChain Neo4jGraph manages connections internally

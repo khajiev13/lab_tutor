@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Timestamp in Big Data And Databases",
+  "topic": "Internal Data Acquisition using ETL",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Timestamp",
+      "title": "Exploring Timestamp",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Timestamp",
+          "starter_code": "# TODO: Implement Timestamp\n# Your code here\n",
+          "solution": "# Solution for Timestamp\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Timestamp to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Timestamp\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Timestamp",
+        "Apply Timestamp in practical scenarios",
+        "Implement solutions using Timestamp"
+      ],
+      "background": "Add a timestamp field to the original table, and update the value of the timestamp field every time while modify the table data. When extracting data, determine which data to extract by comparing the value of the last extraction system time and the timestamp field of each record."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Data transform in Big Data And Databases",
+  "topic": "Data Integration and Data Transformation",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Data transform",
+      "title": "Exploring Data transform",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Data transform",
+          "starter_code": "# TODO: Implement Data transform\n# Your code here\n",
+          "solution": "# Solution for Data transform\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Data transform",
+        "Apply Data transform in practical scenarios",
+        "Implement solutions using Data transform"
+      ],
+      "background": "In order to facilitate efficient analysis , we need change the data from one form to another form."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangGraph Workflow Visualization</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        .metric {
+            display: inline-block;
+            background: #ecf0f1;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        .metric-label {
+            font-weight: bold;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .metric-value {
+            font-size: 1.5em;
+            color: #2c3e50;
+        }
+        .diagram {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+        }
+        .success { color: #27ae60; }
+        .warning { color: #f39c12; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #34495e;
+            color: white;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 LangGraph Workflow Visualization</h1>
+        
+        <h2>📊 Workflow Statistics</h2>
+        <div class="metrics">
+            <div class="metric">
+                <div class="metric-label">Total Iterations</div>
+                <div class="metric-value">14</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Processing Time</div>
+                <div class="metric-value">426.5s</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Concept Merges</div>
+                <div class="metric-value">5</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Relationships</div>
+                <div class="metric-value">66</div>
+            </div>
+        </div>
+        
+        <h2>🎯 Convergence Status</h2>
+        <p>
+            <strong class="success">
+                ✅ Converged
+            </strong><br>
+            Reason: Both tasks exhausted - no new discoveries
+        </p>
+    </div>
+    
+    <div class="container">
+        <h2>🔄 Workflow Structure</h2>
+        <div class="diagram">
+            <pre class="mermaid">
+
+graph TD
+    START([START]) --> INIT[Initialize State]
+    INIT --> GEN{Generation Node}
+    
+    GEN -->|First Iteration| GEN1[Generate Initial<br/>Comprehensive Set]
+    GEN -->|Later Iterations| GEN2[Apply Operations<br/>from Feedback]
+    
+    GEN1 --> VAL[Validation Node]
+    GEN2 --> VAL
+    
+    VAL --> CALC[Calculate Quality Scores<br/>Accuracy, Relevance, Completeness]
+    CALC --> OPS[Identify Operations<br/>Modify, Delete, Add]
+    OPS --> HIST[Update State History<br/>& Convergence Metrics]
+    
+    HIST --> CONV{Convergence<br/>Checker}
+    
+    CONV -->|Quality ≥ 0.85| END1([COMPLETE])
+    CONV -->|No Operations| END2([COMPLETE])
+    CONV -->|Max Iterations| END3([COMPLETE])
+    CONV -->|Diminishing Returns| END4([COMPLETE])
+    CONV -->|Continue| GEN
+    
+    style START fill:#90EE90
+    style END1 fill:#FFB6C1
+    style END2 fill:#FFB6C1
+    style END3 fill:#FFB6C1
+    style END4 fill:#FFB6C1
+    style GEN fill:#87CEEB
+    style VAL fill:#DDA0DD
+    style CONV fill:#F0E68C
+
+            </pre>
+        </div>
+    </div>
+    
+    <div class="container"><h2>📈 State Transitions</h2><div class="diagram"><pre class="mermaid">stateDiagram-v2
+    [*] --> Iteration0
+    Iteration0: Iteration 1\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration0 --> Iteration1
+    Iteration1: Iteration 2\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration1 --> Iteration2
+    Iteration2: Iteration 3\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration2 --> Iteration3
+    Iteration3: Iteration 4\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration3 --> Iteration4
+    Iteration4: Iteration 5\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration4 --> Iteration5
+    Iteration5: Iteration 6\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration5 --> Iteration6
+    Iteration6: Iteration 7\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration6 --> Iteration7
+    Iteration7: Iteration 8\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration7 --> Iteration8
+    Iteration8: Iteration 9\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration8 --> Iteration9
+    Iteration9: Iteration 10\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration9 --> Iteration10
+    Iteration10: Iteration 11\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration10 --> Iteration11
+    Iteration11: Iteration 12\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration11 --> Iteration12
+    Iteration12: Iteration 13\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration12 --> Iteration13
+    Iteration13: Iteration 14\nRels: 0\nQuality: 0.00\nOps: 0
+    Iteration13 --> [*]</pre></div></div>
+    
+    <div class="container">
+        <h2>📋 Iteration Details</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Iteration</th>
+                    <th>Valid Count</th>
+                    <th>Weak Count</th>
+                    <th>Total Accumulated</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td>1</td>
+                    <td>11</td>
+                    <td>2</td>
+                    <td>11</td>
+                </tr>
+
+                <tr>
+                    <td>2</td>
+                    <td>9</td>
+                    <td>2</td>
+                    <td>18</td>
+                </tr>
+
+                <tr>
+                    <td>3</td>
+                    <td>13</td>
+                    <td>1</td>
+                    <td>26</td>
+                </tr>
+
+                <tr>
+                    <td>4</td>
+                    <td>9</td>
+                    <td>2</td>
+                    <td>34</td>
+                </tr>
+
+                <tr>
+                    <td>5</td>
+                    <td>8</td>
+                    <td>3</td>
+                    <td>41</td>
+                </tr>
+
+                <tr>
+                    <td>6</td>
+                    <td>12</td>
+                    <td>3</td>
+                    <td>45</td>
+                </tr>
+
+                <tr>
+                    <td>7</td>
+                    <td>7</td>
+                    <td>2</td>
+                    <td>49</td>
+                </tr>
+
+                <tr>
+                    <td>8</td>
+                    <td>9</td>
+                    <td>2</td>
+                    <td>55</td>
+                </tr>
+
+                <tr>
+                    <td>9</td>
+                    <td>8</td>
+                    <td>1</td>
+                    <td>56</td>
+                </tr>
+
+                <tr>
+                    <td>10</td>
+                    <td>8</td>
+                    <td>2</td>
+                    <td>60</td>
+                </tr>
+
+                <tr>
+                    <td>11</td>
+                    <td>9</td>
+                    <td>1</td>
+                    <td>63</td>
+                </tr>
+
+                <tr>
+                    <td>12</td>
+                    <td>7</td>
+                    <td>2</td>
+                    <td>64</td>
+                </tr>
+
+                <tr>
+                    <td>13</td>
+                    <td>8</td>
+                    <td>2</td>
+                    <td>66</td>
+                </tr>
+
+                <tr>
+                    <td>14</td>
+                    <td>3</td>
+                    <td>3</td>
+                    <td>66</td>
+                </tr>
+
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="container">
+        <h2>🔗 Sample Relationships</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Source</th>
+                    <th>Relation</th>
+                    <th>Target</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td>hadoop</td>
+                    <td><strong>RELATED_TO</strong></td>
+                    <td>big data</td>
+                </tr>
+
+                <tr>
+                    <td>mapreduce</td>
+                    <td><strong>USED_FOR</strong></td>
+                    <td>hadoop</td>
+                </tr>
+
+                <tr>
+                    <td>tensorflow</td>
+                    <td><strong>USED_FOR</strong></td>
+                    <td>machine learning</td>
+                </tr>
+
+                <tr>
+                    <td>keras</td>
+                    <td><strong>USED_FOR</strong></td>
+                    <td>tensorflow</td>
+                </tr>
+
+                <tr>
+                    <td>deep learning</td>
+                    <td><strong>USED_FOR</strong></td>
+                    <td>tensorflow</td>
+                </tr>
+
+                <tr>
+                    <td>data mining</td>
+                    <td><strong>RELATED_TO</strong></td>
+                    <td>machine learning</td>
+                </tr>
+
+                <tr>
+                    <td>mapreduce</td>
+                    <td><strong>USED_FOR</strong></td>
+                    <td>big data</td>
+                </tr>
+
+                <tr>
+                    <td>distributed</td>
+                    <td><strong>RELATED_TO</strong></td>
+                    <td>hadoop</td>
+                </tr>
+
+                <tr>
+                    <td>spark</td>
+                    <td><strong>USED_FOR</strong></td>
+                    <td>big data</td>
+                </tr>
+
+                <tr>
+                    <td>pca</td>
+                    <td><strong>USED_FOR</strong></td>
+                    <td>dimensionality reduction</td>
+                </tr>
+
+            </tbody>
+        </table>
+        <p><em>Showing 10 of 66 relationships</em></p>
+    </div>
+</body>
+</html>

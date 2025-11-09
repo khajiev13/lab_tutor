@@ -7,6 +7,7 @@ for the canonical relationship-centric approach.
 
 import os
 import re
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -27,6 +28,8 @@ from prompts.extraction_prompts import (
     COMPLETE_EXTRACTION_PROMPT,
     EXTRACTION_PROMPT_WITH_EXAMPLES
 )
+
+logger = logging.getLogger(__name__)
 
 
 class LangChainCanonicalExtractionService:
@@ -110,11 +113,11 @@ class LangChainCanonicalExtractionService:
         self.llm.verbose = verbose
 
         if enhanced_debug:
-            print("🔍 Enhanced debugging mode ENABLED")
+            logger.info("Enhanced debugging mode ENABLED")
         elif verbose:
-            print("📝 Verbose mode ENABLED")
+            logger.info("Verbose mode ENABLED")
         else:
-            print("🔇 Debug mode DISABLED")
+            logger.info("Debug mode DISABLED")
 
 
 
@@ -201,23 +204,13 @@ class LangChainCanonicalExtractionService:
                         f.write(extraction_result.model_dump_json(indent=2))
 
                 if self.enhanced_debug:
-                    print(f"\n💾 SAVING LAMBDA EXECUTION")
-                    print("=" * 40)
-                    print(f"✅ Extraction JSON saved: {json_path}")
-                    print(f"📊 File size: {json_path.stat().st_size} bytes")
-                    print(f"🔢 Concepts saved: {len(extraction_result.concepts)}")
-                    print("=" * 40)
+                    logger.debug(f"Extraction JSON saved: {json_path} - Size: {json_path.stat().st_size} bytes, Concepts: {len(extraction_result.concepts)}")
                 elif self.verbose:
-                    print(f"✅ Extraction JSON saved: {json_path}")
+                    logger.info(f"Extraction JSON saved: {json_path}")
 
             except Exception as e:
-                if self.enhanced_debug:
-                    print(f"\n❌ SAVING LAMBDA ERROR")
-                    print("=" * 40)
-                    print(f"⚠️  Failed to save extraction JSON: {e}")
-                    print("=" * 40)
-                elif self.verbose:
-                    print(f"⚠️  Failed to save extraction JSON: {e}")
+                if self.enhanced_debug or self.verbose:
+                    logger.error(f"Failed to save extraction JSON: {e}")
 
         return extraction_result
 
@@ -408,14 +401,14 @@ class LangChainCanonicalExtractionService:
             )
 
             if self.verbose:
-                print(f"✅ Successfully extracted {len(extraction_result_with_text.concepts)} canonical concepts using LangChain")
+                logger.info(f"Successfully extracted {len(extraction_result_with_text.concepts)} canonical concepts using LangChain")
             
             return complete_result
             
         except ValidationError as e:
             error_msg = f"Pydantic validation error: {e}"
             if self.verbose:
-                print(f"❌ {error_msg}")
+                logger.error(error_msg)
             # Get raw_text length safely
             raw_text_length = len(documents[0].page_content) if documents else 0
             # Create error result with original text
@@ -442,7 +435,7 @@ class LangChainCanonicalExtractionService:
         except Exception as e:
             error_msg = f"Extraction error: {str(e)}"
             if self.verbose:
-                print(f"❌ {error_msg}")
+                logger.error(error_msg)
             # Get raw_text length safely
             raw_text_length = len(documents[0].page_content) if documents else 0
             # Create error result with original text
@@ -505,7 +498,7 @@ class LangChainCanonicalExtractionService:
 
         except Exception as e:
             if self.verbose:
-                print(f"❌ Error during extraction: {e}")
+                logger.error(f"Error during extraction: {e}")
             return {
                 'success': False,
                 'source_file': source_file_path,
@@ -531,11 +524,11 @@ class LangChainCanonicalExtractionService:
 
             saved_files['langchain_json'] = str(json_path)
             if self.verbose:
-                print(f"✅ LangChain JSON saved: {json_path}")
+                logger.info(f"LangChain JSON saved: {json_path}")
 
         except Exception as json_error:
             if self.verbose:
-                print(f"⚠️  Failed to save JSON: {json_error}")
+                logger.warning(f"Failed to save JSON: {json_error}")
 
         return saved_files
 

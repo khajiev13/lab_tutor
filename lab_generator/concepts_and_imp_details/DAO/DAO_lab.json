@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: DAO in Big Data And Databases",
+    "topic": "Unified Data Access Interface",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "DAO",
+        "title": "Exploring DAO",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating DAO",
+            "starter_code": "# TODO: Implement DAO\n# Your code here\n",
+            "solution": "# Solution for DAO\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of DAO",
+          "Apply DAO in practical scenarios",
+          "Implement solutions using DAO"
+        ],
+        "background": "Data access object"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "DAO",
+    "concept_definition": "Data access object",
+    "source_topic": "Unified Data Access Interface",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

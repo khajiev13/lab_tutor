@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: HANA in Big Data And Databases",
+  "topic": "In-Memory Database: HANA Architecture and Technologies",
+  "difficulty": "medium",
+  "estimated_time": 45,
+  "sections": [
+    {
+      "concept": "HANA",
+      "title": "Exploring HANA",
+      "difficulty": "medium",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating HANA",
+          "starter_code": "# TODO: Implement HANA\n# Your code here\n",
+          "solution": "# Solution for HANA\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply HANA to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced HANA\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of HANA",
+        "Apply HANA in practical scenarios",
+        "Implement solutions using HANA"
+      ],
+      "background": "An in-memory database that stores the data directly in memory, optimized not for how the data is stored on disk, but optimized for efficient access, and as we shall see, highly compressed, using the most efficient memory representations that computer scientists can come up with."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

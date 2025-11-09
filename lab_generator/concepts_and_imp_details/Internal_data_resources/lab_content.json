@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Internal data resources in Big Data And Databases",
+  "topic": "Data Resources: Internal and External Data",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Internal data resources",
+      "title": "Exploring Internal data resources",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Internal data resources",
+          "starter_code": "# TODO: Implement Internal data resources\n# Your code here\n",
+          "solution": "# Solution for Internal data resources\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Internal data resources to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Internal data resources\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Internal data resources",
+        "Apply Internal data resources in practical scenarios",
+        "Implement solutions using Internal data resources"
+      ],
+      "background": "All the data created by the organization and stored inside the organization, including organization self operated system, business transaction system, manufacturing system, finance system, human resources system, etc."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

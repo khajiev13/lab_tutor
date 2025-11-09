@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: External data in Big Data And Databases",
+  "topic": "Data Resources: Internal and External Data",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "External data",
+      "title": "Exploring External data",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating External data",
+          "starter_code": "# TODO: Implement External data\n# Your code here\n",
+          "solution": "# Solution for External data\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of External data",
+        "Apply External data in practical scenarios",
+        "Implement solutions using External data"
+      ],
+      "background": "The data outside the specific organization."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Supervisor in Big Data And Databases",
+  "topic": "Stream Computing Model and Storm Framework",
+  "difficulty": "medium",
+  "estimated_time": 45,
+  "sections": [
+    {
+      "concept": "Supervisor",
+      "title": "Exploring Supervisor",
+      "difficulty": "medium",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Supervisor",
+          "starter_code": "# TODO: Implement Supervisor\n# Your code here\n",
+          "solution": "# Solution for Supervisor\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Supervisor to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Supervisor\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Supervisor",
+        "Apply Supervisor in practical scenarios",
+        "Implement solutions using Supervisor"
+      ],
+      "background": "Each worker node runs a Supervisor daemon, monitors the status of the local node, and starts and shuts down the worker process of the node when necessary according to Nimbus instructions."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

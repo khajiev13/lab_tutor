@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: ETL (Extract, Transform, load) in Big Data And Databases",
+    "topic": "Internal Data Acquisition using ETL",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "ETL (Extract, Transform, load)",
+        "title": "Exploring ETL (Extract, Transform, load)",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating ETL (Extract, Transform, load)",
+            "starter_code": "# TODO: Implement ETL (Extract, Transform, load)\n# Your code here\n",
+            "solution": "# Solution for ETL (Extract, Transform, load)\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of ETL (Extract, Transform, load)",
+          "Apply ETL (Extract, Transform, load) in practical scenarios",
+          "Implement solutions using ETL (Extract, Transform, load)"
+        ],
+        "background": "The most often used internal data acquisition tool whose Purpose is to Integrate all the relevant enterprise data for analysis."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "ETL (Extract, Transform, load)",
+    "concept_definition": "The most often used internal data acquisition tool whose Purpose is to Integrate all the relevant enterprise data for analysis.",
+    "source_topic": "Internal Data Acquisition using ETL",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

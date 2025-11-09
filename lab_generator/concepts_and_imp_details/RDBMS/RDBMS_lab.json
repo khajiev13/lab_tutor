@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: RDBMS in Big Data And Databases",
+    "topic": "Introduction to NoSQL Databases",
+    "difficulty": "medium",
+    "estimated_time": 45,
+    "sections": [
+      {
+        "concept": "RDBMS",
+        "title": "Exploring RDBMS",
+        "difficulty": "medium",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating RDBMS",
+            "starter_code": "# TODO: Implement RDBMS\n# Your code here\n",
+            "solution": "# Solution for RDBMS\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply RDBMS to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced RDBMS\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of RDBMS",
+          "Apply RDBMS in practical scenarios",
+          "Implement solutions using RDBMS"
+        ],
+        "background": "Relational database RDBMS has always been the mainstream of data storage management system with its good data consistency, complete transaction mechanism, standardized query language, high query efficiency, and mature technology."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "RDBMS",
+    "concept_definition": "Relational database RDBMS has always been the mainstream of data storage management system with its good data consistency, complete transaction mechanism, standardized query language, high query efficiency, and mature technology.",
+    "source_topic": "Introduction to NoSQL Databases",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Data reduction in Big Data And Databases",
+  "topic": "Data Reduction Techniques",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Data reduction",
+      "title": "Exploring Data reduction",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Data reduction",
+          "starter_code": "# TODO: Implement Data reduction\n# Your code here\n",
+          "solution": "# Solution for Data reduction\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Data reduction",
+        "Apply Data reduction in practical scenarios",
+        "Implement solutions using Data reduction"
+      ],
+      "background": "Technology is used to help obtain a condensed data set from the original huge data set, and make this condensed data set maintain the integrity of the original data set, so that data analysis on the condensed data set is obviously efficient higher, and the results of analysis are basically the same as those obtained by using the original data set."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

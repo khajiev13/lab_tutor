@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: cosine similarity in Big Data And Databases",
+    "topic": "Recommendation Systems: Collaborative, Content-Based, and Knowledge-Based Filtering",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "cosine similarity",
+        "title": "Exploring cosine similarity",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating cosine similarity",
+            "starter_code": "# TODO: Implement cosine similarity\n# Your code here\n",
+            "solution": "# Solution for cosine similarity\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of cosine similarity",
+          "Apply cosine similarity in practical scenarios",
+          "Implement solutions using cosine similarity"
+        ],
+        "background": "A method to calculate the similarity between two users based on the items they like."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "cosine similarity",
+    "concept_definition": "A method to calculate the similarity between two users based on the items they like.",
+    "source_topic": "Recommendation Systems: Collaborative, Content-Based, and Knowledge-Based Filtering",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

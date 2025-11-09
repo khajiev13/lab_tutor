@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: HQL (Hive Query Language) in Big Data And Databases",
+  "topic": "Big Data Lifecycle, Processing, and Business Intelligence Evolution",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "HQL (Hive Query Language)",
+      "title": "Exploring HQL (Hive Query Language)",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating HQL (Hive Query Language)",
+          "starter_code": "# TODO: Implement HQL (Hive Query Language)\n# Your code here\n",
+          "solution": "# Solution for HQL (Hive Query Language)\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of HQL (Hive Query Language)",
+        "Apply HQL (Hive Query Language) in practical scenarios",
+        "Implement solutions using HQL (Hive Query Language)"
+      ],
+      "background": "Helps us do many analytical tasks that are traditionally done in business intelligence tools."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

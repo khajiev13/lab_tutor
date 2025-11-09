@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: OLTP: Online Transaction Processing in Big Data And Databases",
+    "topic": "Big Data Lifecycle, Processing, and Business Intelligence Evolution",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "OLTP: Online Transaction Processing",
+        "title": "Exploring OLTP: Online Transaction Processing",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating OLTP: Online Transaction Processing",
+            "starter_code": "# TODO: Implement OLTP: Online Transaction Processing\n# Your code here\n",
+            "solution": "# Solution for OLTP: Online Transaction Processing\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of OLTP: Online Transaction Processing",
+          "Apply OLTP: Online Transaction Processing in practical scenarios",
+          "Implement solutions using OLTP: Online Transaction Processing"
+        ],
+        "background": "Reporting and human analysis can be made on historical data."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "OLTP: Online Transaction Processing",
+    "concept_definition": "Reporting and human analysis can be made on historical data.",
+    "source_topic": "Big Data Lifecycle, Processing, and Business Intelligence Evolution",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

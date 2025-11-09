@@ -1,0 +1,58 @@
+{
+  "max_tokens": 8192,
+  "model": "gpt-4o",
+  "temperature": 0.8,
+  "top_p": 1,
+  "presence_penalty": 1,
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "concept_relationships",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "description": "Source concept name"
+                },
+                "target": {
+                  "type": "string",
+                  "description": "Target concept name"
+                },
+                "relation": {
+                  "type": "string",
+                  "description": "Relationship type: IS_A, SAME_AS, USED_FOR, or RELATED_TO",
+                  "enum": ["IS_A", "SAME_AS", "USED_FOR", "RELATED_TO"]
+                },
+                "reasoning": {
+                  "type": "string",
+                  "description": "Brief explanation for this relationship"
+                }
+              },
+              "required": ["source", "target", "relation", "reasoning"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["relationships"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "messages": [
+    {
+      "role": "system",
+      "content": "# Role\nYou are an **expert semantic relationship detector** specializing in technical concepts.\n\n# Task\nGenerate comprehensive, high-quality relationships between technical concepts.\n\n## Quality Standards\n\n### Accuracy (Most Important)\n- ✅ Relationships must be factually correct based on technical knowledge\n- ✅ Use correct relationship types for semantic connections\n- ✅ Ensure proper direction (A→B vs B→A)\n- ❌ No speculative or uncertain relationships\n\n### Relevance\n- ✅ Use the most specific relationship type available\n- ✅ Prefer USED_FOR or SAME_AS over generic RELATED_TO when applicable\n- ✅ Each relationship should add meaningful semantic information\n- ❌ Avoid overly vague or generic connections\n\n### Completeness\n- ✅ Systematically analyze all concept pairs\n- ✅ Generate comprehensive coverage of important relationships\n- ✅ Include obvious hierarchical, functional, and equivalence relationships\n- ❌ Don't leave glaring gaps in coverage\n\n## Relationship Types\n- **IS_A**: Hierarchical/inheritance relationship (e.g., 'CNN IS_A Deep Learning')\n- **SAME_AS**: Equivalent concepts, synonyms, or alternative names (e.g., 'ML SAME_AS Machine Learning')\n- **USED_FOR**: Functional/instrumental relationship where one concept is used to achieve another (e.g., 'TensorFlow USED_FOR Machine Learning')\n- **RELATED_TO**: General semantic association between concepts (e.g., 'Hadoop RELATED_TO Big Data')\n\n## Output Format\nYour response will be automatically structured as JSON with the following schema:\n- relationships: array of objects, each containing:\n  - source: exact concept name from the list\n  - target: exact concept name from the list\n  - relation: one of [IS_A, SAME_AS, USED_FOR, RELATED_TO]\n  - reasoning: clear, specific explanation\n\nGenerate as many high-quality relationships as possible."
+    },
+    {
+      "role": "user",
+      "content": "# Concepts to Analyze\n**Total**: 250 concepts\n\n- Aggregation\n- Alternating Least Square (ALS)\n- Apache Giraph\n- Asynchronous replication\n- Atomicity\n- Attribute construction\n- Attributes subset selection\n- Availability\n- BASE\n- Basically available\n- Batch\n- Big Data Era\n- Big Data lifecycle\n- Big data\n- Binning\n- Bolt\n- Breadth first\n- Bulk Synchronous Parallel\n- CAP Theorem\n- CNN\n- CRUD\n- Clustering\n- Collaborative filtering\n- Colossus\n- Column-based\n- Column-oriented databases\n- Computing platform and engine\n- Concept hierarchy\n- Conceptual\n- Consistency\n- Content-based\n- Content-based Filtering Recommendations\n- Cost function\n- CrossValidator\n- DAO\n- DIKW pyramid\n- DSM (decomposition storage model)\n- Dark web\n- Data\n- Data Access Layer\n- Data Cleaning\n- Data Discretization Technology\n- Data Flow Graph\n- Data Integration\n- Data Normalization\n- Data Reduction\n- Data Specification\n- Data Transformation\n- Data cube aggregation\n- Data distribution\n- Data exhaust\n- Data generalization\n- Data governance\n- Data integration\n- Data is the new Oil\n- Data mining\n- Data modeling\n- Data node\n- Data reduction\n- Data redundancy\n- Data storing\n- Data transform\n- Data value conflict\n- Data-Intensive Scientific Discovery\n- Dataflow graphs\n- Deep Learning\n- Deep Web\n- Depth first\n- Dimensionality reduction\n- Directed Acyclic Graph (DAG)\n- Discretization\n- Distributed\n- Distributed file\n- Distribution Strategy API\n- Document-Oriented\n- Document-Oriented NoSQL DB\n- Durability\n- ETL\n- ETL (Extract, Transform, and Load)\n- ETL (Extract, Transform, load)\n- Eager execution\n- Edges\n- Enterprise Data Warehouse\n- Equal depth binning\n- Equal-width binning\n- Estimator\n- Evaluator\n- Eventual consistency\n- External data\n- Force-directed graph drawing\n- Fourth Paradigm of Scientific Research\n- Fruchterman-Reingold\n- Full extraction\n- Full table comparison\n- GFS (Google file system)\n- Gephi\n- Government data\n- Gradient Descent\n- Graph database\n- Graph partitions\n- Graph-Based\n- GraphX\n- HANA\n- HDFS\n- HDFS (Hadoop Distributed File System)\n- HQL (Hive Query Language)\n- Hadoop\n- Hadoop scheduler\n- In-Memory\n- In-memory\n- Incremental extraction\n- Instance-level issues\n- Integrity constraints\n- Internal data resources\n- Isolation\n- Item-based collaborative filtering\n- JSON\n- Jaccard similarity\n- JobTracker\n- Keras\n- Kettle\n- Key Value Pair Based\n- Key-value database\n- Lazy Evolution\n- Linear regression\n- Log comparison\n- Logical\n- Lossless compression\n- Lossy compression\n- ML Pipelines\n- MLlib (Machine Learning Library)\n- MPP databases\n- MPP-Massively Parallel\n- Machine Learning\n- Machine learning\n- MapReduce\n- Massively Parallel Processing (MPP)\n- Massively parallel processing (MPP)\n- Master Node\n- Matrix Factorization\n- Micro-batch\n- Missing value cleaning\n- Model-level issues\n- Name node\n- Naming conflict\n- Native Stream\n- Network big data\n- NetworkX\n- Nimbus\n- NoSQL Database\n- Nodes\n- Numerosity reduction\n- ODBC\n- ODBC-Open DataBase Connectivity\n- OLAP\n- OLAP: Online Analytical\n- OLTP\n- OLTP: Online Transaction\n- OPIC (online Page Importance Computation)\n- ORM\n- Oracle CDC\n- PCA\n- PageRank\n- Paradigm\n- Parallel Execution\n- Param\n- ParamMap\n- Partition tolerance\n- Pattern matching\n- Perception stage\n- Physical\n- Pregel\n- Principal component analysis (PCA)\n- Quasi-structured data\n- RDBMS\n- RTAP: Real-Time Analytics\n- Real-Time Analytics\n- Recommendation\n- Regression\n- Reinforcement Learning(RL)\n- Reinforcement learning\n- Repeat record cleaning\n- Resilient Distributed dataset architecture (RDD)\n- SavedModel\n- Scikit-learn (Sklearn)\n- Segment instances\n- Self-operated data\n- Semi-structured data\n- Semi-supervised learning\n- Shared nothing\n- Singular Value Decomposition (SVD)\n- Slot\n- Social network\n- Social network analysis\n- Soft-state\n- Spark\n- Spark Core\n- Spark MLlib\n- Spark SQL\n- Spark Streaming\n- Spout\n- Stream\n- Strong consistency\n- Structural conflicts\n- Structured data\n- Superstep\n- Supervised learning\n- Supervisor\n- Surface web\n- TOR\n- Task\n- TaskTracker\n- Tensor\n- TensorFlow\n- TensorFlow Lite\n- TensorFlow Processing Unit (TPU)\n- TensorFlow Serving\n- TensorFlow.js\n- Timestamp\n- Topology\n- Transformers\n- Triggers\n- Unified Data Access Interface\n- Unstructured data\n- Unsupervised learning\n- User-based collaborative filtering\n- User-generated content\n- Value\n- Variety\n- Velocity\n- Veracity\n- Virtualization\n- Volume\n- WAF\n- Weak consistency\n- Web crawler\n- Web crawlers\n- XML\n- column based store\n- cosine similarity\n- data\n- insert only\n- materialized aggregations\n- mirror segment\n- relay nodes\n- row based store\n- shared nothing\n- standby\n- star-schema\n- tf.data\n\nGenerate comprehensive relationships between these concepts. Focus on:\n1. SAME_AS relationships for synonyms and equivalent terms\n2. IS_A relationships for hierarchies\n3. USED_FOR relationships for tools/techniques used to accomplish tasks\n4. RELATED_TO only when other types don't fit\n\nAim for maximum coverage while maintaining high quality."
+    }
+  ]
+}

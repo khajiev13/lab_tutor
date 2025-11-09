@@ -1,0 +1,31 @@
+
+graph TD
+    START([START]) --> INIT[Initialize State]
+    INIT --> GEN{Generation Node}
+    
+    GEN -->|First Iteration| GEN1[Generate Initial<br/>Comprehensive Set]
+    GEN -->|Later Iterations| GEN2[Apply Operations<br/>from Feedback]
+    
+    GEN1 --> VAL[Validation Node]
+    GEN2 --> VAL
+    
+    VAL --> CALC[Calculate Quality Scores<br/>Accuracy, Relevance, Completeness]
+    CALC --> OPS[Identify Operations<br/>Modify, Delete, Add]
+    OPS --> HIST[Update State History<br/>& Convergence Metrics]
+    
+    HIST --> CONV{Convergence<br/>Checker}
+    
+    CONV -->|Quality ≥ 0.85| END1([COMPLETE])
+    CONV -->|No Operations| END2([COMPLETE])
+    CONV -->|Max Iterations| END3([COMPLETE])
+    CONV -->|Diminishing Returns| END4([COMPLETE])
+    CONV -->|Continue| GEN
+    
+    style START fill:#90EE90
+    style END1 fill:#FFB6C1
+    style END2 fill:#FFB6C1
+    style END3 fill:#FFB6C1
+    style END4 fill:#FFB6C1
+    style GEN fill:#87CEEB
+    style VAL fill:#DDA0DD
+    style CONV fill:#F0E68C

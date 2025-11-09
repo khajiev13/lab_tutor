@@ -12,6 +12,7 @@ dependencies = [
     "langchain-google-genai>=2.1.12",
     "langchain-neo4j>=0.5.0",
     "langchain-openai>=0.3.33",
+    "langgraph>=0.6.7",
     "matplotlib>=3.10.6",
     "networkx>=3.5",
     "openai>=1.107.1",

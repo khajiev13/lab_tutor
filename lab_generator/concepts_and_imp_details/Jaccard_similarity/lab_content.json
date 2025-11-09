@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Jaccard similarity in Big Data And Databases",
+  "topic": "Recommendation Systems: Collaborative, Content-Based, and Knowledge-Based Filtering",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Jaccard similarity",
+      "title": "Exploring Jaccard similarity",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Jaccard similarity",
+          "starter_code": "# TODO: Implement Jaccard similarity\n# Your code here\n",
+          "solution": "# Solution for Jaccard similarity\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Jaccard similarity",
+        "Apply Jaccard similarity in practical scenarios",
+        "Implement solutions using Jaccard similarity"
+      ],
+      "background": "A method to calculate the similarity between two users based on the items they like."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

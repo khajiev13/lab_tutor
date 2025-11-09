@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Semi-supervised learning in Big Data And Databases",
+    "topic": "Popular Data Analysis Algorithms",
+    "difficulty": "hard",
+    "estimated_time": 60,
+    "sections": [
+      {
+        "concept": "Semi-supervised learning",
+        "title": "Exploring Semi-supervised learning",
+        "difficulty": "hard",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating Semi-supervised learning",
+            "starter_code": "# TODO: Implement Semi-supervised learning\n# Your code here\n",
+            "solution": "# Solution for Semi-supervised learning\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply Semi-supervised learning to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced Semi-supervised learning\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Semi-supervised learning",
+          "Apply Semi-supervised learning in practical scenarios",
+          "Implement solutions using Semi-supervised learning"
+        ],
+        "background": "A type of machine learning that includes self-training and low-density separation models."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Semi-supervised learning",
+    "concept_definition": "A type of machine learning that includes self-training and low-density separation models.",
+    "source_topic": "Popular Data Analysis Algorithms",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

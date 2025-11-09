@@ -145,3 +145,7 @@ uploads/
 downloads/
 data/
 backups/
+
+
+#Don't push the iteration logs
+knowledge_graph_builder/iteration_logs/*

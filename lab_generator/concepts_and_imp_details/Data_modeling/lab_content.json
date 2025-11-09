@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Data modeling in Big Data And Databases",
+  "topic": "Data Modeling in Data Storing Systems",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Data modeling",
+      "title": "Exploring Data modeling",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Data modeling",
+          "starter_code": "# TODO: Implement Data modeling\n# Your code here\n",
+          "solution": "# Solution for Data modeling\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Data modeling",
+        "Apply Data modeling in practical scenarios",
+        "Implement solutions using Data modeling"
+      ],
+      "background": "To establish an abstract model of entity data, including metadata, data structure, attributes, value range, association relationship, and consistency, Timeliness and other elements."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

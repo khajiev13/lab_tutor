@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: ORM in Big Data And Databases",
+    "topic": "Unified Data Access Interface",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "ORM",
+        "title": "Exploring ORM",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating ORM",
+            "starter_code": "# TODO: Implement ORM\n# Your code here\n",
+            "solution": "# Solution for ORM\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of ORM",
+          "Apply ORM in practical scenarios",
+          "Implement solutions using ORM"
+        ],
+        "background": "Object/relation Mapping"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "ORM",
+    "concept_definition": "Object/relation Mapping",
+    "source_topic": "Unified Data Access Interface",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

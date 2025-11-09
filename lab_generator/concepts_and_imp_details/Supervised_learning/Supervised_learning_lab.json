@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Supervised learning in Big Data And Databases",
+    "topic": "Popular Data Analysis Algorithms",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Supervised learning",
+        "title": "Exploring Supervised learning",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Supervised learning",
+            "starter_code": "# TODO: Implement Supervised learning\n# Your code here\n",
+            "solution": "# Solution for Supervised learning\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Supervised learning",
+          "Apply Supervised learning in practical scenarios",
+          "Implement solutions using Supervised learning"
+        ],
+        "background": "A type of machine learning that includes regression, classification, and deep learning."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Supervised learning",
+    "concept_definition": "A type of machine learning that includes regression, classification, and deep learning.",
+    "source_topic": "Popular Data Analysis Algorithms",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

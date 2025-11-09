@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: mirror segment in Big Data And Databases",
+    "topic": "Massively Parallel Processing (MPP) for Structured Data",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "mirror segment",
+        "title": "Exploring mirror segment",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating mirror segment",
+            "starter_code": "# TODO: Implement mirror segment\n# Your code here\n",
+            "solution": "# Solution for mirror segment\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of mirror segment",
+          "Apply mirror segment in practical scenarios",
+          "Implement solutions using mirror segment"
+        ],
+        "background": "Replication is commonly used to ensure durability and availability of data."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "mirror segment",
+    "concept_definition": "Replication is commonly used to ensure durability and availability of data.",
+    "source_topic": "Massively Parallel Processing (MPP) for Structured Data",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

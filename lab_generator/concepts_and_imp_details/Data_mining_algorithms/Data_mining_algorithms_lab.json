@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Data mining algorithms in Big Data And Databases",
+    "topic": "Data Processing System Architecture",
+    "difficulty": "hard",
+    "estimated_time": 60,
+    "sections": [
+      {
+        "concept": "Data mining algorithms",
+        "title": "Exploring Data mining algorithms",
+        "difficulty": "hard",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating Data mining algorithms",
+            "starter_code": "# TODO: Implement Data mining algorithms\n# Your code here\n",
+            "solution": "# Solution for Data mining algorithms\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply Data mining algorithms to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced Data mining algorithms\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Data mining algorithms",
+          "Apply Data mining algorithms in practical scenarios",
+          "Implement solutions using Data mining algorithms"
+        ],
+        "background": "Data mining algorithms can be categorized into 4 groups, classification, clustering, correlation Analysis and anomaly detection."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Data mining algorithms",
+    "concept_definition": "Data mining algorithms can be categorized into 4 groups, classification, clustering, correlation Analysis and anomaly detection.",
+    "source_topic": "Data Processing System Architecture",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

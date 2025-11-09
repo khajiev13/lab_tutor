@@ -1,0 +1,528 @@
+{
+  "metadata": {
+    "timestamp": "2025-10-16T00:40:20.869388",
+    "processing_time_seconds": 172.33,
+    "total_iterations": 4,
+    "total_concept_merges": 5,
+    "total_weak_merges": 5,
+    "total_valid_relationships": 18,
+    "total_weak_patterns": 7,
+    "convergence": {
+      "achieved": true,
+      "reason": "Both tasks exhausted - no new discoveries",
+      "merge_count_trend": [
+        4,
+        5,
+        5,
+        4
+      ],
+      "valid_merge_trend": [
+        2,
+        3,
+        2,
+        2
+      ],
+      "weak_merge_trend": [
+        2,
+        2,
+        1,
+        1
+      ],
+      "total_merges_trend": [
+        2,
+        4,
+        5,
+        5
+      ],
+      "valid_count_trend": [
+        5,
+        7,
+        9,
+        0
+      ],
+      "weak_count_trend": [
+        3,
+        3,
+        1,
+        1
+      ],
+      "total_accumulated_trend": [
+        5,
+        11,
+        18,
+        18
+      ],
+      "quality_trend": null,
+      "operations_trend": null
+    },
+    "configuration": {
+      "model": "gpt-4o-2024-08-06",
+      "max_iterations": 20,
+      "relationship_types": [
+        "USED_FOR",
+        "RELATED_TO"
+      ]
+    }
+  },
+  "concept_merges": {
+    "total": 5,
+    "merges": [
+      {
+        "concept_a": "ETL",
+        "concept_b": "ETL (Extract, Transform, and Load)",
+        "canonical": "ETL",
+        "variants": [
+          "ETL",
+          "ETL (Extract, Transform, and Load)"
+        ],
+        "reasoning": "Same concept, differing only in expansion of acronym"
+      },
+      {
+        "concept_a": "Machine Learning",
+        "concept_b": "machine learning",
+        "canonical": "Machine Learning",
+        "variants": [
+          "Machine Learning",
+          "machine learning"
+        ],
+        "reasoning": "Case difference"
+      },
+      {
+        "concept_a": "Massively Parallel Processing (MPP)",
+        "concept_b": "MPP-Massively Parallel",
+        "canonical": "Massively Parallel Processing (MPP)",
+        "variants": [
+          "Massively Parallel Processing (MPP)",
+          "MPP-Massively Parallel"
+        ],
+        "reasoning": "Acronym with similar wording"
+      },
+      {
+        "concept_a": "Web crawler",
+        "concept_b": "Web crawlers",
+        "canonical": "Web crawler",
+        "variants": [
+          "Web crawler",
+          "Web crawlers"
+        ],
+        "reasoning": "Plural vs singular form"
+      },
+      {
+        "concept_a": "CNN",
+        "concept_b": "Convolutional Neural Network",
+        "canonical": "Convolutional Neural Network",
+        "variants": [
+          "CNN",
+          "Convolutional Neural Network"
+        ],
+        "reasoning": "Acronyms represent the same concept"
+      }
+    ],
+    "weak_merges": [
+      {
+        "concept_a": "ETL",
+        "concept_b": "ETL (Extract, Transform, load)",
+        "reason": "Different Meaning"
+      },
+      {
+        "concept_a": "Massively Parallel Processing (MPP)",
+        "concept_b": "Massively parallel processing (MPP)",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "TensorFlow",
+        "concept_b": "TensorFlow Lite",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "ETL",
+        "concept_b": "ETL (Extract, Transform, and Load)",
+        "reason": "Different descriptions"
+      },
+      {
+        "concept_a": "Web crawler",
+        "concept_b": "Web crawlers",
+        "reason": "Different Scope"
+      }
+    ]
+  },
+  "relationships": {
+    "total": 18,
+    "original": [
+      {
+        "s": "TensorFlow",
+        "t": "Deep Learning",
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for deep learning tasks"
+      },
+      {
+        "s": "Hadoop",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "Hadoop is used for big data storage and processing"
+      },
+      {
+        "s": "Spark",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "Spark is used for Big Data analytics"
+      },
+      {
+        "s": "MapReduce",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "MapReduce is used for processing big data"
+      },
+      {
+        "s": "Reinforcement Learning",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Reinforcement learning is a type of Machine Learning"
+      },
+      {
+        "s": "MapReduce",
+        "t": "Hadoop",
+        "rel": "USED_FOR",
+        "r": "MapReduce is a core component of Hadoop"
+      },
+      {
+        "s": "Graph database",
+        "t": "Graph-Based",
+        "rel": "RELATED_TO",
+        "r": "Graph databases are inherently graph-based"
+      },
+      {
+        "s": "TensorFlow",
+        "t": "TensorFlow Processing Unit (TPU)",
+        "rel": "USED_FOR",
+        "r": "TPU accelerates TensorFlow processing"
+      },
+      {
+        "s": "HDFS",
+        "t": "Hadoop",
+        "rel": "USED_FOR",
+        "r": "HDFS is a distributed storage system in Hadoop"
+      },
+      {
+        "s": "Spark",
+        "t": "Spark Streaming",
+        "rel": "USED_FOR",
+        "r": "Spark Streaming processes real-time data streams"
+      },
+      {
+        "s": "Distributed file",
+        "t": "HDFS",
+        "rel": "RELATED_TO",
+        "r": "HDFS supports distributed file storage"
+      },
+      {
+        "s": "TensorFlow",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for machine learning tasks"
+      },
+      {
+        "s": "GraphX",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "GraphX is used for graph processing in big data"
+      },
+      {
+        "s": "Deep Learning",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Deep Learning is used for advanced machine learning"
+      },
+      {
+        "s": "HDFS",
+        "t": "Distributed",
+        "rel": "USED_FOR",
+        "r": "HDFS is used for distributed file storage"
+      },
+      {
+        "s": "ETL",
+        "t": "Data Integration",
+        "rel": "USED_FOR",
+        "r": "ETL is used for extracting, transforming, and loading data"
+      },
+      {
+        "s": "Keras",
+        "t": "Deep Learning",
+        "rel": "USED_FOR",
+        "r": "Keras is used for building deep learning models"
+      },
+      {
+        "s": "OLTP",
+        "t": "Transactional Data",
+        "rel": "USED_FOR",
+        "r": "OLTP is used for managing transactional data"
+      }
+    ],
+    "canonical_preview": [
+      {
+        "original": {
+          "s": "TensorFlow",
+          "t": "Deep Learning"
+        },
+        "canonical": {
+          "s": "TensorFlow",
+          "t": "Deep Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for deep learning tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Hadoop",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "Hadoop",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "Hadoop is used for big data storage and processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "Spark",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark is used for Big Data analytics",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "MapReduce",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "MapReduce",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "MapReduce is used for processing big data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Reinforcement Learning",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Reinforcement Learning",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Reinforcement learning is a type of Machine Learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "MapReduce",
+          "t": "Hadoop"
+        },
+        "canonical": {
+          "s": "MapReduce",
+          "t": "Hadoop"
+        },
+        "rel": "USED_FOR",
+        "r": "MapReduce is a core component of Hadoop",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Graph database",
+          "t": "Graph-Based"
+        },
+        "canonical": {
+          "s": "Graph database",
+          "t": "Graph-Based"
+        },
+        "rel": "RELATED_TO",
+        "r": "Graph databases are inherently graph-based",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "TensorFlow",
+          "t": "TensorFlow Processing Unit (TPU)"
+        },
+        "canonical": {
+          "s": "TensorFlow",
+          "t": "TensorFlow Processing Unit (TPU)"
+        },
+        "rel": "USED_FOR",
+        "r": "TPU accelerates TensorFlow processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Hadoop"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Hadoop"
+        },
+        "rel": "USED_FOR",
+        "r": "HDFS is a distributed storage system in Hadoop",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark",
+          "t": "Spark Streaming"
+        },
+        "canonical": {
+          "s": "Spark",
+          "t": "Spark Streaming"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark Streaming processes real-time data streams",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Distributed file",
+          "t": "HDFS"
+        },
+        "canonical": {
+          "s": "Distributed file",
+          "t": "HDFS"
+        },
+        "rel": "RELATED_TO",
+        "r": "HDFS supports distributed file storage",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "TensorFlow",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "TensorFlow",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for machine learning tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "GraphX",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "GraphX",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "GraphX is used for graph processing in big data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Deep Learning",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Deep Learning",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Deep Learning is used for advanced machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Distributed"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Distributed"
+        },
+        "rel": "USED_FOR",
+        "r": "HDFS is used for distributed file storage",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "ETL",
+          "t": "Data Integration"
+        },
+        "canonical": {
+          "s": "ETL",
+          "t": "Data Integration"
+        },
+        "rel": "USED_FOR",
+        "r": "ETL is used for extracting, transforming, and loading data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Keras",
+          "t": "Deep Learning"
+        },
+        "canonical": {
+          "s": "Keras",
+          "t": "Deep Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Keras is used for building deep learning models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "OLTP",
+          "t": "Transactional Data"
+        },
+        "canonical": {
+          "s": "OLTP",
+          "t": "Transactional Data"
+        },
+        "rel": "USED_FOR",
+        "r": "OLTP is used for managing transactional data",
+        "was_mapped": false
+      }
+    ]
+  },
+  "iteration_history": [
+    {
+      "iteration": 0,
+      "timestamp": "2025-10-16T00:38:13.496688",
+      "valid_count": 5,
+      "weak_count": 3,
+      "total_accumulated": 5
+    },
+    {
+      "iteration": 1,
+      "timestamp": "2025-10-16T00:38:57.890505",
+      "valid_count": 7,
+      "weak_count": 3,
+      "total_accumulated": 11
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-10-16T00:39:56.479843",
+      "valid_count": 9,
+      "weak_count": 1,
+      "total_accumulated": 18
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-10-16T00:40:20.859903",
+      "valid_count": 0,
+      "weak_count": 1,
+      "total_accumulated": 18
+    }
+  ]
+}

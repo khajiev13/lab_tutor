@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Perception stage in Big Data And Databases",
+  "topic": "Big Data Concepts and Evolution",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Perception stage",
+      "title": "Exploring Perception stage",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Perception stage",
+          "starter_code": "# TODO: Implement Perception stage\n# Your code here\n",
+          "solution": "# Solution for Perception stage\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Perception stage",
+        "Apply Perception stage in practical scenarios",
+        "Implement solutions using Perception stage"
+      ],
+      "background": "The stage of data generation where sensors with processing capability automatically generate data 24/7."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

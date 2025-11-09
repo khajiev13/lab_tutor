@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: column based store in Big Data And Databases",
+    "topic": "In-Memory Database: HANA Architecture and Technologies",
+    "difficulty": "medium",
+    "estimated_time": 45,
+    "sections": [
+      {
+        "concept": "column based store",
+        "title": "Exploring column based store",
+        "difficulty": "medium",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating column based store",
+            "starter_code": "# TODO: Implement column based store\n# Your code here\n",
+            "solution": "# Solution for column based store\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply column based store to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced column based store\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of column based store",
+          "Apply column based store in practical scenarios",
+          "Implement solutions using column based store"
+        ],
+        "background": "Designed to support analysis processing, such as OLAP."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "column based store",
+    "concept_definition": "Designed to support analysis processing, such as OLAP.",
+    "source_topic": "In-Memory Database: HANA Architecture and Technologies",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

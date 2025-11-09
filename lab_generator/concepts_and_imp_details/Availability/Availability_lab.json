@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Availability in Big Data And Databases",
+    "topic": "NoSQL Databases: CAP Theorem and BASE Transaction Model",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Availability",
+        "title": "Exploring Availability",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Availability",
+            "starter_code": "# TODO: Implement Availability\n# Your code here\n",
+            "solution": "# Solution for Availability\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Availability",
+          "Apply Availability in practical scenarios",
+          "Implement solutions using Availability"
+        ],
+        "background": "Client can quickly read data, return operation results within a reasonable time, and ensure that every request has a response regardless of success or failure"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Availability",
+    "concept_definition": "Client can quickly read data, return operation results within a reasonable time, and ensure that every request has a response regardless of success or failure",
+    "source_topic": "NoSQL Databases: CAP Theorem and BASE Transaction Model",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Evaluator in Big Data And Databases",
+    "topic": "Spark MLlib Concepts and Mechanisms",
+    "difficulty": "hard",
+    "estimated_time": 60,
+    "sections": [
+      {
+        "concept": "Evaluator",
+        "title": "Exploring Evaluator",
+        "difficulty": "hard",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating Evaluator",
+            "starter_code": "# TODO: Implement Evaluator\n# Your code here\n",
+            "solution": "# Solution for Evaluator\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply Evaluator to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced Evaluator\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Evaluator",
+          "Apply Evaluator in practical scenarios",
+          "Implement solutions using Evaluator"
+        ],
+        "background": "Evaluator is designed to Evaluate the model performance based certain metrics, like ROC, RMSE."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Evaluator",
+    "concept_definition": "Evaluator is designed to Evaluate the model performance based certain metrics, like ROC, RMSE.",
+    "source_topic": "Spark MLlib Concepts and Mechanisms",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

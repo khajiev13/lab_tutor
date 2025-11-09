@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: MPP databases in Big Data And Databases",
+  "topic": "Massively Parallel Processing (MPP) for Structured Data",
+  "difficulty": "medium",
+  "estimated_time": 45,
+  "sections": [
+    {
+      "concept": "MPP databases",
+      "title": "Exploring MPP databases",
+      "difficulty": "medium",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating MPP databases",
+          "starter_code": "# TODO: Implement MPP databases\n# Your code here\n",
+          "solution": "# Solution for MPP databases\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply MPP databases to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced MPP databases\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of MPP databases",
+        "Apply MPP databases in practical scenarios",
+        "Implement solutions using MPP databases"
+      ],
+      "background": "Data is partitioned across multiple servers or nodes with each server/node having memory/processors to process data locally. All communication is via a network interconnect — there is no disk-level sharing or contention to be concerned with (i.e. it is a ‘shared-nothing’ architecture)."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

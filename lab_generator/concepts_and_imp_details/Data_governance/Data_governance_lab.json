@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Data governance in Big Data And Databases",
+    "topic": "Big Data Lifecycle, Processing, and Business Intelligence Evolution",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Data governance",
+        "title": "Exploring Data governance",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Data governance",
+            "starter_code": "# TODO: Implement Data governance\n# Your code here\n",
+            "solution": "# Solution for Data governance\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Data governance",
+          "Apply Data governance in practical scenarios",
+          "Implement solutions using Data governance"
+        ],
+        "background": "All about managing data to meet compliance, privacy, regulatory, legal, and anything that is specifically obligatory as per business requirements."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Data governance",
+    "concept_definition": "All about managing data to meet compliance, privacy, regulatory, legal, and anything that is specifically obligatory as per business requirements.",
+    "source_topic": "Big Data Lifecycle, Processing, and Business Intelligence Evolution",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

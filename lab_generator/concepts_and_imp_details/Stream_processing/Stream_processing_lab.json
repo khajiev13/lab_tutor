@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Stream processing in Big Data And Databases",
+    "topic": "Data Processing System Architecture",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Stream processing",
+        "title": "Exploring Stream processing",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Stream processing",
+            "starter_code": "# TODO: Implement Stream processing\n# Your code here\n",
+            "solution": "# Solution for Stream processing\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Stream processing",
+          "Apply Stream processing in practical scenarios",
+          "Implement solutions using Stream processing"
+        ],
+        "background": "Stream processing is the process of being able to almost instantaneously analyze data that is streaming from one device to another."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Stream processing",
+    "concept_definition": "Stream processing is the process of being able to almost instantaneously analyze data that is streaming from one device to another.",
+    "source_topic": "Data Processing System Architecture",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

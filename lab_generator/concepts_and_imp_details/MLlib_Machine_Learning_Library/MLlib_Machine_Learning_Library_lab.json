@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: MLlib (Machine Learning Library) in Big Data And Databases",
+    "topic": "In-Memory Computing with Spark",
+    "difficulty": "hard",
+    "estimated_time": 60,
+    "sections": [
+      {
+        "concept": "MLlib (Machine Learning Library)",
+        "title": "Exploring MLlib (Machine Learning Library)",
+        "difficulty": "hard",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating MLlib (Machine Learning Library)",
+            "starter_code": "# TODO: Implement MLlib (Machine Learning Library)\n# Your code here\n",
+            "solution": "# Solution for MLlib (Machine Learning Library)\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply MLlib (Machine Learning Library) to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced MLlib (Machine Learning Library)\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of MLlib (Machine Learning Library)",
+          "Apply MLlib (Machine Learning Library) in practical scenarios",
+          "Implement solutions using MLlib (Machine Learning Library)"
+        ],
+        "background": "a rich library that contains a wide array of machine learning algorithms- classification, regression, clustering, and collaborative filtering. It also includes other tools for constructing, evaluating, and tuning ML Pipelines. All these functionalities help Spark scale out across a cluster."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "MLlib (Machine Learning Library)",
+    "concept_definition": "a rich library that contains a wide array of machine learning algorithms- classification, regression, clustering, and collaborative filtering. It also includes other tools for constructing, evaluating, and tuning ML Pipelines. All these functionalities help Spark scale out across a cluster.",
+    "source_topic": "In-Memory Computing with Spark",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Alternating Least Square (ALS) in Big Data And Databases",
+  "topic": "Matrix Factorization for Recommendation Systems",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Alternating Least Square (ALS)",
+      "title": "Exploring Alternating Least Square (ALS)",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Alternating Least Square (ALS)",
+          "starter_code": "# TODO: Implement Alternating Least Square (ALS)\n# Your code here\n",
+          "solution": "# Solution for Alternating Least Square (ALS)\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Alternating Least Square (ALS)",
+        "Apply Alternating Least Square (ALS) in practical scenarios",
+        "Implement solutions using Alternating Least Square (ALS)"
+      ],
+      "background": "fix P, compute Q to make c min; then, fix Q, compute P to make c min"
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

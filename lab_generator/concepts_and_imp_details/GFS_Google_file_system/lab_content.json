@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: GFS (Google file system) in Big Data And Databases",
+  "topic": "Distributed File Systems and HDFS Architecture",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "GFS (Google file system)",
+      "title": "Exploring GFS (Google file system)",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating GFS (Google file system)",
+          "starter_code": "# TODO: Implement GFS (Google file system)\n# Your code here\n",
+          "solution": "# Solution for GFS (Google file system)\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply GFS (Google file system) to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced GFS (Google file system)\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of GFS (Google file system)",
+        "Apply GFS (Google file system) in practical scenarios",
+        "Implement solutions using GFS (Google file system)"
+      ],
+      "background": "Google’s GFS (Google file system) which has evolved into Colossus."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

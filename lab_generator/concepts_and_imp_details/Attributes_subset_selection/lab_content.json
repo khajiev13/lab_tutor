@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Attributes subset selection in Big Data And Databases",
+  "topic": "Data Reduction Techniques",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Attributes subset selection",
+      "title": "Exploring Attributes subset selection",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Attributes subset selection",
+          "starter_code": "# TODO: Implement Attributes subset selection\n# Your code here\n",
+          "solution": "# Solution for Attributes subset selection\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Attributes subset selection",
+        "Apply Attributes subset selection in practical scenarios",
+        "Implement solutions using Attributes subset selection"
+      ],
+      "background": "Goal is to Find the smallest attribute subset and ensure that the probability distribution of the new data subset is as close as possible to the probability distribution of the original data set"
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

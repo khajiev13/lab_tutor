@@ -1,0 +1,34 @@
+graph LR
+    subgraph "Generation Node"
+        G1[Check Merge Convergence]
+        G2[LLM Call 1:<br/>Find Similar Concepts]
+        G3[Check Relationship Convergence]
+        G4[LLM Call 2:<br/>Generate Relationships]
+        
+        G1 -->|Not Converged| G2
+        G1 -->|Converged| G3
+        G2 --> G3
+        G3 -->|Not Converged| G4
+    end
+    
+    subgraph "Validation Node"
+        V1[LLM Call 3:<br/>Validate Merges]
+        V2[Extract Weak Merges]
+        V3[Calculate Valid Merges]
+        V4[LLM Call 4:<br/>Validate Relationships]
+        V5[Extract Weak Relationships]
+        V6[Calculate Valid Relationships]
+        V7[Accumulate Results<br/>Automatic Deduplication]
+        
+        V1 --> V2 --> V3 --> V4 --> V5 --> V6 --> V7
+    end
+    
+    G4 --> V1
+    
+    style G1 fill:#e3f2fd
+    style G2 fill:#bbdefb
+    style G3 fill:#e3f2fd
+    style G4 fill:#bbdefb
+    style V1 fill:#f3e5f5
+    style V4 fill:#f3e5f5
+    style V7 fill:#c8e6c9

@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Distributed Architecture model in Big Data And Databases",
+  "topic": "External Data Acquisition using Web Crawlers",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Distributed Architecture model",
+      "title": "Exploring Distributed Architecture model",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Distributed Architecture model",
+          "starter_code": "# TODO: Implement Distributed Architecture model\n# Your code here\n",
+          "solution": "# Solution for Distributed Architecture model\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Distributed Architecture model to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Distributed Architecture model\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Distributed Architecture model",
+        "Apply Distributed Architecture model in practical scenarios",
+        "Implement solutions using Distributed Architecture model"
+      ],
+      "background": "The effective collaboration and cooperation of multiple stand-alone crawler systems to achieve Internet big data capture."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

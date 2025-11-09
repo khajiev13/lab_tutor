@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Data integration in Big Data And Databases",
+  "topic": "Data Integration and Data Transformation",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Data integration",
+      "title": "Exploring Data integration",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Data integration",
+          "starter_code": "# TODO: Implement Data integration\n# Your code here\n",
+          "solution": "# Solution for Data integration\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Data integration",
+        "Apply Data integration in practical scenarios",
+        "Implement solutions using Data integration"
+      ],
+      "background": "Integrate data from multiple data sources into a consistent storage, which could involve the task Pattern matching, Data redundancy processing and Data value conflict solving"
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

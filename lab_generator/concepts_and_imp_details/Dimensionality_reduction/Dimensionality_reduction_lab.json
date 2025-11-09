@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Dimensionality reduction in Big Data And Databases",
+    "topic": "Data Reduction Techniques",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Dimensionality reduction",
+        "title": "Exploring Dimensionality reduction",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Dimensionality reduction",
+            "starter_code": "# TODO: Implement Dimensionality reduction\n# Your code here\n",
+            "solution": "# Solution for Dimensionality reduction\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Dimensionality reduction",
+          "Apply Dimensionality reduction in practical scenarios",
+          "Implement solutions using Dimensionality reduction"
+        ],
+        "background": "Remove irrelevant attributes and reduce the amount of data processed by data analysis."
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Dimensionality reduction",
+    "concept_definition": "Remove irrelevant attributes and reduce the amount of data processed by data analysis.",
+    "source_topic": "Data Reduction Techniques",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

@@ -1,0 +1,28 @@
+stateDiagram-v2
+    [*] --> Initialization: Start Workflow
+    
+    Initialization: Initialize State<br/>Load Concepts<br/>Setup Metrics
+    
+    Initialization --> Generation: Begin Loop
+    
+    Generation: Generation Node<br/>- Find Similar Concepts<br/>- Generate Relationships
+    
+    Generation --> Validation: Pass Batches
+    
+    Validation: Validation Node<br/>- Validate Merges<br/>- Validate Relationships<br/>- Accumulate Valid<br/>- Track Weak Patterns
+    
+    Validation --> ConvergenceCheck: Check Status
+    
+    ConvergenceCheck: Convergence Decision<br/>Check new unique items
+    
+    ConvergenceCheck --> Generation: Continue (new items found)
+    ConvergenceCheck --> Complete: Converged (0 new items)
+    ConvergenceCheck --> Complete: Max iterations
+    
+    Complete: [*]
+    
+    note right of ConvergenceCheck
+        Convergence when BOTH:
+        - New merges = 0
+        - New relationships = 0
+    end note

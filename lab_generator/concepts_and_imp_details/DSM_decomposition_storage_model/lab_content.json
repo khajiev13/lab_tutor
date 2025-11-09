@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: DSM (decomposition storage model) in Big Data And Databases",
+  "topic": "Four Main Types of NoSQL Databases",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "DSM (decomposition storage model)",
+      "title": "Exploring DSM (decomposition storage model)",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating DSM (decomposition storage model)",
+          "starter_code": "# TODO: Implement DSM (decomposition storage model)\n# Your code here\n",
+          "solution": "# Solution for DSM (decomposition storage model)\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of DSM (decomposition storage model)",
+        "Apply DSM (decomposition storage model) in practical scenarios",
+        "Implement solutions using DSM (decomposition storage model)"
+      ],
+      "background": "The data is retrieved, stored and managed based on the range (column)."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

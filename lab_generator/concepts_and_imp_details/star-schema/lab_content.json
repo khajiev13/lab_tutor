@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: star-schema in Big Data And Databases",
+  "topic": "In-Memory Database: HANA Architecture and Technologies",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "star-schema",
+      "title": "Exploring star-schema",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating star-schema",
+          "starter_code": "# TODO: Implement star-schema\n# Your code here\n",
+          "solution": "# Solution for star-schema\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of star-schema",
+        "Apply star-schema in practical scenarios",
+        "Implement solutions using star-schema"
+      ],
+      "background": "Normalized data models that involves holding all the fact-data in one large table, with references to other information in separate tables, called dimensions."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

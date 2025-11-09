@@ -1,0 +1,44 @@
+{
+  "title": "Hands-On Lab: Spout in Big Data And Databases",
+  "topic": "Stream Computing Model and Storm Framework",
+  "difficulty": "easy",
+  "estimated_time": 30,
+  "sections": [
+    {
+      "concept": "Spout",
+      "title": "Exploring Spout",
+      "difficulty": "easy",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 3,
+          "description": "Implement a basic example demonstrating Spout",
+          "starter_code": "# TODO: Implement Spout\n# Your code here\n",
+          "solution": "# Solution for Spout\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Spout",
+        "Apply Spout in practical scenarios",
+        "Implement solutions using Spout"
+      ],
+      "background": "Data source in Storm's topology."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

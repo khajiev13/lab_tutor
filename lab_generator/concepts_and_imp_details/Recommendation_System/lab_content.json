@@ -1,0 +1,52 @@
+{
+  "title": "Hands-On Lab: Recommendation System in Big Data And Databases",
+  "topic": "Recommendation Systems: Collaborative, Content-Based, and Knowledge-Based Filtering",
+  "difficulty": "hard",
+  "estimated_time": 60,
+  "sections": [
+    {
+      "concept": "Recommendation System",
+      "title": "Exploring Recommendation System",
+      "difficulty": "hard",
+      "scaffolding_level": "medium",
+      "exercises": [
+        {
+          "type": "guided",
+          "hints": 2,
+          "description": "Implement a basic example demonstrating Recommendation System",
+          "starter_code": "# TODO: Implement Recommendation System\n# Your code here\n",
+          "solution": "# Solution for Recommendation System\n# Implementation details\n",
+          "test_cases": [
+            {
+              "input": "test_input",
+              "expected": "expected_output"
+            }
+          ]
+        },
+        {
+          "type": "challenge",
+          "hints": 1,
+          "description": "Apply Recommendation System to solve a real-world problem",
+          "starter_code": "# Challenge: Advanced Recommendation System\n",
+          "solution": "# Advanced solution\n",
+          "test_cases": []
+        }
+      ],
+      "learning_objectives": [
+        "Understand the fundamentals of Recommendation System",
+        "Apply Recommendation System in practical scenarios",
+        "Implement solutions using Recommendation System"
+      ],
+      "background": "A subclass of Information filtering Systems that seeks to predict the rating or the preference a user might give to an item."
+    }
+  ],
+  "prerequisites": [
+    "Basic programming knowledge",
+    "Understanding of databases"
+  ],
+  "technologies": [
+    "Python",
+    "Jupyter Notebook"
+  ],
+  "personalization_context": "big data and databases"
+}

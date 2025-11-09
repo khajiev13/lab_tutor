@@ -1,0 +1,54 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Principal component analysis (PCA) in Big Data And Databases",
+    "topic": "Data Reduction Techniques",
+    "difficulty": "easy",
+    "estimated_time": 30,
+    "sections": [
+      {
+        "concept": "Principal component analysis (PCA)",
+        "title": "Exploring Principal component analysis (PCA)",
+        "difficulty": "easy",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 3,
+            "description": "Implement a basic example demonstrating Principal component analysis (PCA)",
+            "starter_code": "# TODO: Implement Principal component analysis (PCA)\n# Your code here\n",
+            "solution": "# Solution for Principal component analysis (PCA)\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Principal component analysis (PCA)",
+          "Apply Principal component analysis (PCA) in practical scenarios",
+          "Implement solutions using Principal component analysis (PCA)"
+        ],
+        "background": "Assumes that the data to be compressed consists of N tuples or data vectors taken from k dimensions. Principal component analysis and search to obtain c “k-dimensional” orthogonal vectors that best represent the data, where c≤k. In this way, the original data can be projected into a smaller space to achieve data compression"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Principal component analysis (PCA)",
+    "concept_definition": "Assumes that the data to be compressed consists of N tuples or data vectors taken from k dimensions. Principal component analysis and search to obtain c “k-dimensional” orthogonal vectors that best represent the data, where c≤k. In this way, the original data can be projected into a smaller space to achieve data compression",
+    "source_topic": "Data Reduction Techniques",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

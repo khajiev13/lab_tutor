@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: row based store in Big Data And Databases",
+    "topic": "In-Memory Database: HANA Architecture and Technologies",
+    "difficulty": "medium",
+    "estimated_time": 45,
+    "sections": [
+      {
+        "concept": "row based store",
+        "title": "Exploring row based store",
+        "difficulty": "medium",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating row based store",
+            "starter_code": "# TODO: Implement row based store\n# Your code here\n",
+            "solution": "# Solution for row based store\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply row based store to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced row based store\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of row based store",
+          "Apply row based store in practical scenarios",
+          "Implement solutions using row based store"
+        ],
+        "background": "Designed to support transactions processing, OLTP"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "row based store",
+    "concept_definition": "Designed to support transactions processing, OLTP",
+    "source_topic": "In-Memory Database: HANA Architecture and Technologies",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}

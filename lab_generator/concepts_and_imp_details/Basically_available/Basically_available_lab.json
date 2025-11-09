@@ -1,0 +1,62 @@
+{
+  "lab": {
+    "title": "Hands-On Lab: Basically available in Big Data And Databases",
+    "topic": "NoSQL Databases: CAP Theorem and BASE Transaction Model",
+    "difficulty": "hard",
+    "estimated_time": 60,
+    "sections": [
+      {
+        "concept": "Basically available",
+        "title": "Exploring Basically available",
+        "difficulty": "hard",
+        "scaffolding_level": "medium",
+        "exercises": [
+          {
+            "type": "guided",
+            "hints": 2,
+            "description": "Implement a basic example demonstrating Basically available",
+            "starter_code": "# TODO: Implement Basically available\n# Your code here\n",
+            "solution": "# Solution for Basically available\n# Implementation details\n",
+            "test_cases": [
+              {
+                "input": "test_input",
+                "expected": "expected_output"
+              }
+            ]
+          },
+          {
+            "type": "challenge",
+            "hints": 1,
+            "description": "Apply Basically available to solve a real-world problem",
+            "starter_code": "# Challenge: Advanced Basically available\n",
+            "solution": "# Advanced solution\n",
+            "test_cases": []
+          }
+        ],
+        "learning_objectives": [
+          "Understand the fundamentals of Basically available",
+          "Apply Basically available in practical scenarios",
+          "Implement solutions using Basically available"
+        ],
+        "background": "When a part of a distributed system becomes unavailable due to a problem, the other parts can still be used normally, that is, the situation where the partition fails"
+      }
+    ],
+    "prerequisites": [
+      "Basic programming knowledge",
+      "Understanding of databases"
+    ],
+    "technologies": [
+      "Python",
+      "Jupyter Notebook"
+    ],
+    "personalization_context": "big data and databases"
+  },
+  "metadata": {
+    "concept_name": "Basically available",
+    "concept_definition": "When a part of a distributed system becomes unavailable due to a problem, the other parts can still be used normally, that is, the situation where the partition fails",
+    "source_topic": "NoSQL Databases: CAP Theorem and BASE Transaction Model",
+    "model_used": "template",
+    "personalization_applied": true
+  },
+  "success": true
+}
