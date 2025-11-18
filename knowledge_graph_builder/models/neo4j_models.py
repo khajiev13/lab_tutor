@@ -34,10 +34,24 @@ class ConceptNodeProperties(Neo4jNodeProperties):
     name: str = Field(description="Canonical concept name")
 
 
+class QuizQuestionNodeProperties(Neo4jNodeProperties):
+    """Properties for QUIZ_QUESTION nodes."""
+    question_text: str = Field(description="The question text")
+    option_a: str = Field(description="Choice A")
+    option_b: str = Field(description="Choice B")
+    option_c: str = Field(description="Choice C")
+    option_d: str = Field(description="Choice D")
+    correct_answer: str = Field(description="Correct answer (A, B, C, or D)")
+    concept_name: str = Field(description="Name of the concept this question is for")
+    theory_name: str = Field(description="Name of the theory this question is based on")
+    theory_id: str = Field(description="ID of the theory node this question is linked to")
+    text_evidence: str = Field(description="The source text evidence used")
+
+
 class Neo4jNode(BaseModel):
     """Represents a Neo4j node with type safety."""
     id: str = Field(description="Unique node identifier")
-    label: str = Field(description="Node label (TOPIC, THEORY, CONCEPT)")
+    label: str = Field(description="Node label (TOPIC, THEORY, CONCEPT, QUIZ_QUESTION)")
     properties: Neo4jNodeProperties = Field(description="Node properties")
 
     class Config:
@@ -63,10 +77,15 @@ class MentionsRelationshipProperties(Neo4jRelationshipProperties):
     source_document: str = Field(description="Source document filename")
 
 
+class HasQuestionRelationshipProperties(Neo4jRelationshipProperties):
+    """Properties for HAS_QUESTION relationships (CONCEPT -> QUIZ_QUESTION)."""
+    pass  # No additional properties needed
+
+
 class Neo4jRelationship(BaseModel):
     """Represents a Neo4j relationship with type safety."""
     id: str = Field(description="Unique relationship identifier")
-    relationship_type: str = Field(description="Relationship type (HAS_THEORY, MENTIONS)")
+    relationship_type: str = Field(description="Relationship type (HAS_THEORY, MENTIONS, HAS_QUESTION)")
     start_node_id: str = Field(description="Source node ID")
     end_node_id: str = Field(description="Target node ID")
     properties: Neo4jRelationshipProperties = Field(description="Relationship properties")

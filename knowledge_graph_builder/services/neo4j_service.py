@@ -27,7 +27,8 @@ from langchain_core.documents import Document
 from models.neo4j_models import (
     Neo4jGraphData, Neo4jNode, Neo4jRelationship,
     TopicNodeProperties, TheoryNodeProperties, ConceptNodeProperties,
-    HasTheoryRelationshipProperties, MentionsRelationshipProperties,
+    QuizQuestionNodeProperties, HasTheoryRelationshipProperties, 
+    MentionsRelationshipProperties, HasQuestionRelationshipProperties,
     Neo4jInsertionResult
 )
 from services.embedding import EmbeddingService
@@ -96,6 +97,7 @@ class Neo4jService:
         constraints = [
             "CREATE CONSTRAINT topic_name_unique IF NOT EXISTS FOR (t:TOPIC) REQUIRE t.name IS UNIQUE",
             "CREATE CONSTRAINT theory_id_unique IF NOT EXISTS FOR (th:THEORY) REQUIRE th.id IS UNIQUE",
+            "CREATE CONSTRAINT quiz_question_id_unique IF NOT EXISTS FOR (q:QUIZ_QUESTION) REQUIRE q.id IS UNIQUE",
             # Note: CONCEPT nodes should be shared across documents, so we use MERGE instead of unique constraint
             # "CREATE CONSTRAINT concept_name_unique IF NOT EXISTS FOR (c:CONCEPT) REQUIRE c.name IS UNIQUE"
         ]
@@ -104,7 +106,8 @@ class Neo4jService:
         indexes = [
             "CREATE INDEX topic_name_idx IF NOT EXISTS FOR (t:TOPIC) ON (t.name)",
             "CREATE INDEX theory_source_idx IF NOT EXISTS FOR (th:THEORY) ON (th.source)",
-            "CREATE INDEX concept_definition_idx IF NOT EXISTS FOR (c:CONCEPT) ON (c.definition)"
+            "CREATE INDEX concept_definition_idx IF NOT EXISTS FOR (c:CONCEPT) ON (c.definition)",
+            "CREATE INDEX quiz_question_concept_idx IF NOT EXISTS FOR (q:QUIZ_QUESTION) ON (q.concept_name)"
         ]
         
         # Vector indexes for similarity search (Neo4j 5.0+)
@@ -585,6 +588,201 @@ class Neo4jService:
         except Exception as e:
             logger.error(f"Error retrieving concept definitions: {e}")
             return {}
+
+    def get_concepts_with_evidence(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieve concepts with their definitions and text evidence from Neo4j.
+        Returns ALL theory-concept pairs (not DISTINCT) so we can generate questions
+        for each theory's text_evidence separately.
+        
+        Args:
+            limit: Optional limit on number of theory-concept pairs to return
+            
+        Returns:
+            List of dictionaries with concept_name, definition, text_evidence, theory_name, and theory_id
+        """
+        try:
+            query = """
+            MATCH (t:THEORY)-[m:MENTIONS]->(c:CONCEPT)
+            RETURN c.name AS concept_name, 
+                   m.definition AS definition, 
+                   m.text_evidence AS text_evidence, 
+                   t.name AS theory_name,
+                   t.id AS theory_id
+            ORDER BY c.name, t.name
+            """
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            results = self.graph.query(query)
+            concepts = [
+                {
+                    "concept_name": record["concept_name"],
+                    "definition": record["definition"],
+                    "text_evidence": record["text_evidence"],
+                    "theory_name": record["theory_name"],
+                    "theory_id": record["theory_id"]
+                }
+                for record in results
+            ]
+            
+            logger.info(f"Retrieved {len(concepts)} theory-concept pairs with evidence")
+            return concepts
+            
+        except Exception as e:
+            logger.error(f"Error retrieving concepts with evidence: {e}")
+            return []
+
+    def get_existing_questions_for_concept_and_theory(
+        self, 
+        concept_name: str, 
+        theory_id: Optional[str] = None
+    ) -> List[str]:
+        """
+        Retrieve existing question texts for a concept (and optionally a specific theory) 
+        to ensure uniqueness.
+        
+        Args:
+            concept_name: Name of the concept
+            theory_id: Optional theory ID to filter by specific theory
+            
+        Returns:
+            List of existing question text strings
+        """
+        try:
+            if theory_id:
+                # Get questions for this specific concept-theory pair
+                query = """
+                MATCH (c:CONCEPT {name: $concept_name})-[r1:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[r2:HAS_QUESTION]-(t:THEORY {id: $theory_id})
+                RETURN q.question_text AS question_text
+                ORDER BY q.question_text
+                """
+                results = self.graph.query(query, {
+                    "concept_name": concept_name,
+                    "theory_id": theory_id
+                })
+            else:
+                # Get all questions for this concept (across all theories)
+                query = """
+                MATCH (c:CONCEPT {name: $concept_name})-[r:HAS_QUESTION]->(q:QUIZ_QUESTION)
+                RETURN q.question_text AS question_text
+                ORDER BY q.question_text
+                """
+                results = self.graph.query(query, {"concept_name": concept_name})
+            
+            questions = [record["question_text"] for record in results]
+            
+            if theory_id:
+                logger.debug(f"Found {len(questions)} existing questions for concept '{concept_name}' and theory '{theory_id}'")
+            else:
+                logger.debug(f"Found {len(questions)} existing questions for concept '{concept_name}'")
+            return questions
+            
+        except Exception as e:
+            logger.error(f"Error retrieving existing questions: {e}")
+            return []
+
+    def create_quiz_question_node(
+        self, 
+        concept_name: str,
+        theory_id: str,
+        question_data: Dict[str, Any]
+    ) -> bool:
+        """
+        Create a QUIZ_QUESTION node and link it to both CONCEPT and THEORY nodes.
+        
+        Args:
+            concept_name: Name of the concept this question is for
+            theory_id: ID of the theory node this question is based on
+            question_data: Dictionary with question_text, option_a, option_b, option_c, 
+                          option_d, correct_answer, text_evidence, theory_name
+                          
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            import uuid
+            
+            # Generate unique ID for the question
+            question_id = f"quiz_{uuid.uuid4().hex[:12]}"
+            concept_id = f"concept_{concept_name.lower().replace(' ', '_')}"
+            
+            # Insert into Neo4j using Cypher
+            # First, ensure CONCEPT node exists (MERGE)
+            merge_concept_query = """
+            MERGE (c:CONCEPT {name: $concept_name})
+            ON CREATE SET c.id = $concept_id
+            RETURN c
+            """
+            self.graph.query(merge_concept_query, {
+                "concept_name": concept_name,
+                "concept_id": concept_id
+            })
+            
+            # Create QUIZ_QUESTION node
+            create_question_query = """
+            CREATE (q:QUIZ_QUESTION {
+                id: $question_id,
+                question_text: $question_text,
+                option_a: $option_a,
+                option_b: $option_b,
+                option_c: $option_c,
+                option_d: $option_d,
+                correct_answer: $correct_answer,
+                concept_name: $concept_name,
+                theory_name: $theory_name,
+                theory_id: $theory_id,
+                text_evidence: $text_evidence
+            })
+            RETURN q
+            """
+            self.graph.query(create_question_query, {
+                "question_id": question_id,
+                "question_text": question_data["question_text"],
+                "option_a": question_data["option_a"],
+                "option_b": question_data["option_b"],
+                "option_c": question_data["option_c"],
+                "option_d": question_data["option_d"],
+                "correct_answer": question_data["correct_answer"],
+                "concept_name": concept_name,
+                "theory_name": question_data.get("theory_name", ""),
+                "theory_id": theory_id,
+                "text_evidence": question_data.get("text_evidence", "")
+            })
+            
+            # Create relationship from CONCEPT to QUIZ_QUESTION
+            create_concept_relationship_query = """
+            MATCH (c:CONCEPT {name: $concept_name})
+            MATCH (q:QUIZ_QUESTION {id: $question_id})
+            MERGE (c)-[r:HAS_QUESTION]->(q)
+            RETURN r
+            """
+            self.graph.query(create_concept_relationship_query, {
+                "concept_name": concept_name,
+                "question_id": question_id
+            })
+            
+            # Create relationship from THEORY to QUIZ_QUESTION
+            create_theory_relationship_query = """
+            MATCH (t:THEORY {id: $theory_id})
+            MATCH (q:QUIZ_QUESTION {id: $question_id})
+            MERGE (t)-[r:HAS_QUESTION]->(q)
+            RETURN r
+            """
+            self.graph.query(create_theory_relationship_query, {
+                "theory_id": theory_id,
+                "question_id": question_id
+            })
+            
+            logger.debug(f"Created QUIZ_QUESTION node '{question_id}' for concept '{concept_name}' and theory '{theory_id}'")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error creating quiz question node: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
     def create_graph_data_from_extraction(self, extraction_result, source_file: str) -> Neo4jGraphData:
         """
