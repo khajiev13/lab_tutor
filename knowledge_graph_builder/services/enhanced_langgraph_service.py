@@ -22,7 +22,7 @@ from pydantic import SecretStr
 from langgraph.graph import StateGraph, END
 
 # Local imports
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from models.neo4j_models import ConceptRelationship, RelationshipBatch
 from models.langgraph_state_models import (
     EnhancedRelationshipState,

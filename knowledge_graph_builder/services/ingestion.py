@@ -7,7 +7,7 @@ from utils.doc_utils import load_single_docx_document
 from utils.output_utils import organize_extraction_output
 from services.extraction_langchain import LangChainCanonicalExtractionService
 from services.embedding import EmbeddingService
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from models.neo4j_models import Neo4jInsertionResult
 
 logger = logging.getLogger(__name__)

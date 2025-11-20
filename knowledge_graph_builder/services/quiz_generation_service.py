@@ -7,7 +7,9 @@ their definitions and text evidence, storing them in Neo4j.
 
 import os
 import logging
+import time
 from typing import List, Dict, Any, Optional
+from collections import defaultdict
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -19,7 +21,7 @@ from prompts.quiz_generation_prompts import (
     QUIZ_GENERATION_PROMPT,
     format_existing_questions
 )
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 
 logger = logging.getLogger(__name__)
 
@@ -275,13 +277,28 @@ class QuizGenerationService:
         
         logger.info(f"Processing {len(theory_concept_pairs)} theory-concept pairs...")
         
+        # Enhanced statistics tracking
+        concept_theory_map = defaultdict(list)  # Track concepts with multiple theories
+        unique_concepts = set()
+        questions_per_concept = defaultdict(int)
+        text_evidence_lengths = []
+        sample_questions_with_context = []  # Store sample questions with full context
+        pair_timings = []
+        
         stats = {
             "total_pairs": len(theory_concept_pairs),
             "pairs_processed": 0,
             "questions_generated": 0,
             "questions_stored": 0,
             "errors": [],
-            "pair_details": []
+            "pair_details": [],
+            # Enhanced statistics
+            "unique_concepts": 0,
+            "multi_theory_concepts": [],
+            "questions_per_concept_distribution": {},
+            "text_evidence_length_stats": {},
+            "sample_questions": [],
+            "pair_timings": []
         }
         
         for i, pair_data in enumerate(theory_concept_pairs, 1):
@@ -291,8 +308,32 @@ class QuizGenerationService:
             theory_name = pair_data["theory_name"]
             theory_id = pair_data["theory_id"]
             
-            logger.info(f"[{i}/{len(theory_concept_pairs)}] Processing: '{concept_name}' from '{theory_name}'")
+            # Track unique concepts and multi-theory concepts
+            unique_concepts.add(concept_name)
+            concept_theory_map[concept_name].append({
+                "theory_name": theory_name,
+                "theory_id": theory_id
+            })
             
+            # Track text_evidence length
+            evidence_length = len(text_evidence or "")
+            text_evidence_lengths.append(evidence_length)
+            
+            # Log multi-theory concept detection
+            if len(concept_theory_map[concept_name]) > 1:
+                theories_for_concept = [t["theory_name"] for t in concept_theory_map[concept_name]]
+                logger.info(f"[{i}/{len(theory_concept_pairs)}] Processing: '{concept_name}' from '{theory_name}' (MULTI-THEORY: {len(theories_for_concept)} theories)")
+                logger.debug(f"  Concept '{concept_name}' appears in theories: {theories_for_concept}")
+            else:
+                logger.info(f"[{i}/{len(theory_concept_pairs)}] Processing: '{concept_name}' from '{theory_name}'")
+            
+            # Log text_evidence excerpt for traceability
+            evidence_preview = (text_evidence or "").strip().replace("\n", " ")
+            if len(evidence_preview) > 200:
+                evidence_preview = f"{evidence_preview[:200]}..."
+            logger.debug(f"  Text evidence excerpt ({evidence_length} chars): {evidence_preview}")
+            
+            pair_start_time = time.time()
             pair_record: Optional[Dict[str, Any]] = None
             try:
                 # Get existing questions for this specific concept-theory pair
@@ -327,6 +368,33 @@ class QuizGenerationService:
                 
                 stats["questions_generated"] += len(questions)
                 pair_record["generated_count"] = len(questions)
+                questions_per_concept[concept_name] += len(questions)
+                
+                # Log question diversity (unique question texts per concept)
+                unique_question_texts = set()
+                for q in questions:
+                    unique_question_texts.add(q.question_text)
+                logger.debug(f"  Generated {len(unique_question_texts)} unique questions out of {len(questions)} total")
+                
+                # Store sample questions with full context (limit to first 20 samples)
+                if len(sample_questions_with_context) < 20:
+                    for question in questions:
+                        sample_questions_with_context.append({
+                            "concept_name": concept_name,
+                            "theory_name": theory_name,
+                            "theory_id": theory_id,
+                            "definition": definition,
+                            "text_evidence": text_evidence,
+                            "text_evidence_excerpt": evidence_preview,
+                            "question_text": question.question_text,
+                            "option_a": question.option_a,
+                            "option_b": question.option_b,
+                            "option_c": question.option_c,
+                            "option_d": question.option_d,
+                            "correct_answer": question.correct_answer
+                        })
+                        if len(sample_questions_with_context) >= 20:
+                            break
                 
                 # Store each question in Neo4j
                 for question in questions:
@@ -368,6 +436,12 @@ class QuizGenerationService:
                     
                     pair_record["generated_questions"].append(question_entry)
                 
+                pair_end_time = time.time()
+                pair_duration = pair_end_time - pair_start_time
+                pair_timings.append(pair_duration)
+                pair_record["processing_time_seconds"] = pair_duration
+                logger.debug(f"  Processing time: {pair_duration:.2f}s")
+                
                 stats["pairs_processed"] += 1
                 stats["pair_details"].append(pair_record)
                 
@@ -380,13 +454,62 @@ class QuizGenerationService:
                     stats["pair_details"].append(pair_record)
                 continue
         
+        # Calculate enhanced statistics
+        multi_theory_concepts = [
+            {
+                "concept_name": concept,
+                "theory_count": len(theories),
+                "theories": theories
+            }
+            for concept, theories in concept_theory_map.items()
+            if len(theories) > 1
+        ]
+        
+        # Questions per concept distribution
+        questions_distribution = dict(questions_per_concept)
+        
+        # Text evidence length statistics
+        if text_evidence_lengths:
+            text_evidence_stats = {
+                "min": min(text_evidence_lengths),
+                "max": max(text_evidence_lengths),
+                "avg": sum(text_evidence_lengths) / len(text_evidence_lengths),
+                "total": len(text_evidence_lengths)
+            }
+        else:
+            text_evidence_stats = {}
+        
+        # Pair timing statistics
+        if pair_timings:
+            timing_stats = {
+                "min": min(pair_timings),
+                "max": max(pair_timings),
+                "avg": sum(pair_timings) / len(pair_timings),
+                "total": sum(pair_timings)
+            }
+        else:
+            timing_stats = {}
+        
+        # Update stats with enhanced data
+        stats["unique_concepts"] = len(unique_concepts)
+        stats["multi_theory_concepts"] = multi_theory_concepts
+        stats["questions_per_concept_distribution"] = questions_distribution
+        stats["text_evidence_length_stats"] = text_evidence_stats
+        stats["sample_questions"] = sample_questions_with_context
+        stats["pair_timings"] = timing_stats
+        
         logger.info("\n" + "="*80)
         logger.info("Quiz Generation Summary:")
         logger.info(f"  Total theory-concept pairs: {stats['total_pairs']}")
         logger.info(f"  Pairs processed: {stats['pairs_processed']}")
+        logger.info(f"  Unique concepts covered: {stats['unique_concepts']}")
+        logger.info(f"  Concepts with multiple theories: {len(multi_theory_concepts)}")
         logger.info(f"  Questions generated: {stats['questions_generated']}")
         logger.info(f"  Questions stored: {stats['questions_stored']}")
+        logger.info(f"  Average questions per concept: {stats['questions_generated'] / max(stats['unique_concepts'], 1):.2f}")
         logger.info(f"  Errors: {len(stats['errors'])}")
+        if timing_stats:
+            logger.info(f"  Average processing time per pair: {timing_stats['avg']:.2f}s")
         logger.info("="*80)
         
         return stats

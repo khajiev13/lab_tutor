@@ -24,14 +24,14 @@ from langchain_neo4j.graphs.graph_document import Node as GraphNode
 from langchain_neo4j.graphs.graph_document import Relationship as GraphRelationship
 from langchain_core.documents import Document
 
-from models.neo4j_models import (
+from knowledge_graph_builder.models.neo4j_models import (
     Neo4jGraphData, Neo4jNode, Neo4jRelationship,
     TopicNodeProperties, TheoryNodeProperties, ConceptNodeProperties,
     QuizQuestionNodeProperties, HasTheoryRelationshipProperties, 
     MentionsRelationshipProperties, HasQuestionRelationshipProperties,
     Neo4jInsertionResult
 )
-from services.embedding import EmbeddingService
+from knowledge_graph_builder.services.embedding import EmbeddingService
 
 load_dotenv()
 
@@ -783,6 +783,229 @@ class Neo4jService:
             import traceback
             traceback.print_exc()
             return False
+    
+    def get_quiz_statistics(self) -> Dict[str, Any]:
+        """
+        Get comprehensive statistics about quiz questions in the database.
+        
+        Returns:
+            Dictionary with comprehensive quiz statistics including:
+            - Total questions
+            - Questions per concept distribution
+            - Questions per theory distribution
+            - Concepts with multiple theories
+            - Questions with text_evidence coverage
+            - Graph connectivity statistics
+        """
+        try:
+            stats = {}
+            
+            # Total questions
+            total_questions_result = self.graph.query(
+                "MATCH (q:QUIZ_QUESTION) RETURN count(q) as count"
+            )
+            stats["total_questions"] = total_questions_result[0]["count"] if total_questions_result else 0
+            
+            # Questions linked to CONCEPT nodes
+            concept_questions_result = self.graph.query(
+                "MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION) RETURN count(DISTINCT q) as count"
+            )
+            stats["questions_linked_to_concepts"] = concept_questions_result[0]["count"] if concept_questions_result else 0
+            
+            # Questions linked to THEORY nodes
+            theory_questions_result = self.graph.query(
+                "MATCH (t:THEORY)-[:HAS_QUESTION]->(q:QUIZ_QUESTION) RETURN count(DISTINCT q) as count"
+            )
+            stats["questions_linked_to_theories"] = theory_questions_result[0]["count"] if theory_questions_result else 0
+            
+            # Questions with text_evidence
+            questions_with_evidence_result = self.graph.query(
+                "MATCH (q:QUIZ_QUESTION) WHERE q.text_evidence IS NOT NULL AND q.text_evidence <> '' RETURN count(q) as count"
+            )
+            stats["questions_with_text_evidence"] = questions_with_evidence_result[0]["count"] if questions_with_evidence_result else 0
+            
+            # Questions per concept distribution
+            questions_per_concept_result = self.graph.query("""
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
+                RETURN c.name AS concept_name, count(q) AS question_count
+                ORDER BY question_count DESC
+            """)
+            stats["questions_per_concept"] = [
+                {"concept_name": record["concept_name"], "question_count": record["question_count"]}
+                for record in questions_per_concept_result
+            ]
+            
+            # Questions per theory distribution
+            questions_per_theory_result = self.graph.query("""
+                MATCH (t:THEORY)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
+                RETURN t.name AS theory_name, t.id AS theory_id, count(q) AS question_count
+                ORDER BY question_count DESC
+            """)
+            stats["questions_per_theory"] = [
+                {
+                    "theory_name": record["theory_name"],
+                    "theory_id": record["theory_id"],
+                    "question_count": record["question_count"]
+                }
+                for record in questions_per_theory_result
+            ]
+            
+            # Concepts with multiple theories (concepts that appear in multiple theories)
+            multi_theory_concepts_result = self.graph.query("""
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                WITH c, collect(DISTINCT t.id) AS theory_ids
+                WHERE size(theory_ids) > 1
+                RETURN c.name AS concept_name, size(theory_ids) AS theory_count, theory_ids
+                ORDER BY theory_count DESC
+            """)
+            stats["concepts_with_multiple_theories"] = [
+                {
+                    "concept_name": record["concept_name"],
+                    "theory_count": record["theory_count"],
+                    "theory_ids": record["theory_ids"]
+                }
+                for record in multi_theory_concepts_result
+            ]
+            
+            # Graph connectivity: Questions linked to both CONCEPT and THEORY
+            fully_linked_questions_result = self.graph.query("""
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                RETURN count(DISTINCT q) as count
+            """)
+            stats["fully_linked_questions"] = fully_linked_questions_result[0]["count"] if fully_linked_questions_result else 0
+            
+            # Unique concepts with questions
+            unique_concepts_result = self.graph.query("""
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
+                RETURN count(DISTINCT c) as count
+            """)
+            stats["unique_concepts_with_questions"] = unique_concepts_result[0]["count"] if unique_concepts_result else 0
+            
+            # Unique theories with questions
+            unique_theories_result = self.graph.query("""
+                MATCH (t:THEORY)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
+                RETURN count(DISTINCT t) as count
+            """)
+            stats["unique_theories_with_questions"] = unique_theories_result[0]["count"] if unique_theories_result else 0
+            
+            logger.info(f"Retrieved quiz statistics: {stats['total_questions']} total questions")
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Error retrieving quiz statistics: {e}")
+            return {}
+    
+    def get_sample_questions_with_context(
+        self,
+        limit: int = 20,
+        include_multi_theory: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve sample questions with full graph context for analysis.
+        
+        Args:
+            limit: Maximum number of questions to return
+            include_multi_theory: If True, prioritize questions from multi-theory concepts
+            
+        Returns:
+            List of dictionaries with full question context including concept, theory, 
+            text_evidence, and all question details
+        """
+        try:
+            if include_multi_theory:
+                # First, get questions from multi-theory concepts
+                multi_theory_query = """
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                WITH c, collect(DISTINCT t.id) AS theory_ids, q, t
+                WHERE size(theory_ids) > 1
+                RETURN c.name AS concept_name,
+                       q.question_text AS question_text,
+                       q.option_a AS option_a,
+                       q.option_b AS option_b,
+                       q.option_c AS option_c,
+                       q.option_d AS option_d,
+                       q.correct_answer AS correct_answer,
+                       q.text_evidence AS text_evidence,
+                       t.name AS theory_name,
+                       t.id AS theory_id,
+                       q.id AS question_id
+                LIMIT $limit
+                """
+                results = self.graph.query(multi_theory_query, {"limit": limit})
+                
+                if len(results) < limit:
+                    # Fill remaining slots with any questions
+                    remaining = limit - len(results)
+                    general_query = """
+                    MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                    WHERE NOT EXISTS {
+                        MATCH (c)-[:HAS_QUESTION]->(q2:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t2:THEORY)
+                        WHERE q2.id = q.id
+                        WITH c, collect(DISTINCT t2.id) AS theory_ids
+                        WHERE size(theory_ids) > 1
+                    }
+                    RETURN c.name AS concept_name,
+                           q.question_text AS question_text,
+                           q.option_a AS option_a,
+                           q.option_b AS option_b,
+                           q.option_c AS option_c,
+                           q.option_d AS option_d,
+                           q.correct_answer AS correct_answer,
+                           q.text_evidence AS text_evidence,
+                           t.name AS theory_name,
+                           t.id AS theory_id,
+                           q.id AS question_id
+                    LIMIT $remaining
+                    """
+                    additional_results = self.graph.query(general_query, {"remaining": remaining})
+                    results.extend(additional_results)
+            else:
+                # Get any questions
+                general_query = """
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                RETURN c.name AS concept_name,
+                       q.question_text AS question_text,
+                       q.option_a AS option_a,
+                       q.option_b AS option_b,
+                       q.option_c AS option_c,
+                       q.option_d AS option_d,
+                       q.correct_answer AS correct_answer,
+                       q.text_evidence AS text_evidence,
+                       t.name AS theory_name,
+                       t.id AS theory_id,
+                       q.id AS question_id
+                LIMIT $limit
+                """
+                results = self.graph.query(general_query, {"limit": limit})
+            
+            samples = []
+            for record in results:
+                text_evidence = record.get("text_evidence", "")
+                evidence_excerpt = text_evidence[:200] if text_evidence else ""
+                if len(text_evidence) > 200:
+                    evidence_excerpt += "..."
+                
+                samples.append({
+                    "concept_name": record["concept_name"],
+                    "theory_name": record["theory_name"],
+                    "theory_id": record["theory_id"],
+                    "question_id": record["question_id"],
+                    "question_text": record["question_text"],
+                    "option_a": record["option_a"],
+                    "option_b": record["option_b"],
+                    "option_c": record["option_c"],
+                    "option_d": record["option_d"],
+                    "correct_answer": record["correct_answer"],
+                    "text_evidence": text_evidence,
+                    "text_evidence_excerpt": evidence_excerpt
+                })
+            
+            logger.info(f"Retrieved {len(samples)} sample questions with context")
+            return samples
+            
+        except Exception as e:
+            logger.error(f"Error retrieving sample questions: {e}")
+            return []
 
     def create_graph_data_from_extraction(self, extraction_result, source_file: str) -> Neo4jGraphData:
         """

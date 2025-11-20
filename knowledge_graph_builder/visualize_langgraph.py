@@ -6,7 +6,7 @@ This script generates diagrams directly from the compiled LangGraph workflow.
 
 from pathlib import Path
 from services.enhanced_langgraph_service import EnhancedRelationshipService
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from models.langgraph_state_models import WorkflowConfiguration
 import os
 from dotenv import load_dotenv

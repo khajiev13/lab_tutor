@@ -13,7 +13,7 @@ aspects of the knowledge graph building process:
 from .embedding import EmbeddingService
 from .extraction_langchain import LangChainCanonicalExtractionService
 from .ingestion import IngestionService
-from .neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 
 __all__ = [
     'EmbeddingService',

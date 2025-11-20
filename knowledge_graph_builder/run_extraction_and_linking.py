@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from services.ingestion import IngestionService
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from services.enhanced_langgraph_service import EnhancedRelationshipService
 from models.langgraph_state_models import WorkflowConfiguration
 

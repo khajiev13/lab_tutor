@@ -12,7 +12,7 @@ import json
 import logging
 from pathlib import Path
 
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from services.quiz_generation_service import QuizGenerationService
 
 # Set up logging

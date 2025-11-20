@@ -63,7 +63,7 @@ result = ingestion.process_batch_documents(
 
 **How to Run**:
 ```python
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from services.enhanced_langgraph_service import EnhancedRelationshipService
 from models.langgraph_state_models import WorkflowConfiguration
 
@@ -87,11 +87,12 @@ result = relationship_service.run_workflow(concepts)
 
 ```
 knowledge_graph_builder/
+├── neo4j_database/               # Shared Neo4j utilities
+│   └── neo4j_service.py          # Database operations
 ├── services/
 │   ├── ingestion.py               # SERVICE 1: Document extraction
 │   ├── enhanced_langgraph_service.py  # SERVICE 2: Concept linking/relationships
 │   ├── extraction_langchain.py    # LLM-based concept extraction
-│   ├── neo4j_service.py           # Database operations
 │   └── embedding.py               # Vector embeddings
 │
 ├── scripts/
@@ -148,7 +149,7 @@ result = ingestion.process_batch_documents(
 After concepts are in the database, detect relationships:
 
 ```python
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from services.enhanced_langgraph_service import EnhancedRelationshipService
 from models.langgraph_state_models import WorkflowConfiguration
 

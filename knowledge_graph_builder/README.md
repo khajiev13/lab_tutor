@@ -63,11 +63,12 @@ knowledge_graph_builder/
 │       └── {filename}_extraction.json
 ├── output/
 │   └── final.json            # Normalized concepts & relationships
+├── neo4j_database/           # Shared Neo4j utilities (importable everywhere)
+│   └── neo4j_service.py      # Neo4j database operations
 ├── services/                  # ⭐ Core Services
 │   ├── ingestion.py          # SERVICE 1: Concept extraction
 │   ├── enhanced_langgraph_service.py  # SERVICE 2: Relationship detection
 │   ├── extraction_langchain.py        # LLM extraction logic
-│   ├── neo4j_service.py      # Neo4j database operations
 │   └── embedding.py          # Vector embeddings (optional)
 ├── scripts/
 │   ├── ingest_ready_data.py  # Load pre-extracted data into Neo4j
@@ -188,7 +189,7 @@ python run_extraction_and_linking.py --link --max-iterations 10 --output-file my
 #### Programmatic Usage
 
 ```python
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from services.enhanced_langgraph_service import EnhancedRelationshipService
 from models.langgraph_state_models import WorkflowConfiguration
 
@@ -325,7 +326,7 @@ To extract concepts from new documents:
 - **`EnhancedRelationshipService`** (`services/enhanced_langgraph_service.py`): LangGraph-based relationship detection with quality control
 
 **Supporting Services:**
-- **`Neo4jService`** (`services/neo4j_service.py`): Database operations, queries, constraints
+- **`Neo4jService`** (`neo4j_database/neo4j_service.py`): Database operations, queries, constraints
 - **`LangChainCanonicalExtractionService`** (`services/extraction_langchain.py`): LLM-based concept extraction
 - **`EmbeddingService`** (`services/embedding.py`): Vector embeddings for concepts (optional)
 
@@ -356,7 +357,7 @@ Here's a complete example showing both services in action:
 Complete workflow example: Extract concepts and build relationships
 """
 from services.ingestion import IngestionService
-from services.neo4j_service import Neo4jService
+from neo4j_database import Neo4jService
 from services.enhanced_langgraph_service import EnhancedRelationshipService
 from models.langgraph_state_models import WorkflowConfiguration
 
@@ -444,7 +445,7 @@ uv sync
 docker-compose ps
 
 # Test connection
-python -c "from services.neo4j_service import Neo4jService; Neo4jService()"
+python -c "from neo4j_database import Neo4jService; Neo4jService()"
 ```
 
 ### Ingestion fails
@@ -471,7 +472,7 @@ python -c "from services.extraction_langchain import LangChainCanonicalExtractio
 python -c "import os; print(os.getenv('XIAO_CASE_API_KEY'))"
 
 # Verify concepts exist in database
-python -c "from services.neo4j_service import Neo4jService; neo4j = Neo4jService(); print(f'Concepts: {len(neo4j.get_all_concepts())}')"
+python -c "from neo4j_database import Neo4jService; neo4j = Neo4jService(); print(f'Concepts: {len(neo4j.get_all_concepts())}')"
 ```
 
 ### "No concepts found in database"
