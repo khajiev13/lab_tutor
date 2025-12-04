@@ -1,0 +1,97 @@
+{
+  "student_profile_id": "student_intermediate_statistics_beijing",
+  "persona": {
+    "level": "intermediate",
+    "focus_domain": "applied statistics & big data labs",
+    "favorite_subject": "statistics",
+    "motivation": [
+      "improve statistical modeling intuition",
+      "practice transforming theory into executable Spark jobs"
+    ]
+  },
+  "demographics": {
+    "age_range": "21-25",
+    "location": {
+      "city": "Beijing",
+      "country": "China",
+      "timezone": "Asia/Shanghai"
+    },
+    "languages": ["Mandarin Chinese", "English"]
+  },
+  "academic_background": {
+    "current_program": "BSc Data Science (Year 3)",
+    "completed_courses": [
+      "Probability and Statistics II",
+      "Linear Algebra",
+      "SQL and Relational Databases",
+      "Introduction to Big Data Systems"
+    ],
+    "prior_projects": [
+      "explored Beijing taxi demand forecasting using regression",
+      "built ETL scripts with PySpark for an ecommerce clickstream sample"
+    ]
+  },
+  "skill_snapshot": {
+    "statistics_foundation": "solid at regression and hypothesis testing",
+    "programming": {
+      "preferred_languages": ["Python", "SQL"],
+      "frameworks": ["PySpark", "Pandas"],
+      "comfort_with_cli": "high"
+    },
+    "data_engineering": {
+      "etl_experience": "has built incremental ingestion jobs",
+      "distributed_systems_understanding": "knows Spark basics, limited tuning experience"
+    },
+    "weak_points": [
+      "needs practice selecting optimal dimensionality reduction approach",
+      "limited exposure to cross-validation strategies at scale"
+    ]
+  },
+  "learning_goals": {
+    "short_term": [
+      "apply dimensionality reduction to noisy IoT sensor data",
+      "justify model evaluation metrics for Spark ML pipelines"
+    ],
+    "long_term": [
+      "lead data quality investigations for manufacturing analytics",
+      "prepare for graduate-level machine learning coursework"
+    ]
+  },
+  "learning_preferences": {
+    "pace": "prefers structured milestones with rapid feedback",
+    "content_mix": {
+      "hands_on": 0.6,
+      "guided_reading": 0.25,
+      "reflection": 0.15
+    },
+    "support_needs": [
+      "needs quick reminders of statistical intuition before coding",
+      "values concrete success criteria and rubrics"
+    ]
+  },
+  "tooling_environment": {
+    "preferred_notebook": "Databricks Community Edition",
+    "data_formats": ["CSV", "Parquet", "JSON"],
+    "compute_constraints": {
+      "cluster_size": "1 driver + 1 worker (small)",
+      "session_timeout_minutes": 120
+    }
+  },
+  "lab_context": {
+    "target_lab": "Spark MLlib dimensionality reduction with PCA and feature pipelines",
+    "available_hours_per_week": 6,
+    "deadline": "2025-12-12"
+  },
+  "feedback_loop": {
+    "preferred_channel": "embedded lab UI thumbs-up/down with comment box",
+    "feedback_schema": {
+      "usefulness": "1-5",
+      "difficulty": "easy/just-right/hard",
+      "next_action": "retry_with_guidance | accept_and_continue | request_new_lab"
+    },
+    "auto_regenerate_on_negative_feedback": true
+  }
+}
+
+
+

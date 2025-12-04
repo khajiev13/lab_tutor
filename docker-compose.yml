@@ -24,6 +24,33 @@ services:
       retries: 3
       start_period: 30s
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lab_tutor_backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - backend_data:/app/data
+      # Mount source code for hot reload in development
+      - ./backend:/app
+      # Exclude venv and other build artifacts from being overwritten
+      - /app/.venv
+      - /app/__pycache__
+      - /app/*.pyc
+    restart: unless-stopped
+    networks:
+      - lab_tutor_network
+    environment:
+      - UVICORN_RELOAD=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   # Add your future services here
   # knowledge_graph_builder:
   #   build:
@@ -43,6 +70,8 @@ volumes:
   neo4j_import:
     driver: local
   neo4j_plugins:
+    driver: local
+  backend_data:
     driver: local
 
 networks:

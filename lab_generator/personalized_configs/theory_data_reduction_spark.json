@@ -1,0 +1,106 @@
+{
+  "theory_scope": {
+    "primary_topic": "Data Reduction Techniques & Spark MLlib Pipelines",
+    "lab_alignment": "Helps the student justify feature preparation choices before training Spark MLlib models on medium-scale datasets.",
+    "target_competencies": [
+      "reason about dimensionality reduction trade-offs",
+      "configure Spark ML pipelines with transformers, estimators, and evaluators",
+      "connect statistical rationale to implementation artifacts"
+    ]
+  },
+  "text_corpus_metadata": [
+    {
+      "source": "Bigdata analysis 3-5_extraction.json",
+      "coverage": "Data Reduction Techniques definitions and rationale"
+    },
+    {
+      "source": "BDA 6-1_extraction.json",
+      "coverage": "Spark MLlib components such as Pipelines, Estimators, and CrossValidator"
+    }
+  ],
+  "concepts": [
+    {
+      "concept_name": "Principal Component Analysis (PCA)",
+      "category": "Data Reduction Techniques",
+      "definition": "Assumes k-dimensional data vectors and projects them into a smaller orthogonal basis so the first c components capture most variance, enabling compression.",
+      "text_evidence": [
+        {
+          "source_document": "Bigdata analysis 3-5_extraction.json",
+          "excerpt": "Principal component analysis ... obtain c \"k-dimensional\" orthogonal vectors that best represent the data ... original data can be projected into a smaller space."
+        }
+      ],
+      "lab_implications": [
+        "Use Spark MLlib `PCA` transformer to compress wide sensor tables.",
+        "Compare reconstruction error vs. retained variance to justify chosen number of components."
+      ]
+    },
+    {
+      "concept_name": "Concept Hierarchy",
+      "category": "Data Reduction Techniques",
+      "definition": "Defines mappings from low-level concepts to higher-level abstractions to condense categorical attributes.",
+      "text_evidence": [
+        {
+          "source_document": "Bigdata analysis 3-5_extraction.json",
+          "excerpt": "Defines a set of mappings from low-level concept sets to high-level concept sets."
+        }
+      ],
+      "lab_implications": [
+        "Construct domain-specific hierarchies (e.g., equipment -> subsystem -> plant) before encoding.",
+        "Demonstrate how hierarchy pruning reduces cardinality while retaining interpretability."
+      ]
+    },
+    {
+      "concept_name": "Lossless vs. Lossy Compression",
+      "category": "Data Reduction Techniques",
+      "definition": "Lossless compression preserves every bit of the original data, whereas lossy retains only an approximation.",
+      "text_evidence": [
+        {
+          "source_document": "Bigdata analysis 3-5_extraction.json",
+          "excerpt": "Lossless compression: compressed data can be restored without losing any information. Lossy compression: only an approximate representation of the original data can be reconstructed."
+        }
+      ],
+      "lab_implications": [
+        "Decide when Spark MLlib feature hashing (lossy) is acceptable vs. when categorical indexing (lossless) is required.",
+        "Have the student compare downstream metric impact between lossy and lossless strategies."
+      ]
+    },
+    {
+      "concept_name": "Spark ML Pipelines",
+      "category": "Spark MLlib Concepts and Mechanisms",
+      "definition": "High-level APIs built on DataFrames to chain transformers and estimators for repeatable ML workflows.",
+      "text_evidence": [
+        {
+          "source_document": "BDA 6-1_extraction.json",
+          "excerpt": "ML Pipelines provide a uniform set of high-level APIs built on top of DataFrames that help users create and tune practical machine learning pipelines."
+        }
+      ],
+      "lab_implications": [
+        "Require the student to declare pipeline stages (e.g., `VectorAssembler` -> `PCA` -> `RandomForestClassifier`).",
+        "Use pipeline persistence to rerun labs on refreshed data automatically."
+      ]
+    },
+    {
+      "concept_name": "CrossValidator",
+      "category": "Spark MLlib Concepts and Mechanisms",
+      "definition": "Divides data into folds to train and evaluate multiple parameter sets for robust performance estimates.",
+      "text_evidence": [
+        {
+          "source_document": "BDA 6-1_extraction.json",
+          "excerpt": "CrossValidator divides the data set into several folds, which can be used for independent training and test sets."
+        }
+      ],
+      "lab_implications": [
+        "Tie student feedback loop to metric stability across folds.",
+        "Trigger regeneration when fold variance exceeds threshold indicating unstable dataset design."
+      ]
+    }
+  ],
+  "feedback_alignment": {
+    "signal_to_track": [
+      "perceived usefulness of each concept snippet",
+      "clarity of evidence-to-experiment linkage"
+    ],
+    "regen_policy": "If average usefulness rating < 3 or student flags missing evidence, queue dataset regeneration with updated concept emphasis."
+  }
+}
+
