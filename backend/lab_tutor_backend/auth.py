@@ -79,4 +79,3 @@ def require_role(required_role: UserRole) -> Callable[[User], User]:
         return current_user
 
     return role_dependency
-
