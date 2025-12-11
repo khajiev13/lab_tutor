@@ -26,6 +26,18 @@ packages = ["lab_tutor_backend"]
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.0.1",
+    "ruff>=0.8.0",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
 
 
