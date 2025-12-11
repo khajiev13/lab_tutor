@@ -1,0 +1,145 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+
+env:
+  REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+  IMAGE_NAME: lab-tutor-frontend
+  NODE_VERSION: '20'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: lint
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
+
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================
+  # DEPLOYMENT TO AZURE (Uncomment when ready)
+  # ============================================================
+  # 
+  # Prerequisites:
+  # 1. Create Azure Container Registry (ACR)
+  # 2. Create Azure App Service (Web App for Containers)
+  # 3. Add these GitHub Secrets:
+  #    - AZURE_CREDENTIALS: Service principal JSON
+  #    - ACR_LOGIN_SERVER: yourregistry.azurecr.io
+  #    - ACR_USERNAME: ACR admin username
+  #    - ACR_PASSWORD: ACR admin password
+  #    - AZURE_WEBAPP_NAME_FRONTEND: Your frontend App Service name
+  #
+  # deploy:
+  #   name: Deploy to Azure
+  #   runs-on: ubuntu-latest
+  #   needs: docker
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Login to Azure
+  #       uses: azure/login@v2
+  #       with:
+  #         creds: ${{ secrets.AZURE_CREDENTIALS }}
+  #
+  #     - name: Login to ACR
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ${{ secrets.ACR_LOGIN_SERVER }}
+  #         username: ${{ secrets.ACR_USERNAME }}
+  #         password: ${{ secrets.ACR_PASSWORD }}
+  #
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+  #
+  #     - name: Build and push to ACR
+  #       uses: docker/build-push-action@v6
+  #       with:
+  #         context: ./frontend
+  #         push: true
+  #         tags: |
+  #           ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+  #           ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+  #         cache-from: type=gha
+  #         cache-to: type=gha,mode=max
+  #
+  #     - name: Deploy to Azure App Service
+  #       uses: azure/webapps-deploy@v3
+  #       with:
+  #         app-name: ${{ secrets.AZURE_WEBAPP_NAME_FRONTEND }}
+  #         images: ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
