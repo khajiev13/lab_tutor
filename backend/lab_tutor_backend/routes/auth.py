@@ -13,7 +13,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def register(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+        )
 
     user = User(
         first_name=user_in.first_name,
@@ -32,8 +34,10 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
 def login(credentials: UserLogin, db: Session = Depends(get_db)) -> Token:
     user = authenticate_user(db, credentials.email.lower(), credentials.password)
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
 
     access_token = create_access_token({"sub": user.email, "role": user.role.value})
     return Token(access_token=access_token)
-
