@@ -1,4 +1,3 @@
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -28,8 +27,8 @@ def create_course(
     return course
 
 
-@router.get("", response_model=List[CourseRead])
-def list_courses(db: Session = Depends(get_db)) -> List[Course]:
+@router.get("", response_model=list[CourseRead])
+def list_courses(db: Session = Depends(get_db)) -> list[Course]:
     return db.query(Course).order_by(Course.created_at.desc()).all()
 
 

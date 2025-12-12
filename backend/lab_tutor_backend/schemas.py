@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -36,18 +35,18 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    email: Optional[EmailStr] = None
+    email: EmailStr | None = None
 
 
 class CourseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(default=None, max_length=1000)
+    description: str | None = Field(default=None, max_length=1000)
 
 
 class CourseRead(BaseModel):
     id: int
     title: str
-    description: Optional[str]
+    description: str | None
     teacher_id: int
     created_at: datetime
 

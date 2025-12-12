@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from enum import Enum
-from typing import List
 
-from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -24,8 +24,8 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(SqlEnum(UserRole, name="user_role"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
-    courses: Mapped[List["Course"]] = relationship(back_populates="teacher", cascade="all, delete")
-    enrollments: Mapped[List["CourseEnrollment"]] = relationship(
+    courses: Mapped[list["Course"]] = relationship(back_populates="teacher", cascade="all, delete")
+    enrollments: Mapped[list["CourseEnrollment"]] = relationship(
         back_populates="student",
         cascade="all, delete-orphan",
     )
@@ -41,7 +41,7 @@ class Course(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
 
     teacher: Mapped[User] = relationship(back_populates="courses")
-    enrollments: Mapped[List["CourseEnrollment"]] = relationship(
+    enrollments: Mapped[list["CourseEnrollment"]] = relationship(
         back_populates="course",
         cascade="all, delete-orphan",
     )

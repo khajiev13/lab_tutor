@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { authApi } from '@/services/api';
 import type { LoginCredentials, RegisterData, UserResponse } from '@/services/api';
 
@@ -64,21 +64,17 @@ const getUserFromToken = (token: string): User | null => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Initialize auth state from stored token
-  useEffect(() => {
+  const [user, setUser] = useState<User | null>(() => {
     const token = localStorage.getItem('access_token');
-    if (token && !isTokenExpired(token)) {
-      const tokenUser = getUserFromToken(token);
-      setUser(tokenUser);
-    } else if (token) {
+    if (token) {
+      if (!isTokenExpired(token)) {
+        return getUserFromToken(token);
+      }
       // Token exists but is expired
       localStorage.removeItem('access_token');
     }
-    setIsLoading(false);
-  }, []);
+    return null;
+  });
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     const response = await authApi.login(credentials);
@@ -100,7 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
-    isLoading,
+    isLoading: false,
     login,
     register,
     logout,
@@ -109,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
