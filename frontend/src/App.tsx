@@ -4,6 +4,8 @@ import { Toaster } from '@/components/ui/sonner';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Home from '@/pages/Home';
+import TeacherCourses from '@/pages/TeacherCourses';
+import TeacherCourseDetail from '@/pages/TeacherCourseDetail';
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -68,6 +70,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Home />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses"
+        element={
+          <ProtectedRoute>
+            <TeacherCourses />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id"
+        element={
+          <ProtectedRoute>
+            <TeacherCourseDetail />
           </ProtectedRoute>
         }
       />
