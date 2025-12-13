@@ -22,6 +22,12 @@ class Settings(BaseSettings):
         default="sqlite:///./data/app.db",
         description="SQLAlchemy database URL",
     )
+    azure_storage_connection_string: str | None = Field(
+        default=None, description="Azure Blob Storage Connection String"
+    )
+    azure_container_name: str = Field(
+        default="class-presentations", description="Container name for presentations"
+    )
 
 
 settings = Settings()

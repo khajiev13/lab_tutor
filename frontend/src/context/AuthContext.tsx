@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { authApi } from '@/services/api';
-import type { LoginCredentials, RegisterData, UserResponse } from '@/services/api';
+import type { LoginCredentials, RegisterData, UserResponse } from '@/types';
 
 // JWT token payload interface
 interface JWTPayload {

@@ -13,6 +13,7 @@ dependencies = [
     "email-validator>=2.3.0",
     "python-multipart>=0.0.20",
     "bcrypt<5",
+    "azure-storage-blob>=12.27.1",
 ]
 
 [build-system]
