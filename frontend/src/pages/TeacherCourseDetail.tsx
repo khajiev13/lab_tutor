@@ -47,7 +47,7 @@ export default function TeacherCourseDetail() {
 
   // Polling for extraction status
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let intervalId: ReturnType<typeof setInterval>;
 
     if (course?.extraction_status === 'in_progress') {
       intervalId = setInterval(async () => {
