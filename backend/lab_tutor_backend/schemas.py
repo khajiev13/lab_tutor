@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from .models import UserRole
+from .models import ExtractionStatus, UserRole
 
 
 class UserBase(BaseModel):
@@ -49,6 +49,7 @@ class CourseRead(BaseModel):
     description: str | None
     teacher_id: int
     created_at: datetime
+    extraction_status: ExtractionStatus
 
     model_config = ConfigDict(from_attributes=True)
 

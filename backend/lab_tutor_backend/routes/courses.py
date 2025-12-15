@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import get_current_user, require_role
 from ..database import get_db
-from ..models import Course, CourseEnrollment, User, UserRole
+from ..models import Course, CourseEnrollment, ExtractionStatus, User, UserRole
 from ..schemas import CourseCreate, CourseRead, EnrollmentRead
 from ..services.blob_service import blob_service
 
@@ -30,6 +30,20 @@ def create_course(
 @router.get("", response_model=list[CourseRead])
 def list_courses(db: Session = Depends(get_db)) -> list[Course]:
     return db.query(Course).order_by(Course.created_at.desc()).all()
+
+
+@router.get("/{course_id}", response_model=CourseRead)
+def get_course(
+    course_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Course:
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Course not found"
+        )
+    return course
 
 
 @router.post(
@@ -135,6 +149,12 @@ async def upload_presentations(
             detail="Not authorized to upload files for this course",
         )
 
+    if course.extraction_status == ExtractionStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot upload files while extraction is in progress",
+        )
+
     uploaded_urls = []
     for file in files:
         # Sanitize course title for folder name
@@ -212,6 +232,12 @@ async def delete_presentation(
             detail="Not authorized to delete files for this course",
         )
 
+    if course.extraction_status == ExtractionStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete files while extraction is in progress",
+        )
+
     safe_course_title = (
         "".join(c for c in course.title if c.isalnum() or c in (" ", "_", "-"))
         .strip()
@@ -246,6 +272,12 @@ async def delete_all_presentations(
             detail="Not authorized to delete files for this course",
         )
 
+    if course.extraction_status == ExtractionStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete files while extraction is in progress",
+        )
+
     safe_course_title = (
         "".join(c for c in course.title if c.isalnum() or c in (" ", "_", "-"))
         .strip()
@@ -260,3 +292,37 @@ async def delete_all_presentations(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete presentations: {str(e)}",
         ) from e
+
+
+@router.post("/{course_id}/extract", status_code=status.HTTP_202_ACCEPTED)
+async def start_extraction(
+    course_id: int,
+    db: Session = Depends(get_db),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    course = db.query(Course).filter(Course.id == course_id).first()
+    if not course:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Course not found"
+        )
+
+    if course.teacher_id != teacher.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to start extraction for this course",
+        )
+
+    if course.extraction_status == ExtractionStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Extraction already in progress",
+        )
+
+    # Update status
+    course.extraction_status = ExtractionStatus.IN_PROGRESS
+    db.commit()
+
+    # TODO: Call extraction service
+    # await extraction_service.start_extraction(course.id, db)
+
+    return {"message": "Extraction started", "status": course.extraction_status}
