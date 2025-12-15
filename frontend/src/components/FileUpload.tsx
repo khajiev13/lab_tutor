@@ -1,19 +1,18 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, File, X, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Upload, File, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface FileUploadProps {
   onUpload: (files: File[]) => Promise<void>;
-  accept?: Record<string, string[]>;
-  maxSize?: number; // in bytes
+  disabled?: boolean;
 }
 
-export function FileUpload({ onUpload, accept, maxSize = 10 * 1024 * 1024 }: FileUploadProps) {
-  const [files, setFiles] = useState<File[]>([]);
+export function FileUpload({ onUpload, disabled = false }: FileUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles((prev) => [...prev, ...acceptedFiles]);
@@ -21,8 +20,12 @@ export function FileUpload({ onUpload, accept, maxSize = 10 * 1024 * 1024 }: Fil
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept,
-    maxSize,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+    },
+    disabled: disabled || isUploading,
   });
 
   const removeFile = (fileToRemove: File) => {
@@ -35,8 +38,8 @@ export function FileUpload({ onUpload, accept, maxSize = 10 * 1024 * 1024 }: Fil
     setIsUploading(true);
     try {
       await onUpload(files);
-      setFiles([]);
       toast.success('Files uploaded successfully');
+      setFiles([]);
     } catch (error) {
       console.error('Upload failed:', error);
       toast.error('Failed to upload files');
@@ -50,62 +53,63 @@ export function FileUpload({ onUpload, accept, maxSize = 10 * 1024 * 1024 }: Fil
       <div
         {...getRootProps()}
         className={cn(
-          'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors',
-          isDragActive
-            ? 'border-primary bg-primary/5'
-            : 'border-muted-foreground/25 hover:border-primary/50'
+          "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
+          isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50",
+          (disabled || isUploading) && "opacity-50 cursor-not-allowed hover:border-muted-foreground/25"
         )}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()} data-testid="dropzone-input" />
         <div className="flex flex-col items-center gap-2">
-          <UploadCloud className="h-10 w-10 text-muted-foreground" />
-          <div className="text-sm text-muted-foreground">
-            {isDragActive ? (
-              <p>Drop the files here ...</p>
-            ) : (
-              <p>
-                Drag & drop files here, or <span className="text-primary font-medium">click to select</span>
-              </p>
-            )}
+          <div className="p-4 rounded-full bg-muted">
+            <Upload className="h-6 w-6 text-muted-foreground" />
           </div>
-          <p className="text-xs text-muted-foreground/70">
-            Max file size: {Math.round(maxSize / 1024 / 1024)}MB
-          </p>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              {isDragActive ? "Drop files here" : "Drag & drop files here"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              or click to select files (PDF, PPTX, PPT)
+            </p>
+          </div>
         </div>
       </div>
 
       {files.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium">Selected Files ({files.length})</h4>
-          <div className="grid gap-2">
+        <div className="space-y-4">
+          <div className="space-y-2">
             {files.map((file, index) => (
               <div
                 key={`${file.name}-${index}`}
-                className="flex items-center justify-between p-2 border rounded-md bg-background"
+                className="flex items-center justify-between p-3 border rounded-lg bg-card"
               >
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <File className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                  <span className="text-sm truncate">{file.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({(file.size / 1024).toFixed(1)} KB)
-                  </span>
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <File className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium truncate">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
                   onClick={() => removeFile(file)}
                   disabled={isUploading}
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             ))}
           </div>
-          <div className="flex justify-end pt-2">
-            <Button onClick={handleUpload} disabled={isUploading}>
+
+          <div className="flex justify-end">
+            <Button onClick={handleUpload} disabled={isUploading || disabled}>
               {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isUploading ? 'Uploading...' : 'Upload Files'}
+              {isUploading ? 'Uploading...' : `Upload ${files.length} file${files.length === 1 ? '' : 's'}`}
             </Button>
           </div>
         </div>

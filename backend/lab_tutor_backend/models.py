@@ -13,6 +13,13 @@ class UserRole(str, Enum):
     TEACHER = "teacher"
 
 
+class ExtractionStatus(str, Enum):
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    FINISHED = "finished"
+    FAILED = "failed"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -48,6 +55,15 @@ class Course(Base):
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC)
+    )
+    extraction_status: Mapped[ExtractionStatus] = mapped_column(
+        SqlEnum(
+            ExtractionStatus,
+            name="extraction_status",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=ExtractionStatus.NOT_STARTED,
+        nullable=False,
     )
 
     teacher: Mapped[User] = relationship(back_populates="courses")
