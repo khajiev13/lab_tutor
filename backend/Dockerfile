@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Copy dependency files and package structure needed for build
 COPY pyproject.toml uv.lock* ./
-COPY lab_tutor_backend/ ./lab_tutor_backend/
+COPY app/ ./app/
 
 # Install dependencies using uv sync (will create venv and install deps)
 RUN uv sync --no-cache

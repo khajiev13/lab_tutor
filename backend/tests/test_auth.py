@@ -1,25 +1,29 @@
-from lab_tutor_backend.auth import get_password_hash
-from lab_tutor_backend.models import User, UserRole
+import uuid
+
+from app.modules.auth.models import UserRole
 
 
-def test_login(client, db_session):
-    # Create user
+def test_register_and_login(client, db_session):
+    email = f"test_{uuid.uuid4()}@example.com"
     password = "testpassword"
-    hashed = get_password_hash(password)
-    user = User(
-        first_name="Test",
-        last_name="User",
-        email="test@example.com",
-        password_hash=hashed,
-        role=UserRole.STUDENT,
+
+    # Register
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "first_name": "Test",
+            "last_name": "User",
+            "role": UserRole.STUDENT.value,
+        },
     )
-    db_session.add(user)
-    db_session.commit()
+    assert response.status_code == 201
 
     # Login
     response = client.post(
-        "/auth/login",
-        json={"email": "test@example.com", "password": password},
+        "/auth/jwt/login",
+        data={"username": email, "password": password},
     )
     assert response.status_code == 200
     data = response.json()
@@ -28,22 +32,24 @@ def test_login(client, db_session):
 
 
 def test_login_invalid_credentials(client, db_session):
-    # Create user
+    email = "test2@example.com"
     password = "testpassword"
-    hashed = get_password_hash(password)
-    user = User(
-        first_name="Test",
-        last_name="User",
-        email="test@example.com",
-        password_hash=hashed,
-        role=UserRole.STUDENT,
+
+    # Register
+    client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "first_name": "Test",
+            "last_name": "User",
+            "role": UserRole.STUDENT.value,
+        },
     )
-    db_session.add(user)
-    db_session.commit()
 
     # Login with wrong password
     response = client.post(
-        "/auth/login",
-        json={"email": "test@example.com", "password": "wrongpassword"},
+        "/auth/jwt/login",
+        data={"username": email, "password": "wrongpassword"},
     )
-    assert response.status_code == 401
+    assert response.status_code == 400

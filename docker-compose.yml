@@ -53,6 +53,22 @@ services:
       retries: 3
       start_period: 10s
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: lab_tutor_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - lab_tutor_network
+    depends_on:
+      - backend
+
   # Add your future services here
   # knowledge_graph_builder:
   #   build:
