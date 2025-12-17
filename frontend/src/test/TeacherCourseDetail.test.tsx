@@ -1,18 +1,29 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import TeacherCourseDetail from '../pages/TeacherCourseDetail';
-import { coursesApi } from '../services/api';
+import TeacherCourseDetail from '../features/courses/pages/TeacherCourseDetail';
+import { coursesApi } from '../features/courses/api';
 import { vi, type Mock } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
+// Mock Auth Context
+vi.mock('../features/auth/context/AuthContext', () => ({
+  useAuth: () => ({
+    user: { role: 'teacher', id: 1, email: 'teacher@test.com' },
+    isAuthenticated: true,
+  }),
+}));
+
 // Mock APIs
-vi.mock('../services/api', () => ({
+vi.mock('../features/courses/api', () => ({
   coursesApi: {
     getCourse: vi.fn(),
     startExtraction: vi.fn(),
+    getEnrollment: vi.fn(),
+    join: vi.fn(),
+    leave: vi.fn(),
   },
   presentationsApi: {
     upload: vi.fn(),
-    list: vi.fn(), // Mocked because PresentationList uses it
+    list: vi.fn(),
   },
 }));
 

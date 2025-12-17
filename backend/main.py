@@ -4,10 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 
-from lab_tutor_backend.database import Base, engine
-from lab_tutor_backend.routes import auth as auth_routes
-from lab_tutor_backend.routes import courses as course_routes
-from lab_tutor_backend.settings import settings
+# Import models to ensure they are registered with Base.metadata
+import app.modules.auth.models  # noqa
+import app.modules.courses.models  # noqa
+from app.core.database import Base, engine
+from app.core.settings import settings
+from app.modules.auth import routes as auth_routes
+from app.modules.courses import routes as course_routes
 
 
 @asynccontextmanager

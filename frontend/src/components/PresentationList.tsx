@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { presentationsApi } from '@/services/api';
+import { presentationsApi } from '@/features/courses/api';
 import { toast } from 'sonner';
 
 interface PresentationListProps {
@@ -93,7 +93,7 @@ export function PresentationList({ courseId, refreshTrigger, disabled = false }:
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                disabled={isDeleting || disabled}
+                disabled={!!deletingFile || disabled}
               >
                 {deletingFile === file ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

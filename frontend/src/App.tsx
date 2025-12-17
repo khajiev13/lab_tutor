@@ -1,11 +1,30 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import Home from '@/pages/Home';
-import TeacherCourses from '@/pages/TeacherCourses';
-import TeacherCourseDetail from '@/pages/TeacherCourseDetail';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/layout/AppSidebar"
+import Login from '@/features/auth/pages/Login';
+import Register from '@/features/auth/pages/Register';
+import Dashboard from '@/features/dashboard/pages/Dashboard';
+import TeacherCourses from '@/features/courses/pages/TeacherCourses';
+import TeacherCourseDetail from '@/features/courses/pages/TeacherCourseDetail';
+import Profile from '@/features/auth/pages/Profile';
+
+function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+        </header>
+        <div className="flex flex-1 flex-col p-6">
+          {children}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
+}
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -23,7 +42,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return (
+    <DashboardLayout>
+      {children}
+    </DashboardLayout>
+  );
 }
 
 // Public Route component (redirects to home if already authenticated)
@@ -69,7 +92,7 @@ function AppRoutes() {
         path="/home"
         element={
           <ProtectedRoute>
-            <Home />
+            <Dashboard />
           </ProtectedRoute>
         }
       />
@@ -86,6 +109,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TeacherCourseDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         }
       />

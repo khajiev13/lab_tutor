@@ -3,7 +3,7 @@
 ## 🏗 Project Architecture
 - **Monorepo Structure**:
   - `frontend/`: React 19 + Vite + TailwindCSS v4 + Shadcn UI
-  - `backend/`: FastAPI + SQLAlchemy + Pydantic v2
+  - `backend/`: FastAPI + SQLAlchemy + Pydantic v2 (Modular Onion Architecture)
   - `knowledge_graph_builder/`: Python scripts for Neo4j data ingestion
   - `neo4j_database/`: Neo4j Docker configuration
 - **Databases**:
@@ -41,11 +41,20 @@
 - **Strict Mode**: TypeScript `strict: true` is enabled. Handle `null`/`undefined` explicitly.
 
 ### Backend (Python/FastAPI)
+- **Architecture**: Modular Onion Architecture. Group code by feature in `modules/` (e.g., `auth`, `courses`).
+- **Layers**:
+  - **Domain**: `models.py` (SQLAlchemy Entities) and `schemas.py` (Pydantic DTOs).
+  - **Repository**: `repository.py` (Data Access). Encapsulate all DB queries here.
+  - **Service**: `service.py` (Business Logic). Depends on Repository.
+  - **API**: `routes.py` (Controllers). Depends on Service.
+- **Core & Providers**:
+  - `core/`: Shared components (`database.py`, `settings.py`).
+  - `providers/`: Infrastructure services (e.g., `storage.py` for Azure Blob).
 - **Type Hints**: Use modern Python 3.10+ syntax (`str | None`, `list[str]`).
 - **ORM**: Use SQLAlchemy 2.0 style (`Mapped`, `mapped_column`, `DeclarativeBase`).
 - **Validation**: Use Pydantic v2 models (`ConfigDict(from_attributes=True)` for ORM mode).
-- **Dependency Injection**: Use `Depends()` for DB sessions (`get_db`) and current user (`get_current_user`).
-- **Routing**: Organize routes in `lab_tutor_backend/routes/` and include in `main.py`.
+- **Dependency Injection**: Use `Depends()` to inject Services into Routes, and Repositories into Services.
+- **Routing**: Register module routers in `main.py`.
 
 ## 🔗 Integration Points
 - **CORS**: Backend is configured to allow `localhost:5173`, `localhost:5174`, and `localhost:3000`.

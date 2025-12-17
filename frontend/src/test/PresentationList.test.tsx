@@ -1,10 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PresentationList } from '../components/PresentationList';
-import { presentationsApi } from '../services/api';
+import { presentationsApi } from '../features/courses/api';
 import { vi, type Mock } from 'vitest';
 
 // Mock the API
-vi.mock('../services/api', () => ({
+vi.mock('../features/courses/api', () => ({
   presentationsApi: {
     list: vi.fn(),
     delete: vi.fn(),
