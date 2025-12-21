@@ -54,6 +54,19 @@ def mock_blob_service(monkeypatch):
     mock_service.list_files = AsyncMock(return_value=["file1.pdf", "file2.pdf"])
     mock_service.delete_file = AsyncMock(return_value=None)
     mock_service.delete_folder = AsyncMock(return_value=None)
+    mock_service.download_file = MagicMock(return_value=b"mock-bytes")
+    mock_service.get_blob_info = MagicMock(
+        return_value={
+            "name": "mock",
+            "url": "http://mock-url/blob",
+            "size_bytes": 9,
+            "content_type": "application/pdf",
+            "etag": "etag",
+            "last_modified": "2025-12-20T00:00:00Z",
+            "creation_time": "2025-12-20T00:00:00Z",
+            "metadata": {},
+        }
+    )
 
     # Patch the instance in the service module
     monkeypatch.setattr("app.modules.courses.service.blob_service", mock_service)
@@ -110,4 +123,3 @@ def student_auth_headers(client):
     )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
-

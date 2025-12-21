@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, Request, status
@@ -14,8 +15,10 @@ from app.core.database import get_async_db
 from app.core.settings import settings
 
 from .models import User, UserRole
+from .neo4j_repository import UserGraphRepository
 
 SECRET = settings.secret_key
+logger = logging.getLogger(__name__)
 
 
 class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
@@ -23,17 +26,60 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
     verification_token_secret = SECRET
 
     async def on_after_register(self, user: User, request: Request | None = None):
-        print(f"User {user.id} has registered.")
+        if request is None:
+            return
+
+        driver = getattr(request.app.state, "neo4j_driver", None)
+        if driver is None:
+            return
+
+        try:
+            with driver.session(database=settings.neo4j_database) as session:
+                repo = UserGraphRepository(session)
+                repo.upsert_user(
+                    user_id=user.id,
+                    role=user.role.value,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    email=user.email,
+                    created_at=user.created_at,
+                )
+        except Exception:
+            logger.exception("Neo4j user upsert failed after register")
+
+    async def on_after_update(
+        self, user: User, update_dict: dict, request: Request | None = None
+    ):
+        if request is None:
+            return
+
+        driver = getattr(request.app.state, "neo4j_driver", None)
+        if driver is None:
+            return
+
+        try:
+            with driver.session(database=settings.neo4j_database) as session:
+                repo = UserGraphRepository(session)
+                repo.upsert_user(
+                    user_id=user.id,
+                    role=user.role.value,
+                    first_name=user.first_name,
+                    last_name=user.last_name,
+                    email=user.email,
+                    created_at=user.created_at,
+                )
+        except Exception:
+            logger.exception("Neo4j user upsert failed after update")
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Request | None = None
     ):
-        print(f"User {user.id} has forgot their password. Reset token: {token}")
+        logger.info("User %s requested password reset", user.id)
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Request | None = None
     ):
-        print(f"Verification requested for user {user.id}. Verification token: {token}")
+        logger.info("Verification requested for user %s", user.id)
 
 
 async def get_user_db(session: AsyncSession = Depends(get_async_db)):

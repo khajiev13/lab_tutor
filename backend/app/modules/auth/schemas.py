@@ -28,14 +28,15 @@ class UserUpdate(schemas.BaseUserUpdate):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
-    @field_validator('email')
+
+    @field_validator("email")
     def email_must_not_be_empty(cls, v):
         if not v or v.strip() == "":
-            raise ValueError('Email must not be empty')
-        if '@' not in v:
-            raise ValueError('Invalid email format')
-        if '.' not in v.split('@')[-1]:
-            raise ValueError('Invalid email format')
+            raise ValueError("Email must not be empty")
+        if "@" not in v:
+            raise ValueError("Invalid email format")
+        if "." not in v.split("@")[-1]:
+            raise ValueError("Invalid email format")
         return v
 
 

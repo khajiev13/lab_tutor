@@ -30,22 +30,28 @@ describe('PresentationList', () => {
 
   it('renders empty state when no files', async () => {
     (presentationsApi.list as Mock).mockResolvedValue([]);
-    render(<PresentationList courseId={mockCourseId} />);
+    const onFilesChange = vi.fn();
+    render(<PresentationList courseId={mockCourseId} onFilesChange={onFilesChange} />);
 
     await waitFor(() => {
       expect(screen.getByText('No presentations uploaded yet.')).toBeInTheDocument();
     });
+
+    expect(onFilesChange).toHaveBeenCalledWith([]);
   });
 
   it('renders list of files', async () => {
     const mockFiles = ['lecture1.pdf', 'slides.pptx'];
     (presentationsApi.list as Mock).mockResolvedValue(mockFiles);
-    render(<PresentationList courseId={mockCourseId} />);
+    const onFilesChange = vi.fn();
+    render(<PresentationList courseId={mockCourseId} onFilesChange={onFilesChange} />);
 
     await waitFor(() => {
       expect(screen.getByText('lecture1.pdf')).toBeInTheDocument();
       expect(screen.getByText('slides.pptx')).toBeInTheDocument();
     });
+
+    expect(onFilesChange).toHaveBeenCalledWith(mockFiles);
   });
 
   it('handles file deletion', async () => {
@@ -53,7 +59,9 @@ describe('PresentationList', () => {
     (presentationsApi.list as Mock).mockResolvedValue(mockFiles);
     (presentationsApi.delete as Mock).mockResolvedValue(undefined);
 
-    render(<PresentationList courseId={mockCourseId} />);
+    const onFilesChange = vi.fn();
+
+    render(<PresentationList courseId={mockCourseId} onFilesChange={onFilesChange} />);
 
     await waitFor(() => {
       expect(screen.getByText('lecture1.pdf')).toBeInTheDocument();
@@ -84,5 +92,9 @@ describe('PresentationList', () => {
     await waitFor(() => {
       expect(screen.queryByText('lecture1.pdf')).not.toBeInTheDocument();
     });
+
+    // Called initially with the list, then with the updated list after delete
+    expect(onFilesChange).toHaveBeenCalledWith(mockFiles);
+    expect(onFilesChange).toHaveBeenCalledWith([]);
   });
 });

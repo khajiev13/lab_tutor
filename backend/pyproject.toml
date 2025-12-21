@@ -16,6 +16,7 @@ dependencies = [
     "azure-storage-blob>=12.27.1",
     "fastapi-users[sqlalchemy]>=15.0.1",
     "aiosqlite>=0.22.0",
+    "neo4j>=6.0.0",
 ]
 
 [build-system]
