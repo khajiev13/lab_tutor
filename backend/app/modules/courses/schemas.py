@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import ExtractionStatus
+from .models import ExtractionStatus, FileProcessingStatus
 
 
 class CourseCreate(BaseModel):
@@ -26,5 +26,18 @@ class EnrollmentRead(BaseModel):
     course_id: int
     student_id: int
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CourseFileRead(BaseModel):
+    id: int
+    course_id: int
+    filename: str
+    blob_path: str
+    uploaded_at: datetime
+    status: FileProcessingStatus
+    last_error: str | None
+    processed_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)

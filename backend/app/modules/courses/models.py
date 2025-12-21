@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +16,13 @@ class ExtractionStatus(str, Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     FINISHED = "finished"
+    FAILED = "failed"
+
+
+class FileProcessingStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    PROCESSED = "processed"
     FAILED = "failed"
 
 
@@ -44,6 +51,10 @@ class Course(Base):
         back_populates="course",
         cascade="all, delete-orphan",
     )
+    files: Mapped[list["CourseFile"]] = relationship(
+        back_populates="course",
+        cascade="all, delete-orphan",
+    )
 
 
 class CourseEnrollment(Base):
@@ -61,3 +72,33 @@ class CourseEnrollment(Base):
 
     course: Mapped["Course"] = relationship(back_populates="enrollments")
     student: Mapped["User"] = relationship("User", back_populates="enrollments")
+
+
+class CourseFile(Base):
+    __tablename__ = "course_files"
+    __table_args__ = (
+        UniqueConstraint("course_id", "blob_path", name="uq_course_blob_path"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), nullable=False)
+
+    filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    blob_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC)
+    )
+
+    status: Mapped[FileProcessingStatus] = mapped_column(
+        SqlEnum(
+            FileProcessingStatus,
+            name="file_processing_status",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=FileProcessingStatus.PENDING,
+        nullable=False,
+    )
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    course: Mapped["Course"] = relationship(back_populates="files")

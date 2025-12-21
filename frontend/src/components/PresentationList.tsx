@@ -19,9 +19,10 @@ interface PresentationListProps {
   courseId: number;
   refreshTrigger?: number; // Used to trigger a refresh from parent
   disabled?: boolean;
+  onFilesChange?: (files: string[]) => void;
 }
 
-export function PresentationList({ courseId, refreshTrigger, disabled = false }: PresentationListProps) {
+export function PresentationList({ courseId, refreshTrigger, disabled = false, onFilesChange }: PresentationListProps) {
   const [files, setFiles] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingFile, setDeletingFile] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function PresentationList({ courseId, refreshTrigger, disabled = false }:
       try {
         const fileList = await presentationsApi.list(courseId);
         setFiles(fileList);
+        onFilesChange?.(fileList);
       } catch (error) {
         console.error('Failed to fetch presentations:', error);
         toast.error('Failed to load presentations');
@@ -40,14 +42,18 @@ export function PresentationList({ courseId, refreshTrigger, disabled = false }:
     };
 
     fetchFiles();
-  }, [courseId, refreshTrigger]);
+  }, [courseId, refreshTrigger, onFilesChange]);
 
   const handleDelete = async (filename: string) => {
     if (disabled) return;
     setDeletingFile(filename);
     try {
       await presentationsApi.delete(courseId, filename);
-      setFiles((prev) => prev.filter((f) => f !== filename));
+      setFiles((prev) => {
+        const next = prev.filter((f) => f !== filename);
+        onFilesChange?.(next);
+        return next;
+      });
       toast.success('File deleted successfully');
     } catch (error) {
       console.error('Failed to delete file:', error);

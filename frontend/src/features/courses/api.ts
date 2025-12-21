@@ -1,5 +1,5 @@
 import api from '@/services/api';
-import type { Course, CourseCreate, ExtractionStatus } from './types';
+import type { Course, CourseCreate, CourseFileRead, ExtractionStatus } from './types';
 
 export const coursesApi = {
   list: async (): Promise<Course[]> => {
@@ -46,6 +46,10 @@ export const coursesApi = {
 export const presentationsApi = {
   list: async (courseId: number): Promise<string[]> => {
     const response = await api.get<string[]>(`/courses/${courseId}/presentations`);
+    return response.data;
+  },
+  listStatuses: async (courseId: number): Promise<CourseFileRead[]> => {
+    const response = await api.get<CourseFileRead[]>(`/courses/${courseId}/presentations/status`);
     return response.data;
   },
   upload: async (courseId: number, files: File[]): Promise<void> => {

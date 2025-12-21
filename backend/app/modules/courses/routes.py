@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
 
 from app.modules.auth.dependencies import (
     current_active_user,
@@ -6,7 +6,7 @@ from app.modules.auth.dependencies import (
 )
 from app.modules.auth.models import User, UserRole
 
-from .schemas import CourseCreate, CourseRead, EnrollmentRead
+from .schemas import CourseCreate, CourseFileRead, CourseRead, EnrollmentRead
 from .service import CourseService, get_course_service
 
 router = APIRouter(prefix="/courses", tags=["courses"])
@@ -43,7 +43,11 @@ def get_course(
     return service.get_course(course_id)
 
 
-@router.post("/{course_id}/join", response_model=EnrollmentRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{course_id}/join",
+    response_model=EnrollmentRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def join_course(
     course_id: int,
     service: CourseService = Depends(get_course_service),
@@ -109,6 +113,15 @@ async def list_presentations(
     return await service.list_presentations(course_id)
 
 
+@router.get("/{course_id}/presentations/status", response_model=list[CourseFileRead])
+def list_presentation_statuses(
+    course_id: int,
+    service: CourseService = Depends(get_course_service),
+    current_user: User = Depends(current_active_user),
+):
+    return service.list_presentation_statuses(course_id)
+
+
 @router.delete(
     "/{course_id}/presentations/{filename}", status_code=status.HTTP_204_NO_CONTENT
 )
@@ -133,8 +146,9 @@ async def delete_all_presentations(
 @router.post("/{course_id}/extract", status_code=status.HTTP_202_ACCEPTED)
 async def start_extraction(
     course_id: int,
+    background_tasks: BackgroundTasks,
     service: CourseService = Depends(get_course_service),
     teacher: User = Depends(require_role(UserRole.TEACHER)),
 ):
-    extraction_status = service.start_extraction(course_id, teacher)
+    extraction_status = service.start_extraction(course_id, teacher, background_tasks)
     return {"message": "Extraction started", "status": extraction_status}

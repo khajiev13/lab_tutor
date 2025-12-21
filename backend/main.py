@@ -1,22 +1,46 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from sqlalchemy import text
 
 # Import models to ensure they are registered with Base.metadata
 import app.modules.auth.models  # noqa
 import app.modules.courses.models  # noqa
 from app.core.database import Base, engine
+from app.core.neo4j import (
+    create_neo4j_driver,
+    initialize_neo4j_constraints,
+    verify_neo4j_connectivity,
+)
 from app.core.settings import settings
 from app.modules.auth import routes as auth_routes
 from app.modules.courses import routes as course_routes
+from app.providers.storage import blob_service
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+
+    neo4j_driver = create_neo4j_driver()
+    app.state.neo4j_driver = neo4j_driver
+    if neo4j_driver is not None:
+        try:
+            verify_neo4j_connectivity(neo4j_driver)
+            initialize_neo4j_constraints(neo4j_driver)
+            logger.info("Neo4j connectivity verified")
+        except Exception:
+            logger.exception("Neo4j connectivity verification failed")
+            raise
     yield
+
+    if app.state.neo4j_driver is not None:
+        app.state.neo4j_driver.close()
 
 
 app = FastAPI(
@@ -73,4 +97,58 @@ def read_root():
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    checks: list[dict] = []
+
+    # SQL
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks.append({"name": "sql", "status": "ok"})
+    except Exception as e:
+        checks.append({"name": "sql", "status": "error", "detail": str(e)})
+
+    # Neo4j
+    driver = getattr(app.state, "neo4j_driver", None)
+    if driver is None:
+        checks.append(
+            {
+                "name": "neo4j",
+                "status": "skipped",
+                "detail": "Neo4j is not configured",
+            }
+        )
+    else:
+        try:
+            with driver.session(database=settings.neo4j_database) as session:
+                session.run("RETURN 1").consume()
+            checks.append({"name": "neo4j", "status": "ok"})
+        except Exception as e:
+            checks.append({"name": "neo4j", "status": "error", "detail": str(e)})
+
+    # Azure Blob Storage
+    if not settings.azure_storage_connection_string:
+        checks.append(
+            {
+                "name": "azure_blob",
+                "status": "skipped",
+                "detail": "Azure Storage is not configured",
+            }
+        )
+    else:
+        try:
+            if blob_service.container_client is None:
+                raise RuntimeError("Blob service is not initialized")
+
+            # HEAD request; validates auth + container existence.
+            blob_service.container_client.get_container_properties()
+            checks.append({"name": "azure_blob", "status": "ok"})
+        except Exception as e:
+            checks.append({"name": "azure_blob", "status": "error", "detail": str(e)})
+
+    any_error = any(c["status"] == "error" for c in checks)
+    any_skipped = any(c["status"] == "skipped" for c in checks)
+    overall_status = (
+        "unhealthy" if any_error else ("degraded" if any_skipped else "healthy")
+    )
+
+    return {"status": overall_status, "checks": checks}

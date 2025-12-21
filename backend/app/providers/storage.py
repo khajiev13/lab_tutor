@@ -86,5 +86,47 @@ class BlobService:
             logger.error(f"Failed to list files in {folder_path}: {e}")
             raise
 
+    def download_file(self, blob_path: str) -> bytes:
+        """Download a blob by path and return its bytes."""
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        blob_client = self.container_client.get_blob_client(blob_path)
+        try:
+            downloader = blob_client.download_blob()
+            return downloader.readall()
+        except Exception as e:
+            logger.error(f"Failed to download file {blob_path}: {e}")
+            raise
+
+    def get_blob_info(self, blob_path: str) -> dict:
+        """Return JSON-serializable blob metadata/properties for debugging/observability."""
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        blob_client = self.container_client.get_blob_client(blob_path)
+        try:
+            props = blob_client.get_blob_properties()
+            # Keep the return value JSON-friendly (no datetime objects).
+            return {
+                "name": getattr(props, "name", blob_path),
+                "url": blob_client.url,
+                "size_bytes": getattr(props, "size", None),
+                "content_type": getattr(
+                    getattr(props, "content_settings", None), "content_type", None
+                ),
+                "etag": getattr(props, "etag", None),
+                "last_modified": props.last_modified.isoformat()
+                if getattr(props, "last_modified", None)
+                else None,
+                "creation_time": props.creation_time.isoformat()
+                if getattr(props, "creation_time", None)
+                else None,
+                "metadata": getattr(props, "metadata", None) or {},
+            }
+        except Exception as e:
+            logger.error(f"Failed to get blob properties for {blob_path}: {e}")
+            raise
+
 
 blob_service = BlobService()

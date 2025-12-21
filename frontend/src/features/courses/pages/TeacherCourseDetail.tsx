@@ -19,6 +19,7 @@ import { coursesApi, presentationsApi } from '../api';
 import type { Course, ExtractionStatus } from '../types';
 import { FileUpload } from '@/components/FileUpload';
 import { PresentationList } from '@/components/PresentationList';
+import { PresentationStatusTable } from '@/components/PresentationStatusTable';
 
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +31,7 @@ export default function TeacherCourseDetail() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isEnrollmentLoading, setIsEnrollmentLoading] = useState(false);
+  const [presentationCount, setPresentationCount] = useState(0);
 
   const fetchCourse = useCallback(async () => {
     if (!id) return;
@@ -66,6 +68,7 @@ export default function TeacherCourseDetail() {
           setCourse(updatedCourse);
           
           if (updatedCourse.extraction_status !== 'in_progress') {
+            if (intervalId) clearInterval(intervalId);
             if (updatedCourse.extraction_status === 'finished') {
               toast.success('Data extraction completed successfully!');
             } else if (updatedCourse.extraction_status === 'failed') {
@@ -75,7 +78,7 @@ export default function TeacherCourseDetail() {
         } catch (error) {
           console.error('Polling failed', error);
         }
-      }, 3000); // Poll every 3 seconds
+      }, 1500); // Poll every 1.5 seconds
     }
 
     return () => {
@@ -163,6 +166,10 @@ export default function TeacherCourseDetail() {
   if (!course) return null;
 
   const isExtractionInProgress = course.extraction_status === 'in_progress';
+  const canStartExtraction =
+    user?.role === 'teacher' &&
+    (course.extraction_status === 'not_started' || course.extraction_status === 'failed') &&
+    presentationCount > 0;
 
   return (
     <div className="space-y-6">
@@ -190,7 +197,7 @@ export default function TeacherCourseDetail() {
                 {course.description || 'No description provided.'}
               </CardDescription>
             </div>
-            {user?.role === 'teacher' && (course.extraction_status === 'not_started' || course.extraction_status === 'failed') && (
+            {canStartExtraction && (
               <Button onClick={handleStartExtraction} disabled={isExtracting}>
                 {isExtracting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -290,12 +297,30 @@ export default function TeacherCourseDetail() {
               </Alert>
             )}
 
-            <div className="border-t pt-6">
-                <PresentationList 
-                  courseId={course.id} 
-                  refreshTrigger={refreshTrigger} 
-                  disabled={isExtractionInProgress}
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Per-file status</h3>
+                  {isExtractionInProgress && (
+                    <span className="text-xs text-muted-foreground">Updating…</span>
+                  )}
+                </div>
+                <PresentationStatusTable
+                  courseId={course.id}
+                  refreshTrigger={refreshTrigger}
+                  poll={isExtractionInProgress}
+                  pollIntervalMs={1500}
                 />
+              </div>
+
+              <div className="border-t pt-6">
+                <PresentationList
+                  courseId={course.id}
+                  refreshTrigger={refreshTrigger}
+                  disabled={isExtractionInProgress}
+                  onFilesChange={(files) => setPresentationCount(files.length)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

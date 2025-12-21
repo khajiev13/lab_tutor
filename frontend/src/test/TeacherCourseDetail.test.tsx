@@ -1,8 +1,11 @@
+import { useEffect } from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import TeacherCourseDetail from '../features/courses/pages/TeacherCourseDetail';
-import { coursesApi } from '../features/courses/api';
+import { coursesApi, presentationsApi } from '../features/courses/api';
 import { vi, type Mock } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+
+let mockPresentationFiles: string[] = [];
 
 // Mock Auth Context
 vi.mock('../features/auth/context/AuthContext', () => ({
@@ -24,6 +27,7 @@ vi.mock('../features/courses/api', () => ({
   presentationsApi: {
     upload: vi.fn(),
     list: vi.fn(),
+    listStatuses: vi.fn(),
   },
 }));
 
@@ -35,9 +39,15 @@ vi.mock('../components/FileUpload', () => ({
 }));
 
 vi.mock('../components/PresentationList', () => ({
-  PresentationList: ({ disabled }: { disabled: boolean }) => (
-    <div data-testid="presentation-list" data-disabled={disabled}>Presentation List</div>
-  ),
+  PresentationList: ({ disabled, onFilesChange }: { disabled: boolean; onFilesChange?: (files: string[]) => void }) => {
+    // Simulate the list being loaded and informing the parent.
+    useEffect(() => {
+      onFilesChange?.(mockPresentationFiles);
+    }, [onFilesChange]);
+    return (
+      <div data-testid="presentation-list" data-disabled={disabled}>Presentation List</div>
+    );
+  },
 }));
 
 const mockCourse = {
@@ -52,6 +62,8 @@ const mockCourse = {
 describe('TeacherCourseDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPresentationFiles = [];
+    (presentationsApi.listStatuses as Mock).mockResolvedValue([]);
   });
 
   const renderComponent = () => {
@@ -81,6 +93,7 @@ describe('TeacherCourseDetail', () => {
       message: 'Started', 
       status: 'in_progress' 
     });
+    mockPresentationFiles = ['lecture1.pdf'];
 
     renderComponent();
 
@@ -93,6 +106,19 @@ describe('TeacherCourseDetail', () => {
     await waitFor(() => {
       expect(coursesApi.startExtraction).toHaveBeenCalledWith(1);
     });
+  });
+
+  it('does not show extraction button when no files uploaded', async () => {
+    (coursesApi.getCourse as Mock).mockResolvedValue(mockCourse);
+    mockPresentationFiles = [];
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Course')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Start Data Extraction')).not.toBeInTheDocument();
   });
 
   it('locks UI when extraction is in progress', async () => {
@@ -136,14 +162,14 @@ describe('TeacherCourseDetail', () => {
       expect(screen.getByText('Extracting Data...')).toBeInTheDocument();
     });
 
-    // Advance time for first poll (3s)
+    // Advance time for first poll (1.5s)
     await act(async () => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(1500);
     });
 
-    // Advance time for second poll (3s)
+    // Advance time for second poll (1.5s)
     await act(async () => {
-      vi.advanceTimersByTime(3000);
+      vi.advanceTimersByTime(1500);
     });
 
     // Should be finished now
