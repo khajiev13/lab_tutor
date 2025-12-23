@@ -78,6 +78,9 @@ class CourseFile(Base):
     __tablename__ = "course_files"
     __table_args__ = (
         UniqueConstraint("course_id", "blob_path", name="uq_course_blob_path"),
+        # Detect duplicate uploads regardless of filename by hashing file bytes.
+        # Note: content_hash is nullable to allow existing DBs to migrate without backfill.
+        UniqueConstraint("course_id", "content_hash", name="uq_course_content_hash"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -85,6 +88,7 @@ class CourseFile(Base):
 
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
     blob_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC)
     )

@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,6 +34,55 @@ class Settings(BaseSettings):
     neo4j_username: str | None = Field(default=None, description="Neo4j username")
     neo4j_password: str | None = Field(default=None, description="Neo4j password")
     neo4j_database: str = Field(default="neo4j", description="Neo4j database name")
+
+    # LLM (OpenAI-compatible; supports proxies like XiaoCase)
+    llm_api_key: str | None = Field(
+        default=None,
+        description="LLM API key (OpenAI-compatible). Preferred: LAB_TUTOR_LLM_API_KEY.",
+        validation_alias=AliasChoices(
+            # Preferred (handled automatically via env_prefix + field name):
+            # - LAB_TUTOR_LLM_API_KEY
+            # Back-compat:
+            "XIAO_CASE_API_KEY",
+            "XIAOCASE_API_KEY",
+            # Common OpenAI-style env var name:
+            "OPENAI_API_KEY",
+        ),
+    )
+    llm_base_url: str = Field(
+        default="https://api.xiaocaseai.com/v1",
+        description="OpenAI-compatible base URL. Preferred: LAB_TUTOR_LLM_BASE_URL.",
+        validation_alias=AliasChoices(
+            # Preferred (handled automatically via env_prefix + field name):
+            # - LAB_TUTOR_LLM_BASE_URL
+            # Back-compat:
+            "XIAO_CASE_API_BASE",
+            "XIAOCASE_API_BASE",
+            # Common OpenAI-style env var name:
+            "OPENAI_BASE_URL",
+        ),
+    )
+    llm_model: str = Field(
+        default="deepseek-v3.2",
+        description="Model name/id. Preferred: LAB_TUTOR_LLM_MODEL.",
+        validation_alias=AliasChoices(
+            # Preferred (handled automatically via env_prefix + field name):
+            # - LAB_TUTOR_LLM_MODEL
+            # Back-compat:
+            "XIAO_CASE_MODEL",
+            "XIAOCASE_MODEL",
+            # Common pattern in some deployments:
+            "OPENAI_MODEL",
+        ),
+    )
+    llm_timeout_seconds: int = Field(
+        default=600,
+        description="LLM request timeout in seconds",
+    )
+    llm_max_completion_tokens: int = Field(
+        default=4096,
+        description="Max completion tokens for extraction responses",
+    )
 
 
 settings = Settings()

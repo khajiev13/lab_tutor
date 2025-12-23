@@ -26,8 +26,8 @@ from langchain_core.documents import Document
 
 from knowledge_graph_builder.models.neo4j_models import (
     Neo4jGraphData, Neo4jNode, Neo4jRelationship,
-    TopicNodeProperties, TheoryNodeProperties, ConceptNodeProperties,
-    QuizQuestionNodeProperties, HasTheoryRelationshipProperties, 
+    TheoryNodeProperties, ConceptNodeProperties,
+    QuizQuestionNodeProperties,
     MentionsRelationshipProperties, HasQuestionRelationshipProperties,
     Neo4jInsertionResult
 )
@@ -95,8 +95,7 @@ class Neo4jService:
         
         # Node constraints for uniqueness
         constraints = [
-            "CREATE CONSTRAINT topic_name_unique IF NOT EXISTS FOR (t:TOPIC) REQUIRE t.name IS UNIQUE",
-            "CREATE CONSTRAINT theory_id_unique IF NOT EXISTS FOR (th:THEORY) REQUIRE th.id IS UNIQUE",
+            "CREATE CONSTRAINT teacher_uploaded_document_id_unique IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) REQUIRE d.id IS UNIQUE",
             "CREATE CONSTRAINT quiz_question_id_unique IF NOT EXISTS FOR (q:QUIZ_QUESTION) REQUIRE q.id IS UNIQUE",
             # Note: CONCEPT nodes should be shared across documents, so we use MERGE instead of unique constraint
             # "CREATE CONSTRAINT concept_name_unique IF NOT EXISTS FOR (c:CONCEPT) REQUIRE c.name IS UNIQUE"
@@ -104,16 +103,15 @@ class Neo4jService:
         
         # Regular indexes for performance
         indexes = [
-            "CREATE INDEX topic_name_idx IF NOT EXISTS FOR (t:TOPIC) ON (t.name)",
-            "CREATE INDEX theory_source_idx IF NOT EXISTS FOR (th:THEORY) ON (th.source)",
+            "CREATE INDEX teacher_uploaded_document_source_idx IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.source)",
             "CREATE INDEX concept_definition_idx IF NOT EXISTS FOR (c:CONCEPT) ON (c.definition)",
             "CREATE INDEX quiz_question_concept_idx IF NOT EXISTS FOR (q:QUIZ_QUESTION) ON (q.concept_name)"
         ]
         
         # Vector indexes for similarity search (Neo4j 5.0+)
         vector_indexes = [
-            """CREATE VECTOR INDEX theory_embedding_idx IF NOT EXISTS
-               FOR (th:THEORY) ON (th.embedding)
+                        """CREATE VECTOR INDEX teacher_uploaded_document_embedding_idx IF NOT EXISTS
+                             FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.embedding)
                OPTIONS {indexConfig: {
                  `vector.dimensions`: 1536,
                  `vector.similarity_function`: 'cosine'
@@ -256,7 +254,7 @@ class Neo4jService:
                     node_map[concept_name] = node  # Also map concept name for relationships
                     concept_name_to_node[concept_name] = node
             else:
-                # Regular node (TOPIC, THEORY)
+                # Regular node (e.g., TEACHER_UPLOADED_DOCUMENT, QUIZ_QUESTION)
                 node = GraphNode(
                     id=node_id,
                     type=node_type,
@@ -436,13 +434,13 @@ class Neo4jService:
 
         try:
             # Count nodes by type
-            node_types = ["TOPIC", "THEORY", "CONCEPT"]
+            node_types = ["TEACHER_UPLOADED_DOCUMENT", "CONCEPT", "QUIZ_QUESTION"]
             for node_type in node_types:
                 result = self.graph.query(f"MATCH (n:{node_type}) RETURN count(n) as count")
                 stats[f"{node_type} nodes"] = result[0]['count'] if result else 0
 
             # Count relationships by type
-            rel_types = ["HAS", "MENTIONS"]
+            rel_types = ["MENTIONS", "HAS_QUESTION"]
             for rel_type in rel_types:
                 result = self.graph.query(f"MATCH ()-[r:{rel_type}]->() RETURN count(r) as count")
                 stats[f"{rel_type} relationships"] = result[0]['count'] if result else 0
@@ -472,7 +470,7 @@ class Neo4jService:
 
         Args:
             query_text: Text to search for similar content
-            node_type: Type of nodes to search (CONCEPT or THEORY)
+            node_type: Type of nodes to search (CONCEPT or TEACHER_UPLOADED_DOCUMENT)
             limit: Maximum number of results
             similarity_threshold: Minimum similarity score
 
@@ -493,9 +491,9 @@ class Neo4jService:
             RETURN c.name as name, c.definition as definition
             LIMIT $limit
             """
-        else:  # THEORY
+        else:  # TEACHER_UPLOADED_DOCUMENT
             cypher = """
-            MATCH (t:THEORY)
+            MATCH (t:TEACHER_UPLOADED_DOCUMENT)
             WHERE toLower(t.compressed_text) CONTAINS toLower($query_text)
                OR toLower(t.original_text) CONTAINS toLower($query_text)
             RETURN t.source as source, t.compressed_text as summary
@@ -603,7 +601,7 @@ class Neo4jService:
         """
         try:
             query = """
-            MATCH (t:THEORY)-[m:MENTIONS]->(c:CONCEPT)
+            MATCH (t:TEACHER_UPLOADED_DOCUMENT)-[m:MENTIONS]->(c:CONCEPT)
             RETURN c.name AS concept_name, 
                    m.definition AS definition, 
                    m.text_evidence AS text_evidence, 
@@ -654,7 +652,7 @@ class Neo4jService:
             if theory_id:
                 # Get questions for this specific concept-theory pair
                 query = """
-                MATCH (c:CONCEPT {name: $concept_name})-[r1:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[r2:HAS_QUESTION]-(t:THEORY {id: $theory_id})
+                MATCH (c:CONCEPT {name: $concept_name})-[r1:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[r2:HAS_QUESTION]-(t:TEACHER_UPLOADED_DOCUMENT {id: $theory_id})
                 RETURN q.question_text AS question_text
                 ORDER BY q.question_text
                 """
@@ -690,7 +688,7 @@ class Neo4jService:
         question_data: Dict[str, Any]
     ) -> bool:
         """
-        Create a QUIZ_QUESTION node and link it to both CONCEPT and THEORY nodes.
+        Create a QUIZ_QUESTION node and link it to both CONCEPT and TEACHER_UPLOADED_DOCUMENT nodes.
         
         Args:
             concept_name: Name of the concept this question is for
@@ -765,7 +763,7 @@ class Neo4jService:
             
             # Create relationship from THEORY to QUIZ_QUESTION
             create_theory_relationship_query = """
-            MATCH (t:THEORY {id: $theory_id})
+            MATCH (t:TEACHER_UPLOADED_DOCUMENT {id: $theory_id})
             MATCH (q:QUIZ_QUESTION {id: $question_id})
             MERGE (t)-[r:HAS_QUESTION]->(q)
             RETURN r
@@ -814,7 +812,7 @@ class Neo4jService:
             
             # Questions linked to THEORY nodes
             theory_questions_result = self.graph.query(
-                "MATCH (t:THEORY)-[:HAS_QUESTION]->(q:QUIZ_QUESTION) RETURN count(DISTINCT q) as count"
+                "MATCH (t:TEACHER_UPLOADED_DOCUMENT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION) RETURN count(DISTINCT q) as count"
             )
             stats["questions_linked_to_theories"] = theory_questions_result[0]["count"] if theory_questions_result else 0
             
@@ -837,7 +835,7 @@ class Neo4jService:
             
             # Questions per theory distribution
             questions_per_theory_result = self.graph.query("""
-                MATCH (t:THEORY)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
+                MATCH (t:TEACHER_UPLOADED_DOCUMENT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
                 RETURN t.name AS theory_name, t.id AS theory_id, count(q) AS question_count
                 ORDER BY question_count DESC
             """)
@@ -852,7 +850,7 @@ class Neo4jService:
             
             # Concepts with multiple theories (concepts that appear in multiple theories)
             multi_theory_concepts_result = self.graph.query("""
-                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:TEACHER_UPLOADED_DOCUMENT)
                 WITH c, collect(DISTINCT t.id) AS theory_ids
                 WHERE size(theory_ids) > 1
                 RETURN c.name AS concept_name, size(theory_ids) AS theory_count, theory_ids
@@ -869,7 +867,7 @@ class Neo4jService:
             
             # Graph connectivity: Questions linked to both CONCEPT and THEORY
             fully_linked_questions_result = self.graph.query("""
-                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:TEACHER_UPLOADED_DOCUMENT)
                 RETURN count(DISTINCT q) as count
             """)
             stats["fully_linked_questions"] = fully_linked_questions_result[0]["count"] if fully_linked_questions_result else 0
@@ -883,7 +881,7 @@ class Neo4jService:
             
             # Unique theories with questions
             unique_theories_result = self.graph.query("""
-                MATCH (t:THEORY)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
+                MATCH (t:TEACHER_UPLOADED_DOCUMENT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
                 RETURN count(DISTINCT t) as count
             """)
             stats["unique_theories_with_questions"] = unique_theories_result[0]["count"] if unique_theories_result else 0
@@ -915,7 +913,7 @@ class Neo4jService:
             if include_multi_theory:
                 # First, get questions from multi-theory concepts
                 multi_theory_query = """
-                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:TEACHER_UPLOADED_DOCUMENT)
                 WITH c, collect(DISTINCT t.id) AS theory_ids, q, t
                 WHERE size(theory_ids) > 1
                 RETURN c.name AS concept_name,
@@ -937,9 +935,9 @@ class Neo4jService:
                     # Fill remaining slots with any questions
                     remaining = limit - len(results)
                     general_query = """
-                    MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                    MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:TEACHER_UPLOADED_DOCUMENT)
                     WHERE NOT EXISTS {
-                        MATCH (c)-[:HAS_QUESTION]->(q2:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t2:THEORY)
+                        MATCH (c)-[:HAS_QUESTION]->(q2:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t2:TEACHER_UPLOADED_DOCUMENT)
                         WHERE q2.id = q.id
                         WITH c, collect(DISTINCT t2.id) AS theory_ids
                         WHERE size(theory_ids) > 1
@@ -962,7 +960,7 @@ class Neo4jService:
             else:
                 # Get any questions
                 general_query = """
-                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+                MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:TEACHER_UPLOADED_DOCUMENT)
                 RETURN c.name AS concept_name,
                        q.question_text AS question_text,
                        q.option_a AS option_a,
@@ -1033,7 +1031,6 @@ class Neo4jService:
 
         # Generate unique IDs
         source_filename = Path(source_file).name
-        topic_id = f"topic_{Path(source_file).stem}"
         theory_id = f"theory_{Path(source_file).stem}"
 
         # Generate embedding for the theory (compressed text/summary)
@@ -1049,21 +1046,14 @@ class Neo4jService:
         nodes = []
         relationships = []
 
-        # 1. TOPIC Node
-        if topic_name:
-            topic_node = Neo4jNode(
-                id=topic_id,
-                label="TOPIC",
-                properties=TopicNodeProperties(name=topic_name)
-            )
-            nodes.append(topic_node)
-
-        # 2. THEORY Node
+        # 1. TEACHER_UPLOADED_DOCUMENT Node
+        document_name = topic_name or source_filename
         theory_node = Neo4jNode(
             id=theory_id,
-            label="THEORY",
+            label="TEACHER_UPLOADED_DOCUMENT",
             properties=TheoryNodeProperties(
-                name=topic_name,
+                name=document_name,
+                topic=topic_name,
                 original_text=original_text,
                 compressed_text=summary_text,
                 embedding=theory_embedding,
@@ -1073,18 +1063,7 @@ class Neo4jService:
         )
         nodes.append(theory_node)
 
-        # 3. TOPIC -> THEORY relationship
-        if topic_name:
-            topic_theory_rel = Neo4jRelationship(
-                id=f"rel_{topic_id}_to_{theory_id}",
-                relationship_type="HAS_THEORY",
-                start_node_id=topic_id,
-                end_node_id=theory_id,
-                properties=HasTheoryRelationshipProperties()
-            )
-            relationships.append(topic_theory_rel)
-
-        # 4. CONCEPT Nodes (canonical approach - no duplicates)
+        # 2. CONCEPT Nodes (canonical approach - no duplicates)
         canonical_concepts = {}  # Track canonical concepts to avoid duplicates
 
         for concept in concepts_data:
@@ -1105,7 +1084,7 @@ class Neo4jService:
             nodes.append(concept_node)
             canonical_concepts[canonical_name] = concept_id
 
-            # 5. THEORY -> CONCEPT relationship (MENTIONS)
+            # 3. TEACHER_UPLOADED_DOCUMENT -> CONCEPT relationship (MENTIONS)
             mentions_relationship = Neo4jRelationship(
                 id=f"mentions_{theory_id}_to_{concept_id}",
                 relationship_type="MENTIONS",

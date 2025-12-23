@@ -14,7 +14,9 @@ from typing import List, Dict, Any, Optional
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnableConfig
-from langchain_google_genai import ChatGoogleGenerativeAI
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 from pydantic import ValidationError
 
 from models.extraction_models import (
@@ -40,7 +42,13 @@ class LangChainCanonicalExtractionService:
     for reliable concept extraction in the canonical relationship-centric approach.
     """
     
-    def __init__(self, model_id: str = "gemini-2.0-flash", verbose: bool = True, enhanced_debug: bool = False, use_examples: bool = True) -> None:
+    def __init__(
+        self,
+        model_id: str | None = None,
+        verbose: bool = True,
+        enhanced_debug: bool = False,
+        use_examples: bool = True,
+    ) -> None:
         """
         Initialize the LangChain extraction service.
 
@@ -50,8 +58,25 @@ class LangChainCanonicalExtractionService:
             enhanced_debug: Enable enhanced debugging with detailed step-by-step output
             use_examples: Use few-shot examples in prompts for better performance
         """
+        load_dotenv()
+
+        # XiaoCase (OpenAI-compatible) is the only supported LLM backend.
+        xiaocase_api_key = os.getenv("XIAO_CASE_API_KEY") or os.getenv("XIAOCASE_API_KEY")
+        xiaocase_api_base = (
+            os.getenv("XIAO_CASE_API_BASE")
+            or os.getenv("XIAOCASE_API_BASE")
+            or "https://api.xiaocaseai.com/v1"
+        )
+
+        # If caller didn't specify a model, choose via env or sensible default.
+        if model_id is None:
+            model_id = (
+                os.getenv("XIAO_CASE_MODEL")
+                or os.getenv("XIAOCASE_MODEL")
+                or "deepseek-v3.2"
+            )
+
         self.model_id = model_id
-        self.api_key = os.environ.get('GOOGLE_API_KEY')
         self.verbose = verbose
         self.enhanced_debug = enhanced_debug or verbose  # Enhanced debug if explicitly enabled or verbose is True
         self.use_examples = use_examples
@@ -61,22 +86,27 @@ class LangChainCanonicalExtractionService:
         self.current_filename = None
         self.current_original_text = None
 
-        if not self.api_key:
-            raise ValueError("GOOGLE_API_KEY environment variable is required")
+        if not xiaocase_api_key:
+            raise ValueError(
+                "XiaoCase is required. Set XIAO_CASE_API_KEY (or XIAOCASE_API_KEY) in your environment."
+            )
 
-        # Initialize LangChain LLM with structured output and native verbose mode
-        self.llm = ChatGoogleGenerativeAI(
+        # XiaoCase uses OpenAI-compatible Chat Completions: /v1/chat/completions
+        # Model can be DeepSeek variants, e.g. "deepseek-v3.2".
+        base_llm = ChatOpenAI(
             model=model_id,
-            google_api_key=self.api_key,
+            base_url=xiaocase_api_base,
+            api_key=SecretStr(xiaocase_api_key),
             temperature=0,
-            verbose=self.verbose  # Use LangChain's native verbose mode
+            timeout=600,
+            max_completion_tokens=4096,
         )
-        
-        # Create structured output chain with json_mode for better Gemini compatibility
-        self.extraction_chain = self.llm.with_structured_output(
-            CanonicalExtractionResult,
-            method="json_mode"
-        )
+
+        # For GPT-4o via proxy, json_mode tends to be more reliable.
+        # For DeepSeek and others, function_calling usually works better.
+        method = "json_mode" if "gpt-4o" in model_id else "function_calling"
+        self.extraction_chain = base_llm.with_structured_output(CanonicalExtractionResult, method=method)
+        self.llm = base_llm
 
         # Create simple prompt template using separated prompt content
         prompt_content = EXTRACTION_PROMPT_WITH_EXAMPLES if self.use_examples else COMPLETE_EXTRACTION_PROMPT

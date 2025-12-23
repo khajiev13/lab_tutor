@@ -53,7 +53,7 @@ Knowledge graphs in educational and research domains often suffer from:
 - **Database**: Neo4j graph database
 - **Domain**: Big Data concepts
 - **Size**: 250 concepts from 38 theories across 38 topics
-- **Structure**: `TOPIC --[HAS_THEORY]--> THEORY --[MENTIONS]--> CONCEPT`
+- **Structure**: `TOPIC --[HAS_TEACHER_UPLOADED_DOCUMENT]--> TEACHER_UPLOADED_DOCUMENT --[MENTIONS]--> CONCEPT`
 - **Goal**: Add semantic relationships and normalize synonymous concepts
 
 ---

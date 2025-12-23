@@ -24,14 +24,14 @@ This report documents the generation of a graph-anchored quiz question dataset f
 
 ### Dataset Structure
 
-The quiz questions are stored as `QUIZ_QUESTION` nodes in Neo4j, with explicit relationships to both `CONCEPT` and `THEORY` nodes. This dual-anchoring enables traceability and supports personalized question selection based on learning context.
+The quiz questions are stored as `QUIZ_QUESTION` nodes in Neo4j, with explicit relationships to both `CONCEPT` and `TEACHER_UPLOADED_DOCUMENT` nodes. This dual-anchoring enables traceability and supports personalized question selection based on learning context.
 
 ### Graph Connectivity
 
 - **Total Questions in Database:** 766
 - **Questions Linked to CONCEPT Nodes:** 758
-- **Questions Linked to THEORY Nodes:** 757
-- **Fully Linked Questions (CONCEPT ↔ QUIZ_QUESTION ↔ THEORY):** 757
+- **Questions Linked to TEACHER_UPLOADED_DOCUMENT Nodes:** 757
+- **Fully Linked Questions (CONCEPT ↔ QUIZ_QUESTION ↔ TEACHER_UPLOADED_DOCUMENT):** 757
 - **Questions with Text Evidence:** 766
 - **Unique Concepts with Questions:** 221
 - **Unique Theories with Questions:** 35
@@ -41,7 +41,7 @@ The quiz questions are stored as `QUIZ_QUESTION` nodes in Neo4j, with explicit r
 The knowledge graph structure follows this pattern:
 
 ```
-CONCEPT --[HAS_QUESTION]--> QUIZ_QUESTION <--[HAS_QUESTION]-- THEORY
+CONCEPT --[HAS_QUESTION]--> QUIZ_QUESTION <--[HAS_QUESTION]-- TEACHER_UPLOADED_DOCUMENT
 ```
 
 Each `QUIZ_QUESTION` node contains:
@@ -382,11 +382,11 @@ MATCH (c:CONCEPT {name: 'YourConcept'})-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
 RETURN q
 
 // Get questions from a specific theory
-MATCH (t:THEORY {id: 'theory_id'})-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
+MATCH (t:TEACHER_UPLOADED_DOCUMENT {id: 'theory_id'})-[:HAS_QUESTION]->(q:QUIZ_QUESTION)
 RETURN q
 
 // Get questions with full context
-MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY)
+MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:TEACHER_UPLOADED_DOCUMENT)
 RETURN c.name, q.question_text, t.name
 LIMIT 25
 ```

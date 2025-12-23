@@ -1,5 +1,7 @@
+import hashlib
 import logging
 
+from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
 from fastapi import UploadFile
 
@@ -33,24 +35,37 @@ class BlobService:
                 "Azure Storage Connection String is missing. Blob Service will not work."
             )
 
-    async def upload_file(self, file: UploadFile, destination_path: str) -> str:
+    async def upload_bytes(
+        self, content: bytes, destination_path: str, *, overwrite: bool = True
+    ) -> str:
         if not self.container_client:
             raise Exception("Blob service is not configured")
 
         blob_client = self.container_client.get_blob_client(destination_path)
+        try:
+            blob_client.upload_blob(content, overwrite=overwrite)
+            return blob_client.url
+        except Exception as e:
+            logger.error(f"Failed to upload bytes to {destination_path}: {e}")
+            raise
+
+    async def upload_file(self, file: UploadFile, destination_path: str) -> str:
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
 
         try:
             # Reset file pointer to the beginning
             await file.seek(0)
             content = await file.read()
 
-            # Upload the file
-            blob_client.upload_blob(content, overwrite=True)
-
-            return blob_client.url
+            return await self.upload_bytes(content, destination_path, overwrite=True)
         except Exception as e:
             logger.error(f"Failed to upload file {destination_path}: {e}")
             raise
+
+    @staticmethod
+    def sha256_hex(content: bytes) -> str:
+        return hashlib.sha256(content).hexdigest()
 
     async def delete_file(self, blob_path: str) -> None:
         if not self.container_client:
@@ -59,6 +74,9 @@ class BlobService:
         blob_client = self.container_client.get_blob_client(blob_path)
         try:
             blob_client.delete_blob()
+        except ResourceNotFoundError:
+            # Treat missing blobs as already deleted (idempotent delete).
+            return
         except Exception as e:
             logger.error(f"Failed to delete file {blob_path}: {e}")
             raise
@@ -70,7 +88,11 @@ class BlobService:
         try:
             blobs = self.container_client.list_blobs(name_starts_with=folder_path)
             for blob in blobs:
-                self.container_client.delete_blob(blob.name)
+                try:
+                    self.container_client.delete_blob(blob.name)
+                except ResourceNotFoundError:
+                    # Idempotent deletion; ignore missing blobs.
+                    continue
         except Exception as e:
             logger.error(f"Failed to delete folder {folder_path}: {e}")
             raise

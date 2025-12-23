@@ -23,9 +23,39 @@ from app.providers.storage import blob_service
 logger = logging.getLogger(__name__)
 
 
+def _ensure_sql_schema_upgrades() -> None:
+    """Best-effort schema upgrades for environments without migrations.
+
+    The app currently uses `Base.metadata.create_all()`, which does not alter existing
+    tables. For local SQLite (and similar lightweight deployments), we apply minimal,
+    idempotent ALTERs to keep the schema compatible with new releases.
+    """
+    if not str(engine.url).startswith("sqlite"):
+        return
+
+    with engine.connect() as conn:
+        # Ensure `course_files.content_hash` exists (used for duplicate detection).
+        cols = conn.execute(text("PRAGMA table_info(course_files)")).mappings().all()
+        col_names = {c["name"] for c in cols}
+        if "content_hash" not in col_names:
+            conn.execute(
+                text("ALTER TABLE course_files ADD COLUMN content_hash VARCHAR(64)")
+            )
+
+        # Enforce per-course uniqueness for non-null hashes.
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_course_content_hash "
+                "ON course_files(course_id, content_hash)"
+            )
+        )
+        conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _ensure_sql_schema_upgrades()
 
     neo4j_driver = create_neo4j_driver()
     app.state.neo4j_driver = neo4j_driver

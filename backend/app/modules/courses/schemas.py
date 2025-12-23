@@ -35,6 +35,7 @@ class CourseFileRead(BaseModel):
     course_id: int
     filename: str
     blob_path: str
+    content_hash: str | None = None
     uploaded_at: datetime
     status: FileProcessingStatus
     last_error: str | None

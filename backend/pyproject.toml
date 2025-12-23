@@ -17,6 +17,8 @@ dependencies = [
     "fastapi-users[sqlalchemy]>=15.0.1",
     "aiosqlite>=0.22.0",
     "neo4j>=6.0.0",
+    "langchain-core",
+    "langchain-openai",
 ]
 
 [build-system]

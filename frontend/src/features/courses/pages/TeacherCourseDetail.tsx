@@ -265,9 +265,9 @@ export default function TeacherCourseDetail() {
           {course.extraction_status === 'finished' && (
             <Alert className="mt-6 border-green-500 text-green-600 bg-green-50 dark:bg-green-950/20">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertTitle>Ready for Students</AlertTitle>
+              <AlertTitle>Extraction complete</AlertTitle>
               <AlertDescription>
-                Your course data has been successfully extracted and is ready for the knowledge graph.
+                Your course materials were processed successfully. Next, pick a book to build the knowledge graph from.
               </AlertDescription>
             </Alert>
           )}

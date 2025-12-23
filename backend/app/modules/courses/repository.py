@@ -98,6 +98,7 @@ class CourseRepository:
         )
         if existing:
             existing.filename = course_file.filename
+            existing.content_hash = course_file.content_hash or existing.content_hash
             # Keep existing uploaded_at if present
             existing.uploaded_at = existing.uploaded_at or course_file.uploaded_at
             self.db.add(existing)
@@ -108,9 +109,9 @@ class CourseRepository:
         self.db.add(course_file)
         try:
             self.db.commit()
-        except IntegrityError:
+        except IntegrityError as err:
             self.db.rollback()
-            # Rare race: re-select and return
+            # Rare race: re-select and return (or raise a duplicate-by-hash error).
             existing = self.db.scalar(
                 select(CourseFile).where(
                     CourseFile.course_id == course_file.course_id,
@@ -119,9 +120,27 @@ class CourseRepository:
             )
             if existing:
                 return existing
+            if course_file.content_hash:
+                existing_by_hash = self.get_course_file_by_content_hash(
+                    course_file.course_id, course_file.content_hash
+                )
+                if existing_by_hash:
+                    raise ValueError(
+                        "File with identical content already exists in this course"
+                    ) from err
             raise
         self.db.refresh(course_file)
         return course_file
+
+    def get_course_file_by_content_hash(
+        self, course_id: int, content_hash: str
+    ) -> CourseFile | None:
+        return self.db.scalar(
+            select(CourseFile).where(
+                CourseFile.course_id == course_id,
+                CourseFile.content_hash == content_hash,
+            )
+        )
 
     def list_course_files(self, course_id: int) -> Sequence[CourseFile]:
         return self.db.scalars(

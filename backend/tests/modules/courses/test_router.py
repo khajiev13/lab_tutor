@@ -28,7 +28,7 @@ def test_upload_presentation(client, teacher_auth_headers, mock_blob_service):
     )
     assert response.status_code == 201
     assert "uploaded_files" in response.json()
-    mock_blob_service.upload_file.assert_called()
+    mock_blob_service.upload_bytes.assert_called()
 
 
 def test_presentation_statuses_endpoint(
