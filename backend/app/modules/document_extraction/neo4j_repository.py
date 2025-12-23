@@ -195,11 +195,11 @@ class DocumentExtractionGraphRepository:
         params = {"course_id": course_id}
 
         def _tx(tx):
-            record = tx.run(DELETE_DOCUMENTS_BY_COURSE_AND_ORPHAN_CONCEPTS, params).single()
+            record = tx.run(
+                DELETE_DOCUMENTS_BY_COURSE_AND_ORPHAN_CONCEPTS, params
+            ).single()
             if not record:
                 return (0, 0)
             return (int(record["documents_deleted"]), int(record["concepts_deleted"]))
 
         return tuple(self._session.execute_write(_tx))
-
-

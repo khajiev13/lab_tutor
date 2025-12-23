@@ -126,5 +126,3 @@ class DocumentLLMExtractor:
                 success=False,
                 error_message=str(e),
             )
-
-

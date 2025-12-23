@@ -22,6 +22,7 @@ from app.providers.storage import blob_service
 
 logger = logging.getLogger(__name__)
 
+
 def _ensure_sql_schema_upgrades() -> None:
     """Best-effort schema upgrades for environments without migrations.
 
@@ -37,7 +38,9 @@ def _ensure_sql_schema_upgrades() -> None:
         cols = conn.execute(text("PRAGMA table_info(course_files)")).mappings().all()
         col_names = {c["name"] for c in cols}
         if "content_hash" not in col_names:
-            conn.execute(text("ALTER TABLE course_files ADD COLUMN content_hash VARCHAR(64)"))
+            conn.execute(
+                text("ALTER TABLE course_files ADD COLUMN content_hash VARCHAR(64)")
+            )
 
         # Enforce per-course uniqueness for non-null hashes.
         conn.execute(

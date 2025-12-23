@@ -62,5 +62,3 @@ class ExtractionRunResult(BaseModel):
     processed_files: int = 0
     failed_files: int = 0
     errors: list[dict[str, Any]] = Field(default_factory=list)
-
-

@@ -176,7 +176,9 @@ def run_course_extraction_background(*, course_id: int, teacher_id: int) -> None
     try:
         driver = create_neo4j_driver()
         neo4j_session = (
-            driver.session(database=settings.neo4j_database) if driver is not None else None
+            driver.session(database=settings.neo4j_database)
+            if driver is not None
+            else None
         )
         try:
             svc = DocumentExtractionService(db=db, neo4j_session=neo4j_session)
@@ -215,4 +217,3 @@ def run_course_extraction_background(*, course_id: int, teacher_id: int) -> None
         finally:
             if driver is not None:
                 driver.close()
-

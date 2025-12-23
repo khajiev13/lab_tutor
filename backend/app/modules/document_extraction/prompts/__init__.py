@@ -3,4 +3,3 @@
 """Prompt templates for document extraction."""
 
 """Prompt templates used by the runtime extraction feature."""
-
