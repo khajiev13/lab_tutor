@@ -7,7 +7,6 @@ from utils.doc_utils import load_single_docx_document
 from utils.output_utils import organize_extraction_output
 from services.extraction_langchain import LangChainCanonicalExtractionService
 from services.embedding import EmbeddingService
-from neo4j_database import Neo4jService
 from models.neo4j_models import Neo4jInsertionResult
 
 logger = logging.getLogger(__name__)
@@ -18,10 +17,9 @@ class IngestionService:
     Simplified knowledge graph ingestion service using LangChain extraction.
     Handles document processing, concept extraction, and Neo4j insertion.
     """
-    _embedding_service: EmbeddingService
-    _canonical_extraction_service : LangChainCanonicalExtractionService
-    _embedding_service : EmbeddingService
-    _neo4j_service : Neo4jService
+    _embedding_service: Any
+    _canonical_extraction_service: LangChainCanonicalExtractionService
+    _neo4j_service: Any
 
     def __init__(self, neo4j_service=None, embedding_service=None, canonical_extraction_service=None):
         """
@@ -32,18 +30,26 @@ class IngestionService:
             embedding_service: Optional embedding service instance
             canonical_extraction_service: Optional LangChain canonical extraction service
         """
-        self._neo4j_service = neo4j_service or Neo4jService()
-        self._embedding_service = embedding_service or EmbeddingService()
+        # Neo4j is optional for extraction-only workflows. Only initialize when needed.
+        self._neo4j_service = neo4j_service
+        # Embeddings are optional for extraction-only workflows. Only initialize when needed.
+        self._embedding_service = embedding_service
         self._canonical_extraction_service = canonical_extraction_service or LangChainCanonicalExtractionService()
 
     @property
     def neo4j_service(self):
         """Get the Neo4j service instance."""
+        if self._neo4j_service is None:
+            from neo4j_database import Neo4jService  # local import to keep Neo4j optional
+
+            self._neo4j_service = Neo4jService()
         return self._neo4j_service
 
     @property
     def embedding_service(self):
         """Get the embedding service instance."""
+        if self._embedding_service is None:
+            self._embedding_service = EmbeddingService()
         return self._embedding_service
 
     @property
@@ -141,7 +147,7 @@ class IngestionService:
             sanitized_topic = topic_folder.name
 
             return {
-                'success': True,
+                'success': bool(extraction_result.success),
                 'source_file': docx_path,
                 'base_filename': base_filename,
                 'topic_name': topic_name,
@@ -149,7 +155,8 @@ class IngestionService:
                 'topic_folder': str(topic_folder),
                 'saved_files': saved_files,
                 'extraction_result': extraction_result,
-                'neo4j_insertion': neo4j_insertion_result
+                'neo4j_insertion': neo4j_insertion_result,
+                'error': getattr(extraction_result, 'error', None),
             }
 
         except Exception as e:
@@ -176,6 +183,19 @@ class IngestionService:
             failed file list, and processing time
         """
         start_time = time.time()
+
+        if clear_database:
+            # Clearing implies Neo4j usage.
+            try:
+                self.neo4j_service.clear_database()
+            except Exception as e:
+                return {
+                    "total_files": 0,
+                    "successful": 0,
+                    "failed": 1,
+                    "failed_files": [f"Failed to clear Neo4j database: {e}"],
+                    "processing_time": 0.0,
+                }
 
         # Discover all DOCX files in input directory
         input_path = Path(input_directory)

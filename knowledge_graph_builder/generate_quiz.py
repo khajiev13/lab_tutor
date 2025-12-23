@@ -191,8 +191,8 @@ def main():
         
         print("\n💡 Access Neo4j Browser at: http://localhost:7474")
         print("   Query concepts: MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION) RETURN c, q LIMIT 25")
-        print("   Query theories: MATCH (t:THEORY)-[:HAS_QUESTION]->(q:QUIZ_QUESTION) RETURN t, q LIMIT 25")
-        print("   Query both: MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:THEORY) RETURN c, q, t LIMIT 25")
+        print("   Query documents: MATCH (t:TEACHER_UPLOADED_DOCUMENT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION) RETURN t, q LIMIT 25")
+        print("   Query both: MATCH (c:CONCEPT)-[:HAS_QUESTION]->(q:QUIZ_QUESTION)<-[:HAS_QUESTION]-(t:TEACHER_UPLOADED_DOCUMENT) RETURN c, q, t LIMIT 25")
         print("="*80)
         
     except Exception as e:

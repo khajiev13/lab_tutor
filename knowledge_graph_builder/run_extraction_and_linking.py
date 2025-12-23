@@ -11,17 +11,13 @@ import argparse
 from pathlib import Path
 from typing import Optional
 
-from services.ingestion import IngestionService
-from neo4j_database import Neo4jService
-from services.enhanced_langgraph_service import EnhancedRelationshipService
-from models.langgraph_state_models import WorkflowConfiguration
-
 
 def run_extraction(
     input_dir: str = "unstructured_script",
     output_dir: str = "batch_output",
     clear_db: bool = False,
-    single_file: Optional[str] = None
+    single_file: Optional[str] = None,
+    insert_to_neo4j: bool = True,
 ):
     """
     SERVICE 1: Extract concepts from DOCX files.
@@ -36,6 +32,11 @@ def run_extraction(
     print("📚 SERVICE 1: EXTRACTING CONCEPTS FROM DOCUMENTS")
     print("="*80)
     
+    from services.ingestion import IngestionService
+
+    if clear_db and not insert_to_neo4j:
+        print("\n⚠️  --clear requested but --no-ingestion is set; skipping DB clear.")
+
     ingestion = IngestionService()
     
     if single_file:
@@ -43,7 +44,7 @@ def run_extraction(
         result = ingestion.process_single_document(
             docx_path=single_file,
             output_dir=output_dir,
-            insert_to_neo4j=True
+            insert_to_neo4j=insert_to_neo4j,
         )
         
         if result['success']:
@@ -91,6 +92,8 @@ def run_json_ingestion(
     print("📦 SERVICE 1B: LOADING EXISTING JSON FILES INTO NEO4J")
     print("="*80)
     
+    from neo4j_database import Neo4jService
+
     neo4j = Neo4jService()
     
     if clear_db:
@@ -222,6 +225,10 @@ def run_relationship_detection(
     print("="*80)
     
     # Initialize services
+    from neo4j_database import Neo4jService
+    from services.enhanced_langgraph_service import EnhancedRelationshipService
+    from models.langgraph_state_models import WorkflowConfiguration
+
     neo4j = Neo4jService()
     
     # Get all concepts from database
@@ -353,6 +360,12 @@ Examples:
         help="Process single file instead of entire directory"
     )
     parser.add_argument(
+        "--no-ingestion",
+        "--no-neo4j",
+        action="store_true",
+        help="Extraction only: do NOT insert results into Neo4j"
+    )
+    parser.add_argument(
         "--clear",
         action="store_true",
         help="Clear Neo4j database before extraction"
@@ -401,6 +414,9 @@ Examples:
     # Run extraction or JSON loading service
     if run_extract:
         if args.from_json:
+            if args.no_ingestion:
+                print("❌ Error: --from-json requires Neo4j ingestion; remove --no-ingestion")
+                sys.exit(1)
             # Load from existing JSONs
             success = run_json_ingestion(
                 batch_output_dir=args.batch_dir,
@@ -412,7 +428,8 @@ Examples:
                 input_dir=args.input_dir,
                 output_dir=args.output_dir,
                 clear_db=args.clear,
-                single_file=args.file
+                single_file=args.file,
+                insert_to_neo4j=not args.no_ingestion,
             )
         
         if not success:
@@ -434,9 +451,12 @@ Examples:
     print("\n" + "="*80)
     print("✅ ALL SERVICES COMPLETED SUCCESSFULLY")
     print("="*80)
-    print("\n💡 Access Neo4j Browser at: http://localhost:7474")
-    print("   Username: neo4j")
-    print("   Password: password123")
+
+    neo4j_used = run_link or (run_extract and (args.from_json or (not args.no_ingestion)))
+    if neo4j_used:
+        print("\n💡 Access Neo4j Browser at: http://localhost:7474")
+        print("   Username: neo4j")
+        print("   Password: password123")
 
 
 if __name__ == "__main__":

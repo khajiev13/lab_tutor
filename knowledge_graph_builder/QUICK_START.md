@@ -69,13 +69,13 @@ unstructured_script/*.docx
     ↓
 batch_output/{Topic}/*_extraction.json
     ↓
-Neo4j (TOPIC → CONCEPT nodes)
+Neo4j (TEACHER_UPLOADED_DOCUMENT → CONCEPT via MENTIONS)
 ```
 
 **Creates**:
-- `TOPIC` nodes (one per document)
+- `TEACHER_UPLOADED_DOCUMENT` nodes (one per document; includes `topic` as a property)
 - `CONCEPT` nodes (extracted terms with definitions)
-- `HAS_CONCEPT` relationships
+- `MENTIONS` relationships (stores definition + evidence on the relationship)
 
 ### Service 2: Relationship Detection
 ```

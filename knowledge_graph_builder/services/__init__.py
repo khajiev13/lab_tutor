@@ -12,14 +12,25 @@ aspects of the knowledge graph building process:
 
 from .embedding import EmbeddingService
 from .extraction_langchain import LangChainCanonicalExtractionService
-from .ingestion import IngestionService
-from neo4j_database import Neo4jService
+
+# Optional imports:
+# - IngestionService may depend on Neo4j integration depending on configuration.
+# - Neo4jService lives at the repo root (not installed in this package by default).
+try:
+    from .ingestion import IngestionService
+except Exception:  # pragma: no cover
+    IngestionService = None  # type: ignore[assignment]
+
+try:
+    from neo4j_database import Neo4jService
+except Exception:  # pragma: no cover
+    Neo4jService = None  # type: ignore[assignment]
 
 __all__ = [
-    'EmbeddingService',
-    'LangChainCanonicalExtractionService',
-    'IngestionService',
-    'Neo4jService'
+    "EmbeddingService",
+    "LangChainCanonicalExtractionService",
+    "IngestionService",
+    "Neo4jService",
 ]
 
 __version__ = '1.0.0'

@@ -14,14 +14,10 @@ class Neo4jNodeProperties(BaseModel):
     pass
 
 
-class TopicNodeProperties(Neo4jNodeProperties):
-    """Properties for TOPIC nodes."""
-    name: str = Field(description="Topic name")
-
-
 class TheoryNodeProperties(Neo4jNodeProperties):
-    """Properties for THEORY nodes."""
-    name: str = Field(description="Theory name (same as topic)")
+    """Properties for TEACHER_UPLOADED_DOCUMENT nodes (formerly THEORY)."""
+    name: str = Field(description="Document name/title")
+    topic: Optional[str] = Field(description="Extracted topic/title (formerly TOPIC node name)", default=None)
     original_text: str = Field(description="Original document text")
     compressed_text: str = Field(description="Compressed/summary text")
     embedding: List[float] = Field(description="Vector embedding", default_factory=list)
@@ -51,7 +47,7 @@ class QuizQuestionNodeProperties(Neo4jNodeProperties):
 class Neo4jNode(BaseModel):
     """Represents a Neo4j node with type safety."""
     id: str = Field(description="Unique node identifier")
-    label: str = Field(description="Node label (TOPIC, THEORY, CONCEPT, QUIZ_QUESTION)")
+    label: str = Field(description="Node label (TEACHER_UPLOADED_DOCUMENT, CONCEPT, QUIZ_QUESTION)")
     properties: Neo4jNodeProperties = Field(description="Node properties")
 
     class Config:
@@ -64,13 +60,8 @@ class Neo4jRelationshipProperties(BaseModel):
     pass
 
 
-class HasTheoryRelationshipProperties(Neo4jRelationshipProperties):
-    """Properties for HAS_THEORY relationships (TOPIC -> THEORY)."""
-    pass  # No additional properties needed
-
-
 class MentionsRelationshipProperties(Neo4jRelationshipProperties):
-    """Properties for MENTIONS relationships (THEORY -> CONCEPT)."""
+    """Properties for MENTIONS relationships (TEACHER_UPLOADED_DOCUMENT -> CONCEPT)."""
     original_name: str = Field(description="Original extracted concept name")
     definition: str = Field(description="Context-specific definition")
     text_evidence: str = Field(description="Text evidence from extraction")
@@ -85,7 +76,7 @@ class HasQuestionRelationshipProperties(Neo4jRelationshipProperties):
 class Neo4jRelationship(BaseModel):
     """Represents a Neo4j relationship with type safety."""
     id: str = Field(description="Unique relationship identifier")
-    relationship_type: str = Field(description="Relationship type (HAS_THEORY, MENTIONS, HAS_QUESTION)")
+    relationship_type: str = Field(description="Relationship type (MENTIONS, HAS_QUESTION)")
     start_node_id: str = Field(description="Source node ID")
     end_node_id: str = Field(description="Target node ID")
     properties: Neo4jRelationshipProperties = Field(description="Relationship properties")
