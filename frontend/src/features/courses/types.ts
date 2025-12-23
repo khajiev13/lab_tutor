@@ -26,6 +26,7 @@ export interface CourseFileRead {
   course_id: number;
   filename: string;
   blob_path: string;
+  content_hash: string | null;
   uploaded_at: string;
   status: FileProcessingStatus;
   last_error: string | null;

@@ -9,6 +9,44 @@ describe('FileUpload', () => {
     expect(screen.getByText(/or click to select files/i)).toBeInTheDocument();
   });
 
+  it('accepts drag-and-drop even when DataTransfer.types is not "Files" (Safari-style)', async () => {
+    render(<FileUpload onUpload={async () => {}} />);
+
+    const dropzone = screen.getByTestId('dropzone-root');
+    const file = new File(['dummy content'], 'lecture.pdf', { type: 'application/pdf' });
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [file],
+        types: ['public.file-url'],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('lecture.pdf')).toBeInTheDocument();
+    });
+  });
+
+  it('accepts DOCX via drag-and-drop fallback', async () => {
+    render(<FileUpload onUpload={async () => {}} />);
+
+    const dropzone = screen.getByTestId('dropzone-root');
+    const file = new File(['dummy content'], 'notes.docx', {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [file],
+        types: ['public.file-url'],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('notes.docx')).toBeInTheDocument();
+    });
+  });
+
   it('calls onUpload when files are uploaded', async () => {
     const mockOnUpload = vi.fn().mockResolvedValue(undefined);
     render(<FileUpload onUpload={mockOnUpload} />);

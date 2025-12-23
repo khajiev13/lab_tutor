@@ -1,5 +1,11 @@
 import api from '@/services/api';
 import type { Course, CourseCreate, CourseFileRead, ExtractionStatus } from './types';
+import {
+  CourseFileDuplicateError,
+  tryExtractContentHashFromDetail,
+  tryExtractExistingFilenameFromDetail,
+} from './errors';
+import axios from 'axios';
 
 export const coursesApi = {
   list: async (): Promise<Course[]> => {
@@ -52,16 +58,35 @@ export const presentationsApi = {
     const response = await api.get<CourseFileRead[]>(`/courses/${courseId}/presentations/status`);
     return response.data;
   },
-  upload: async (courseId: number, files: File[]): Promise<void> => {
+  upload: async (courseId: number, files: File[]): Promise<{ uploaded_files: string[] }> => {
     const formData = new FormData();
     files.forEach((file) => {
       formData.append('files', file);
     });
-    await api.post(`/courses/${courseId}/presentations`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    try {
+      const response = await api.post<{ uploaded_files: string[] }>(
+        `/courses/${courseId}/presentations`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        const data: unknown = error.response.data;
+        const detail =
+          data && typeof data === "object" && "detail" in data
+            ? (data as { detail?: unknown }).detail
+            : undefined;
+        const existingFilename = tryExtractExistingFilenameFromDetail(detail);
+        const contentHash = tryExtractContentHashFromDetail(detail);
+        throw new CourseFileDuplicateError('File already uploaded', { existingFilename, contentHash });
+      }
+      throw error;
+    }
   },
   delete: async (courseId: number, filename: string): Promise<void> => {
     await api.delete(`/courses/${courseId}/presentations/${filename}`);
