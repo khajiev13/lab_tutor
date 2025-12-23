@@ -43,12 +43,17 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         # Canonical identity constraints
         "CREATE CONSTRAINT user_id_unique IF NOT EXISTS FOR (u:USER) REQUIRE u.id IS UNIQUE",
         "CREATE CONSTRAINT class_id_unique IF NOT EXISTS FOR (c:CLASS) REQUIRE c.id IS UNIQUE",
+        "CREATE CONSTRAINT concept_name_unique IF NOT EXISTS FOR (c:CONCEPT) REQUIRE c.name IS UNIQUE",
         # Optional IDs (if you choose stable IDs later)
         "CREATE CONSTRAINT chapter_id_unique IF NOT EXISTS FOR (c:CHAPTER) REQUIRE c.id IS UNIQUE",
-        "CREATE CONSTRAINT theory_id_unique IF NOT EXISTS FOR (t:THEORY) REQUIRE t.id IS UNIQUE",
+        "CREATE CONSTRAINT teacher_uploaded_document_id_unique IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) REQUIRE d.id IS UNIQUE",
+        # Prefer stable dedupe by content hash per course (best-effort; may fail on older Neo4j versions).
+        "CREATE CONSTRAINT teacher_uploaded_document_course_hash_key IF NOT EXISTS "
+        "FOR (d:TEACHER_UPLOADED_DOCUMENT) REQUIRE (d.course_id, d.content_hash) IS NODE KEY",
         "CREATE CONSTRAINT skill_id_unique IF NOT EXISTS FOR (s:SKILL) REQUIRE s.id IS UNIQUE",
         # Helpful indexes
         "CREATE INDEX class_title_idx IF NOT EXISTS FOR (c:CLASS) ON (c.title)",
+        "CREATE INDEX teacher_uploaded_document_course_id_idx IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.course_id)",
     ]
 
     try:

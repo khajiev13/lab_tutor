@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.neo4j import get_neo4j_session
 from app.modules.auth.models import User
+from app.modules.document_extraction.neo4j_repository import (
+    DocumentExtractionGraphRepository,
+)
+from app.modules.document_extraction.service import run_course_extraction_background
 from app.providers.storage import blob_service
 
 from .models import (
@@ -34,12 +38,24 @@ def get_course_graph_repository(
     return CourseGraphRepository(neo4j_session)
 
 
+def get_document_extraction_graph_repository(
+    neo4j_session=Depends(get_neo4j_session),
+) -> DocumentExtractionGraphRepository | None:
+    if neo4j_session is None:
+        return None
+    return DocumentExtractionGraphRepository(neo4j_session)
+
+
 class CourseService:
     def __init__(
-        self, repo: CourseRepository, graph_repo: CourseGraphRepository | None
+        self,
+        repo: CourseRepository,
+        graph_repo: CourseGraphRepository | None,
+        document_graph_repo: DocumentExtractionGraphRepository | None,
     ):
         self.repo = repo
         self.graph_repo = graph_repo
+        self.document_graph_repo = document_graph_repo
 
     def _commit_sql(self) -> None:
         self.repo.db.commit()
@@ -54,6 +70,19 @@ class CourseService:
             fn()
         except Exception as e:
             logger.exception("Neo4j graph sync failed")
+            self._rollback_sql()
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=detail,
+            ) from e
+
+    def _run_doc_graph(self, fn, *, detail: str) -> None:
+        if self.document_graph_repo is None:
+            return
+        try:
+            fn()
+        except Exception as e:
+            logger.exception("Neo4j document graph sync failed")
             self._rollback_sql()
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -243,12 +272,29 @@ class CourseService:
             destination_path = f"{safe_course_title}/teacher_uploads/{file.filename}"
 
             try:
-                url = await blob_service.upload_file(file, destination_path)
+                await file.seek(0)
+                content = await file.read()
+                content_hash = blob_service.sha256_hex(content)
+
+                existing = self.repo.get_course_file_by_content_hash(
+                    course.id, content_hash
+                )
+                if existing is not None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=(
+                            "This file was already uploaded for this course "
+                            f"(existing filename: {existing.filename})"
+                        ),
+                    )
+
+                url = await blob_service.upload_bytes(content, destination_path)
                 self.repo.upsert_course_file(
                     CourseFile(
                         course_id=course.id,
                         filename=file.filename,
                         blob_path=destination_path,
+                        content_hash=content_hash,
                         status=FileProcessingStatus.PENDING,
                         last_error=None,
                         processed_at=None,
@@ -256,6 +302,13 @@ class CourseService:
                 )
                 uploaded_urls.append(url)
             except Exception as e:
+                if isinstance(e, HTTPException):
+                    raise
+                if isinstance(e, ValueError) and "identical content" in str(e).lower():
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=str(e),
+                    ) from e
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Failed to upload file {file.filename}: {str(e)}",
@@ -307,8 +360,44 @@ class CourseService:
         blob_path = f"{safe_course_title}/teacher_uploads/{filename}"
 
         try:
+            # Keep the SQL row until after graph cleanup so we can derive a stable document_id.
+            course_file = self.repo.get_course_file_by_blob_path(course.id, blob_path)
             await blob_service.delete_file(blob_path)
+
+            if course_file and self.document_graph_repo is not None:
+                self._run_doc_graph(
+                    lambda: [
+                        # New stable IDs (by content hash) + legacy IDs (by CourseFile.id)
+                        # so deletes work across old/new deployments.
+                        self.document_graph_repo.delete_document_and_orphan_concepts(
+                            document_id=document_id
+                        )
+                        for document_id in [
+                            (
+                                f"doc_{course.id}_{course_file.content_hash}"
+                                if course_file.content_hash
+                                else None
+                            ),
+                            f"doc_{course_file.id}",
+                        ]
+                        if document_id is not None
+                    ],
+                    detail="Failed to delete extracted document from Neo4j",
+                )
+            elif self.document_graph_repo is not None:
+                # Fallback: if the SQL row is missing, delete by (course_id, filename).
+                self._run_doc_graph(
+                    lambda: self.document_graph_repo.delete_documents_by_course_and_filename_and_orphan_concepts(
+                        course_id=course.id,
+                        source_filename=filename,
+                    ),
+                    detail="Failed to delete extracted document(s) from Neo4j",
+                )
+
             self.repo.delete_course_file_by_blob_path(course.id, blob_path)
+        except HTTPException:
+            # Preserve intended status codes (e.g., 503 on Neo4j failure).
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -339,7 +428,19 @@ class CourseService:
 
         try:
             await blob_service.delete_folder(folder_path)
+
+            if self.document_graph_repo is not None:
+                self._run_doc_graph(
+                    lambda: self.document_graph_repo.delete_documents_by_course_and_orphan_concepts(
+                        course_id=course.id
+                    ),
+                    detail="Failed to delete extracted documents from Neo4j",
+                )
+
             self.repo.delete_course_files_by_prefix(course.id, folder_path)
+        except HTTPException:
+            # Preserve intended status codes (e.g., 503 on Neo4j failure).
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -383,12 +484,13 @@ class CourseService:
 
         self._commit_sql()
 
-        # Placeholder for future extraction worker/ingestion.
-        # We intentionally keep status IN_PROGRESS until real processing exists.
-        background_tasks.add_task(lambda: None)
-
-        # TODO: Call extraction service
-        # await extraction_service.start_extraction(course.id, db)
+        # Run extraction after response is returned.
+        # BackgroundTasks should be short-lived; our current scope supports text files only.
+        background_tasks.add_task(
+            run_course_extraction_background,
+            course_id=course.id,
+            teacher_id=teacher.id,
+        )
 
         return course.extraction_status
 
@@ -396,5 +498,8 @@ class CourseService:
 def get_course_service(
     repo: CourseRepository = Depends(get_course_repository),
     graph_repo: CourseGraphRepository | None = Depends(get_course_graph_repository),
+    document_graph_repo: DocumentExtractionGraphRepository | None = Depends(
+        get_document_extraction_graph_repository
+    ),
 ) -> CourseService:
-    return CourseService(repo, graph_repo)
+    return CourseService(repo, graph_repo, document_graph_repo)

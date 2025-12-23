@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import io
+import zipfile
 from dataclasses import dataclass
+from xml.etree import ElementTree as ET
 
 
 @dataclass(frozen=True)
 class FileDispatchResult:
-    kind: str  # "txt" | "ppt" | "other"
+    kind: str  # "txt" | "docx" | "ppt" | "other"
     content_type: str | None
 
 
@@ -15,6 +18,11 @@ def infer_file_kind(*, filename: str, content_type: str | None) -> FileDispatchR
 
     if name.endswith(".txt") or ct == "text/plain":
         return FileDispatchResult(kind="txt", content_type=ct)
+
+    if name.endswith(".docx") or ct in {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }:
+        return FileDispatchResult(kind="docx", content_type=ct)
 
     if name.endswith((".ppt", ".pptx")) or (
         ct
@@ -34,6 +42,40 @@ def handle_txt_bytes(data: bytes) -> str:
         return data.decode("utf-8")
     except UnicodeDecodeError:
         return data.decode("latin-1")
+
+
+def handle_docx_bytes(data: bytes) -> str:
+    """Extract plain text from a .docx payload.
+
+    We intentionally avoid extra dependencies (like python-docx) by reading the
+    Office Open XML content directly.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            xml_bytes = zf.read("word/document.xml")
+    except Exception as e:
+        raise ValueError("Invalid docx file (cannot read word/document.xml)") from e
+
+    try:
+        root = ET.fromstring(xml_bytes)
+    except Exception as e:
+        raise ValueError("Invalid docx XML") from e
+
+    texts: list[str] = []
+    for node in root.iter():
+        tag = node.tag
+        if tag.endswith("}t") and node.text:
+            texts.append(node.text)
+        elif tag.endswith("}tab"):
+            texts.append("\t")
+        elif tag.endswith("}br") or tag.endswith("}cr") or tag.endswith("}p"):
+            texts.append("\n")
+
+    text = "".join(texts)
+    # Normalize whitespace a bit
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = "\n".join(line.rstrip() for line in text.split("\n"))
+    return text.strip()
 
 
 def handle_ppt_bytes(data: bytes) -> None:
