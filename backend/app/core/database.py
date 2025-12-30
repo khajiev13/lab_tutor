@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -56,8 +57,44 @@ def _derive_sync_and_async_urls(url: str) -> tuple[str, str]:
     return url, url
 
 
+def _asyncpg_connect_args_from_url(async_url: str) -> tuple[str, dict]:
+    """asyncpg doesn't understand libpq-style `sslmode=...` query params.
+
+    Azure Postgres commonly provides URLs like:
+      postgresql://.../db?sslmode=require
+
+    SQLAlchemy's asyncpg dialect passes unknown query params as keyword args, so `sslmode`
+    causes a runtime TypeError. We:
+    - remove `sslmode` from the async URL
+    - translate it into `connect_args={"ssl": ...}` for asyncpg.
+    """
+    if not async_url.startswith("postgresql+asyncpg://"):
+        return async_url, {}
+
+    parts = urlsplit(async_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+
+    sslmode = (query.pop("sslmode", "") or "").lower()
+    connect_args: dict = {}
+
+    # If sslmode is present, enable SSL for asyncpg. (Azure requires SSL.)
+    if sslmode in {"require", "prefer", "verify-ca", "verify-full"}:
+        connect_args["ssl"] = True
+    elif sslmode == "disable":
+        connect_args["ssl"] = False
+
+    new_query = urlencode(query, doseq=True)
+    cleaned_url = urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, new_query, parts.fragment)
+    )
+    return cleaned_url, connect_args
+
+
 # Sync Engine
 DATABASE_URL, ASYNC_DATABASE_URL = _derive_sync_and_async_urls(RAW_DATABASE_URL)
+ASYNC_DATABASE_URL, ASYNC_CONNECT_ARGS = _asyncpg_connect_args_from_url(
+    ASYNC_DATABASE_URL
+)
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False}
@@ -70,7 +107,7 @@ async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
     connect_args={"check_same_thread": False}
     if ASYNC_DATABASE_URL.startswith("sqlite")
-    else {},
+    else ASYNC_CONNECT_ARGS,
 )
 AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 
