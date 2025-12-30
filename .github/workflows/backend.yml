@@ -148,8 +148,8 @@ jobs:
         run: |
           set -euo pipefail
           az containerapp update \
-            --name \"$AZURE_CONTAINERAPP_NAME\" \
-            --resource-group \"$AZURE_RESOURCE_GROUP\" \
-            --image \"$ACR_LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}\" \
+            --name "$AZURE_CONTAINERAPP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$ACR_LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}" \
             --set-env-vars PORT=8000 \
             --only-show-errors
