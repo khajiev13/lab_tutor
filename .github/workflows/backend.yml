@@ -15,7 +15,6 @@ on:
 env:
   IMAGE_NAME: lab-tutor-backend
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
-  ACR_NAME: ${{ secrets.ACR_NAME }}
   AZURE_RESOURCE_GROUP: lab_tutor
   AZURE_CONTAINERAPP_NAME: backend
 
@@ -113,7 +112,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TOKEN="$(az acr login --name \"$ACR_NAME\" --expose-token --output tsv --query accessToken)"
+          # `az acr login --name` expects the registry *name* (alphanumeric), not the login server.
+          # Derive it from ACR_LOGIN_SERVER (e.g. "labtutoracr2270.azurecr.io" -> "labtutoracr2270")
+          ACR_NAME_DERIVED="${ACR_LOGIN_SERVER%%.azurecr.io}"
+          if [[ -z "${ACR_NAME_DERIVED}" || "${ACR_NAME_DERIVED}" == "${ACR_LOGIN_SERVER}" ]]; then
+            echo "ACR_LOGIN_SERVER is not an Azure Container Registry login server: ${ACR_LOGIN_SERVER}" >&2
+            exit 1
+          fi
+          TOKEN="$(az acr login --name "$ACR_NAME_DERIVED" --expose-token --output tsv --query accessToken)"
           echo \"ACR_TOKEN=$TOKEN\" >> \"$GITHUB_ENV\"
 
       - name: Login to ACR
