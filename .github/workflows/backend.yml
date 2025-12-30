@@ -120,7 +120,7 @@ jobs:
             exit 1
           fi
           TOKEN="$(az acr login --name "$ACR_NAME_DERIVED" --expose-token --output tsv --query accessToken)"
-          echo \"ACR_TOKEN=$TOKEN\" >> \"$GITHUB_ENV\"
+          echo "ACR_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
       - name: Login to ACR
         uses: docker/login-action@v3
