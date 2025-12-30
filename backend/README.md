@@ -41,6 +41,39 @@ docker-compose up backend
 
 The API will be available at `http://localhost:8000`
 
+## Deployment (Azure Container Apps)
+
+This repo is set up for:
+- Local development on your machine (Docker / uvicorn reload)
+- Production deployments to Azure via GitHub Actions
+
+### Rollout / rollback (revisions + traffic splitting)
+
+Azure Container Apps supports multiple active revisions and traffic weights. This lets you roll
+out a new backend revision safely and instantly roll back if needed.
+
+Useful commands (prod):
+
+```bash
+# List revisions
+az containerapp revision list -n backend -g lab_tutor -o table
+
+# Label a revision (optional, makes traffic changes easier to read)
+az containerapp revision label add -n backend -g lab_tutor --label canary --revision <REVISION_NAME>
+
+# Send 10% traffic to the latest revision, keep 90% on the previous labeled revision
+az containerapp ingress traffic set -n backend -g lab_tutor \
+  --traffic-weight canary=10 latest=90
+
+# Roll back: send 100% traffic back to the previous revision (example label)
+az containerapp ingress traffic set -n backend -g lab_tutor \
+  --traffic-weight stable=100 latest=0
+```
+
+Notes:
+- The backend health endpoint is `GET /health` (and `GET /healthz` alias).
+- The Container App ingress target port should match the container port (commonly 8000).
+
 #### Hot Reload (Development Mode)
 
 The backend is configured with **hot reload enabled by default** when running via docker-compose. This means:
@@ -63,7 +96,21 @@ The backend is configured with **hot reload enabled by default** when running vi
 - `POST /courses` – Teacher-only course creation.
 - `GET /courses` – List available courses.
 - `POST /courses/{course_id}/join` – Student enrollment.
+- `GET /normalization/stream` – Start concept normalization (SSE). Returns a `review_id` when merges require human review.
+- `GET /normalization/reviews/{review_id}` – Get staged merge proposals for review (stored in SQL).
+- `POST /normalization/reviews/{review_id}/decisions` – Approve/reject staged proposals (stored in SQL).
+- `POST /normalization/reviews/{review_id}/apply` – Apply **approved** merges to Neo4j, then delete staged SQL rows for that review.
 - `GET /` – Welcome message.
 - `GET /health` – Health check endpoint.
 - `GET /docs` / `GET /redoc` – Interactive API documentation.
+
+## Neo4j Cleanup (legacy normalization review nodes)
+
+Normalization review/proposal state is now staged in SQL and should **not** exist as Neo4j nodes.
+If your Neo4j already contains legacy nodes, you can remove them with:
+
+```cypher
+MATCH (n:MERGE_PROPOSAL) DETACH DELETE n;
+MATCH (n:NORMALIZATION_REVIEW) DETACH DELETE n;
+```
 

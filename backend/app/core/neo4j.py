@@ -7,6 +7,7 @@ from typing import LiteralString
 
 from fastapi import HTTPException, Request, status
 from neo4j import Driver, GraphDatabase
+from neo4j import Session as Neo4jSession
 from neo4j.exceptions import Neo4jError
 
 from app.core.settings import settings
@@ -69,7 +70,7 @@ def get_neo4j_driver(request: Request) -> Driver | None:
     return getattr(request.app.state, "neo4j_driver", None)
 
 
-def get_neo4j_session(request: Request) -> Iterator[object] | Iterator[None]:
+def get_neo4j_session(request: Request) -> Iterator[Neo4jSession | None]:
     """FastAPI dependency: yields a Neo4j session when configured, else yields None."""
 
     driver = get_neo4j_driver(request)
@@ -81,7 +82,7 @@ def get_neo4j_session(request: Request) -> Iterator[object] | Iterator[None]:
         yield session
 
 
-def require_neo4j_session(request: Request) -> Iterator[object]:
+def require_neo4j_session(request: Request) -> Iterator[Neo4jSession]:
     """FastAPI dependency: yields a Neo4j session or raises 503 if disabled."""
 
     driver = get_neo4j_driver(request)
@@ -96,7 +97,7 @@ def require_neo4j_session(request: Request) -> Iterator[object]:
 
 
 @contextmanager
-def neo4j_session_from_request(request: Request) -> Iterator[object | None]:
+def neo4j_session_from_request(request: Request) -> Iterator[Neo4jSession | None]:
     """Convenience context manager for places that aren't DI-friendly (e.g., auth hooks)."""
 
     driver = get_neo4j_driver(request)

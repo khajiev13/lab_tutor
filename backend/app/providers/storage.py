@@ -4,10 +4,24 @@ import logging
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
 from fastapi import UploadFile
+from pydantic import BaseModel, Field
 
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
+
+
+class BlobInfo(BaseModel):
+    """JSON-serializable blob metadata/properties for debugging/observability."""
+
+    name: str
+    url: str
+    size_bytes: int | None = None
+    content_type: str | None = None
+    etag: str | None = None
+    last_modified: str | None = None
+    creation_time: str | None = None
+    metadata: dict[str, str] = Field(default_factory=dict)
 
 
 class BlobService:
@@ -121,8 +135,7 @@ class BlobService:
             logger.error(f"Failed to download file {blob_path}: {e}")
             raise
 
-    def get_blob_info(self, blob_path: str) -> dict:
-        """Return JSON-serializable blob metadata/properties for debugging/observability."""
+    def get_blob_info(self, blob_path: str) -> BlobInfo:
         if not self.container_client:
             raise Exception("Blob service is not configured")
 
@@ -130,22 +143,22 @@ class BlobService:
         try:
             props = blob_client.get_blob_properties()
             # Keep the return value JSON-friendly (no datetime objects).
-            return {
-                "name": getattr(props, "name", blob_path),
-                "url": blob_client.url,
-                "size_bytes": getattr(props, "size", None),
-                "content_type": getattr(
+            return BlobInfo(
+                name=getattr(props, "name", blob_path),
+                url=blob_client.url,
+                size_bytes=getattr(props, "size", None),
+                content_type=getattr(
                     getattr(props, "content_settings", None), "content_type", None
                 ),
-                "etag": getattr(props, "etag", None),
-                "last_modified": props.last_modified.isoformat()
+                etag=getattr(props, "etag", None),
+                last_modified=props.last_modified.isoformat()
                 if getattr(props, "last_modified", None)
                 else None,
-                "creation_time": props.creation_time.isoformat()
+                creation_time=props.creation_time.isoformat()
                 if getattr(props, "creation_time", None)
                 else None,
-                "metadata": getattr(props, "metadata", None) or {},
-            }
+                metadata=getattr(props, "metadata", None) or {},
+            )
         except Exception as e:
             logger.error(f"Failed to get blob properties for {blob_path}: {e}")
             raise

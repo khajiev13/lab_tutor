@@ -84,5 +84,42 @@ class Settings(BaseSettings):
         description="Max completion tokens for extraction responses",
     )
 
+    # LangSmith (observability / tracing)
+    langsmith_api_key: str | None = Field(
+        default=None,
+        description="LangSmith API key. Preferred: LAB_TUTOR_LANGSMITH_API_KEY.",
+        validation_alias=AliasChoices(
+            # Preferred (handled automatically via env_prefix + field name):
+            # - LAB_TUTOR_LANGSMITH_API_KEY
+            # Fallbacks (useful outside docker-compose):
+            "LANGSMITH_API_KEY",
+            "LANGCHAIN_API_KEY",
+        ),
+    )
+    langsmith_project: str = Field(
+        default="lab-tutor-backend",
+        description="LangSmith project name. Preferred: LAB_TUTOR_LANGSMITH_PROJECT.",
+        validation_alias=AliasChoices(
+            # Preferred (handled automatically via env_prefix + field name):
+            # - LAB_TUTOR_LANGSMITH_PROJECT
+            # Fallbacks (useful outside docker-compose):
+            "LANGSMITH_PROJECT",
+            "LANGCHAIN_PROJECT",
+        ),
+    )
+
+    # CORS
+    # Comma-separated list of allowed origins for browser clients (no wildcards).
+    # Example:
+    #   LAB_TUTOR_CORS_ALLOW_ORIGINS="https://gray-meadow-055f6ba1e.1.azurestaticapps.net,https://yourdomain.com"
+    cors_allow_origins: str = Field(
+        default="http://localhost:5173,http://localhost:5174,http://localhost:3000",
+        description="Comma-separated CORS allowlist origins.",
+    )
+    cors_allow_credentials: bool = Field(
+        default=False,
+        description="Whether to allow credentials in CORS. Prefer false when using Bearer tokens.",
+    )
+
 
 settings = Settings()

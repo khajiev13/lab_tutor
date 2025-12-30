@@ -13,8 +13,11 @@ on:
       - '.github/workflows/backend.yml'
 
 env:
-  REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
   IMAGE_NAME: lab-tutor-backend
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  AZURE_RESOURCE_GROUP: lab_tutor
+  AZURE_CONTAINERAPP_NAME: backend
 
 jobs:
   lint:
@@ -69,7 +72,7 @@ jobs:
         # TODO: Add actual test files to backend/tests/
 
   build:
-    name: Build Docker Image
+    name: Build Docker Image (no push)
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -88,56 +91,59 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ============================================================
-  # DEPLOYMENT TO AZURE (Uncomment when ready)
-  # ============================================================
-  # 
-  # Prerequisites:
-  # 1. Create Azure Container Registry (ACR)
-  # 2. Create Azure App Service (Web App for Containers)
-  # 3. Add these GitHub Secrets:
-  #    - AZURE_CREDENTIALS: Service principal JSON
-  #    - ACR_LOGIN_SERVER: yourregistry.azurecr.io
-  #    - ACR_USERNAME: ACR admin username
-  #    - ACR_PASSWORD: ACR admin password
-  #    - AZURE_WEBAPP_NAME: Your App Service name
-  #
-  # deploy:
-  #   name: Deploy to Azure
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #
-  #     - name: Login to Azure
-  #       uses: azure/login@v2
-  #       with:
-  #         creds: ${{ secrets.AZURE_CREDENTIALS }}
-  #
-  #     - name: Login to ACR
-  #       uses: docker/login-action@v3
-  #       with:
-  #         registry: ${{ secrets.ACR_LOGIN_SERVER }}
-  #         username: ${{ secrets.ACR_USERNAME }}
-  #         password: ${{ secrets.ACR_PASSWORD }}
-  #
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v3
-  #
-  #     - name: Build and push to ACR
-  #       uses: docker/build-push-action@v6
-  #       with:
-  #         context: ./backend
-  #         push: true
-  #         tags: |
-  #           ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-  #           ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
-  #         cache-from: type=gha
-  #         cache-to: type=gha,mode=max
-  #
-  #     - name: Deploy to Azure App Service
-  #       uses: azure/webapps-deploy@v3
-  #       with:
-  #         app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-  #         images: ${{ secrets.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+  deploy:
+    name: Build, Push, and Deploy to Azure Container Apps
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get ACR access token
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(az acr login --name \"$ACR_NAME\" --expose-token --output tsv --query accessToken)"
+          echo \"ACR_TOKEN=$TOKEN\" >> \"$GITHUB_ENV\"
+
+      - name: Login to ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_LOGIN_SERVER }}
+          username: 00000000-0000-0000-0000-000000000000
+          password: ${{ env.ACR_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image to ACR
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Azure Container Apps
+        shell: bash
+        run: |
+          set -euo pipefail
+          az containerapp update \
+            --name \"$AZURE_CONTAINERAPP_NAME\" \
+            --resource-group \"$AZURE_RESOURCE_GROUP\" \
+            --image \"$ACR_LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}\" \
+            --set-env-vars PORT=8000 \
+            --only-show-errors

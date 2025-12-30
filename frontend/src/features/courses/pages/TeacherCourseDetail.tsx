@@ -15,11 +15,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { coursesApi, presentationsApi } from '../api';
 import type { Course, ExtractionStatus } from '../types';
 import { FileUpload } from '@/components/FileUpload';
-import { PresentationList } from '@/components/PresentationList';
-import { PresentationStatusTable } from '@/components/PresentationStatusTable';
+import { CourseMaterialsTable } from '@/components/CourseMaterialsTable';
+import { NormalizationDashboard } from '@/features/normalization/components/NormalizationDashboard';
 
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +33,41 @@ export default function TeacherCourseDetail() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isEnrollmentLoading, setIsEnrollmentLoading] = useState(false);
   const [presentationCount, setPresentationCount] = useState(0);
+  const [extractionProgress, setExtractionProgress] = useState<{
+    total: number;
+    processed: number;
+    failed: number;
+    terminal: number;
+    value: number;
+    allTerminal: boolean;
+  } | null>(null);
+  const handleProgressChange = useCallback(
+    (stats: {
+      total: number;
+      processed: number;
+      failed: number;
+      terminal: number;
+      value: number;
+      allTerminal: boolean;
+    }) => {
+      setExtractionProgress((prev) => {
+        if (!prev) return stats;
+        const isSame =
+          prev.total === stats.total &&
+          prev.processed === stats.processed &&
+          prev.failed === stats.failed &&
+          prev.terminal === stats.terminal &&
+          prev.value === stats.value &&
+          prev.allTerminal === stats.allTerminal;
+        return isSame ? prev : stats;
+      });
+    },
+    []
+  );
+
+  const handleFilesChange = useCallback((files: string[]) => {
+    setPresentationCount(files.length);
+  }, []);
 
   const fetchCourse = useCallback(async () => {
     if (!id) return;
@@ -243,9 +279,19 @@ export default function TeacherCourseDetail() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Processing course materials...
                 </span>
-                <span className="text-muted-foreground">Please wait</span>
+                {extractionProgress?.total ? (
+                  <span className="text-muted-foreground tabular-nums">
+                    Done {extractionProgress.terminal}/{extractionProgress.total}
+                    {extractionProgress.failed > 0 ? ` • Failed ${extractionProgress.failed}` : ""}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Please wait</span>
+                )}
               </div>
-              <Progress value={45} className="w-full animate-pulse" />
+              <Progress
+                value={extractionProgress?.total ? extractionProgress.value : undefined}
+                className="w-full"
+              />
               <p className="text-xs text-muted-foreground">
                 This process may take a few minutes depending on the size of your presentations.
               </p>
@@ -275,55 +321,74 @@ export default function TeacherCourseDetail() {
       </Card>
 
       {user?.role === 'teacher' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Course Materials</CardTitle>
-            <CardDescription>
-              Manage presentations and documents for this course.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className={isExtractionInProgress ? "opacity-50 pointer-events-none" : ""}>
-              <FileUpload onUpload={handleUpload} disabled={isExtractionInProgress} />
-            </div>
-            
-            {isExtractionInProgress && (
-              <Alert className="bg-muted/50">
+        <Tabs defaultValue="materials" className="w-full">
+          <TabsList>
+            <TabsTrigger value="materials">Materials</TabsTrigger>
+            <TabsTrigger value="normalization">Concept normalization</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="materials">
+            <Card>
+              <CardHeader>
+                <CardTitle>Course Materials</CardTitle>
+                <CardDescription>
+                  Manage presentations and documents for this course.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className={isExtractionInProgress ? "opacity-50 pointer-events-none" : ""}>
+                  <FileUpload onUpload={handleUpload} disabled={isExtractionInProgress} />
+                </div>
+                
+                {isExtractionInProgress && (
+                  <Alert className="bg-muted/50">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>File Management Locked</AlertTitle>
+                    <AlertDescription>
+                      You cannot upload or delete files while data extraction is in progress.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium">Files</h3>
+                      {isExtractionInProgress && (
+                        <span className="text-xs text-muted-foreground">Updating…</span>
+                      )}
+                    </div>
+                    <CourseMaterialsTable
+                      courseId={course.id}
+                      refreshTrigger={refreshTrigger}
+                      disabled={isExtractionInProgress}
+                      poll={isExtractionInProgress}
+                      pollIntervalMs={1500}
+                      onFilesChange={handleFilesChange}
+                      onProgressChange={handleProgressChange}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="normalization">
+            {course.extraction_status !== 'finished' && (
+              <Alert className="mb-4 bg-muted/50">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>File Management Locked</AlertTitle>
+                <AlertTitle>Extraction required</AlertTitle>
                 <AlertDescription>
-                  You cannot upload or delete files while data extraction is in progress.
+                  Run extraction first so the concept bank is populated for this course.
                 </AlertDescription>
               </Alert>
             )}
-
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium">Per-file status</h3>
-                  {isExtractionInProgress && (
-                    <span className="text-xs text-muted-foreground">Updating…</span>
-                  )}
-                </div>
-                <PresentationStatusTable
-                  courseId={course.id}
-                  refreshTrigger={refreshTrigger}
-                  poll={isExtractionInProgress}
-                  pollIntervalMs={1500}
-                />
-              </div>
-
-              <div className="border-t pt-6">
-                <PresentationList
-                  courseId={course.id}
-                  refreshTrigger={refreshTrigger}
-                  disabled={isExtractionInProgress}
-                  onFilesChange={(files) => setPresentationCount(files.length)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <NormalizationDashboard
+              courseId={course.id}
+              disabled={course.extraction_status !== 'finished'}
+            />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

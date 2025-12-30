@@ -19,3 +19,8 @@ dependencies = [
     "pydantic>=2.0.0",
     "python-docx>=1.2.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+]

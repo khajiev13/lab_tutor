@@ -34,3 +34,5 @@ def test_handle_docx_bytes_extracts_text():
 def test_handle_docx_bytes_invalid_raises():
     with pytest.raises(ValueError):
         handle_docx_bytes(b"not-a-zip")
+
+

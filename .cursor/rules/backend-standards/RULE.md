@@ -23,9 +23,16 @@ globs:
 
 ## 🧩 Conventions
 
-- **Type hints**: use modern syntax (`str | None`, `list[str]`).
+- **Python 3 best practices (required)**:
+  - Prefer idiomatic, modern Python 3 (readable, explicit, small functions, clear naming).
+  - Avoid dynamic/implicit types when a precise type is known.
+- **Type hints (required)**: add type annotations everywhere (functions, methods, class attributes), using modern syntax (`str | None`, `list[str]`).
 - **ORM**: use SQLAlchemy 2.0 style (`Mapped`, `mapped_column`, `DeclarativeBase`).
-- **Validation**: use Pydantic v2 models (`ConfigDict(from_attributes=True)` for ORM mode).
+- **Pydantic everywhere (required)**:
+  - Use **Pydantic v2 models** for validation and data transport across layers (DTOs), not bare `dict`/`Any`.
+  - **API boundaries** must use Pydantic models: request bodies, responses, and error payloads.
+  - **Internal data contracts** should be Pydantic models too (e.g., service inputs/outputs), unless a domain entity is used directly.
+  - For ORM mode use `ConfigDict(from_attributes=True)`.
 - **Dependency injection**:
   - Use `Depends()` to inject Services into Routes
   - Inject Repositories into Services (don’t query DB directly from routes)

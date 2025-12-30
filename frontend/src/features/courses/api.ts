@@ -91,4 +91,7 @@ export const presentationsApi = {
   delete: async (courseId: number, filename: string): Promise<void> => {
     await api.delete(`/courses/${courseId}/presentations/${filename}`);
   },
+  deleteAll: async (courseId: number): Promise<void> => {
+    await api.delete(`/courses/${courseId}/presentations`);
+  },
 };

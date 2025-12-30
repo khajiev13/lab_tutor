@@ -8,6 +8,7 @@ import Register from '@/features/auth/pages/Register';
 import Dashboard from '@/features/dashboard/pages/Dashboard';
 import TeacherCourses from '@/features/courses/pages/TeacherCourses';
 import TeacherCourseDetail from '@/features/courses/pages/TeacherCourseDetail';
+import MergeReviewPage from '@/features/normalization/pages/MergeReviewPage';
 import Profile from '@/features/auth/pages/Profile';
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +19,7 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <div className="flex flex-1 flex-col p-6">
+        <div className="flex min-w-0 flex-1 flex-col p-6">
           {children}
         </div>
       </SidebarInset>
@@ -109,6 +110,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TeacherCourseDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id/reviews/:reviewId"
+        element={
+          <ProtectedRoute>
+            <MergeReviewPage />
           </ProtectedRoute>
         }
       />

@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import io
 import zipfile
-from dataclasses import dataclass
+from typing import Literal
 from xml.etree import ElementTree as ET
 
+from pydantic import BaseModel
 
-@dataclass(frozen=True)
-class FileDispatchResult:
-    kind: str  # "txt" | "docx" | "ppt" | "other"
+FileKind = Literal["txt", "docx", "ppt", "other"]
+
+
+class FileDispatchResult(BaseModel):
+    kind: FileKind
     content_type: str | None
 
 

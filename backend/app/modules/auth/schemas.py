@@ -30,7 +30,7 @@ class UserLogin(BaseModel):
     password: str
 
     @field_validator("email")
-    def email_must_not_be_empty(cls, v):
+    def email_must_not_be_empty(cls, v: EmailStr) -> EmailStr:
         if not v or v.strip() == "":
             raise ValueError("Email must not be empty")
         if "@" not in v:

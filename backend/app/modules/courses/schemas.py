@@ -42,3 +42,12 @@ class CourseFileRead(BaseModel):
     processed_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UploadPresentationsResponse(BaseModel):
+    uploaded_files: list[str]
+
+
+class StartExtractionResponse(BaseModel):
+    message: str
+    status: ExtractionStatus
