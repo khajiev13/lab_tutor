@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -185,7 +186,7 @@ class CourseRepository:
         course_file_id: int,
         status: FileProcessingStatus,
         *,
-        processed_at=None,
+        processed_at: datetime | None = None,
         last_error: str | None = None,
     ) -> CourseFile:
         course_file = self.db.get(CourseFile, course_file_id)

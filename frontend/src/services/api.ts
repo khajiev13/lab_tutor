@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+// In production, this should be configured in Azure Static Web Apps configuration as VITE_API_URL.
+// Example: https://backend.mangoocean-d0c97d4f.westus2.azurecontainerapps.io
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const api = axios.create({

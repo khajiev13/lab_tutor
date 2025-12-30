@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import LiteralString
 
+from neo4j import ManagedTransaction
+from neo4j import Session as Neo4jSession
+
 UPSERT_CLASS: LiteralString = """
 MERGE (c:CLASS {id: $id})
 SET
@@ -37,7 +40,9 @@ DETACH DELETE c
 
 
 class CourseGraphRepository:
-    def __init__(self, session):
+    _session: Neo4jSession
+
+    def __init__(self, session: Neo4jSession) -> None:
         self._session = session
 
     def upsert_course(
@@ -57,7 +62,7 @@ class CourseGraphRepository:
             "extraction_status": extraction_status,
         }
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> None:
             tx.run(UPSERT_CLASS, params).consume()
 
         self._session.execute_write(_tx)
@@ -65,7 +70,7 @@ class CourseGraphRepository:
     def link_teacher_teaches_class(self, *, teacher_id: int, course_id: int) -> None:
         params = {"teacher_id": teacher_id, "class_id": course_id}
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> None:
             tx.run(LINK_TEACHER_TEACHES_CLASS, params).consume()
 
         self._session.execute_write(_tx)
@@ -73,7 +78,7 @@ class CourseGraphRepository:
     def link_student_enrolled(self, *, student_id: int, course_id: int) -> None:
         params = {"student_id": student_id, "class_id": course_id}
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> None:
             tx.run(LINK_STUDENT_ENROLLED, params).consume()
 
         self._session.execute_write(_tx)
@@ -81,7 +86,7 @@ class CourseGraphRepository:
     def unlink_student_enrolled(self, *, student_id: int, course_id: int) -> None:
         params = {"student_id": student_id, "class_id": course_id}
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> None:
             tx.run(UNLINK_STUDENT_ENROLLED, params).consume()
 
         self._session.execute_write(_tx)
@@ -89,7 +94,7 @@ class CourseGraphRepository:
     def delete_course(self, *, course_id: int) -> None:
         params = {"class_id": course_id}
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> None:
             tx.run(DELETE_CLASS, params).consume()
 
         self._session.execute_write(_tx)

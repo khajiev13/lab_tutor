@@ -91,8 +91,43 @@ class DocumentLLMExtractor:
         raw_text = text or ""
         cleaned_text = self.preprocess_text(raw_text)
 
+        if len(cleaned_text.strip()) < 50:
+            # Common failure mode for scanned/image-only docx files: text extraction yields
+            # empty or near-empty content, and the LLM may return null which then triggers
+            # a confusing Pydantic `model_validate(None)` error.
+            msg = (
+                "No extractable text after preprocessing "
+                "(document may be scanned/image-only or contain mostly non-text content)."
+            )
+            return CompleteExtractionResult(
+                extraction=CanonicalExtractionResult(
+                    topic="Extraction Failed",
+                    summary="Extraction failed due to insufficient text content.",
+                    keywords=[
+                        "extraction",
+                        "failed",
+                        "insufficient",
+                        "text",
+                        "content",
+                    ],
+                    concepts=[],
+                ),
+                metadata=ExtractionMetadata(
+                    source_filename=source_filename,
+                    original_text_length=len(raw_text),
+                    processed_text_length=len(cleaned_text),
+                    model_used=settings.llm_model,
+                ),
+                success=False,
+                error_message=msg,
+            )
+
         try:
             raw: Any = self.chain.invoke({"text": cleaned_text})
+            if raw is None:
+                raise ValueError(
+                    "LLM returned empty response for structured extraction output"
+                )
             extraction: CanonicalExtractionResult = (
                 raw
                 if isinstance(raw, CanonicalExtractionResult)

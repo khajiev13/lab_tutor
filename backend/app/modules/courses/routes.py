@@ -6,7 +6,14 @@ from app.modules.auth.dependencies import (
 )
 from app.modules.auth.models import User, UserRole
 
-from .schemas import CourseCreate, CourseFileRead, CourseRead, EnrollmentRead
+from .schemas import (
+    CourseCreate,
+    CourseFileRead,
+    CourseRead,
+    EnrollmentRead,
+    StartExtractionResponse,
+    UploadPresentationsResponse,
+)
 from .service import CourseService, get_course_service
 
 router = APIRouter(prefix="/courses", tags=["courses"])
@@ -93,7 +100,11 @@ def delete_course(
     service.delete_course(course_id, teacher)
 
 
-@router.post("/{course_id}/presentations", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{course_id}/presentations",
+    response_model=UploadPresentationsResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def upload_presentations(
     course_id: int,
     files: list[UploadFile] = File(...),
@@ -101,7 +112,7 @@ async def upload_presentations(
     teacher: User = Depends(require_role(UserRole.TEACHER)),
 ):
     uploaded_urls = await service.upload_presentations(course_id, files, teacher)
-    return {"uploaded_files": uploaded_urls}
+    return UploadPresentationsResponse(uploaded_files=uploaded_urls)
 
 
 @router.get("/{course_id}/presentations", response_model=list[str])
@@ -143,7 +154,11 @@ async def delete_all_presentations(
     await service.delete_all_presentations(course_id, teacher)
 
 
-@router.post("/{course_id}/extract", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/{course_id}/extract",
+    response_model=StartExtractionResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def start_extraction(
     course_id: int,
     background_tasks: BackgroundTasks,
@@ -151,4 +166,6 @@ async def start_extraction(
     teacher: User = Depends(require_role(UserRole.TEACHER)),
 ):
     extraction_status = service.start_extraction(course_id, teacher, background_tasks)
-    return {"message": "Extraction started", "status": extraction_status}
+    return StartExtractionResponse(
+        message="Extraction started", status=extraction_status
+    )

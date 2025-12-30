@@ -83,7 +83,9 @@ def test_start_extraction(client, teacher_auth_headers):
     assert get_res.json()["extraction_status"] in ("in_progress", "finished", "failed")
 
 
-def test_upload_presentation_locked(client, teacher_auth_headers, mock_blob_service):
+def test_upload_presentation_locked(
+    client, teacher_auth_headers, mock_blob_service, monkeypatch
+):
     # Create course
     create_res = client.post(
         "/courses",
@@ -91,6 +93,19 @@ def test_upload_presentation_locked(client, teacher_auth_headers, mock_blob_serv
         headers=teacher_auth_headers,
     )
     course_id = create_res.json()["id"]
+
+    # Upload at least one pending file so extraction transitions to IN_PROGRESS.
+    client.post(
+        f"/courses/{course_id}/presentations",
+        files={"files": ("seed.txt", b"seed content", "text/plain")},
+        headers=teacher_auth_headers,
+    )
+
+    # Make the background task a no-op so the course stays IN_PROGRESS deterministically.
+    monkeypatch.setattr(
+        "app.modules.courses.service.run_course_extraction_background",
+        lambda *args, **kwargs: None,
+    )
 
     # Start extraction
     client.post(f"/courses/{course_id}/extract", headers=teacher_auth_headers)
@@ -106,7 +121,9 @@ def test_upload_presentation_locked(client, teacher_auth_headers, mock_blob_serv
     assert "extraction is in progress" in response.json()["detail"]
 
 
-def test_delete_presentation_locked(client, teacher_auth_headers, mock_blob_service):
+def test_delete_presentation_locked(
+    client, teacher_auth_headers, mock_blob_service, monkeypatch
+):
     # Create course
     create_res = client.post(
         "/courses",
@@ -114,6 +131,16 @@ def test_delete_presentation_locked(client, teacher_auth_headers, mock_blob_serv
         headers=teacher_auth_headers,
     )
     course_id = create_res.json()["id"]
+
+    client.post(
+        f"/courses/{course_id}/presentations",
+        files={"files": ("seed.txt", b"seed content", "text/plain")},
+        headers=teacher_auth_headers,
+    )
+    monkeypatch.setattr(
+        "app.modules.courses.service.run_course_extraction_background",
+        lambda *args, **kwargs: None,
+    )
 
     # Start extraction
     client.post(f"/courses/{course_id}/extract", headers=teacher_auth_headers)
@@ -215,7 +242,7 @@ def test_join_course(client, teacher_auth_headers, student_auth_headers):
 
 
 def test_delete_all_presentations_locked(
-    client, teacher_auth_headers, mock_blob_service
+    client, teacher_auth_headers, mock_blob_service, monkeypatch
 ):
     # Create course
     create_res = client.post(
@@ -224,6 +251,16 @@ def test_delete_all_presentations_locked(
         headers=teacher_auth_headers,
     )
     course_id = create_res.json()["id"]
+
+    client.post(
+        f"/courses/{course_id}/presentations",
+        files={"files": ("seed.txt", b"seed content", "text/plain")},
+        headers=teacher_auth_headers,
+    )
+    monkeypatch.setattr(
+        "app.modules.courses.service.run_course_extraction_background",
+        lambda *args, **kwargs: None,
+    )
 
     # Start extraction
     client.post(f"/courses/{course_id}/extract", headers=teacher_auth_headers)

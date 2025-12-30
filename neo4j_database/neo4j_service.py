@@ -38,6 +38,45 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+def normalize_concept_name(concept_name: str) -> str:
+    """Normalize concept names to canonical lowercase forms.
+
+    This is used to enforce a stable identity for CONCEPT nodes across insertions.
+    """
+    if not concept_name:
+        return concept_name
+
+    original = concept_name.strip()
+
+    # Remove common redundant suffixes and patterns
+    redundant_patterns = [
+        r"\s+(Strategy|Strategies)$",
+        r"\s+(Model|Models)$",
+        r"\s+(Framework|Frameworks)$",
+        r"\s+(System|Systems)$",
+        r"\s+(Architecture|Architectures)$",
+        r"\s+(Algorithm|Algorithms)$",
+        r"\s+(Method|Methods)$",
+        r"\s+(Technique|Techniques)$",
+        r"\s+(Approach|Approaches)$",
+        r"\s+(Implementation|Implementations)$",
+        r"\s+(Programming|Processing)$",
+        r"\s+(Computing|Computation)$",
+        r"\s+Crawling\s+Strategy$",  # Specific to web crawler examples
+        r"\s+Analysis\s+(Framework|Model)$",
+    ]
+
+    normalized = original
+    for pattern in redundant_patterns:
+        normalized = re.sub(pattern, "", normalized, flags=re.IGNORECASE)
+
+    # Clean up extra whitespace and enforce lowercase
+    normalized = re.sub(r"\s+", " ", normalized).strip().casefold()
+
+    # If normalization resulted in empty, fall back to the lowercased original
+    return normalized if normalized else original.casefold()
+
+
 class Neo4jService:
     """Modern Neo4j service for topic-based knowledge graph operations with vector search."""
     
@@ -232,27 +271,30 @@ class Neo4jService:
             # Special handling for CONCEPT nodes with relationship-centric approach
             if node_type == 'CONCEPT':
                 concept_name = properties.get('name', '')
-                if concept_name in concept_name_to_node:
+                canonical_name = normalize_concept_name(concept_name)
+                if canonical_name in concept_name_to_node:
                     # Concept already exists, just map this node_id to the existing node
                     # Contextual definitions will be stored in MENTIONS relationships
-                    existing_node = concept_name_to_node[concept_name]
+                    existing_node = concept_name_to_node[canonical_name]
                     node_map[node_id] = existing_node
                     continue
                 else:
                     # New concept, use concept name as the ID for consistency
                     # Remove any manual 'id' from properties to avoid redundancy
                     clean_properties = {k: v for k, v in properties.items() if k != 'id'}
+                    clean_properties['name'] = canonical_name
 
                     node = GraphNode(
-                        id=concept_name,  # Use name as ID for concepts
+                        id=canonical_name,  # Use canonical lowercase name as ID for concepts
                         type=node_type,
                         properties=clean_properties
                     )
                     nodes.append(node)
                     # Map both the original node_id AND the concept name to this node
                     node_map[node_id] = node
-                    node_map[concept_name] = node  # Also map concept name for relationships
-                    concept_name_to_node[concept_name] = node
+                    node_map[concept_name] = node  # Map original (possibly mixed case) name
+                    node_map[canonical_name] = node  # Map canonical name for relationships
+                    concept_name_to_node[canonical_name] = node
             else:
                 # Regular node (e.g., TEACHER_UPLOADED_DOCUMENT, QUIZ_QUESTION)
                 node = GraphNode(
@@ -1111,37 +1153,7 @@ class Neo4jService:
         Returns:
             Normalized canonical concept name
         """
-        if not concept_name:
-            return concept_name
-
-        # Remove common redundant suffixes and patterns
-        redundant_patterns = [
-            r'\s+(Strategy|Strategies)$',
-            r'\s+(Model|Models)$',
-            r'\s+(Framework|Frameworks)$',
-            r'\s+(System|Systems)$',
-            r'\s+(Architecture|Architectures)$',
-            r'\s+(Algorithm|Algorithms)$',
-            r'\s+(Method|Methods)$',
-            r'\s+(Technique|Techniques)$',
-            r'\s+(Approach|Approaches)$',
-            r'\s+(Implementation|Implementations)$',
-            r'\s+(Programming|Processing)$',
-            r'\s+(Computing|Computation)$',
-            r'\s+Crawling\s+Strategy$',  # Specific to web crawler examples
-            r'\s+Analysis\s+(Framework|Model)$'
-        ]
-
-        normalized = concept_name.strip()
-
-        for pattern in redundant_patterns:
-            normalized = re.sub(pattern, '', normalized, flags=re.IGNORECASE)
-
-        # Clean up extra whitespace
-        normalized = re.sub(r'\s+', ' ', normalized).strip()
-
-        # Return original if normalization resulted in empty string
-        return normalized if normalized else concept_name
+        return normalize_concept_name(concept_name)
 
     def insert_graph_data(self, graph_data: Neo4jGraphData, source_file: str) -> Neo4jInsertionResult:
         """

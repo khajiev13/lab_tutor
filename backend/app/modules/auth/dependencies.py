@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi_users import BaseUserManager, FastAPIUsers, IntegerIDMixin
@@ -25,7 +25,9 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
     reset_password_token_secret = SECRET
     verification_token_secret = SECRET
 
-    async def on_after_register(self, user: User, request: Request | None = None):
+    async def on_after_register(
+        self, user: User, request: Request | None = None
+    ) -> None:
         if request is None:
             return
 
@@ -48,8 +50,11 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
             logger.exception("Neo4j user upsert failed after register")
 
     async def on_after_update(
-        self, user: User, update_dict: dict, request: Request | None = None
-    ):
+        self,
+        user: User,
+        update_dict: dict[str, object],
+        request: Request | None = None,
+    ) -> None:
         if request is None:
             return
 
@@ -73,20 +78,24 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
 
     async def on_after_forgot_password(
         self, user: User, token: str, request: Request | None = None
-    ):
+    ) -> None:
         logger.info("User %s requested password reset", user.id)
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Request | None = None
-    ):
+    ) -> None:
         logger.info("Verification requested for user %s", user.id)
 
 
-async def get_user_db(session: AsyncSession = Depends(get_async_db)):
+async def get_user_db(
+    session: AsyncSession = Depends(get_async_db),
+) -> AsyncIterator[SQLAlchemyUserDatabase[User, int]]:
     yield SQLAlchemyUserDatabase(session, User)
 
 
-async def get_user_manager(user_db: SQLAlchemyUserDatabase = Depends(get_user_db)):
+async def get_user_manager(
+    user_db: SQLAlchemyUserDatabase[User, int] = Depends(get_user_db),
+) -> AsyncIterator[UserManager]:
     yield UserManager(user_db)
 
 

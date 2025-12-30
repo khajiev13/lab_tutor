@@ -31,4 +31,25 @@ If `LAB_TUTOR_LLM_*` is not set, the backend will fall back to:
 - `XIAO_CASE_API_BASE` / `XIAOCASE_API_BASE`
 - `XIAO_CASE_MODEL` / `XIAOCASE_MODEL`
 
+#### LangSmith (observability; optional)
+
+If you want **LangSmith traces** for selected parts of the backend (e.g. concept normalization),
+set:
+
+- `LAB_TUTOR_LANGSMITH_API_KEY`
+- `LAB_TUTOR_LANGSMITH_PROJECT` (default: `lab-tutor-backend`)
+
+Notes:
+- These map to the standard LangSmith/LangChain environment variables (`LANGSMITH_*` / `LANGCHAIN_*`)
+  at runtime.
+- If `LAB_TUTOR_LANGSMITH_API_KEY` is not set, tracing is disabled.
+
+
+
+
+
+
+
+
+
 

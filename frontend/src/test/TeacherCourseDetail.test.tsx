@@ -38,16 +38,38 @@ vi.mock('../components/FileUpload', () => ({
   ),
 }));
 
-vi.mock('../components/PresentationList', () => ({
-  PresentationList: ({ disabled, onFilesChange }: { disabled: boolean; onFilesChange?: (files: string[]) => void }) => {
-    // Simulate the list being loaded and informing the parent.
+vi.mock('../components/CourseMaterialsTable', () => ({
+  CourseMaterialsTable: ({
+    disabled,
+    onFilesChange,
+  }: {
+    disabled: boolean;
+    onFilesChange?: (files: string[]) => void;
+  }) => {
+    // Simulate the table being loaded and informing the parent.
     useEffect(() => {
       onFilesChange?.(mockPresentationFiles);
     }, [onFilesChange]);
     return (
-      <div data-testid="presentation-list" data-disabled={disabled}>Presentation List</div>
+      <div data-testid="course-materials-table" data-disabled={disabled}>
+        Course Materials Table
+      </div>
     );
   },
+}));
+
+vi.mock('../features/normalization/components/NormalizationDashboard', () => ({
+  NormalizationDashboard: ({
+    courseId,
+    disabled,
+  }: {
+    courseId: number;
+    disabled?: boolean;
+  }) => (
+    <div data-testid="normalization-dashboard" data-course-id={courseId} data-disabled={disabled}>
+      Normalization Dashboard
+    </div>
+  ),
 }));
 
 const mockCourse = {
@@ -133,7 +155,7 @@ describe('TeacherCourseDetail', () => {
 
     // Check if child components received disabled prop
     const upload = screen.getByTestId('file-upload');
-    const list = screen.getByTestId('presentation-list');
+    const list = screen.getByTestId('course-materials-table');
 
     expect(upload).toHaveAttribute('data-disabled', 'true');
     expect(list).toHaveAttribute('data-disabled', 'true');

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 
@@ -58,7 +56,14 @@ class CompleteExtractionResult(BaseModel):
 class ExtractionRunResult(BaseModel):
     """High-level runtime status for an extraction run (multi-file)."""
 
+    class FileError(BaseModel):
+        """A single per-file failure entry."""
+
+        file_id: int | None = None
+        filename: str | None = None
+        error: str
+
     course_id: int
     processed_files: int = 0
     failed_files: int = 0
-    errors: list[dict[str, Any]] = Field(default_factory=list)
+    errors: list[FileError] = Field(default_factory=list)

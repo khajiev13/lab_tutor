@@ -1,6 +1,8 @@
 import logging
+from collections.abc import Callable
 
 from fastapi import BackgroundTasks, Depends, HTTPException, UploadFile, status
+from neo4j import Session as Neo4jSession
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -31,7 +33,7 @@ def get_course_repository(db: Session = Depends(get_db)) -> CourseRepository:
 
 
 def get_course_graph_repository(
-    neo4j_session=Depends(get_neo4j_session),
+    neo4j_session: Neo4jSession | None = Depends(get_neo4j_session),
 ) -> CourseGraphRepository | None:
     if neo4j_session is None:
         return None
@@ -39,7 +41,7 @@ def get_course_graph_repository(
 
 
 def get_document_extraction_graph_repository(
-    neo4j_session=Depends(get_neo4j_session),
+    neo4j_session: Neo4jSession | None = Depends(get_neo4j_session),
 ) -> DocumentExtractionGraphRepository | None:
     if neo4j_session is None:
         return None
@@ -47,24 +49,28 @@ def get_document_extraction_graph_repository(
 
 
 class CourseService:
+    _repo: CourseRepository
+    _graph_repo: CourseGraphRepository | None
+    _document_graph_repo: DocumentExtractionGraphRepository | None
+
     def __init__(
         self,
         repo: CourseRepository,
         graph_repo: CourseGraphRepository | None,
         document_graph_repo: DocumentExtractionGraphRepository | None,
-    ):
-        self.repo = repo
-        self.graph_repo = graph_repo
-        self.document_graph_repo = document_graph_repo
+    ) -> None:
+        self._repo = repo
+        self._graph_repo = graph_repo
+        self._document_graph_repo = document_graph_repo
 
     def _commit_sql(self) -> None:
-        self.repo.db.commit()
+        self._repo.db.commit()
 
     def _rollback_sql(self) -> None:
-        self.repo.db.rollback()
+        self._repo.db.rollback()
 
-    def _run_graph(self, fn, *, detail: str) -> None:
-        if self.graph_repo is None:
+    def _run_graph(self, fn: Callable[[], object], *, detail: str) -> None:
+        if self._graph_repo is None:
             return
         try:
             fn()
@@ -76,8 +82,8 @@ class CourseService:
                 detail=detail,
             ) from e
 
-    def _run_doc_graph(self, fn, *, detail: str) -> None:
-        if self.document_graph_repo is None:
+    def _run_doc_graph(self, fn: Callable[[], object], *, detail: str) -> None:
+        if self._document_graph_repo is None:
             return
         try:
             fn()
@@ -89,6 +95,39 @@ class CourseService:
                 detail=detail,
             ) from e
 
+    def _compute_extraction_status_from_files(
+        self, files: list[CourseFile]
+    ) -> ExtractionStatus:
+        if not files:
+            return ExtractionStatus.NOT_STARTED
+        if any(f.status == FileProcessingStatus.PROCESSING for f in files):
+            return ExtractionStatus.IN_PROGRESS
+        if all(f.status == FileProcessingStatus.PROCESSED for f in files):
+            return ExtractionStatus.FINISHED
+        return ExtractionStatus.FAILED
+
+    def _reconcile_course_extraction_status(self, course: Course) -> ExtractionStatus:
+        """Recompute extraction status from per-file statuses and persist if changed."""
+        files = list(self._repo.list_course_files(course.id))
+        computed = self._compute_extraction_status_from_files(files)
+        if course.extraction_status == computed:
+            return computed
+
+        course.extraction_status = computed
+        self._repo.update(course, commit=False)
+        self._run_graph(
+            lambda: self._graph_repo.upsert_course(
+                course_id=course.id,
+                title=course.title,
+                description=course.description,
+                created_at=course.created_at,
+                extraction_status=course.extraction_status.value,
+            ),
+            detail="Failed to sync extraction status to Neo4j",
+        )
+        self._commit_sql()
+        return computed
+
     def create_course(self, course_in: CourseCreate, teacher: User) -> Course:
         course = Course(
             title=course_in.title,
@@ -96,11 +135,11 @@ class CourseService:
             teacher_id=teacher.id,
         )
         try:
-            course = self.repo.create(course, commit=False)
+            course = self._repo.create(course, commit=False)
 
             self._run_graph(
                 lambda: (
-                    self.graph_repo.upsert_course(
+                    self._graph_repo.upsert_course(
                         course_id=course.id,
                         title=course.title,
                         description=course.description,
@@ -109,7 +148,7 @@ class CourseService:
                         if course.extraction_status
                         else None,
                     ),
-                    self.graph_repo.link_teacher_teaches_class(
+                    self._graph_repo.link_teacher_teaches_class(
                         teacher_id=teacher.id,
                         course_id=course.id,
                     ),
@@ -118,7 +157,7 @@ class CourseService:
             )
 
             self._commit_sql()
-            self.repo.db.refresh(course)
+            self._repo.db.refresh(course)
             return course
         except ValueError as e:
             self._rollback_sql()
@@ -128,13 +167,13 @@ class CourseService:
             ) from e
 
     def list_courses(self) -> list[Course]:
-        return list(self.repo.list())
+        return list(self._repo.list())
 
     def list_enrolled_courses(self, student: User) -> list[Course]:
-        return list(self.repo.list_enrolled(student.id))
+        return list(self._repo.list_enrolled(student.id))
 
     def get_course(self, course_id: int) -> Course:
-        course = self.repo.get_by_id(course_id)
+        course = self._repo.get_by_id(course_id)
         if not course:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Course not found"
@@ -144,7 +183,7 @@ class CourseService:
     def join_course(self, course_id: int, student: User) -> CourseEnrollment:
         course = self.get_course(course_id)  # Re-use logic
 
-        existing = self.repo.get_enrollment(course_id, student.id)
+        existing = self._repo.get_enrollment(course_id, student.id)
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -152,10 +191,10 @@ class CourseService:
             )
 
         enrollment = CourseEnrollment(course_id=course.id, student_id=student.id)
-        enrollment = self.repo.create_enrollment(enrollment, commit=False)
+        enrollment = self._repo.create_enrollment(enrollment, commit=False)
 
         self._run_graph(
-            lambda: self.graph_repo.link_student_enrolled(
+            lambda: self._graph_repo.link_student_enrolled(
                 student_id=student.id,
                 course_id=course.id,
             ),
@@ -163,20 +202,20 @@ class CourseService:
         )
 
         self._commit_sql()
-        self.repo.db.refresh(enrollment)
+        self._repo.db.refresh(enrollment)
         return enrollment
 
     def leave_course(self, course_id: int, student: User) -> None:
-        existing = self.repo.get_enrollment(course_id, student.id)
+        existing = self._repo.get_enrollment(course_id, student.id)
         if not existing:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Not enrolled in this course",
             )
 
-        self.repo.delete_enrollment(existing, commit=False)
+        self._repo.delete_enrollment(existing, commit=False)
         self._run_graph(
-            lambda: self.graph_repo.unlink_student_enrolled(
+            lambda: self._graph_repo.unlink_student_enrolled(
                 student_id=student.id,
                 course_id=course_id,
             ),
@@ -185,7 +224,7 @@ class CourseService:
         self._commit_sql()
 
     def get_enrollment(self, course_id: int, student: User) -> CourseEnrollment | None:
-        return self.repo.get_enrollment(course_id, student.id)
+        return self._repo.get_enrollment(course_id, student.id)
 
     def update_course(
         self, course_id: int, course_update: CourseCreate, teacher: User
@@ -203,10 +242,10 @@ class CourseService:
             course.description = course_update.description
 
         try:
-            course = self.repo.update(course, commit=False)
+            course = self._repo.update(course, commit=False)
 
             self._run_graph(
-                lambda: self.graph_repo.upsert_course(
+                lambda: self._graph_repo.upsert_course(
                     course_id=course.id,
                     title=course.title,
                     description=course.description,
@@ -219,7 +258,7 @@ class CourseService:
             )
 
             self._commit_sql()
-            self.repo.db.refresh(course)
+            self._repo.db.refresh(course)
             return course
         except ValueError as e:
             self._rollback_sql()
@@ -237,9 +276,19 @@ class CourseService:
                 detail="Not authorized to delete this course",
             )
 
-        self.repo.delete(course, commit=False)
+        self._repo.delete(course, commit=False)
+        # Delete extraction-created documents for this course and any concepts that become orphaned.
+        # This keeps the Neo4j "concept graph" clean when a course (and its documents) are removed.
+        self._run_doc_graph(
+            lambda: self._document_graph_repo.delete_documents_by_course_and_orphan_concepts(
+                course_id=course.id
+            )
+            if self._document_graph_repo is not None
+            else None,
+            detail="Failed to delete extracted documents from Neo4j",
+        )
         self._run_graph(
-            lambda: self.graph_repo.delete_course(course_id=course.id),
+            lambda: self._graph_repo.delete_course(course_id=course.id),
             detail="Failed to sync course deletion to Neo4j",
         )
         self._commit_sql()
@@ -276,7 +325,7 @@ class CourseService:
                 content = await file.read()
                 content_hash = blob_service.sha256_hex(content)
 
-                existing = self.repo.get_course_file_by_content_hash(
+                existing = self._repo.get_course_file_by_content_hash(
                     course.id, content_hash
                 )
                 if existing is not None:
@@ -289,7 +338,7 @@ class CourseService:
                     )
 
                 url = await blob_service.upload_bytes(content, destination_path)
-                self.repo.upsert_course_file(
+                self._repo.upsert_course_file(
                     CourseFile(
                         course_id=course.id,
                         filename=file.filename,
@@ -300,6 +349,9 @@ class CourseService:
                         processed_at=None,
                     )
                 )
+                # Adding new pending files means the course extraction is no longer complete.
+                # Recompute and persist so the UI shows "Start extraction" again.
+                self._reconcile_course_extraction_status(course)
                 uploaded_urls.append(url)
             except Exception as e:
                 if isinstance(e, HTTPException):
@@ -361,15 +413,15 @@ class CourseService:
 
         try:
             # Keep the SQL row until after graph cleanup so we can derive a stable document_id.
-            course_file = self.repo.get_course_file_by_blob_path(course.id, blob_path)
+            course_file = self._repo.get_course_file_by_blob_path(course.id, blob_path)
             await blob_service.delete_file(blob_path)
 
-            if course_file and self.document_graph_repo is not None:
+            if course_file and self._document_graph_repo is not None:
                 self._run_doc_graph(
                     lambda: [
                         # New stable IDs (by content hash) + legacy IDs (by CourseFile.id)
                         # so deletes work across old/new deployments.
-                        self.document_graph_repo.delete_document_and_orphan_concepts(
+                        self._document_graph_repo.delete_document_and_orphan_concepts(
                             document_id=document_id
                         )
                         for document_id in [
@@ -384,17 +436,18 @@ class CourseService:
                     ],
                     detail="Failed to delete extracted document from Neo4j",
                 )
-            elif self.document_graph_repo is not None:
+            elif self._document_graph_repo is not None:
                 # Fallback: if the SQL row is missing, delete by (course_id, filename).
                 self._run_doc_graph(
-                    lambda: self.document_graph_repo.delete_documents_by_course_and_filename_and_orphan_concepts(
+                    lambda: self._document_graph_repo.delete_documents_by_course_and_filename_and_orphan_concepts(
                         course_id=course.id,
                         source_filename=filename,
                     ),
                     detail="Failed to delete extracted document(s) from Neo4j",
                 )
 
-            self.repo.delete_course_file_by_blob_path(course.id, blob_path)
+            self._repo.delete_course_file_by_blob_path(course.id, blob_path)
+            self._reconcile_course_extraction_status(course)
         except HTTPException:
             # Preserve intended status codes (e.g., 503 on Neo4j failure).
             raise
@@ -429,15 +482,16 @@ class CourseService:
         try:
             await blob_service.delete_folder(folder_path)
 
-            if self.document_graph_repo is not None:
+            if self._document_graph_repo is not None:
                 self._run_doc_graph(
-                    lambda: self.document_graph_repo.delete_documents_by_course_and_orphan_concepts(
+                    lambda: self._document_graph_repo.delete_documents_by_course_and_orphan_concepts(
                         course_id=course.id
                     ),
                     detail="Failed to delete extracted documents from Neo4j",
                 )
 
-            self.repo.delete_course_files_by_prefix(course.id, folder_path)
+            self._repo.delete_course_files_by_prefix(course.id, folder_path)
+            self._reconcile_course_extraction_status(course)
         except HTTPException:
             # Preserve intended status codes (e.g., 503 on Neo4j failure).
             raise
@@ -449,7 +503,7 @@ class CourseService:
 
     def list_presentation_statuses(self, course_id: int) -> list[CourseFile]:
         self.get_course(course_id)
-        return list(self.repo.list_course_files(course_id))
+        return list(self._repo.list_course_files(course_id))
 
     def start_extraction(
         self, course_id: int, teacher: User, background_tasks: BackgroundTasks
@@ -468,11 +522,68 @@ class CourseService:
                 detail="Extraction already in progress",
             )
 
+        # Reconcile status with per-file statuses so we don't claim FINISHED when
+        # there are new pending/failed files.
+        files = list(self._repo.list_course_files(course.id))
+        computed = self._compute_extraction_status_from_files(files)
+        if computed != course.extraction_status:
+            course.extraction_status = computed
+            self._repo.update(course, commit=False)
+            self._run_graph(
+                lambda: self._graph_repo.upsert_course(
+                    course_id=course.id,
+                    title=course.title,
+                    description=course.description,
+                    created_at=course.created_at,
+                    extraction_status=course.extraction_status.value,
+                ),
+                detail="Failed to sync extraction status to Neo4j",
+            )
+            self._commit_sql()
+
+        if not files:
+            # Nothing to extract; keep behavior explicit for the UI.
+            course.extraction_status = ExtractionStatus.FAILED
+            self._repo.update(course, commit=False)
+            self._run_graph(
+                lambda: self._graph_repo.upsert_course(
+                    course_id=course.id,
+                    title=course.title,
+                    description=course.description,
+                    created_at=course.created_at,
+                    extraction_status=course.extraction_status.value,
+                ),
+                detail="Failed to sync extraction status to Neo4j",
+            )
+            self._commit_sql()
+            return course.extraction_status
+
+        has_pending_or_failed = any(
+            f.status in (FileProcessingStatus.PENDING, FileProcessingStatus.FAILED)
+            for f in files
+        )
+        if not has_pending_or_failed:
+            # Idempotent: everything is already processed.
+            course.extraction_status = ExtractionStatus.FINISHED
+            self._repo.update(course, commit=False)
+            self._run_graph(
+                lambda: self._graph_repo.upsert_course(
+                    course_id=course.id,
+                    title=course.title,
+                    description=course.description,
+                    created_at=course.created_at,
+                    extraction_status=course.extraction_status.value,
+                ),
+                detail="Failed to sync extraction status to Neo4j",
+            )
+            self._commit_sql()
+            return course.extraction_status
+
         course.extraction_status = ExtractionStatus.IN_PROGRESS
-        self.repo.update(course, commit=False)
+        self._repo.update(course, commit=False)
 
         self._run_graph(
-            lambda: self.graph_repo.upsert_course(
+            lambda: self._graph_repo.upsert_course(
                 course_id=course.id,
                 title=course.title,
                 description=course.description,

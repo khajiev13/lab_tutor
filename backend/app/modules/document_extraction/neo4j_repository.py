@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import LiteralString, TypedDict
+from typing import LiteralString, cast
+
+from neo4j import ManagedTransaction
+from neo4j import Session as Neo4jSession
+from pydantic import BaseModel
 
 
-class MentionInput(TypedDict):
+class MentionInput(BaseModel):
     name: str
     original_name: str
     definition: str
@@ -36,7 +41,7 @@ RETURN d
 UPSERT_MENTIONS: LiteralString = """
 MATCH (d:TEACHER_UPLOADED_DOCUMENT {id: $document_id})
 UNWIND $mentions AS mention
-MERGE (c:CONCEPT {name: mention.name})
+MERGE (c:CONCEPT {name: toLower(mention.name)})
 MERGE (d)-[m:MENTIONS]->(c)
 SET
     m.original_name = mention.original_name,
@@ -55,8 +60,8 @@ WITH d, collect(DISTINCT c) AS concepts
 DETACH DELETE d
 WITH concepts
 UNWIND concepts AS c
-OPTIONAL MATCH (c)--()
-WITH c, count(*) AS rels
+OPTIONAL MATCH (c)-[r]-()
+WITH c, count(r) AS rels
 WHERE rels = 0
 DELETE c
 RETURN count(c) AS concepts_deleted
@@ -68,14 +73,16 @@ MATCH (d:TEACHER_UPLOADED_DOCUMENT)
 WHERE d.course_id = $course_id AND d.source_filename = $source_filename
 OPTIONAL MATCH (d)-[:MENTIONS]->(c:CONCEPT)
 WITH collect(DISTINCT d) AS docs, collect(DISTINCT c) AS concepts
-FOREACH (d IN docs | DETACH DELETE d)
-WITH concepts
+WITH docs, concepts, size(docs) AS documents_deleted
+UNWIND docs AS d
+DETACH DELETE d
+WITH concepts, documents_deleted
 UNWIND concepts AS c
-OPTIONAL MATCH (c)--()
-WITH c, count(*) AS rels
+OPTIONAL MATCH (c)-[r]-()
+WITH c, count(r) AS rels, documents_deleted
 WHERE rels = 0
 DELETE c
-RETURN size(docs) AS documents_deleted, count(c) AS concepts_deleted
+RETURN documents_deleted, count(c) AS concepts_deleted
 """
 
 
@@ -84,21 +91,25 @@ MATCH (d:TEACHER_UPLOADED_DOCUMENT)
 WHERE d.course_id = $course_id
 OPTIONAL MATCH (d)-[:MENTIONS]->(c:CONCEPT)
 WITH collect(DISTINCT d) AS docs, collect(DISTINCT c) AS concepts
-FOREACH (d IN docs | DETACH DELETE d)
-WITH concepts
+WITH docs, concepts, size(docs) AS documents_deleted
+UNWIND docs AS d
+DETACH DELETE d
+WITH concepts, documents_deleted
 UNWIND concepts AS c
-OPTIONAL MATCH (c)--()
-WITH c, count(*) AS rels
+OPTIONAL MATCH (c)-[r]-()
+WITH c, count(r) AS rels, documents_deleted
 WHERE rels = 0
 DELETE c
-RETURN size(docs) AS documents_deleted, count(c) AS concepts_deleted
+RETURN documents_deleted, count(c) AS concepts_deleted
 """
 
 
 class DocumentExtractionGraphRepository:
     """Neo4j repository for extraction-created nodes and relationships."""
 
-    def __init__(self, session):
+    _session: Neo4jSession
+
+    def __init__(self, session: Neo4jSession) -> None:
         self._session = session
 
     def upsert_course_document(
@@ -128,7 +139,7 @@ class DocumentExtractionGraphRepository:
             "extracted_at": extracted_at.isoformat() if extracted_at else None,
         }
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> None:
             tx.run(UPSERT_COURSE_DOCUMENT, params).consume()
 
         self._session.execute_write(_tx)
@@ -137,16 +148,17 @@ class DocumentExtractionGraphRepository:
         self,
         *,
         document_id: str,
-        mentions: list[MentionInput],
+        mentions: Sequence[MentionInput],
         updated_at: datetime | None = None,
     ) -> int:
+        mentions_payload = [m.model_dump() for m in mentions]
         params = {
             "document_id": document_id,
-            "mentions": mentions,
+            "mentions": mentions_payload,
             "updated_at": (updated_at or datetime.utcnow()).isoformat(),
         }
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> int:
             record = tx.run(UPSERT_MENTIONS, params).single()
             return int(record["mentions_upserted"]) if record else 0
 
@@ -160,7 +172,7 @@ class DocumentExtractionGraphRepository:
         """
         params = {"document_id": document_id}
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> int:
             record = tx.run(DELETE_DOCUMENT_AND_ORPHAN_CONCEPTS, params).single()
             return int(record["concepts_deleted"]) if record else 0
 
@@ -175,7 +187,7 @@ class DocumentExtractionGraphRepository:
         """
         params = {"course_id": course_id, "source_filename": source_filename}
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> tuple[int, int]:
             record = tx.run(
                 DELETE_DOCUMENTS_BY_COURSE_AND_FILENAME_AND_ORPHAN_CONCEPTS, params
             ).single()
@@ -183,7 +195,7 @@ class DocumentExtractionGraphRepository:
                 return (0, 0)
             return (int(record["documents_deleted"]), int(record["concepts_deleted"]))
 
-        return tuple(self._session.execute_write(_tx))
+        return cast(tuple[int, int], self._session.execute_write(_tx))
 
     def delete_documents_by_course_and_orphan_concepts(
         self, *, course_id: int
@@ -194,7 +206,7 @@ class DocumentExtractionGraphRepository:
         """
         params = {"course_id": course_id}
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> tuple[int, int]:
             record = tx.run(
                 DELETE_DOCUMENTS_BY_COURSE_AND_ORPHAN_CONCEPTS, params
             ).single()
@@ -202,4 +214,4 @@ class DocumentExtractionGraphRepository:
                 return (0, 0)
             return (int(record["documents_deleted"]), int(record["concepts_deleted"]))
 
-        return tuple(self._session.execute_write(_tx))
+        return cast(tuple[int, int], self._session.execute_write(_tx))

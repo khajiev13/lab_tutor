@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import LiteralString
 
+from neo4j import ManagedTransaction
+from neo4j import Session as Neo4jSession
+
 UPSERT_USER: LiteralString = """
 MERGE (u:USER {id: $id})
 SET
@@ -20,7 +23,9 @@ RETURN u
 
 
 class UserGraphRepository:
-    def __init__(self, session):
+    _session: Neo4jSession
+
+    def __init__(self, session: Neo4jSession) -> None:
         self._session = session
 
     def upsert_user(
@@ -42,7 +47,7 @@ class UserGraphRepository:
             "created_at": created_at.isoformat() if created_at else None,
         }
 
-        def _tx(tx):
+        def _tx(tx: ManagedTransaction) -> None:
             tx.run(UPSERT_USER, params).consume()
 
         self._session.execute_write(_tx)
