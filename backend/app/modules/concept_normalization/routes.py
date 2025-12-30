@@ -189,7 +189,9 @@ def apply_normalization_review(
             status_code=status.HTTP_404_NOT_FOUND, detail="Review not found"
         )
 
-    approved = sql_repo.list_approved_proposals(review_id=review_id, course_id=course_id)
+    approved = sql_repo.list_approved_proposals(
+        review_id=review_id, course_id=course_id
+    )
     total_approved = len(approved)
 
     graph_repo = ConceptNormalizationRepository(neo4j_session)

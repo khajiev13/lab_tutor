@@ -55,6 +55,7 @@ def _derive_sync_and_async_urls(url: str) -> tuple[str, str]:
     # Fallback: assume the URL is usable for both engines.
     return url, url
 
+
 # Sync Engine
 DATABASE_URL, ASYNC_DATABASE_URL = _derive_sync_and_async_urls(RAW_DATABASE_URL)
 engine = create_engine(

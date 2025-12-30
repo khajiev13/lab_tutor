@@ -78,22 +78,21 @@ class ConceptNormalizationReviewSqlRepository:
         else:
             self._db.flush()
 
-    def get_review(self, *, review_id: str, course_id: int) -> NormalizationReview | None:
-        rows = (
-            self._db.scalars(
-                select(ConceptNormalizationReviewItem)
-                .where(
-                    ConceptNormalizationReviewItem.review_id == review_id,
-                    ConceptNormalizationReviewItem.course_id == course_id,
-                )
-                .order_by(
-                    ConceptNormalizationReviewItem.canonical.asc(),
-                    ConceptNormalizationReviewItem.concept_a.asc(),
-                    ConceptNormalizationReviewItem.concept_b.asc(),
-                )
+    def get_review(
+        self, *, review_id: str, course_id: int
+    ) -> NormalizationReview | None:
+        rows = self._db.scalars(
+            select(ConceptNormalizationReviewItem)
+            .where(
+                ConceptNormalizationReviewItem.review_id == review_id,
+                ConceptNormalizationReviewItem.course_id == course_id,
             )
-            .all()
-        )
+            .order_by(
+                ConceptNormalizationReviewItem.canonical.asc(),
+                ConceptNormalizationReviewItem.concept_a.asc(),
+                ConceptNormalizationReviewItem.concept_b.asc(),
+            )
+        ).all()
         if not rows:
             return None
 
@@ -176,21 +175,19 @@ class ConceptNormalizationReviewSqlRepository:
     def list_approved_proposals(
         self, *, review_id: str, course_id: int
     ) -> list[dict[str, object]]:
-        rows = (
-            self._db.scalars(
-                select(ConceptNormalizationReviewItem)
-                .where(
-                    ConceptNormalizationReviewItem.review_id == review_id,
-                    ConceptNormalizationReviewItem.course_id == course_id,
-                    ConceptNormalizationReviewItem.decision == MergeProposalDecision.APPROVED,
-                )
-                .order_by(
-                    ConceptNormalizationReviewItem.canonical.asc(),
-                    ConceptNormalizationReviewItem.proposal_id.asc(),
-                )
+        rows = self._db.scalars(
+            select(ConceptNormalizationReviewItem)
+            .where(
+                ConceptNormalizationReviewItem.review_id == review_id,
+                ConceptNormalizationReviewItem.course_id == course_id,
+                ConceptNormalizationReviewItem.decision
+                == MergeProposalDecision.APPROVED,
             )
-            .all()
-        )
+            .order_by(
+                ConceptNormalizationReviewItem.canonical.asc(),
+                ConceptNormalizationReviewItem.proposal_id.asc(),
+            )
+        ).all()
         out: list[dict[str, object]] = []
         for r in rows:
             out.append(
@@ -202,7 +199,9 @@ class ConceptNormalizationReviewSqlRepository:
             )
         return out
 
-    def delete_review(self, *, review_id: str, course_id: int, commit: bool = True) -> int:
+    def delete_review(
+        self, *, review_id: str, course_id: int, commit: bool = True
+    ) -> int:
         res = self._db.execute(
             delete(ConceptNormalizationReviewItem).where(
                 ConceptNormalizationReviewItem.review_id == review_id,
@@ -215,5 +214,3 @@ class ConceptNormalizationReviewSqlRepository:
         else:
             self._db.flush()
         return deleted
-
-

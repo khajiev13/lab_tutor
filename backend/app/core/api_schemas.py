@@ -22,5 +22,3 @@ class HealthCheckItem(BaseModel):
 class HealthResponse(BaseModel):
     status: OverallHealthStatus
     checks: list[HealthCheckItem]
-
-

@@ -27,12 +27,11 @@ from .repository import ConceptNormalizationRepository
 from .review_sql_repository import ConceptNormalizationReviewSqlRepository
 from .schemas import (
     ConceptMerge,
+    MergeBatch,
     MergeProposal,
     MergeProposalDecision,
-    MergeBatch,
     MergeValidationFeedback,
     NormalizationStreamEvent,
-    WeakMerge,
 )
 
 logger = logging.getLogger(__name__)
@@ -146,10 +145,7 @@ class ConceptNormalizationService:
         workflow.add_conditional_edges(
             "validation",
             self._convergence_checker,
-            {
-                "continue": "generation",
-                "complete": END
-            }
+            {"continue": "generation", "complete": END},
         )
         return workflow.compile()
 
@@ -166,7 +162,7 @@ class ConceptNormalizationService:
         """Generator node: propose merges on full concept list."""
         iteration = state["iteration_count"]
         concepts = state["concepts"]
-        
+
         if self._config.verbose_logging:
             logger.info(
                 f"ITERATION {iteration + 1}/{state['max_iterations']} - Generation Phase"
@@ -176,14 +172,14 @@ class ConceptNormalizationService:
         state["workflow_metadata"]["agent_activity"] = (
             f"Generator: iteration {iteration + 1}, proposing merges for {len(concepts)} concepts"
         )
-        
+
         # Build concept list (full list, not batched)
         concept_list = "\n".join([f"- {c['name']}" for c in concepts if c.get("name")])
-        
+
         # Format weak merges to avoid
         weak_merges_list = self._format_weak_merges(state["weak_merges"])
         num_weak = len(state["weak_merges"])
-        
+
         # Format prompt
         messages = CONCEPT_NORMALIZATION_PROMPT.format_messages(
             num_concepts=len(concepts),
@@ -191,29 +187,30 @@ class ConceptNormalizationService:
             num_weak=num_weak,
             weak_merges_list=weak_merges_list,
         )
-        
+
         if self._config.verbose_logging:
             logger.debug("Invoking LLM for merge generation")
-        
+
         try:
             # Use structured output - returns MergeBatch directly
             batch = self._merge_chain.invoke(messages)  # type: ignore
-            
+
             if self._config.verbose_logging:
                 logger.info(f"Generated {len(batch.merges)} merge proposals")  # type: ignore
-            
+
             return {
                 **state,
                 "new_merge_batch": batch.merges,  # type: ignore
             }
-        
+
         except Exception as e:
             logger.error(f"Error in merge generation: {e}")
             import traceback
+
             traceback.print_exc()
         return {
             **state,
-                "new_merge_batch": [],
+            "new_merge_batch": [],
         }
 
     @traceable(
@@ -229,26 +226,26 @@ class ConceptNormalizationService:
         """Evaluator node: validate merges, accumulate valid ones programmatically."""
         iteration = state["iteration_count"]
         new_merge_batch = state["new_merge_batch"]
-        
+
         all_merges = state["all_merges"]
         weak_merges = state["weak_merges"]
-        
+
         if not new_merge_batch:
             logger.warning("Nothing to validate")
             return {
                 **state,
                 "iteration_count": iteration + 1,
             }
-        
+
         if self._config.verbose_logging:
             logger.info(f"ITERATION {iteration + 1} - Validation Phase")
             logger.debug(f"Validating {len(new_merge_batch)} merge proposals")
-        
+
         state["workflow_metadata"]["last_phase"] = "validation"
         state["workflow_metadata"]["agent_activity"] = (
             f"Evaluator: iteration {iteration + 1}, validating {len(new_merge_batch)} proposals"
         )
-        
+
         # Get course_id from metadata (we'll need it for definitions)
         course_id = state["workflow_metadata"].get("course_id")
         if not course_id:
@@ -257,22 +254,22 @@ class ConceptNormalizationService:
                 **state,
                 "iteration_count": iteration + 1,
             }
-        
+
         # Validate merges
         feedback = self._validate_merges(course_id=course_id, batch=new_merge_batch)
-        
+
         # Process validation - accumulate weak merges first
         for weak_merge in feedback.weak_merges:
             key = make_merge_key(weak_merge.concept_a, weak_merge.concept_b)
             weak_merges[key] = weak_merge.w
-        
+
         # Calculate valid merges - filter against ALL accumulated weak merges
         valid_merges = []
         for m in new_merge_batch:
             key = make_merge_key(m.concept_a, m.concept_b)
             if key not in weak_merges:
                 valid_merges.append(m)
-        
+
         # Add to accumulated merges (auto-deduplicate)
         new_unique_merges = 0
         latest_merges: list[ConceptMerge] = []
@@ -282,14 +279,14 @@ class ConceptNormalizationService:
                 new_unique_merges += 1
                 latest_merges.append(merge)
             all_merges[key] = merge
-        
+
         if self._config.verbose_logging:
             logger.info(
                 f"Validation - Total: {feedback.total_validated}, "
                 f"Weak: {feedback.weak_count}, Valid: {len(valid_merges)}, "
                 f"New unique: {new_unique_merges}, Accumulated: {len(all_merges)}"
             )
-        
+
         # Update convergence metrics
         metrics = state["convergence_metrics"]
         metrics.update_merge_trends(
@@ -299,7 +296,7 @@ class ConceptNormalizationService:
             total_merges=len(all_merges),
             new_unique_merges=new_unique_merges,
         )
-        
+
         # Create iteration snapshot if history tracking is enabled
         new_history = state["iteration_history"]
         if self._config.enable_history_tracking:
@@ -311,7 +308,7 @@ class ConceptNormalizationService:
                 feedback=feedback,
             )
             new_history = new_history + [snapshot]
-        
+
         return {
             **state,
             "all_merges": all_merges,
@@ -324,61 +321,64 @@ class ConceptNormalizationService:
             "workflow_metadata": {
                 **state["workflow_metadata"],
                 "latest_merges": [
-                    {"concept_a": m.concept_a, "concept_b": m.concept_b, "canonical": m.canonical}
+                    {
+                        "concept_a": m.concept_a,
+                        "concept_b": m.concept_b,
+                        "canonical": m.canonical,
+                    }
                     for m in latest_merges
                 ],
                 "new_unique_merges": new_unique_merges,
             },
         }
-    
+
     def _convergence_checker(self, state: ConceptNormalizationState) -> str:
         """Check if we should continue or stop."""
         iteration = state["iteration_count"]
         max_iterations = state["max_iterations"]
         metrics = state["convergence_metrics"]
-        
+
         # Check max iterations
         if iteration >= max_iterations:
             metrics.is_converged = True
-            metrics.convergence_reason = f"Maximum iterations ({max_iterations}) reached"
+            metrics.convergence_reason = (
+                f"Maximum iterations ({max_iterations}) reached"
+            )
             if self._config.verbose_logging:
                 logger.info(f"CONVERGENCE: {metrics.convergence_reason}")
             return "complete"
-        
+
         # Check if last two iterations both had < 3 new unique merges
         trend = metrics.new_unique_merges_trend
-        if len(trend) >= 2:
-            if trend[-1] < 3 and trend[-2] < 3:
-                metrics.is_converged = True
-                metrics.convergence_reason = (
-                    f"Convergence achieved: < 3 new unique merges for 2 consecutive iterations"
+        if len(trend) >= 2 and trend[-1] < 3 and trend[-2] < 3:
+            metrics.is_converged = True
+            metrics.convergence_reason = "Convergence achieved: < 3 new unique merges for 2 consecutive iterations"
+            if self._config.verbose_logging:
+                logger.info(
+                    f"CONVERGENCE: {metrics.convergence_reason}, "
+                    f"Total merges: {len(state['all_merges'])}"
                 )
-                if self._config.verbose_logging:
-                    logger.info(
-                        f"CONVERGENCE: {metrics.convergence_reason}, "
-                        f"Total merges: {len(state['all_merges'])}"
-                    )
-                return "complete"
-        
+            return "complete"
+
         # Continue
         if self._config.verbose_logging:
             latest_new = trend[-1] if trend else 0
             logger.info(f"Continuing - New unique merges: {latest_new}")
-        
+
         return "continue"
-    
+
     def _format_weak_merges(self, weak_dict: dict[str, str]) -> str:
         """Format weak merges for prompt."""
         if not weak_dict:
             return "(none yet)"
-        
+
         weak_list = sorted(list(weak_dict.items()))
         formatted = []
         for i, (key, reason) in enumerate(weak_list, 1):
             concept_a, concept_b = parse_merge_key(key)
             formatted.append(f"{i}. {concept_a} + {concept_b}")
             formatted.append(f"   Reason: {reason}")
-        
+
         return "\n".join(formatted)
 
     @traceable(
@@ -499,9 +499,11 @@ class ConceptNormalizationService:
                 activity = str(
                     typed_state["workflow_metadata"].get("agent_activity") or ""
                 )
-                
+
                 # Extract latest merges from metadata
-                latest_merges_data = typed_state["workflow_metadata"].get("latest_merges", [])
+                latest_merges_data = typed_state["workflow_metadata"].get(
+                    "latest_merges", []
+                )
                 latest_merges = []
                 for m in latest_merges_data:
                     if isinstance(m, dict):
@@ -510,12 +512,17 @@ class ConceptNormalizationService:
                                 "concept_a": m.get("concept_a", ""),
                                 "concept_b": m.get("concept_b", ""),
                                 "canonical": m.get("canonical", ""),
-                                "variants": [m.get("concept_a", ""), m.get("concept_b", "")],
+                                "variants": [
+                                    m.get("concept_a", ""),
+                                    m.get("concept_b", ""),
+                                ],
                                 "r": "",
                             }
                         )
-                
-                new_unique = typed_state["workflow_metadata"].get("new_unique_merges", 0)
+
+                new_unique = typed_state["workflow_metadata"].get(
+                    "new_unique_merges", 0
+                )
 
                 yield NormalizationStreamEvent(
                     type="update",
@@ -523,7 +530,9 @@ class ConceptNormalizationService:
                     phase=(
                         "validation"
                         if last_phase == "validation"
-                        else ("generation" if last_phase == "generation" else "generation")
+                        else (
+                            "generation" if last_phase == "generation" else "generation"
+                        )
                     ),
                     agent_activity=activity,
                     concepts_count=len(typed_state["concepts"]),
@@ -544,23 +553,23 @@ class ConceptNormalizationService:
                 try:
                     review_id = f"normrev_{uuid.uuid4().hex}"
                     proposals = []
-                    
+
                     # Convert accumulated merges to proposals
                     for merge in last_state["all_merges"].values():
                         proposals.append(
-                        MergeProposal(
-                            id=f"mergeprop_{uuid.uuid4().hex}",
+                            MergeProposal(
+                                id=f"mergeprop_{uuid.uuid4().hex}",
                                 concept_a=merge.concept_a,
                                 concept_b=merge.concept_b,
                                 canonical=merge.canonical,
                                 variants=list(merge.variants),
                                 r=merge.r or "",
-                            decision=MergeProposalDecision.PENDING,
-                            comment="",
-                            applied=False,
+                                decision=MergeProposalDecision.PENDING,
+                                comment="",
+                                applied=False,
                             )
                         )
-                    
+
                     self._review_repo.replace_course_review(
                         course_id=int(course_id),
                         review_id=review_id,

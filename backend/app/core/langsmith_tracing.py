@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Iterable
+from collections.abc import Iterable
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -57,7 +57,9 @@ class ConditionalLangSmithTracingMiddleware:
         try:
             from langsmith.middleware import TracingMiddleware
         except Exception:
-            logger.exception("LangSmith TracingMiddleware import failed; tracing disabled")
+            logger.exception(
+                "LangSmith TracingMiddleware import failed; tracing disabled"
+            )
             self._inner = self.app
             return self._inner
 
@@ -72,5 +74,3 @@ class ConditionalLangSmithTracingMiddleware:
 
         inner = self._get_inner()
         await inner(scope, receive, send)
-
-

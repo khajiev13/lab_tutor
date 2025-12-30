@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, UniqueConstraint, Index
+from sqlalchemy import DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -56,5 +56,3 @@ class ConceptNormalizationReviewItem(Base):
     comment: Mapped[str] = mapped_column(Text, nullable=False, default="")
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     decided_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-

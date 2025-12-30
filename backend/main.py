@@ -9,20 +9,20 @@ from sqlalchemy import text
 
 # Import models to ensure they are registered with Base.metadata
 import app.modules.auth.models  # noqa
-import app.modules.courses.models  # noqa
 import app.modules.concept_normalization.review_sql_models  # noqa
+import app.modules.courses.models  # noqa
 from app.core.api_schemas import HealthCheckItem, HealthResponse, RootResponse
 from app.core.database import Base, engine
+from app.core.langsmith_tracing import (
+    ConditionalLangSmithTracingMiddleware,
+    configure_langsmith_env,
+)
 from app.core.neo4j import (
     create_neo4j_driver,
     initialize_neo4j_constraints,
     verify_neo4j_connectivity,
 )
 from app.core.settings import settings
-from app.core.langsmith_tracing import (
-    ConditionalLangSmithTracingMiddleware,
-    configure_langsmith_env,
-)
 from app.modules.auth import routes as auth_routes
 from app.modules.concept_normalization import routes as concept_normalization_routes
 from app.modules.courses import routes as course_routes
@@ -101,9 +101,7 @@ app.add_middleware(
 
 # Configure CORS
 origins = [
-    o.strip()
-    for o in (settings.cors_allow_origins or "").split(",")
-    if o.strip()
+    o.strip() for o in (settings.cors_allow_origins or "").split(",") if o.strip()
 ]
 
 app.add_middleware(

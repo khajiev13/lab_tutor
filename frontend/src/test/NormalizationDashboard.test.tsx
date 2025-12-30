@@ -1,5 +1,6 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { vi, type Mock } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 import { NormalizationDashboard } from '../features/normalization/components/NormalizationDashboard';
 import {
@@ -64,7 +65,11 @@ describe('NormalizationDashboard', () => {
       }
     );
 
-    render(<NormalizationDashboard courseId={1} />);
+    render(
+      <MemoryRouter>
+        <NormalizationDashboard courseId={1} />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Concept normalization')).toBeInTheDocument();
@@ -119,7 +124,14 @@ describe('NormalizationDashboard', () => {
       }
     );
 
-    render(<NormalizationDashboard courseId={1} />);
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<NormalizationDashboard courseId={1} />} />
+          <Route path="/courses/1/reviews/normrev_x" element={<div>Review page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Concept normalization')).toBeInTheDocument();
@@ -135,7 +147,7 @@ describe('NormalizationDashboard', () => {
     fireEvent.click(screen.getByText('Review merges'));
 
     await waitFor(() => {
-      expect(getNormalizationReview).toHaveBeenCalled();
+      expect(screen.getByText('Review page')).toBeInTheDocument();
     });
   });
 });

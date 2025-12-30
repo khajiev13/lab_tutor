@@ -150,3 +150,8 @@ backups/
 #Don't push the iteration logs
 knowledge_graph_builder/iteration_logs/*
 !frontend/src/lib
+
+#Don't push the knowledge graph builder 
+knowledge_graph_builder/
+#Don't push the neo4j_database
+neo4j_database/

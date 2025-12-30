@@ -154,4 +154,3 @@ class ApplyReviewResponse(BaseModel):
 class UpdateMergeDecisionsResponse(BaseModel):
     review_id: str
     updated: int
-

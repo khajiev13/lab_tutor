@@ -146,7 +146,9 @@ class ConceptNormalizationRepository:
         False if the operation was a no-op (e.g., no distinct variant nodes found).
         """
         canonical_lower = str(canonical or "").casefold()
-        variants_list = [str(v).casefold() for v in variants if isinstance(v, str) and v]
+        variants_list = [
+            str(v).casefold() for v in variants if isinstance(v, str) and v
+        ]
         if canonical_lower and canonical_lower not in variants_list:
             variants_list.append(canonical_lower)
         variants_list = sorted(set([v for v in variants_list if v]))

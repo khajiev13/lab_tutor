@@ -8,13 +8,11 @@ from neo4j import Session as Neo4jSession
 from sqlalchemy import select
 
 from app.core.neo4j import require_neo4j_session
-from app.modules.concept_normalization.schemas import (
-    ApplyReviewResponse,
-    MergeProposalDecision,
-    NormalizationReview,
-)
 from app.modules.concept_normalization.review_sql_models import (
     ConceptNormalizationReviewItem,
+)
+from app.modules.concept_normalization.schemas import (
+    MergeProposalDecision,
 )
 from main import app
 
@@ -103,7 +101,11 @@ def test_update_review_decisions(
             headers=teacher_auth_headers,
             json={
                 "decisions": [
-                    {"proposal_id": "mergeprop_1", "decision": "approved", "comment": ""}
+                    {
+                        "proposal_id": "mergeprop_1",
+                        "decision": "approved",
+                        "comment": "",
+                    }
                 ]
             },
         )
@@ -175,5 +177,3 @@ def test_apply_review(
         assert remaining == []
     finally:
         app.dependency_overrides.pop(require_neo4j_session, None)
-
-
