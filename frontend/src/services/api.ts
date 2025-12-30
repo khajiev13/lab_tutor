@@ -1,8 +1,11 @@
 import axios from 'axios';
 
-// In production, this should be configured in Azure Static Web Apps configuration as VITE_API_URL.
-// Example: https://backend.mangoocean-d0c97d4f.westus2.azurecontainerapps.io
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Production should never call localhost from the deployed site.
+// Prefer VITE_API_URL injected at build time; otherwise fall back to the known Azure backend FQDN.
+const DEFAULT_PROD_API_URL = 'https://backend.mangoocean-d0c97d4f.westus2.azurecontainerapps.io';
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? DEFAULT_PROD_API_URL : 'http://localhost:8000');
 
 const api = axios.create({
   baseURL: API_URL,
