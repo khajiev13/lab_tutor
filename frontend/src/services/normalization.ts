@@ -1,4 +1,7 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const DEFAULT_PROD_API_URL = 'https://backend.mangoocean-d0c97d4f.westus2.azurecontainerapps.io';
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? DEFAULT_PROD_API_URL : 'http://localhost:8000');
 
 export type NormalizationPhase = 'generation' | 'validation' | 'complete';
 export type NormalizationEventType = 'update' | 'complete' | 'error';
