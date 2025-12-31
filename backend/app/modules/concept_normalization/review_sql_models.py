@@ -54,5 +54,7 @@ class ConceptNormalizationReviewItem(Base):
         nullable=False,
     )
     comment: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     decided_by_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

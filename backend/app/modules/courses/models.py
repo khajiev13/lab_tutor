@@ -34,7 +34,7 @@ class Course(Base):
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     extraction_status: Mapped[ExtractionStatus] = mapped_column(
         SqlEnum(
@@ -67,7 +67,7 @@ class CourseEnrollment(Base):
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), nullable=False)
     student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     course: Mapped["Course"] = relationship(back_populates="enrollments")
@@ -90,7 +90,7 @@ class CourseFile(Base):
     blob_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     status: Mapped[FileProcessingStatus] = mapped_column(
@@ -103,6 +103,8 @@ class CourseFile(Base):
         nullable=False,
     )
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     course: Mapped["Course"] = relationship(back_populates="files")
