@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { getApiBaseUrl } from './api';
+
+const API_URL = getApiBaseUrl();
 
 export type NormalizationPhase = 'generation' | 'validation' | 'complete';
 export type NormalizationEventType = 'update' | 'complete' | 'error';
