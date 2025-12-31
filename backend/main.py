@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from sqlalchemy import text
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 # Import models to ensure they are registered with Base.metadata
 import app.modules.auth.models  # noqa
@@ -93,6 +94,10 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
 )
+
+# Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) from Azure Container Apps
+# This ensures FastAPI generates HTTPS URLs in redirects when behind a proxy
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # LangSmith tracing (scoped): only `/normalization/*` requests are traced.
 app.add_middleware(
