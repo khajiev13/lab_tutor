@@ -28,7 +28,7 @@ class User(SQLAlchemyBaseUserTable[int], Base):
         SqlEnum(UserRole, name="user_role"), nullable=False, default=UserRole.STUDENT
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
     courses: Mapped[list["Course"]] = relationship(
