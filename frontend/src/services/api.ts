@@ -3,12 +3,28 @@ import axios from 'axios';
 // Production should never call localhost from the deployed site.
 // Prefer VITE_API_URL injected at build time; otherwise fall back to the known Azure backend FQDN.
 const DEFAULT_PROD_API_URL = 'https://backend.mangoocean-d0c97d4f.westus2.azurecontainerapps.io';
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? DEFAULT_PROD_API_URL : 'http://localhost:8000');
+
+function normalizeApiUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, '');
+
+  // If the app is served over HTTPS, browsers will block HTTP API calls (mixed content).
+  // Auto-upgrade to https:// to be resilient against misconfigured env vars.
+  if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && trimmed.startsWith('http://')) {
+    return `https://${trimmed.slice('http://'.length)}`;
+  }
+
+  return trimmed;
+}
+
+export function getApiBaseUrl(): string {
+  const raw =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD ? DEFAULT_PROD_API_URL : 'http://localhost:8000');
+  return normalizeApiUrl(raw);
+}
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
