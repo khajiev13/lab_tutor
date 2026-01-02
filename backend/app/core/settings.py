@@ -17,7 +17,8 @@ class Settings(BaseSettings):
         description="JWT signing secret. Override in production via LAB_TUTOR_SECRET_KEY.",
     )
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60
+    access_token_expire_minutes: int = 15  # Short-lived access token
+    refresh_token_expire_days: int = 7  # Long-lived refresh token
     database_url: str = Field(
         default="sqlite:///./data/app.db",
         description="SQLAlchemy database URL",

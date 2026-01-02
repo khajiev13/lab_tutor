@@ -1,5 +1,6 @@
 import api from '@/services/api';
 import type { Course, CourseCreate, CourseFileRead, ExtractionStatus } from './types';
+import type { CourseGraphResponse, GraphNodeKind } from '@/features/graph/types';
 import {
   CourseFileDuplicateError,
   tryExtractContentHashFromDetail,
@@ -10,6 +11,10 @@ import axios from 'axios';
 export const coursesApi = {
   list: async (): Promise<Course[]> => {
     const response = await api.get<Course[]>('/courses/');
+    return response.data;
+  },
+  listMy: async (): Promise<Course[]> => {
+    const response = await api.get<Course[]>('/courses/my');
     return response.data;
   },
   listEnrolled: async (): Promise<Course[]> => {
@@ -45,6 +50,27 @@ export const coursesApi = {
   },
   getEnrollment: async (id: number): Promise<{ id: number } | null> => {
     const response = await api.get<{ id: number } | null>(`/courses/${id}/enrollment`);
+    return response.data;
+  },
+  getCourseGraph: async (
+    id: number,
+    params?: { max_documents?: number; max_concepts?: number }
+  ): Promise<CourseGraphResponse> => {
+    const response = await api.get<CourseGraphResponse>(`/courses/${id}/graph`, { params });
+    return response.data;
+  },
+  expandCourseGraph: async (
+    id: number,
+    params: {
+      node_kind: GraphNodeKind;
+      node_key?: string;
+      limit?: number;
+      max_concepts?: number;
+    }
+  ): Promise<CourseGraphResponse> => {
+    const response = await api.get<CourseGraphResponse>(`/courses/${id}/graph/expand`, {
+      params,
+    });
     return response.data;
   },
 };

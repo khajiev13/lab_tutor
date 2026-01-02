@@ -8,6 +8,7 @@ import Register from '@/features/auth/pages/Register';
 import Dashboard from '@/features/dashboard/pages/Dashboard';
 import TeacherCourses from '@/features/courses/pages/TeacherCourses';
 import TeacherCourseDetail from '@/features/courses/pages/TeacherCourseDetail';
+import CourseGraphPage from '@/features/graph/pages/CourseGraphPage';
 import MergeReviewPage from '@/features/normalization/pages/MergeReviewPage';
 import Profile from '@/features/auth/pages/Profile';
 
@@ -110,6 +111,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TeacherCourseDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id/graph"
+        element={
+          <ProtectedRoute>
+            <CourseGraphPage />
           </ProtectedRoute>
         }
       />
