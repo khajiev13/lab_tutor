@@ -169,6 +169,9 @@ class CourseService:
     def list_courses(self) -> list[Course]:
         return list(self._repo.list())
 
+    def list_teacher_courses(self, teacher: User) -> list[Course]:
+        return list(self._repo.list_by_teacher(teacher.id))
+
     def list_enrolled_courses(self, student: User) -> list[Course]:
         return list(self._repo.list_enrolled(student.id))
 

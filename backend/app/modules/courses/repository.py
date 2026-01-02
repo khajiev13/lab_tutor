@@ -31,6 +31,13 @@ class CourseRepository:
     def list(self) -> Sequence[Course]:
         return self.db.scalars(select(Course).order_by(Course.created_at.desc())).all()
 
+    def list_by_teacher(self, teacher_id: int) -> Sequence[Course]:
+        return self.db.scalars(
+            select(Course)
+            .where(Course.teacher_id == teacher_id)
+            .order_by(Course.created_at.desc())
+        ).all()
+
     def list_enrolled(self, student_id: int) -> Sequence[Course]:
         return self.db.scalars(
             select(Course)
