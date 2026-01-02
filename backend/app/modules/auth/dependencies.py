@@ -8,6 +8,8 @@ from fastapi_users.authentication import (
     BearerTransport,
     JWTStrategy,
 )
+import jwt
+from datetime import datetime, timedelta, timezone
 from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -106,6 +108,30 @@ def get_jwt_strategy() -> JWTStrategy:
     return JWTStrategy(
         secret=SECRET, lifetime_seconds=settings.access_token_expire_minutes * 60
     )
+
+
+def create_refresh_token(user_id: int) -> str:
+    """Create a refresh token for a user."""
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+    payload = {
+        "sub": str(user_id),
+        "exp": expire,
+        "type": "refresh",
+    }
+    return jwt.encode(payload, SECRET, algorithm=settings.algorithm)
+
+
+def verify_refresh_token(token: str) -> int | None:
+    """Verify and decode a refresh token, returning user_id if valid."""
+    try:
+        payload = jwt.decode(token, SECRET, algorithms=[settings.algorithm])
+        if payload.get("type") != "refresh":
+            return None
+        return int(payload.get("sub"))
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
 
 
 auth_backend = AuthenticationBackend(
