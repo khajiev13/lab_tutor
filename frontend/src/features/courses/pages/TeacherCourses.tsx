@@ -83,12 +83,19 @@ export default function TeacherCourses() {
 
   const fetchCourses = useCallback(async () => {
     try {
-      const [allCourses, enrolled] = await Promise.all([
-        coursesApi.list(),
-        user?.role === 'student' ? coursesApi.listEnrolled() : Promise.resolve([]),
-      ]);
-      setCourses(allCourses);
-      setEnrolledCourses(enrolled);
+      if (user?.role === 'teacher') {
+        // Teachers see only their own courses
+        const myCourses = await coursesApi.listMy();
+        setCourses(myCourses);
+      } else {
+        // Students see all courses and their enrollments
+        const [allCourses, enrolled] = await Promise.all([
+          coursesApi.list(),
+          coursesApi.listEnrolled(),
+        ]);
+        setCourses(allCourses);
+        setEnrolledCourses(enrolled);
+      }
     } catch (error) {
       toast.error('Failed to fetch courses');
       console.error(error);

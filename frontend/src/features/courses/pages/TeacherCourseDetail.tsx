@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2, LogIn, LogOut } from 'lucide-react';
+import { ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2, LogIn, LogOut, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -218,10 +218,12 @@ export default function TeacherCourseDetail() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Courses
         </Button>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Status:</span>
-          {getStatusBadge(course.extraction_status)}
-        </div>
+        {user?.role === 'teacher' && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Status:</span>
+            {getStatusBadge(course.extraction_status)}
+          </div>
+        )}
       </div>
 
       <Card>
@@ -241,6 +243,15 @@ export default function TeacherCourseDetail() {
                   <Play className="mr-2 h-4 w-4" />
                 )}
                 Start Data Extraction
+              </Button>
+            )}
+            {user?.role === 'teacher' && course.extraction_status === 'finished' && (
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/courses/${course.id}/graph`)}
+              >
+                <GitBranch className="mr-2 h-4 w-4" />
+                View knowledge graph
               </Button>
             )}
             {user?.role === 'student' && (
@@ -272,7 +283,7 @@ export default function TeacherCourseDetail() {
             {new Date(course.created_at).toLocaleDateString()}
           </div>
           
-          {isExtractionInProgress && (
+          {user?.role === 'teacher' && isExtractionInProgress && (
             <div className="mt-6 space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-blue-500 font-medium flex items-center">
@@ -298,7 +309,7 @@ export default function TeacherCourseDetail() {
             </div>
           )}
 
-          {course.extraction_status === 'failed' && (
+          {user?.role === 'teacher' && course.extraction_status === 'failed' && (
             <Alert variant="destructive" className="mt-6">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Extraction Failed</AlertTitle>
@@ -308,7 +319,7 @@ export default function TeacherCourseDetail() {
             </Alert>
           )}
 
-          {course.extraction_status === 'finished' && (
+          {user?.role === 'teacher' && course.extraction_status === 'finished' && (
             <Alert className="mt-6 border-green-500 text-green-600 bg-green-50 dark:bg-green-950/20">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
               <AlertTitle>Extraction complete</AlertTitle>
