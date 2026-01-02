@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
+import type { LoginResponse, UserResponse } from '../types';
 
 vi.mock('../api', () => {
   return {
@@ -34,21 +35,21 @@ describe('AuthContext', () => {
   });
 
   it('login stores access_token + refresh_token and fetches /users/me', async () => {
-    (authApi.login as any).mockResolvedValue({
+    vi.mocked(authApi.login).mockResolvedValue({
       access_token: 'access-1',
       refresh_token: 'refresh-1',
       token_type: 'bearer',
-    });
-    (authApi.getMe as any).mockResolvedValue({
+    } satisfies LoginResponse);
+    vi.mocked(authApi.getMe).mockResolvedValue({
       id: 123,
       first_name: 'Test',
       last_name: 'User',
       email: 'test@example.com',
       role: 'student',
       created_at: new Date().toISOString(),
-    });
+    } satisfies UserResponse);
 
-    let ctx: any;
+    let ctx: ReturnType<typeof useAuth> | undefined;
     render(
       <AuthProvider>
         <Harness onReady={(c) => { ctx = c; }} />
@@ -56,7 +57,7 @@ describe('AuthContext', () => {
     );
 
     await act(async () => {
-      await ctx.login({ email: 'test@example.com', password: 'pw' });
+      await ctx!.login({ email: 'test@example.com', password: 'pw' });
     });
 
     await waitFor(() => {
@@ -70,7 +71,7 @@ describe('AuthContext', () => {
     localStorage.setItem('access_token', 'access-1');
     localStorage.setItem('refresh_token', 'refresh-1');
 
-    let ctx: any;
+    let ctx: ReturnType<typeof useAuth> | undefined;
     render(
       <AuthProvider>
         <Harness onReady={(c) => { ctx = c; }} />
@@ -78,7 +79,7 @@ describe('AuthContext', () => {
     );
 
     act(() => {
-      ctx.logout();
+      ctx!.logout();
     });
 
     expect(localStorage.getItem('access_token')).toBeNull();

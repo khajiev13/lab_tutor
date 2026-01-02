@@ -1,6 +1,8 @@
 import logging
 from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime, timedelta
 
+import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi_users import BaseUserManager, FastAPIUsers, IntegerIDMixin
 from fastapi_users.authentication import (
@@ -8,8 +10,6 @@ from fastapi_users.authentication import (
     BearerTransport,
     JWTStrategy,
 )
-import jwt
-from datetime import datetime, timedelta, timezone
 from fastapi_users.db import SQLAlchemyUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,7 +112,7 @@ def get_jwt_strategy() -> JWTStrategy:
 
 def create_refresh_token(user_id: int) -> str:
     """Create a refresh token for a user."""
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
+    expire = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
     payload = {
         "sub": str(user_id),
         "exp": expire,

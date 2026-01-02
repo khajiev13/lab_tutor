@@ -16,8 +16,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-
-from app.core.database import Base, get_db, get_async_db
+from app.core.database import Base, get_async_db, get_db
 from app.modules.auth.models import UserRole
 from app.providers.storage import BlobService
 from main import app
@@ -62,10 +61,10 @@ def client(db_session):
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_async_db] = override_get_async_db
-    
+
     with TestClient(app) as c:
         yield c
-    
+
     app.dependency_overrides.clear()
 
 

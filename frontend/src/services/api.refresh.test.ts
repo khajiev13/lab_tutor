@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { AxiosInstance } from 'axios';
+import type { LoginResponse } from '@/features/auth/types';
 
 // Build a callable axios instance mock (function with properties)
 function makeAxiosInstance() {
-  const fn: any = vi.fn(() => Promise.resolve({ data: { ok: true } }));
+  const fn = vi.fn(() => Promise.resolve({ data: { ok: true } })) as unknown as AxiosInstance & {
+    interceptors: {
+      request: { use: ReturnType<typeof vi.fn> };
+      response: { use: ReturnType<typeof vi.fn> };
+    };
+  };
   fn.interceptors = {
     request: { use: vi.fn() },
     response: { use: vi.fn() },
@@ -40,21 +47,21 @@ describe('api.ts refresh interceptor', () => {
 
   it('on 401 retries request once after refreshing token', async () => {
     localStorage.setItem('refresh_token', 'refresh-1');
-    (authApi.refresh as any).mockResolvedValue({
+    vi.mocked(authApi.refresh).mockResolvedValue({
       access_token: 'access-2',
       refresh_token: 'refresh-2',
       token_type: 'bearer',
-    });
+    } satisfies LoginResponse);
 
     // Import after mocks; this registers interceptors on axiosInstance
     const apiModule = await import('@/services/api');
-    const api: any = apiModule.default;
+    const api = apiModule.default;
 
     // Grab the response error handler (2nd arg of interceptors.response.use)
     expect(axiosInstance.interceptors.response.use).toHaveBeenCalled();
-    const [, onRejected] = (axiosInstance.interceptors.response.use as any).mock.calls[0];
+    const [, onRejected] = (axiosInstance.interceptors.response.use as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
 
-    const err: any = {
+    const err = {
       response: { status: 401 },
       config: { url: '/courses/', method: 'get', headers: {} },
     };

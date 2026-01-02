@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi_users.db import SQLAlchemyUserDatabase
+
+from app.modules.auth.models import User
 
 from .dependencies import (
     auth_backend,
@@ -10,10 +13,9 @@ from .dependencies import (
     verify_refresh_token,
 )
 from .schemas import Token, UserCreate, UserRead, UserUpdate
-from fastapi_users.db import SQLAlchemyUserDatabase
-from app.modules.auth.models import User
 
 router = APIRouter()
+
 
 # Custom login endpoint that includes refresh token
 @router.post("/auth/jwt/login", response_model=Token, tags=["auth"])
@@ -28,18 +30,18 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="LOGIN_BAD_CREDENTIALS",
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="LOGIN_USER_NOT_ACTIVE",
         )
-    
+
     # Generate access token using the strategy
     strategy = auth_backend.get_strategy()
     access_token = await strategy.write_token(user)
     refresh_token = create_refresh_token(user.id)
-    
+
     return Token(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -59,25 +61,27 @@ async def refresh_token_endpoint(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
         )
-    
+
     user = await user_db.get(user_id)
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive",
         )
-    
+
     # Generate new access token
     strategy = auth_backend.get_strategy()
     access_token = await strategy.write_token(user)
     # Optionally rotate refresh token (for security)
     new_refresh_token = create_refresh_token(user.id)
-    
+
     return Token(
         access_token=access_token,
         refresh_token=new_refresh_token,
         token_type="bearer",
     )
+
+
 router.include_router(
     fastapi_users.get_register_router(UserRead, UserCreate),
     prefix="/auth",
