@@ -1,15 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AxiosInstance } from 'axios';
 import type { LoginResponse } from '@/features/auth/types';
 
-// Build a callable axios instance mock (function with properties)
-function makeAxiosInstance() {
-  const fn = vi.fn(() => Promise.resolve({ data: { ok: true } })) as unknown as AxiosInstance & {
-    interceptors: {
-      request: { use: ReturnType<typeof vi.fn> };
-      response: { use: ReturnType<typeof vi.fn> };
-    };
+type AxiosInstanceLike = ((config: unknown) => Promise<unknown>) & {
+  interceptors: {
+    request: { use: ReturnType<typeof vi.fn> };
+    response: { use: ReturnType<typeof vi.fn> };
   };
+};
+
+// Build a callable axios instance mock (function with properties)
+function makeAxiosInstance(): AxiosInstanceLike {
+  const fn = vi.fn(() => Promise.resolve({ data: { ok: true } })) as unknown as AxiosInstanceLike;
   fn.interceptors = {
     request: { use: vi.fn() },
     response: { use: vi.fn() },
@@ -59,7 +60,7 @@ describe('api.ts refresh interceptor', () => {
 
     // Grab the response error handler (2nd arg of interceptors.response.use)
     expect(axiosInstance.interceptors.response.use).toHaveBeenCalled();
-    const [, onRejected] = (axiosInstance.interceptors.response.use as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    const [, onRejected] = axiosInstance.interceptors.response.use.mock.calls[0];
 
     const err = {
       response: { status: 401 },
