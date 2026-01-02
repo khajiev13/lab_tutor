@@ -1,25 +1,43 @@
+import os
+
+# Force local SQLite for tests BEFORE importing app modules.
+# This prevents accidental connections to cloud Postgres in CI/dev envs.
+os.environ["LAB_TUTOR_DATABASE_URL"] = "sqlite:///./data/test.db"
+# Ensure optional external services don't run in tests.
+os.environ.setdefault("LAB_TUTOR_NEO4J_URI", "")
+os.environ.setdefault("LAB_TUTOR_AZURE_STORAGE_CONNECTION_STRING", "")
+
+from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.core.database import Base, get_db
+
+from app.core.database import Base, get_db, get_async_db
 from app.modules.auth.models import UserRole
 from app.providers.storage import BlobService
 from main import app
 
-# Setup in-memory SQLite database
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+# Use a file-based SQLite DB so BOTH sync + async sessions share the same database.
+SQLALCHEMY_DATABASE_URL = "sqlite:///./data/test.db"
+ASYNC_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./data/test.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Async engine for FastAPI-Users
+async_engine = create_async_engine(
+    ASYNC_SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+)
+AsyncTestingSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 
 
 @pytest.fixture(scope="function")
@@ -35,15 +53,19 @@ def db_session():
 
 @pytest.fixture(scope="function")
 def client(db_session):
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
+    def override_get_db() -> Generator:
+        yield db_session
+
+    async def override_get_async_db() -> AsyncGenerator[AsyncSession, None]:
+        async with AsyncTestingSessionLocal() as session:
+            yield session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_async_db] = override_get_async_db
+    
     with TestClient(app) as c:
         yield c
+    
     app.dependency_overrides.clear()
 
 
