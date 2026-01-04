@@ -5,6 +5,7 @@ from app.modules.auth.dependencies import (
     require_role,
 )
 from app.modules.auth.models import User, UserRole
+from app.modules.embeddings.schemas import CourseEmbeddingStatusResponse
 
 from .graph_schemas import CourseGraphResponse, GraphNodeKind
 from .graph_service import CourseGraphService, get_course_graph_service
@@ -141,6 +142,20 @@ def list_presentation_statuses(
     current_user: User = Depends(current_active_user),
 ):
     return service.list_presentation_statuses(course_id)
+
+
+@router.get(
+    "/{course_id}/embeddings/status", response_model=CourseEmbeddingStatusResponse
+)
+def get_embeddings_status(
+    course_id: int,
+    background_tasks: BackgroundTasks,
+    service: CourseService = Depends(get_course_service),
+    current_user: User = Depends(current_active_user),
+):
+    return service.get_course_embedding_status(
+        course_id, background_tasks=background_tasks
+    )
 
 
 @router.delete(

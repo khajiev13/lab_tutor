@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 from fastapi import BackgroundTasks, Depends, HTTPException, UploadFile, status
 from neo4j import Session as Neo4jSession
@@ -7,11 +8,20 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.neo4j import get_neo4j_session
+from app.core.settings import settings
 from app.modules.auth.models import User
 from app.modules.document_extraction.neo4j_repository import (
     DocumentExtractionGraphRepository,
 )
 from app.modules.document_extraction.service import run_course_extraction_background
+from app.modules.embeddings.course_models import CourseEmbeddingStatus
+from app.modules.embeddings.course_orchestrator import run_course_embedding_background
+from app.modules.embeddings.course_repository import CourseEmbeddingStateRepository
+from app.modules.embeddings.repository import DocumentEmbeddingStateRepository
+from app.modules.embeddings.schemas import (
+    CourseEmbeddingStatusResponse,
+    CourseFileEmbeddingStatus,
+)
 from app.providers.storage import blob_service
 
 from .models import (
@@ -507,6 +517,87 @@ class CourseService:
     def list_presentation_statuses(self, course_id: int) -> list[CourseFile]:
         self.get_course(course_id)
         return list(self._repo.list_course_files(course_id))
+
+    def get_course_embedding_status(
+        self, course_id: int, background_tasks: BackgroundTasks | None = None
+    ) -> CourseEmbeddingStatusResponse:
+        course = self.get_course(course_id)
+        files = list(self._repo.list_course_files(course_id))
+
+        course_state_repo = CourseEmbeddingStateRepository(self._repo.db)
+        doc_state_repo = DocumentEmbeddingStateRepository(self._repo.db)
+        course_state = course_state_repo.get(course_id=course_id)
+
+        def _map_status(value: str | None) -> str:
+            v = (value or "").upper()
+            if v == "IN_PROGRESS":
+                return "in_progress"
+            if v == "COMPLETED":
+                return "completed"
+            if v == "FAILED":
+                return "failed"
+            return "not_started"
+
+        embedding_status = _map_status(getattr(course_state, "status", None))
+
+        # If embeddings have been IN_PROGRESS too long, restart them.
+        # This prevents indefinite UI states if a worker crashed or a request hung.
+        if (
+            course.extraction_status == ExtractionStatus.FINISHED
+            and course_state is not None
+            and getattr(course_state, "status", None)
+            == CourseEmbeddingStatus.IN_PROGRESS
+        ):
+            started_at = getattr(course_state, "started_at", None)
+            if started_at is not None:
+                now = datetime.now(UTC)
+                age_s = (now - started_at).total_seconds()
+                if age_s >= float(settings.embedding_stale_seconds):
+                    # Move started_at forward so we don't enqueue repeatedly.
+                    course_state_repo.mark_in_progress(course_id=course_id)
+                    embedding_status = "in_progress"
+                    if background_tasks is not None:
+                        background_tasks.add_task(
+                            run_course_embedding_background, course_id=course_id
+                        )
+
+        file_items: list[CourseFileEmbeddingStatus] = []
+        for f in files:
+            document_id = (
+                f"doc_{course_id}_{f.content_hash}" if f.content_hash else None
+            )
+            doc_state = (
+                doc_state_repo.get(document_id=document_id)
+                if document_id is not None
+                else None
+            )
+
+            file_items.append(
+                CourseFileEmbeddingStatus(
+                    id=f.id,
+                    filename=f.filename,
+                    status=f.status.value,
+                    content_hash=f.content_hash,
+                    processed_at=f.processed_at,
+                    last_error=f.last_error,
+                    document_id=document_id,
+                    embedding_status=_map_status(
+                        getattr(doc_state, "embedding_status", None)
+                    ),
+                    embedded_at=getattr(doc_state, "embedded_at", None),
+                    embedding_last_error=getattr(doc_state, "last_error", None),
+                )
+            )
+
+        return CourseEmbeddingStatusResponse(
+            course_id=course_id,
+            extraction_status=course.extraction_status.value,
+            embedding_status=embedding_status,
+            embedding_started_at=getattr(course_state, "started_at", None),
+            embedding_finished_at=getattr(course_state, "finished_at", None),
+            embedding_last_error=getattr(course_state, "last_error", None),
+            files=file_items,
+        )
 
     def start_extraction(
         self, course_id: int, teacher: User, background_tasks: BackgroundTasks

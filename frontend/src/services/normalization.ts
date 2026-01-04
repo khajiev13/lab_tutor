@@ -1,7 +1,9 @@
 const DEFAULT_PROD_API_URL = 'https://backend.mangoocean-d0c97d4f.westus2.azurecontainerapps.io';
+const DEV_HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const DEFAULT_DEV_API_URL = `http://${DEV_HOST}:8000`;
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.PROD ? DEFAULT_PROD_API_URL : 'http://localhost:8000');
+  (import.meta.env.PROD ? DEFAULT_PROD_API_URL : DEFAULT_DEV_API_URL);
 
 export type NormalizationPhase = 'generation' | 'validation' | 'complete';
 export type NormalizationEventType = 'update' | 'complete' | 'error';

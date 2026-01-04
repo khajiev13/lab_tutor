@@ -1,5 +1,11 @@
 import api from '@/services/api';
-import type { Course, CourseCreate, CourseFileRead, ExtractionStatus } from './types';
+import type {
+  Course,
+  CourseCreate,
+  CourseEmbeddingStatusResponse,
+  CourseFileRead,
+  ExtractionStatus,
+} from './types';
 import type { CourseGraphResponse, GraphNodeKind } from '@/features/graph/types';
 import {
   CourseFileDuplicateError,
@@ -40,6 +46,10 @@ export const coursesApi = {
     const response = await api.post<{ message: string; status: ExtractionStatus }>(
       `/courses/${id}/extract`
     );
+    return response.data;
+  },
+  getEmbeddingsStatus: async (id: number): Promise<CourseEmbeddingStatusResponse> => {
+    const response = await api.get<CourseEmbeddingStatusResponse>(`/courses/${id}/embeddings/status`);
     return response.data;
   },
   join: async (id: number): Promise<void> => {

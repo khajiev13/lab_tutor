@@ -57,10 +57,56 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         "CREATE INDEX teacher_uploaded_document_course_id_idx IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.course_id)",
     ]
 
+    embedding_dims = settings.embedding_dims
+    vector_statements: list[LiteralString] = []
+    relationship_vector_statements: list[LiteralString] = []
+    if embedding_dims is not None:
+        vector_statements.append(
+            "CREATE VECTOR INDEX teacher_uploaded_document_embedding_vector_idx IF NOT EXISTS "
+            "FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.embedding) "
+            "OPTIONS {indexConfig: {`vector.dimensions`: "
+            + str(int(embedding_dims))
+            + ", `vector.similarity_function`: 'cosine'}}"
+        )
+
+        # Relationship vector indexes are not supported on all Neo4j versions.
+        relationship_vector_statements.append(
+            "CREATE VECTOR INDEX mentions_definition_embedding_vector_idx IF NOT EXISTS "
+            "FOR ()-[m:MENTIONS]-() ON (m.definition_embedding) "
+            "OPTIONS {indexConfig: {`vector.dimensions`: "
+            + str(int(embedding_dims))
+            + ", `vector.similarity_function`: 'cosine'}}"
+        )
+        relationship_vector_statements.append(
+            "CREATE VECTOR INDEX mentions_text_evidence_embedding_vector_idx IF NOT EXISTS "
+            "FOR ()-[m:MENTIONS]-() ON (m.text_evidence_embedding) "
+            "OPTIONS {indexConfig: {`vector.dimensions`: "
+            + str(int(embedding_dims))
+            + ", `vector.similarity_function`: 'cosine'}}"
+        )
+
     try:
         with driver.session(database=settings.neo4j_database) as session:
             for stmt in statements:
-                session.run(stmt).consume()
+                try:
+                    session.run(stmt).consume()
+                except Neo4jError:
+                    logger.exception("Neo4j schema statement failed (continuing)")
+
+            for stmt in vector_statements:
+                try:
+                    session.run(stmt).consume()
+                except Neo4jError:
+                    logger.exception("Neo4j vector index creation failed (continuing)")
+
+            for stmt in relationship_vector_statements:
+                try:
+                    session.run(stmt).consume()
+                except Neo4jError as e:
+                    logger.warning(
+                        "Neo4j relationship vector index not supported or failed (continuing): %s",
+                        str(e),
+                    )
     except Neo4jError:
         # Some environments restrict schema ops; don't block app startup.
         logger.exception("Neo4j schema initialization failed (continuing)")
