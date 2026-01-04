@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { AxiosError } from 'axios';
 import { authApi } from '../api';
 import type { LoginCredentials, RegisterData, UserResponse } from '../types';
 
@@ -23,22 +22,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchUser = useCallback(async () => {
-    // #region agent log
-    const fetchStart = Date.now();
-    const token = localStorage.getItem('access_token');
-    fetch('http://127.0.0.1:7242/ingest/22646e48-28ee-4f69-a8db-ceec81e08aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:24',message:'fetchUser starting',data:{hasToken:!!token},timestamp:fetchStart,sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-    // #endregion
     try {
       const userData = await authApi.getMe();
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/22646e48-28ee-4f69-a8db-ceec81e08aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:27',message:'fetchUser success',data:{userId:userData.id,elapsed:Date.now()-fetchStart},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-      // #endregion
       setUser(userData);
     } catch (error: unknown) {
-      const axiosError = error as AxiosError | undefined;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/22646e48-28ee-4f69-a8db-ceec81e08aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:29',message:'fetchUser error',data:{status:axiosError?.response?.status,message:axiosError?.message,elapsed:Date.now()-fetchStart},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-      // #endregion
       console.error('Failed to fetch user:', error);
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
@@ -58,25 +45,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [fetchUser]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
-    // #region agent log
-    const loginStart = Date.now();
-    fetch('http://127.0.0.1:7242/ingest/22646e48-28ee-4f69-a8db-ceec81e08aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:46',message:'AuthContext login starting',data:{email:credentials.email},timestamp:loginStart,sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    try {
-      const response = await authApi.login(credentials);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/22646e48-28ee-4f69-a8db-ceec81e08aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:49',message:'AuthContext login success, storing tokens',data:{hasAccessToken:!!response.access_token,hasRefreshToken:!!response.refresh_token,tokenType:response.token_type,elapsed:Date.now()-loginStart},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
-      await fetchUser();
-    } catch (error: unknown) {
-      const axiosError = error as AxiosError | undefined;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/22646e48-28ee-4f69-a8db-ceec81e08aac',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AuthContext.tsx:52',message:'AuthContext login error',data:{error:axiosError?.message,status:axiosError?.response?.status,elapsed:Date.now()-loginStart},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      throw error;
-    }
+    const response = await authApi.login(credentials);
+    localStorage.setItem('access_token', response.access_token);
+    localStorage.setItem('refresh_token', response.refresh_token);
+    await fetchUser();
   }, [fetchUser]);
 
   const register = useCallback(async (data: RegisterData): Promise<UserResponse> => {

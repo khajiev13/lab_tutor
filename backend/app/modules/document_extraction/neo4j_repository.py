@@ -17,6 +17,14 @@ class MentionInput(BaseModel):
     source_document: str
 
 
+class CourseDocumentMentions(BaseModel):
+    document_id: str
+    course_id: int
+    content_hash: str | None = None
+    original_text: str | None = None
+    mentions: list[MentionInput]
+
+
 UPSERT_COURSE_DOCUMENT: LiteralString = """
 MERGE (d:TEACHER_UPLOADED_DOCUMENT {id: $document_id})
 SET
@@ -101,6 +109,42 @@ WITH c, count(r) AS rels, documents_deleted
 WHERE rels = 0
 DELETE c
 RETURN documents_deleted, count(c) AS concepts_deleted
+"""
+
+
+SET_DOCUMENT_EMBEDDING: LiteralString = """
+MATCH (d:TEACHER_UPLOADED_DOCUMENT {id: $document_id})
+SET d.embedding = $vector
+RETURN d
+"""
+
+
+SET_MENTIONS_EMBEDDINGS: LiteralString = """
+MATCH (d:TEACHER_UPLOADED_DOCUMENT {id: $document_id})-[m:MENTIONS]->(c:CONCEPT {name: $concept_name})
+SET
+    m.definition_embedding = $definition_embedding,
+    m.text_evidence_embedding = $text_evidence_embedding
+RETURN m
+"""
+
+
+LIST_COURSE_DOCUMENTS_WITH_MENTIONS: LiteralString = """
+MATCH (c:CLASS {id: $course_id})-[:HAS_DOCUMENT]->(d:TEACHER_UPLOADED_DOCUMENT)
+OPTIONAL MATCH (d)-[m:MENTIONS]->(con:CONCEPT)
+WITH d, collect({
+    name: con.name,
+    original_name: coalesce(m.original_name, con.name),
+    definition: coalesce(m.definition, ''),
+    text_evidence: coalesce(m.text_evidence, ''),
+    source_document: coalesce(m.source_document, d.source_filename)
+}) AS mentions
+RETURN
+    d.id AS document_id,
+    d.course_id AS course_id,
+    d.content_hash AS content_hash,
+    d.original_text AS original_text,
+    mentions AS mentions
+ORDER BY d.extracted_at DESC
 """
 
 
@@ -215,3 +259,55 @@ class DocumentExtractionGraphRepository:
             return (int(record["documents_deleted"]), int(record["concepts_deleted"]))
 
         return cast(tuple[int, int], self._session.execute_write(_tx))
+
+    def set_document_embedding(self, *, document_id: str, vector: list[float]) -> None:
+        params = {"document_id": document_id, "vector": vector}
+
+        def _tx(tx: ManagedTransaction) -> None:
+            tx.run(SET_DOCUMENT_EMBEDDING, params).consume()
+
+        self._session.execute_write(_tx)
+
+    def set_mentions_embeddings(
+        self,
+        *,
+        document_id: str,
+        concept_name: str,
+        definition_embedding: list[float],
+        text_evidence_embedding: list[float],
+    ) -> None:
+        params = {
+            "document_id": document_id,
+            "concept_name": (concept_name or "").strip().casefold(),
+            "definition_embedding": definition_embedding,
+            "text_evidence_embedding": text_evidence_embedding,
+        }
+
+        def _tx(tx: ManagedTransaction) -> None:
+            tx.run(SET_MENTIONS_EMBEDDINGS, params).consume()
+
+        self._session.execute_write(_tx)
+
+    def list_course_documents_with_mentions(
+        self, *, course_id: int
+    ) -> list[CourseDocumentMentions]:
+        params = {"course_id": course_id}
+
+        def _tx(tx: ManagedTransaction) -> list[CourseDocumentMentions]:
+            records = list(tx.run(LIST_COURSE_DOCUMENTS_WITH_MENTIONS, params))
+            out: list[CourseDocumentMentions] = []
+            for r in records:
+                raw_mentions = r.get("mentions") or []
+                mentions = [MentionInput(**m) for m in raw_mentions if m.get("name")]
+                out.append(
+                    CourseDocumentMentions(
+                        document_id=str(r["document_id"]),
+                        course_id=int(r["course_id"]),
+                        content_hash=r.get("content_hash"),
+                        original_text=r.get("original_text"),
+                        mentions=mentions,
+                    )
+                )
+            return out
+
+        return cast(list[CourseDocumentMentions], self._session.execute_write(_tx))

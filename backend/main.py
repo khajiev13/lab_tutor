@@ -12,6 +12,8 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import app.modules.auth.models  # noqa
 import app.modules.concept_normalization.review_sql_models  # noqa
 import app.modules.courses.models  # noqa
+import app.modules.embeddings.course_models  # noqa
+import app.modules.embeddings.models  # noqa
 from app.core.api_schemas import HealthCheckItem, HealthResponse, RootResponse
 from app.core.database import Base, engine
 from app.core.langsmith_tracing import (
@@ -23,6 +25,7 @@ from app.core.neo4j import (
     initialize_neo4j_constraints,
     verify_neo4j_connectivity,
 )
+from app.core.request_timing_middleware import RequestTimingMiddleware
 from app.core.settings import settings
 from app.modules.auth import routes as auth_routes
 from app.modules.concept_normalization import routes as concept_normalization_routes
@@ -93,6 +96,14 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,
+)
+
+# Lightweight per-request timing instrumentation (headers + optional logging).
+app.add_middleware(
+    RequestTimingMiddleware,
+    add_timing_header=settings.request_timing_header_enabled,
+    log_timings=settings.request_timing_log_enabled,
+    slow_request_ms=settings.slow_request_ms,
 )
 
 # Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) from Azure Container Apps

@@ -17,7 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { coursesApi, presentationsApi } from '../api';
-import type { Course, ExtractionStatus } from '../types';
+import type { Course, CourseEmbeddingStatusResponse, ExtractionStatus, EmbeddingStatus } from '../types';
 import { FileUpload } from '@/components/FileUpload';
 import { CourseMaterialsTable } from '@/components/CourseMaterialsTable';
 import { NormalizationDashboard } from '@/features/normalization/components/NormalizationDashboard';
@@ -33,6 +33,7 @@ export default function TeacherCourseDetail() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isEnrollmentLoading, setIsEnrollmentLoading] = useState(false);
   const [presentationCount, setPresentationCount] = useState(0);
+  const [embeddingStatus, setEmbeddingStatus] = useState<CourseEmbeddingStatusResponse | null>(null);
   const [extractionProgress, setExtractionProgress] = useState<{
     total: number;
     processed: number;
@@ -92,33 +93,56 @@ export default function TeacherCourseDetail() {
     fetchCourse();
   }, [fetchCourse]);
 
+  const pollIntervalMs = 10_000;
+
   // Polling for extraction status
   useEffect(() => {
-    let intervalId: ReturnType<typeof setInterval>;
+    if (course?.extraction_status !== 'in_progress') return;
 
-    if (course?.extraction_status === 'in_progress') {
-      intervalId = setInterval(async () => {
-        if (!id) return;
-        try {
-          const updatedCourse = await coursesApi.getCourse(Number(id));
-          setCourse(updatedCourse);
-          
-          if (updatedCourse.extraction_status !== 'in_progress') {
-            if (intervalId) clearInterval(intervalId);
-            if (updatedCourse.extraction_status === 'finished') {
-              toast.success('Data extraction completed successfully!');
-            } else if (updatedCourse.extraction_status === 'failed') {
-              toast.error('Data extraction failed.');
-            }
+    const intervalId = setInterval(async () => {
+      if (!id) return;
+      try {
+        const updatedCourse = await coursesApi.getCourse(Number(id));
+        setCourse(updatedCourse);
+
+        if (updatedCourse.extraction_status !== 'in_progress') {
+          clearInterval(intervalId);
+          if (updatedCourse.extraction_status === 'finished') {
+            toast.success('Data extraction completed successfully!');
+          } else if (updatedCourse.extraction_status === 'failed') {
+            toast.error('Data extraction failed.');
           }
-        } catch (error) {
-          console.error('Polling failed', error);
         }
-      }, 1500); // Poll every 1.5 seconds
+      } catch (error) {
+        console.error('Polling failed', error);
+      }
+    }, pollIntervalMs);
+
+    return () => clearInterval(intervalId);
+  }, [course?.extraction_status, id]);
+
+  // Polling for embeddings status (starts after extraction is finished)
+  useEffect(() => {
+    if (course?.extraction_status !== 'finished') {
+      setEmbeddingStatus(null);
+      return;
     }
 
+    const fetchEmbeddingStatus = async () => {
+      if (!id) return;
+      try {
+        const status = await coursesApi.getEmbeddingsStatus(Number(id));
+        setEmbeddingStatus(status);
+      } catch (error) {
+        console.error('Embeddings status polling failed', error);
+      }
+    };
+
+    fetchEmbeddingStatus();
+    const intervalId = setInterval(fetchEmbeddingStatus, pollIntervalMs);
+
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      clearInterval(intervalId);
     };
   }, [course?.extraction_status, id]);
 
@@ -191,6 +215,21 @@ export default function TeacherCourseDetail() {
     }
   };
 
+  const getEmbeddingBadge = (status: EmbeddingStatus) => {
+    switch (status) {
+      case 'not_started':
+        return <Badge variant="outline">Not embedded</Badge>;
+      case 'in_progress':
+        return <Badge variant="secondary">Embedding…</Badge>;
+      case 'completed':
+        return <Badge variant="default">Embedded</Badge>;
+      case 'failed':
+        return <Badge variant="destructive">Embedding failed</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -222,6 +261,12 @@ export default function TeacherCourseDetail() {
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Status:</span>
             {getStatusBadge(course.extraction_status)}
+            {course.extraction_status === 'finished' && embeddingStatus && (
+              <>
+                <span className="text-sm text-muted-foreground">Embeddings:</span>
+                {getEmbeddingBadge(embeddingStatus.embedding_status)}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -374,9 +419,10 @@ export default function TeacherCourseDetail() {
                       refreshTrigger={refreshTrigger}
                       disabled={isExtractionInProgress}
                       poll={isExtractionInProgress}
-                      pollIntervalMs={1500}
+                      pollIntervalMs={pollIntervalMs}
                       onFilesChange={handleFilesChange}
                       onProgressChange={handleProgressChange}
+                      embeddingStatus={embeddingStatus}
                     />
                   </div>
                 </div>

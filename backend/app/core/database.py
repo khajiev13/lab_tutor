@@ -1,3 +1,4 @@
+import ssl
 from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -77,9 +78,25 @@ def _asyncpg_connect_args_from_url(async_url: str) -> tuple[str, dict]:
     sslmode = (query.pop("sslmode", "") or "").lower()
     connect_args: dict = {}
 
-    # If sslmode is present, enable SSL for asyncpg. (Azure requires SSL.)
-    if sslmode in {"require", "prefer", "verify-ca", "verify-full"}:
-        connect_args["ssl"] = True
+    # asyncpg uses the stdlib `ssl` module, not libpq.
+    # libpq semantics:
+    # - require: encrypt, no certificate verification
+    # - verify-ca: verify certificate chain, no hostname verification
+    # - verify-full: verify chain + hostname
+    # Azure Postgres commonly provides `sslmode=require`.
+    if sslmode in {"require", "prefer"}:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        connect_args["ssl"] = ctx
+    elif sslmode == "verify-ca":
+        ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+        ctx.check_hostname = False
+        connect_args["ssl"] = ctx
+    elif sslmode == "verify-full":
+        ctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+        ctx.check_hostname = True
+        connect_args["ssl"] = ctx
     elif sslmode == "disable":
         connect_args["ssl"] = False
 
@@ -95,11 +112,35 @@ DATABASE_URL, ASYNC_DATABASE_URL = _derive_sync_and_async_urls(RAW_DATABASE_URL)
 ASYNC_DATABASE_URL, ASYNC_CONNECT_ARGS = _asyncpg_connect_args_from_url(
     ASYNC_DATABASE_URL
 )
+
+IS_SQLITE = DATABASE_URL.startswith("sqlite")
+IS_POSTGRES = DATABASE_URL.startswith("postgresql")
+
+# When using pooled connections against managed Postgres (e.g., Azure), the server
+# may close idle SSL sessions. SQLAlchemy can otherwise keep a stale DBAPI
+# connection in the pool, leading to:
+#   psycopg.OperationalError: SSL error: unexpected eof while reading
+# `pool_pre_ping` proactively checks the connection before use.
+POOL_PRE_PING = True
+POOL_RECYCLE_SECONDS = 1800 if IS_POSTGRES else -1
+
+POSTGRES_CONNECT_ARGS = (
+    {
+        "connect_timeout": 10,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5,
+    }
+    if IS_POSTGRES
+    else {}
+)
+
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}
-    if DATABASE_URL.startswith("sqlite")
-    else {},
+    connect_args={"check_same_thread": False} if IS_SQLITE else POSTGRES_CONNECT_ARGS,
+    pool_pre_ping=POOL_PRE_PING,
+    pool_recycle=POOL_RECYCLE_SECONDS,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -108,6 +149,8 @@ async_engine = create_async_engine(
     connect_args={"check_same_thread": False}
     if ASYNC_DATABASE_URL.startswith("sqlite")
     else ASYNC_CONNECT_ARGS,
+    pool_pre_ping=POOL_PRE_PING,
+    pool_recycle=POOL_RECYCLE_SECONDS,
 )
 AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 

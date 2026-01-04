@@ -208,6 +208,22 @@ class DocumentExtractionService:
         )
         self._db.commit()
 
+        # After extraction finishes for all documents, run embeddings as a separate phase.
+        # Best-effort: never changes extraction outcome.
+        if (
+            all_processed
+            and self._neo4j_session is not None
+            and self._graph_repo is not None
+        ):
+            try:
+                from app.modules.embeddings.course_orchestrator import (
+                    run_course_embedding_background,
+                )
+
+                run_course_embedding_background(course_id=course_id)
+            except Exception:
+                logger.exception("Course embedding phase failed (continuing)")
+
 
 def _process_course_file_background(
     *,
@@ -350,6 +366,21 @@ def _finalize_course_extraction_status_background(
             )
 
         db.commit()
+
+        # After extraction finishes for all documents, run embeddings as a separate phase.
+        # Best-effort: never changes extraction outcome.
+        if (
+            course.extraction_status == ExtractionStatus.FINISHED
+            and neo4j_session is not None
+        ):
+            try:
+                from app.modules.embeddings.course_orchestrator import (
+                    run_course_embedding_background,
+                )
+
+                run_course_embedding_background(course_id=course_id)
+            except Exception:
+                logger.exception("Course embedding phase failed (continuing)")
     finally:
         try:
             if neo4j_session is not None:
@@ -393,7 +424,9 @@ def run_course_extraction_background(*, course_id: int, teacher_id: int) -> None
 
         # Process files concurrently (bounded).
         if files_to_process:
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(
+                max_workers=settings.extraction_workers
+            ) as executor:
                 futures = [
                     executor.submit(
                         _process_course_file_background,

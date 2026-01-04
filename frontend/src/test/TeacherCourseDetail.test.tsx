@@ -20,6 +20,7 @@ vi.mock('../features/courses/api', () => ({
   coursesApi: {
     getCourse: vi.fn(),
     startExtraction: vi.fn(),
+    getEmbeddingsStatus: vi.fn(),
     getEnrollment: vi.fn(),
     join: vi.fn(),
     leave: vi.fn(),
@@ -86,6 +87,15 @@ describe('TeacherCourseDetail', () => {
     vi.clearAllMocks();
     mockPresentationFiles = [];
     (presentationsApi.listStatuses as Mock).mockResolvedValue([]);
+    (coursesApi.getEmbeddingsStatus as Mock).mockResolvedValue({
+      course_id: 1,
+      extraction_status: 'finished',
+      embedding_status: 'not_started',
+      embedding_started_at: null,
+      embedding_finished_at: null,
+      embedding_last_error: null,
+      files: [],
+    });
   });
 
   const renderComponent = () => {
@@ -165,40 +175,73 @@ describe('TeacherCourseDetail', () => {
   });
 
   it('polls for status updates', async () => {
-    // Only fake setInterval so waitFor (which uses setTimeout) works normally
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     const inProgressCourse = { ...mockCourse, extraction_status: 'in_progress' };
     const finishedCourse = { ...mockCourse, extraction_status: 'finished' };
+
+    const intervals: Array<{ callback: () => unknown; delay: number | undefined }> = [];
+    const setIntervalSpy = vi
+      .spyOn(globalThis, 'setInterval')
+      .mockImplementation(((callback: (...args: unknown[]) => unknown, delay?: number) => {
+        intervals.push({
+          callback: callback as unknown as () => unknown,
+          delay,
+        });
+        return 1 as unknown as ReturnType<typeof setInterval>;
+      }) as unknown as typeof setInterval);
+    const clearIntervalSpy = vi
+      .spyOn(globalThis, 'clearInterval')
+      .mockImplementation((() => {}) as unknown as typeof clearInterval);
 
     // Setup mock responses
     const getCourseMock = coursesApi.getCourse as Mock;
     getCourseMock
       .mockResolvedValueOnce(inProgressCourse) // Initial load
       .mockResolvedValueOnce(inProgressCourse) // Poll 1
-      .mockResolvedValueOnce(finishedCourse);  // Poll 2
+      .mockResolvedValueOnce(finishedCourse) // Poll 2
+      .mockResolvedValue(finishedCourse);
+
+    // Ensure the embeddings polling interval (started after extraction finishes)
+    // terminates quickly so fake timers don't keep running.
+    (coursesApi.getEmbeddingsStatus as Mock).mockResolvedValue({
+      course_id: 1,
+      extraction_status: 'finished',
+      embedding_status: 'completed',
+      embedding_started_at: null,
+      embedding_finished_at: null,
+      embedding_last_error: null,
+      files: [],
+    });
 
     renderComponent();
 
-    // Wait for initial load
-    await waitFor(() => {
-      expect(screen.getByText('Extracting Data...')).toBeInTheDocument();
-    });
+    try {
+      expect(await screen.findByText('Extracting Data...')).toBeInTheDocument();
+      expect(getCourseMock).toHaveBeenCalledTimes(1);
 
-    // Advance time for first poll (1.5s)
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-    });
+      // First interval is the extraction polling loop.
+      await waitFor(() => {
+        expect(intervals.length).toBeGreaterThan(0);
+      });
+      const pollIntervalMs = 10_000;
+      const extractionPoll = intervals.find((i) => i.delay === pollIntervalMs)?.callback;
+      expect(extractionPoll).toBeDefined();
 
-    // Advance time for second poll (1.5s)
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-    });
+      // Poll 1 (still in progress)
+      await act(async () => {
+        await extractionPoll?.();
+      });
+      expect(getCourseMock).toHaveBeenCalledTimes(2);
 
-    // Should be finished now
-    await waitFor(() => {
-      expect(screen.getByText('Extraction Complete')).toBeInTheDocument();
-    });
+      // Poll 2 (finished)
+      await act(async () => {
+        await extractionPoll?.();
+      });
+      expect(getCourseMock).toHaveBeenCalledTimes(3);
 
-    vi.useRealTimers();
+      expect(await screen.findByText('Extraction Complete')).toBeInTheDocument();
+    } finally {
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    }
   });
 });

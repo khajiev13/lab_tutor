@@ -34,7 +34,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { presentationsApi } from "@/features/courses/api";
-import type { CourseFileRead, FileProcessingStatus } from "@/features/courses/types";
+import type {
+  CourseEmbeddingStatusResponse,
+  CourseFileRead,
+  EmbeddingStatus,
+  FileProcessingStatus,
+} from "@/features/courses/types";
 
 interface CourseMaterialsTableProps {
   courseId: number;
@@ -42,6 +47,7 @@ interface CourseMaterialsTableProps {
   disabled?: boolean;
   poll?: boolean;
   pollIntervalMs?: number;
+  embeddingStatus?: CourseEmbeddingStatusResponse | null;
   onFilesChange?: (files: string[]) => void;
   onProgressChange?: (stats: {
     total: number;
@@ -72,6 +78,21 @@ function StatusBadge({ status }: { status: CombinedStatus }) {
   }
 }
 
+function EmbeddingBadge({ status }: { status: EmbeddingStatus }) {
+  switch (status) {
+    case "not_started":
+      return <Badge variant="outline">Not embedded</Badge>;
+    case "in_progress":
+      return <Badge variant="secondary">Embedding…</Badge>;
+    case "completed":
+      return <Badge variant="default">Embedded</Badge>;
+    case "failed":
+      return <Badge variant="destructive">Embedding failed</Badge>;
+    default:
+      return <Badge variant="outline">Unknown</Badge>;
+  }
+}
+
 function formatMaybeDate(iso: string | null | undefined) {
   if (!iso) return "—";
   const date = new Date(iso);
@@ -85,6 +106,7 @@ export function CourseMaterialsTable({
   disabled = false,
   poll = false,
   pollIntervalMs = 1500,
+  embeddingStatus,
   onFilesChange,
   onProgressChange,
 }: CourseMaterialsTableProps) {
@@ -106,6 +128,12 @@ export function CourseMaterialsTable({
     statuses.forEach((s) => map.set(s.filename, s));
     return map;
   }, [statuses]);
+
+  const embeddingByFilename = useMemo(() => {
+    const map = new Map<string, NonNullable<CourseMaterialsTableProps["embeddingStatus"]>["files"][number]>();
+    embeddingStatus?.files?.forEach((f) => map.set(f.filename, f));
+    return map;
+  }, [embeddingStatus]);
 
   const rows = useMemo(() => {
     const all = new Set<string>();
@@ -235,6 +263,8 @@ export function CourseMaterialsTable({
     return <div className="text-center py-8 text-muted-foreground">No presentations uploaded yet.</div>;
   }
 
+  const colCount = embeddingStatus ? 5 : 4;
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -302,6 +332,7 @@ export function CourseMaterialsTable({
             {/* Let filename take remaining space; other columns are fixed-width so the table fits without horizontal scroll */}
             <TableHead>Filename</TableHead>
             <TableHead className="w-[120px]">Status</TableHead>
+            {embeddingStatus && <TableHead className="w-[160px]">Embedding</TableHead>}
             <TableHead className="w-[220px]">Processed at</TableHead>
             <TableHead className="w-[140px] text-right">Actions</TableHead>
           </TableRow>
@@ -311,6 +342,7 @@ export function CourseMaterialsTable({
             const status = statusByFilename.get(filename);
             const combinedStatus: CombinedStatus = status?.status ?? "not_available";
             const isDeletingThis = deletingFile === filename;
+            const embeddingFile = embeddingStatus ? embeddingByFilename.get(filename) : undefined;
 
             return (
               <TableRow key={filename}>
@@ -325,6 +357,17 @@ export function CourseMaterialsTable({
                 <TableCell>
                   <StatusBadge status={combinedStatus} />
                 </TableCell>
+
+                {embeddingStatus && (
+                  <TableCell>
+                    {embeddingFile ? (
+                      <EmbeddingBadge status={embeddingFile.embedding_status} />
+                    ) : (
+                      <Badge variant="outline">—</Badge>
+                    )}
+                  </TableCell>
+                )}
+
                 <TableCell className="text-muted-foreground tabular-nums whitespace-nowrap">
                   {formatMaybeDate(status?.processed_at)}
                 </TableCell>
@@ -375,6 +418,53 @@ export function CourseMaterialsTable({
                       </Dialog>
                     )}
 
+                    {embeddingStatus &&
+                      embeddingFile?.embedding_status === "failed" &&
+                      embeddingFile.embedding_last_error && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8"
+                              aria-label={`View embedding error for ${filename}`}
+                            >
+                              View
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Embedding error details</DialogTitle>
+                              <DialogDescription className="break-words">
+                                {filename}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="max-h-[55vh] overflow-auto rounded-md border bg-muted/20 p-3">
+                              <pre className="text-xs leading-relaxed whitespace-pre-wrap break-words font-mono">
+                                {embeddingFile.embedding_last_error}
+                              </pre>
+                            </div>
+                            <DialogFooter>
+                              <DialogClose asChild>
+                                <Button variant="outline">Close</Button>
+                              </DialogClose>
+                              <Button
+                                onClick={async () => {
+                                  try {
+                                    await navigator.clipboard.writeText(embeddingFile.embedding_last_error ?? "");
+                                    toast.success("Copied error to clipboard");
+                                  } catch {
+                                    toast.error("Failed to copy");
+                                  }
+                                }}
+                              >
+                                Copy
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button
@@ -417,7 +507,7 @@ export function CourseMaterialsTable({
 
           {poll && !allTerminal && (
             <TableRow>
-              <TableCell colSpan={4} className="text-muted-foreground">
+              <TableCell colSpan={colCount} className="text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Updating statuses…

@@ -85,6 +85,62 @@ class Settings(BaseSettings):
         description="Max completion tokens for extraction responses",
     )
 
+    extraction_workers: int = Field(
+        default=4,
+        description=(
+            "Max worker threads for course file extraction. "
+            "Embeddings orchestration uses the same worker count."
+        ),
+    )
+
+    # Embeddings (OpenAI-compatible; defaults to the same creds as LLM)
+    embedding_model: str = Field(
+        default="text-embedding-3-small",
+        description="Embedding model name/id. Override via LAB_TUTOR_EMBEDDING_MODEL.",
+    )
+    embedding_dims: int | None = Field(
+        default=1536,
+        description=(
+            "Embedding vector dimensions. Used for validation + Neo4j vector indexes. "
+            "Set to null/empty to disable dim enforcement and vector index creation."
+        ),
+    )
+    embedding_api_key: str | None = Field(
+        default=None,
+        description=(
+            "Embedding API key (OpenAI-compatible). Defaults to LAB_TUTOR_LLM_API_KEY if unset."
+        ),
+    )
+    embedding_base_url: str | None = Field(
+        default=None,
+        description=(
+            "Embedding base URL (OpenAI-compatible). Defaults to LAB_TUTOR_LLM_BASE_URL if unset."
+        ),
+    )
+    embedding_batch_size: int = Field(
+        default=64,
+        description="Max texts per embeddings request batch.",
+    )
+    embedding_timeout_seconds: int = Field(
+        default=120,
+        description="Embeddings request timeout in seconds.",
+    )
+    embedding_stale_seconds: int = Field(
+        default=3600,
+        description=(
+            "If course embeddings are IN_PROGRESS longer than this, the status endpoint will "
+            "auto-restart embeddings in the background."
+        ),
+    )
+    embedding_max_retries: int = Field(
+        default=3,
+        description="Max retries per embeddings batch.",
+    )
+    embedding_retry_base_seconds: float = Field(
+        default=1.0,
+        description="Base seconds for exponential backoff between embedding retries.",
+    )
+
     # LangSmith (observability / tracing)
     langsmith_api_key: str | None = Field(
         default=None,
@@ -114,12 +170,34 @@ class Settings(BaseSettings):
     # Example:
     #   LAB_TUTOR_CORS_ALLOW_ORIGINS="https://gray-meadow-055f6ba1e.1.azurestaticapps.net,https://yourdomain.com"
     cors_allow_origins: str = Field(
-        default="http://localhost:5173,http://localhost:5174,http://localhost:3000",
+        default=(
+            "http://localhost:5173,http://127.0.0.1:5173,"
+            "http://localhost:5174,http://127.0.0.1:5174,"
+            "http://localhost:3000,http://127.0.0.1:3000"
+        ),
         description="Comma-separated CORS allowlist origins.",
     )
     cors_allow_credentials: bool = Field(
         default=False,
         description="Whether to allow credentials in CORS. Prefer false when using Bearer tokens.",
+    )
+
+    # Observability
+    request_timing_header_enabled: bool = Field(
+        default=True,
+        description=(
+            "Whether to add X-Request-Id and X-Request-Duration-Ms response headers."
+        ),
+    )
+    request_timing_log_enabled: bool = Field(
+        default=False,
+        description=(
+            "Whether to log per-request timing. When enabled, slow requests are logged at INFO, others at DEBUG."
+        ),
+    )
+    slow_request_ms: int = Field(
+        default=500,
+        description="Threshold (ms) for considering a request slow when logging timings.",
     )
 
 
