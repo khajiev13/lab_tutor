@@ -22,9 +22,7 @@ def cleanup_sql(db):
         .filter(CourseSelectedBook.course_id == COURSE_ID)
         .count()
     )
-    books_count = (
-        db.query(CourseBook).filter(CourseBook.course_id == COURSE_ID).count()
-    )
+    books_count = db.query(CourseBook).filter(CourseBook.course_id == COURSE_ID).count()
     sessions_count = (
         db.query(BookSelectionSession)
         .filter(BookSelectionSession.course_id == COURSE_ID)

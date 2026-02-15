@@ -7,9 +7,8 @@ import urllib.parse
 import urllib.request
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from langchain.tools import tool
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SearchResultItem(BaseModel):
@@ -21,7 +20,9 @@ class SearchResultItem(BaseModel):
     url: str | None = Field(None, description="Canonical URL, if available")
     snippet: str | None = Field(None, description="Short cleaned snippet")
     source: str = Field("", description="Source system identifier")
-    score: float | None = Field(None, description="Relevance score, if provided by the API")
+    score: float | None = Field(
+        None, description="Relevance score, if provided by the API"
+    )
 
 
 class SearchResponse(BaseModel):
@@ -35,11 +36,12 @@ class SearchResponse(BaseModel):
 
     ok: bool = Field(..., description="True when the request succeeded")
     tool: Literal[
-        "tavily_search", "googlebooksqueryrun",
-        "duckduckgo_search", "open_library_search", "download_file_from_url",
-    ] = Field(
-        ..., description="Tool identifier"
-    )
+        "tavily_search",
+        "googlebooksqueryrun",
+        "duckduckgo_search",
+        "open_library_search",
+        "download_file_from_url",
+    ] = Field(..., description="Tool identifier")
     query: str = Field(..., description="Final cleaned query used")
     results: list[SearchResultItem] = Field(default_factory=list)
     error: str | None = Field(default=None, description="Error message when ok=False")
@@ -83,19 +85,26 @@ def _json_response(payload: BaseModel) -> str:
 
 
 _ToolName = Literal[
-    "tavily_search", "googlebooksqueryrun",
-    "duckduckgo_search", "open_library_search", "download_file_from_url",
+    "tavily_search",
+    "googlebooksqueryrun",
+    "duckduckgo_search",
+    "open_library_search",
+    "download_file_from_url",
 ]
 
 
 def _error(tool_name: _ToolName, query: str, msg: str) -> str:
-    return _json_response(SearchResponse(ok=False, tool=tool_name, query=query, error=msg))
+    return _json_response(
+        SearchResponse(ok=False, tool=tool_name, query=query, error=msg)
+    )
 
 
 def _require_env(name: str) -> str:
     val = os.getenv(name)
     if not val:
-        raise ValueError(f"Missing env var {name}. Set it in your shell or a .env file.")
+        raise ValueError(
+            f"Missing env var {name}. Set it in your shell or a .env file."
+        )
     return val
 
 
@@ -130,7 +139,9 @@ def _http_get_json(url: str, *, timeout_s: float = 30.0) -> dict[str, Any]:
     return parsed
 
 
-def _normalize_google_books_items(payload: dict[str, Any], *, query: str, max_results: int) -> list[SearchResultItem]:
+def _normalize_google_books_items(
+    payload: dict[str, Any], *, query: str, max_results: int
+) -> list[SearchResultItem]:
     items = payload.get("items")
     if not isinstance(items, list) or not items:
         return []
@@ -147,10 +158,7 @@ def _normalize_google_books_items(payload: dict[str, Any], *, query: str, max_re
         subtitle = str(volume_info.get("subtitle") or "").strip()
         authors_raw = volume_info.get("authors")
 
-        if subtitle and title:
-            title_full = f"{title}: {subtitle}"
-        else:
-            title_full = title or subtitle
+        title_full = f"{title}: {subtitle}" if subtitle and title else title or subtitle
 
         authors: str | None = None
         if isinstance(authors_raw, list):
@@ -187,7 +195,9 @@ def _normalize_google_books_items(payload: dict[str, Any], *, query: str, max_re
     return out
 
 
-def _normalize_tavily_results(results: Any, *, query: str, max_snippet_chars: int) -> list[SearchResultItem]:
+def _normalize_tavily_results(
+    results: Any, *, query: str, max_snippet_chars: int
+) -> list[SearchResultItem]:
     if not isinstance(results, list):
         return []
 
@@ -198,7 +208,9 @@ def _normalize_tavily_results(results: Any, *, query: str, max_snippet_chars: in
         title = str(item.get("title") or "").strip()
         url = str(item.get("url") or "").strip() or None
         content = item.get("content")
-        snippet = _clean_snippet(str(content) if content is not None else None, max_chars=max_snippet_chars)
+        snippet = _clean_snippet(
+            str(content) if content is not None else None, max_chars=max_snippet_chars
+        )
         score = item.get("score")
         score_f: float | None = None
         if isinstance(score, (int, float)):
@@ -283,16 +295,22 @@ def googlebooksqueryrun(
         if lang_restrict:
             params["langRestrict"] = _clean_query(lang_restrict, max_chars=16)
 
-        url = "https://www.googleapis.com/books/v1/volumes?" + urllib.parse.urlencode(params)
+        url = "https://www.googleapis.com/books/v1/volumes?" + urllib.parse.urlencode(
+            params
+        )
         payload = _http_get_json(url)
 
-        results = _normalize_google_books_items(payload, query=q, max_results=max_results_clamped)
+        results = _normalize_google_books_items(
+            payload, query=q, max_results=max_results_clamped
+        )
         warnings: list[str] = []
         if not results:
             warnings.append("No results returned by Google Books API for this query.")
 
         return _json_response(
-            SearchResponse(ok=True, tool=tool_name, query=q, results=results, warnings=warnings)
+            SearchResponse(
+                ok=True, tool=tool_name, query=q, results=results, warnings=warnings
+            )
         )
     except Exception as e:  # noqa: BLE001
         return _error(tool_name, query=q, msg=str(e))
@@ -370,13 +388,17 @@ def tavily_search(
             raw = _http_get_json(url)
             results_raw = raw.get("results") if isinstance(raw, dict) else None
 
-        results = _normalize_tavily_results(results_raw, query=q, max_snippet_chars=max_snippet_chars)
+        results = _normalize_tavily_results(
+            results_raw, query=q, max_snippet_chars=max_snippet_chars
+        )
         warnings: list[str] = []
         if not results:
             warnings.append("No results returned by Tavily for this query.")
 
         return _json_response(
-            SearchResponse(ok=True, tool=tool_name, query=q, results=results, warnings=warnings)
+            SearchResponse(
+                ok=True, tool=tool_name, query=q, results=results, warnings=warnings
+            )
         )
     except Exception as e:  # noqa: BLE001
         return _error(tool_name, query=q, msg=str(e))
@@ -387,7 +409,9 @@ def tavily_search(
 # ═══════════════════════════════════════════════════════════════
 
 
-def _normalize_ddg_results(results: list[dict[str, Any]], *, max_snippet_chars: int = 320) -> list[SearchResultItem]:
+def _normalize_ddg_results(
+    results: list[dict[str, Any]], *, max_snippet_chars: int = 320
+) -> list[SearchResultItem]:
     out: list[SearchResultItem] = []
     for item in results:
         if not isinstance(item, dict):
@@ -446,9 +470,9 @@ def duckduckgo_search(
             from duckduckgo_search import DDGS  # type: ignore
         except ImportError as import_err:
             return _error(
-                tool_name, 
-                query=q, 
-                msg=f"duckduckgo-search package not installed. Install with: uv add duckduckgo-search ({import_err})"
+                tool_name,
+                query=q,
+                msg=f"duckduckgo-search package not installed. Install with: uv add duckduckgo-search ({import_err})",
             )
 
         max_results_clamped = max(1, min(int(max_results), 20))
@@ -462,7 +486,9 @@ def duckduckgo_search(
             warnings.append("No results returned by DuckDuckGo for this query.")
 
         return _json_response(
-            SearchResponse(ok=True, tool=tool_name, query=q, results=results, warnings=warnings)
+            SearchResponse(
+                ok=True, tool=tool_name, query=q, results=results, warnings=warnings
+            )
         )
     except Exception as e:  # noqa: BLE001
         return _error(tool_name, query=q, msg=str(e))
@@ -559,7 +585,7 @@ def open_library_search(
             "q": q,
             "limit": str(max_results_clamped),
             "fields": "key,title,author_name,first_publish_year,isbn,publisher,"
-                       "ebook_access,ia,number_of_pages_median",
+            "ebook_access,ia,number_of_pages_median",
         }
         url = "https://openlibrary.org/search.json?" + urllib.parse.urlencode(params)
         payload = _http_get_json(url, timeout_s=20.0)
@@ -571,7 +597,9 @@ def open_library_search(
             warnings.append("No results returned by Open Library for this query.")
 
         return _json_response(
-            SearchResponse(ok=True, tool=tool_name, query=q, results=results, warnings=warnings)
+            SearchResponse(
+                ok=True, tool=tool_name, query=q, results=results, warnings=warnings
+            )
         )
     except Exception as e:  # noqa: BLE001
         return _error(tool_name, query=q, msg=str(e))
@@ -583,7 +611,11 @@ def open_library_search(
 
 _DOWNLOAD_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "..", "..", "..", "data", "books",
+    "..",
+    "..",
+    "..",
+    "data",
+    "books",
 )
 
 
@@ -640,14 +672,17 @@ def download_file_from_url(
 
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:
             content_type = resp.headers.get("Content-Type", "").lower()
-            content_length = resp.headers.get("Content-Length")
 
             # Reject obvious HTML pages
             if "text/html" in content_type and "pdf" not in url.lower():
-                return _json_response(SearchResponse(
-                    ok=False, tool=tool_name, query=url,
-                    error=f"URL returned HTML, not a file. Content-Type: {content_type}",
-                ))
+                return _json_response(
+                    SearchResponse(
+                        ok=False,
+                        tool=tool_name,
+                        query=url,
+                        error=f"URL returned HTML, not a file. Content-Type: {content_type}",
+                    )
+                )
 
             # Read content (limit to 200MB)
             max_bytes = 200 * 1024 * 1024
@@ -670,20 +705,21 @@ def download_file_from_url(
             if data[:4] == b"PK\x03\x04":  # ZIP/EPUB
                 ext = ".epub"
             elif b"<html" in data[:500].lower() or b"<!doctype" in data[:500].lower():
-                return _json_response(SearchResponse(
-                    ok=False, tool=tool_name, query=url,
-                    error="Downloaded content is an HTML page, not a PDF/book file.",
-                ))
+                return _json_response(
+                    SearchResponse(
+                        ok=False,
+                        tool=tool_name,
+                        query=url,
+                        error="Downloaded content is an HTML page, not a PDF/book file.",
+                    )
+                )
 
         # Build filename
         if not filename:
             # Try to extract from URL path
             path_part = urllib.parse.urlparse(url).path
             base = os.path.basename(path_part)
-            if base and "." in base:
-                filename = os.path.splitext(base)[0]
-            else:
-                filename = "download"
+            filename = os.path.splitext(base)[0] if base and "." in base else "download"
         filename = _sanitize_filename(filename)
         full_path = os.path.join(_DOWNLOAD_DIR, f"{filename}{ext}")
 
@@ -699,24 +735,26 @@ def download_file_from_url(
         file_size = len(data)
         abs_path = os.path.abspath(full_path)
 
-        return _json_response(SearchResponse(
-            ok=True,
-            tool=tool_name,
-            query=url,
-            results=[
-                SearchResultItem(
-                    title=f"Downloaded: {os.path.basename(abs_path)}",
-                    url=abs_path,
-                    snippet=(
-                        f"Saved to: {abs_path} | "
-                        f"Size: {file_size / 1024:.1f} KB | "
-                        f"Content-Type: {content_type} | "
-                        f"Is PDF: {is_pdf}"
-                    ),
-                    source="local_download",
-                )
-            ],
-        ))
+        return _json_response(
+            SearchResponse(
+                ok=True,
+                tool=tool_name,
+                query=url,
+                results=[
+                    SearchResultItem(
+                        title=f"Downloaded: {os.path.basename(abs_path)}",
+                        url=abs_path,
+                        snippet=(
+                            f"Saved to: {abs_path} | "
+                            f"Size: {file_size / 1024:.1f} KB | "
+                            f"Content-Type: {content_type} | "
+                            f"Is PDF: {is_pdf}"
+                        ),
+                        source="local_download",
+                    )
+                ],
+            )
+        )
     except Exception as e:  # noqa: BLE001
         return _error(tool_name, query=url, msg=str(e))
 
@@ -734,5 +772,10 @@ DOWNLOAD_SEARCH_TOOLS = [duckduckgo_search, tavily_search, open_library_search]
 DOWNLOAD_SEARCH_TOOLS_BY_NAME = {t.name: t for t in DOWNLOAD_SEARCH_TOOLS}
 
 # All download tools (search + download)
-DOWNLOAD_TOOLS = [duckduckgo_search, tavily_search, open_library_search, download_file_from_url]
+DOWNLOAD_TOOLS = [
+    duckduckgo_search,
+    tavily_search,
+    open_library_search,
+    download_file_from_url,
+]
 DOWNLOAD_TOOLS_BY_NAME = {t.name: t for t in DOWNLOAD_TOOLS}

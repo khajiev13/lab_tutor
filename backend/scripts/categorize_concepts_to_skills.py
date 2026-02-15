@@ -10,31 +10,39 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import List
 
-from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+from pydantic import BaseModel, Field, SecretStr
 
 # Add parent directory to path for app imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.core.settings import settings
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
 class SkillCategorization(BaseModel):
     """A single skill with its associated concepts."""
-    skill_name: str = Field(description="The name of the skill (e.g., 'Data Science', 'Distributed Systems')")
-    concept_names: List[str] = Field(description="List of concept names that belong to this skill")
+
+    skill_name: str = Field(
+        description="The name of the skill (e.g., 'Data Science', 'Distributed Systems')"
+    )
+    concept_names: list[str] = Field(
+        description="List of concept names that belong to this skill"
+    )
 
 
 class SkillCategorizationResult(BaseModel):
     """Complete categorization result."""
-    skills: List[SkillCategorization] = Field(description="List of skills with their associated concepts")
+
+    skills: list[SkillCategorization] = Field(
+        description="List of skills with their associated concepts"
+    )
 
 
 SKILL_CATEGORIZATION_SYSTEM_PROMPT = """You are an expert at categorizing technical concepts into meaningful skills for educational purposes.
@@ -73,16 +81,20 @@ SKILL_CATEGORIZATION_PROMPT = """Categorize the following technical concepts int
 Return your response as a JSON object matching the required schema."""
 
 
-def categorize_concepts_to_skills(concept_names: List[str]) -> SkillCategorizationResult:
+def categorize_concepts_to_skills(
+    concept_names: list[str],
+) -> SkillCategorizationResult:
     """Use LLM to categorize concepts into skills."""
     if not settings.llm_api_key:
-        raise ValueError("LLM API key is required. Set LAB_TUTOR_LLM_API_KEY or XIAO_CASE_API_KEY")
-    
+        raise ValueError(
+            "LLM API key is required. Set LAB_TUTOR_LLM_API_KEY or XIAO_CASE_API_KEY"
+        )
+
     logger.info(f"Categorizing {len(concept_names)} concepts into skills...")
-    
+
     # Format concept list
     concept_list = "\n".join([f"- {name}" for name in sorted(concept_names)])
-    
+
     # Create LLM
     base_llm = ChatOpenAI(
         model=settings.llm_model,
@@ -92,46 +104,49 @@ def categorize_concepts_to_skills(concept_names: List[str]) -> SkillCategorizati
         timeout=600,
         max_completion_tokens=8192,
     )
-    
+
     # Use structured output
     method = "json_mode" if "gpt-4o" in settings.llm_model else "function_calling"
     llm = base_llm.with_structured_output(SkillCategorizationResult, method=method)
-    
+
     # Create prompt
-    prompt_template = ChatPromptTemplate.from_messages([
-        ("system", SKILL_CATEGORIZATION_SYSTEM_PROMPT),
-        ("human", SKILL_CATEGORIZATION_PROMPT)
-    ])
-    
+    prompt_template = ChatPromptTemplate.from_messages(
+        [
+            ("system", SKILL_CATEGORIZATION_SYSTEM_PROMPT),
+            ("human", SKILL_CATEGORIZATION_PROMPT),
+        ]
+    )
+
     chain = prompt_template | llm
-    
+
     # Invoke
-    result = chain.invoke({
-        "num_concepts": len(concept_names),
-        "concept_list": concept_list
-    })
-    
+    result = chain.invoke(
+        {"num_concepts": len(concept_names), "concept_list": concept_list}
+    )
+
     logger.info(f"Generated {len(result.skills)} skills")
     return result
 
 
-def save_categorization_to_file(result: SkillCategorizationResult, filename: str = "skill_categorization.json"):
+def save_categorization_to_file(
+    result: SkillCategorizationResult, filename: str = "skill_categorization.json"
+):
     """Save categorization result to a JSON file."""
     data = {
         "skills": [
             {
                 "skill_name": skill.skill_name,
                 "concept_names": skill.concept_names,
-                "concept_count": len(skill.concept_names)
+                "concept_count": len(skill.concept_names),
             }
             for skill in result.skills
         ],
         "total_skills": len(result.skills),
-        "total_concepts": sum(len(skill.concept_names) for skill in result.skills)
+        "total_concepts": sum(len(skill.concept_names) for skill in result.skills),
     }
-    
+
     output_path = Path(__file__).parent.parent.parent / filename
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     logger.info(f"Saved categorization to {output_path}")
 
@@ -141,36 +156,40 @@ if __name__ == "__main__":
     concepts_file = Path(__file__).parent.parent.parent / "concepts_list.json"
     if not concepts_file.exists():
         logger.error(f"Concepts file not found at {concepts_file}")
-        logger.info("Please create concepts_list.json with: {\"concepts\": [\"concept1\", \"concept2\", ...]}")
+        logger.info(
+            'Please create concepts_list.json with: {"concepts": ["concept1", "concept2", ...]}'
+        )
         sys.exit(1)
-    
-    with open(concepts_file, 'r', encoding='utf-8') as f:
+
+    with open(concepts_file, encoding="utf-8") as f:
         data = json.load(f)
         concepts = data.get("concepts", [])
-    
+
     if not concepts:
         logger.error("No concepts found in concepts_list.json")
         sys.exit(1)
-    
+
     logger.info(f"Loaded {len(concepts)} concepts from {concepts_file}")
-    
+
     try:
         # Categorize concepts
         result = categorize_concepts_to_skills(concepts)
-        
+
         # Save to file
         save_categorization_to_file(result)
-        
-        print(f"\n✅ Categorization complete!")
+
+        print("\n✅ Categorization complete!")
         print(f"   - Generated {len(result.skills)} skills")
-        print(f"   - Categorized {sum(len(skill.concept_names) for skill in result.skills)} concepts")
-        print(f"\nNext step: Use MCP tools to store skills in Neo4j")
-        
+        print(
+            f"   - Categorized {sum(len(skill.concept_names) for skill in result.skills)} concepts"
+        )
+        print("\nNext step: Use MCP tools to store skills in Neo4j")
+
         # Print summary
         print("\nSkills generated:")
         for skill in result.skills:
             print(f"  - {skill.skill_name}: {len(skill.concept_names)} concepts")
-        
+
     except Exception as e:
         logger.exception(f"Error during categorization: {e}")
         sys.exit(1)

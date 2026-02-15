@@ -62,7 +62,9 @@ def exec_tools(ai_msg: AIMessage, tools_by_name: dict) -> list[ToolMessage]:
         if tool is None:
             results.append(
                 ToolMessage(
-                    content=json.dumps({"ok": False, "error": f"Unknown tool: {tool_name}"}),
+                    content=json.dumps(
+                        {"ok": False, "error": f"Unknown tool: {tool_name}"}
+                    ),
                     tool_call_id=tool_call_id,
                 )
             )
@@ -99,9 +101,7 @@ def pick_best_entry(entries: list[dict]) -> dict:
 
     def _completeness(e: dict) -> tuple:
         filled = sum(
-            1
-            for k in ("title", "authors", "publisher", "year", "reason")
-            if e.get(k)
+            1 for k in ("title", "authors", "publisher", "year", "reason") if e.get(k)
         )
         try:
             yr = int(e.get("year", "0"))

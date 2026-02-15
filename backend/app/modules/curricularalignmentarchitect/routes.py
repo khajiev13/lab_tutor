@@ -283,6 +283,8 @@ async def upload_custom_selected_book(
 ):
     """Upload a custom book directly to the course selected books."""
     try:
-        return await service.upload_custom_selected_book(course_id, file, title, authors)
+        return await service.upload_custom_selected_book(
+            course_id, file, title, authors
+        )
     except ValueError as e:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e)) from e

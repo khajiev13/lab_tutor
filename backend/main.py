@@ -53,7 +53,9 @@ def _ensure_sql_schema_upgrades() -> None:
     with engine.connect() as conn:
         if is_sqlite:
             # Ensure `course_files.content_hash` exists (used for duplicate detection).
-            cols = conn.execute(text("PRAGMA table_info(course_files)")).mappings().all()
+            cols = (
+                conn.execute(text("PRAGMA table_info(course_files)")).mappings().all()
+            )
             col_names = {c["name"] for c in cols}
             if "content_hash" not in col_names:
                 conn.execute(
@@ -69,7 +71,9 @@ def _ensure_sql_schema_upgrades() -> None:
             )
 
             # Ensure `courses.level` exists (book-selection feature).
-            course_cols = conn.execute(text("PRAGMA table_info(courses)")).mappings().all()
+            course_cols = (
+                conn.execute(text("PRAGMA table_info(courses)")).mappings().all()
+            )
             course_col_names = {c["name"] for c in course_cols}
             if "level" not in course_col_names:
                 conn.execute(
@@ -80,9 +84,11 @@ def _ensure_sql_schema_upgrades() -> None:
                 )
 
             # Ensure `book_selection_sessions.discovered_books_json` exists.
-            bss_cols = conn.execute(
-                text("PRAGMA table_info(book_selection_sessions)")
-            ).mappings().all()
+            bss_cols = (
+                conn.execute(text("PRAGMA table_info(book_selection_sessions)"))
+                .mappings()
+                .all()
+            )
             bss_col_names = {c["name"] for c in bss_cols}
             if "discovered_books_json" not in bss_col_names:
                 conn.execute(

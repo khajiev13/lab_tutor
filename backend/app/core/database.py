@@ -157,7 +157,9 @@ def get_db() -> Generator:
         try:
             db.close()
         except Exception:
-            _db_logger.debug("Suppressed error closing DB session (stale connection)", exc_info=True)
+            _db_logger.debug(
+                "Suppressed error closing DB session (stale connection)", exc_info=True
+            )
 
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:

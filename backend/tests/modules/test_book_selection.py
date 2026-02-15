@@ -20,7 +20,6 @@ from app.modules.curricularalignmentarchitect.schemas import (
 )
 from app.modules.curricularalignmentarchitect.workflow_utils import compute_finals
 
-
 TEST_WEIGHTS = {
     "C_topic": 0.30,
     "C_struc": 0.20,
@@ -336,9 +335,7 @@ class TestBookSelectionRepository:
             weights={},
             level="bachelor",
         )
-        books = repo.upsert_books(
-            session.id, 1, [{"book_title": "X", "S_final": 5.0}]
-        )
+        books = repo.upsert_books(session.id, 1, [{"book_title": "X", "S_final": 5.0}])
         book_id = books[0].id
 
         repo.update_download_result(
@@ -361,9 +358,7 @@ class TestBookSelectionRepository:
             weights={},
             level="bachelor",
         )
-        books = repo.upsert_books(
-            session.id, 1, [{"book_title": "Y", "S_final": 4.0}]
-        )
+        books = repo.upsert_books(session.id, 1, [{"book_title": "Y", "S_final": 4.0}])
         book_id = books[0].id
 
         repo.update_download_result(

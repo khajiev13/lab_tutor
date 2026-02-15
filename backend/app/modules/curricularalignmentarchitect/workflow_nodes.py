@@ -95,7 +95,8 @@ def _make_llm(
 async def generate_queries(state: DiscoveryState) -> dict:
     """Single LLM call: course context → 10-12 search queries (retries up to 3x)."""
     llm = _make_llm(timeout=180, max_tokens=800).with_structured_output(
-        SearchQueryBatch, method="json_mode",
+        SearchQueryBatch,
+        method="json_mode",
     )
     ctx = state.get("course_context", {})
     c = ctx.get("course", {})
@@ -112,10 +113,12 @@ async def generate_queries(state: DiscoveryState) -> dict:
     last_error: Exception | None = None
     for attempt in range(max_retries):
         try:
-            result: SearchQueryBatch = await llm.ainvoke([
-                SystemMessage(content=QUERY_GENERATION_PROMPT),
-                HumanMessage(content=user_msg),
-            ])
+            result: SearchQueryBatch = await llm.ainvoke(
+                [
+                    SystemMessage(content=QUERY_GENERATION_PROMPT),
+                    HumanMessage(content=user_msg),
+                ]
+            )
             logger.info("Generated %d search queries", len(result.queries))
             return {
                 "search_queries": result.queries,
@@ -125,7 +128,9 @@ async def generate_queries(state: DiscoveryState) -> dict:
             last_error = e
             logger.warning(
                 "Query generation attempt %d/%d failed: %s",
-                attempt + 1, max_retries, e,
+                attempt + 1,
+                max_retries,
+                e,
             )
             if attempt < max_retries - 1:
                 await asyncio.sleep(2 * (attempt + 1))
@@ -139,17 +144,19 @@ def fan_out_searches(state: DiscoveryState) -> list[Send]:
     """Map phase: dispatch each query to its own search_and_extract node."""
     queries = state.get("search_queries", [])
     ctx = state.get("course_context", {})
-    logger.info("Fanning out %d queries to parallel search_and_extract workers", len(queries))
+    logger.info(
+        "Fanning out %d queries to parallel search_and_extract workers", len(queries)
+    )
     return [
-        Send("search_and_extract", {"query": q, "course_context": ctx})
-        for q in queries
+        Send("search_and_extract", {"query": q, "course_context": ctx}) for q in queries
     ]
 
 
 async def search_and_extract(state: dict) -> dict:
     """Map worker: execute ONE query on both tools → small LLM extract."""
     llm = _make_llm(timeout=60, max_tokens=1000).with_structured_output(
-        DiscoveredBookList, method="json_mode",
+        DiscoveredBookList,
+        method="json_mode",
     )
     query = state["query"]
     ctx = state.get("course_context", {})
@@ -182,14 +189,18 @@ async def search_and_extract(state: dict) -> dict:
 
     c = ctx.get("course", {})
     try:
-        result: DiscoveredBookList = await llm.ainvoke([
-            SystemMessage(content=PER_QUERY_EXTRACTION_PROMPT),
-            HumanMessage(content=(
-                f"COURSE: {c.get('title', '')}\n"
-                f"SEARCH QUERY: \"{query}\"\n\n"
-                f"SEARCH RESULTS:\n\n" + "\n---\n".join(parts)
-            )),
-        ])
+        result: DiscoveredBookList = await llm.ainvoke(
+            [
+                SystemMessage(content=PER_QUERY_EXTRACTION_PROMPT),
+                HumanMessage(
+                    content=(
+                        f"COURSE: {c.get('title', '')}\n"
+                        f'SEARCH QUERY: "{query}"\n\n'
+                        f"SEARCH RESULTS:\n\n" + "\n---\n".join(parts)
+                    )
+                ),
+            ]
+        )
         books = [b.model_dump() for b in result.books]
     except Exception as e:
         logger.error("Extraction failed for query %s: %s", query[:40], e)
@@ -257,7 +268,8 @@ async def score_node(state: ScoringState) -> dict:
     LLM-generated structured output).
     """
     llm = _make_llm(timeout=90, max_tokens=1200).with_structured_output(
-        BookMeritScores, method="json_mode",
+        BookMeritScores,
+        method="json_mode",
     )
     book = state["book"]
     ctx = state["course_context"]
@@ -268,7 +280,11 @@ async def score_node(state: ScoringState) -> dict:
     for m in state.get("messages", []):
         if isinstance(m, ToolMessage):
             evidence.append(m.content[:800])
-        elif isinstance(m, AIMessage) and m.content and not getattr(m, "tool_calls", None):
+        elif (
+            isinstance(m, AIMessage)
+            and m.content
+            and not getattr(m, "tool_calls", None)
+        ):
             evidence.append(m.content[:500])
 
     user_prompt = (
@@ -279,18 +295,19 @@ async def score_node(state: ScoringState) -> dict:
         f"Publisher: {book.get('publisher', '')} | "
         f"Year: {book.get('year', '')}\n"
         f"Reason: {book.get('reason', '')}\n\n"
-        f"EVIDENCE:\n"
-        + "\n---\n".join(evidence[-10:])
+        f"EVIDENCE:\n" + "\n---\n".join(evidence[-10:])
     )
 
     max_retries = 3
     last_error: Exception | None = None
     for attempt in range(max_retries):
         try:
-            scores: BookMeritScores = await llm.ainvoke([
-                SystemMessage(content=scoring_prompt),
-                HumanMessage(content=user_prompt),
-            ])
+            scores: BookMeritScores = await llm.ainvoke(
+                [
+                    SystemMessage(content=scoring_prompt),
+                    HumanMessage(content=user_prompt),
+                ]
+            )
 
             result = scores.to_flat_dict()
             sf_base, sf_with_prac = compute_finals(
@@ -329,14 +346,22 @@ async def score_node(state: ScoringState) -> dict:
         last_error,
     )
     fallback = {
-        "C_topic": 0, "C_topic_rationale": f"Scoring failed: {last_error}",
-        "C_struc": 0, "C_struc_rationale": "",
-        "C_scope": 0, "C_scope_rationale": "",
-        "C_pub": 0, "C_pub_rationale": "",
-        "C_auth": 0, "C_auth_rationale": "",
-        "C_time": 0, "C_time_rationale": "",
-        "C_prac": 0, "C_prac_rationale": "",
-        "S_final": 0, "S_final_with_prac": 0,
+        "C_topic": 0,
+        "C_topic_rationale": f"Scoring failed: {last_error}",
+        "C_struc": 0,
+        "C_struc_rationale": "",
+        "C_scope": 0,
+        "C_scope_rationale": "",
+        "C_pub": 0,
+        "C_pub_rationale": "",
+        "C_auth": 0,
+        "C_auth_rationale": "",
+        "C_time": 0,
+        "C_time_rationale": "",
+        "C_prac": 0,
+        "C_prac_rationale": "",
+        "S_final": 0,
+        "S_final_with_prac": 0,
         "book_title": book.get("title", ""),
         "book_authors": book.get("authors", ""),
         "scoring_error": str(last_error),
@@ -361,7 +386,10 @@ def dl_search_agent(state: DownloadState) -> dict:
     return {
         "messages": [
             llm.invoke(
-                [SystemMessage(content=DOWNLOAD_SEARCH_PROMPT), *state.get("messages", [])]
+                [
+                    SystemMessage(content=DOWNLOAD_SEARCH_PROMPT),
+                    *state.get("messages", []),
+                ]
             )
         ]
     }
@@ -394,7 +422,8 @@ def dl_search_route(state: DownloadState) -> str:
 async def dl_extract_urls(state: DownloadState) -> dict:
     """LLM extracts candidate download URLs from all search evidence."""
     llm = _make_llm(timeout=60, max_tokens=1500).with_structured_output(
-        CandidateURLList, method="json_mode",
+        CandidateURLList,
+        method="json_mode",
     )
     book = state["book"]
 
@@ -402,7 +431,11 @@ async def dl_extract_urls(state: DownloadState) -> dict:
     for m in state.get("messages", []):
         if isinstance(m, ToolMessage):
             evidence.append(m.content[:1200])
-        elif isinstance(m, AIMessage) and m.content and not getattr(m, "tool_calls", None):
+        elif (
+            isinstance(m, AIMessage)
+            and m.content
+            and not getattr(m, "tool_calls", None)
+        ):
             evidence.append(m.content[:600])
 
     user_prompt = (
@@ -416,21 +449,27 @@ async def dl_extract_urls(state: DownloadState) -> dict:
         "Rate each URL's confidence. If you found NO usable URLs, return an empty list."
     )
 
-    result: CandidateURLList = await llm.ainvoke([
-        SystemMessage(content=(
-            "Extract candidate download URLs from the search evidence. "
-            "Include ONLY URLs that actually appeared in the search results. "
-            "Rate confidence: 1.0 = URL ends in .pdf/.epub (direct link), "
-            "0.8 = download page on archive.org or similar, "
-            "0.5 = book page that might have a download option, "
-            "0.2 = tangential reference."
-        )),
-        HumanMessage(content=user_prompt),
-    ])
+    result: CandidateURLList = await llm.ainvoke(
+        [
+            SystemMessage(
+                content=(
+                    "Extract candidate download URLs from the search evidence. "
+                    "Include ONLY URLs that actually appeared in the search results. "
+                    "Rate confidence: 1.0 = URL ends in .pdf/.epub (direct link), "
+                    "0.8 = download page on archive.org or similar, "
+                    "0.5 = book page that might have a download option, "
+                    "0.2 = tangential reference."
+                )
+            ),
+            HumanMessage(content=user_prompt),
+        ]
+    )
 
     urls = [u.model_dump() for u in result.urls]
     urls.sort(key=lambda u: u.get("confidence", 0), reverse=True)
-    logger.info("Found %d candidate URLs for %s", len(urls), book.get("title", "?")[:50])
+    logger.info(
+        "Found %d candidate URLs for %s", len(urls), book.get("title", "?")[:50]
+    )
     return {"candidate_urls": urls}
 
 
@@ -463,7 +502,9 @@ async def dl_attempt_download(state: DownloadState) -> dict:
                 download_file_from_url.invoke,
                 {"url": url, "filename": safe_fn},
             )
-            result_data = json.loads(raw_result) if isinstance(raw_result, str) else raw_result
+            result_data = (
+                json.loads(raw_result) if isinstance(raw_result, str) else raw_result
+            )
             if result_data.get("ok"):
                 results = result_data.get("results", [])
                 dl_info = results[0] if results else {}
@@ -480,7 +521,9 @@ async def dl_attempt_download(state: DownloadState) -> dict:
         except Exception as e:
             logger.warning("Download attempt failed for %s: %s", url[:60], e)
 
-    remaining_urls = [u.get("url", "") for u in urls if u.get("url", "") not in tried_urls]
+    remaining_urls = [
+        u.get("url", "") for u in urls if u.get("url", "") not in tried_urls
+    ]
     return {
         "download_result": {
             "book_title": title,
@@ -558,6 +601,7 @@ def fetch_course(state: WorkflowState) -> dict:
 async def discover_books(state: WorkflowState) -> dict:
     """Run the discovery sub-graph."""
     from .workflow import build_discovery_graph
+
     discovery_graph = build_discovery_graph()
     result = await discovery_graph.ainvoke({"course_context": state["course_context"]})
     return {"discovered_books": result.get("discovered_books", [])}
@@ -577,14 +621,16 @@ def fan_out_scoring(state: WorkflowState) -> list[Send]:
                 "score_book",
                 {
                     "messages": [
-                        HumanMessage(content=(
-                            f"Research and gather evidence about this book:\n"
-                            f"Title: {book.get('title', '')}\n"
-                            f"Authors: {book.get('authors', '')}\n"
-                            f"Publisher: {book.get('publisher', '')}\n"
-                            f"Year: {book.get('year', '')}\n"
-                            f"Reason: {book.get('reason', '')}"
-                        ))
+                        HumanMessage(
+                            content=(
+                                f"Research and gather evidence about this book:\n"
+                                f"Title: {book.get('title', '')}\n"
+                                f"Authors: {book.get('authors', '')}\n"
+                                f"Publisher: {book.get('publisher', '')}\n"
+                                f"Year: {book.get('year', '')}\n"
+                                f"Reason: {book.get('reason', '')}"
+                            )
+                        )
                     ],
                     "book": book,
                     "course_context": ctx,
@@ -600,6 +646,7 @@ def fan_out_scoring(state: WorkflowState) -> list[Send]:
 async def score_book_node(state: ScoringState) -> dict:
     """Run the scoring sub-graph for a single book."""
     from .workflow import build_scoring_graph
+
     scoring_graph = build_scoring_graph()
     result = await scoring_graph.ainvoke(state)
     scores = result.get("final_scores", {})
@@ -625,11 +672,13 @@ def hitl_review(state: WorkflowState) -> dict:
     ranked = sorted(scored, key=lambda x: x.get("S_final", 0), reverse=True)
 
     # interrupt() suspends the workflow and returns the data to the caller
-    selected = interrupt({
-        "type": "book_review",
-        "books": ranked,
-        "message": "Please review the scored books and select up to 5 for download.",
-    })
+    selected = interrupt(
+        {
+            "type": "book_review",
+            "books": ranked,
+            "message": "Please review the scored books and select up to 5 for download.",
+        }
+    )
 
     # When resumed, selected can be:
     # - list of indices (legacy)
@@ -638,11 +687,15 @@ def hitl_review(state: WorkflowState) -> dict:
         if isinstance(selected[0], str):
             # Match by title
             selected_titles = set(selected)
-            top = [b for b in ranked if b.get("book_title", "") in selected_titles][:TOP_N_DOWNLOAD]
+            top = [b for b in ranked if b.get("book_title", "") in selected_titles][
+                :TOP_N_DOWNLOAD
+            ]
         else:
             # Legacy: match by index
             selected_set = set(selected)
-            top = [b for i, b in enumerate(ranked) if i in selected_set][:TOP_N_DOWNLOAD]
+            top = [b for i, b in enumerate(ranked) if i in selected_set][
+                :TOP_N_DOWNLOAD
+            ]
     else:
         top = ranked[:TOP_N_DOWNLOAD]
 
@@ -666,13 +719,15 @@ def fan_out_downloads(state: WorkflowState) -> list[Send]:
                 "download_book",
                 {
                     "messages": [
-                        HumanMessage(content=(
-                            f"Find download links for this book:\n"
-                            f"Title: {book['title']}\n"
-                            f"Authors: {book['authors']}\n"
-                            f"Year: {book['year']}\n"
-                            f"Publisher: {book['publisher']}"
-                        ))
+                        HumanMessage(
+                            content=(
+                                f"Find download links for this book:\n"
+                                f"Title: {book['title']}\n"
+                                f"Authors: {book['authors']}\n"
+                                f"Year: {book['year']}\n"
+                                f"Publisher: {book['publisher']}"
+                            )
+                        )
                     ],
                     "book": book,
                 },
@@ -684,6 +739,7 @@ def fan_out_downloads(state: WorkflowState) -> list[Send]:
 async def download_book_node(state: DownloadState) -> dict:
     """Run the download sub-graph for a single book."""
     from .workflow import build_download_graph
+
     download_graph = build_download_graph()
     result = await download_graph.ainvoke(state)
     dl_result = result.get("download_result", {})

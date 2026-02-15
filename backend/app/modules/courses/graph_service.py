@@ -92,4 +92,3 @@ def get_course_graph_service(
     neo4j_session: Neo4jSession = Depends(require_neo4j_session),
 ) -> CourseGraphService:
     return CourseGraphService(repo, neo4j_session)
-

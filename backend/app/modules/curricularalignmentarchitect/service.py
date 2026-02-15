@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -67,9 +66,7 @@ def _sanitize_error(exc: Exception) -> str:
 def _split_weights_payload(payload: dict) -> tuple[dict[str, float], float]:
     """Split persisted payload into core scoring weights and practicality blend."""
     core_weights = {
-        key: float(payload[key])
-        for key in CORE_WEIGHT_KEYS
-        if key in payload
+        key: float(payload[key]) for key in CORE_WEIGHT_KEYS if key in payload
     }
     w_prac = float(payload.get("W_prac", 0.0))
     return core_weights, w_prac
@@ -85,7 +82,7 @@ def _can_resume_scoring(status: SessionStatus) -> bool:
 
 
 @contextmanager
-def _fresh_db() -> "Generator[Session, None, None]":
+def _fresh_db() -> Generator[Session, None, None]:
     """Create a fresh database session for use in async generators.
 
     This is needed because FastAPI's dependency-injected sessions are closed
@@ -104,7 +101,9 @@ def _fresh_db() -> "Generator[Session, None, None]":
         except Exception:
             # Connection may have been closed server-side (Azure idle timeout).
             # pool_pre_ping will provide a fresh connection on next checkout.
-            logger.debug("Suppressed error closing DB session (stale connection)", exc_info=True)
+            logger.debug(
+                "Suppressed error closing DB session (stale connection)", exc_info=True
+            )
 
 
 class BookSelectionService:
@@ -170,7 +169,9 @@ class BookSelectionService:
             if session is None:
                 return
 
-            weights_payload = json.loads(session.weights_json) if session.weights_json else {}
+            weights_payload = (
+                json.loads(session.weights_json) if session.weights_json else {}
+            )
             core_weights, w_prac = _split_weights_payload(weights_payload)
             thread_id = session.thread_id
             course_id = session.course_id
@@ -274,7 +275,9 @@ class BookSelectionService:
             discovered_books = repo.load_discovered_books(session_id)
             has_discovered_books = bool(discovered_books)
 
-            weights_payload = json.loads(session.weights_json) if session.weights_json else {}
+            weights_payload = (
+                json.loads(session.weights_json) if session.weights_json else {}
+            )
             core_weights, w_prac = _split_weights_payload(weights_payload)
             course_id = session.course_id
             course_level = session.course_level
@@ -293,6 +296,7 @@ class BookSelectionService:
                 s.thread_id = new_thread_id
                 db.commit()
             from .models import CourseBook
+
             db.query(CourseBook).filter(
                 CourseBook.session_id == session_id,
                 CourseBook.s_final.isnot(None),
@@ -301,13 +305,15 @@ class BookSelectionService:
 
         from .workflow_nodes import fetch_course as _fc
 
-        workflow = await build_workflow()
+        await build_workflow()
         thread_config = {"configurable": {"thread_id": new_thread_id}}
 
-        course_ctx_state = _fc({
-            "course_id": course_id,
-            "course_level": course_level,
-        })
+        course_ctx_state = _fc(
+            {
+                "course_id": course_id,
+                "course_level": course_level,
+            }
+        )
 
         initial_state = {
             "course_id": course_id,
@@ -332,15 +338,24 @@ class BookSelectionService:
             scored_count = 0
 
             from langgraph.graph import END, START, StateGraph
+
+            from .workflow import _get_async_checkpointer
             from .workflow_models import WorkflowState
             from .workflow_nodes import (
-                fan_out_scoring as _fos,
-                hitl_review as _hr,
-                score_book_node as _sbn,
-                fan_out_downloads as _fod,
                 download_book_node as _dbn,
             )
-            from .workflow import _get_async_checkpointer
+            from .workflow_nodes import (
+                fan_out_downloads as _fod,
+            )
+            from .workflow_nodes import (
+                fan_out_scoring as _fos,
+            )
+            from .workflow_nodes import (
+                hitl_review as _hr,
+            )
+            from .workflow_nodes import (
+                score_book_node as _sbn,
+            )
 
             async_checkpointer = await _get_async_checkpointer()
 
@@ -449,9 +464,7 @@ class BookSelectionService:
             course_id = session.course_id
 
         selected_indices = [
-            i
-            for i, b in enumerate(books_data)
-            if b["id"] in selected_book_ids
+            i for i, b in enumerate(books_data) if b["id"] in selected_book_ids
         ]
 
         def _normalize_title(value: str) -> str:
@@ -464,8 +477,7 @@ class BookSelectionService:
             b["id"]: b for b in books_data if b["id"] in selected_book_ids
         }
         selected_books_by_title = {
-            _normalize_title(b["title"]): b
-            for b in selected_books_by_id.values()
+            _normalize_title(b["title"]): b for b in selected_books_by_id.values()
         }
 
         with _fresh_db() as db:
@@ -498,10 +510,15 @@ class BookSelectionService:
                             dl_status = dr.get("status", "failed")
 
                             normalized_result_title = _normalize_title(title)
-                            book_record = selected_books_by_title.get(normalized_result_title)
+                            book_record = selected_books_by_title.get(
+                                normalized_result_title
+                            )
 
                             if book_record is None and normalized_result_title:
-                                for normalized_title, candidate in selected_books_by_title.items():
+                                for (
+                                    normalized_title,
+                                    candidate,
+                                ) in selected_books_by_title.items():
                                     if (
                                         normalized_result_title in normalized_title
                                         or normalized_title in normalized_result_title
@@ -519,11 +536,19 @@ class BookSelectionService:
                                     blob_url: str | None = None
 
                                     try:
-                                        if file_path and self.blob_service.container_client:
+                                        if (
+                                            file_path
+                                            and self.blob_service.container_client
+                                        ):
                                             import os
+
                                             with open(file_path, "rb") as f:
                                                 content = f.read()
-                                            blob_url = await self.blob_service.upload_bytes(content, blob_path)
+                                            blob_url = (
+                                                await self.blob_service.upload_bytes(
+                                                    content, blob_path
+                                                )
+                                            )
                                             with _fresh_db() as db:
                                                 repo = BookSelectionRepository(db)
                                                 repo.update_download_result(
@@ -536,7 +561,9 @@ class BookSelectionService:
                                                     course_id=course_id,
                                                     title=book_record["title"],
                                                     authors=book_record.get("authors"),
-                                                    publisher=book_record.get("publisher"),
+                                                    publisher=book_record.get(
+                                                        "publisher"
+                                                    ),
                                                     year=book_record.get("year"),
                                                     status=BookStatus.DOWNLOADED,
                                                     blob_path=blob_path,
@@ -558,7 +585,9 @@ class BookSelectionService:
                                                     course_id=course_id,
                                                     title=book_record["title"],
                                                     authors=book_record.get("authors"),
-                                                    publisher=book_record.get("publisher"),
+                                                    publisher=book_record.get(
+                                                        "publisher"
+                                                    ),
                                                     year=book_record.get("year"),
                                                     status=BookStatus.DOWNLOADED,
                                                     blob_path=file_path,
@@ -601,7 +630,9 @@ class BookSelectionService:
                                             publisher=book_record.get("publisher"),
                                             year=book_record.get("year"),
                                             status=BookStatus.FAILED,
-                                            error_message=dr.get("error", "Download failed"),
+                                            error_message=dr.get(
+                                                "error", "Download failed"
+                                            ),
                                             source_book_id=book_id,
                                         )
 
@@ -719,9 +750,7 @@ class BookSelectionService:
     ) -> BookCandidateRead:
         """Upload a book not from the agent (teacher's own choice)."""
         if self.repo.book_exists_for_course(course_id, title):
-            raise ValueError(
-                f'A book titled "{title}" already exists for this course.'
-            )
+            raise ValueError(f'A book titled "{title}" already exists for this course.')
 
         blob_path = f"courses/{course_id}/books/{_safe_filename(title)}.pdf"
         blob_url = await self.blob_service.upload_file(file, blob_path)
@@ -771,7 +800,7 @@ class BookSelectionService:
         blob_path = f"courses/{book.course_id}/books/{_safe_filename(book.title)}.pdf"
         blob_url = await self.blob_service.upload_file(file, blob_path)
 
-        updated = self.repo.update_selected_book_status(
+        self.repo.update_selected_book_status(
             selected_book_id,
             BookStatus.UPLOADED,
             blob_path=blob_path,
@@ -802,9 +831,7 @@ class BookSelectionService:
     ) -> CourseSelectedBookRead:
         """Upload a custom book directly to course_selected_books."""
         if self.repo.selected_book_exists_for_course(course_id, title):
-            raise ValueError(
-                f'A book titled "{title}" already exists for this course.'
-            )
+            raise ValueError(f'A book titled "{title}" already exists for this course.')
 
         blob_path = f"courses/{course_id}/books/{_safe_filename(title)}.pdf"
         blob_url = await self.blob_service.upload_file(file, blob_path)

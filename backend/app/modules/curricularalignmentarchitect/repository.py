@@ -6,7 +6,14 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from .models import BookSelectionSession, BookStatus, CourseBook, CourseSelectedBook, DownloadStatus, SessionStatus
+from .models import (
+    BookSelectionSession,
+    BookStatus,
+    CourseBook,
+    CourseSelectedBook,
+    DownloadStatus,
+    SessionStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +93,15 @@ class BookSelectionRepository:
             session.updated_at = datetime.now(UTC)
             self.db.commit()
 
-    def save_discovered_books(self, session_id: int, discovered_books: list[dict]) -> None:
+    def save_discovered_books(
+        self, session_id: int, discovered_books: list[dict]
+    ) -> None:
         """Persist discovered books JSON on the session for resume support."""
         session = self.get_session(session_id)
         if session:
-            session.discovered_books_json = json.dumps(discovered_books, ensure_ascii=False)
+            session.discovered_books_json = json.dumps(
+                discovered_books, ensure_ascii=False
+            )
             session.updated_at = datetime.now(UTC)
             self.db.commit()
 
@@ -296,7 +307,9 @@ class BookSelectionRepository:
     def get_selected_book(self, selected_book_id: int) -> CourseSelectedBook | None:
         return self.db.get(CourseSelectedBook, selected_book_id)
 
-    def get_selected_book_by_source(self, source_book_id: int) -> CourseSelectedBook | None:
+    def get_selected_book_by_source(
+        self, source_book_id: int
+    ) -> CourseSelectedBook | None:
         """Find a selected book by its source CourseBook id."""
         return (
             self.db.query(CourseSelectedBook)

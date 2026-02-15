@@ -50,7 +50,9 @@ class BookSelectionSession(Base):
         nullable=False,
     )
     weights_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    course_level: Mapped[str] = mapped_column(String(20), default="bachelor", nullable=False)
+    course_level: Mapped[str] = mapped_column(
+        String(20), default="bachelor", nullable=False
+    )
     discovered_books_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     progress_scored: Mapped[int] = mapped_column(default=0, nullable=False)
     progress_total: Mapped[int] = mapped_column(default=0, nullable=False)
@@ -110,7 +112,9 @@ class CourseSelectedBook(Base):
     __tablename__ = "course_selected_books"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), nullable=False, index=True)
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id"), nullable=False, index=True
+    )
     source_book_id: Mapped[int | None] = mapped_column(
         ForeignKey("course_books.id"), nullable=True
     )

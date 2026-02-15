@@ -23,11 +23,20 @@ class WeightsConfig(BaseModel):
     C_pub: float = Field(..., ge=0, le=1)
     C_auth: float = Field(..., ge=0, le=1)
     C_time: float = Field(..., ge=0, le=1)
-    W_prac: float = Field(..., ge=0, le=1, description="Practicality weight (blends into S_final)")
+    W_prac: float = Field(
+        ..., ge=0, le=1, description="Practicality weight (blends into S_final)"
+    )
 
     @model_validator(mode="after")
     def check_sum(self) -> WeightsConfig:
-        total = self.C_topic + self.C_struc + self.C_scope + self.C_pub + self.C_auth + self.C_time
+        total = (
+            self.C_topic
+            + self.C_struc
+            + self.C_scope
+            + self.C_pub
+            + self.C_auth
+            + self.C_time
+        )
         if abs(total - 1.0) > 1e-6:
             raise ValueError(
                 f"Core weights must sum to 1.0 (got {total:.6f}). "

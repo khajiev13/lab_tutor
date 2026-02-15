@@ -73,7 +73,13 @@ class DiscoveredBookList(BaseModel):
     @classmethod
     def normalize_field_names(cls, data: Any) -> Any:
         if isinstance(data, dict) and "books" not in data:
-            for alt in ("textbooks", "items", "results", "book_list", "deduplicated_books"):
+            for alt in (
+                "textbooks",
+                "items",
+                "results",
+                "book_list",
+                "deduplicated_books",
+            ):
                 if alt in data:
                     data["books"] = data.pop(alt)
                     break
@@ -133,7 +139,12 @@ class CriterionScore(BaseModel):
             s = data.get("score") or data.get("value") or data.get("rating") or 0.0
         r = data.get("r")
         if r is None:
-            r = data.get("rationale") or data.get("reason") or data.get("justification") or ""
+            r = (
+                data.get("rationale")
+                or data.get("reason")
+                or data.get("justification")
+                or ""
+            )
         return {"s": _norm_score(s), "r": _norm_rationale(r)}
 
 
@@ -164,7 +175,9 @@ class BookMeritScores(BaseModel):
         normalized: dict[str, Any] = {}
 
         # Possible nested containers
-        nested_scores = data.get("scores") if isinstance(data.get("scores"), dict) else {}
+        nested_scores = (
+            data.get("scores") if isinstance(data.get("scores"), dict) else {}
+        )
         nested_rats = data.get("rationales") or data.get("reasons")
         nested_rats = nested_rats if isinstance(nested_rats, dict) else {}
 
@@ -193,8 +206,10 @@ class BookMeritScores(BaseModel):
             rat_val = data.get(f"{ckey}_rationale")
             if rat_val is None:
                 for alt in (
-                    f"{key}_rationale", f"{key}_reason",
-                    f"{key}Rationale", f"{key}Reason",
+                    f"{key}_rationale",
+                    f"{key}_reason",
+                    f"{key}Rationale",
+                    f"{key}Reason",
                 ):
                     if alt in data:
                         rat_val = data[alt]
