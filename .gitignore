@@ -156,3 +156,6 @@ knowledge_graph_builder/iteration_logs/*
 knowledge_graph_builder/
 #Don't push the neo4j_database
 neo4j_database/
+
+# Cursor IDE – may contain secrets (MCP credentials, etc.)
+.cursor/mcp.json

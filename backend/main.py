@@ -12,10 +12,11 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 import app.modules.auth.models  # noqa
 import app.modules.concept_normalization.review_sql_models  # noqa
 import app.modules.courses.models  # noqa
+import app.modules.curricularalignmentarchitect.models  # noqa
 import app.modules.embeddings.course_models  # noqa
 import app.modules.embeddings.models  # noqa
 from app.core.api_schemas import HealthCheckItem, HealthResponse, RootResponse
-from app.core.database import Base, engine
+from app.core.database import Base, SessionLocal, engine
 from app.core.langsmith_tracing import (
     ConditionalLangSmithTracingMiddleware,
     configure_langsmith_env,
@@ -30,6 +31,7 @@ from app.core.settings import settings
 from app.modules.auth import routes as auth_routes
 from app.modules.concept_normalization import routes as concept_normalization_routes
 from app.modules.courses import routes as course_routes
+from app.modules.curricularalignmentarchitect import routes as book_selection_routes
 from app.providers.storage import blob_service
 
 logger = logging.getLogger(__name__)
@@ -42,26 +44,217 @@ def _ensure_sql_schema_upgrades() -> None:
     tables. For local SQLite (and similar lightweight deployments), we apply minimal,
     idempotent ALTERs to keep the schema compatible with new releases.
     """
-    if not str(engine.url).startswith("sqlite"):
+    is_sqlite = str(engine.url).startswith("sqlite")
+    is_postgres = str(engine.url).startswith("postgresql")
+
+    if not (is_sqlite or is_postgres):
         return
 
     with engine.connect() as conn:
-        # Ensure `course_files.content_hash` exists (used for duplicate detection).
-        cols = conn.execute(text("PRAGMA table_info(course_files)")).mappings().all()
-        col_names = {c["name"] for c in cols}
-        if "content_hash" not in col_names:
+        if is_sqlite:
+            # Ensure `course_files.content_hash` exists (used for duplicate detection).
+            cols = conn.execute(text("PRAGMA table_info(course_files)")).mappings().all()
+            col_names = {c["name"] for c in cols}
+            if "content_hash" not in col_names:
+                conn.execute(
+                    text("ALTER TABLE course_files ADD COLUMN content_hash VARCHAR(64)")
+                )
+
+            # Enforce per-course uniqueness for non-null hashes.
             conn.execute(
-                text("ALTER TABLE course_files ADD COLUMN content_hash VARCHAR(64)")
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_course_content_hash "
+                    "ON course_files(course_id, content_hash)"
+                )
             )
 
-        # Enforce per-course uniqueness for non-null hashes.
-        conn.execute(
-            text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_course_content_hash "
-                "ON course_files(course_id, content_hash)"
-            )
-        )
+            # Ensure `courses.level` exists (book-selection feature).
+            course_cols = conn.execute(text("PRAGMA table_info(courses)")).mappings().all()
+            course_col_names = {c["name"] for c in course_cols}
+            if "level" not in course_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE courses ADD COLUMN level VARCHAR(20) "
+                        "NOT NULL DEFAULT 'bachelor'"
+                    )
+                )
+
+            # Ensure `book_selection_sessions.discovered_books_json` exists.
+            bss_cols = conn.execute(
+                text("PRAGMA table_info(book_selection_sessions)")
+            ).mappings().all()
+            bss_col_names = {c["name"] for c in bss_cols}
+            if "discovered_books_json" not in bss_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE book_selection_sessions "
+                        "ADD COLUMN discovered_books_json TEXT"
+                    )
+                )
+            if "progress_scored" not in bss_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE book_selection_sessions "
+                        "ADD COLUMN progress_scored INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
+            if "progress_total" not in bss_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE book_selection_sessions "
+                        "ADD COLUMN progress_total INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
+            if "error_message" not in bss_col_names:
+                conn.execute(
+                    text(
+                        "ALTER TABLE book_selection_sessions "
+                        "ADD COLUMN error_message TEXT"
+                    )
+                )
+
+        elif is_postgres:
+            # Idempotent ALTER: add `level` column if missing.
+            col_exists = conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name = 'courses' AND column_name = 'level'"
+                )
+            ).fetchone()
+            if not col_exists:
+                conn.execute(
+                    text(
+                        "ALTER TABLE courses ADD COLUMN level VARCHAR(20) "
+                        "NOT NULL DEFAULT 'bachelor'"
+                    )
+                )
+
+            # Idempotent ALTER: add `discovered_books_json` column if missing.
+            col_exists2 = conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name = 'book_selection_sessions' "
+                    "AND column_name = 'discovered_books_json'"
+                )
+            ).fetchone()
+            if not col_exists2:
+                conn.execute(
+                    text(
+                        "ALTER TABLE book_selection_sessions "
+                        "ADD COLUMN discovered_books_json TEXT"
+                    )
+                )
+
+            # Idempotent ALTER: add progress_scored column if missing.
+            col_exists3 = conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name = 'book_selection_sessions' "
+                    "AND column_name = 'progress_scored'"
+                )
+            ).fetchone()
+            if not col_exists3:
+                conn.execute(
+                    text(
+                        "ALTER TABLE book_selection_sessions "
+                        "ADD COLUMN progress_scored INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
+
+            # Idempotent ALTER: add progress_total column if missing.
+            col_exists4 = conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name = 'book_selection_sessions' "
+                    "AND column_name = 'progress_total'"
+                )
+            ).fetchone()
+            if not col_exists4:
+                conn.execute(
+                    text(
+                        "ALTER TABLE book_selection_sessions "
+                        "ADD COLUMN progress_total INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
+
+            # Idempotent ALTER: add error_message column if missing.
+            col_exists5 = conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name = 'book_selection_sessions' "
+                    "AND column_name = 'error_message'"
+                )
+            ).fetchone()
+            if not col_exists5:
+                conn.execute(
+                    text(
+                        "ALTER TABLE book_selection_sessions "
+                        "ADD COLUMN error_message TEXT"
+                    )
+                )
+
         conn.commit()
+
+
+def _backfill_course_selected_books() -> None:
+    """One-time migration: promote existing course_books to course_selected_books.
+
+    Books that were selected/downloaded before the course_selected_books table
+    existed need to be copied over so the new UI can display them.
+    Idempotent: skips rows that already have a matching source_book_id.
+    """
+    from sqlalchemy import select
+
+    from app.modules.curricularalignmentarchitect.models import (
+        BookStatus,
+        CourseBook,
+        CourseSelectedBook,
+        DownloadStatus,
+    )
+
+    with SessionLocal() as db:
+        # Find all selected course_books that don't yet have a course_selected_books entry
+        existing_source_ids_subq = select(CourseSelectedBook.source_book_id).where(
+            CourseSelectedBook.source_book_id.isnot(None)
+        )
+        candidates = (
+            db.query(CourseBook)
+            .filter(
+                CourseBook.selected_by_teacher.is_(True),
+                CourseBook.id.notin_(existing_source_ids_subq),
+            )
+            .all()
+        )
+
+        if not candidates:
+            return
+
+        count = 0
+        for cb in candidates:
+            # Map old download_status → new BookStatus
+            if cb.download_status in (DownloadStatus.SUCCESS,):
+                status = BookStatus.DOWNLOADED
+            elif cb.download_status in (DownloadStatus.MANUAL_UPLOAD,):
+                status = BookStatus.UPLOADED
+            else:
+                status = BookStatus.FAILED
+
+            selected_book = CourseSelectedBook(
+                course_id=cb.course_id,
+                source_book_id=cb.id,
+                title=cb.title,
+                authors=cb.authors,
+                publisher=cb.publisher,
+                year=cb.year,
+                status=status,
+                blob_path=cb.blob_path,
+                error_message=cb.download_error,
+            )
+            db.add(selected_book)
+            count += 1
+
+        db.commit()
+        logger.info("Backfilled %d books into course_selected_books", count)
 
 
 @asynccontextmanager
@@ -73,6 +266,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     Base.metadata.create_all(bind=engine)
     _ensure_sql_schema_upgrades()
+    _backfill_course_selected_books()
 
     neo4j_driver = create_neo4j_driver()
     app.state.neo4j_driver = neo4j_driver
@@ -112,7 +306,8 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # LangSmith tracing (scoped): only `/normalization/*` requests are traced.
 app.add_middleware(
-    ConditionalLangSmithTracingMiddleware, path_prefixes=("/normalization",)
+    ConditionalLangSmithTracingMiddleware,
+    path_prefixes=("/normalization", "/book-selection"),
 )
 
 # Configure CORS
@@ -131,6 +326,7 @@ app.add_middleware(
 app.include_router(auth_routes.router)
 app.include_router(course_routes.router)
 app.include_router(concept_normalization_routes.router)
+app.include_router(book_selection_routes.router)
 
 
 @app.get("/docs", include_in_schema=False)

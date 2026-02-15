@@ -122,7 +122,7 @@
 ## ⚙️ Runtime Configuration (Backend)
 
 ### Required / Optional Env Vars
-- **SQL**: `LAB_TUTOR_DATABASE_URL` (defaults to `sqlite:///./data/app.db`)
+- **SQL**: `LAB_TUTOR_DATABASE_URL` (required, PostgreSQL URL)
 - **Neo4j (optional, enables driver)**:
   - `LAB_TUTOR_NEO4J_URI`
   - `LAB_TUTOR_NEO4J_USERNAME`

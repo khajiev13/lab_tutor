@@ -63,3 +63,4 @@ class GraphEdge(BaseModel):
 class CourseGraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+

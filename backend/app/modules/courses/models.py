@@ -12,6 +12,12 @@ if TYPE_CHECKING:
     from app.modules.auth.models import User
 
 
+class CourseLevel(str, Enum):
+    BACHELOR = "bachelor"
+    MASTER = "master"
+    PHD = "phd"
+
+
 class ExtractionStatus(str, Enum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -35,6 +41,15 @@ class Course(Base):
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    level: Mapped[CourseLevel] = mapped_column(
+        SqlEnum(
+            CourseLevel,
+            name="course_level",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=CourseLevel.BACHELOR,
+        nullable=False,
     )
     extraction_status: Mapped[ExtractionStatus] = mapped_column(
         SqlEnum(

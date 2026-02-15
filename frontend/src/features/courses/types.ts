@@ -7,11 +7,14 @@ export type ExtractionStatus = 'not_started' | 'in_progress' | 'finished' | 'fai
 
 export type FileProcessingStatus = 'pending' | 'processing' | 'processed' | 'failed';
 
+export type CourseLevel = 'bachelor' | 'master' | 'phd';
+
 export interface Course extends CourseCreate {
   id: number;
   teacher_id: number;
   created_at: string;
   extraction_status: ExtractionStatus;
+  level?: CourseLevel;
 }
 
 export interface Enrollment {
