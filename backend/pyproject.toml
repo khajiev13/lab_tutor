@@ -20,10 +20,27 @@ dependencies = [
     "fastapi-users[sqlalchemy]>=15.0.1",
     "aiosqlite>=0.22.0",
     "neo4j>=6.0.0",
-    "langchain-core",
-    "langchain-openai",
+    "langchain-core>=0.3.27",
+    "langchain-openai>=0.3.33",
     "langsmith",
-    "langgraph>=1.0.5",
+    "langgraph>=0.6.7",
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.29",
+    "pydantic>=2.0.0",
+    "tavily-python>=0.7.17",
+    "rapidfuzz>=3.14.3",
+    "docx2txt>=0.9",
+    "python-dotenv>=1.0.0",
+    "langchain-neo4j>=0.5.0",
+    "matplotlib>=3.10.6",
+    "networkx>=3.5",
+    "openai>=1.107.1",
+    "python-docx>=1.2.0",
+    "pip>=25.3",
+    "notebook>=7.5.3",
+    "ddgs>=9.10.0",
+    "duckduckgo-search>=8.1.1",
+    "langgraph-checkpoint-sqlite>=3.0.3",
 ]
 
 [build-system]
@@ -36,6 +53,7 @@ packages = ["app"]
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "ipykernel>=7.1.0",
     "pytest>=9.0.1",
     "ruff>=0.8.0",
 ]

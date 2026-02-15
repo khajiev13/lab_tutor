@@ -18,6 +18,8 @@ dependencies = [
     "openai>=1.107.1",
     "pydantic>=2.0.0",
     "python-docx>=1.2.0",
+    "tavily-python>=0.7.17",
+    "rapidfuzz>=3.14.3",
 ]
 
 [dependency-groups]

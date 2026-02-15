@@ -7,7 +7,7 @@ FastAPI backend service for Lab Tutor application.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `LAB_TUTOR_SECRET_KEY` | `change-this-secret` | JWT signing secret. Override in production. |
-| `LAB_TUTOR_DATABASE_URL` | `sqlite:///./data/app.db` | SQLAlchemy connection string. |
+| `LAB_TUTOR_DATABASE_URL` | required | SQLAlchemy connection string (PostgreSQL). |
 | `LAB_TUTOR_ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Access token lifetime in minutes. |
 
 Create a `.env` file if you prefer storing these values locally.

@@ -214,3 +214,4 @@ class ConceptNormalizationReviewSqlRepository:
         else:
             self._db.flush()
         return deleted
+

@@ -1,6 +1,6 @@
+import logging
 import ssl
 from collections.abc import AsyncGenerator, Generator
-from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import create_engine
@@ -14,30 +14,11 @@ class Base(DeclarativeBase):
     """Base class for ORM models."""
 
 
-def _ensure_sqlite_path(url: str) -> None:
-    if url.startswith("sqlite"):
-        # Handle both sqlite:/// and sqlite+aiosqlite:///
-        clean_url = url.replace("sqlite+aiosqlite:///", "sqlite:///").replace(
-            "sqlite:///", ""
-        )
-        db_path = Path(clean_url)
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-
-
 RAW_DATABASE_URL = settings.database_url
-_ensure_sqlite_path(RAW_DATABASE_URL)
 
 
 def _derive_sync_and_async_urls(url: str) -> tuple[str, str]:
-    """Derive sync + async SQLAlchemy URLs from a single configured URL.
-
-    - SQLite: keeps current behavior (sync sqlite:///..., async sqlite+aiosqlite:///...)
-    - Postgres: converts to sync psycopg + async asyncpg drivers.
-    """
-    if url.startswith("sqlite"):
-        sync_url = url.replace("sqlite+aiosqlite:///", "sqlite:///")
-        async_url = sync_url.replace("sqlite:///", "sqlite+aiosqlite:///")
-        return sync_url, async_url
+    """Derive sync + async SQLAlchemy URLs from a configured Postgres URL."""
 
     # Accept common Postgres URL prefixes and normalize them.
     if url.startswith("postgres://"):
@@ -54,8 +35,10 @@ def _derive_sync_and_async_urls(url: str) -> tuple[str, str]:
     if url.startswith("postgresql+asyncpg://"):
         return url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1), url
 
-    # Fallback: assume the URL is usable for both engines.
-    return url, url
+    raise ValueError(
+        "LAB_TUTOR_DATABASE_URL must be a PostgreSQL URL "
+        "(postgresql://, postgresql+psycopg://, or postgresql+asyncpg://)."
+    )
 
 
 def _asyncpg_connect_args_from_url(async_url: str) -> tuple[str, dict]:
@@ -123,6 +106,12 @@ IS_POSTGRES = DATABASE_URL.startswith("postgresql")
 # `pool_pre_ping` proactively checks the connection before use.
 POOL_PRE_PING = True
 POOL_RECYCLE_SECONDS = 1800 if IS_POSTGRES else -1
+# asyncpg connections die faster on managed Postgres (Azure closes idle SSL
+# connections aggressively). Use a shorter recycle to avoid stale connections.
+ASYNC_POOL_RECYCLE_SECONDS = 300 if IS_POSTGRES else -1
+
+POOL_SIZE = 5
+MAX_OVERFLOW = 10
 
 POSTGRES_CONNECT_ARGS = (
     {
@@ -138,21 +127,26 @@ POSTGRES_CONNECT_ARGS = (
 
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if IS_SQLITE else POSTGRES_CONNECT_ARGS,
+    connect_args=POSTGRES_CONNECT_ARGS,
     pool_pre_ping=POOL_PRE_PING,
     pool_recycle=POOL_RECYCLE_SECONDS,
+    pool_size=POOL_SIZE,
+    max_overflow=MAX_OVERFLOW,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
-    connect_args={"check_same_thread": False}
-    if ASYNC_DATABASE_URL.startswith("sqlite")
-    else ASYNC_CONNECT_ARGS,
+    connect_args=ASYNC_CONNECT_ARGS,
     pool_pre_ping=POOL_PRE_PING,
-    pool_recycle=POOL_RECYCLE_SECONDS,
+    pool_recycle=ASYNC_POOL_RECYCLE_SECONDS,
+    pool_size=POOL_SIZE,
+    max_overflow=MAX_OVERFLOW,
 )
 AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
+
+
+_db_logger = logging.getLogger(__name__)
 
 
 def get_db() -> Generator:
@@ -160,9 +154,21 @@ def get_db() -> Generator:
     try:
         yield db
     finally:
-        db.close()
+        try:
+            db.close()
+        except Exception:
+            _db_logger.debug("Suppressed error closing DB session (stale connection)", exc_info=True)
 
 
 async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
+    session = AsyncSessionLocal()
+    try:
         yield session
+    finally:
+        try:
+            await session.close()
+        except Exception:
+            _db_logger.debug(
+                "Suppressed error closing async DB session (stale connection)",
+                exc_info=True,
+            )

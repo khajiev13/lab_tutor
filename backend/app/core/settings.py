@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15  # Short-lived access token
     refresh_token_expire_days: int = 7  # Long-lived refresh token
     database_url: str = Field(
-        default="sqlite:///./data/app.db",
-        description="SQLAlchemy database URL",
+        ...,
+        description="SQLAlchemy database URL (PostgreSQL)",
     )
     azure_storage_connection_string: str | None = Field(
         default=None, description="Azure Blob Storage Connection String"
