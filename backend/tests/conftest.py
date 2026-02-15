@@ -1,8 +1,11 @@
 import os
 
-# Force local SQLite for tests BEFORE importing app modules.
-# This prevents accidental connections to cloud Postgres in CI/dev envs.
-os.environ["LAB_TUTOR_DATABASE_URL"] = "sqlite:///./data/test.db"
+# Point tests at a local/CI PostgreSQL instance BEFORE importing app modules.
+# CI provides this via a PostgreSQL service container; locally you can override it.
+os.environ.setdefault(
+    "LAB_TUTOR_DATABASE_URL",
+    "postgresql://postgres:postgres@localhost:5432/lab_tutor_test",
+)
 # Ensure optional external services don't run in tests.
 os.environ.setdefault("LAB_TUTOR_NEO4J_URI", "")
 os.environ.setdefault("LAB_TUTOR_AZURE_STORAGE_CONNECTION_STRING", "")
@@ -21,20 +24,21 @@ from app.modules.auth.models import UserRole
 from app.providers.storage import BlobService
 from main import app
 
-# Use a file-based SQLite DB so BOTH sync + async sessions share the same database.
-SQLALCHEMY_DATABASE_URL = "sqlite:///./data/test.db"
-ASYNC_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./data/test.db"
+# Use the same PostgreSQL URL the app derives for its engines.
+SQLALCHEMY_DATABASE_URL = (
+    "postgresql+psycopg://postgres:postgres@localhost:5432/lab_tutor_test"
+)
+ASYNC_SQLALCHEMY_DATABASE_URL = (
+    "postgresql+asyncpg://postgres:postgres@localhost:5432/lab_tutor_test"
+)
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Async engine for FastAPI-Users
 async_engine = create_async_engine(
     ASYNC_SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
 )
 AsyncTestingSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 

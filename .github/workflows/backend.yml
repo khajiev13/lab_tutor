@@ -49,6 +49,22 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: lint
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lab_tutor_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      LAB_TUTOR_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lab_tutor_test
     defaults:
       run:
         working-directory: backend
@@ -68,7 +84,6 @@ jobs:
 
       - name: Run tests
         run: uv run pytest -v
-        # TODO: Add actual test files to backend/tests/
 
   build:
     name: Build Docker Image (no push)
