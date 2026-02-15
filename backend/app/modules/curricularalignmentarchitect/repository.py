@@ -258,7 +258,7 @@ class BookSelectionRepository:
     ) -> CourseBook:
         """Create a CourseBook entry for a manually uploaded book."""
         book = CourseBook(
-            session_id=session_id or 0,
+            session_id=session_id,
             course_id=course_id,
             title=title,
             authors=authors,

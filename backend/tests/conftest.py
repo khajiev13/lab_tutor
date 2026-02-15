@@ -20,18 +20,23 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
-from app.core.database import Base, get_async_db, get_db
+from app.core.database import (
+    ASYNC_CONNECT_ARGS,
+    ASYNC_DATABASE_URL,
+    DATABASE_URL,
+    Base,
+    get_async_db,
+    get_db,
+)
 from app.modules.auth.models import UserRole
 from app.providers.storage import BlobService
 from main import app
 
-# Use the same PostgreSQL URL the app derives for its engines.
-SQLALCHEMY_DATABASE_URL = (
-    "postgresql+psycopg://postgres:postgres@localhost:5432/lab_tutor_test"
-)
-ASYNC_SQLALCHEMY_DATABASE_URL = (
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/lab_tutor_test"
-)
+# Re-use the URLs the app already derived from LAB_TUTOR_DATABASE_URL so
+# the test engines connect with the same credentials (works on CI with
+# postgres:postgres and locally with the OS user).
+SQLALCHEMY_DATABASE_URL = DATABASE_URL
+ASYNC_SQLALCHEMY_DATABASE_URL = ASYNC_DATABASE_URL
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -42,6 +47,7 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 # internal event loop ("another operation is in progress" errors).
 async_engine = create_async_engine(
     ASYNC_SQLALCHEMY_DATABASE_URL,
+    connect_args=ASYNC_CONNECT_ARGS,
     poolclass=NullPool,
 )
 AsyncTestingSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)

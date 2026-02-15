@@ -76,8 +76,8 @@ class CourseBook(Base):
     __tablename__ = "course_books"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    session_id: Mapped[int] = mapped_column(
-        ForeignKey("book_selection_sessions.id"), nullable=False
+    session_id: Mapped[int | None] = mapped_column(
+        ForeignKey("book_selection_sessions.id"), nullable=True
     )
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(500), nullable=False)

@@ -451,6 +451,16 @@ class TestBookSelectionRepository:
 
 
 class TestBookSelectionRoutes:
+    def _create_course_via_api(self, client, teacher_auth_headers):
+        """Create a course via the API so FK constraints are satisfied."""
+        resp = client.post(
+            "/courses/",
+            json={"title": "Test Course for Book Selection", "description": "test"},
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code in (200, 201), f"Failed to create course: {resp.text}"
+        return resp.json()["id"]
+
     def test_create_session_requires_auth(self, client):
         resp = client.post(
             "/book-selection/sessions",
@@ -469,15 +479,16 @@ class TestBookSelectionRoutes:
         assert resp.status_code == 403
 
     def test_create_session_success(self, client, teacher_auth_headers):
+        course_id = self._create_course_via_api(client, teacher_auth_headers)
         resp = client.post(
             "/book-selection/sessions",
-            params={"course_id": 1},
+            params={"course_id": course_id},
             json={"course_level": "bachelor", "weights": TEST_WEIGHTS},
             headers=teacher_auth_headers,
         )
         assert resp.status_code == 201
         data = resp.json()
-        assert data["course_id"] == 1
+        assert data["course_id"] == course_id
         assert data["status"] == "configuring"
         assert "thread_id" in data
 
@@ -497,10 +508,11 @@ class TestBookSelectionRoutes:
         assert resp.json() is None
 
     def test_create_and_get_session(self, client, teacher_auth_headers):
+        course_id = self._create_course_via_api(client, teacher_auth_headers)
         # Create
         create_resp = client.post(
             "/book-selection/sessions",
-            params={"course_id": 1},
+            params={"course_id": course_id},
             json={"course_level": "master", "weights": TEST_WEIGHTS},
             headers=teacher_auth_headers,
         )
