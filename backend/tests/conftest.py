@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.core.database import Base, get_async_db, get_db
 from app.modules.auth.models import UserRole
@@ -37,8 +38,11 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# NullPool prevents asyncpg connection-pool conflicts with TestClient's
+# internal event loop ("another operation is in progress" errors).
 async_engine = create_async_engine(
     ASYNC_SQLALCHEMY_DATABASE_URL,
+    poolclass=NullPool,
 )
 AsyncTestingSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 

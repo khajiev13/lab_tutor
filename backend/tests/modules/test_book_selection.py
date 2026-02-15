@@ -7,6 +7,8 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
+from app.modules.auth.models import User, UserRole
+from app.modules.courses.models import Course
 from app.modules.curricularalignmentarchitect.models import (
     DownloadStatus,
     SessionStatus,
@@ -160,8 +162,36 @@ class TestBookSelectionRepository:
     def _make_repo(self, db_session) -> BookSelectionRepository:
         return BookSelectionRepository(db_session)
 
+    def _ensure_course(self, db_session, course_id: int = 1) -> Course:
+        """Create a User + Course row so FK constraints are satisfied."""
+        existing = db_session.get(Course, course_id)
+        if existing:
+            return existing
+        # Ensure a teacher user exists
+        teacher = db_session.get(User, course_id)
+        if not teacher:
+            teacher = User(
+                id=course_id,
+                email=f"teacher-{course_id}@test.local",
+                hashed_password="!unused",
+                first_name="Test",
+                last_name="Teacher",
+                role=UserRole.TEACHER,
+            )
+            db_session.add(teacher)
+            db_session.flush()
+        course = Course(
+            id=course_id,
+            title=f"Test Course {course_id}",
+            teacher_id=teacher.id,
+        )
+        db_session.add(course)
+        db_session.flush()
+        return course
+
     def test_create_session(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         session = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -174,6 +204,7 @@ class TestBookSelectionRepository:
 
     def test_get_session(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         created = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -190,6 +221,7 @@ class TestBookSelectionRepository:
 
     def test_get_session_by_thread(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         tid = f"test-{uuid.uuid4().hex[:8]}"
         repo.create_session(course_id=1, thread_id=tid, weights={}, level="phd")
         fetched = repo.get_session_by_thread(tid)
@@ -198,6 +230,7 @@ class TestBookSelectionRepository:
 
     def test_get_latest_session(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 42)
         repo.create_session(
             course_id=42,
             thread_id=f"t1-{uuid.uuid4().hex[:8]}",
@@ -216,6 +249,7 @@ class TestBookSelectionRepository:
 
     def test_update_status(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         session = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -232,6 +266,7 @@ class TestBookSelectionRepository:
     def test_status_transitions(self, db_session):
         """Test the expected session lifecycle transitions."""
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         session = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -254,6 +289,7 @@ class TestBookSelectionRepository:
 
     def test_upsert_books(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         session = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -282,6 +318,7 @@ class TestBookSelectionRepository:
 
     def test_mark_selected(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         session = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -308,6 +345,7 @@ class TestBookSelectionRepository:
 
     def test_get_books_sorted_by_score(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         session = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -329,6 +367,7 @@ class TestBookSelectionRepository:
 
     def test_update_download_result(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         session = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -352,6 +391,7 @@ class TestBookSelectionRepository:
 
     def test_update_download_result_failure(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         session = repo.create_session(
             course_id=1,
             thread_id=f"test-{uuid.uuid4().hex[:8]}",
@@ -371,6 +411,7 @@ class TestBookSelectionRepository:
 
     def test_create_manual_book(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 1)
         book = repo.create_manual_book(
             course_id=1,
             session_id=None,
@@ -384,6 +425,7 @@ class TestBookSelectionRepository:
 
     def test_get_course_books_across_sessions(self, db_session):
         repo = self._make_repo(db_session)
+        self._ensure_course(db_session, 7)
         s1 = repo.create_session(
             course_id=7,
             thread_id=f"t1-{uuid.uuid4().hex[:8]}",
