@@ -41,6 +41,10 @@ dependencies = [
     "ddgs>=9.10.0",
     "duckduckgo-search>=8.1.1",
     "langgraph-checkpoint-sqlite>=3.0.3",
+    "pymupdf4llm>=0.3.4",
+    "pyvis>=0.3.2",
+    "pymupdf-layout>=1.27.1",
+    "pgvector>=0.4.2",
 ]
 
 [build-system]

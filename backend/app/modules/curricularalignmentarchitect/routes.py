@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -13,6 +21,7 @@ from app.modules.auth.models import User, UserRole
 
 from .schemas import (
     BookCandidateRead,
+    BookExtractionRunRead,
     CourseSelectedBookRead,
     ManualUploadResponse,
     SelectBooksRequest,
@@ -288,3 +297,80 @@ async def upload_custom_selected_book(
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+
+# ══════════════════════════════════════════════════════════════════
+# Chunking Analysis endpoints  (backed by chunking_workflow LangGraph)
+# ══════════════════════════════════════════════════════════════════
+
+
+# ── 13. POST  /book-selection/courses/{course_id}/analysis ──
+
+
+@router.post(
+    "/courses/{course_id}/analysis",
+    response_model=BookExtractionRunRead,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def trigger_analysis(
+    course_id: int,
+    background_tasks: BackgroundTasks,
+    _teacher: User = Depends(require_role(UserRole.TEACHER)),
+    db: Session = Depends(get_db),
+):
+    """Trigger a new chunking analysis.
+
+    Returns immediately with 202. Poll GET .../analysis/latest for progress.
+    Returns 409 if a run is already in progress for this course.
+    """
+    from .chunking_workflow import create_run_and_launch
+
+    try:
+        run = create_run_and_launch(course_id, db, background_tasks)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return run
+
+
+# ── 14. GET  /book-selection/courses/{course_id}/analysis/latest ──
+
+
+@router.get(
+    "/courses/{course_id}/analysis/latest",
+    response_model=BookExtractionRunRead | None,
+)
+def get_latest_analysis(
+    course_id: int,
+    _teacher: User = Depends(require_role(UserRole.TEACHER)),
+    db: Session = Depends(get_db),
+):
+    """Get the latest analysis run for a course (or null)."""
+    from .chunking_repository import get_latest_run
+
+    return get_latest_run(course_id, db)
+
+
+# ── 15. (reserved — summaries endpoint removed) ──
+
+
+# ── 16. POST  /book-selection/courses/{course_id}/analysis/{run_id}/pick/{selected_book_id} ──
+
+
+@router.post(
+    "/courses/{course_id}/analysis/{run_id}/pick/{selected_book_id}",
+    response_model=BookExtractionRunRead,
+)
+def pick_analysis_book(
+    course_id: int,
+    run_id: int,
+    selected_book_id: int,
+    _teacher: User = Depends(require_role(UserRole.TEACHER)),
+    db: Session = Depends(get_db),
+):
+    """Mark a book as picked for future KG build."""
+    from .chunking_repository import pick_book
+
+    try:
+        return pick_book(run_id, selected_book_id, db)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e

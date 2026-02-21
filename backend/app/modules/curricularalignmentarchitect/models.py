@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -142,3 +143,253 @@ class CourseSelectedBook(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+
+# ---------------------------------------------------------------------------
+# Book Analysis models (dual-strategy: agentic + chunking)
+# ---------------------------------------------------------------------------
+
+# 2048 is the maximum dimension actually returned by text-embedding-v4.
+# The provider allowlist is [64, 128, 256, 512, 768, 1024, 1536, 2048].
+EMBEDDING_DIMS = 2048
+
+
+class ExtractionRunStatus(str, Enum):
+    PENDING = "pending"
+    EXTRACTING = "extracting"
+    EMBEDDING = "embedding"
+    SCORING = "scoring"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    BOOK_PICKED = "book_picked"
+
+
+class AnalysisStrategy(str, Enum):
+    CHUNKING = "chunking"
+    AGENTIC = "agentic"
+
+
+class ConceptRelevance(str, Enum):
+    CORE = "core"
+    SUPPLEMENTARY = "supplementary"
+    TANGENTIAL = "tangential"
+
+
+class BookExtractionRun(Base):
+    """One row per teacher-triggered analysis."""
+
+    __tablename__ = "book_extraction_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("courses.id"), nullable=False, index=True
+    )
+    status: Mapped[ExtractionRunStatus] = mapped_column(
+        SqlEnum(
+            ExtractionRunStatus,
+            name="extraction_run_status",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=ExtractionRunStatus.PENDING,
+        nullable=False,
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding_model: Mapped[str] = mapped_column(
+        String(100), default="text-embedding-v4", nullable=False
+    )
+    embedding_dims: Mapped[int] = mapped_column(
+        Integer, default=EMBEDDING_DIMS, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    chapters: Mapped[list["BookChapter"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+    chunks: Mapped[list["BookChunk"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+    course_concepts: Mapped[list["CourseConceptCache"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+    summaries: Mapped[list["BookAnalysisSummary"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
+
+
+class BookChapter(Base):
+    """One chapter extracted from a selected book (agentic strategy)."""
+
+    __tablename__ = "book_chapters"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("book_extraction_runs.id"), nullable=False, index=True
+    )
+    selected_book_id: Mapped[int] = mapped_column(
+        ForeignKey("course_selected_books.id"), nullable=False, index=True
+    )
+    chapter_title: Mapped[str] = mapped_column(String(500), nullable=False)
+    chapter_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_concept_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    run: Mapped["BookExtractionRun"] = relationship(back_populates="chapters")
+    sections: Mapped[list["BookSection"]] = relationship(
+        back_populates="chapter", cascade="all, delete-orphan"
+    )
+
+
+class BookSection(Base):
+    """One section within a chapter (agentic strategy)."""
+
+    __tablename__ = "book_sections"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    chapter_id: Mapped[int] = mapped_column(
+        ForeignKey("book_chapters.id"), nullable=False, index=True
+    )
+    section_title: Mapped[str] = mapped_column(String(500), nullable=False)
+    section_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    chapter: Mapped["BookChapter"] = relationship(back_populates="sections")
+    concepts: Mapped[list["BookConcept"]] = relationship(
+        back_populates="section", cascade="all, delete-orphan"
+    )
+
+
+class BookConcept(Base):
+    """Individual concept extracted from a book section (agentic strategy)."""
+
+    __tablename__ = "book_concepts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    section_id: Mapped[int] = mapped_column(
+        ForeignKey("book_sections.id"), nullable=False, index=True
+    )
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("book_extraction_runs.id"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    relevance: Mapped[ConceptRelevance] = mapped_column(
+        SqlEnum(
+            ConceptRelevance,
+            name="concept_relevance",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        nullable=False,
+    )
+    name_embedding = mapped_column(Vector(EMBEDDING_DIMS), nullable=True)
+    evidence_embedding = mapped_column(Vector(EMBEDDING_DIMS), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    section: Mapped["BookSection"] = relationship(back_populates="concepts")
+
+
+class BookChunk(Base):
+    """Paragraph-level text chunk from a book PDF (chunking strategy)."""
+
+    __tablename__ = "book_chunks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("book_extraction_runs.id"), nullable=False, index=True
+    )
+    selected_book_id: Mapped[int] = mapped_column(
+        ForeignKey("course_selected_books.id"), nullable=False, index=True
+    )
+    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding = mapped_column(Vector(EMBEDDING_DIMS), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    run: Mapped["BookExtractionRun"] = relationship(back_populates="chunks")
+
+
+class CourseConceptCache(Base):
+    """Course concept embeddings cached per analysis run."""
+
+    __tablename__ = "course_concept_caches"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("book_extraction_runs.id"), nullable=False, index=True
+    )
+    concept_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    text_evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    doc_topic: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    name_embedding = mapped_column(Vector(EMBEDDING_DIMS), nullable=True)
+    evidence_embedding = mapped_column(Vector(EMBEDDING_DIMS), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    run: Mapped["BookExtractionRun"] = relationship(back_populates="course_concepts")
+
+
+class BookAnalysisSummary(Base):
+    """Scored analysis results — one row per (run × book × strategy)."""
+
+    __tablename__ = "book_analysis_summaries"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("book_extraction_runs.id"), nullable=False, index=True
+    )
+    selected_book_id: Mapped[int] = mapped_column(
+        ForeignKey("course_selected_books.id"), nullable=False, index=True
+    )
+    strategy: Mapped[AnalysisStrategy] = mapped_column(
+        SqlEnum(
+            AnalysisStrategy,
+            name="analysis_strategy",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        nullable=False,
+    )
+    book_title: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # Scalar summary
+    s_final_name: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    s_final_evidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    total_book_concepts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    chapter_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # Default-threshold snapshot (novel_thr=0.35, covered_thr=0.55)
+    novel_count_default: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    overlap_count_default: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+    covered_count_default: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+
+    # JSON blobs — sim_max per concept, no tier stored
+    book_unique_concepts_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    course_coverage_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    topic_scores_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sim_distribution_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    run: Mapped["BookExtractionRun"] = relationship(back_populates="summaries")

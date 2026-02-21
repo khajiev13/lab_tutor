@@ -38,165 +38,124 @@ logger = logging.getLogger(__name__)
 
 
 def _ensure_sql_schema_upgrades() -> None:
-    """Best-effort schema upgrades for environments without migrations.
+    """Idempotent schema upgrades for PostgreSQL.
 
-    The app currently uses `Base.metadata.create_all()`, which does not alter existing
-    tables. For local SQLite (and similar lightweight deployments), we apply minimal,
-    idempotent ALTERs to keep the schema compatible with new releases.
+    `Base.metadata.create_all()` does not alter existing tables, so new columns
+    and vector-dimension changes are applied here on every startup (safe no-ops
+    when already up to date).
     """
-    is_sqlite = str(engine.url).startswith("sqlite")
-    is_postgres = str(engine.url).startswith("postgresql")
-
-    if not (is_sqlite or is_postgres):
+    if not str(engine.url).startswith("postgresql"):
         return
 
     with engine.connect() as conn:
-        if is_sqlite:
-            # Ensure `course_files.content_hash` exists (used for duplicate detection).
-            cols = (
-                conn.execute(text("PRAGMA table_info(course_files)")).mappings().all()
+        # Idempotent ALTER: add `level` column if missing.
+        col_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'courses' AND column_name = 'level'"
             )
-            col_names = {c["name"] for c in cols}
-            if "content_hash" not in col_names:
-                conn.execute(
-                    text("ALTER TABLE course_files ADD COLUMN content_hash VARCHAR(64)")
-                )
-
-            # Enforce per-course uniqueness for non-null hashes.
+        ).fetchone()
+        if not col_exists:
             conn.execute(
                 text(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_course_content_hash "
-                    "ON course_files(course_id, content_hash)"
+                    "ALTER TABLE courses ADD COLUMN level VARCHAR(20) "
+                    "NOT NULL DEFAULT 'bachelor'"
                 )
             )
 
-            # Ensure `courses.level` exists (book-selection feature).
-            course_cols = (
-                conn.execute(text("PRAGMA table_info(courses)")).mappings().all()
+        # Idempotent ALTER: add `discovered_books_json` column if missing.
+        col_exists2 = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_selection_sessions' "
+                "AND column_name = 'discovered_books_json'"
             )
-            course_col_names = {c["name"] for c in course_cols}
-            if "level" not in course_col_names:
-                conn.execute(
-                    text(
-                        "ALTER TABLE courses ADD COLUMN level VARCHAR(20) "
-                        "NOT NULL DEFAULT 'bachelor'"
-                    )
+        ).fetchone()
+        if not col_exists2:
+            conn.execute(
+                text(
+                    "ALTER TABLE book_selection_sessions "
+                    "ADD COLUMN discovered_books_json TEXT"
                 )
-
-            # Ensure `book_selection_sessions.discovered_books_json` exists.
-            bss_cols = (
-                conn.execute(text("PRAGMA table_info(book_selection_sessions)"))
-                .mappings()
-                .all()
             )
-            bss_col_names = {c["name"] for c in bss_cols}
-            if "discovered_books_json" not in bss_col_names:
-                conn.execute(
-                    text(
-                        "ALTER TABLE book_selection_sessions "
-                        "ADD COLUMN discovered_books_json TEXT"
-                    )
-                )
-            if "progress_scored" not in bss_col_names:
-                conn.execute(
-                    text(
-                        "ALTER TABLE book_selection_sessions "
-                        "ADD COLUMN progress_scored INTEGER NOT NULL DEFAULT 0"
-                    )
-                )
-            if "progress_total" not in bss_col_names:
-                conn.execute(
-                    text(
-                        "ALTER TABLE book_selection_sessions "
-                        "ADD COLUMN progress_total INTEGER NOT NULL DEFAULT 0"
-                    )
-                )
-            if "error_message" not in bss_col_names:
-                conn.execute(
-                    text(
-                        "ALTER TABLE book_selection_sessions "
-                        "ADD COLUMN error_message TEXT"
-                    )
-                )
 
-        elif is_postgres:
-            # Idempotent ALTER: add `level` column if missing.
-            col_exists = conn.execute(
+        # Idempotent ALTER: add progress_scored column if missing.
+        col_exists3 = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_selection_sessions' "
+                "AND column_name = 'progress_scored'"
+            )
+        ).fetchone()
+        if not col_exists3:
+            conn.execute(
                 text(
-                    "SELECT 1 FROM information_schema.columns "
-                    "WHERE table_name = 'courses' AND column_name = 'level'"
+                    "ALTER TABLE book_selection_sessions "
+                    "ADD COLUMN progress_scored INTEGER NOT NULL DEFAULT 0"
                 )
-            ).fetchone()
-            if not col_exists:
-                conn.execute(
-                    text(
-                        "ALTER TABLE courses ADD COLUMN level VARCHAR(20) "
-                        "NOT NULL DEFAULT 'bachelor'"
-                    )
-                )
+            )
 
-            # Idempotent ALTER: add `discovered_books_json` column if missing.
-            col_exists2 = conn.execute(
+        # Idempotent ALTER: add progress_total column if missing.
+        col_exists4 = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_selection_sessions' "
+                "AND column_name = 'progress_total'"
+            )
+        ).fetchone()
+        if not col_exists4:
+            conn.execute(
                 text(
-                    "SELECT 1 FROM information_schema.columns "
-                    "WHERE table_name = 'book_selection_sessions' "
-                    "AND column_name = 'discovered_books_json'"
+                    "ALTER TABLE book_selection_sessions "
+                    "ADD COLUMN progress_total INTEGER NOT NULL DEFAULT 0"
                 )
-            ).fetchone()
-            if not col_exists2:
-                conn.execute(
-                    text(
-                        "ALTER TABLE book_selection_sessions "
-                        "ADD COLUMN discovered_books_json TEXT"
-                    )
-                )
+            )
 
-            # Idempotent ALTER: add progress_scored column if missing.
-            col_exists3 = conn.execute(
+        # Idempotent ALTER: add error_message column if missing.
+        col_exists5 = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_selection_sessions' "
+                "AND column_name = 'error_message'"
+            )
+        ).fetchone()
+        if not col_exists5:
+            conn.execute(
                 text(
-                    "SELECT 1 FROM information_schema.columns "
-                    "WHERE table_name = 'book_selection_sessions' "
-                    "AND column_name = 'progress_scored'"
+                    "ALTER TABLE book_selection_sessions "
+                    "ADD COLUMN error_message TEXT"
                 )
-            ).fetchone()
-            if not col_exists3:
-                conn.execute(
-                    text(
-                        "ALTER TABLE book_selection_sessions "
-                        "ADD COLUMN progress_scored INTEGER NOT NULL DEFAULT 0"
-                    )
-                )
+            )
 
-            # Idempotent ALTER: add progress_total column if missing.
-            col_exists4 = conn.execute(
+        # Migrate vector columns to the correct dimension (2048).
+        # text-embedding-v4 actually returns 2048-dim vectors.
+        # Previous deployments may have used 2536 or 3072 — fix both.
+        _VECTOR_MIGRATIONS = [
+            ("book_concepts", "name_embedding"),
+            ("book_concepts", "evidence_embedding"),
+            ("book_chunks", "embedding"),
+            ("course_concept_caches", "name_embedding"),
+            ("course_concept_caches", "evidence_embedding"),
+        ]
+        for tbl, col in _VECTOR_MIGRATIONS:
+            row = conn.execute(
                 text(
-                    "SELECT 1 FROM information_schema.columns "
-                    "WHERE table_name = 'book_selection_sessions' "
-                    "AND column_name = 'progress_total'"
-                )
+                    "SELECT atttypmod FROM pg_attribute "
+                    "JOIN pg_class ON pg_class.oid = pg_attribute.attrelid "
+                    "WHERE pg_class.relname = :tbl AND pg_attribute.attname = :col "
+                    "AND pg_attribute.attnum > 0"
+                ),
+                {"tbl": tbl, "col": col},
             ).fetchone()
-            if not col_exists4:
-                conn.execute(
-                    text(
-                        "ALTER TABLE book_selection_sessions "
-                        "ADD COLUMN progress_total INTEGER NOT NULL DEFAULT 0"
-                    )
+            if row and row[0] not in (2048, -1, None):
+                logger.info(
+                    "Migrating %s.%s from vector(%d) to vector(2048)",
+                    tbl,
+                    col,
+                    row[0],
                 )
-
-            # Idempotent ALTER: add error_message column if missing.
-            col_exists5 = conn.execute(
-                text(
-                    "SELECT 1 FROM information_schema.columns "
-                    "WHERE table_name = 'book_selection_sessions' "
-                    "AND column_name = 'error_message'"
-                )
-            ).fetchone()
-            if not col_exists5:
                 conn.execute(
-                    text(
-                        "ALTER TABLE book_selection_sessions "
-                        "ADD COLUMN error_message TEXT"
-                    )
+                    text(f"ALTER TABLE {tbl} ALTER COLUMN {col} TYPE vector(2048)")
                 )
 
         conn.commit()
@@ -270,9 +229,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         api_key=settings.langsmith_api_key, project=settings.langsmith_project
     )
 
+    # Enable pgvector extension before creating tables (idempotent).
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.commit()
+
     Base.metadata.create_all(bind=engine)
     _ensure_sql_schema_upgrades()
     _backfill_course_selected_books()
+
+    # Recover any extraction runs that were left in-progress when the server
+    # was last stopped/restarted (their background tasks are now gone).
+    try:
+        from app.modules.curricularalignmentarchitect.chunking_repository import (
+            recover_orphaned_runs,
+        )
+        with SessionLocal() as db:
+            recovered = recover_orphaned_runs(db)
+            if recovered:
+                logger.info("Marked %d orphaned analysis run(s) as FAILED on startup", recovered)
+    except Exception:
+        logger.exception("Failed to recover orphaned analysis runs on startup")
 
     neo4j_driver = create_neo4j_driver()
     app.state.neo4j_driver = neo4j_driver

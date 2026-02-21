@@ -7,7 +7,13 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .models import BookStatus, DownloadStatus, SessionStatus
+from .models import (
+    AnalysisStrategy,
+    BookStatus,
+    DownloadStatus,
+    ExtractionRunStatus,
+    SessionStatus,
+)
 
 # ═══════════════════════════════════════════════════════════════
 # Request schemas
@@ -169,3 +175,111 @@ class StreamEvent(BaseModel):
     progress: int | None = None
     total: int | None = None
     data: dict | None = None
+
+
+# ═══════════════════════════════════════════════════════════════
+# Book Analysis schemas
+# ═══════════════════════════════════════════════════════════════
+
+
+class BookExtractionRunRead(BaseModel):
+    id: int
+    course_id: int
+    status: ExtractionRunStatus
+    error_message: str | None = None
+    progress_detail: str | None = None
+    embedding_model: str
+    embedding_dims: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConceptCoverageItem(BaseModel):
+    """Course→book direction: one course concept's best match in a book."""
+
+    concept_name: str
+    doc_topic: str | None = None
+    sim_max: float
+    best_match: str | None = None
+
+
+class BookUniqueConceptItem(BaseModel):
+    """Book→course direction: one book concept's best match to course."""
+
+    name: str
+    chapter_title: str | None = None
+    section_title: str | None = None
+    sim_max: float
+    best_course_match: str | None = None
+
+
+class SimBucket(BaseModel):
+    """One bucket of a similarity-score histogram."""
+
+    bucket_start: float
+    bucket_end: float
+    count: int
+
+
+class BookAnalysisSummaryRead(BaseModel):
+    id: int
+    run_id: int
+    selected_book_id: int
+    strategy: AnalysisStrategy
+    book_title: str
+
+    # Scalars
+    s_final_name: float
+    s_final_evidence: float
+    total_book_concepts: int
+    chapter_count: int
+
+    # Default-threshold snapshot
+    novel_count_default: int
+    overlap_count_default: int
+    covered_count_default: int
+
+    # Deserialised JSON blobs
+    book_unique_concepts: list[BookUniqueConceptItem] = Field(default_factory=list)
+    course_coverage: list[ConceptCoverageItem] = Field(default_factory=list)
+    topic_scores: dict[str, float] = Field(default_factory=dict)
+    sim_distribution: list[SimBucket] = Field(default_factory=list)
+
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def deserialise_json_blobs(cls, data: dict | object) -> dict | object:
+        """Deserialise JSON text columns into typed Python objects."""
+        import json
+
+        # Handle both dict and ORM object
+        def _get(obj: dict | object, key: str) -> str | None:
+            if isinstance(obj, dict):
+                return obj.get(key)
+            return getattr(obj, key, None)
+
+        def _set(obj: dict | object, key: str, value: object) -> None:
+            if isinstance(obj, dict):
+                obj[key] = value
+            else:
+                object.__setattr__(obj, key, value)
+
+        mapping = {
+            "book_unique_concepts_json": "book_unique_concepts",
+            "course_coverage_json": "course_coverage",
+            "topic_scores_json": "topic_scores",
+            "sim_distribution_json": "sim_distribution",
+        }
+        for json_key, target_key in mapping.items():
+            raw = _get(data, json_key)
+            if raw and isinstance(raw, str):
+                _set(data, target_key, json.loads(raw))
+            elif raw and not isinstance(raw, str):
+                _set(data, target_key, raw)
+
+        return data

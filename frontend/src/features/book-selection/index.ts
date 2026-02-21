@@ -5,3 +5,4 @@ export { BookReviewTable } from './components/BookReviewTable';
 export { DownloadStatusPanel } from './components/DownloadStatusPanel';
 export { ManualUploadCard } from './components/ManualUploadCard';
 export { CourseBookList } from './components/CourseBookList';
+export { BookAnalysisTab } from './components/analysis';

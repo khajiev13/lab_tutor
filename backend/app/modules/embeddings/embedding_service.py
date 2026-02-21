@@ -4,8 +4,7 @@ import logging
 import random
 import time
 
-from langchain_openai import OpenAIEmbeddings
-from pydantic import SecretStr
+from openai import OpenAI
 
 from app.core.settings import settings
 
@@ -13,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddingService:
-    _embeddings: OpenAIEmbeddings
+    _client: OpenAI
+    _model: str
     _expected_dim: int | None
 
     def __init__(self) -> None:
@@ -27,17 +27,13 @@ class EmbeddingService:
             )
 
         self._expected_dim = settings.embedding_dims
-        self._embeddings = OpenAIEmbeddings(
-            model=settings.embedding_model,
-            dimensions=settings.embedding_dims,
-            api_key=SecretStr(api_key),
+        self._model = settings.embedding_model
+        self._client = OpenAI(
+            api_key=api_key,
             base_url=base_url,
-            # We handle retries ourselves to centralize logging + control.
-            max_retries=0,
-            chunk_size=settings.embedding_batch_size,
+            timeout=settings.embedding_timeout_seconds,
+            max_retries=0,  # We handle retries ourselves.
         )
-        # Field exists on the pydantic model; setting it here avoids type-checker issues.
-        self._embeddings.request_timeout = settings.embedding_timeout_seconds
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
@@ -64,9 +60,17 @@ class EmbeddingService:
         self, *, batch: list[str], max_retries: int, base_sleep_seconds: float
     ) -> list[list[float]]:
         attempt = 0
+        kwargs: dict = {
+            "model": self._model,
+            "input": batch,
+        }
+        if self._expected_dim is not None:
+            kwargs["dimensions"] = self._expected_dim
+
         while True:
             try:
-                return list(self._embeddings.embed_documents(batch))
+                resp = self._client.embeddings.create(**kwargs)
+                return [d.embedding for d in resp.data]
             except Exception as e:
                 if attempt >= max_retries:
                     raise

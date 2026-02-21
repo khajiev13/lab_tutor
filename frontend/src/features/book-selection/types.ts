@@ -186,3 +186,92 @@ export function parseScores(scoresJson: string | null): BookScores | null {
     return null;
   }
 }
+
+// ── Analysis Types ─────────────────────────────────────────────
+
+export type ExtractionRunStatus =
+  | 'pending'
+  | 'extracting'
+  | 'embedding'
+  | 'scoring'
+  | 'completed'
+  | 'failed'
+  | 'book_picked';
+
+export type AnalysisStrategy = 'chunking' | 'agentic';
+
+export interface BookExtractionRun {
+  id: number;
+  course_id: number;
+  status: ExtractionRunStatus;
+  error_message: string | null;
+  progress_detail: string | null;
+  embedding_model: string | null;
+  embedding_dims: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConceptCoverageItem {
+  concept_name: string;
+  doc_topic: string;
+  sim_max: number;
+  best_match: string;
+}
+
+export interface BookUniqueConceptItem {
+  name: string;
+  chapter_title: string | null;
+  section_title: string | null;
+  sim_max: number;
+  best_course_match: string;
+}
+
+export interface SimBucket {
+  bucket_start: number;
+  bucket_end: number;
+  count: number;
+}
+
+export interface BookAnalysisSummary {
+  id: number;
+  run_id: number;
+  selected_book_id: number;
+  strategy: AnalysisStrategy;
+  book_title: string;
+  s_final_name: number;
+  s_final_evidence: number;
+  total_book_concepts: number;
+  chapter_count: number;
+  novel_count_default: number;
+  overlap_count_default: number;
+  covered_count_default: number;
+  book_unique_concepts: BookUniqueConceptItem[];
+  course_coverage: ConceptCoverageItem[];
+  topic_scores: Record<string, number>;
+  sim_distribution: SimBucket[];
+  created_at: string;
+}
+
+// ── Reclassify helper ──────────────────────────────────────────
+
+export type ConceptTier = 'novel' | 'overlap' | 'covered';
+
+export function reclassify<T extends { sim_max: number }>(
+  items: T[],
+  novelThr: number,
+  coveredThr: number,
+): (T & { tier: ConceptTier })[] {
+  return items.map((c) => ({
+    ...c,
+    tier:
+      c.sim_max < novelThr
+        ? 'novel'
+        : c.sim_max < coveredThr
+          ? 'overlap'
+          : 'covered',
+  }));
+}
+
+export const DEFAULT_NOVEL_THRESHOLD = 0.35;
+export const DEFAULT_COVERED_THRESHOLD = 0.55;

@@ -8,7 +8,7 @@ The backend configuration uses `LAB_TUTOR_*` variables (see `backend/app/core/se
 
 - **LLM (required)**
   - `LAB_TUTOR_LLM_API_KEY` (required)
-  - `LAB_TUTOR_LLM_BASE_URL` (optional; default `https://api.xiaocaseai.com/v1`)
+  - `LAB_TUTOR_LLM_BASE_URL` (optional; default `https://api.silra.cn/v1/`)
   - `LAB_TUTOR_LLM_MODEL` (optional; default `deepseek-v3.2`)
 
 #### Required for full pipeline (downloading uploads + writing to Neo4j)
@@ -22,14 +22,6 @@ The backend configuration uses `LAB_TUTOR_*` variables (see `backend/app/core/se
   - `LAB_TUTOR_NEO4J_USERNAME`
   - `LAB_TUTOR_NEO4J_PASSWORD`
   - `LAB_TUTOR_NEO4J_DATABASE` (default `neo4j`)
-
-#### Legacy fallback (optional)
-
-If `LAB_TUTOR_LLM_*` is not set, the backend will fall back to:
-
-- `XIAO_CASE_API_KEY` / `XIAOCASE_API_KEY`
-- `XIAO_CASE_API_BASE` / `XIAOCASE_API_BASE`
-- `XIAO_CASE_MODEL` / `XIAOCASE_MODEL`
 
 #### LangSmith (observability; optional)
 
