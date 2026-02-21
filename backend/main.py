@@ -122,8 +122,7 @@ def _ensure_sql_schema_upgrades() -> None:
         if not col_exists5:
             conn.execute(
                 text(
-                    "ALTER TABLE book_selection_sessions "
-                    "ADD COLUMN error_message TEXT"
+                    "ALTER TABLE book_selection_sessions ADD COLUMN error_message TEXT"
                 )
             )
 
@@ -244,10 +243,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from app.modules.curricularalignmentarchitect.chunking_repository import (
             recover_orphaned_runs,
         )
+
         with SessionLocal() as db:
             recovered = recover_orphaned_runs(db)
             if recovered:
-                logger.info("Marked %d orphaned analysis run(s) as FAILED on startup", recovered)
+                logger.info(
+                    "Marked %d orphaned analysis run(s) as FAILED on startup", recovered
+                )
     except Exception:
         logger.exception("Failed to recover orphaned analysis runs on startup")
 
