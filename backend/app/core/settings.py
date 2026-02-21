@@ -36,29 +36,23 @@ class Settings(BaseSettings):
     neo4j_password: str | None = Field(default=None, description="Neo4j password")
     neo4j_database: str = Field(default="neo4j", description="Neo4j database name")
 
-    # LLM (OpenAI-compatible; supports proxies like XiaoCase)
+    # LLM (OpenAI-compatible; defaults to Silra)
     llm_api_key: str | None = Field(
         default=None,
         description="LLM API key (OpenAI-compatible). Preferred: LAB_TUTOR_LLM_API_KEY.",
         validation_alias=AliasChoices(
-            # Preferred (handled automatically via env_prefix + field name):
-            # - LAB_TUTOR_LLM_API_KEY
-            # Back-compat:
-            "XIAO_CASE_API_KEY",
-            "XIAOCASE_API_KEY",
+            # Preferred (with env_prefix):
+            "LAB_TUTOR_LLM_API_KEY",
             # Common OpenAI-style env var name:
             "OPENAI_API_KEY",
         ),
     )
     llm_base_url: str = Field(
-        default="https://api.xiaocaseai.com/v1",
+        default="https://api.silra.cn/v1/",
         description="OpenAI-compatible base URL. Preferred: LAB_TUTOR_LLM_BASE_URL.",
         validation_alias=AliasChoices(
-            # Preferred (handled automatically via env_prefix + field name):
-            # - LAB_TUTOR_LLM_BASE_URL
-            # Back-compat:
-            "XIAO_CASE_API_BASE",
-            "XIAOCASE_API_BASE",
+            # Preferred (with env_prefix):
+            "LAB_TUTOR_LLM_BASE_URL",
             # Common OpenAI-style env var name:
             "OPENAI_BASE_URL",
         ),
@@ -67,11 +61,8 @@ class Settings(BaseSettings):
         default="deepseek-v3.2",
         description="Model name/id. Preferred: LAB_TUTOR_LLM_MODEL.",
         validation_alias=AliasChoices(
-            # Preferred (handled automatically via env_prefix + field name):
-            # - LAB_TUTOR_LLM_MODEL
-            # Back-compat:
-            "XIAO_CASE_MODEL",
-            "XIAOCASE_MODEL",
+            # Preferred (with env_prefix):
+            "LAB_TUTOR_LLM_MODEL",
             # Common pattern in some deployments:
             "OPENAI_MODEL",
         ),
@@ -95,11 +86,11 @@ class Settings(BaseSettings):
 
     # Embeddings (OpenAI-compatible; defaults to the same creds as LLM)
     embedding_model: str = Field(
-        default="text-embedding-3-small",
+        default="text-embedding-v4",
         description="Embedding model name/id. Override via LAB_TUTOR_EMBEDDING_MODEL.",
     )
     embedding_dims: int | None = Field(
-        default=1536,
+        default=2048,
         description=(
             "Embedding vector dimensions. Used for validation + Neo4j vector indexes. "
             "Set to null/empty to disable dim enforcement and vector index creation."
@@ -118,7 +109,7 @@ class Settings(BaseSettings):
         ),
     )
     embedding_batch_size: int = Field(
-        default=64,
+        default=10,
         description="Max texts per embeddings request batch.",
     )
     embedding_timeout_seconds: int = Field(
@@ -146,8 +137,8 @@ class Settings(BaseSettings):
         default=None,
         description="LangSmith API key. Preferred: LAB_TUTOR_LANGSMITH_API_KEY.",
         validation_alias=AliasChoices(
-            # Preferred (handled automatically via env_prefix + field name):
-            # - LAB_TUTOR_LANGSMITH_API_KEY
+            # Preferred (with env_prefix):
+            "LAB_TUTOR_LANGSMITH_API_KEY",
             # Fallbacks (useful outside docker-compose):
             "LANGSMITH_API_KEY",
             "LANGCHAIN_API_KEY",
@@ -157,8 +148,8 @@ class Settings(BaseSettings):
         default="lab-tutor-backend",
         description="LangSmith project name. Preferred: LAB_TUTOR_LANGSMITH_PROJECT.",
         validation_alias=AliasChoices(
-            # Preferred (handled automatically via env_prefix + field name):
-            # - LAB_TUTOR_LANGSMITH_PROJECT
+            # Preferred (with env_prefix):
+            "LAB_TUTOR_LANGSMITH_PROJECT",
             # Fallbacks (useful outside docker-compose):
             "LANGSMITH_PROJECT",
             "LANGCHAIN_PROJECT",

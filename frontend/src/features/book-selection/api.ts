@@ -1,6 +1,7 @@
 import api from '@/services/api';
 import type {
   BookCandidate,
+  BookExtractionRun,
   BookSelectionSession,
   CourseSelectedBook,
   ManualUploadResponse,
@@ -164,4 +165,43 @@ export async function selectAndDownload(
     `/book-selection/sessions/${sessionId}/select`,
     { book_ids: bookIds } satisfies SelectBooksRequest,
   );
+}
+
+// ── Book Analysis endpoints ────────────────────────────────────
+
+/** Trigger a new analysis run (dual strategy). Returns 202.
+ *  Throws with status 409 if a run is already in progress.
+ */
+export async function triggerAnalysis(
+  courseId: number,
+  signal?: AbortSignal,
+): Promise<BookExtractionRun> {
+  const res = await api.post<BookExtractionRun>(
+    `/book-selection/courses/${courseId}/analysis`,
+    undefined,
+    { signal },
+  );
+  return res.data;
+}
+
+/** Get the latest analysis run for a course (or null). */
+export async function getLatestAnalysis(
+  courseId: number,
+): Promise<BookExtractionRun | null> {
+  const res = await api.get<BookExtractionRun | null>(
+    `/book-selection/courses/${courseId}/analysis/latest`,
+  );
+  return res.data;
+}
+
+/** Pick a book from the analysis results. */
+export async function pickBook(
+  runId: number,
+  courseId: number,
+  selectedBookId: number,
+): Promise<BookExtractionRun> {
+  const res = await api.post<BookExtractionRun>(
+    `/book-selection/courses/${courseId}/analysis/${runId}/pick/${selectedBookId}`,
+  );
+  return res.data;
 }

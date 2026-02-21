@@ -159,3 +159,18 @@ neo4j_database/
 
 # Cursor IDE – may contain secrets (MCP credentials, etc.)
 .cursor/mcp.json
+
+# Backend experiment artifacts (notebooks, data dumps, caches)
+backend/**/*.ipynb
+backend/**/*.excalidraw
+backend/**/cache/
+backend/**/docs/
+backend/**/json_output_experiment/
+backend/**/*_results.json
+backend/**/*_all_books.json
+backend/**/*_all_chapters.json
+backend/**/book_content_*.json
+backend/**/book_toc_*.json
+backend/**/book_course_graph.html
+backend/**/*.prompt.md
+backend/**/CHUNKING_VS_AGENT_EXTRACTION_REPORT.md

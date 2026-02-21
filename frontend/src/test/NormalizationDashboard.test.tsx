@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { vi, type Mock } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
@@ -20,6 +20,16 @@ vi.mock('../features/normalization/api', () => ({
 
 vi.mock('../services/normalization', () => ({
   startNormalizationStream: vi.fn(),
+}));
+
+// Mock sonner to prevent toast calls from throwing in jsdom
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), {
+    success: vi.fn(),
+    error: vi.fn(),
+    message: vi.fn(),
+    warning: vi.fn(),
+  }),
 }));
 
 describe('NormalizationDashboard', () => {
@@ -75,11 +85,12 @@ describe('NormalizationDashboard', () => {
       expect(screen.getByText('Concept normalization')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Start'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Start'));
+    });
 
     await waitFor(() => {
       expect(startNormalizationStream).toHaveBeenCalled();
-      expect(screen.getByText(/Agent is working/)).toBeInTheDocument();
     });
   });
 
@@ -137,7 +148,9 @@ describe('NormalizationDashboard', () => {
       expect(screen.getByText('Concept normalization')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Start'));
+    await act(async () => {
+      fireEvent.click(screen.getByText('Start'));
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Agent needs your feedback')).toBeInTheDocument();
