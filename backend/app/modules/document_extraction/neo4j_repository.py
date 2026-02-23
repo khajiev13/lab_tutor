@@ -114,7 +114,7 @@ RETURN documents_deleted, count(c) AS concepts_deleted
 
 SET_DOCUMENT_EMBEDDING: LiteralString = """
 MATCH (d:TEACHER_UPLOADED_DOCUMENT {id: $document_id})
-SET d.embedding = $vector
+SET d.summary_embedding = $vector
 RETURN d
 """
 

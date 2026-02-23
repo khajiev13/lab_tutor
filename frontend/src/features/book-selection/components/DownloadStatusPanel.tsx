@@ -20,6 +20,7 @@ import { Progress } from '@/components/ui/progress';
 import {
   CheckCircle2,
   Download,
+  ExternalLink,
   Loader2,
   Upload,
   XCircle,
@@ -157,9 +158,26 @@ function DownloadRow({
       <TableCell>
         <StatusBadge status={book.status} />
       </TableCell>
-      <TableCell>
+      <TableCell className="space-x-1">
         {book.status === 'failed' && (
           <>
+            {/* Show a link to the PDF if the error message contains a URL */}
+            {book.error_message && extractUrl(book.error_message) && (
+              <Button
+                size="sm"
+                variant="ghost"
+                asChild
+              >
+                <a
+                  href={extractUrl(book.error_message)!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="mr-1 h-3 w-3" />
+                  Link
+                </a>
+              </Button>
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -191,6 +209,12 @@ function DownloadRow({
       </TableCell>
     </TableRow>
   );
+}
+
+/** Extract the first URL from a string (e.g. an error message). */
+function extractUrl(text: string): string | null {
+  const match = text.match(/https?:\/\/[^\s)]+/);
+  return match ? match[0] : null;
 }
 
 function StatusBadge({ status }: { status: string }) {

@@ -1,5 +1,6 @@
 import api from '@/services/api';
 import type {
+  BookAnalysisSummary,
   BookCandidate,
   BookExtractionRun,
   BookSelectionSession,
@@ -202,6 +203,17 @@ export async function pickBook(
 ): Promise<BookExtractionRun> {
   const res = await api.post<BookExtractionRun>(
     `/book-selection/courses/${courseId}/analysis/${runId}/pick/${selectedBookId}`,
+  );
+  return res.data;
+}
+
+/** Get scored summaries for a specific analysis run. */
+export async function getAnalysisSummaries(
+  courseId: number,
+  runId: number,
+): Promise<BookAnalysisSummary[]> {
+  const res = await api.get<BookAnalysisSummary[]>(
+    `/book-selection/courses/${courseId}/analysis/${runId}/summaries`,
   );
   return res.data;
 }

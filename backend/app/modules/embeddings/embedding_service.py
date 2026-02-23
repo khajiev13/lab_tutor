@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import random
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
 
@@ -35,23 +37,75 @@ class EmbeddingService:
             max_retries=0,  # We handle retries ourselves.
         )
 
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+    def embed_documents(
+        self,
+        texts: list[str],
+        *,
+        on_batch_done: Callable[[int, int], None] | None = None,
+    ) -> list[list[float]]:
+        """Embed a list of texts with internal batching + retries.
+
+        Args:
+            texts: Texts to embed.
+            on_batch_done: Optional callback invoked after each batch with
+                ``(embedded_so_far, total)``.
+        """
         if not texts:
             return []
 
         batch_size = max(1, int(settings.embedding_batch_size))
         max_retries = max(0, int(settings.embedding_max_retries))
         base_sleep = float(settings.embedding_retry_base_seconds)
+        max_workers = max(1, int(settings.embedding_parallel_workers))
+        total = len(texts)
 
-        all_vectors: list[list[float]] = []
-        for start in range(0, len(texts), batch_size):
-            batch = texts[start : start + batch_size]
-            vectors = self._embed_with_retries(
-                batch=batch,
-                max_retries=max_retries,
-                base_sleep_seconds=base_sleep,
-            )
-            all_vectors.extend(vectors)
+        # Build ordered list of (batch_index, batch_texts)
+        batches = [
+            (i, texts[start : start + batch_size])
+            for i, start in enumerate(range(0, total, batch_size))
+        ]
+
+        if len(batches) <= 1 or max_workers <= 1:
+            # Fast path: no parallelism needed
+            all_vectors: list[list[float]] = []
+            for _, batch in batches:
+                vectors = self._embed_with_retries(
+                    batch=batch,
+                    max_retries=max_retries,
+                    base_sleep_seconds=base_sleep,
+                )
+                all_vectors.extend(vectors)
+                if on_batch_done is not None:
+                    on_batch_done(len(all_vectors), total)
+            self._validate_dims(all_vectors)
+            return all_vectors
+
+        # Parallel path: process batches concurrently
+        results: dict[int, list[list[float]]] = {}
+        embedded_so_far = 0
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {
+                executor.submit(
+                    self._embed_with_retries,
+                    batch=batch,
+                    max_retries=max_retries,
+                    base_sleep_seconds=base_sleep,
+                ): idx
+                for idx, batch in batches
+            }
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                vectors = future.result()  # propagates exceptions
+                results[idx] = vectors
+                embedded_so_far += len(vectors)
+                if on_batch_done is not None:
+                    on_batch_done(embedded_so_far, total)
+
+        # Reassemble in original order
+        all_vectors = []
+        for i in range(len(batches)):
+            all_vectors.extend(results[i])
 
         self._validate_dims(all_vectors)
         return all_vectors

@@ -11,21 +11,21 @@ class EmbeddingService:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        base_url: str = "https://api.xiaocaseai.com/v1",
-        model: str = "text-embedding-3-small"
+        base_url: str = "https://api.silra.cn/v1/",
+        model: str = "text-embedding-v4"
     ):
         """
         Initialize the embedding service.
         
         Args:
-            api_key: API key for authentication (if None, reads from XIAO_CASE_API_KEY env var)
+            api_key: API key for authentication (if None, reads from LAB_TUTOR_LLM_API_KEY env var)
             base_url: Custom base URL for the API
             model: Model name to use for embeddings
         """
         if api_key is None:
-            api_key = os.getenv("XIAO_CASE_API_KEY")
+            api_key = os.getenv("LAB_TUTOR_LLM_API_KEY")
             if api_key is None:
-                raise ValueError("API key must be provided either as parameter or XIAO_CASE_API_KEY environment variable")
+                raise ValueError("API key must be provided either as parameter or LAB_TUTOR_LLM_API_KEY environment variable")
         
         self.embeddings = OpenAIEmbeddings(
             api_key=SecretStr(api_key),

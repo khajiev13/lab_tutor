@@ -31,12 +31,12 @@ CREATE INDEX teacher_uploaded_document_source_idx IF NOT EXISTS
 FOR (d:TEACHER_UPLOADED_DOCUMENT)
 ON (d.source);
 
-// Vector index (dimensions must match your embedding model; code uses 1536)
+// Vector index (dimensions must match your embedding model; code uses 2536)
 CREATE VECTOR INDEX teacher_uploaded_document_embedding_idx IF NOT EXISTS
 FOR (d:TEACHER_UPLOADED_DOCUMENT)
 ON (d.embedding)
 OPTIONS {indexConfig: {
-  `vector.dimensions`: 1536,
+  `vector.dimensions`: 2536,
   `vector.similarity_function`: 'cosine'
 }};
 

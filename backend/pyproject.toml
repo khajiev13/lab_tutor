@@ -45,6 +45,7 @@ dependencies = [
     "pyvis>=0.3.2",
     "pymupdf-layout>=1.27.1",
     "pgvector>=0.4.2",
+    "httpx>=0.28.1",
 ]
 
 [build-system]

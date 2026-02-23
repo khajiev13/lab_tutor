@@ -219,6 +219,9 @@ class BookExtractionRun(Base):
     course_concepts: Mapped[list["CourseConceptCache"]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
+    document_summaries: Mapped[list["CourseDocumentSummaryCache"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
     summaries: Mapped[list["BookAnalysisSummary"]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
@@ -345,6 +348,26 @@ class CourseConceptCache(Base):
     run: Mapped["BookExtractionRun"] = relationship(back_populates="course_concepts")
 
 
+class CourseDocumentSummaryCache(Base):
+    """Course document summaries + embeddings cached per analysis run."""
+
+    __tablename__ = "course_document_summary_caches"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("book_extraction_runs.id"), nullable=False, index=True
+    )
+    document_neo4j_id: Mapped[str] = mapped_column(String(500), nullable=False)
+    topic: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary_embedding = mapped_column(Vector(EMBEDDING_DIMS), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    run: Mapped["BookExtractionRun"] = relationship(back_populates="document_summaries")
+
+
 class BookAnalysisSummary(Base):
     """Scored analysis results — one row per (run × book × strategy)."""
 
@@ -393,3 +416,28 @@ class BookAnalysisSummary(Base):
     )
 
     run: Mapped["BookExtractionRun"] = relationship(back_populates="summaries")
+    document_summary_scores: Mapped[list["BookDocumentSummaryScore"]] = relationship(
+        back_populates="summary", cascade="all, delete-orphan"
+    )
+
+
+class BookDocumentSummaryScore(Base):
+    """Per-book similarity score for a course document summary."""
+
+    __tablename__ = "book_document_summary_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    summary_id: Mapped[int] = mapped_column(
+        ForeignKey("book_analysis_summaries.id"), nullable=False, index=True
+    )
+    document_neo4j_id: Mapped[str] = mapped_column(String(500), nullable=False)
+    topic: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sim_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    summary: Mapped["BookAnalysisSummary"] = relationship(
+        back_populates="document_summary_scores"
+    )

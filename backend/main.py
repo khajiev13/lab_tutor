@@ -2,6 +2,18 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+# Configure root logger so that all app.* loggers (service, downloader, etc.)
+# emit to stderr. Without this, only uvicorn's own logger produces output and
+# background-task logs are silently dropped.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:%(name)s:%(message)s",
+)
+
+# Suppress the Azure SDK HTTP transport logger — it dumps full request/response
+# headers for every blob operation at INFO level, which is extremely noisy.
+logging.getLogger("azure").setLevel(logging.WARNING)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
@@ -16,7 +28,7 @@ import app.modules.curricularalignmentarchitect.models  # noqa
 import app.modules.embeddings.course_models  # noqa
 import app.modules.embeddings.models  # noqa
 from app.core.api_schemas import HealthCheckItem, HealthResponse, RootResponse
-from app.core.database import Base, SessionLocal, engine
+from app.core.database import Base, SessionLocal, async_engine, engine
 from app.core.langsmith_tracing import (
     ConditionalLangSmithTracingMiddleware,
     configure_langsmith_env,
@@ -31,7 +43,9 @@ from app.core.settings import settings
 from app.modules.auth import routes as auth_routes
 from app.modules.concept_normalization import routes as concept_normalization_routes
 from app.modules.courses import routes as course_routes
-from app.modules.curricularalignmentarchitect import routes as book_selection_routes
+from app.modules.curricularalignmentarchitect.api_routes import (
+    router as book_selection_router,
+)
 from app.providers.storage import blob_service
 
 logger = logging.getLogger(__name__)
@@ -237,10 +251,27 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _ensure_sql_schema_upgrades()
     _backfill_course_selected_books()
 
+    # Warm up both connection pools so the first real request doesn't pay
+    # the cold TCP+SSL handshake cost (~5s against Azure Postgres).
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("Sync DB pool warmed up")
+    except Exception:
+        logger.exception("Sync DB pool warm-up failed")
+
+    try:
+        from sqlalchemy import text as atext
+        async with async_engine.connect() as aconn:
+            await aconn.execute(atext("SELECT 1"))
+        logger.info("Async DB pool warmed up")
+    except Exception:
+        logger.exception("Async DB pool warm-up failed")
+
     # Recover any extraction runs that were left in-progress when the server
     # was last stopped/restarted (their background tasks are now gone).
     try:
-        from app.modules.curricularalignmentarchitect.chunking_repository import (
+        from app.modules.curricularalignmentarchitect.chunking_analysis.repository import (
             recover_orphaned_runs,
         )
 
@@ -311,7 +342,7 @@ app.add_middleware(
 app.include_router(auth_routes.router)
 app.include_router(course_routes.router)
 app.include_router(concept_normalization_routes.router)
-app.include_router(book_selection_routes.router)
+app.include_router(book_selection_router)
 
 
 @app.get("/docs", include_in_schema=False)
@@ -369,7 +400,8 @@ def health_check() -> HealthResponse:
         except Exception as e:
             checks.append(HealthCheckItem(name="neo4j", status="error", detail=str(e)))
 
-    # Azure Blob Storage
+    # Azure Blob Storage — just check the client is initialised; avoid a live
+    # HTTP call on every health poll (it's slow and noisy in logs).
     if not settings.azure_storage_connection_string:
         checks.append(
             HealthCheckItem(
@@ -379,16 +411,11 @@ def health_check() -> HealthResponse:
             )
         )
     else:
-        try:
-            if blob_service.container_client is None:
-                raise RuntimeError("Blob service is not initialized")
-
-            # HEAD request; validates auth + container existence.
-            blob_service.container_client.get_container_properties()
+        if blob_service.container_client is not None:
             checks.append(HealthCheckItem(name="azure_blob", status="ok"))
-        except Exception as e:
+        else:
             checks.append(
-                HealthCheckItem(name="azure_blob", status="error", detail=str(e))
+                HealthCheckItem(name="azure_blob", status="error", detail="Blob service not initialized")
             )
 
     any_error = any(c.status == "error" for c in checks)

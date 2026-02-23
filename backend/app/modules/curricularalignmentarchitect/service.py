@@ -10,12 +10,12 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
-from langgraph.types import Command
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.providers.storage import BlobService
 
+from .book_selection.graph import build_workflow
 from .models import BookStatus, DownloadStatus, SessionStatus
 from .repository import BookSelectionRepository
 from .schemas import (
@@ -26,7 +26,6 @@ from .schemas import (
     SessionRead,
     StartSessionRequest,
 )
-from .workflow import build_workflow
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -303,7 +302,7 @@ class BookSelectionService:
             ).delete(synchronize_session="fetch")
             db.commit()
 
-        from .workflow_nodes import fetch_course as _fc
+        from .book_selection.nodes import fetch_course as _fc
 
         await build_workflow()
         thread_config = {"configurable": {"thread_id": new_thread_id}}
@@ -339,23 +338,23 @@ class BookSelectionService:
 
             from langgraph.graph import END, START, StateGraph
 
-            from .workflow import _get_async_checkpointer
-            from .workflow_models import WorkflowState
-            from .workflow_nodes import (
+            from .book_selection.graph import _get_async_checkpointer
+            from .book_selection.nodes import (
                 download_book_node as _dbn,
             )
-            from .workflow_nodes import (
+            from .book_selection.nodes import (
                 fan_out_downloads as _fod,
             )
-            from .workflow_nodes import (
+            from .book_selection.nodes import (
                 fan_out_scoring as _fos,
             )
-            from .workflow_nodes import (
+            from .book_selection.nodes import (
                 hitl_review as _hr,
             )
-            from .workflow_nodes import (
+            from .book_selection.nodes import (
                 score_book_node as _sbn,
             )
+            from .book_selection.state import WorkflowState
 
             async_checkpointer = await _get_async_checkpointer()
 
@@ -427,10 +426,24 @@ class BookSelectionService:
         session_id: int,
         selected_book_ids: list[int],
     ) -> None:
-        """Mark selected books, resume workflow, run downloads in background.
+        """Mark selected books, search for PDFs via Serper, stream to Azure.
+
+        For each book:
+        1. Query Serper with "<title> <authors> pdf download"
+        2. Pick the first organic result whose link ends with .pdf
+        3. Stream-download the PDF directly into Azure Blob Storage
+        4. Create a CourseSelectedBook record with the blob URL
+
+        If no PDF is found or the download fails, the book is marked FAILED
+        with the source URL (if any) so the teacher can download manually.
 
         Progress is written to DB; frontend polls GET /sessions/{id}.
         """
+        from langchain_community.utilities import GoogleSerperAPIWrapper
+
+        from app.core.settings import settings
+
+        # ── Validate & prepare ──────────────────────────────────
         with _fresh_db() as db:
             repo = BookSelectionRepository(db)
             session = repo.get_session(session_id)
@@ -447,246 +460,169 @@ class BookSelectionService:
 
             repo.mark_selected(session_id, selected_book_ids)
 
-            all_books = repo.get_books(session_id)
-            books_data = [
+            selected_rows = [
+                b for b in repo.get_books(session_id) if b.id in selected_book_ids
+            ]
+            books_snapshot = [
                 {
                     "id": b.id,
                     "title": b.title,
-                    "authors": b.authors,
+                    "authors": b.authors or "",
                     "publisher": b.publisher,
                     "year": b.year,
                     "course_id": b.course_id,
-                    "s_final": b.s_final,
                 }
-                for b in all_books
+                for b in selected_rows
             ]
-            thread_id = session.thread_id
             course_id = session.course_id
 
-        selected_indices = [
-            i for i, b in enumerate(books_data) if b["id"] in selected_book_ids
-        ]
-
-        def _normalize_title(value: str) -> str:
-            normalized = value.casefold().strip()
-            normalized = re.sub(r"[^\w\s]", "", normalized)
-            normalized = re.sub(r"\s+", " ", normalized)
-            return normalized
-
-        selected_books_by_id = {
-            b["id"]: b for b in books_data if b["id"] in selected_book_ids
-        }
-        selected_books_by_title = {
-            _normalize_title(b["title"]): b for b in selected_books_by_id.values()
-        }
-
+        total = len(books_snapshot)
         with _fresh_db() as db:
             repo = BookSelectionRepository(db)
             repo.update_progress(
                 session_id,
                 status=SessionStatus.DOWNLOADING,
                 progress_scored=0,
-                progress_total=len(selected_book_ids),
+                progress_total=total,
             )
-            for book_id in selected_book_ids:
-                repo.update_download_result(book_id, DownloadStatus.DOWNLOADING)
+            for book in books_snapshot:
+                repo.update_download_result(book["id"], DownloadStatus.DOWNLOADING)
+
+        # ── Process each book sequentially ──────────────────────
+        download_count = 0
+        serper = GoogleSerperAPIWrapper(
+            serper_api_key=settings.serper_api_key,
+            k=10,
+            type="search",
+        )
 
         try:
-            workflow = await build_workflow()
-            thread_config = {"configurable": {"thread_id": thread_id}}
+            for book in books_snapshot:
+                book_id = book["id"]
+                title = book["title"]
+                authors = book["authors"]
+                search_query = f"{title} {authors} pdf download".strip()
 
-            download_count = 0
-            async for event in workflow.astream(
-                Command(resume=selected_indices),
-                config=thread_config,
-                stream_mode="updates",
-            ):
-                for node_name, state_update in event.items():
-                    if node_name == "download_book":
-                        results = state_update.get("download_results", [])
-                        for dr in results:
-                            download_count += 1
-                            title = dr.get("book_title", "?")
-                            dl_status = dr.get("status", "failed")
+                # Search Google via Serper and pick the first .pdf link
+                pdf_url: str | None = None
+                try:
+                    data: dict = await serper.aresults(search_query)
+                    for item in data.get("organic", []):
+                        link: str = item.get("link", "")
+                        if link.lower().endswith(".pdf"):
+                            pdf_url = link
+                            break
+                except Exception as search_exc:
+                    logger.error("Serper search failed for '%s': %s", title, search_exc)
 
-                            normalized_result_title = _normalize_title(title)
-                            book_record = selected_books_by_title.get(
-                                normalized_result_title
-                            )
-
-                            if book_record is None and normalized_result_title:
-                                for (
-                                    normalized_title,
-                                    candidate,
-                                ) in selected_books_by_title.items():
-                                    if (
-                                        normalized_result_title in normalized_title
-                                        or normalized_title in normalized_result_title
-                                    ):
-                                        book_record = candidate
-                                        break
-
-                            if book_record:
-                                book_id = book_record["id"]
-
-                                if dl_status == "success":
-                                    file_path = dr.get("file_path", "")
-                                    source_url = dr.get("source_url", "")
-                                    blob_path = f"courses/{course_id}/books/{_safe_filename(title)}.pdf"
-                                    blob_url: str | None = None
-
-                                    try:
-                                        if (
-                                            file_path
-                                            and self.blob_service.container_client
-                                        ):
-                                            import os
-
-                                            with open(file_path, "rb") as f:
-                                                content = f.read()
-                                            blob_url = (
-                                                await self.blob_service.upload_bytes(
-                                                    content, blob_path
-                                                )
-                                            )
-                                            with _fresh_db() as db:
-                                                repo = BookSelectionRepository(db)
-                                                repo.update_download_result(
-                                                    book_id,
-                                                    DownloadStatus.SUCCESS,
-                                                    blob_path=blob_path,
-                                                    source_url=source_url,
-                                                )
-                                                repo.create_selected_book(
-                                                    course_id=course_id,
-                                                    title=book_record["title"],
-                                                    authors=book_record.get("authors"),
-                                                    publisher=book_record.get(
-                                                        "publisher"
-                                                    ),
-                                                    year=book_record.get("year"),
-                                                    status=BookStatus.DOWNLOADED,
-                                                    blob_path=blob_path,
-                                                    blob_url=blob_url,
-                                                    source_book_id=book_id,
-                                                )
-                                            if os.path.exists(file_path):
-                                                os.remove(file_path)
-                                        else:
-                                            with _fresh_db() as db:
-                                                repo = BookSelectionRepository(db)
-                                                repo.update_download_result(
-                                                    book_id,
-                                                    DownloadStatus.SUCCESS,
-                                                    blob_path=file_path,
-                                                    source_url=source_url,
-                                                )
-                                                repo.create_selected_book(
-                                                    course_id=course_id,
-                                                    title=book_record["title"],
-                                                    authors=book_record.get("authors"),
-                                                    publisher=book_record.get(
-                                                        "publisher"
-                                                    ),
-                                                    year=book_record.get("year"),
-                                                    status=BookStatus.DOWNLOADED,
-                                                    blob_path=file_path,
-                                                    source_book_id=book_id,
-                                                )
-                                    except Exception as e:
-                                        logger.error(
-                                            "Blob upload failed for %s: %s", title, e
-                                        )
-                                        with _fresh_db() as db:
-                                            repo = BookSelectionRepository(db)
-                                            repo.update_download_result(
-                                                book_id,
-                                                DownloadStatus.SUCCESS,
-                                                blob_path=file_path,
-                                                source_url=source_url,
-                                            )
-                                            repo.create_selected_book(
-                                                course_id=course_id,
-                                                title=book_record["title"],
-                                                authors=book_record.get("authors"),
-                                                publisher=book_record.get("publisher"),
-                                                year=book_record.get("year"),
-                                                status=BookStatus.DOWNLOADED,
-                                                blob_path=file_path,
-                                                source_book_id=book_id,
-                                            )
-                                else:
-                                    with _fresh_db() as db:
-                                        repo = BookSelectionRepository(db)
-                                        repo.update_download_result(
-                                            book_id,
-                                            DownloadStatus.FAILED,
-                                            error=dr.get("error", "Download failed"),
-                                        )
-                                        repo.create_selected_book(
-                                            course_id=course_id,
-                                            title=book_record["title"],
-                                            authors=book_record.get("authors"),
-                                            publisher=book_record.get("publisher"),
-                                            year=book_record.get("year"),
-                                            status=BookStatus.FAILED,
-                                            error_message=dr.get(
-                                                "error", "Download failed"
-                                            ),
-                                            source_book_id=book_id,
-                                        )
-
-                            # Update progress after each download
-                            with _fresh_db() as db:
-                                repo = BookSelectionRepository(db)
-                                repo.update_progress(
-                                    session_id,
-                                    progress_scored=download_count,
-                                )
-
-            # Finalize any selected books that never received a download result.
-            with _fresh_db() as db:
-                repo = BookSelectionRepository(db)
-                current_books = repo.get_books(session_id)
-                selected_rows = [b for b in current_books if b.id in selected_book_ids]
-                for row in selected_rows:
-                    if row.download_status in (
-                        DownloadStatus.PENDING,
-                        DownloadStatus.DOWNLOADING,
-                    ):
-                        error_msg = (
-                            "No download result was produced for this selection. "
-                            "Please upload manually."
-                        )
+                if pdf_url is None:
+                    # No PDF found — mark as failed
+                    with _fresh_db() as db:
+                        repo = BookSelectionRepository(db)
                         repo.update_download_result(
-                            row.id,
+                            book_id,
                             DownloadStatus.FAILED,
-                            error=error_msg,
+                            error=(
+                                "No PDF link found via search. Please upload manually."
+                            ),
                         )
-                        existing = repo.get_selected_book_by_source(row.id)
-                        if not existing:
-                            repo.create_selected_book(
-                                course_id=row.course_id,
-                                title=row.title,
-                                authors=row.authors,
-                                publisher=row.publisher,
-                                year=row.year,
-                                status=BookStatus.FAILED,
-                                error_message=error_msg,
-                                source_book_id=row.id,
-                            )
+                        repo.create_selected_book(
+                            course_id=course_id,
+                            title=title,
+                            authors=authors or None,
+                            publisher=book.get("publisher"),
+                            year=book.get("year"),
+                            status=BookStatus.FAILED,
+                            error_message=(
+                                "No PDF link found via search. Please upload manually."
+                            ),
+                            source_book_id=book_id,
+                        )
+                    download_count += 1
+                    with _fresh_db() as db:
+                        BookSelectionRepository(db).update_progress(
+                            session_id, progress_scored=download_count
+                        )
+                    continue
 
+                # ── Stream PDF → Azure ──────────────────────────
+                blob_path = f"courses/{course_id}/books/{_safe_filename(title)}.pdf"
+
+                try:
+                    blob_url = await self.blob_service.upload_from_url(
+                        pdf_url, blob_path
+                    )
+
+                    with _fresh_db() as db:
+                        repo = BookSelectionRepository(db)
+                        repo.update_download_result(
+                            book_id,
+                            DownloadStatus.SUCCESS,
+                            blob_path=blob_path,
+                            source_url=pdf_url,
+                        )
+                        repo.create_selected_book(
+                            course_id=course_id,
+                            title=title,
+                            authors=authors or None,
+                            publisher=book.get("publisher"),
+                            year=book.get("year"),
+                            status=BookStatus.DOWNLOADED,
+                            blob_path=blob_path,
+                            blob_url=blob_url,
+                            source_book_id=book_id,
+                        )
+
+                except Exception as dl_exc:
+                    logger.error(
+                        "Download/upload failed for '%s' from %s: %s",
+                        title,
+                        pdf_url,
+                        dl_exc,
+                    )
+                    with _fresh_db() as db:
+                        repo = BookSelectionRepository(db)
+                        repo.update_download_result(
+                            book_id,
+                            DownloadStatus.FAILED,
+                            error=(
+                                f"Download failed. "
+                                f"Try downloading manually from: {pdf_url}"
+                            ),
+                            source_url=pdf_url,
+                        )
+                        repo.create_selected_book(
+                            course_id=course_id,
+                            title=title,
+                            authors=authors or None,
+                            publisher=book.get("publisher"),
+                            year=book.get("year"),
+                            status=BookStatus.FAILED,
+                            error_message=(
+                                f"Download failed. "
+                                f"Try downloading manually from: {pdf_url}"
+                            ),
+                            source_book_id=book_id,
+                        )
+
+                download_count += 1
+                with _fresh_db() as db:
+                    BookSelectionRepository(db).update_progress(
+                        session_id, progress_scored=download_count
+                    )
+
+            # ── Finalize session ────────────────────────────────
             with _fresh_db() as db:
                 repo = BookSelectionRepository(db)
                 repo.update_progress(
                     session_id,
                     status=SessionStatus.COMPLETED,
                     progress_scored=download_count,
-                    progress_total=len(selected_book_ids),
+                    progress_total=total,
                 )
 
         except Exception as e:
-            logger.exception("Download workflow error in session %d", session_id)
+            logger.exception("Download error in session %d", session_id)
             with _fresh_db() as db:
                 repo = BookSelectionRepository(db)
                 repo.update_progress(

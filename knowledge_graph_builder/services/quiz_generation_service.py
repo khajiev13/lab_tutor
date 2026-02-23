@@ -45,19 +45,25 @@ class QuizGenerationService:
         
         Args:
             neo4j_service: Neo4jService instance (will create new if not provided)
-            model_id: LLM model identifier (e.g., GPT-4o variants via XiaoCase proxy)
+            model_id: LLM model identifier (e.g., GPT-4o variants via OpenAI-compatible proxy)
             verbose: Enable verbose logging
         """
         self.neo4j_service = neo4j_service or Neo4jService()
         self.model_id = model_id
-        self.api_key = os.getenv("XIAO_CASE_API_KEY")
-        self.api_base = os.getenv("XIAO_CASE_API_BASE", "https://api.xiaocaseai.com/v1")
+        self.api_key = os.getenv("LAB_TUTOR_LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.api_base = (
+            os.getenv("LAB_TUTOR_LLM_BASE_URL")
+            or os.getenv("OPENAI_BASE_URL")
+            or "https://api.silra.cn/v1/"
+        )
         self.verbose = verbose
         
         if not self.api_key:
-            raise ValueError("XIAO_CASE_API_KEY environment variable is required")
+            raise ValueError(
+                "LAB_TUTOR_LLM_API_KEY (or OPENAI_API_KEY) environment variable is required"
+            )
         
-        # Initialize LangChain LLM via XiaoCase (OpenAI-compatible) API
+        # Initialize LangChain LLM via OpenAI-compatible API
         base_llm = ChatOpenAI(
             model=model_id,
             api_key=SecretStr(self.api_key),
@@ -69,7 +75,7 @@ class QuizGenerationService:
         
         # Use structured output with method selection based on model
         # For GPT-4o through proxy API, use json_mode (same as enhanced_langgraph_service)
-        # This ensures compatibility with XiaoCase API and avoids parsing issues
+        # This ensures compatibility with OpenAI-compatible APIs and avoids parsing issues
         # 
         # NOTE: If you want to try strict JSON schema mode (response_format: {type: "json_schema", strict: true}),
         # you could experiment with not specifying a method, or check if LangChain supports passing
@@ -165,7 +171,7 @@ class QuizGenerationService:
             
         except Exception as e:
             logger.error(f"Error generating question for concept '{concept_name}': {e}")
-            # Enhanced error logging for debugging XiaoCase API issues
+            # Enhanced error logging for debugging API issues
             if self.verbose:
                 logger.error(f"Exception type: {type(e).__name__}")
                 logger.error(f"Exception message: {str(e)}")

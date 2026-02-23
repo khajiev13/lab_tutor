@@ -60,19 +60,18 @@ class LangChainCanonicalExtractionService:
         """
         load_dotenv()
 
-        # XiaoCase (OpenAI-compatible) is the only supported LLM backend.
-        xiaocase_api_key = os.getenv("XIAO_CASE_API_KEY") or os.getenv("XIAOCASE_API_KEY")
-        xiaocase_api_base = (
-            os.getenv("XIAO_CASE_API_BASE")
-            or os.getenv("XIAOCASE_API_BASE")
-            or "https://api.xiaocaseai.com/v1"
+        llm_api_key = os.getenv("LAB_TUTOR_LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+        llm_api_base = (
+            os.getenv("LAB_TUTOR_LLM_BASE_URL")
+            or os.getenv("OPENAI_BASE_URL")
+            or "https://api.silra.cn/v1/"
         )
 
         # If caller didn't specify a model, choose via env or sensible default.
         if model_id is None:
             model_id = (
-                os.getenv("XIAO_CASE_MODEL")
-                or os.getenv("XIAOCASE_MODEL")
+                os.getenv("LAB_TUTOR_LLM_MODEL")
+                or os.getenv("OPENAI_MODEL")
                 or "deepseek-v3.2"
             )
 
@@ -86,17 +85,16 @@ class LangChainCanonicalExtractionService:
         self.current_filename = None
         self.current_original_text = None
 
-        if not xiaocase_api_key:
+        if not llm_api_key:
             raise ValueError(
-                "XiaoCase is required. Set XIAO_CASE_API_KEY (or XIAOCASE_API_KEY) in your environment."
+                "LLM API key is required. Set LAB_TUTOR_LLM_API_KEY (or OPENAI_API_KEY) in your environment."
             )
 
-        # XiaoCase uses OpenAI-compatible Chat Completions: /v1/chat/completions
-        # Model can be DeepSeek variants, e.g. "deepseek-v3.2".
+        # OpenAI-compatible Chat Completions endpoint.
         base_llm = ChatOpenAI(
             model=model_id,
-            base_url=xiaocase_api_base,
-            api_key=SecretStr(xiaocase_api_key),
+            base_url=llm_api_base,
+            api_key=SecretStr(llm_api_key),
             temperature=0,
             timeout=600,
             max_completion_tokens=4096,

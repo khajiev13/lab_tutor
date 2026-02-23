@@ -9,6 +9,9 @@ from pydantic import ValidationError
 
 from app.modules.auth.models import User, UserRole
 from app.modules.courses.models import Course
+from app.modules.curricularalignmentarchitect.book_selection.utils import (
+    compute_finals,
+)
 from app.modules.curricularalignmentarchitect.models import (
     DownloadStatus,
     SessionStatus,
@@ -20,7 +23,6 @@ from app.modules.curricularalignmentarchitect.schemas import (
     SelectBooksRequest,
     WeightsConfig,
 )
-from app.modules.curricularalignmentarchitect.workflow_utils import compute_finals
 
 TEST_WEIGHTS = {
     "C_topic": 0.30,

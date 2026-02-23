@@ -26,9 +26,9 @@ try:
     LLM_MODEL = settings.llm_model
 except ImportError:
     # Fallback to environment variables
-    LLM_API_KEY = os.getenv("LAB_TUTOR_LLM_API_KEY") or os.getenv("XIAO_CASE_API_KEY")
-    LLM_BASE_URL = os.getenv("LAB_TUTOR_LLM_BASE_URL") or os.getenv("XIAO_CASE_API_BASE", "https://api.xiaocaseai.com/v1")
-    LLM_MODEL = os.getenv("LAB_TUTOR_LLM_MODEL") or os.getenv("XIAO_CASE_MODEL", "deepseek-v3.2")
+    LLM_API_KEY = os.getenv("LAB_TUTOR_LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    LLM_BASE_URL = os.getenv("LAB_TUTOR_LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL", "https://api.silra.cn/v1/")
+    LLM_MODEL = os.getenv("LAB_TUTOR_LLM_MODEL") or os.getenv("OPENAI_MODEL", "deepseek-v3.2")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -94,7 +94,7 @@ def fetch_concepts_via_mcp() -> List[str]:
 def categorize_concepts_to_skills(concept_names: List[str]) -> SkillCategorizationResult:
     """Use LLM to categorize concepts into skills."""
     if not LLM_API_KEY:
-        raise ValueError("LLM API key is required. Set LAB_TUTOR_LLM_API_KEY or XIAO_CASE_API_KEY")
+        raise ValueError("LLM API key is required. Set LAB_TUTOR_LLM_API_KEY or OPENAI_API_KEY")
     
     logger.info(f"Categorizing {len(concept_names)} concepts into skills...")
     

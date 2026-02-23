@@ -99,19 +99,18 @@ ASYNC_DATABASE_URL, ASYNC_CONNECT_ARGS = _asyncpg_connect_args_from_url(
 IS_SQLITE = DATABASE_URL.startswith("sqlite")
 IS_POSTGRES = DATABASE_URL.startswith("postgresql")
 
-# When using pooled connections against managed Postgres (e.g., Azure), the server
-# may close idle SSL sessions. SQLAlchemy can otherwise keep a stale DBAPI
-# connection in the pool, leading to:
-#   psycopg.OperationalError: SSL error: unexpected eof while reading
-# `pool_pre_ping` proactively checks the connection before use.
+# Azure Postgres closes idle SSL connections after ~90s.
+# Recycle connections before that to avoid stale-connection errors
+# (psycopg.OperationalError: SSL error: unexpected eof while reading).
+# pool_pre_ping adds a lightweight "SELECT 1" probe before reuse; combined
+# with a short recycle it eliminates cold-reconnect latency on requests.
 POOL_PRE_PING = True
-POOL_RECYCLE_SECONDS = 1800 if IS_POSTGRES else -1
-# asyncpg connections die faster on managed Postgres (Azure closes idle SSL
-# connections aggressively). Use a shorter recycle to avoid stale connections.
-ASYNC_POOL_RECYCLE_SECONDS = 300 if IS_POSTGRES else -1
+POOL_RECYCLE_SECONDS = 60 if IS_POSTGRES else -1
+ASYNC_POOL_RECYCLE_SECONDS = 60 if IS_POSTGRES else -1
 
-POOL_SIZE = 5
-MAX_OVERFLOW = 10
+# Keep pool small — Azure Postgres Basic/Standard tiers have low max_connections.
+POOL_SIZE = 3
+MAX_OVERFLOW = 7
 
 POSTGRES_CONNECT_ARGS = (
     {

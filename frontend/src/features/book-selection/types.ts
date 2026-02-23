@@ -233,6 +233,13 @@ export interface SimBucket {
   count: number;
 }
 
+export interface DocumentSummaryItem {
+  document_id: string;
+  topic: string | null;
+  summary_text: string | null;
+  sim_score: number;
+}
+
 export interface BookAnalysisSummary {
   id: number;
   run_id: number;
@@ -250,6 +257,7 @@ export interface BookAnalysisSummary {
   course_coverage: ConceptCoverageItem[];
   topic_scores: Record<string, number>;
   sim_distribution: SimBucket[];
+  document_summaries: DocumentSummaryItem[];
   created_at: string;
 }
 

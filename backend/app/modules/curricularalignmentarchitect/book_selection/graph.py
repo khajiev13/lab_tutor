@@ -14,13 +14,7 @@ import logging
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 
-from .workflow_models import (
-    DiscoveryState,
-    DownloadState,
-    ScoringState,
-    WorkflowState,
-)
-from .workflow_nodes import (
+from .nodes import (
     deduplicate_books,
     discover_books,
     dl_attempt_download,
@@ -41,6 +35,12 @@ from .workflow_nodes import (
     score_book_node,
     score_node,
     search_and_extract,
+)
+from .state import (
+    DiscoveryState,
+    DownloadState,
+    ScoringState,
+    WorkflowState,
 )
 
 logger = logging.getLogger(__name__)
@@ -136,7 +136,7 @@ def build_download_graph():
 # ═══════════════════════════════════════════════════════════════
 
 
-async def build_workflow(*, checkpointer=None):
+async def build_book_selection_graph(*, checkpointer=None):
     """Build and compile the main book-selection workflow.
 
     Args:
@@ -161,3 +161,8 @@ async def build_workflow(*, checkpointer=None):
     builder.add_edge("download_book", END)
 
     return builder.compile(checkpointer=checkpointer)
+
+
+async def build_workflow(*, checkpointer=None):
+    """Backward-compatible alias for existing service imports."""
+    return await build_book_selection_graph(checkpointer=checkpointer)
