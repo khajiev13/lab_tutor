@@ -123,3 +123,4 @@
 - **Avoid premature abstraction.** Duplicate twice before abstracting; three strikes and you refactor.
 - **Flat over nested.** Prefer early returns and guard clauses to deeply nested conditionals.
 - **Every line must earn its place.** If a line doesn't add clarity or functionality, delete it.
+- **Tests are documentation.** Write tests that clearly demonstrate expected behavior and edge cases.

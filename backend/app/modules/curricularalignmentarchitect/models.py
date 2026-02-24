@@ -157,6 +157,7 @@ EMBEDDING_DIMS = 2048
 class ExtractionRunStatus(str, Enum):
     PENDING = "pending"
     EXTRACTING = "extracting"
+    CHUNKING = "chunking"
     EMBEDDING = "embedding"
     SCORING = "scoring"
     COMPLETED = "completed"

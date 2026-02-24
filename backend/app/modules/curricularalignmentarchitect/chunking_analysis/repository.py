@@ -6,12 +6,14 @@ and route handlers never touch SQLAlchemy directly.
 
 from __future__ import annotations
 
+import contextlib
 import logging
+import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
-from sqlalchemy import desc
+from sqlalchemy import case, desc, func
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -36,10 +38,19 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def fresh_db() -> Generator[Session, None, None]:
-    """Yield a short-lived DB session (for use outside request scope)."""
+    """Yield a short-lived DB session (for use outside request scope).
+
+    Guarantees explicit rollback on unhandled exceptions so row-level
+    locks are released immediately rather than waiting for the
+    connection to recycle.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        with contextlib.suppress(Exception):
+            db.rollback()
+        raise
     finally:
         try:
             db.close()
@@ -82,6 +93,7 @@ def get_active_run(course_id: int, db: Session) -> BookExtractionRun | None:
                 [
                     ExtractionRunStatus.PENDING,
                     ExtractionRunStatus.EXTRACTING,
+                    ExtractionRunStatus.CHUNKING,
                     ExtractionRunStatus.EMBEDDING,
                     ExtractionRunStatus.SCORING,
                 ]
@@ -127,6 +139,7 @@ def recover_orphaned_runs(db: Session) -> int:
                 [
                     ExtractionRunStatus.PENDING,
                     ExtractionRunStatus.EXTRACTING,
+                    ExtractionRunStatus.CHUNKING,
                     ExtractionRunStatus.EMBEDDING,
                     ExtractionRunStatus.SCORING,
                 ]
@@ -160,32 +173,134 @@ def get_selected_books_with_blobs(
     )
 
 
-def store_chunks(
+def store_chunks_bare(
     run_id: int,
     books: list[dict],
     db: Session,
 ) -> int:
-    """Persist BookChunk rows for every book's chunks + embeddings.
+    """Persist BookChunk rows immediately after chunking, with embedding=None.
 
-    Returns the total number of chunks stored.
+    Deletes any pre-existing chunks for this run's books first (idempotent).
+    Returns total chunks stored.
     """
     total = 0
     for book in books:
-        for idx, (text, emb) in enumerate(
-            zip(book["chunks"], book["chunk_embeddings"], strict=True)
-        ):
+        (
+            db.query(BookChunk)
+            .filter(
+                BookChunk.run_id == run_id,
+                BookChunk.selected_book_id == book["selected_book_id"],
+            )
+            .delete(synchronize_session=False)
+        )
+        for idx, text in enumerate(book["chunks"]):
             db.add(
                 BookChunk(
                     run_id=run_id,
                     selected_book_id=book["selected_book_id"],
                     chunk_text=text,
                     chunk_index=idx,
-                    embedding=emb,
+                    embedding=None,
                 )
             )
         total += len(book["chunks"])
         db.flush()
     return total
+
+
+def update_chunk_embeddings(
+    run_id: int,
+    selected_book_id: int,
+    start_index: int,
+    embeddings: list[list[float]],
+    max_retries: int = 3,
+) -> None:
+    """Update the embedding column for a contiguous range of chunks.
+
+    Opens its own fresh_db session with retries so a transient Azure
+    connection-timeout does not kill the entire embedding run.
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            with fresh_db() as db:
+                for i, vec in enumerate(embeddings):
+                    (
+                        db.query(BookChunk)
+                        .filter(
+                            BookChunk.run_id == run_id,
+                            BookChunk.selected_book_id == selected_book_id,
+                            BookChunk.chunk_index == start_index + i,
+                        )
+                        .update({"embedding": vec}, synchronize_session=False)
+                    )
+                db.commit()
+            logger.info(
+                "update_chunk_embeddings: wrote %d embeddings (book=%d, start=%d)",
+                len(embeddings), selected_book_id, start_index,
+            )
+            return
+        except Exception:
+            if attempt == max_retries:
+                raise
+            logger.warning(
+                "update_chunk_embeddings attempt %d/%d failed, retrying…",
+                attempt,
+                max_retries,
+                exc_info=True,
+            )
+            time.sleep(2**attempt)
+
+
+def get_chunk_embedding_progress(run_id: int, db: Session) -> list[dict]:
+    """Return per-book embedding progress (total vs embedded chunks) for a run."""
+    rows = (
+        db.query(
+            BookChunk.selected_book_id,
+            CourseSelectedBook.title,
+            func.count(BookChunk.id).label("total"),
+            func.count(case((BookChunk.embedding.isnot(None), 1))).label("embedded"),
+        )
+        .join(CourseSelectedBook, CourseSelectedBook.id == BookChunk.selected_book_id)
+        .filter(BookChunk.run_id == run_id)
+        .group_by(BookChunk.selected_book_id, CourseSelectedBook.title)
+        .all()
+    )
+    return [
+        {
+            "selected_book_id": row.selected_book_id,
+            "title": row.title,
+            "total_chunks": row.total,
+            "embedded_chunks": row.embedded,
+        }
+        for row in rows
+    ]
+
+
+def run_has_unembedded_chunks(run_id: int, db: Session) -> bool:
+    """Return True when a run has at least one chunk with no embedding."""
+    return (
+        db.query(BookChunk.id)
+        .filter(BookChunk.run_id == run_id, BookChunk.embedding.is_(None))
+        .limit(1)
+        .first()
+        is not None
+    )
+
+
+def get_embedded_chunk_indices(
+    run_id: int, selected_book_id: int, db: Session,
+) -> set[int]:
+    """Return the set of chunk_index values that already have embeddings."""
+    rows = (
+        db.query(BookChunk.chunk_index)
+        .filter(
+            BookChunk.run_id == run_id,
+            BookChunk.selected_book_id == selected_book_id,
+            BookChunk.embedding.isnot(None),
+        )
+        .all()
+    )
+    return {r[0] for r in rows}
 
 
 def store_course_concept_cache(
@@ -245,6 +360,29 @@ def store_document_summary_cache(
         )
     db.flush()
     return len(doc_summaries)
+
+
+def get_cached_document_summaries(run_id: int, db: Session) -> list[dict]:
+    """Load cached document summaries (with embeddings) from a previous run or
+    from the current run's doc_summary_cache populated elsewhere."""
+    rows = (
+        db.query(CourseDocumentSummaryCache)
+        .filter(CourseDocumentSummaryCache.run_id == run_id)
+        .all()
+    )
+    return [
+        {
+            "document_id": row.document_neo4j_id,
+            "topic": row.topic,
+            "summary_text": row.summary_text,
+            "summary_embedding": (
+                [float(v) for v in row.summary_embedding]
+                if row.summary_embedding is not None
+                else None
+            ),
+        }
+        for row in rows
+    ]
 
 
 def store_book_analysis_summary(

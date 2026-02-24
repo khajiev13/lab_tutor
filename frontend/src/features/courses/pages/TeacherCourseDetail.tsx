@@ -34,6 +34,7 @@ export default function TeacherCourseDetail() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isEnrollmentLoading, setIsEnrollmentLoading] = useState(false);
   const [presentationCount, setPresentationCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('materials');
   const [embeddingStatus, setEmbeddingStatus] = useState<CourseEmbeddingStatusResponse | null>(null);
   const [extractionProgress, setExtractionProgress] = useState<{
     total: number;
@@ -122,9 +123,9 @@ export default function TeacherCourseDetail() {
     return () => clearInterval(intervalId);
   }, [course?.extraction_status, id]);
 
-  // Polling for embeddings status (starts after extraction is finished)
+  // Polling for embeddings status (only while on the materials tab)
   useEffect(() => {
-    if (course?.extraction_status !== 'finished') {
+    if (course?.extraction_status !== 'finished' || activeTab !== 'materials') {
       setEmbeddingStatus(null);
       return;
     }
@@ -145,7 +146,7 @@ export default function TeacherCourseDetail() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [course?.extraction_status, id]);
+  }, [course?.extraction_status, activeTab, id]);
 
   const handleUpload = async (files: File[]) => {
     if (!course) return;
@@ -378,7 +379,7 @@ export default function TeacherCourseDetail() {
       </Card>
 
       {user?.role === 'teacher' && (
-        <Tabs defaultValue="materials" className="w-full">
+        <Tabs defaultValue="materials" className="w-full" onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="materials">Materials</TabsTrigger>
             <TabsTrigger value="normalization">Concept normalization</TabsTrigger>

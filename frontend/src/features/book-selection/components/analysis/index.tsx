@@ -58,6 +58,7 @@ import {
 import {
   getAnalysisSummaries,
   getLatestAnalysis,
+  openEmbeddingProgressStream,
   triggerAnalysis,
 } from '../../api';
 import {
@@ -67,6 +68,7 @@ import {
   type BookAnalysisSummary,
   type ConceptCoverageItem,
   type DocumentSummaryItem,
+  type EmbeddingBookProgress,
   type ExtractionRunStatus,
   type BookExtractionRun,
 } from '../../types';
@@ -160,6 +162,7 @@ function DocumentSummariesCard({ items }: { items: DocumentSummaryItem[] }) {
 const ACTIVE_STATUSES: ExtractionRunStatus[] = [
   'pending',
   'extracting',
+  'chunking',
   'embedding',
   'scoring',
 ];
@@ -181,7 +184,7 @@ const STEPS: StepConfig[] = [
   {
     label: 'Chunk paragraphs',
     icon: Layers,
-    activeStatuses: [], // shown as done when embedding starts
+    activeStatuses: ['chunking'],
   },
   {
     label: 'Embed chunks',
@@ -202,6 +205,7 @@ function stepState(
   const statusOrder: ExtractionRunStatus[] = [
     'pending',
     'extracting',
+    'chunking',
     'embedding',
     'scoring',
     'completed',
@@ -209,11 +213,12 @@ function stepState(
   ];
   const currentIdx = statusOrder.indexOf(runStatus);
   // Map step index to the status index that *follows* completion of that step
-  // Step 0 (extract) is done when status >= embedding (idx 2)
-  // Step 1 (chunk)   is done when status >= embedding (idx 2)   (runs inside extract→chunk edge)
-  // Step 2 (embed)   is done when status >= completed (idx 3)
-  const doneAfter = [2, 2, 3, 4];
-  const activeAt = [1, -1, 2, 3]; // -1 = chunking has no own status bucket
+  // Step 0 (extract) is done when status >= chunking (idx 2)
+  // Step 1 (chunk)   is done when status >= embedding (idx 3)
+  // Step 2 (embed)   is done when status >= scoring (idx 4)
+  // Step 3 (score)   is done when status >= completed (idx 5)
+  const doneAfter = [2, 3, 4, 5];
+  const activeAt = [1, 2, 3, 4];
 
   if (currentIdx >= doneAfter[stepIndex]) return 'done';
   if (currentIdx === activeAt[stepIndex]) return 'active';
@@ -233,6 +238,7 @@ function statusBadge(status: ExtractionRunStatus) {
   > = {
     pending: { label: 'Queued', variant: 'secondary' },
     extracting: { label: 'Extracting', variant: 'default' },
+    chunking: { label: 'Chunking', variant: 'default' },
     embedding: { label: 'Embedding', variant: 'default' },
     scoring: { label: 'Scoring', variant: 'default' },
     completed: { label: 'Completed', variant: 'outline' },
@@ -371,7 +377,9 @@ export function BookAnalysisTab({ courseId, disabled }: BookAnalysisTabProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [embeddingProgress, setEmbeddingProgress] = useState<EmbeddingBookProgress[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sseRef = useRef<AbortController | null>(null);
 
   // ── Polling ────────────────────────────────────────────────
 
@@ -402,6 +410,28 @@ export function BookAnalysisTab({ courseId, disabled }: BookAnalysisTabProps) {
   );
 
   useEffect(() => () => stopPolling(), [stopPolling]);
+
+  // ── SSE embedding progress ──────────────────────────────
+
+  useEffect(() => {
+    if (run?.status !== 'embedding') {
+      sseRef.current?.abort();
+      sseRef.current = null;
+      setEmbeddingProgress([]);
+      return;
+    }
+    if (sseRef.current) return; // already connected
+    sseRef.current = openEmbeddingProgressStream(
+      courseId,
+      run.id,
+      (event) => setEmbeddingProgress(event.books),
+      () => { sseRef.current = null; },
+    );
+    return () => {
+      sseRef.current?.abort();
+      sseRef.current = null;
+    };
+  }, [courseId, run?.id, run?.status]);
 
   const loadSummaries = useCallback(
     async (runId: number) => {
@@ -645,6 +675,36 @@ export function BookAnalysisTab({ courseId, disabled }: BookAnalysisTabProps) {
               <p className="text-sm text-muted-foreground">
                 {run.progress_detail}
               </p>
+            )}
+
+            {/* Per-book embedding progress — shown when books are being embedded */}
+            {run.status === 'embedding' && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">Embedding progress by book</p>
+                {embeddingProgress.length === 0 && (
+                  <p className="text-xs text-muted-foreground animate-pulse">
+                    Connecting to progress stream…
+                  </p>
+                )}
+                {embeddingProgress.map((book) => {
+                  const pct = book.total_chunks > 0
+                    ? Math.round((book.embedded_chunks / book.total_chunks) * 100)
+                    : 0;
+                  return (
+                    <div key={book.selected_book_id} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="truncate max-w-[70%] text-muted-foreground">
+                          {book.title}
+                        </span>
+                        <span className="tabular-nums text-xs font-medium">
+                          {book.embedded_chunks} / {book.total_chunks} chunks ({pct}%)
+                        </span>
+                      </div>
+                      <Progress value={pct} className="h-1.5" />
+                    </div>
+                  );
+                })}
+              </div>
             )}
 
             {/* Completed summary */}

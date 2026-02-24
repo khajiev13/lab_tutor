@@ -59,6 +59,15 @@ vi.mock('../components/CourseMaterialsTable', () => ({
   },
 }));
 
+vi.mock('../features/book-selection', () => ({
+  BookSelectionDashboard: ({ courseId }: { courseId: number }) => (
+    <div data-testid="book-selection-dashboard" data-course-id={courseId}>Book Selection</div>
+  ),
+  BookAnalysisTab: ({ courseId }: { courseId: number }) => (
+    <div data-testid="book-analysis-tab" data-course-id={courseId}>Book Analysis</div>
+  ),
+}));
+
 vi.mock('../features/normalization/components/NormalizationDashboard', () => ({
   NormalizationDashboard: ({
     courseId,
@@ -172,6 +181,38 @@ describe('TeacherCourseDetail', () => {
 
     // Check for locked message
     expect(screen.getByText('File Management Locked')).toBeInTheDocument();
+  });
+
+  it('calls getEmbeddingsStatus when on materials tab with finished extraction', async () => {
+    const finishedCourse = { ...mockCourse, extraction_status: 'finished' };
+    (coursesApi.getCourse as Mock).mockResolvedValue(finishedCourse);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(coursesApi.getEmbeddingsStatus).toHaveBeenCalledWith(1);
+    });
+  });
+
+  it('does not call getEmbeddingsStatus after switching away from materials tab', async () => {
+    const finishedCourse = { ...mockCourse, extraction_status: 'finished' };
+    (coursesApi.getCourse as Mock).mockResolvedValue(finishedCourse);
+
+    renderComponent();
+
+    // Wait for the initial call on the default materials tab
+    await waitFor(() => {
+      expect(coursesApi.getEmbeddingsStatus).toHaveBeenCalledTimes(1);
+    });
+
+    // Switch to a different tab
+    fireEvent.click(screen.getByRole('tab', { name: /concept normalization/i }));
+
+    // Wait a tick to let any React effects settle
+    await act(async () => {});
+
+    // No additional calls should have been made
+    expect(coursesApi.getEmbeddingsStatus).toHaveBeenCalledTimes(1);
   });
 
   it('polls for status updates', async () => {

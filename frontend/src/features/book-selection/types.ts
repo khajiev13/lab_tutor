@@ -192,6 +192,7 @@ export function parseScores(scoresJson: string | null): BookScores | null {
 export type ExtractionRunStatus =
   | 'pending'
   | 'extracting'
+  | 'chunking'
   | 'embedding'
   | 'scoring'
   | 'completed'
@@ -283,3 +284,17 @@ export function reclassify<T extends { sim_max: number }>(
 
 export const DEFAULT_NOVEL_THRESHOLD = 0.35;
 export const DEFAULT_COVERED_THRESHOLD = 0.55;
+
+// ── Embedding progress ─────────────────────────────────────────
+
+export interface EmbeddingBookProgress {
+  selected_book_id: number;
+  title: string;
+  total_chunks: number;
+  embedded_chunks: number;
+}
+
+export interface EmbeddingProgressEvent {
+  status: ExtractionRunStatus;
+  books: EmbeddingBookProgress[];
+}
