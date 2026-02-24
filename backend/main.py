@@ -177,6 +177,24 @@ def _ensure_sql_schema_upgrades() -> None:
                     text(f"ALTER TABLE {tbl} ALTER COLUMN {col} TYPE vector(2048)")
                 )
 
+        # Idempotent: add 'chunking' value to extraction_run_status enum
+        # if it doesn't already exist (PostgreSQL enums cannot use IF NOT EXISTS).
+        has_chunking = conn.execute(
+            text(
+                "SELECT 1 FROM pg_enum e "
+                "JOIN pg_type t ON t.oid = e.enumtypid "
+                "WHERE t.typname = 'extraction_run_status' "
+                "AND e.enumlabel = 'chunking'"
+            )
+        ).fetchone()
+        if not has_chunking:
+            conn.execute(
+                text(
+                    "ALTER TYPE extraction_run_status "
+                    "ADD VALUE IF NOT EXISTS 'chunking' AFTER 'extracting'"
+                )
+            )
+
         conn.commit()
 
 

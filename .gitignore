@@ -174,3 +174,4 @@ backend/**/book_toc_*.json
 backend/**/book_course_graph.html
 backend/**/*.prompt.md
 backend/**/CHUNKING_VS_AGENT_EXTRACTION_REPORT.md
+backend/app/modules/curricularalignmentarchitect/notebooks/

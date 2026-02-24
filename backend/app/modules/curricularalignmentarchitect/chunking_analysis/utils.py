@@ -3,13 +3,37 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 import numpy as np
 from neo4j import GraphDatabase
 
 from app.core.settings import settings
 
-from .state import CHUNK_OVERLAP, CHUNK_SIZE, SEPARATORS
+from .state import CHUNK_OVERLAP, CHUNK_SIZE, MAX_TEXT_CHARS, MIN_TEXT_CHARS, SEPARATORS
+
+
+def filter_pdf_pages(pdf_path: str) -> tuple[list[int], list[int]]:
+    """Use fitz to inspect each page and return (good_pages, skipped_pages).
+
+    good_pages  — page indices to pass to pymupdf4llm (text-rich, not anomalous)
+    skipped_pages — image-only or malformed pages excluded from extraction
+    """
+    import fitz  # pymupdf (installed with pymupdf4llm)
+
+    good: list[int] = []
+    skipped: list[int] = []
+    doc = fitz.open(pdf_path)
+    try:
+        for i, page in enumerate(doc):
+            text_chars = len(page.get_text("text").strip())
+            if text_chars < MIN_TEXT_CHARS or text_chars > MAX_TEXT_CHARS:
+                skipped.append(i)
+            else:
+                good.append(i)
+    finally:
+        doc.close()
+    return good, skipped
 
 
 def strip_book_matter(text: str) -> str:
@@ -63,6 +87,56 @@ def chunk_paragraphs_text(text: str) -> list[str]:
         separators=SEPARATORS,
     )
     return splitter.split_text(text)
+
+
+# ── Text cleaning (line-by-line, safe from catastrophic backtracking) ─────
+
+_HEADER_REPEAT_FRACTION = 0.02
+_PAGE_NUM_RE = re.compile(r"^\s*\d{1,4}\s*$")
+_DOT_LEADER_RE = re.compile(r"[.\s]{4,}")
+
+
+def _is_toc_line(line: str) -> bool:
+    """Return True if *line* looks like a table-of-contents entry."""
+    s = line.strip()
+    if not s or len(s) > 120:
+        return False
+    if not re.search(r"\d{1,4}\s*$", s):
+        return False
+    m = _DOT_LEADER_RE.search(s)
+    return bool(m) and m.group().count(".") >= 2
+
+
+def clean_extracted_text(text: str) -> str:
+    """Remove TOC lines, lone page numbers, broken hyphens, noisy headers.
+
+    All regex patterns operate on individual lines — no unbounded
+    alternation or nested quantifiers that could cause backtracking.
+    """
+    # 1-2: TOC + lone page numbers
+    lines = [
+        line
+        for line in text.splitlines()
+        if not _PAGE_NUM_RE.fullmatch(line) and not _is_toc_line(line)
+    ]
+    text = "\n".join(lines)
+
+    # 3: Broken hyphenation
+    text = re.sub(r"-\n([a-z])", r"\1", text)
+
+    # 4: Repeated running headers/footers
+    lines = text.splitlines()
+    non_empty = [row.strip() for row in lines if len(row.strip()) > 4]
+    threshold = max(5, int(len(non_empty) * _HEADER_REPEAT_FRACTION))
+    noisy = {val for val, cnt in Counter(non_empty).items() if cnt >= threshold}
+    if noisy:
+        lines = [row for row in lines if row.strip() not in noisy]
+        text = "\n".join(lines)
+
+    # 5: Excess blank lines + trailing whitespace
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
+    return text.strip()
 
 
 def l2_normalize(matrix: np.ndarray) -> np.ndarray:
@@ -151,7 +225,9 @@ def load_course_concepts(course_id: int) -> list[dict]:
 
 
 __all__ = [
+    "filter_pdf_pages",
     "strip_book_matter",
+    "clean_extracted_text",
     "chunk_paragraphs_text",
     "l2_normalize",
     "build_sim_distribution",

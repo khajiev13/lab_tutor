@@ -217,3 +217,73 @@ export async function getAnalysisSummaries(
   );
   return res.data;
 }
+
+/**
+ * Open an SSE stream for per-book chunk-embedding progress.
+ * Returns an AbortController so the caller can tear down the stream.
+ *
+ * Automatically retries on failure (up to 10 times with 3 s back-off)
+ * unless the caller aborts via the returned controller.
+ */
+export function openEmbeddingProgressStream(
+  courseId: number,
+  runId: number,
+  onData: (data: import('./types').EmbeddingProgressEvent) => void,
+  onDone?: () => void,
+): AbortController {
+  const controller = new AbortController();
+  const MAX_RETRIES = 10;
+  const RETRY_MS = 3_000;
+
+  (async () => {
+    const baseUrl = (api.defaults.baseURL ?? '').replace(/\/$/, '');
+    const url = `${baseUrl}/book-selection/courses/${courseId}/analysis/${runId}/embedding-progress`;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      if (controller.signal.aborted) break;
+
+      try {
+        const token = localStorage.getItem('access_token');
+        const res = await fetch(url, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) {
+          // Server returned an error — retry after delay
+          await new Promise((r) => setTimeout(r, RETRY_MS));
+          continue;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                onData(
+                  JSON.parse(line.slice(6)) as import('./types').EmbeddingProgressEvent,
+                );
+              } catch {
+                // ignore malformed SSE frames
+              }
+            }
+          }
+        }
+        // Stream ended normally (server closed it) — no retry needed
+        break;
+      } catch {
+        if (controller.signal.aborted) break;
+        // Network error — retry after delay
+        await new Promise((r) => setTimeout(r, RETRY_MS));
+      }
+    }
+    onDone?.();
+  })();
+
+  return controller;
+}

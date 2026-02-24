@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import ssl
 from collections.abc import AsyncGenerator, Generator
@@ -108,13 +109,18 @@ POOL_PRE_PING = True
 POOL_RECYCLE_SECONDS = 60 if IS_POSTGRES else -1
 ASYNC_POOL_RECYCLE_SECONDS = 60 if IS_POSTGRES else -1
 
+# Azure Postgres allows ~50 connections on Basic tier.  We need headroom for
+# the ThreadPoolExecutor embedding workers (up to 10 concurrent sessions) plus
+# FastAPI request handlers and SSE polling.
+POOL_SIZE = 10
+MAX_OVERFLOW = 5
 # Keep pool small — Azure Postgres Basic/Standard tiers have low max_connections.
 POOL_SIZE = 3
 MAX_OVERFLOW = 7
 
 POSTGRES_CONNECT_ARGS = (
     {
-        "connect_timeout": 10,
+        "connect_timeout": 30,
         "keepalives": 1,
         "keepalives_idle": 30,
         "keepalives_interval": 10,
@@ -152,6 +158,10 @@ def get_db() -> Generator:
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        with contextlib.suppress(Exception):
+            db.rollback()
+        raise
     finally:
         try:
             db.close()
@@ -165,6 +175,10 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
     session = AsyncSessionLocal()
     try:
         yield session
+    except Exception:
+        with contextlib.suppress(Exception):
+            await session.rollback()
+        raise
     finally:
         try:
             await session.close()

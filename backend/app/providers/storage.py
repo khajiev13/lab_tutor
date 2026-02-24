@@ -174,14 +174,18 @@ class BlobService:
             logger.error(f"Failed to list files in {folder_path}: {e}")
             raise
 
-    def download_file(self, blob_path: str) -> bytes:
-        """Download a blob by path and return its bytes."""
+    def download_file(self, blob_path: str, *, max_concurrency: int = 8) -> bytes:
+        """Download a blob by path and return its bytes.
+
+        Uses parallel chunk downloads (max_concurrency=8 by default) which is
+        significantly faster than single-threaded readall() for large files.
+        """
         if not self.container_client:
             raise Exception("Blob service is not configured")
 
         blob_client = self.container_client.get_blob_client(blob_path)
         try:
-            downloader = blob_client.download_blob()
+            downloader = blob_client.download_blob(max_concurrency=max_concurrency)
             return downloader.readall()
         except Exception as e:
             logger.error(f"Failed to download file {blob_path}: {e}")

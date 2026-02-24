@@ -21,6 +21,9 @@ type TimedRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
 };
 
+// Singleton refresh lock: all concurrent 401s share one refresh promise.
+let refreshingPromise: Promise<{ access_token: string; refresh_token: string }> | null = null;
+
 const LOG_API_TIMINGS =
   import.meta.env.DEV && String(import.meta.env.VITE_LOG_API_TIMINGS) === 'true';
 
@@ -96,30 +99,35 @@ api.interceptors.response.use(
     }
     
     // Skip refresh for login/refresh endpoints to avoid infinite loops
-    if (axiosError.response?.status === 401 && 
-        originalRequest && 
+    if (axiosError.response?.status === 401 &&
+        originalRequest &&
         !originalRequest._retry &&
         !originalRequest.url?.includes('/auth/jwt/login') &&
         !originalRequest.url?.includes('/auth/jwt/refresh')) {
       const refreshToken = localStorage.getItem('refresh_token');
-      
+
       if (refreshToken) {
+        originalRequest._retry = true;
         try {
-          originalRequest._retry = true;
-          // Import authApi dynamically to avoid circular dependency
-          const { authApi } = await import('@/features/auth/api');
-          const response = await authApi.refresh(refreshToken);
-          
-          localStorage.setItem('access_token', response.access_token);
-          localStorage.setItem('refresh_token', response.refresh_token);
-          
+          // All concurrent 401s share one refresh call; subsequents just await the same promise.
+          if (!refreshingPromise) {
+            const { authApi } = await import('@/features/auth/api');
+            refreshingPromise = authApi.refresh(refreshToken).finally(() => {
+              refreshingPromise = null;
+            });
+          }
+
+          const tokens = await refreshingPromise;
+          localStorage.setItem('access_token', tokens.access_token);
+          localStorage.setItem('refresh_token', tokens.refresh_token);
+
           // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${response.access_token}`;
+          originalRequest.headers.Authorization = `Bearer ${tokens.access_token}`;
           return api(originalRequest);
         } catch (refreshError) {
+          refreshingPromise = null;
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
-          // Redirect to login or handle logout
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
           }

@@ -119,7 +119,7 @@ class Settings(BaseSettings):
         description="Max texts per embeddings request batch.",
     )
     embedding_parallel_workers: int = Field(
-        default=5,
+        default=10,
         description="Max concurrent embedding batch requests (ThreadPoolExecutor workers).",
     )
     embedding_timeout_seconds: int = Field(
