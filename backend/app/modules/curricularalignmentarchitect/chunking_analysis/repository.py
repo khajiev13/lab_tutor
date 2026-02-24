@@ -236,7 +236,9 @@ def update_chunk_embeddings(
                 db.commit()
             logger.info(
                 "update_chunk_embeddings: wrote %d embeddings (book=%d, start=%d)",
-                len(embeddings), selected_book_id, start_index,
+                len(embeddings),
+                selected_book_id,
+                start_index,
             )
             return
         except Exception:
@@ -288,7 +290,9 @@ def run_has_unembedded_chunks(run_id: int, db: Session) -> bool:
 
 
 def get_embedded_chunk_indices(
-    run_id: int, selected_book_id: int, db: Session,
+    run_id: int,
+    selected_book_id: int,
+    db: Session,
 ) -> set[int]:
     """Return the set of chunk_index values that already have embeddings."""
     rows = (

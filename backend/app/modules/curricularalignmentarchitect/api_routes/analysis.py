@@ -123,9 +123,7 @@ def register_routes(router):
             with fresh_db() as session:
                 progress = get_chunk_embedding_progress(run_id, session)
                 current_run = session.get(BookExtractionRun, run_id)
-                run_status = (
-                    current_run.status.value if current_run else "failed"
-                )
+                run_status = current_run.status.value if current_run else "failed"
             return progress, run_status
 
         async def event_stream():

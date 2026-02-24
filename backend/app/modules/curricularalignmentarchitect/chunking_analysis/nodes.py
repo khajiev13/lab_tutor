@@ -195,7 +195,9 @@ def embed_books(state: ChunkingState) -> dict:
     run_id = state["run_id"]
     books = state.get("books", [])
 
-    logger.info("[run %d] embed_books ENTERED (in-memory books: %d)", run_id, len(books))
+    logger.info(
+        "[run %d] embed_books ENTERED (in-memory books: %d)", run_id, len(books)
+    )
 
     # On resume the graph may not carry in-memory books; reload from SQL.
     if not books:
@@ -210,7 +212,9 @@ def embed_books(state: ChunkingState) -> dict:
     workers = max(1, int(settings.embedding_parallel_workers))
     logger.info(
         "[run %d] Embedding config: batch_size=%d, workers=%d",
-        run_id, batch_size, workers,
+        run_id,
+        batch_size,
+        workers,
     )
 
     for book in books:
@@ -252,7 +256,11 @@ def embed_books(state: ChunkingState) -> dict:
 
         logger.info(
             "[run %d] '%s': %d batches to embed (%d chunks, %d already done)",
-            run_id, book["title"], len(batches), n, len(done),
+            run_id,
+            book["title"],
+            len(batches),
+            n,
+            len(done),
         )
 
         embedded_count = 0
@@ -264,13 +272,19 @@ def embed_books(state: ChunkingState) -> dict:
             start, texts = args
             logger.info(
                 "[run %d] Embedding batch start=%d, size=%d for book %d",
-                run_id, start, len(texts), _book_id,
+                run_id,
+                start,
+                len(texts),
+                _book_id,
             )
             vecs = embedder.embed_documents(texts)
             update_chunk_embeddings(run_id, _book_id, start, vecs)
             logger.info(
                 "[run %d] Batch start=%d DONE (%d vecs written) for book %d",
-                run_id, start, len(vecs), _book_id,
+                run_id,
+                start,
+                len(vecs),
+                _book_id,
             )
             return start, vecs
 
@@ -284,7 +298,10 @@ def embed_books(state: ChunkingState) -> dict:
                 if embedded_count % 10 == 0 or embedded_count == len(batches):
                     logger.info(
                         "[run %d] '%s': %d/%d batches complete",
-                        run_id, book["title"], embedded_count, len(batches),
+                        run_id,
+                        book["title"],
+                        embedded_count,
+                        len(batches),
                     )
 
         book["chunk_embeddings"] = all_vecs  # type: ignore[assignment]
