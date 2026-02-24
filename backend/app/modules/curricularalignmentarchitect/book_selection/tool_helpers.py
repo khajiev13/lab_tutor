@@ -38,13 +38,17 @@ def json_response(payload: BaseModel) -> str:
 
 
 def error_response(tool_name: ToolName, query: str, msg: str) -> str:
-    return json_response(SearchResponse(ok=False, tool=tool_name, query=query, error=msg))
+    return json_response(
+        SearchResponse(ok=False, tool=tool_name, query=query, error=msg)
+    )
 
 
 def require_env(name: str) -> str:
     val = os.getenv(name)
     if not val:
-        raise ValueError(f"Missing env var {name}. Set it in your shell or a .env file.")
+        raise ValueError(
+            f"Missing env var {name}. Set it in your shell or a .env file."
+        )
     return val
 
 

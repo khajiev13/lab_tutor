@@ -60,7 +60,9 @@ def register_routes(router):
     ):
         run = db.get(BookExtractionRun, run_id)
         if run is None or run.course_id != course_id:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Analysis run not found")
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, detail="Analysis run not found"
+            )
         return get_summaries_for_run(run_id, db)
 
     @router.post(

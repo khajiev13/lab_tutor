@@ -14,39 +14,45 @@ logging.basicConfig(
 # headers for every blob operation at INFO level, which is extremely noisy.
 logging.getLogger("azure").setLevel(logging.WARNING)
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
-from sqlalchemy import text
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html  # noqa: E402
+from sqlalchemy import text  # noqa: E402
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E402
 
 # Import models to ensure they are registered with Base.metadata
-import app.modules.auth.models  # noqa
-import app.modules.concept_normalization.review_sql_models  # noqa
-import app.modules.courses.models  # noqa
-import app.modules.curricularalignmentarchitect.models  # noqa
-import app.modules.embeddings.course_models  # noqa
-import app.modules.embeddings.models  # noqa
-from app.core.api_schemas import HealthCheckItem, HealthResponse, RootResponse
-from app.core.database import Base, SessionLocal, async_engine, engine
-from app.core.langsmith_tracing import (
+import app.modules.auth.models  # noqa: E402
+import app.modules.concept_normalization.review_sql_models  # noqa: E402
+import app.modules.courses.models  # noqa: E402
+import app.modules.curricularalignmentarchitect.models  # noqa: E402
+import app.modules.embeddings.course_models  # noqa: E402
+import app.modules.embeddings.models  # noqa: E402
+from app.core.api_schemas import (  # noqa: E402
+    HealthCheckItem,
+    HealthResponse,
+    RootResponse,
+)
+from app.core.database import Base, SessionLocal, async_engine, engine  # noqa: E402
+from app.core.langsmith_tracing import (  # noqa: E402
     ConditionalLangSmithTracingMiddleware,
     configure_langsmith_env,
 )
-from app.core.neo4j import (
+from app.core.neo4j import (  # noqa: E402
     create_neo4j_driver,
     initialize_neo4j_constraints,
     verify_neo4j_connectivity,
 )
-from app.core.request_timing_middleware import RequestTimingMiddleware
-from app.core.settings import settings
-from app.modules.auth import routes as auth_routes
-from app.modules.concept_normalization import routes as concept_normalization_routes
-from app.modules.courses import routes as course_routes
-from app.modules.curricularalignmentarchitect.api_routes import (
+from app.core.request_timing_middleware import RequestTimingMiddleware  # noqa: E402
+from app.core.settings import settings  # noqa: E402
+from app.modules.auth import routes as auth_routes  # noqa: E402
+from app.modules.concept_normalization import (  # noqa: E402
+    routes as concept_normalization_routes,
+)
+from app.modules.courses import routes as course_routes  # noqa: E402
+from app.modules.curricularalignmentarchitect.api_routes import (  # noqa: E402
     router as book_selection_router,
 )
-from app.providers.storage import blob_service
+from app.providers.storage import blob_service  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -262,6 +268,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     try:
         from sqlalchemy import text as atext
+
         async with async_engine.connect() as aconn:
             await aconn.execute(atext("SELECT 1"))
         logger.info("Async DB pool warmed up")
@@ -415,7 +422,11 @@ def health_check() -> HealthResponse:
             checks.append(HealthCheckItem(name="azure_blob", status="ok"))
         else:
             checks.append(
-                HealthCheckItem(name="azure_blob", status="error", detail="Blob service not initialized")
+                HealthCheckItem(
+                    name="azure_blob",
+                    status="error",
+                    detail="Blob service not initialized",
+                )
             )
 
     any_error = any(c.status == "error" for c in checks)

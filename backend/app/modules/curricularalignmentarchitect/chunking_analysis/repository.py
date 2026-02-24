@@ -327,10 +327,7 @@ def get_summaries_for_run(run_id: int, db: Session) -> list[BookAnalysisSummary]
 def run_has_chunks(run_id: int, db: Session) -> bool:
     """Return True when a run has at least one stored chunk."""
     return (
-        db.query(BookChunk.id)
-        .filter(BookChunk.run_id == run_id)
-        .limit(1)
-        .first()
+        db.query(BookChunk.id).filter(BookChunk.run_id == run_id).limit(1).first()
         is not None
     )
 

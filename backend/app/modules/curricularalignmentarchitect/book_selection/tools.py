@@ -122,7 +122,9 @@ def tavily_search(
             raw = http_get_json(url)
             results_raw = raw.get("results") if isinstance(raw, dict) else None
 
-        results = normalize_tavily_results(results_raw, max_snippet_chars=max_snippet_chars)
+        results = normalize_tavily_results(
+            results_raw, max_snippet_chars=max_snippet_chars
+        )
         warnings: list[str] = []
         if not results:
             warnings.append("No results returned by Tavily for this query.")
