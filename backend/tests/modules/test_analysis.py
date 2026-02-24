@@ -29,7 +29,6 @@ from app.modules.curricularalignmentarchitect.models import (
     ExtractionRunStatus,
 )
 
-
 # ────────────────────────────────────────────────────────────────────────────
 # Shared DB-setup helpers
 # ────────────────────────────────────────────────────────────────────────────
@@ -140,7 +139,9 @@ class TestChunkingAnalysisRepository:
         assert updated.status == ExtractionRunStatus.BOOK_PICKED
 
     def test_pick_book_already_picked_is_idempotent(self, db_session):
-        run = _make_run(db_session, course_id=31, status=ExtractionRunStatus.BOOK_PICKED)
+        run = _make_run(
+            db_session, course_id=31, status=ExtractionRunStatus.BOOK_PICKED
+        )
         sb = _make_selected_book(db_session, course_id=31)
         updated = pick_book(run.id, sb.id, db_session)
         assert updated.status == ExtractionRunStatus.BOOK_PICKED
@@ -255,10 +256,14 @@ class TestAnalysisRoutes:
         assert resp.status_code == 200
         assert resp.json() is None
 
-    def test_get_latest_analysis_returns_run(self, client, db_session, teacher_auth_headers):
+    def test_get_latest_analysis_returns_run(
+        self, client, db_session, teacher_auth_headers
+    ):
         course_id = self._create_course(client, teacher_auth_headers)
         # Seed a run via repo directly (avoids triggering the LangGraph workflow)
-        run = create_run(db_session, course_id=course_id, status=ExtractionRunStatus.COMPLETED)
+        run = create_run(
+            db_session, course_id=course_id, status=ExtractionRunStatus.COMPLETED
+        )
         db_session.commit()
 
         resp = client.get(
@@ -280,10 +285,14 @@ class TestAnalysisRoutes:
         )
         assert resp.status_code == 404
 
-    def test_get_summaries_wrong_course_is_404(self, client, db_session, teacher_auth_headers):
+    def test_get_summaries_wrong_course_is_404(
+        self, client, db_session, teacher_auth_headers
+    ):
         """A run that exists but belongs to a different course returns 404."""
         course_id = self._create_course(client, teacher_auth_headers)
-        run = create_run(db_session, course_id=course_id, status=ExtractionRunStatus.COMPLETED)
+        run = create_run(
+            db_session, course_id=course_id, status=ExtractionRunStatus.COMPLETED
+        )
         db_session.commit()
 
         wrong_course_id = course_id + 9999
@@ -293,9 +302,13 @@ class TestAnalysisRoutes:
         )
         assert resp.status_code == 404
 
-    def test_get_summaries_empty_for_completed_run(self, client, db_session, teacher_auth_headers):
+    def test_get_summaries_empty_for_completed_run(
+        self, client, db_session, teacher_auth_headers
+    ):
         course_id = self._create_course(client, teacher_auth_headers)
-        run = create_run(db_session, course_id=course_id, status=ExtractionRunStatus.COMPLETED)
+        run = create_run(
+            db_session, course_id=course_id, status=ExtractionRunStatus.COMPLETED
+        )
         db_session.commit()
 
         resp = client.get(
@@ -314,9 +327,13 @@ class TestAnalysisRoutes:
         )
         assert resp.status_code == 400
 
-    def test_pick_book_pending_run_returns_400(self, client, db_session, teacher_auth_headers):
+    def test_pick_book_pending_run_returns_400(
+        self, client, db_session, teacher_auth_headers
+    ):
         course_id = self._create_course(client, teacher_auth_headers)
-        run = create_run(db_session, course_id=course_id, status=ExtractionRunStatus.PENDING)
+        run = create_run(
+            db_session, course_id=course_id, status=ExtractionRunStatus.PENDING
+        )
         db_session.commit()
 
         resp = client.post(
@@ -326,9 +343,13 @@ class TestAnalysisRoutes:
         assert resp.status_code == 400
         assert "COMPLETED" in resp.json()["detail"]
 
-    def test_pick_book_completed_run_succeeds(self, client, db_session, teacher_auth_headers):
+    def test_pick_book_completed_run_succeeds(
+        self, client, db_session, teacher_auth_headers
+    ):
         course_id = self._create_course(client, teacher_auth_headers)
-        run = create_run(db_session, course_id=course_id, status=ExtractionRunStatus.COMPLETED)
+        run = create_run(
+            db_session, course_id=course_id, status=ExtractionRunStatus.COMPLETED
+        )
         # The route only updates the run status; it does not require a valid selected_book_id FK
         # (pick_book() doesn't validate it against the DB). Any int is fine here.
         db_session.commit()
@@ -351,7 +372,9 @@ class TestAnalysisRoutes:
         # Patch the workflow launcher so no LangGraph or background task runs.
         # The mock raises ValueError to simulate an already-active run guard.
         mock_launcher = MagicMock(
-            side_effect=ValueError("An active analysis run already exists for this course.")
+            side_effect=ValueError(
+                "An active analysis run already exists for this course."
+            )
         )
         monkeypatch.setattr(
             "app.modules.curricularalignmentarchitect.api_routes.analysis.create_run_and_launch",

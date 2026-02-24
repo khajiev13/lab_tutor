@@ -697,7 +697,7 @@ export function BookAnalysisTab({ courseId, disabled }: BookAnalysisTabProps) {
                           {book.title}
                         </span>
                         <span className="tabular-nums text-xs font-medium">
-                          {book.embedded_chunks} / {book.total_chunks} chunks ({pct}%)
+                          {book.embedded_chunks} / {book.total_chunks} chunks ({pct}%)
                         </span>
                       </div>
                       <Progress value={pct} className="h-1.5" />
