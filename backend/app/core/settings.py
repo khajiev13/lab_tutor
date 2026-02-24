@@ -169,12 +169,13 @@ class Settings(BaseSettings):
     # CORS
     # Comma-separated list of allowed origins for browser clients (no wildcards).
     # Example:
-    #   LAB_TUTOR_CORS_ALLOW_ORIGINS="https://gray-meadow-055f6ba1e.1.azurestaticapps.net,https://yourdomain.com"
+    #   LAB_TUTOR_CORS_ALLOW_ORIGINS="https://labtutor.com,https://www.labtutor.com,https://gray-meadow-055f6ba1e.1.azurestaticapps.net"
     cors_allow_origins: str = Field(
         default=(
             "http://localhost:5173,http://127.0.0.1:5173,"
             "http://localhost:5174,http://127.0.0.1:5174,"
-            "http://localhost:3000,http://127.0.0.1:3000"
+            "http://localhost:3000,http://127.0.0.1:3000,"
+            "https://labtutor.com,https://www.labtutor.com"
         ),
         description="Comma-separated CORS allowlist origins.",
     )
