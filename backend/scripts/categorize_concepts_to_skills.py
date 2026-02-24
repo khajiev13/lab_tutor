@@ -87,7 +87,7 @@ def categorize_concepts_to_skills(
     """Use LLM to categorize concepts into skills."""
     if not settings.llm_api_key:
         raise ValueError(
-            "LLM API key is required. Set LAB_TUTOR_LLM_API_KEY or XIAO_CASE_API_KEY"
+            "LLM API key is required. Set LAB_TUTOR_LLM_API_KEY or OPENAI_API_KEY"
         )
 
     logger.info(f"Categorizing {len(concept_names)} concepts into skills...")

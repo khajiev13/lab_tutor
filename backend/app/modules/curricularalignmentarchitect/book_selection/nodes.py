@@ -14,16 +14,14 @@ from pydantic import SecretStr
 
 from app.core.settings import settings
 
-from .tools import (
-    DOWNLOAD_SEARCH_TOOLS,
-    DOWNLOAD_SEARCH_TOOLS_BY_NAME,
-    TOOLS,
-    TOOLS_BY_NAME,
-    download_file_from_url,
-    googlebooksqueryrun,
-    tavily_search,
+from .prompts import (
+    DOWNLOAD_SEARCH_PROMPT,
+    PER_QUERY_EXTRACTION_PROMPT,
+    QUERY_GENERATION_PROMPT,
+    RESEARCH_PROMPT,
+    SCORING_PROMPT_TEMPLATE,
 )
-from .workflow_models import (
+from .state import (
     DEFAULT_COURSE_LEVEL,
     VALID_COURSE_LEVELS,
     BookMeritScores,
@@ -35,14 +33,16 @@ from .workflow_models import (
     SearchQueryBatch,
     WorkflowState,
 )
-from .workflow_prompts import (
-    DOWNLOAD_SEARCH_PROMPT,
-    PER_QUERY_EXTRACTION_PROMPT,
-    QUERY_GENERATION_PROMPT,
-    RESEARCH_PROMPT,
-    SCORING_PROMPT_TEMPLATE,
+from .tools import (
+    DOWNLOAD_SEARCH_TOOLS,
+    DOWNLOAD_SEARCH_TOOLS_BY_NAME,
+    TOOLS,
+    TOOLS_BY_NAME,
+    download_file_from_url,
+    googlebooksqueryrun,
+    tavily_search,
 )
-from .workflow_utils import (
+from .utils import (
     compute_finals,
     course_summary,
     exec_tools,
@@ -600,7 +600,7 @@ def fetch_course(state: WorkflowState) -> dict:
 
 async def discover_books(state: WorkflowState) -> dict:
     """Run the discovery sub-graph."""
-    from .workflow import build_discovery_graph
+    from .graph import build_discovery_graph
 
     discovery_graph = build_discovery_graph()
     result = await discovery_graph.ainvoke({"course_context": state["course_context"]})
@@ -645,7 +645,7 @@ def fan_out_scoring(state: WorkflowState) -> list[Send]:
 
 async def score_book_node(state: ScoringState) -> dict:
     """Run the scoring sub-graph for a single book."""
-    from .workflow import build_scoring_graph
+    from .graph import build_scoring_graph
 
     scoring_graph = build_scoring_graph()
     result = await scoring_graph.ainvoke(state)
@@ -738,7 +738,7 @@ def fan_out_downloads(state: WorkflowState) -> list[Send]:
 
 async def download_book_node(state: DownloadState) -> dict:
     """Run the download sub-graph for a single book."""
-    from .workflow import build_download_graph
+    from .graph import build_download_graph
 
     download_graph = build_download_graph()
     result = await download_graph.ainvoke(state)

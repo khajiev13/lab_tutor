@@ -105,7 +105,7 @@ class ConceptNormalizationService:
 
         if not settings.llm_api_key:
             raise ValueError(
-                "LLM API key is required (set LAB_TUTOR_LLM_API_KEY / XIAO_CASE_API_KEY / OPENAI_API_KEY)"
+                "LLM API key is required (set LAB_TUTOR_LLM_API_KEY / OPENAI_API_KEY)"
             )
 
         llm = ChatOpenAI(

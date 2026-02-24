@@ -93,11 +93,17 @@ class EnhancedRelationshipService:
         os.makedirs(self.debug_dir, exist_ok=True)
         
         # Initialize LLM
-        self.api_key = os.getenv("XIAO_CASE_API_KEY")
-        self.api_base = os.getenv("XIAO_CASE_API_BASE", "https://api.xiaocaseai.com/v1")
+        self.api_key = os.getenv("LAB_TUTOR_LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+        self.api_base = (
+            os.getenv("LAB_TUTOR_LLM_BASE_URL")
+            or os.getenv("OPENAI_BASE_URL")
+            or "https://api.silra.cn/v1/"
+        )
         
         if not self.api_key:
-            raise ValueError("XIAO_CASE_API_KEY environment variable is required")
+            raise ValueError(
+                "LAB_TUTOR_LLM_API_KEY (or OPENAI_API_KEY) environment variable is required"
+            )
         
         self.llm = ChatOpenAI(
             model=model_id,

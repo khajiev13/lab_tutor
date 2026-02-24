@@ -8,7 +8,7 @@ from difflib import SequenceMatcher
 
 from langchain_core.messages import AIMessage, ToolMessage
 
-from .workflow_models import DEFAULT_W_PRAC, DEFAULT_WEIGHTS
+from .state import DEFAULT_W_PRAC, DEFAULT_WEIGHTS
 
 # ═══════════════════════════════════════════════════════════════
 # Course context helpers

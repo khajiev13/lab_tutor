@@ -76,6 +76,12 @@ class Settings(BaseSettings):
         description="Max completion tokens for extraction responses",
     )
 
+    # Serper API (Google Search for PDF discovery)
+    serper_api_key: str | None = Field(
+        default=None,
+        description="Serper API key for Google Search. Used for book PDF discovery.",
+    )
+
     extraction_workers: int = Field(
         default=4,
         description=(
@@ -111,6 +117,10 @@ class Settings(BaseSettings):
     embedding_batch_size: int = Field(
         default=10,
         description="Max texts per embeddings request batch.",
+    )
+    embedding_parallel_workers: int = Field(
+        default=5,
+        description="Max concurrent embedding batch requests (ThreadPoolExecutor workers).",
     )
     embedding_timeout_seconds: int = Field(
         default=120,

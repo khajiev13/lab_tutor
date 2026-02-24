@@ -62,8 +62,8 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
     relationship_vector_statements: list[LiteralString] = []
     if embedding_dims is not None:
         vector_statements.append(
-            "CREATE VECTOR INDEX teacher_uploaded_document_embedding_vector_idx IF NOT EXISTS "
-            "FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.embedding) "
+            "CREATE VECTOR INDEX teacher_uploaded_document_summary_embedding_vector_idx IF NOT EXISTS "
+            "FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.summary_embedding) "
             "OPTIONS {indexConfig: {`vector.dimensions`: "
             + str(int(embedding_dims))
             + ", `vector.similarity_function`: 'cosine'}}"

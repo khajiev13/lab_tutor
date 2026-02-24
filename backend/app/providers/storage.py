@@ -1,6 +1,7 @@
 import hashlib
 import logging
 
+import httpx
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
 from fastapi import UploadFile
@@ -80,6 +81,57 @@ class BlobService:
     @staticmethod
     def sha256_hex(content: bytes) -> str:
         return hashlib.sha256(content).hexdigest()
+
+    async def upload_from_url(
+        self,
+        url: str,
+        destination_path: str,
+        *,
+        timeout_s: float = 120.0,
+    ) -> str:
+        """Stream a file from *url* directly into Azure Blob Storage.
+
+        No local disk is touched — the HTTP response body is piped
+        chunk-by-chunk into the blob. Returns the public blob URL.
+        """
+        if not self.container_client:
+            raise RuntimeError("Blob service is not configured")
+
+        blob_client = self.container_client.get_blob_client(destination_path)
+
+        try:
+            async with (
+                httpx.AsyncClient(
+                    follow_redirects=True,
+                    timeout=timeout_s,
+                ) as client,
+                client.stream(
+                    "GET",
+                    url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                ) as response,
+            ):
+                response.raise_for_status()
+                # Collect chunks — Azure SDK upload_blob expects
+                # bytes or an iterable (sync), so we accumulate here.
+                chunks: list[bytes] = []
+                async for chunk in response.aiter_bytes(chunk_size=8192):
+                    chunks.append(chunk)
+                content = b"".join(chunks)
+
+            blob_client.upload_blob(content, overwrite=True)
+            return blob_client.url
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "HTTP %s downloading %s: %s",
+                exc.response.status_code,
+                url,
+                exc,
+            )
+            raise
+        except Exception as e:
+            logger.error("Failed to stream %s to %s: %s", url, destination_path, e)
+            raise
 
     async def delete_file(self, blob_path: str) -> None:
         if not self.container_client:

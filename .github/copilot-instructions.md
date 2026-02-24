@@ -2,40 +2,18 @@
 
 ## 🏗 Project Architecture
 - **Monorepo Structure**:
-  - `frontend/`: React 19 + Vite + TailwindCSS v4 + Shadcn UI
+  - `frontend/`: React 19 + Vite + TailwindCSS v4 + Shadcn UI (Always check mcp server for the most up to date components and styling conventions or check out the docs.)
   - `backend/`: FastAPI + SQLAlchemy + Pydantic v2 (Modular Onion Architecture)
   - `knowledge_graph_builder/`: Python scripts for Neo4j data ingestion
   - `neo4j_database/`: Neo4j Docker configuration
 - **Databases**:
   - **Neo4j**: Stores the *graph view* for currently integrated features (Users, Courses, Enrollments).
-  - **SQLite**: Stores relational data (Auth, Courses, Enrollments) via SQLAlchemy. For integrated features, writes are mirrored to Neo4j.
+  - **PostgreSQL**: Stores relational data (Auth, Courses, Enrollments) via SQLAlchemy. For integrated features, some writes are mirrored to Neo4j. This is running in the cloud but we have local postgresql for testing only.
 
-## 🧠 Neo4j (Current Integrated Scope)
 
-### What’s Implemented (so far)
-- **Auth → Neo4j**: on user register/update, a `(:USER {id})` node is upserted and role is represented via labels.
-- **Courses → Neo4j**: on course create/update/delete and join/leave, a `(:CLASS {id})` node and relationships are created/removed.
-- **Design rule**: keep `:USER` as the stable base label; role is expressed via additional labels.
+### Graph Schema
+- Check neo4j mcp server about the graph schema and how to query it.
 
-### Graph Schema (current)
-- **Nodes**:
-  - `(:USER { id: int, first_name?: str, last_name?: str, email: str, created_at?: str })`
-  - `(:CLASS { id: int, title: str, description?: str, created_at?: str, extraction_status?: str })`
-- **Role Labels on `USER`** (derived; no `role` property stored):
-  - `:STUDENT`
-  - `:TEACHER`
-- **Relationships**:
-  - `(:USER)-[:TEACHES_CLASS]->(:CLASS)`
-  - `(:USER)-[:ENROLLED_IN_CLASS]->(:CLASS)`
-
-### Constraints / Indexes (created on backend startup when Neo4j is configured)
-- `CONSTRAINT user_id_unique` on `(u:USER) REQUIRE u.id IS UNIQUE`
-- `CONSTRAINT class_id_unique` on `(c:CLASS) REQUIRE c.id IS UNIQUE`
-- `INDEX class_title_idx` on `(c:CLASS) ON (c.title)`
-
-### Source of Truth
-- For now: **SQL is still the system of record**, and Neo4j is a mirrored projection for graph queries and relationships.
-- **Dual-write behavior** (Courses): SQL is written first, then Neo4j is updated; SQL is rolled back if the Neo4j write fails.
 
 ## 🚀 Development Workflows
 
@@ -50,14 +28,14 @@
 ### Backend (`/backend`)
 - **Package Manager**: `uv` (Python 3.12+)
 - **Run Server**: `uv run fastapi dev main.py`
-- **Testing**: `uv run pytest`
+- **Testing**: `LAB_TUTOR_DATABASE_URL="postgresql://khajievroma@localhost:5432/lab_tutor_test" uv run pytest -v` (requires a local PostgreSQL instance). Always run tests before pushing commits.
 - **Linting/Formatting**: `uv run ruff check .` and `uv run ruff format .`
 - **Database Migrations**: Uses `Base.metadata.create_all(bind=engine)` in `lifespan` (no Alembic yet).
 - **Health Check**: `GET /health` returns overall status and per-dependency checks (`sql`, `neo4j`, `azure_blob`).
 
 ### Knowledge Graph (`/knowledge_graph_builder`)
 - **Ingestion**: `python scripts/ingest_ready_data.py`
-- **Dependencies**: Managed via `uv` (`pyproject.toml`).
+- **Dependencies**: Managed via `uv` (`pyproject.toml`) if there is a new dependency use `uv add <dependency>`. Do not hardcode the dependency in the script.
 
 ## 📝 Coding Conventions
 
@@ -132,6 +110,16 @@
   - `LAB_TUTOR_AZURE_STORAGE_CONNECTION_STRING`
   - `LAB_TUTOR_AZURE_CONTAINER_NAME` (default: `class-presentations`)
 
-### Docker Volumes (persistence)
-- SQLite data is persisted in the `backend_data` Docker volume (mounted to `/app/data`).
-- Neo4j data is persisted in `neo4j_data` / `neo4j_logs` / `neo4j_import` / `neo4j_plugins`.
+
+## 🧹 Code Quality Principles
+
+- **Less code is better code.** Prefer concise, readable solutions over verbose ones.
+- **Don't over-engineer.** Solve the current problem, not hypothetical future ones.
+- **No dead code.** Remove unused imports, variables, functions, and commented-out blocks.
+- **DRY (Don't Repeat Yourself).** Extract shared logic into reusable functions/components.
+- **Single Responsibility.** Each function, class, or module should do one thing well.
+- **Meaningful names.** Use clear, descriptive names so comments become unnecessary.
+- **Follow established patterns.** Match the conventions already in the codebase before inventing new ones.
+- **Avoid premature abstraction.** Duplicate twice before abstracting; three strikes and you refactor.
+- **Flat over nested.** Prefer early returns and guard clauses to deeply nested conditionals.
+- **Every line must earn its place.** If a line doesn't add clarity or functionality, delete it.

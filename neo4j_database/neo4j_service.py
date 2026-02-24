@@ -152,13 +152,13 @@ class Neo4jService:
                         """CREATE VECTOR INDEX teacher_uploaded_document_embedding_idx IF NOT EXISTS
                              FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.embedding)
                OPTIONS {indexConfig: {
-                 `vector.dimensions`: 1536,
+                 `vector.dimensions`: 2536,
                  `vector.similarity_function`: 'cosine'
                }}""",
             """CREATE VECTOR INDEX concept_embedding_idx IF NOT EXISTS
                FOR (c:CONCEPT) ON (c.embedding)
                OPTIONS {indexConfig: {
-                 `vector.dimensions`: 1536,
+                 `vector.dimensions`: 2536,
                  `vector.similarity_function`: 'cosine'
                }}"""
         ]

@@ -325,13 +325,7 @@ class CourseService:
 
         uploaded_urls = []
         for file in files:
-            # Sanitize course title for folder name
-            safe_course_title = (
-                "".join(c for c in course.title if c.isalnum() or c in (" ", "_", "-"))
-                .strip()
-                .replace(" ", "_")
-            )
-            destination_path = f"{safe_course_title}/teacher_uploads/{file.filename}"
+            destination_path = f"courses/{course.id}/teacher_uploads/{file.filename}"
 
             try:
                 await file.seek(0)
@@ -383,12 +377,7 @@ class CourseService:
     async def list_presentations(self, course_id: int) -> list[str]:
         course = self.get_course(course_id)
 
-        safe_course_title = (
-            "".join(c for c in course.title if c.isalnum() or c in (" ", "_", "-"))
-            .strip()
-            .replace(" ", "_")
-        )
-        folder_path = f"{safe_course_title}/teacher_uploads/"
+        folder_path = f"courses/{course.id}/teacher_uploads/"
 
         try:
             files = await blob_service.list_files(folder_path)
@@ -417,12 +406,7 @@ class CourseService:
                 detail="Cannot delete files while extraction is in progress",
             )
 
-        safe_course_title = (
-            "".join(c for c in course.title if c.isalnum() or c in (" ", "_", "-"))
-            .strip()
-            .replace(" ", "_")
-        )
-        blob_path = f"{safe_course_title}/teacher_uploads/{filename}"
+        blob_path = f"courses/{course.id}/teacher_uploads/{filename}"
 
         try:
             # Keep the SQL row until after graph cleanup so we can derive a stable document_id.
@@ -485,12 +469,7 @@ class CourseService:
                 detail="Cannot delete files while extraction is in progress",
             )
 
-        safe_course_title = (
-            "".join(c for c in course.title if c.isalnum() or c in (" ", "_", "-"))
-            .strip()
-            .replace(" ", "_")
-        )
-        folder_path = f"{safe_course_title}/teacher_uploads/"
+        folder_path = f"courses/{course.id}/teacher_uploads/"
 
         try:
             await blob_service.delete_folder(folder_path)
@@ -561,16 +540,18 @@ class CourseService:
                             run_course_embedding_background, course_id=course_id
                         )
 
+        # Bulk-fetch all doc states in one query to avoid N+1 per file.
+        doc_states_by_id = {
+            s.document_id: s
+            for s in doc_state_repo.list_by_course_id(course_id=course_id)
+        }
+
         file_items: list[CourseFileEmbeddingStatus] = []
         for f in files:
             document_id = (
                 f"doc_{course_id}_{f.content_hash}" if f.content_hash else None
             )
-            doc_state = (
-                doc_state_repo.get(document_id=document_id)
-                if document_id is not None
-                else None
-            )
+            doc_state = doc_states_by_id.get(document_id) if document_id else None
 
             file_items.append(
                 CourseFileEmbeddingStatus(

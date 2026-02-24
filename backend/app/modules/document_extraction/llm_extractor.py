@@ -31,7 +31,7 @@ class DocumentLLMExtractor:
 
         if not settings.llm_api_key:
             raise ValueError(
-                "LLM is required for extraction. Set LAB_TUTOR_LLM_API_KEY (or XiaoCase fallback env vars)."
+                "LLM is required for extraction. Set LAB_TUTOR_LLM_API_KEY (or OPENAI_API_KEY)."
             )
 
         prompt_content = (

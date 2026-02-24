@@ -196,6 +196,15 @@ class BookExtractionRunRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DocumentSummaryItem(BaseModel):
+    """One course document summary scored against a book."""
+
+    document_id: str
+    topic: str | None = None
+    summary_text: str | None = None
+    sim_score: float
+
+
 class ConceptCoverageItem(BaseModel):
     """Course→book direction: one course concept's best match in a book."""
 
@@ -246,6 +255,8 @@ class BookAnalysisSummaryRead(BaseModel):
     course_coverage: list[ConceptCoverageItem] = Field(default_factory=list)
     topic_scores: dict[str, float] = Field(default_factory=dict)
     sim_distribution: list[SimBucket] = Field(default_factory=list)
+    # From relationship (BookDocumentSummaryScore rows)
+    document_summaries: list[DocumentSummaryItem] = Field(default_factory=list)
 
     created_at: datetime
 
@@ -281,5 +292,29 @@ class BookAnalysisSummaryRead(BaseModel):
                 _set(data, target_key, json.loads(raw))
             elif raw and not isinstance(raw, str):
                 _set(data, target_key, raw)
+
+        # Map relational document_summary_scores → document_summaries
+        scores = _get(data, "document_summary_scores")
+        if scores:
+            _set(
+                data,
+                "document_summaries",
+                [
+                    {
+                        "document_id": getattr(s, "document_neo4j_id", None)
+                        or (s.get("document_neo4j_id") if isinstance(s, dict) else ""),
+                        "topic": getattr(s, "topic", None)
+                        if not isinstance(s, dict)
+                        else s.get("topic"),
+                        "summary_text": getattr(s, "summary_text", None)
+                        if not isinstance(s, dict)
+                        else s.get("summary_text"),
+                        "sim_score": getattr(s, "sim_score", 0.0)
+                        if not isinstance(s, dict)
+                        else s.get("sim_score", 0.0),
+                    }
+                    for s in scores
+                ],
+            )
 
         return data
