@@ -86,6 +86,7 @@ def register_routes(router):
             return pick_book(run_id, selected_book_id, db)
         except ValueError as e:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+<<<<<<< feat/serper-download-and-blob-path-cleanup
 
     @router.get("/courses/{course_id}/analysis/{run_id}/embedding-progress")
     async def stream_embedding_progress(
@@ -148,3 +149,5 @@ def register_routes(router):
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+=======
+>>>>>>> main

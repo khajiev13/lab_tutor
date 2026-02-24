@@ -114,6 +114,9 @@ ASYNC_POOL_RECYCLE_SECONDS = 60 if IS_POSTGRES else -1
 # FastAPI request handlers and SSE polling.
 POOL_SIZE = 10
 MAX_OVERFLOW = 5
+# Keep pool small — Azure Postgres Basic/Standard tiers have low max_connections.
+POOL_SIZE = 3
+MAX_OVERFLOW = 7
 
 POSTGRES_CONNECT_ARGS = (
     {
