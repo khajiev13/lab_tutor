@@ -21,7 +21,7 @@ import type { Course, CourseEmbeddingStatusResponse, ExtractionStatus, Embedding
 import { FileUpload } from '@/components/FileUpload';
 import { CourseMaterialsTable } from '@/components/CourseMaterialsTable';
 import { NormalizationDashboard } from '@/features/normalization/components/NormalizationDashboard';
-import { BookSelectionDashboard, BookAnalysisTab } from '@/features/book-selection';
+import { BookSelectionDashboard, BookAnalysisTab, BookVisualizationTab } from '@/features/book-selection';
 
 export default function TeacherCourseDetail() {
   const { id } = useParams<{ id: string }>();
@@ -384,7 +384,8 @@ export default function TeacherCourseDetail() {
             <TabsTrigger value="materials">Materials</TabsTrigger>
             <TabsTrigger value="normalization">Concept normalization</TabsTrigger>
             <TabsTrigger value="book-selection">Book Selection</TabsTrigger>
-            <TabsTrigger value="analysis">Chunking Analysis</TabsTrigger>
+            <TabsTrigger value="analysis">Book Analysis</TabsTrigger>
+            <TabsTrigger value="visualization">Book Visualization</TabsTrigger>
           </TabsList>
 
           <TabsContent value="materials">
@@ -459,6 +460,13 @@ export default function TeacherCourseDetail() {
 
           <TabsContent value="analysis">
             <BookAnalysisTab
+              courseId={course.id}
+              disabled={course.extraction_status !== 'finished'}
+            />
+          </TabsContent>
+
+          <TabsContent value="visualization">
+            <BookVisualizationTab
               courseId={course.id}
               disabled={course.extraction_status !== 'finished'}
             />

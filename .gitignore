@@ -151,6 +151,7 @@ backups/
 #Don't push the iteration logs
 knowledge_graph_builder/iteration_logs/*
 !frontend/src/lib
+!frontend/src/features/**/lib
 
 #Don't push the knowledge graph builder 
 knowledge_graph_builder/
@@ -175,3 +176,10 @@ backend/**/book_course_graph.html
 backend/**/*.prompt.md
 backend/**/CHUNKING_VS_AGENT_EXTRACTION_REPORT.md
 backend/app/modules/curricularalignmentarchitect/notebooks/
+
+# Copilot CLI MCP config (contains credentials)
+.github/copilot/mcp.json
+
+# Copilot agent skills (local config)
+.github/skills/
+skills-lock.json

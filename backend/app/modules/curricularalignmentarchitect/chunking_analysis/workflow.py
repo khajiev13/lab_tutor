@@ -22,6 +22,8 @@ from .repository import (
     fresh_db,
     get_active_run,
     get_latest_run,
+    run_extracted_all_books,
+    run_has_chapters,
     run_has_chunks,
     run_has_summaries,
     run_has_unembedded_chunks,
@@ -117,6 +119,35 @@ def create_run_and_launch(
         db.refresh(latest)
         return latest
 
+    # If previous run failed but chapters are stored (no chunks yet), resume
+    # from chunking onward — but only if ALL selected books were extracted.
+    if (
+        latest
+        and latest.status == ExtractionRunStatus.FAILED
+        and run_has_chapters(latest.id, db)
+        and not run_has_chunks(latest.id, db)
+    ):
+        if run_extracted_all_books(latest.id, course_id, db):
+            logger.info(
+                "[run %d] Resuming: FAILED run has chapters for all books but no chunks → chunking onward",
+                latest.id,
+            )
+            update_run(
+                db,
+                latest.id,
+                status=ExtractionRunStatus.CHAPTER_EXTRACTED,
+                progress_detail="Resuming from stored chapters…",
+                error_message=None,
+            )
+            background_tasks.add_task(_run_chunking_from_chapters, latest.id, course_id)
+            db.refresh(latest)
+            return latest
+        else:
+            logger.info(
+                "[run %d] FAILED run has chapters for only some books — starting fresh",
+                latest.id,
+            )
+
     run = create_run(
         db,
         course_id=course_id,
@@ -175,6 +206,26 @@ def _run_scoring_only(run_id: int, course_id: int) -> None:
         logger.info("[run %d] _run_scoring_only COMPLETED", run_id)
     except Exception as exc:
         logger.exception("Scoring-only workflow failed for run %d", run_id)
+        with fresh_db() as db:
+            update_run(
+                db,
+                run_id,
+                status=ExtractionRunStatus.FAILED,
+                error_message=str(exc)[:2000],
+                progress_detail="Failed",
+            )
+
+
+def _run_chunking_from_chapters(run_id: int, course_id: int) -> None:
+    """Resume from chunking onward for a run that has chapters but no chunks."""
+    logger.info("[run %d] _run_chunking_from_chapters STARTED", run_id)
+    try:
+        chunk_paragraphs({"run_id": run_id, "course_id": course_id, "books": []})
+        embed_books({"run_id": run_id, "course_id": course_id})
+        score_concepts({"run_id": run_id, "course_id": course_id})
+        logger.info("[run %d] _run_chunking_from_chapters COMPLETED", run_id)
+    except Exception as exc:
+        logger.exception("Resume chunking-from-chapters failed for run %d", run_id)
         with fresh_db() as db:
             update_run(
                 db,

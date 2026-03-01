@@ -128,6 +128,13 @@ RETURN m
 """
 
 
+SET_CONCEPT_EMBEDDING: LiteralString = """
+MATCH (c:CONCEPT {name: $concept_name})
+SET c.embedding = $vector
+RETURN c
+"""
+
+
 LIST_COURSE_DOCUMENTS_WITH_MENTIONS: LiteralString = """
 MATCH (c:CLASS {id: $course_id})-[:HAS_DOCUMENT]->(d:TEACHER_UPLOADED_DOCUMENT)
 OPTIONAL MATCH (d)-[m:MENTIONS]->(con:CONCEPT)
@@ -285,6 +292,22 @@ class DocumentExtractionGraphRepository:
 
         def _tx(tx: ManagedTransaction) -> None:
             tx.run(SET_MENTIONS_EMBEDDINGS, params).consume()
+
+        self._session.execute_write(_tx)
+
+    def set_concept_embedding(
+        self,
+        *,
+        concept_name: str,
+        vector: list[float],
+    ) -> None:
+        params = {
+            "concept_name": (concept_name or "").strip().casefold(),
+            "vector": vector,
+        }
+
+        def _tx(tx: ManagedTransaction) -> None:
+            tx.run(SET_CONCEPT_EMBEDDING, params).consume()
 
         self._session.execute_write(_tx)
 

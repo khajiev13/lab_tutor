@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
-import os
-import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
@@ -14,17 +11,25 @@ from neo4j import GraphDatabase
 
 from app.core.settings import settings
 from app.modules.embeddings.embedding_service import EmbeddingService
-from app.providers.storage import BlobService
 
-from ..models import AnalysisStrategy, ExtractionRunStatus
+from ..models import (
+    AnalysisStrategy,
+    BookChapter,
+    BookStatus,
+    CourseSelectedBook,
+    ExtractionRunStatus,
+)
+from ..pdf_extraction import extract_book_chapters, validate_extracted_chapters
 from .repository import (
     fresh_db,
     get_books_from_stored_chunks,
     get_cached_document_summaries,
+    get_chapters_for_book,
     get_embedded_chunk_indices,
     get_selected_books_with_blobs,
     store_book_analysis_summary,
     store_book_document_summary_scores,
+    store_chapters,
     store_chunks_bare,
     store_course_concept_cache,
     store_document_summary_cache,
@@ -35,18 +40,20 @@ from .state import COVERED_THRESHOLD, NOVEL_THRESHOLD, ChunkingState
 from .utils import (
     build_sim_distribution,
     chunk_paragraphs_text,
-    clean_extracted_text,
-    filter_pdf_pages,
     l2_normalize,
     load_course_concepts,
-    strip_book_matter,
 )
 
 logger = logging.getLogger(__name__)
 
 
 def extract_pdf(state: ChunkingState) -> dict:
-    """Download each selected book PDF from Azure Blob and convert to markdown."""
+    """Download each selected book PDF, extract chapters, store in SQL.
+
+    Uses the shared pdf_extraction module — single extraction for the
+    entire application. Chapters are stored as BookChapter rows so
+    both the chunking and agentic pipelines can read them.
+    """
     run_id = state["run_id"]
     course_id = state["course_id"]
 
@@ -61,51 +68,50 @@ def extract_pdf(state: ChunkingState) -> dict:
         if not selected_books:
             raise ValueError(f"No selected books with blobs for course {course_id}")
 
-    blob_service = BlobService()
-    import pymupdf4llm
-
     total = len(selected_books)
     books: list[dict] = []
     for idx, sb in enumerate(selected_books):
-        # Per-book progress update
-        pct = int(idx / total * 100)
-        with fresh_db() as db:
-            update_run(
-                db,
-                run_id,
-                progress_detail=(
-                    f"Extracting PDFs… {pct}% ({idx}/{total}) — {sb.title}"
-                ),
-            )
+        book_label = f"Book {idx + 1}/{total} '{sb.title}'"
+
+        def _progress(msg: str, _label: str = book_label) -> None:
+            with fresh_db() as _db:
+                update_run(
+                    _db,
+                    run_id,
+                    progress_detail=f"{_label} — {msg}",
+                )
 
         try:
-            pdf_bytes = blob_service.download_file(sb.blob_path)
+            chapters = extract_book_chapters(sb.blob_path, on_progress=_progress)
 
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                tmp.write(pdf_bytes)
-                tmp.flush()
-                tmp_path = tmp.name
-
-            try:
-                good_pages, skipped_pages = filter_pdf_pages(tmp_path)
-                if skipped_pages:
-                    logger.info(
-                        "Book '%s': skipping %d page(s) — image-only or anomalous text "
-                        "(pages %s)",
-                        sb.title,
-                        len(skipped_pages),
-                        [p + 1 for p in skipped_pages[:10]],
-                    )
-                pages_arg = good_pages if skipped_pages else None
-                md_text = pymupdf4llm.to_markdown(
-                    tmp_path, pages=pages_arg, write_images=False
+            # ── Validate chapter quality before chunking ───────
+            is_valid, reason = validate_extracted_chapters(chapters)
+            if not is_valid:
+                logger.warning(
+                    "Corrupted PDF for '%s': %s — skipping", sb.title, reason
                 )
-            finally:
-                with contextlib.suppress(OSError):
-                    os.unlink(tmp_path)
+                with fresh_db() as db:
+                    book_row = db.get(CourseSelectedBook, sb.id)
+                    if book_row:
+                        book_row.status = BookStatus.CORRUPTED_PDF
+                        book_row.error_message = reason
+                        db.commit()
+                    update_run(
+                        db,
+                        run_id,
+                        progress_detail=(
+                            f"{book_label} — SKIPPED (corrupted PDF: {reason})"
+                        ),
+                    )
+                continue
 
-            md_text = strip_book_matter(md_text)
-            md_text = clean_extracted_text(md_text)
+            # Store chapters in SQL
+            with fresh_db() as db:
+                store_chapters(run_id, sb.id, chapters, db)
+                db.commit()
+
+            # Build combined markdown from chapters for chunking state
+            md_text = "\n\n".join(ch["content"] for ch in chapters)
 
             books.append(
                 {
@@ -116,27 +122,72 @@ def extract_pdf(state: ChunkingState) -> dict:
                     "chunk_embeddings": [],
                 }
             )
-            logger.info("Extracted %d chars from '%s'", len(md_text), sb.title)
+            logger.info(
+                "Extracted %d chapters (%d chars) from '%s'",
+                len(chapters),
+                len(md_text),
+                sb.title,
+            )
         except Exception:
             logger.exception("Failed to extract PDF for book %s", sb.title)
 
     if not books:
-        raise ValueError("All PDF extractions failed")
+        raise ValueError("All PDF extractions failed or were corrupted")
+
+    skipped = total - len(books)
+    detail = f"Extracted {len(books)}/{total} book(s)"
+    if skipped:
+        detail += f" ({skipped} skipped — corrupted PDF)"
+    detail += " — 100%"
 
     with fresh_db() as db:
         update_run(
             db,
             run_id,
-            progress_detail=f"Extracted {len(books)}/{total} book(s) — 100%",
+            status=ExtractionRunStatus.CHAPTER_EXTRACTED,
+            progress_detail=detail,
         )
 
     return {"books": books}
 
 
 def chunk_paragraphs(state: ChunkingState) -> dict:
-    """Split each book's markdown into paragraph-level chunks."""
+    """Split each book's chapters into paragraph-level chunks.
+
+    Reads chapters from SQL (stored during extract_pdf) and chunks each
+    chapter separately for better semantic boundaries — no cross-chapter
+    chunks.
+    """
     run_id = state["run_id"]
-    books = state["books"]
+    books = state.get("books", [])
+
+    # On resume the graph may not carry in-memory books; reconstruct from SQL.
+    if not books:
+        with fresh_db() as db:
+            all_chapters = (
+                db.query(BookChapter)
+                .filter(BookChapter.run_id == run_id)
+                .order_by(
+                    BookChapter.selected_book_id.asc(),
+                    BookChapter.chapter_index.asc(),
+                )
+                .all()
+            )
+            by_book: dict[int, dict] = {}
+            for ch in all_chapters:
+                if ch.selected_book_id not in by_book:
+                    sb = db.get(CourseSelectedBook, ch.selected_book_id)
+                    by_book[ch.selected_book_id] = {
+                        "selected_book_id": ch.selected_book_id,
+                        "title": sb.title if sb else f"Book {ch.selected_book_id}",
+                        "md_text": "",
+                        "chunks": [],
+                        "chunk_embeddings": [],
+                    }
+            books = list(by_book.values())
+        if not books:
+            raise ValueError("No books or chapters to chunk")
+
     total = len(books)
 
     with fresh_db() as db:
@@ -148,10 +199,29 @@ def chunk_paragraphs(state: ChunkingState) -> dict:
         )
 
     for idx, book in enumerate(books):
-        chunks = chunk_paragraphs_text(book["md_text"])
-        book["chunks"] = chunks
+        # Read chapters from SQL and chunk each one separately
+        with fresh_db() as db:
+            chapters = get_chapters_for_book(run_id, book["selected_book_id"], db)
+
+        all_chunks: list[str] = []
+        if chapters:
+            for chapter in chapters:
+                if chapter.chapter_text:
+                    chapter_chunks = chunk_paragraphs_text(chapter.chapter_text)
+                    all_chunks.extend(chapter_chunks)
+        else:
+            # Fallback: chunk the combined md_text if no chapters in SQL
+            if book.get("md_text"):
+                all_chunks = chunk_paragraphs_text(book["md_text"])
+
+        book["chunks"] = all_chunks
         book["md_text"] = ""
-        logger.info("Book '%s': %d paragraph chunks", book["title"], len(chunks))
+        logger.info(
+            "Book '%s': %d paragraph chunks (from %d chapters)",
+            book["title"],
+            len(all_chunks),
+            len(chapters),
+        )
 
         pct = int((idx + 1) / total * 100)
         with fresh_db() as db:

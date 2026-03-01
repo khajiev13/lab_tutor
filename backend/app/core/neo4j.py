@@ -69,6 +69,14 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
             + ", `vector.similarity_function`: 'cosine'}}"
         )
 
+        vector_statements.append(
+            "CREATE VECTOR INDEX concept_embedding_vector_idx IF NOT EXISTS "
+            "FOR (c:CONCEPT) ON (c.embedding) "
+            "OPTIONS {indexConfig: {`vector.dimensions`: "
+            + str(int(embedding_dims))
+            + ", `vector.similarity_function`: 'cosine'}}"
+        )
+
         # Relationship vector indexes are not supported on all Neo4j versions.
         relationship_vector_statements.append(
             "CREATE VECTOR INDEX mentions_definition_embedding_vector_idx IF NOT EXISTS "
