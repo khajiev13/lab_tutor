@@ -192,12 +192,15 @@ export function parseScores(scoresJson: string | null): BookScores | null {
 export type ExtractionRunStatus =
   | 'pending'
   | 'extracting'
+  | 'chapter_extracted'
   | 'chunking'
   | 'embedding'
   | 'scoring'
   | 'completed'
   | 'failed'
-  | 'book_picked';
+  | 'book_picked'
+  | 'agentic_extracting'
+  | 'agentic_completed';
 
 export type AnalysisStrategy = 'chunking' | 'agentic';
 
@@ -217,7 +220,14 @@ export interface ConceptCoverageItem {
   concept_name: string;
   doc_topic: string;
   sim_max: number;
+  sim_evidence: number;
+  sim_weighted: number;
+  matched_relevance: string | null;
   best_match: string;
+  course_text_evidence: string | null;
+  book_text_evidence: string | null;
+  book_chapter_title: string | null;
+  book_section_title: string | null;
 }
 
 export interface BookUniqueConceptItem {
@@ -297,4 +307,227 @@ export interface EmbeddingBookProgress {
 export interface EmbeddingProgressEvent {
   status: ExtractionRunStatus;
   books: EmbeddingBookProgress[];
+}
+
+// ── Agentic extraction types ───────────────────────────────────
+
+export type AgenticEventType =
+  | 'loading_book'
+  | 'book_started'
+  | 'agent_status'
+  | 'chapter_completed'
+  | 'chapter_error'
+  | 'book_completed'
+  | 'done'
+  | 'error';
+
+export interface AgenticLoadingBook {
+  type: 'loading_book';
+  book_id: number;
+  book_title: string;
+  book_index: number;
+  total_books: number;
+}
+
+export interface AgenticBookStarted {
+  type: 'book_started';
+  book_id: number;
+  book_title: string;
+  book_index: number;
+  total_books: number;
+  total_chapters: number;
+  chapter_titles?: string[];
+  message?: string;
+}
+
+export interface AgenticAgentStatus {
+  type: 'agent_status';
+  book_id: number;
+  book_index: number;
+  book_title: string;
+  chapter_title: string;
+  chapter_number: number;
+  total_chapters: number;
+  step: 'extracting' | 'evaluated' | 'skills';
+  iteration?: number;
+  concept_count?: number;
+  approved?: boolean;
+}
+
+export interface AgenticChapterCompleted {
+  type: 'chapter_completed';
+  book_id: number;
+  book_index: number;
+  book_title: string;
+  chapter_title: string;
+  chapter_number: number;
+  total_chapters: number;
+  concept_count: number;
+  skill_count: number;
+  elapsed_s: number;
+  approved: boolean;
+  iterations: number;
+}
+
+export interface AgenticChapterError {
+  type: 'chapter_error';
+  book_id: number;
+  book_index: number;
+  book_title: string;
+  chapter_title: string;
+  chapter_number: number;
+  total_chapters: number;
+  error: string;
+}
+
+export interface AgenticBookCompleted {
+  type: 'book_completed';
+  book_id: number;
+  book_title: string;
+  book_index: number;
+  total_books: number;
+  chapters_done: number;
+  total_chapters: number;
+  total_concepts: number;
+}
+
+export interface AgenticDone {
+  type: 'done';
+  total_books: number;
+  total_chapters: number;
+  total_concepts: number;
+}
+
+export interface AgenticError {
+  type: 'error';
+  message: string;
+}
+
+export type AgenticStreamEvent =
+  | AgenticLoadingBook
+  | AgenticBookStarted
+  | AgenticAgentStatus
+  | AgenticChapterCompleted
+  | AgenticChapterError
+  | AgenticBookCompleted
+  | AgenticDone
+  | AgenticError;
+
+// ── Chapter-level analysis types ───────────────────────────────
+
+export type ConceptRelevance = 'core' | 'supplementary' | 'tangential';
+
+export interface SkillItem {
+  name: string;
+  description: string;
+  concept_names: string[];
+}
+
+export interface SectionConceptItem {
+  name: string;
+  description: string;
+  relevance: ConceptRelevance;
+  text_evidence: string;
+  sim_max: number | null;
+  best_course_match: string | null;
+}
+
+export interface SectionDetail {
+  section_title: string;
+  concepts: SectionConceptItem[];
+}
+
+export interface ChapterDetail {
+  chapter_title: string;
+  chapter_index: number;
+  chapter_summary: string | null;
+  concept_count: number;
+  core_count: number;
+  supplementary_count: number;
+  skills: SkillItem[];
+  sections: SectionDetail[];
+}
+
+export interface ChapterUniqueConceptItem {
+  name: string;
+  description: string;
+  relevance: ConceptRelevance;
+  text_evidence: string;
+  chapter_title: string | null;
+  section_title: string | null;
+  sim_max: number;
+  best_course_match: string | null;
+}
+
+export interface ChapterAnalysisSummary {
+  id: number;
+  run_id: number;
+  selected_book_id: number;
+  book_title: string;
+
+  total_core_concepts: number;
+  total_supplementary_concepts: number;
+  total_skills: number;
+  total_chapters: number;
+  s_final_name: number;
+  s_final_evidence: number;
+  s_final_weighted: number;
+  s_chapter_lecture: number;
+
+  novel_count_default: number;
+  overlap_count_default: number;
+  covered_count_default: number;
+
+  chapter_details: ChapterDetail[];
+  course_coverage: ConceptCoverageItem[];
+  book_unique_concepts: ChapterUniqueConceptItem[];
+  topic_scores: Record<string, number>;
+  sim_distribution: SimBucket[];
+
+  created_at: string;
+}
+
+// ── Recommendation scoring types ───────────────────────────────
+
+export interface RecommendationWeights {
+  coverage: number;
+  depth: number;
+  novelty: number;
+  balance: number;
+  skillRichness: number;
+  density: number;
+  evidenceDepth: number;
+  chapterAlignment: number;
+  relevanceQuality: number;
+}
+
+export const DEFAULT_RECOMMENDATION_WEIGHTS: RecommendationWeights = {
+  coverage: 0.20,
+  depth: 0.15,
+  novelty: 0.10,
+  balance: 0.10,
+  skillRichness: 0.10,
+  density: 0.05,
+  evidenceDepth: 0.15,
+  chapterAlignment: 0.10,
+  relevanceQuality: 0.05,
+};
+
+export interface RecommendationFactors {
+  coverage: number;
+  depth: number;
+  novelty: number;
+  balance: number;
+  skillRichness: number;
+  density: number;
+  evidenceDepth: number;
+  chapterAlignment: number;
+  relevanceQuality: number;
+}
+
+export interface BookRecommendationScore {
+  bookId: number;
+  bookTitle: string;
+  factors: RecommendationFactors;
+  composite: number;
 }

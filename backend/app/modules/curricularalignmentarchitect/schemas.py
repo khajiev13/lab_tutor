@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .models import (
     AnalysisStrategy,
     BookStatus,
+    ConceptRelevance,
     DownloadStatus,
     ExtractionRunStatus,
     SessionStatus,
@@ -211,7 +212,14 @@ class ConceptCoverageItem(BaseModel):
     concept_name: str
     doc_topic: str | None = None
     sim_max: float
+    sim_evidence: float = 0.0
+    sim_weighted: float = 0.0
+    matched_relevance: str | None = None
     best_match: str | None = None
+    course_text_evidence: str | None = None
+    book_text_evidence: str | None = None
+    book_chapter_title: str | None = None
+    book_section_title: str | None = None
 
 
 class BookUniqueConceptItem(BaseModel):
@@ -316,5 +324,130 @@ class BookAnalysisSummaryRead(BaseModel):
                     for s in scores
                 ],
             )
+
+        return data
+
+
+# ═══════════════════════════════════════════════════════════════
+# Chapter-level analysis schemas
+# ═══════════════════════════════════════════════════════════════
+
+
+class SkillItem(BaseModel):
+    """One skill extracted from a chapter."""
+
+    name: str
+    description: str
+    concept_names: list[str] = Field(default_factory=list)
+
+
+class SectionConceptItem(BaseModel):
+    """A single concept within a section, enriched with similarity data."""
+
+    name: str
+    description: str
+    relevance: ConceptRelevance
+    text_evidence: str
+    sim_max: float | None = None
+    best_course_match: str | None = None
+
+
+class SectionDetail(BaseModel):
+    """Full section with its concepts."""
+
+    section_title: str
+    concepts: list[SectionConceptItem] = Field(default_factory=list)
+
+
+class ChapterDetail(BaseModel):
+    """Full chapter with sections, skills, and summary."""
+
+    chapter_title: str
+    chapter_index: int
+    chapter_summary: str | None = None
+    concept_count: int = 0
+    core_count: int = 0
+    supplementary_count: int = 0
+    skills: list[SkillItem] = Field(default_factory=list)
+    sections: list[SectionDetail] = Field(default_factory=list)
+
+
+class ChapterUniqueConceptItem(BaseModel):
+    """Book→course direction: one book concept with chapter/section context."""
+
+    name: str
+    description: str
+    relevance: ConceptRelevance
+    text_evidence: str
+    chapter_title: str | None = None
+    section_title: str | None = None
+    sim_max: float
+    best_course_match: str | None = None
+
+
+class ChapterAnalysisSummaryRead(BaseModel):
+    """Full chapter-level analysis result for one book in a run."""
+
+    id: int
+    run_id: int
+    selected_book_id: int
+    book_title: str
+
+    # Scalars
+    total_core_concepts: int
+    total_supplementary_concepts: int
+    total_skills: int
+    total_chapters: int
+    s_final_name: float
+    s_final_evidence: float
+    s_final_weighted: float = 0.0
+    s_chapter_lecture: float = 0.0
+
+    # Default-threshold snapshot
+    novel_count_default: int
+    overlap_count_default: int
+    covered_count_default: int
+
+    # Deserialized JSON blobs
+    chapter_details: list[ChapterDetail] = Field(default_factory=list)
+    course_coverage: list[ConceptCoverageItem] = Field(default_factory=list)
+    book_unique_concepts: list[ChapterUniqueConceptItem] = Field(default_factory=list)
+    topic_scores: dict[str, float] = Field(default_factory=dict)
+    sim_distribution: list[SimBucket] = Field(default_factory=list)
+
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def deserialise_json_blobs(cls, data: dict | object) -> dict | object:
+        """Deserialise JSON text columns into typed Python objects."""
+        import json
+
+        def _get(obj: dict | object, key: str) -> str | None:
+            if isinstance(obj, dict):
+                return obj.get(key)
+            return getattr(obj, key, None)
+
+        def _set(obj: dict | object, key: str, value: object) -> None:
+            if isinstance(obj, dict):
+                obj[key] = value
+            else:
+                object.__setattr__(obj, key, value)
+
+        mapping = {
+            "chapter_details_json": "chapter_details",
+            "book_unique_concepts_json": "book_unique_concepts",
+            "course_coverage_json": "course_coverage",
+            "topic_scores_json": "topic_scores",
+            "sim_distribution_json": "sim_distribution",
+        }
+        for json_key, target_key in mapping.items():
+            raw = _get(data, json_key)
+            if raw and isinstance(raw, str):
+                _set(data, target_key, json.loads(raw))
+            elif raw and not isinstance(raw, str):
+                _set(data, target_key, raw)
 
         return data

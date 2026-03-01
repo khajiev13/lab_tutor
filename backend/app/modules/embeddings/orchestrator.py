@@ -111,10 +111,12 @@ class EmbeddingOrchestrator:
             )
 
             offset = 1
-            for m in mentions:
+            concept_name_offset = 1 + len(mentions) * 2
+            for i, m in enumerate(mentions):
                 concept_name = (m.name or "").strip().casefold()
                 def_vec = vectors[offset]
                 ev_vec = vectors[offset + 1]
+                name_vec = vectors[concept_name_offset + i]
                 offset += 2
 
                 self._graph_repo.set_mentions_embeddings(
@@ -122,6 +124,10 @@ class EmbeddingOrchestrator:
                     concept_name=concept_name,
                     definition_embedding=def_vec,
                     text_evidence_embedding=ev_vec,
+                )
+                self._graph_repo.set_concept_embedding(
+                    concept_name=concept_name,
+                    vector=name_vec,
                 )
 
             self._state_repo.mark_completed(
@@ -153,6 +159,9 @@ class EmbeddingOrchestrator:
         for m in mentions:
             texts.append(m.definition or "")
             texts.append(m.text_evidence or "")
+        # Append concept names so we can write CONCEPT.embedding
+        for m in mentions:
+            texts.append((m.name or "").strip().casefold())
 
         embedding_service = self._embedding_service or EmbeddingService()
         vectors = embedding_service.embed_documents(texts)

@@ -152,8 +152,8 @@ def test_orchestrator_reruns_when_hash_changes(db_session):
     assert did_embed is True
     assert len(fake_embed.calls) == 1
 
-    # 1 doc vector + 2 per mention
-    assert len(fake_neo4j.runs) == 1 + len(mentions)
+    # 1 doc vector + 2 per mention (def + evidence) + 1 concept name per mention
+    assert len(fake_neo4j.runs) == 1 + len(mentions) * 2
 
     refreshed = db_session.get(DocumentEmbeddingState, "doc_2")
     assert refreshed is not None

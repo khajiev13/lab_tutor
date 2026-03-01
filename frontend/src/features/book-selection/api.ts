@@ -4,6 +4,7 @@ import type {
   BookCandidate,
   BookExtractionRun,
   BookSelectionSession,
+  ChapterAnalysisSummary,
   CourseSelectedBook,
   ManualUploadResponse,
   SelectBooksRequest,
@@ -216,6 +217,102 @@ export async function getAnalysisSummaries(
     `/book-selection/courses/${courseId}/analysis/${runId}/summaries`,
   );
   return res.data;
+}
+
+// ── Chapter-level analysis endpoints ───────────────────────────
+
+/** Trigger chapter-level concept scoring for all books in a run. */
+export async function triggerChapterScoring(
+  courseId: number,
+  runId: number,
+): Promise<ChapterAnalysisSummary[]> {
+  const res = await api.post<ChapterAnalysisSummary[]>(
+    `/book-selection/courses/${courseId}/analysis/${runId}/chapter-scoring`,
+  );
+  return res.data;
+}
+
+/** Get pre-computed chapter-level analysis summaries for a run. */
+export async function getChapterSummaries(
+  courseId: number,
+  runId: number,
+): Promise<ChapterAnalysisSummary[]> {
+  const res = await api.get<ChapterAnalysisSummary[]>(
+    `/book-selection/courses/${courseId}/analysis/${runId}/chapter-summaries`,
+  );
+  return res.data;
+}
+
+/**
+ * Open an SSE stream for agentic chapter-level extraction.
+ * Uses named SSE events (event: + data:) — the JSON payload includes a `type` field.
+ * Returns an AbortController so the caller can tear down the stream.
+ */
+export function openAgenticExtractionStream(
+  courseId: number,
+  runId: number,
+  onEvent: (evt: import('./types').AgenticStreamEvent) => void,
+  onDone?: () => void,
+  onError?: (err: unknown) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    const baseUrl = (api.defaults.baseURL ?? '').replace(/\/$/, '');
+    const url = `${baseUrl}/book-selection/courses/${courseId}/analysis/${runId}/agentic`;
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => 'Unknown error');
+        onError?.(new Error(`SSE request failed (${res.status}): ${text}`));
+        onDone?.();
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let idx: number;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const raw = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+
+          let data: string | null = null;
+          for (const line of raw.split('\n')) {
+            if (line.startsWith('data:')) {
+              data = line.slice(5).trim();
+            }
+          }
+          if (data) {
+            try {
+              onEvent(JSON.parse(data) as import('./types').AgenticStreamEvent);
+            } catch {
+              // malformed frame
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) onError?.(err);
+    }
+    onDone?.();
+  })();
+
+  return controller;
 }
 
 /**

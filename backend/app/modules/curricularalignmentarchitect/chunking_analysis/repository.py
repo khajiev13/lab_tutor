@@ -21,6 +21,7 @@ from app.core.database import SessionLocal
 from ..models import (
     AnalysisStrategy,
     BookAnalysisSummary,
+    BookChapter,
     BookChunk,
     BookDocumentSummaryScore,
     BookExtractionRun,
@@ -93,6 +94,7 @@ def get_active_run(course_id: int, db: Session) -> BookExtractionRun | None:
                 [
                     ExtractionRunStatus.PENDING,
                     ExtractionRunStatus.EXTRACTING,
+                    ExtractionRunStatus.CHAPTER_EXTRACTED,
                     ExtractionRunStatus.CHUNKING,
                     ExtractionRunStatus.EMBEDDING,
                     ExtractionRunStatus.SCORING,
@@ -139,6 +141,7 @@ def recover_orphaned_runs(db: Session) -> int:
                 [
                     ExtractionRunStatus.PENDING,
                     ExtractionRunStatus.EXTRACTING,
+                    ExtractionRunStatus.CHAPTER_EXTRACTED,
                     ExtractionRunStatus.CHUNKING,
                     ExtractionRunStatus.EMBEDDING,
                     ExtractionRunStatus.SCORING,
@@ -523,3 +526,111 @@ def get_books_from_stored_chunks(run_id: int, db: Session) -> list[dict]:
         payload["chunk_embeddings"].append(row.embedding)
 
     return list(by_book.values())
+
+
+# ── Chapter storage / retrieval ─────────────────────────────────
+
+
+def store_chapters(
+    run_id: int,
+    selected_book_id: int,
+    chapters: list[dict],
+    db: Session,
+) -> int:
+    """Persist BookChapter rows from extracted chapter dicts.
+
+    Deletes any pre-existing chapters for this (run, book) first (idempotent).
+    Returns total chapters stored.
+    """
+    (
+        db.query(BookChapter)
+        .filter(
+            BookChapter.run_id == run_id,
+            BookChapter.selected_book_id == selected_book_id,
+        )
+        .delete(synchronize_session=False)
+    )
+    db.flush()
+
+    for ch in chapters:
+        db.add(
+            BookChapter(
+                run_id=run_id,
+                selected_book_id=selected_book_id,
+                chapter_title=ch["title"],
+                chapter_index=ch["chapter_number"],
+                chapter_text=ch["content"],
+                total_concept_count=0,
+            )
+        )
+    db.flush()
+    return len(chapters)
+
+
+def get_chapters_for_book(
+    run_id: int,
+    selected_book_id: int,
+    db: Session,
+) -> list[BookChapter]:
+    """Return all BookChapter rows for a (run, book), ordered by chapter_index."""
+    return (
+        db.query(BookChapter)
+        .filter(
+            BookChapter.run_id == run_id,
+            BookChapter.selected_book_id == selected_book_id,
+        )
+        .order_by(BookChapter.chapter_index.asc())
+        .all()
+    )
+
+
+def run_has_chapters(run_id: int, db: Session) -> bool:
+    """Return True when a run has at least one stored BookChapter."""
+    return (
+        db.query(BookChapter.id).filter(BookChapter.run_id == run_id).limit(1).first()
+        is not None
+    )
+
+
+def run_extracted_all_books(run_id: int, course_id: int, db: Session) -> bool:
+    """Return True when every selected book with a blob has stored chapters.
+
+    Compares the set of ``selected_book_id`` values present in
+    ``BookChapter`` for *run_id* against the full set of
+    ``CourseSelectedBook`` rows that have a ``blob_path`` for
+    *course_id*.  If any book is missing chapters the extraction was
+    incomplete and the run should **not** resume from chapters alone.
+    """
+    expected_ids = {
+        row[0]
+        for row in db.query(CourseSelectedBook.id)
+        .filter(
+            CourseSelectedBook.course_id == course_id,
+            CourseSelectedBook.blob_path.isnot(None),
+        )
+        .all()
+    }
+    if not expected_ids:
+        return False
+
+    extracted_ids = {
+        row[0]
+        for row in db.query(BookChapter.selected_book_id)
+        .filter(BookChapter.run_id == run_id)
+        .distinct()
+        .all()
+    }
+    return expected_ids <= extracted_ids
+
+
+def get_all_chapters_for_run(
+    run_id: int,
+    db: Session,
+) -> list[BookChapter]:
+    """Return all BookChapter rows for a run, ordered by book then chapter."""
+    return (
+        db.query(BookChapter)
+        .filter(BookChapter.run_id == run_id)
+        .order_by(BookChapter.selected_book_id.asc(), BookChapter.chapter_index.asc())
+        .all()
+    )

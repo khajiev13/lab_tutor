@@ -1,4 +1,5 @@
 import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -13,6 +14,10 @@ logging.basicConfig(
 # Suppress the Azure SDK HTTP transport logger — it dumps full request/response
 # headers for every blob operation at INFO level, which is extremely noisy.
 logging.getLogger("azure").setLevel(logging.WARNING)
+
+# Disable Uvicorn's built-in access log — our RequestTimingMiddleware already
+# logs every request with timing, request-id and slow-request tagging.
+logging.getLogger("uvicorn.access").disabled = True
 
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
@@ -195,6 +200,60 @@ def _ensure_sql_schema_upgrades() -> None:
                 )
             )
 
+        # Idempotent: add agentic extraction enum values
+        for val in ("agentic_extracting", "agentic_completed"):
+            has_val = conn.execute(
+                text(
+                    "SELECT 1 FROM pg_enum e "
+                    "JOIN pg_type t ON t.oid = e.enumtypid "
+                    "WHERE t.typname = 'extraction_run_status' "
+                    "AND e.enumlabel = :label"
+                ),
+                {"label": val},
+            ).fetchone()
+            if not has_val:
+                conn.execute(
+                    text(
+                        f"ALTER TYPE extraction_run_status "
+                        f"ADD VALUE IF NOT EXISTS '{val}'"
+                    )
+                )
+
+        # Idempotent: add chapter_text column to book_chapters
+        has_chapter_text = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_chapters' "
+                "AND column_name = 'chapter_text'"
+            )
+        ).fetchone()
+        if not has_chapter_text:
+            conn.execute(text("ALTER TABLE book_chapters ADD COLUMN chapter_text TEXT"))
+
+        # Idempotent: add chapter_summary column to book_chapters
+        has_chapter_summary = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_chapters' "
+                "AND column_name = 'chapter_summary'"
+            )
+        ).fetchone()
+        if not has_chapter_summary:
+            conn.execute(
+                text("ALTER TABLE book_chapters ADD COLUMN chapter_summary TEXT")
+            )
+
+        # Idempotent: add skills_json column to book_chapters
+        has_skills_json = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_chapters' "
+                "AND column_name = 'skills_json'"
+            )
+        ).fetchone()
+        if not has_skills_json:
+            conn.execute(text("ALTER TABLE book_chapters ADD COLUMN skills_json TEXT"))
+
         conn.commit()
 
 
@@ -265,6 +324,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_langsmith_env(
         api_key=settings.langsmith_api_key, project=settings.langsmith_project
     )
+
+    # Wait for the database to become reachable.  Azure Container Apps with
+    # VNET / private endpoints can take a few seconds after the container
+    # starts before the network path is ready.
+    _max_retries = 5
+    _retry_delay = 3  # seconds
+    for _attempt in range(1, _max_retries + 1):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            logger.info("Database reachable (attempt %d/%d)", _attempt, _max_retries)
+            break
+        except Exception:
+            if _attempt == _max_retries:
+                logger.exception(
+                    "Database unreachable after %d attempts — aborting startup",
+                    _max_retries,
+                )
+                raise
+            logger.warning(
+                "Database not reachable (attempt %d/%d), retrying in %ds…",
+                _attempt,
+                _max_retries,
+                _retry_delay,
+            )
+            time.sleep(_retry_delay)
 
     # Enable pgvector extension before creating tables (idempotent).
     with engine.connect() as conn:

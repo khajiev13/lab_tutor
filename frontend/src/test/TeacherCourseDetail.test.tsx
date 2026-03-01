@@ -66,6 +66,9 @@ vi.mock('../features/book-selection', () => ({
   BookAnalysisTab: ({ courseId }: { courseId: number }) => (
     <div data-testid="book-analysis-tab" data-course-id={courseId}>Book Analysis</div>
   ),
+  BookVisualizationTab: ({ courseId }: { courseId: number }) => (
+    <div data-testid="book-visualization-tab" data-course-id={courseId}>Book Visualization</div>
+  ),
 }));
 
 vi.mock('../features/normalization/components/NormalizationDashboard', () => ({

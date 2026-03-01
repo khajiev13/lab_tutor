@@ -33,6 +33,7 @@ class BookStatus(str, Enum):
     DOWNLOADED = "downloaded"
     UPLOADED = "uploaded"
     FAILED = "failed"
+    CORRUPTED_PDF = "corrupted_pdf"
 
 
 class BookSelectionSession(Base):
@@ -157,12 +158,15 @@ EMBEDDING_DIMS = 2048
 class ExtractionRunStatus(str, Enum):
     PENDING = "pending"
     EXTRACTING = "extracting"
+    CHAPTER_EXTRACTED = "chapter_extracted"
     CHUNKING = "chunking"
     EMBEDDING = "embedding"
     SCORING = "scoring"
     COMPLETED = "completed"
     FAILED = "failed"
     BOOK_PICKED = "book_picked"
+    AGENTIC_EXTRACTING = "agentic_extracting"
+    AGENTIC_COMPLETED = "agentic_completed"
 
 
 class AnalysisStrategy(str, Enum):
@@ -226,6 +230,9 @@ class BookExtractionRun(Base):
     summaries: Mapped[list["BookAnalysisSummary"]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
+    chapter_summaries: Mapped[list["ChapterAnalysisSummary"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
 
 
 class BookChapter(Base):
@@ -243,6 +250,9 @@ class BookChapter(Base):
     chapter_title: Mapped[str] = mapped_column(String(500), nullable=False)
     chapter_index: Mapped[int] = mapped_column(Integer, nullable=False)
     total_concept_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    chapter_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chapter_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    skills_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -442,3 +452,59 @@ class BookDocumentSummaryScore(Base):
     summary: Mapped["BookAnalysisSummary"] = relationship(
         back_populates="document_summary_scores"
     )
+
+
+class ChapterAnalysisSummary(Base):
+    """Chapter-level analysis results — one row per (run × book).
+
+    Stores pre-computed concept-to-concept similarity data from the agentic
+    extraction pipeline.  Richer than BookAnalysisSummary because it carries
+    full chapter/section/skill structure alongside coverage metrics.
+    """
+
+    __tablename__ = "chapter_analysis_summaries"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("book_extraction_runs.id"), nullable=False, index=True
+    )
+    selected_book_id: Mapped[int] = mapped_column(
+        ForeignKey("course_selected_books.id"), nullable=False, index=True
+    )
+    book_title: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # Scalar summaries
+    total_core_concepts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_supplementary_concepts: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+    total_skills: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_chapters: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # Aggregate similarity scores
+    s_final_name: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    s_final_evidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    s_final_weighted: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    s_chapter_lecture: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+
+    # Default-threshold snapshot (novel_thr=0.35, covered_thr=0.55)
+    novel_count_default: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    overlap_count_default: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+    covered_count_default: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+
+    # JSON blobs — full structured data for the frontend dashboard
+    chapter_details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    course_coverage_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    book_unique_concepts_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    topic_scores_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sim_distribution_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    run: Mapped["BookExtractionRun"] = relationship(back_populates="chapter_summaries")
