@@ -180,6 +180,16 @@ class Settings(BaseSettings):
         ),
         description="Comma-separated CORS allowlist origins.",
     )
+    cors_allow_origin_regex: str | None = Field(
+        default=(
+            r"https://([a-z0-9-]+\.)?labtutor\.(app|com)$|"
+            r"https://[a-z0-9-]+\.[a-z0-9-]+\.azurestaticapps\.net$"
+        ),
+        description=(
+            "Optional CORS origin regex fallback for production domains. "
+            "Used in addition to LAB_TUTOR_CORS_ALLOW_ORIGINS."
+        ),
+    )
     cors_allow_credentials: bool = Field(
         default=False,
         description="Whether to allow credentials in CORS. Prefer false when using Bearer tokens.",
