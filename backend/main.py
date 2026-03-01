@@ -62,6 +62,15 @@ from app.providers.storage import blob_service  # noqa: E402
 logger = logging.getLogger(__name__)
 
 
+def _parse_cors_origins(raw_origins: str | None) -> list[str]:
+    origins = [
+        origin.strip().rstrip("/")
+        for origin in (raw_origins or "").split(",")
+        if origin.strip()
+    ]
+    return list(dict.fromkeys(origins))
+
+
 def _ensure_sql_schema_upgrades() -> None:
     """Idempotent schema upgrades for PostgreSQL.
 
@@ -437,13 +446,12 @@ app.add_middleware(
 )
 
 # Configure CORS
-origins = [
-    o.strip() for o in (settings.cors_allow_origins or "").split(",") if o.strip()
-]
+origins = _parse_cors_origins(settings.cors_allow_origins)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=settings.cors_allow_origin_regex,
     allow_credentials=settings.cors_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
