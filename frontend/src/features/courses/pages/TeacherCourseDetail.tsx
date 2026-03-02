@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Play, AlertCircle, CheckCircle2, LogIn, LogOut, GitBranch } from 'lucide-react';
+import { ArrowLeft, Loader2, LogIn, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -8,231 +8,48 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { coursesApi, presentationsApi } from '../api';
-import type { Course, CourseEmbeddingStatusResponse, ExtractionStatus, EmbeddingStatus } from '../types';
-import { FileUpload } from '@/components/FileUpload';
-import { CourseMaterialsTable } from '@/components/CourseMaterialsTable';
-import { NormalizationDashboard } from '@/features/normalization/components/NormalizationDashboard';
-import { BookSelectionDashboard, BookAnalysisTab, BookVisualizationTab } from '@/features/book-selection';
+import { Skeleton } from '@/components/ui/skeleton';
+import { StepContent } from '@/components/ui/stepper';
+import { coursesApi } from '../api';
+import {
+  CourseDetailProvider,
+  useCourseDetail,
+} from '../context/CourseDetailContext';
+import { CourseHeader } from '../components/CourseHeader';
+import { CourseStepperHeader } from '../components/CourseStepperHeader';
+import { MaterialsStep } from '../components/steps/MaterialsStep';
+import { NormalizationStep } from '../components/steps/NormalizationStep';
+import { BookSelectionStep } from '../components/steps/BookSelectionStep';
 
-export default function TeacherCourseDetail() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [course, setCourse] = useState<Course | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [isEnrolled, setIsEnrolled] = useState(false);
-  const [isEnrollmentLoading, setIsEnrollmentLoading] = useState(false);
-  const [presentationCount, setPresentationCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('materials');
-  const [embeddingStatus, setEmbeddingStatus] = useState<CourseEmbeddingStatusResponse | null>(null);
-  const [extractionProgress, setExtractionProgress] = useState<{
-    total: number;
-    processed: number;
-    failed: number;
-    terminal: number;
-    value: number;
-    allTerminal: boolean;
-  } | null>(null);
-  const handleProgressChange = useCallback(
-    (stats: {
-      total: number;
-      processed: number;
-      failed: number;
-      terminal: number;
-      value: number;
-      allTerminal: boolean;
-    }) => {
-      setExtractionProgress((prev) => {
-        if (!prev) return stats;
-        const isSame =
-          prev.total === stats.total &&
-          prev.processed === stats.processed &&
-          prev.failed === stats.failed &&
-          prev.terminal === stats.terminal &&
-          prev.value === stats.value &&
-          prev.allTerminal === stats.allTerminal;
-        return isSame ? prev : stats;
-      });
-    },
-    []
+/* Lazy-load heavy steps */
+const AnalysisStep = lazy(() =>
+  import('../components/steps/AnalysisStep').then((m) => ({
+    default: m.AnalysisStep,
+  }))
+);
+const VisualizationStep = lazy(() =>
+  import('../components/steps/VisualizationStep').then((m) => ({
+    default: m.VisualizationStep,
+  }))
+);
+
+function StepSkeleton() {
+  return (
+    <div className="space-y-4 pt-4">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-64 w-full" />
+    </div>
   );
+}
 
-  const handleFilesChange = useCallback((files: string[]) => {
-    setPresentationCount(files.length);
-  }, []);
+/* ── Teacher content ─────────────────────────────────────────── */
 
-  const fetchCourse = useCallback(async () => {
-    if (!id) return;
-    try {
-      const data = await coursesApi.getCourse(Number(id));
-      setCourse(data);
-      
-      if (user?.role === 'student') {
-        const enrollment = await coursesApi.getEnrollment(Number(id));
-        setIsEnrolled(!!enrollment);
-      }
-    } catch (error) {
-      toast.error('Failed to fetch course details');
-      console.error(error);
-      navigate('/courses');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id, navigate, user?.role]);
+function TeacherContent() {
+  const { activeStep, isLoading, course } = useCourseDetail();
 
-  useEffect(() => {
-    fetchCourse();
-  }, [fetchCourse]);
-
-  const pollIntervalMs = 10_000;
-
-  // Polling for extraction status
-  useEffect(() => {
-    if (course?.extraction_status !== 'in_progress') return;
-
-    const intervalId = setInterval(async () => {
-      if (!id) return;
-      try {
-        const updatedCourse = await coursesApi.getCourse(Number(id));
-        setCourse(updatedCourse);
-
-        if (updatedCourse.extraction_status !== 'in_progress') {
-          clearInterval(intervalId);
-          if (updatedCourse.extraction_status === 'finished') {
-            toast.success('Data extraction completed successfully!');
-          } else if (updatedCourse.extraction_status === 'failed') {
-            toast.error('Data extraction failed.');
-          }
-        }
-      } catch (error) {
-        console.error('Polling failed', error);
-      }
-    }, pollIntervalMs);
-
-    return () => clearInterval(intervalId);
-  }, [course?.extraction_status, id]);
-
-  // Polling for embeddings status (only while on the materials tab)
-  useEffect(() => {
-    if (course?.extraction_status !== 'finished' || activeTab !== 'materials') {
-      setEmbeddingStatus(null);
-      return;
-    }
-
-    const fetchEmbeddingStatus = async () => {
-      if (!id) return;
-      try {
-        const status = await coursesApi.getEmbeddingsStatus(Number(id));
-        setEmbeddingStatus(status);
-      } catch (error) {
-        console.error('Embeddings status polling failed', error);
-      }
-    };
-
-    fetchEmbeddingStatus();
-    const intervalId = setInterval(fetchEmbeddingStatus, pollIntervalMs);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [course?.extraction_status, activeTab, id]);
-
-  const handleUpload = async (files: File[]) => {
-    if (!course) return;
-    if (course.extraction_status === 'in_progress') {
-      toast.error('Cannot modify files while extraction is in progress');
-      return;
-    }
-    await presentationsApi.upload(course.id, files);
-    setRefreshTrigger((prev) => prev + 1);
-  };
-
-  const handleStartExtraction = async () => {
-    if (!course) return;
-    setIsExtracting(true);
-    try {
-      const response = await coursesApi.startExtraction(course.id);
-      toast.success(response.message);
-      // Update local state immediately
-      setCourse(prev => prev ? { ...prev, extraction_status: response.status } : null);
-    } catch (error) {
-      toast.error('Failed to start extraction');
-      console.error(error);
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
-  const handleJoin = async () => {
-    if (!course) return;
-    setIsEnrollmentLoading(true);
-    try {
-      await coursesApi.join(course.id);
-      setIsEnrolled(true);
-      toast.success('Successfully joined the course!');
-    } catch {
-      toast.error('Failed to join course');
-    } finally {
-      setIsEnrollmentLoading(false);
-    }
-  };
-
-  const handleLeave = async () => {
-    if (!course) return;
-    setIsEnrollmentLoading(true);
-    try {
-      await coursesApi.leave(course.id);
-      setIsEnrolled(false);
-      toast.success('Successfully left the course');
-    } catch {
-      toast.error('Failed to leave course');
-    } finally {
-      setIsEnrollmentLoading(false);
-    }
-  };
-
-  const getStatusBadge = (status: ExtractionStatus) => {
-    switch (status) {
-      case 'not_started':
-        return <Badge variant="secondary">Ready to Extract</Badge>;
-      case 'in_progress':
-        return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">Extracting Data...</Badge>;
-      case 'finished':
-        return <Badge variant="default" className="bg-green-500 hover:bg-green-600">Extraction Complete</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Extraction Failed</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
-
-  const getEmbeddingBadge = (status: EmbeddingStatus) => {
-    switch (status) {
-      case 'not_started':
-        return <Badge variant="outline">Not embedded</Badge>;
-      case 'in_progress':
-        return <Badge variant="secondary">Embedding…</Badge>;
-      case 'completed':
-        return <Badge variant="default">Embedded</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Embedding failed</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
-
-  if (isLoading) {
+  if (isLoading || !course) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -240,17 +57,135 @@ export default function TeacherCourseDetail() {
     );
   }
 
-  if (!course) return null;
+  return (
+    <>
+      <CourseHeader />
+      <CourseStepperHeader />
 
-  const isExtractionInProgress = course.extraction_status === 'in_progress';
-  const canStartExtraction =
-    user?.role === 'teacher' &&
-    (course.extraction_status === 'not_started' || course.extraction_status === 'failed') &&
-    presentationCount > 0;
+      <StepContent activeIndex={activeStep} index={0}>
+        <MaterialsStep />
+      </StepContent>
+
+      <StepContent activeIndex={activeStep} index={1}>
+        <NormalizationStep />
+      </StepContent>
+
+      <StepContent activeIndex={activeStep} index={2}>
+        <BookSelectionStep />
+      </StepContent>
+
+      <Suspense fallback={<StepSkeleton />}>
+        <StepContent activeIndex={activeStep} index={3}>
+          <AnalysisStep />
+        </StepContent>
+      </Suspense>
+
+      <Suspense fallback={<StepSkeleton />}>
+        <StepContent activeIndex={activeStep} index={4}>
+          <VisualizationStep />
+        </StepContent>
+      </Suspense>
+    </>
+  );
+}
+
+/* ── Student content ─────────────────────────────────────────── */
+
+function StudentContent({ courseId }: { courseId: number }) {
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const checkEnrollment = useCallback(async () => {
+    try {
+      const enrollment = await coursesApi.getEnrollment(courseId);
+      setIsEnrolled(!!enrollment);
+    } catch {
+      /* ignore */
+    }
+  }, [courseId]);
+
+  useEffect(() => {
+    checkEnrollment();
+  }, [checkEnrollment]);
+
+  const handleJoin = async () => {
+    setIsLoading(true);
+    try {
+      await coursesApi.join(courseId);
+      setIsEnrolled(true);
+      toast.success('Successfully joined the course!');
+    } catch {
+      toast.error('Failed to join course');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    setIsLoading(true);
+    try {
+      await coursesApi.leave(courseId);
+      setIsEnrolled(false);
+      toast.success('Successfully left the course');
+    } catch {
+      toast.error('Failed to leave course');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <Card>
+      <CardHeader>
+        <div className="flex justify-end">
+          <Button
+            onClick={isEnrolled ? handleLeave : handleJoin}
+            disabled={isLoading}
+            variant={isEnrolled ? 'destructive' : 'default'}
+          >
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : isEnrolled ? (
+              <>
+                <LogOut className="mr-2 h-4 w-4" />
+                Leave Course
+              </>
+            ) : (
+              <>
+                <LogIn className="mr-2 h-4 w-4" />
+                Join Course
+              </>
+            )}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">
+          {isEnrolled
+            ? 'You are enrolled in this course.'
+            : 'Join this course to access materials and assessments.'}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── Page ─────────────────────────────────────────────────────── */
+
+export default function TeacherCourseDetail() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const courseId = Number(id);
+  if (!id || isNaN(courseId)) {
+    navigate('/courses');
+    return null;
+  }
+
+  return (
+    <CourseDetailProvider courseId={courseId}>
+      <div className="space-y-6">
         <Button
           variant="ghost"
           className="pl-0 hover:bg-transparent hover:text-primary"
@@ -259,220 +194,13 @@ export default function TeacherCourseDetail() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Courses
         </Button>
-        {user?.role === 'teacher' && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Status:</span>
-            {getStatusBadge(course.extraction_status)}
-            {course.extraction_status === 'finished' && embeddingStatus && (
-              <>
-                <span className="text-sm text-muted-foreground">Embeddings:</span>
-                {getEmbeddingBadge(embeddingStatus.embedding_status)}
-              </>
-            )}
-          </div>
+
+        {user?.role === 'teacher' ? (
+          <TeacherContent />
+        ) : (
+          <StudentContent courseId={courseId} />
         )}
       </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-2xl">{course.title}</CardTitle>
-              <CardDescription className="text-base mt-2">
-                {course.description || 'No description provided.'}
-              </CardDescription>
-            </div>
-            {canStartExtraction && (
-              <Button onClick={handleStartExtraction} disabled={isExtracting}>
-                {isExtracting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="mr-2 h-4 w-4" />
-                )}
-                Start Data Extraction
-              </Button>
-            )}
-            {user?.role === 'teacher' && course.extraction_status === 'finished' && (
-              <Button
-                variant="secondary"
-                onClick={() => navigate(`/courses/${course.id}/graph`)}
-              >
-                <GitBranch className="mr-2 h-4 w-4" />
-                View knowledge graph
-              </Button>
-            )}
-            {user?.role === 'student' && (
-              <Button 
-                onClick={isEnrolled ? handleLeave : handleJoin} 
-                disabled={isEnrollmentLoading}
-                variant={isEnrolled ? "destructive" : "default"}
-              >
-                {isEnrollmentLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : isEnrolled ? (
-                  <>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Leave Course
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Join Course
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center text-sm text-muted-foreground">
-            <span className="font-medium text-foreground mr-2">Created:</span>
-            {new Date(course.created_at).toLocaleDateString()}
-          </div>
-          
-          {user?.role === 'teacher' && isExtractionInProgress && (
-            <div className="mt-6 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-blue-500 font-medium flex items-center">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing course materials...
-                </span>
-                {extractionProgress?.total ? (
-                  <span className="text-muted-foreground tabular-nums">
-                    Done {extractionProgress.terminal}/{extractionProgress.total}
-                    {extractionProgress.failed > 0 ? ` • Failed ${extractionProgress.failed}` : ""}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">Please wait</span>
-                )}
-              </div>
-              <Progress
-                value={extractionProgress?.total ? extractionProgress.value : undefined}
-                className="w-full"
-              />
-              <p className="text-xs text-muted-foreground">
-                This process may take a few minutes depending on the size of your presentations.
-              </p>
-            </div>
-          )}
-
-          {user?.role === 'teacher' && course.extraction_status === 'failed' && (
-            <Alert variant="destructive" className="mt-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Extraction Failed</AlertTitle>
-              <AlertDescription>
-                There was an error processing your course materials. Please check your files and try again.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {user?.role === 'teacher' && course.extraction_status === 'finished' && (
-            <Alert className="mt-6 border-green-500 text-green-600 bg-green-50 dark:bg-green-950/20">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertTitle>Extraction complete</AlertTitle>
-              <AlertDescription>
-                Your course materials were processed successfully. Next, pick a book to build the knowledge graph from.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-
-      {user?.role === 'teacher' && (
-        <Tabs defaultValue="materials" className="w-full" onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="materials">Materials</TabsTrigger>
-            <TabsTrigger value="normalization">Concept normalization</TabsTrigger>
-            <TabsTrigger value="book-selection">Book Selection</TabsTrigger>
-            <TabsTrigger value="analysis">Book Analysis</TabsTrigger>
-            <TabsTrigger value="visualization">Book Visualization</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="materials">
-            <Card>
-              <CardHeader>
-                <CardTitle>Course Materials</CardTitle>
-                <CardDescription>
-                  Manage presentations and documents for this course.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className={isExtractionInProgress ? "opacity-50 pointer-events-none" : ""}>
-                  <FileUpload onUpload={handleUpload} disabled={isExtractionInProgress} />
-                </div>
-                
-                {isExtractionInProgress && (
-                  <Alert className="bg-muted/50">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>File Management Locked</AlertTitle>
-                    <AlertDescription>
-                      You cannot upload or delete files while data extraction is in progress.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium">Files</h3>
-                      {isExtractionInProgress && (
-                        <span className="text-xs text-muted-foreground">Updating…</span>
-                      )}
-                    </div>
-                    <CourseMaterialsTable
-                      courseId={course.id}
-                      refreshTrigger={refreshTrigger}
-                      disabled={isExtractionInProgress}
-                      poll={isExtractionInProgress}
-                      pollIntervalMs={pollIntervalMs}
-                      onFilesChange={handleFilesChange}
-                      onProgressChange={handleProgressChange}
-                      embeddingStatus={embeddingStatus}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="normalization">
-            {course.extraction_status !== 'finished' && (
-              <Alert className="mb-4 bg-muted/50">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Extraction required</AlertTitle>
-                <AlertDescription>
-                  Run extraction first so the concept bank is populated for this course.
-                </AlertDescription>
-              </Alert>
-            )}
-            <NormalizationDashboard
-              courseId={course.id}
-              disabled={course.extraction_status !== 'finished'}
-            />
-          </TabsContent>
-
-          <TabsContent value="book-selection">
-            <BookSelectionDashboard
-              courseId={course.id}
-              disabled={course.extraction_status !== 'finished'}
-            />
-          </TabsContent>
-
-          <TabsContent value="analysis">
-            <BookAnalysisTab
-              courseId={course.id}
-              disabled={course.extraction_status !== 'finished'}
-            />
-          </TabsContent>
-
-          <TabsContent value="visualization">
-            <BookVisualizationTab
-              courseId={course.id}
-              disabled={course.extraction_status !== 'finished'}
-            />
-          </TabsContent>
-        </Tabs>
-      )}
-    </div>
+    </CourseDetailProvider>
   );
 }

@@ -71,6 +71,11 @@ vi.mock('../features/book-selection', () => ({
   ),
 }));
 
+vi.mock('../features/book-selection/api', () => ({
+  getLatestSession: vi.fn().mockResolvedValue(null),
+  getLatestAnalysis: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock('../features/normalization/components/NormalizationDashboard', () => ({
   NormalizationDashboard: ({
     courseId,
@@ -208,8 +213,8 @@ describe('TeacherCourseDetail', () => {
       expect(coursesApi.getEmbeddingsStatus).toHaveBeenCalledTimes(1);
     });
 
-    // Switch to a different tab
-    fireEvent.click(screen.getByRole('tab', { name: /concept normalization/i }));
+    // Switch to a different step (Normalization = step 2)
+    fireEvent.click(screen.getByRole('button', { name: /go to step 2/i }));
 
     // Wait a tick to let any React effects settle
     await act(async () => {});
