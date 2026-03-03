@@ -112,11 +112,9 @@ ASYNC_POOL_RECYCLE_SECONDS = 60 if IS_POSTGRES else -1
 # Azure Postgres allows ~50 connections on Basic tier.  We need headroom for
 # the ThreadPoolExecutor embedding workers (up to 10 concurrent sessions) plus
 # FastAPI request handlers and SSE polling.
+# With 2 replicas: 2 × (pool_size + max_overflow) = 2 × 20 = 40  (< 50 limit)
 POOL_SIZE = 10
-MAX_OVERFLOW = 5
-# Keep pool small — Azure Postgres Basic/Standard tiers have low max_connections.
-POOL_SIZE = 3
-MAX_OVERFLOW = 7
+MAX_OVERFLOW = 10
 
 POSTGRES_CONNECT_ARGS = (
     {
