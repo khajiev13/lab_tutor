@@ -11,9 +11,11 @@ from .schemas import ChapterConceptsResult, ExtractionFeedback
 
 
 class ChapterExtractionState(TypedDict):
+    course_subject: str
     book_name: str
     chapter_title: str
     section_titles: list[str]
+    section_contents: list[str]
     chapter_content: str
     extraction: ChapterConceptsResult | None
     feedback: ExtractionFeedback | None
@@ -28,6 +30,7 @@ class ChapterExtractionState(TypedDict):
 class BookPipelineState(TypedDict):
     run_id: int
     selected_book_id: int
+    course_subject: str
     book_name: str
     book_label: str
     chapters: list[dict]  # chapter dicts from pdf_parser
@@ -39,11 +42,13 @@ class BookPipelineState(TypedDict):
 class ChapterWorkerInput(TypedDict):
     run_id: int
     selected_book_id: int
+    course_subject: str
     book_name: str
     book_label: str
     chapter_number: int
     chapter_title: str
     section_titles: list[str]
+    section_contents: list[str]
     chapter_content: str
     total_chapters: int
     completed_chapters: Annotated[list, operator.add]

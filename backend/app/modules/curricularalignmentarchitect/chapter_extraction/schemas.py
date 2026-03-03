@@ -30,8 +30,8 @@ class Concept(BaseModel):
     text_evidence: str = Field(
         description="Short quote or paraphrase from the chapter text"
     )
-    source_section: str = Field(
-        description="Title of the section this concept primarily belongs to"
+    source_section: int = Field(
+        description="1-based index of the section from the provided numbered list"
     )
     # Populated after extraction by the embedding step in chapter_worker.
     name_embedding: list[float] | None = Field(default=None, exclude=True)
@@ -52,6 +52,9 @@ class SectionExtraction(BaseModel):
     """Grouped concepts for one section — used for downstream compatibility."""
 
     section_title: str = Field(description="Title matching a TOC section")
+    section_content: str | None = Field(
+        default=None, description="Original section text from the PDF"
+    )
     concepts: list[Concept] = Field(default_factory=list)
 
 

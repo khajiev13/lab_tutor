@@ -39,7 +39,7 @@ class TestConceptSchema:
             description="Systems spread across multiple machines",
             relevance=ConceptRelevance.CORE,
             text_evidence="Quote from text",
-            source_section="Section 1.1",
+            source_section=1,
         )
         assert c.name == "Distributed Systems"
         assert c.relevance == ConceptRelevance.CORE
@@ -66,7 +66,7 @@ class TestChapterConceptsResult:
             description="desc",
             relevance=ConceptRelevance.CORE,
             text_evidence="ev",
-            source_section="S1",
+            source_section=1,
         )
         result = ChapterConceptsResult(chapter_title="Ch 1", concepts=[c])
         assert len(result.concepts) == 1
@@ -82,14 +82,14 @@ class TestChapterExtraction:
             description="d",
             relevance=ConceptRelevance.CORE,
             text_evidence="e",
-            source_section="S1",
+            source_section=1,
         )
         c2 = Concept(
             name="B",
             description="d",
             relevance=ConceptRelevance.SUPPLEMENTARY,
             text_evidence="e",
-            source_section="S2",
+            source_section=2,
         )
         extraction = ChapterExtraction(
             chapter_title="Ch 1",
@@ -171,7 +171,7 @@ class TestSafeParseChapterConcepts:
                     "description": "desc",
                     "relevance": "core",
                     "text_evidence": "ev",
-                    "source_section": "S1",
+                    "source_section": 1,
                 }
             ],
         }
@@ -188,7 +188,7 @@ class TestSafeParseChapterConcepts:
                     "description": "d",
                     "relevance": "core",
                     "text_evidence": "e",
-                    "source_section": "S",
+                    "source_section": 1,
                 },
                 {"name": "Bad"},  # missing fields
                 "not a dict",  # wrong type
@@ -237,14 +237,14 @@ class TestFormatConceptsForEval:
                     description="desc A",
                     relevance=ConceptRelevance.CORE,
                     text_evidence="evidence text here",
-                    source_section="S1",
+                    source_section=1,
                 ),
             ],
         )
         result = _format_concepts_for_eval(extraction)
         assert "core" in result
         assert "A" in result
-        assert "S1" in result
+        assert "#1" in result
 
     def test_empty_concepts(self):
         extraction = ChapterConceptsResult(chapter_title="Ch 1", concepts=[])

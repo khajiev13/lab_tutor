@@ -4,6 +4,7 @@ import {
   GitCompare,
   Layers,
   Lightbulb,
+  Sparkles,
   Target,
 } from 'lucide-react';
 
@@ -18,6 +19,7 @@ import { CoverageTab } from './coverage-tab';
 import { NoveltyTab } from './novelty-tab';
 import { OverviewTab } from './overview-tab';
 import { TopicsTab } from './topics-tab';
+import { RecommendationsTab } from './recommendations-tab';
 
 // ── Orchestrator ───────────────────────────────────────────────
 
@@ -101,6 +103,10 @@ function ChapterAnalysisContent() {
             <GitCompare className="mr-1.5 h-3.5 w-3.5" />
             Compare
           </TabsTrigger>
+          <TabsTrigger value="recommendations">
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+            Recommendations
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -120,6 +126,9 @@ function ChapterAnalysisContent() {
         </TabsContent>
         <TabsContent value="compare" className="mt-4">
           <CompareTab />
+        </TabsContent>
+        <TabsContent value="recommendations" className="mt-4">
+          <RecommendationsTab />
         </TabsContent>
       </Tabs>
     </div>

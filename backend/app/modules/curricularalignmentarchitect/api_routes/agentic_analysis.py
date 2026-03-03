@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.models import Course
 
 from ..chapter_extraction.graph import build_book_pipeline_graph
 from ..chapter_extraction.repository import fresh_db, update_run
@@ -99,8 +100,12 @@ def register_routes(router):
             for sb in selected_books
         ]
 
+        # Fetch course subject (title) for domain-scoped extraction prompts
+        course = db.get(Course, course_id)
+        course_subject = course.title if course else "General"
+
         return StreamingResponse(
-            _sse_generator(run_id, course_id, books_meta),
+            _sse_generator(run_id, course_id, books_meta, course_subject),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -110,6 +115,7 @@ async def _sse_generator(
     run_id: int,
     course_id: int,
     books_meta: list[dict],
+    course_subject: str,
 ):
     """Async generator that yields SSE-formatted strings.
 
@@ -216,6 +222,7 @@ async def _sse_generator(
                 {
                     "run_id": run_id,
                     "selected_book_id": book_id,
+                    "course_subject": course_subject,
                     "book_name": book_title,
                     "book_label": book_title.replace(".pdf", ""),
                     "chapters": chapters,

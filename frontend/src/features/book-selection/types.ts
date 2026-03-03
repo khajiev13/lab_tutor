@@ -200,7 +200,8 @@ export type ExtractionRunStatus =
   | 'failed'
   | 'book_picked'
   | 'agentic_extracting'
-  | 'agentic_completed';
+  | 'agentic_completed'
+  | 'curriculum_built';
 
 export type AnalysisStrategy = 'chunking' | 'agentic';
 
@@ -531,3 +532,133 @@ export interface BookRecommendationScore {
   factors: RecommendationFactors;
   composite: number;
 }
+
+// ── Content Recommendations (SSE streaming) ────────────────────
+
+export type RecommendationCategory =
+  | 'missing_concept'
+  | 'insufficient_coverage'
+  | 'suggested_skill'
+  | 'structural';
+
+export type RecommendationPriority = 'high' | 'medium' | 'low';
+
+export interface BookEvidence {
+  chapter_title: string | null;
+  section_title: string | null;
+  text_evidence: string | null;
+}
+
+export interface RecommendationItem {
+  category: RecommendationCategory;
+  priority: RecommendationPriority;
+  title: string;
+  description: string;
+  rationale: string;
+  book_evidence: BookEvidence | null;
+  affected_teacher_document: string | null;
+  suggested_action: string;
+}
+
+/** Partial item from incremental JSON parsing during streaming. */
+export interface PartialRecommendationItem {
+  category?: string;
+  priority?: string;
+  title?: string;
+  description?: string;
+  rationale?: string;
+  book_evidence?: Partial<BookEvidence> | null;
+  affected_teacher_document?: string | null;
+  suggested_action?: string;
+}
+
+export interface RecommendationReport {
+  source: string;
+  course_id: number;
+  book_title: string;
+  summary: string;
+  recommendations: RecommendationItem[];
+}
+
+export interface RecommendationResponse {
+  reports: RecommendationReport[];
+}
+
+// SSE event types for streaming recommendations
+export interface RecommendationStartedEvent {
+  type: 'started';
+  book_title: string;
+  novel_count: number;
+  overlap_count: number;
+  weak_course_count: number;
+  skill_count: number;
+  teacher_doc_count: number;
+}
+
+export interface RecommendationAnalyzingEvent {
+  type: 'analyzing';
+  agent: string;
+  message: string;
+}
+
+export interface RecommendationReportEvent {
+  type: 'report';
+  source: string;
+  course_id: number;
+  book_title: string;
+  summary: string;
+  recommendations: RecommendationItem[];
+}
+
+export interface RecommendationDoneEvent {
+  type: 'done';
+  total_reports: number;
+  total_recommendations: number;
+}
+
+export interface RecommendationTokenEvent {
+  type: 'token';
+  text: string;
+}
+
+export interface RecommendationErrorEvent {
+  type: 'error';
+  message: string;
+  agent?: string;
+}
+
+export type RecommendationStreamEvent =
+  | RecommendationStartedEvent
+  | RecommendationAnalyzingEvent
+  | RecommendationTokenEvent
+  | RecommendationReportEvent
+  | RecommendationDoneEvent
+  | RecommendationErrorEvent;
+
+// ── Curriculum Build Types (SSE) ───────────────────────────────
+
+export interface CurriculumBuildProgressEvent {
+  event: 'progress';
+  step: string;
+  total_chapters?: number;
+  chapter_index?: number;
+  chapter_title?: string;
+  chapter_number?: number;
+  merged_count?: number;
+}
+
+export interface CurriculumBuildCompleteEvent {
+  event: 'complete';
+  curriculum_id: string;
+  total_chapters: number;
+}
+
+export interface CurriculumBuildErrorEvent {
+  event: 'error';
+  message: string;
+}
+
+export type CurriculumBuildEvent =
+  | CurriculumBuildProgressEvent
+  | CurriculumBuildCompleteEvent
+  | CurriculumBuildErrorEvent;

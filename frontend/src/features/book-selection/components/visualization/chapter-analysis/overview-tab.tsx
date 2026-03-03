@@ -6,7 +6,19 @@ import {
   RadarChart,
 } from 'recharts';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
@@ -34,7 +46,28 @@ import {
 } from '@/components/ui/tooltip';
 
 import type { RecommendationWeights } from '../../../types';
+import { cn } from '@/lib/utils';
 import { useChapterAnalysis } from './context';
+
+// ── Step display helpers ───────────────────────────────────────
+
+const STEP_LABELS: Record<string, string> = {
+  loaded_data: 'Data loaded from database',
+  embedding_chapter_summaries: 'Embedding chapter summaries…',
+  embedding_done: 'Embeddings generated',
+  creating_curriculum_node: 'Creating curriculum node',
+  creating_chapters: 'Creating chapter nodes',
+  processing_chapter: 'Processing chapter',
+  merging_similar_concepts: 'Merging similar concepts…',
+  merging_done: 'Concept merging complete',
+};
+
+function stepLabel(evt: { step?: string; chapter_title?: string }): string {
+  if (evt.step === 'processing_chapter' && evt.chapter_title) {
+    return `Processing: ${evt.chapter_title}`;
+  }
+  return STEP_LABELS[evt.step ?? ''] ?? evt.step ?? '';
+}
 
 // ── Weight slider config ───────────────────────────────────────
 
@@ -141,6 +174,7 @@ export function OverviewTab() {
   const { state, actions } = useChapterAnalysis();
   const { scores, weights } = state;
 
+  const selectedScore = scores.find((s) => s.bookId === state.selectedBookId) ?? null;
   const radarData = buildRadarData(scores);
 
   const chartConfig: ChartConfig = {};
@@ -200,15 +234,16 @@ export function OverviewTab() {
       </Card>
 
       {/* Ranked Book Cards */}
-      <div className="flex gap-4 overflow-x-auto pb-2">
+      <div className="flex gap-4 overflow-x-auto p-1 -m-1 pb-3">
         {scores.map((score, idx) => (
           <Card
             key={score.bookId}
-            className={`min-w-[220px] shrink-0 cursor-pointer transition-all ${
+            className={cn(
+              'min-w-[220px] shrink-0 cursor-pointer transition-all',
               state.selectedBookId === score.bookId
                 ? 'ring-2 ring-primary'
-                : 'hover:ring-1 hover:ring-muted-foreground/30'
-            }`}
+                : 'hover:ring-1 hover:ring-muted-foreground/30',
+            )}
             onClick={() => actions.setSelectedBook(score.bookId)}
           >
             <CardContent className="pt-4 space-y-2">
@@ -240,6 +275,100 @@ export function OverviewTab() {
           </Card>
         ))}
       </div>
+
+      {/* Build Curriculum Graph */}
+      {scores.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Curriculum Knowledge Graph</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Transfer extracted chapters, concepts, and skills into Neo4j for
+              graph-powered exploration.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {state.curriculumBuilt ? (
+              <Badge variant="default" className="text-sm px-3 py-1">
+                Curriculum Built ✓
+              </Badge>
+            ) : (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    disabled={
+                      !state.selectedBookId || state.isBuildingCurriculum
+                    }
+                  >
+                    {state.isBuildingCurriculum
+                      ? 'Building…'
+                      : 'Build Curriculum Graph'}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Build Curriculum Graph?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will construct a knowledge graph in Neo4j from the
+                      selected book&apos;s chapters, sections, concepts, and
+                      skills. The process embeds chapter summaries and merges
+                      duplicate concepts automatically.
+                      {selectedScore && (
+                        <span className="block mt-2 font-medium text-foreground">
+                          Book: {selectedScore.bookTitle} — {scores.length}{' '}
+                          book(s) analyzed
+                        </span>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        if (state.selectedBookId) {
+                          actions.buildCurriculum(state.selectedBookId);
+                        }
+                      }}
+                    >
+                      Build
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            {/* Progress steps */}
+            {state.curriculumBuildProgress.length > 0 && (
+              <div className="space-y-1 text-sm">
+                {state.curriculumBuildProgress.map((evt, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    {evt.event === 'complete' ? (
+                      <span className="text-green-600">✓</span>
+                    ) : evt.event === 'error' ? (
+                      <span className="text-destructive">✗</span>
+                    ) : (
+                      <span className="text-muted-foreground">•</span>
+                    )}
+                    <span
+                      className={cn(
+                        'text-muted-foreground',
+                        evt.event === 'error' && 'text-destructive',
+                      )}
+                    >
+                      {evt.event === 'error'
+                        ? evt.message
+                        : evt.event === 'complete'
+                          ? `Done — ${evt.curriculum_id}`
+                          : stepLabel(evt)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Radar Chart */}
       {scores.length > 0 && (
@@ -300,9 +429,9 @@ export function OverviewTab() {
                 {scores.map((s) => (
                   <TableRow
                     key={s.bookId}
-                    className={
-                      state.selectedBookId === s.bookId ? 'bg-muted/50' : ''
-                    }
+                    className={cn(
+                      state.selectedBookId === s.bookId && 'bg-muted/50',
+                    )}
                   >
                     <TableCell className="font-medium max-w-[200px] truncate">
                       {s.bookTitle}
