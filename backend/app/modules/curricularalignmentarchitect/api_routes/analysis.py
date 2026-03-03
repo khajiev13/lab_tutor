@@ -21,6 +21,7 @@ from ..chunking_analysis.repository import (
     get_summaries_for_run,
     pick_book,
 )
+from ..curriculum_graph.service import CurriculumGraphService
 from ..models import BookExtractionRun
 from ..schemas import BookAnalysisSummaryRead, BookExtractionRunRead
 
@@ -145,6 +146,30 @@ def register_routes(router):
 
         return StreamingResponse(
             event_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @router.post(
+        "/courses/{course_id}/analysis/{run_id}/build-curriculum/{selected_book_id}",
+    )
+    async def build_curriculum(
+        course_id: int,
+        run_id: int,
+        selected_book_id: int,
+        _teacher: User = Depends(require_role(UserRole.TEACHER)),
+    ):
+        """Stream curriculum graph construction progress via SSE."""
+        service = CurriculumGraphService()
+
+        async def sse_generator():
+            async for event in service.build_curriculum(
+                course_id, run_id, selected_book_id
+            ):
+                yield f"data: {json.dumps(event)}\n\n"
+
+        return StreamingResponse(
+            sse_generator(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )

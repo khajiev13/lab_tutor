@@ -164,7 +164,7 @@ def _format_concepts_for_eval(extraction: ChapterConceptsResult) -> str:
     for i, c in enumerate(extraction.concepts, 1):
         lines.append(
             f"  {i}. [{c.relevance.value}] {c.name}: {c.description}"
-            f"\n     Section: {c.source_section}"
+            f"\n     Section: #{c.source_section}"
             f'\n     Evidence: "{c.text_evidence[:150]}"'
         )
     return "\n".join(lines)
@@ -189,12 +189,13 @@ def _invoke_extraction_chain(
 
 
 def _invoke_skills_extraction(
-    book_label: str, ch_title: str, section_summaries: list[str]
+    course_subject: str, book_label: str, ch_title: str, section_summaries: list[str]
 ) -> ChapterSkillsResult:
     """Chapter-level skills extraction."""
     skills_llm = _build_skills_llm()
     return (SKILLS_PROMPT | skills_llm).invoke(
         {
+            "course_subject": course_subject,
             "book_name": book_label,
             "chapter_title": ch_title,
             "all_sections_summary": "\n".join(section_summaries),
@@ -203,45 +204,61 @@ def _invoke_skills_extraction(
 
 
 def _group_concepts_by_section(
-    concepts: list[Concept], section_titles: list[str]
+    concepts: list[Concept],
+    section_titles: list[str],
+    section_contents: list[str] | None = None,
 ) -> list[SectionExtraction]:
-    """Group flat concept list into SectionExtraction objects by source_section."""
-    norm_to_title: dict[str, str] = {}
-    for t in section_titles:
-        norm_to_title[t.strip().lower()] = t
+    """Group flat concept list into SectionExtraction objects by source_section index.
 
-    grouped: dict[str, list[Concept]] = {t: [] for t in section_titles}
+    Each concept's ``source_section`` is a **1-based integer** matching the
+    numbered section list shown to the LLM.  Grouping is deterministic — no
+    fuzzy string matching needed.
+    """
+    n = len(section_titles)
+    grouped: dict[int, list[Concept]] = {i: [] for i in range(n)}
     unmatched: list[Concept] = []
 
     for concept in concepts:
-        src = concept.source_section.strip().lower()
-        if src in norm_to_title:
-            grouped[norm_to_title[src]].append(concept)
+        idx = concept.source_section - 1  # 1-based → 0-based
+        if 0 <= idx < n:
+            grouped[idx].append(concept)
         else:
-            matched = False
-            for norm, orig in norm_to_title.items():
-                if src in norm or norm in src:
-                    grouped[orig].append(concept)
-                    matched = True
-                    break
-            if not matched:
-                unmatched.append(concept)
+            unmatched.append(concept)
 
-    if unmatched:
-        if section_titles:
-            grouped[section_titles[0]].extend(unmatched)
-        else:
-            grouped["(chapter body)"] = unmatched
+    if unmatched and section_titles:
+        logger.info(
+            "%d concept(s) had out-of-range source_section — "
+            "assigning to section 1 ('%s'): %s",
+            len(unmatched),
+            section_titles[0],
+            [c.name for c in unmatched],
+        )
+        grouped[0].extend(unmatched)
 
+    contents = section_contents or []
     sections = []
-    for title in section_titles:
-        sections.append(SectionExtraction(section_title=title, concepts=grouped[title]))
-    if not section_titles and "(chapter body)" in grouped:
+    for i, title in enumerate(section_titles):
+        content = contents[i] if i < len(contents) else None
         sections.append(
             SectionExtraction(
-                section_title="(chapter body)",
-                concepts=grouped["(chapter body)"],
+                section_title=title,
+                section_content=content or None,
+                concepts=grouped[i],
             )
+        )
+
+    if not section_titles:
+        sections.append(
+            SectionExtraction(section_title="(chapter body)", concepts=concepts)
+        )
+
+    # Log sections that received zero concepts — useful for debugging
+    empty = [s.section_title for s in sections if not s.concepts]
+    if empty and len(sections) > 1:
+        logger.info(
+            "%d section(s) received 0 concepts: %s",
+            len(empty),
+            empty,
         )
 
     return sections
@@ -288,6 +305,7 @@ def extract_chapter_concepts(state: ChapterExtractionState) -> dict:
     section_list = _format_section_list(state["section_titles"])
 
     common = {
+        "course_subject": state["course_subject"],
         "book_name": state["book_name"],
         "chapter_title": state["chapter_title"],
         "section_list": section_list,
@@ -328,6 +346,7 @@ def evaluate_chapter(state: ChapterExtractionState) -> dict:
     content_preview = state["chapter_content"][:5000]
 
     eval_vars = {
+        "course_subject": state["course_subject"],
         "book_name": state["book_name"],
         "chapter_title": state["chapter_title"],
         "section_list": section_list,
@@ -374,11 +393,15 @@ def assign_chapters(state):
                 {
                     "run_id": state["run_id"],
                     "selected_book_id": state["selected_book_id"],
+                    "course_subject": state["course_subject"],
                     "book_name": state["book_name"],
                     "book_label": state["book_label"],
                     "chapter_number": ch["chapter_number"],
                     "chapter_title": ch["title"],
                     "section_titles": [s["title"] for s in ch["sections"]],
+                    "section_contents": [
+                        s.get("content", "") or "" for s in ch["sections"]
+                    ],
                     "chapter_content": ch["content"],
                     "total_chapters": state["total_chapters"],
                 },
@@ -398,9 +421,11 @@ def chapter_worker(state: ChapterWorkerInput) -> dict:
 
     writer = get_stream_writer()
     book_label = state["book_label"]
+    course_subject = state["course_subject"]
     ch_title = state["chapter_title"]
     ch_num = state["chapter_number"]
     section_titles = state["section_titles"]
+    section_contents = state.get("section_contents", [])
     chapter_content = state["chapter_content"]
 
     t0 = time.time()
@@ -423,6 +448,7 @@ def chapter_worker(state: ChapterWorkerInput) -> dict:
         chapter_graph = build_chapter_extraction_graph()
         final = chapter_graph.invoke(
             {
+                "course_subject": course_subject,
                 "book_name": book_label,
                 "chapter_title": ch_title,
                 "section_titles": section_titles,
@@ -459,7 +485,7 @@ def chapter_worker(state: ChapterWorkerInput) -> dict:
         )
 
         section_extractions = _group_concepts_by_section(
-            extraction_result.concepts, section_titles
+            extraction_result.concepts, section_titles, section_contents
         )
 
         all_concept_names = {c.name for c in extraction_result.concepts}
@@ -483,7 +509,7 @@ def chapter_worker(state: ChapterWorkerInput) -> dict:
 
         try:
             skills_result = _invoke_skills_extraction(
-                book_label, ch_title, section_summaries
+                course_subject, book_label, ch_title, section_summaries
             )
             chapter_summary = skills_result.chapter_summary
             skills: list[Skill] = []

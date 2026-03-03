@@ -17,6 +17,11 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import { Slider } from '@/components/ui/slider';
 import {
   Table,
@@ -27,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+import type { ChapterDetail, SectionConceptItem } from '../../../types';
 import { useChapterAnalysis } from './context';
 
 // ── Component ──────────────────────────────────────────────────
@@ -192,7 +198,7 @@ export function NoveltyTab() {
                 <AccordionContent>
                   <NovelConceptsTable
                     chapterIndex={ch.chapterIndex}
-                    summary={summary}
+                    chapterDetails={summary.chapter_details}
                     novelThreshold={localNovel}
                   />
                 </AccordionContent>
@@ -205,18 +211,56 @@ export function NoveltyTab() {
   );
 }
 
+// ── Helpers ─────────────────────────────────────────────────────
+
+/**
+ * Highlight all occurrences of `term` inside `text` by wrapping them in <mark>.
+ * Uses a case-insensitive, word-boundary-aware search.
+ */
+function HighlightedEvidence({
+  text,
+  term,
+}: {
+  text: string;
+  term: string;
+}) {
+  if (!text || !term) return <span>{text}</span>;
+
+  // Escape regex special chars in the concept name
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+
+  return (
+    <span>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark
+            key={i}
+            className="bg-yellow-200/80 dark:bg-yellow-500/30 text-foreground rounded-sm px-0.5"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </span>
+  );
+}
+
 // ── Sub-component ──────────────────────────────────────────────
 
 function NovelConceptsTable({
   chapterIndex,
-  summary,
+  chapterDetails,
   novelThreshold,
 }: {
   chapterIndex: number;
-  summary: { chapter_details: { chapter_index: number; sections: { section_title: string; concepts: { name: string; sim_max: number | null; best_course_match: string | null; relevance: string }[] }[] }[] };
+  chapterDetails: ChapterDetail[];
   novelThreshold: number;
 }) {
-  const chapter = summary.chapter_details.find(
+  const chapter = chapterDetails.find(
     (c) => c.chapter_index === chapterIndex,
   );
   if (!chapter) return null;
@@ -243,7 +287,9 @@ function NovelConceptsTable({
             const isNovel = sim < novelThreshold;
             return (
               <TableRow key={`${c.section}-${c.name}`}>
-                <TableCell className="font-medium">{c.name}</TableCell>
+                <TableCell className="font-medium p-0">
+                  <ConceptHoverCard concept={c} chapterSummary={chapter.chapter_summary} />
+                </TableCell>
                 <TableCell className="text-xs text-muted-foreground truncate max-w-[150px]">
                   {c.section}
                 </TableCell>
@@ -263,5 +309,88 @@ function NovelConceptsTable({
           })}
       </TableBody>
     </Table>
+  );
+}
+
+// ── Concept hover card ─────────────────────────────────────────
+
+function ConceptHoverCard({
+  concept,
+  chapterSummary,
+}: {
+  concept: SectionConceptItem & { section: string };
+  chapterSummary: string | null;
+}) {
+  return (
+    <HoverCard openDelay={200} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <button
+          type="button"
+          className="w-full text-left px-2 py-2 font-medium underline decoration-dotted decoration-muted-foreground/50 underline-offset-4 hover:decoration-primary cursor-pointer transition-colors"
+        >
+          {concept.name}
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent
+        side="right"
+        align="start"
+        className="w-[420px] max-h-[400px] overflow-y-auto space-y-3"
+      >
+        {/* Header */}
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">{concept.name}</p>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="outline" className="text-[10px] capitalize">
+              {concept.relevance}
+            </Badge>
+            {concept.best_course_match && (
+              <span className="text-[10px] text-muted-foreground">
+                closest match: {concept.best_course_match}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Description */}
+        {concept.description && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Description
+            </p>
+            <p className="text-xs leading-relaxed">{concept.description}</p>
+          </div>
+        )}
+
+        {/* Text Evidence with highlighting */}
+        {concept.text_evidence && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Book Evidence
+            </p>
+            <div className="text-xs leading-relaxed rounded-md bg-muted/50 p-2.5 border border-border/50">
+              <HighlightedEvidence
+                text={concept.text_evidence}
+                term={concept.name}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Chapter Summary context */}
+        {chapterSummary && (
+          <details className="group">
+            <summary className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors">
+              Chapter Summary
+            </summary>
+            <div className="mt-1 text-xs leading-relaxed rounded-md bg-muted/30 p-2.5 border border-border/30">
+              <HighlightedEvidence
+                text={chapterSummary}
+                term={concept.name}
+              />
+            </div>
+          </details>
+        )}
+      </HoverCardContent>
+    </HoverCard>
   );
 }

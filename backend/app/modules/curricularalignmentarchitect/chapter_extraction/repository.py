@@ -121,6 +121,7 @@ def save_chapter_extraction(
                 chapter_id=chapter.id,
                 section_title=section.section_title,
                 section_index=sec_idx,
+                section_content=section.section_content,
             )
             db.add(sec)
             db.flush()

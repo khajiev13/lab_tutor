@@ -30,12 +30,17 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isServerWakingUp } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        {isServerWakingUp && (
+          <p className="text-sm text-muted-foreground animate-pulse">
+            Server is waking up, hang tight…
+          </p>
+        )}
       </div>
     );
   }
@@ -53,12 +58,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 // Public Route component (redirects to home if already authenticated)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isServerWakingUp } = useAuth();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        {isServerWakingUp && (
+          <p className="text-sm text-muted-foreground animate-pulse">
+            Server is waking up, hang tight…
+          </p>
+        )}
       </div>
     );
   }

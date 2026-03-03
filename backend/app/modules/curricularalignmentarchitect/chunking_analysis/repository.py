@@ -25,6 +25,7 @@ from ..models import (
     BookChunk,
     BookDocumentSummaryScore,
     BookExtractionRun,
+    BookSection,
     CourseConceptCache,
     CourseDocumentSummaryCache,
     CourseSelectedBook,
@@ -553,16 +554,28 @@ def store_chapters(
     db.flush()
 
     for ch in chapters:
-        db.add(
-            BookChapter(
-                run_id=run_id,
-                selected_book_id=selected_book_id,
-                chapter_title=ch["title"],
-                chapter_index=ch["chapter_number"],
-                chapter_text=ch["content"],
-                total_concept_count=0,
-            )
+        chapter = BookChapter(
+            run_id=run_id,
+            selected_book_id=selected_book_id,
+            chapter_title=ch["title"],
+            chapter_index=ch["chapter_number"],
+            chapter_text=ch["content"],
+            total_concept_count=0,
         )
+        db.add(chapter)
+        db.flush()
+
+        # Persist sections extracted from the PDF TOC hierarchy
+        for sec_idx, sec in enumerate(ch.get("sections", [])):
+            db.add(
+                BookSection(
+                    chapter_id=chapter.id,
+                    section_title=sec["title"],
+                    section_index=sec_idx,
+                    section_content=sec.get("content"),
+                )
+            )
+
     db.flush()
     return len(chapters)
 

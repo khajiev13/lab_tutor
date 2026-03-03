@@ -167,6 +167,7 @@ class ExtractionRunStatus(str, Enum):
     BOOK_PICKED = "book_picked"
     AGENTIC_EXTRACTING = "agentic_extracting"
     AGENTIC_COMPLETED = "agentic_completed"
+    CURRICULUM_BUILT = "curriculum_built"
 
 
 class AnalysisStrategy(str, Enum):
@@ -274,6 +275,7 @@ class BookSection(Base):
     )
     section_title: Mapped[str] = mapped_column(String(500), nullable=False)
     section_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    section_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

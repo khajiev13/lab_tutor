@@ -384,3 +384,147 @@ export function openEmbeddingProgressStream(
 
   return controller;
 }
+
+/**
+ * Open an SSE stream for content recommendations.
+ * Returns an AbortController so the caller can tear down the stream.
+ */
+export function openRecommendationStream(
+  courseId: number,
+  runId: number,
+  selectedBookId: number,
+  onEvent: (evt: import('./types').RecommendationStreamEvent) => void,
+  onDone?: () => void,
+  onError?: (err: unknown) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    const baseUrl = (api.defaults.baseURL ?? '').replace(/\/$/, '');
+    const url = `${baseUrl}/book-selection/courses/${courseId}/analysis/${runId}/books/${selectedBookId}/recommendations`;
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => 'Unknown error');
+        onError?.(new Error(`SSE request failed (${res.status}): ${text}`));
+        onDone?.();
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let idx: number;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const raw = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+
+          let data: string | null = null;
+          for (const line of raw.split('\n')) {
+            if (line.startsWith('data:')) {
+              data = line.slice(5).trim();
+            }
+          }
+          if (data) {
+            try {
+              onEvent(JSON.parse(data) as import('./types').RecommendationStreamEvent);
+            } catch {
+              // malformed frame
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) onError?.(err);
+    }
+    onDone?.();
+  })();
+
+  return controller;
+}
+
+/**
+ * Open an SSE stream for curriculum graph construction.
+ * Returns an AbortController so the caller can tear down the stream.
+ */
+export function openCurriculumBuildStream(
+  courseId: number,
+  runId: number,
+  selectedBookId: number,
+  onEvent: (evt: import('./types').CurriculumBuildEvent) => void,
+  onDone?: () => void,
+  onError?: (err: unknown) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    const baseUrl = (api.defaults.baseURL ?? '').replace(/\/$/, '');
+    const url = `${baseUrl}/book-selection/courses/${courseId}/analysis/${runId}/build-curriculum/${selectedBookId}`;
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => 'Unknown error');
+        onError?.(new Error(`SSE request failed (${res.status}): ${text}`));
+        onDone?.();
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let idx: number;
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const raw = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+
+          let data: string | null = null;
+          for (const line of raw.split('\n')) {
+            if (line.startsWith('data:')) {
+              data = line.slice(5).trim();
+            }
+          }
+          if (data) {
+            try {
+              onEvent(JSON.parse(data) as import('./types').CurriculumBuildEvent);
+            } catch {
+              // malformed frame
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) onError?.(err);
+    }
+    onDone?.();
+  })();
+
+  return controller;
+}

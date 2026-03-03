@@ -52,6 +52,12 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         "CREATE CONSTRAINT teacher_uploaded_document_course_hash_key IF NOT EXISTS "
         "FOR (d:TEACHER_UPLOADED_DOCUMENT) REQUIRE (d.course_id, d.content_hash) IS NODE KEY",
         "CREATE CONSTRAINT skill_id_unique IF NOT EXISTS FOR (s:SKILL) REQUIRE s.id IS UNIQUE",
+        # Curriculum graph constraints
+        "CREATE CONSTRAINT curriculum_id_unique IF NOT EXISTS FOR (cur:CURRICULUM) REQUIRE cur.id IS UNIQUE",
+        "CREATE CONSTRAINT book_chapter_id_unique IF NOT EXISTS FOR (ch:BOOK_CHAPTER) REQUIRE ch.id IS UNIQUE",
+        "CREATE CONSTRAINT book_section_id_unique IF NOT EXISTS FOR (s:BOOK_SECTION) REQUIRE s.id IS UNIQUE",
+        "CREATE CONSTRAINT book_skill_id_unique IF NOT EXISTS FOR (sk:BOOK_SKILL) REQUIRE sk.id IS UNIQUE",
+        "CREATE CONSTRAINT book_id_unique IF NOT EXISTS FOR (b:BOOK) REQUIRE b.id IS UNIQUE",
         # Helpful indexes
         "CREATE INDEX class_title_idx IF NOT EXISTS FOR (c:CLASS) ON (c.title)",
         "CREATE INDEX teacher_uploaded_document_course_id_idx IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.course_id)",
@@ -70,8 +76,16 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         )
 
         vector_statements.append(
-            "CREATE VECTOR INDEX concept_embedding_vector_idx IF NOT EXISTS "
+            "CREATE VECTOR INDEX concept_embedding_idx IF NOT EXISTS "
             "FOR (c:CONCEPT) ON (c.embedding) "
+            "OPTIONS {indexConfig: {`vector.dimensions`: "
+            + str(int(embedding_dims))
+            + ", `vector.similarity_function`: 'cosine'}}"
+        )
+
+        vector_statements.append(
+            "CREATE VECTOR INDEX book_chapter_summary_vector_idx IF NOT EXISTS "
+            "FOR (ch:BOOK_CHAPTER) ON (ch.summary_embedding) "
             "OPTIONS {indexConfig: {`vector.dimensions`: "
             + str(int(embedding_dims))
             + ", `vector.similarity_function`: 'cosine'}}"
