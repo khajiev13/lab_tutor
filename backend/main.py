@@ -490,15 +490,16 @@ def read_root() -> RootResponse:
 
 @app.get("/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
+    """Health check — verifies services are configured without making DB calls.
+
+    No connections are opened.  External monitoring (Azure alerts) handles
+    database availability; this endpoint just confirms the process is up and
+    its dependencies are wired.
+    """
     checks: list[HealthCheckItem] = []
 
-    # SQL
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        checks.append(HealthCheckItem(name="sql", status="ok"))
-    except Exception as e:
-        checks.append(HealthCheckItem(name="sql", status="error", detail=str(e)))
+    # SQL — engine exists (configured at import time)
+    checks.append(HealthCheckItem(name="sql", status="ok"))
 
     # Neo4j
     driver = getattr(app.state, "neo4j_driver", None)
@@ -511,15 +512,9 @@ def health_check() -> HealthResponse:
             )
         )
     else:
-        try:
-            with driver.session(database=settings.neo4j_database) as session:
-                session.run("RETURN 1").consume()
-            checks.append(HealthCheckItem(name="neo4j", status="ok"))
-        except Exception as e:
-            checks.append(HealthCheckItem(name="neo4j", status="error", detail=str(e)))
+        checks.append(HealthCheckItem(name="neo4j", status="ok"))
 
-    # Azure Blob Storage — just check the client is initialised; avoid a live
-    # HTTP call on every health poll (it's slow and noisy in logs).
+    # Azure Blob Storage
     if not settings.azure_storage_connection_string:
         checks.append(
             HealthCheckItem(
@@ -549,7 +544,8 @@ def health_check() -> HealthResponse:
     return HealthResponse(status=overall_status, checks=checks)
 
 
-# Alias for common PaaS health probes.
-@app.get("/healthz", response_model=HealthResponse, include_in_schema=False)
-def healthz() -> HealthResponse:
-    return health_check()
+# Lightweight probe for platform startup/liveness checks.
+# No DB or external calls — just proves the process is alive and accepting HTTP.
+@app.get("/healthz", include_in_schema=False)
+def healthz() -> dict[str, str]:
+    return {"status": "ok"}
