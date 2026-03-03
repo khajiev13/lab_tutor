@@ -129,6 +129,7 @@ function statusBadge(status: ExtractionRunStatus) {
     book_picked: { label: 'Book picked', variant: 'outline' },
     agentic_extracting: { label: 'Agentic Extraction', variant: 'default' },
     agentic_completed: { label: 'Agentic Done', variant: 'outline' },
+    curriculum_built: { label: 'Curriculum Built', variant: 'outline' },
   };
   return map[status] ?? { label: status, variant: 'secondary' as const };
 }
