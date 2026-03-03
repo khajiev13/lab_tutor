@@ -109,12 +109,18 @@ POOL_PRE_PING = True
 POOL_RECYCLE_SECONDS = 60 if IS_POSTGRES else -1
 ASYNC_POOL_RECYCLE_SECONDS = 60 if IS_POSTGRES else -1
 
-# Azure Postgres allows ~50 connections on Basic tier.  We need headroom for
-# the ThreadPoolExecutor embedding workers (up to 10 concurrent sessions) plus
-# FastAPI request handlers and SSE polling.
-# With 2 replicas: 2 × (pool_size + max_overflow) = 2 × 20 = 40  (< 50 limit)
-POOL_SIZE = 10
+# Azure Postgres B1ms allows max_connections=50.  Container App autoscales
+# 0–10 replicas.  Keep per-replica pool small so multiple replicas + regular
+# user traffic never exceed the DB limit:
+#   3 replicas × 15 = 45   (+5 headroom for admin / migrations)
+# Overflow connections are created on demand and released quickly, so the
+# steady-state hold is just POOL_SIZE; overflow handles burst embedding work.
+POOL_SIZE = 5
 MAX_OVERFLOW = 10
+# Wait up to 60s for a connection instead of the 30s default — embedding
+# batches are bursty but short-lived, so a longer wait prevents timeouts
+# without needing more connections.
+POOL_TIMEOUT = 60
 
 POSTGRES_CONNECT_ARGS = (
     {
@@ -135,6 +141,7 @@ engine = create_engine(
     pool_recycle=POOL_RECYCLE_SECONDS,
     pool_size=POOL_SIZE,
     max_overflow=MAX_OVERFLOW,
+    pool_timeout=POOL_TIMEOUT,
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -145,6 +152,7 @@ async_engine = create_async_engine(
     pool_recycle=ASYNC_POOL_RECYCLE_SECONDS,
     pool_size=POOL_SIZE,
     max_overflow=MAX_OVERFLOW,
+    pool_timeout=POOL_TIMEOUT,
 )
 AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 
