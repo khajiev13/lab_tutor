@@ -341,7 +341,13 @@ class TestExtractChaptersFromPdf:
     def test_extracts_chapters(self, simple_pdf):
         chapters, method = extract_chapters_from_pdf(simple_pdf, title="Test Book")
         assert len(chapters) >= 1
-        assert method in ("pymupdf4llm", "bookmarks", "printed_toc", "page_scan", "fallback")
+        assert method in (
+            "pymupdf4llm",
+            "bookmarks",
+            "printed_toc",
+            "page_scan",
+            "fallback",
+        )
 
         for ch in chapters:
             assert "chapter_number" in ch
@@ -352,7 +358,13 @@ class TestExtractChaptersFromPdf:
 
     def test_returns_valid_method(self, simple_pdf):
         _, method = extract_chapters_from_pdf(simple_pdf)
-        assert method in {"pymupdf4llm", "bookmarks", "printed_toc", "page_scan", "fallback"}
+        assert method in {
+            "pymupdf4llm",
+            "bookmarks",
+            "printed_toc",
+            "page_scan",
+            "fallback",
+        }
 
     def test_output_contract(self, simple_pdf):
         chapters, _ = extract_chapters_from_pdf(simple_pdf, title="Test Book")

@@ -201,9 +201,7 @@ def validate_extracted_chapters(
     empty_chapters: list[str] = []
     for ch in chapters:
         sections = ch.get("sections", [])
-        has_content = any(
-            len((s.get("content") or "").strip()) > 0 for s in sections
-        )
+        has_content = any(len((s.get("content") or "").strip()) > 0 for s in sections)
         if not sections or not has_content:
             empty_chapters.append(ch.get("title", "?"))
 
@@ -304,9 +302,7 @@ def _parse_chapters_from_markdown(md_text: str) -> list[dict]:
 
     chapters: list[dict] = []
     for i, m in enumerate(ch_matches):
-        ch_end = (
-            ch_matches[i + 1].start() if i + 1 < len(ch_matches) else len(md_text)
-        )
+        ch_end = ch_matches[i + 1].start() if i + 1 < len(ch_matches) else len(md_text)
         ch_text = md_text[m.end() : ch_end].strip()
         ch_title = _clean_title(m.group(1).replace("**", ""))
 
@@ -855,20 +851,15 @@ def extract_chapters_from_pdf(
     if md_text is not None:
         chapters = _parse_chapters_from_markdown(md_text)
         if len(chapters) >= 2:
-            logger.info(
-                "pymupdf4llm → %d chapters for '%s'", len(chapters), title
-            )
+            logger.info("pymupdf4llm → %d chapters for '%s'", len(chapters), title)
             return chapters, "pymupdf4llm"
         logger.info(
-            "pymupdf4llm produced only %d chapter(s) for '%s' — "
-            "falling back to pypdf",
+            "pymupdf4llm produced only %d chapter(s) for '%s' — falling back to pypdf",
             len(chapters),
             title,
         )
     else:
-        logger.info(
-            "pymupdf4llm timed out for '%s' — falling back to pypdf", title
-        )
+        logger.info("pymupdf4llm timed out for '%s' — falling back to pypdf", title)
 
     # ── Fallback: pypdf 4-tier TOC chain ───────────────────────
     reader = pypdf.PdfReader(pdf_path)
@@ -968,9 +959,7 @@ def extract_chapters_from_pdf(
                     )
         else:
             cleaned_text = clean_chapter_for_llm(ch_entry["content"])
-            sections = _split_chapter_into_sections(
-                cleaned_text, ch_entry["title"]
-            )
+            sections = _split_chapter_into_sections(cleaned_text, ch_entry["title"])
 
         combined = "\n\n".join(s["content"] for s in sections if s["content"])
         if len(combined) < 100:
