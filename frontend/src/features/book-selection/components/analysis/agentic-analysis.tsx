@@ -181,9 +181,15 @@ export function AgenticAnalysis({
 
       const slots = agentSlotsRef.current;
       if (!slots) return map.size % WORKER_COUNT;
-      // Prefer idle, then done (already finished, about to free up)
-      const idle = slots.find((a) => a.state === 'idle');
-      const done = !idle ? slots.find((a) => a.state === 'done') : undefined;
+
+      // Slots already claimed by another chapter (map may be ahead of ref state)
+      const claimed = new Set(map.values());
+
+      // Prefer idle, then done — but skip slots already claimed by another chapter
+      const idle = slots.find((a) => a.state === 'idle' && !claimed.has(a.id));
+      const done = !idle
+        ? slots.find((a) => a.state === 'done' && !claimed.has(a.id))
+        : undefined;
       const target = idle ?? done;
       const slotId = target?.id ?? (map.size % WORKER_COUNT);
 
@@ -201,6 +207,14 @@ export function AgenticAnalysis({
       }
 
       map.set(chapterKey, slotId);
+
+      // Mark slot as 'working' in the ref immediately so subsequent calls
+      // (within the same synchronous SSE batch) see the update even before
+      // React flushes the batched setAgents updaters.
+      if (slots[slotId]) {
+        slots[slotId] = { ...slots[slotId], state: 'working' };
+      }
+
       return slotId;
     },
     [],
