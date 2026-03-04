@@ -166,7 +166,10 @@ async def _sse_generator(
                             "chapter_number": ch.chapter_index,
                             "title": ch.chapter_title,
                             "sections": [
-                                {"title": sec.section_title, "content": ""}
+                                {
+                                    "title": sec.section_title,
+                                    "content": sec.section_content or "",
+                                }
                                 for sec in sorted(
                                     ch.sections, key=lambda s: s.section_index
                                 )

@@ -18,9 +18,11 @@ import logging
 import os
 import re
 import tempfile
+import threading
 from collections import Counter
 from collections.abc import Callable
 
+import pymupdf4llm
 import pypdf
 
 from app.providers.storage import BlobService
@@ -141,15 +143,18 @@ def validate_extracted_chapters(
 
     Returns ``(is_valid, reason)``.  A book is flagged as corrupted when:
 
-    1. **Too few chapters** for a large book (< 3 chapters from 50+ pages).
-    2. **TOC artifacts in content** — the first chapter's opening text
+    1. **No chapters** extracted at all.
+    2. **Too few chapters** for a large book (< 3 chapters from 50+ pages).
+    3. **TOC artifacts in content** — the first chapter's opening text
        contains many "title<tab>page-number" lines typical of a table of
        contents rather than real prose.
-    3. **TOC-style chapter titles** — titles ending in a tab/spaces +
+    4. **TOC-style chapter titles** — titles ending in a tab/spaces +
        page number (e.g. ``"Refresher\\t 153"``) which indicates the
        extraction picked up TOC lines instead of real chapter headings.
-    4. **Very short chapters on average** (< 500 characters) — the PDF
+    5. **Very short chapters on average** (< 500 characters) — the PDF
        likely has no extractable text layer.
+    6. **Chapters missing sections** — every chapter must have at least
+       one section with non-empty content.
     """
     if not chapters:
         return False, "No chapters extracted"
@@ -192,6 +197,22 @@ def validate_extracted_chapters(
             f"PDF may not contain extractable text"
         )
 
+    # 5. Every chapter must have sections with actual content
+    empty_chapters: list[str] = []
+    for ch in chapters:
+        sections = ch.get("sections", [])
+        has_content = any(
+            len((s.get("content") or "").strip()) > 0 for s in sections
+        )
+        if not sections or not has_content:
+            empty_chapters.append(ch.get("title", "?"))
+
+    if empty_chapters:
+        return False, (
+            f"{len(empty_chapters)} chapter(s) have no sections with content: "
+            f"{empty_chapters[0]!r}"
+        )
+
     return True, ""
 
 
@@ -206,6 +227,153 @@ def clean_chapter_for_llm(text: str) -> str:
     text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)  # catch remaining uppercase hyphens
     text = re.sub(r"[ \t]{3,}", " ", text)  # normalize big whitespace runs
     return text
+
+
+# ════════════════════════════════════════════════════════════════
+# Heuristic section splitting for flat TOCs
+# ════════════════════════════════════════════════════════════════
+
+# Matches top-level numbered sub-headings only: "1.1 Title", "10.2 Title"
+# (one dot = one level deep).  Does NOT match deeper levels like
+# "1.2.3 Sub-sub-section" — those stay inside their parent section.
+_SECTION_HEADING_RE = re.compile(
+    r"^(\d{1,2}\.\d{1,2})\.?\s+"
+    r"([A-Z][A-Za-z][\w\s,'\-:&/()]{2,80})"
+    r"\s*$",
+    re.MULTILINE,
+)
+
+
+# ════════════════════════════════════════════════════════════════
+# pymupdf4llm — primary extraction (markdown-based)
+# ════════════════════════════════════════════════════════════════
+
+_PYMUPDF4LLM_TIMEOUT = 90  # seconds; corrupted PDFs hang forever
+
+
+def _pymupdf4llm_to_markdown(
+    pdf_path: str,
+    timeout: int = _PYMUPDF4LLM_TIMEOUT,
+) -> str | None:
+    """Convert PDF to markdown via pymupdf4llm with a thread-based timeout.
+
+    Returns ``None`` when the conversion exceeds *timeout* seconds
+    (typically indicates a corrupted or image-heavy PDF).
+    """
+    result: list[str | None] = [None]
+    error: list[BaseException | None] = [None]
+
+    def _worker() -> None:
+        try:
+            result[0] = pymupdf4llm.to_markdown(
+                pdf_path, ignore_images=True, ignore_graphics=True
+            )
+        except Exception as exc:  # noqa: BLE001
+            error[0] = exc
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout)
+
+    if thread.is_alive():
+        logger.warning(
+            "pymupdf4llm timed out after %ds — PDF likely corrupted", timeout
+        )
+        return None
+    if error[0]:
+        logger.warning("pymupdf4llm error: %s", error[0])
+        return None
+    return result[0]
+
+
+def _parse_chapters_from_markdown(md_text: str) -> list[dict]:
+    """Parse pymupdf4llm markdown into chapters with heuristic section splits.
+
+    Looks for ``# Heading`` lines as chapter boundaries, then splits
+    each chapter into sections using ``_SECTION_HEADING_RE``.
+    """
+    chapter_pattern = re.compile(r"^# (.+)$", re.MULTILINE)
+    ch_matches = list(chapter_pattern.finditer(md_text))
+
+    if not ch_matches:
+        chapter_pattern = re.compile(r"^## (.+)$", re.MULTILINE)
+        ch_matches = list(chapter_pattern.finditer(md_text))
+
+    if not ch_matches:
+        return []
+
+    chapters: list[dict] = []
+    for i, m in enumerate(ch_matches):
+        ch_end = (
+            ch_matches[i + 1].start() if i + 1 < len(ch_matches) else len(md_text)
+        )
+        ch_text = md_text[m.end() : ch_end].strip()
+        ch_title = _clean_title(m.group(1).replace("**", ""))
+
+        if _is_boilerplate(ch_title):
+            continue
+        if len(ch_text) < 500:
+            continue
+
+        ch_text = clean_chapter_for_llm(ch_text)
+        sections = _split_chapter_into_sections(ch_text, ch_title)
+        combined = "\n\n".join(s["content"] for s in sections if s["content"])
+
+        chapters.append(
+            {
+                "chapter_number": len(chapters) + 1,
+                "title": ch_title,
+                "level": 1,
+                "start_page": 1,
+                "end_page": 1,
+                "sections": sections,
+                "content": combined,
+            }
+        )
+
+    return chapters
+
+
+def _split_chapter_into_sections(
+    chapter_text: str,
+    chapter_title: str,
+    min_section_chars: int = 200,
+) -> list[dict]:
+    """Split chapter text into sections using numbered sub-heading heuristics.
+
+    When a chapter has no TOC children (flat bookmark structure), this
+    function scans the cleaned chapter text for patterns like
+    ``1.1 Data Models``, ``2.3 Query Processing``, etc.
+
+    Returns a list of ``{"title": ..., "content": ...}`` dicts.
+    Falls back to a single section with the chapter title if no
+    sub-headings are detected.
+    """
+    matches = list(_SECTION_HEADING_RE.finditer(chapter_text))
+
+    if len(matches) < 2:
+        return [{"title": chapter_title, "content": chapter_text}]
+
+    sections: list[dict] = []
+
+    # Intro section: text before the first heading
+    intro_text = chapter_text[: matches[0].start()].strip()
+    if len(intro_text) >= min_section_chars:
+        sections.append({"title": chapter_title, "content": intro_text})
+
+    # Named sections from headings
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(chapter_text)
+        number = m.group(1).rstrip(".")
+        title = m.group(2).strip()
+        content = chapter_text[m.start() : end].strip()
+        if len(content) >= min_section_chars:
+            sections.append({"title": f"{number} {title}", "content": content})
+
+    if not sections:
+        return [{"title": chapter_title, "content": chapter_text}]
+
+    return sections
 
 
 # ════════════════════════════════════════════════════════════════
@@ -673,17 +841,36 @@ def extract_chapters_from_pdf(
 ) -> tuple[list[dict], str]:
     """Extract structured chapters from a local PDF file.
 
-    Uses the 4-tier TOC fallback chain:
-      Tier 1 bookmarks → Tier 2 printed TOC → Tier 3 page scan
-      → Tier 4 whole-book
+    **Primary**: pymupdf4llm markdown extraction (rich text, proper
+    heading detection). Falls back to the pypdf 4-tier TOC chain when
+    pymupdf4llm times out or extracts fewer than 2 chapters.
 
     Returns ``(chapters, extraction_method)`` where *chapters* is a list
     of dicts with keys: ``chapter_number``, ``title``, ``level``,
     ``start_page``, ``end_page``, ``sections`` (``[{title, content}]``),
     ``content``.
-
-    All chapter content is cleaned via ``clean_chapter_for_llm()``.
     """
+    # ── Primary: pymupdf4llm ───────────────────────────────────
+    md_text = _pymupdf4llm_to_markdown(pdf_path)
+    if md_text is not None:
+        chapters = _parse_chapters_from_markdown(md_text)
+        if len(chapters) >= 2:
+            logger.info(
+                "pymupdf4llm → %d chapters for '%s'", len(chapters), title
+            )
+            return chapters, "pymupdf4llm"
+        logger.info(
+            "pymupdf4llm produced only %d chapter(s) for '%s' — "
+            "falling back to pypdf",
+            len(chapters),
+            title,
+        )
+    else:
+        logger.info(
+            "pymupdf4llm timed out for '%s' — falling back to pypdf", title
+        )
+
+    # ── Fallback: pypdf 4-tier TOC chain ───────────────────────
     reader = pypdf.PdfReader(pdf_path)
     page_count = len(reader.pages)
     page_texts = [reader.pages[pn].extract_text() or "" for pn in range(page_count)]
@@ -761,8 +948,8 @@ def extract_chapters_from_pdf(
         children = entries[ch_idx + 1 : boundary]
         last_entry = children[-1] if children else ch_entry
 
-        # Build sections from children; if no children, the chapter itself
-        # is a single section.
+        # Build sections from children; if no children, try to split
+        # the chapter text into sections using numbered sub-headings.
         if children:
             sections = [
                 {"title": c["title"], "content": clean_chapter_for_llm(c["content"])}
@@ -780,12 +967,10 @@ def extract_chapters_from_pdf(
                         0, {"title": ch_entry["title"], "content": cleaned_intro}
                     )
         else:
-            sections = [
-                {
-                    "title": ch_entry["title"],
-                    "content": clean_chapter_for_llm(ch_entry["content"]),
-                }
-            ]
+            cleaned_text = clean_chapter_for_llm(ch_entry["content"])
+            sections = _split_chapter_into_sections(
+                cleaned_text, ch_entry["title"]
+            )
 
         combined = "\n\n".join(s["content"] for s in sections if s["content"])
         if len(combined) < 100:
@@ -859,7 +1044,7 @@ def extract_book_chapters(
         tmp_path = tmp.name
 
     try:
-        _report("Extracting chapters (4-tier TOC fallback)…")
+        _report("Extracting chapters (pymupdf4llm → pypdf fallback)…")
         title = os.path.splitext(os.path.basename(blob_path))[0].replace("_", " ")
         chapters, method = extract_chapters_from_pdf(tmp_path, title=title)
     finally:
