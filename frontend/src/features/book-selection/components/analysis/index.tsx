@@ -25,6 +25,7 @@ import {
   triggerAnalysis,
 } from '../../api';
 import { AgenticAnalysis } from './agentic-analysis';
+import { ExtractionInspector } from './extraction-inspector';
 import {
   type EmbeddingBookProgress,
   type ExtractionRunStatus,
@@ -129,6 +130,7 @@ function statusBadge(status: ExtractionRunStatus) {
     book_picked: { label: 'Book picked', variant: 'outline' },
     agentic_extracting: { label: 'Agentic Extraction', variant: 'default' },
     agentic_completed: { label: 'Agentic Done', variant: 'outline' },
+    curriculum_built: { label: 'Curriculum Built', variant: 'outline' },
   };
   return map[status] ?? { label: status, variant: 'secondary' as const };
 }
@@ -310,8 +312,12 @@ export function BookAnalysisTab({ courseId, disabled }: BookAnalysisTabProps) {
         </Alert>
       )}
 
-      <Tabs defaultValue="chunking" className="w-full">
+      <Tabs defaultValue="inspector" className="w-full">
         <TabsList>
+          <TabsTrigger value="inspector">
+            <FileText className="mr-2 h-4 w-4" />
+            Extraction Inspector
+          </TabsTrigger>
           <TabsTrigger value="chunking">
             <Layers className="mr-2 h-4 w-4" />
             Chunking
@@ -321,6 +327,10 @@ export function BookAnalysisTab({ courseId, disabled }: BookAnalysisTabProps) {
             Agentic Extraction
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="inspector" className="mt-6">
+          <ExtractionInspector courseId={courseId} disabled={disabled} />
+        </TabsContent>
 
         <TabsContent value="chunking" className="mt-6 space-y-6">
           {/* Progress card — shown when there's an active or completed run */}
