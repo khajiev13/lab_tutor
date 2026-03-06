@@ -18,6 +18,7 @@ import {
   getSessionBooks,
   runDiscovery,
   resumeScoring,
+  rediscoverBooks,
   selectAndDownload,
 } from '../api';
 import { WeightsConfigPanel } from './WeightsConfigPanel';
@@ -234,6 +235,28 @@ export function BookSelectionDashboard({
     [session, startPolling],
   );
 
+  const handleRediscover = useCallback(
+    async (sessionToRediscover: BookSelectionSession) => {
+      setIsLoading(true);
+      setError(null);
+      setBooks([]);
+
+      try {
+        await rediscoverBooks(sessionToRediscover.id);
+        setPhase('discovering');
+        startPolling(sessionToRediscover.id);
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : 'Failed to re-discover books';
+        setError(msg);
+        setPhase('failed');
+        setIsLoading(false);
+        toast.error(msg);
+      }
+    },
+    [startPolling],
+  );
+
   const refreshBooks = useCallback(async () => {
     if (!session) return;
     try {
@@ -356,7 +379,9 @@ export function BookSelectionDashboard({
         <BookReviewTable
           books={books}
           onSelect={handleSelect}
+          onRediscover={session ? () => handleRediscover(session) : undefined}
           isSubmitting={isSubmitting}
+          isRediscovering={isLoading}
           weightsJson={session?.weights_json}
         />
       )}

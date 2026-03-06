@@ -23,6 +23,7 @@ import {
   BookOpen,
   Trophy,
   Star,
+  RefreshCw,
 } from 'lucide-react';
 import type { BookCandidate, WeightsConfig } from '../types';
 import { parseScores, SCORE_CRITERIA, DEFAULT_WEIGHTS } from '../types';
@@ -64,7 +65,9 @@ interface BookReviewTableProps {
   books: BookCandidate[];
   maxSelections?: number;
   onSelect: (selectedIds: number[]) => void;
+  onRediscover?: () => void;
   isSubmitting: boolean;
+  isRediscovering?: boolean;
   weightsJson?: string | null;
 }
 
@@ -72,7 +75,9 @@ export function BookReviewTable({
   books,
   maxSelections = 5,
   onSelect,
+  onRediscover,
   isSubmitting,
+  isRediscovering,
   weightsJson,
 }: BookReviewTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -298,6 +303,18 @@ export function BookReviewTable({
           <div className="text-center py-12">
             <BookOpen className="h-8 w-8 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground">No books found yet.</p>
+            {onRediscover && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={onRediscover}
+                disabled={isRediscovering}
+              >
+                <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isRediscovering ? 'animate-spin' : ''}`} />
+                {isRediscovering ? 'Re-discovering…' : 'Re-discover Books'}
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
