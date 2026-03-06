@@ -292,6 +292,44 @@ def _ensure_sql_schema_upgrades() -> None:
         if not has_skills_json:
             conn.execute(text("ALTER TABLE book_chapters ADD COLUMN skills_json TEXT"))
 
+        # Idempotent: add ON DELETE CASCADE to book_document_summary_scores FK
+        # so bulk-delete of summaries cascades at the DB level.
+        has_restrict_fk = conn.execute(
+            text(
+                "SELECT 1 FROM pg_constraint "
+                "WHERE conname = 'book_document_summary_scores_summary_id_fkey' "
+                "AND confdeltype = 'a'"  # 'a' = NO ACTION (i.e. not CASCADE)
+            )
+        ).fetchone()
+        if has_restrict_fk:
+            conn.execute(
+                text(
+                    "ALTER TABLE book_document_summary_scores "
+                    "DROP CONSTRAINT book_document_summary_scores_summary_id_fkey"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE book_document_summary_scores "
+                    "ADD CONSTRAINT book_document_summary_scores_summary_id_fkey "
+                    "FOREIGN KEY (summary_id) REFERENCES book_analysis_summaries(id) "
+                    "ON DELETE CASCADE"
+                )
+            )
+
+        # Idempotent: add section_content column to book_sections
+        has_section_content = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_sections' "
+                "AND column_name = 'section_content'"
+            )
+        ).fetchone()
+        if not has_section_content:
+            conn.execute(
+                text("ALTER TABLE book_sections ADD COLUMN section_content TEXT")
+            )
+
         conn.commit()
 
 
@@ -522,7 +560,8 @@ def health_check() -> HealthResponse:
     return HealthResponse(status="healthy", checks=[])
 
 
-# Alias for common PaaS health probes.
-@app.get("/healthz", response_model=HealthResponse, include_in_schema=False)
-def healthz() -> HealthResponse:
-    return health_check()
+# Lightweight probe for platform startup/liveness checks.
+# No DB or external calls — just proves the process is alive and accepting HTTP.
+@app.get("/healthz", include_in_schema=False)
+def healthz() -> dict[str, str]:
+    return {"status": "ok"}

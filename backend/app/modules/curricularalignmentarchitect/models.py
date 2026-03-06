@@ -443,7 +443,9 @@ class BookDocumentSummaryScore(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     summary_id: Mapped[int] = mapped_column(
-        ForeignKey("book_analysis_summaries.id"), nullable=False, index=True
+        ForeignKey("book_analysis_summaries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     document_neo4j_id: Mapped[str] = mapped_column(String(500), nullable=False)
     topic: Mapped[str | None] = mapped_column(String(500), nullable=True)
