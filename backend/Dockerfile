@@ -2,7 +2,7 @@
 FROM python:3.12-slim-bookworm
 
 # Install curl for healthchecks
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git && rm -rf /var/lib/apt/lists/*
 
 # Install uv using the official installer script (recommended method)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \

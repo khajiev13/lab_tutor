@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import os
 import re
 import urllib.parse
@@ -229,6 +230,123 @@ _DOWNLOAD_DIR = os.path.join(
     "data",
     "books",
 )
+
+MIN_PAGE_COUNT = 20
+_TEXT_SAMPLE_PAGES = 3
+_MIN_CHARS_PER_PAGE = 50
+
+logger = __import__("logging").getLogger(__name__)
+
+
+@dataclasses.dataclass(frozen=True)
+class PDFValidationResult:
+    """Lightweight result from validate_pdf."""
+
+    valid: bool
+    page_count: int = 0
+    has_text: bool = False
+    has_bookmarks: bool = False
+    is_encrypted: bool = False
+    rejection_reason: str = ""
+
+
+def validate_pdf(
+    file_path: str,
+    *,
+    expected_title: str = "",
+    min_pages: int = MIN_PAGE_COUNT,
+) -> PDFValidationResult:
+    """Run lightweight quality checks on a downloaded PDF.
+
+    Checks performed:
+    1. File can be opened by PyMuPDF.
+    2. Not encrypted / password-protected.
+    3. Page count >= *min_pages*.
+    4. Sample pages contain extractable text.
+    5. Optional fuzzy title match against PDF metadata.
+
+    Returns a *PDFValidationResult* with `valid=True` or a
+    human-readable `rejection_reason`.
+    """
+    import fitz  # PyMuPDF
+
+    try:
+        doc = fitz.open(file_path)
+    except Exception as exc:
+        return PDFValidationResult(
+            valid=False,
+            rejection_reason=f"Cannot open PDF: {exc}",
+        )
+
+    try:
+        if doc.is_encrypted:
+            return PDFValidationResult(
+                valid=False,
+                page_count=doc.page_count,
+                is_encrypted=True,
+                rejection_reason="PDF is encrypted / password-protected.",
+            )
+
+        page_count = doc.page_count
+        if page_count < min_pages:
+            return PDFValidationResult(
+                valid=False,
+                page_count=page_count,
+                rejection_reason=(
+                    f"Only {page_count} pages (need >= {min_pages}). "
+                    "Likely a preview or excerpt."
+                ),
+            )
+
+        # Sample text from first, middle, and last pages
+        sample_indices = {0, page_count // 2, page_count - 1}
+        pages_with_text = 0
+        for idx in sorted(sample_indices):
+            text = doc[idx].get_text().strip()
+            if len(text) >= _MIN_CHARS_PER_PAGE:
+                pages_with_text += 1
+
+        has_text = pages_with_text >= 2  # at least 2 of 3 samples
+        if not has_text:
+            return PDFValidationResult(
+                valid=False,
+                page_count=page_count,
+                has_text=False,
+                rejection_reason=(
+                    "PDF has little or no extractable text (scanned / image-only)."
+                ),
+            )
+
+        has_bookmarks = len(doc.get_toc()) > 0
+
+        # Optional fuzzy title check against PDF metadata
+        if expected_title:
+            meta_title = (doc.metadata.get("title") or "").strip().lower()
+            expected_lower = expected_title.strip().lower()
+            # Accept if metadata title shares >=50% words with expected
+            if meta_title:
+                expected_words = set(expected_lower.split())
+                meta_words = set(meta_title.split())
+                if expected_words and meta_words:
+                    overlap = expected_words & meta_words
+                    ratio = len(overlap) / max(len(expected_words), len(meta_words))
+                    if ratio < 0.3:
+                        logger.info(
+                            "Title mismatch (ratio=%.2f): expected=%r meta=%r",
+                            ratio,
+                            expected_title,
+                            meta_title,
+                        )
+                        # Warn but don't reject — metadata is often wrong
+
+        return PDFValidationResult(
+            valid=True,
+            page_count=page_count,
+            has_text=True,
+            has_bookmarks=has_bookmarks,
+        )
+    finally:
+        doc.close()
 
 
 def _sanitize_filename(name: str, *, max_len: int = 80) -> str:

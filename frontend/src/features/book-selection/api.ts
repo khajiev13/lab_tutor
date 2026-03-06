@@ -6,6 +6,7 @@ import type {
   BookSelectionSession,
   ChapterAnalysisSummary,
   CourseSelectedBook,
+  ExtractionPreviewResponse,
   ManualUploadResponse,
   SelectBooksRequest,
   SelectedBookManualUploadResponse,
@@ -114,6 +115,15 @@ export async function uploadToSelectedBook(
     `/book-selection/selected-books/${selectedBookId}/upload`,
     form,
     { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return res.data;
+}
+
+export async function ignoreSelectedBook(
+  selectedBookId: number,
+): Promise<CourseSelectedBook> {
+  const res = await api.patch<CourseSelectedBook>(
+    `/book-selection/selected-books/${selectedBookId}/ignore`,
   );
   return res.data;
 }
@@ -527,4 +537,38 @@ export function openCurriculumBuildStream(
   })();
 
   return controller;
+}
+
+// ── Extraction Inspector endpoints ─────────────────────────────
+
+/** Trigger extraction-only (stops at chapter_extracted for review). */
+export async function triggerExtractionOnly(
+  courseId: number,
+): Promise<BookExtractionRun> {
+  const res = await api.post<BookExtractionRun>(
+    `/book-selection/courses/${courseId}/analysis/extract-only`,
+  );
+  return res.data;
+}
+
+/** Get extracted chapters/sections preview for human inspection. */
+export async function getExtractionPreview(
+  courseId: number,
+  runId: number,
+): Promise<ExtractionPreviewResponse> {
+  const res = await api.get<ExtractionPreviewResponse>(
+    `/book-selection/courses/${courseId}/analysis/${runId}/extraction-preview`,
+  );
+  return res.data;
+}
+
+/** Approve extraction and continue to chunking pipeline. */
+export async function approveExtraction(
+  courseId: number,
+  runId: number,
+): Promise<BookExtractionRun> {
+  const res = await api.post<BookExtractionRun>(
+    `/book-selection/courses/${courseId}/analysis/${runId}/approve-extraction`,
+  );
+  return res.data;
 }

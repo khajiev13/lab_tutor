@@ -197,6 +197,13 @@ class BookSelectionService:
                 initial_state, config=thread_config, stream_mode="updates"
             ):
                 for node_name, state_update in event.items():
+                    logger.info(
+                        "Stream event node=%s keys=%s",
+                        node_name,
+                        list(state_update.keys())
+                        if isinstance(state_update, dict)
+                        else type(state_update).__name__,
+                    )
                     if node_name == "discover_books":
                         discovered = state_update.get("discovered_books", [])
                         with _fresh_db() as db:
@@ -373,6 +380,13 @@ class BookSelectionService:
                 initial_state, config=thread_config, stream_mode="updates"
             ):
                 for node_name, state_update in event.items():
+                    logger.info(
+                        "Resume stream event node=%s keys=%s",
+                        node_name,
+                        list(state_update.keys())
+                        if isinstance(state_update, dict)
+                        else type(state_update).__name__,
+                    )
                     if node_name == "score_book":
                         new_scores = state_update.get("scored_books", [])
                         with _fresh_db() as db:
@@ -545,13 +559,83 @@ class BookSelectionService:
                         )
                     continue
 
-                # ── Stream PDF → Azure ──────────────────────────
+                # ── Download PDF → validate → Azure ─────────────
                 blob_path = f"courses/{course_id}/books/{_safe_filename(title)}.pdf"
 
                 try:
-                    blob_url = await self.blob_service.upload_from_url(
-                        pdf_url, blob_path
-                    )
+                    import tempfile
+
+                    import httpx
+
+                    from .book_selection.tools import validate_pdf
+
+                    # Download to a temp file so we can validate
+                    tmp_path: str | None = None
+                    try:
+                        async with httpx.AsyncClient(
+                            follow_redirects=True, timeout=120.0
+                        ) as client:
+                            resp = await client.get(pdf_url)
+                            resp.raise_for_status()
+                            pdf_bytes = resp.content
+
+                        with tempfile.NamedTemporaryFile(
+                            suffix=".pdf", delete=False
+                        ) as tmp:
+                            tmp.write(pdf_bytes)
+                            tmp_path = tmp.name
+
+                        vr = validate_pdf(tmp_path, expected_title=title)
+                        if not vr.valid:
+                            logger.warning(
+                                "PDF rejected for '%s' from %s: %s",
+                                title,
+                                pdf_url,
+                                vr.rejection_reason,
+                            )
+                            with _fresh_db() as db:
+                                repo = BookSelectionRepository(db)
+                                repo.update_download_result(
+                                    book_id,
+                                    DownloadStatus.FAILED,
+                                    error=(
+                                        f"PDF rejected: {vr.rejection_reason} "
+                                        f"Source: {pdf_url}"
+                                    ),
+                                    source_url=pdf_url,
+                                )
+                                repo.create_selected_book(
+                                    course_id=course_id,
+                                    title=title,
+                                    authors=authors or None,
+                                    publisher=book.get("publisher"),
+                                    year=book.get("year"),
+                                    status=BookStatus.FAILED,
+                                    error_message=(
+                                        f"PDF rejected: {vr.rejection_reason} "
+                                        f"Please upload manually."
+                                    ),
+                                    source_book_id=book_id,
+                                )
+                            download_count += 1
+                            with _fresh_db() as db:
+                                BookSelectionRepository(db).update_progress(
+                                    session_id,
+                                    progress_scored=download_count,
+                                )
+                            continue
+
+                        # Valid — upload bytes to Azure
+                        blob_url = await self.blob_service.upload_bytes(
+                            pdf_bytes, blob_path
+                        )
+                    finally:
+                        if tmp_path:
+                            import contextlib
+                            import os as _os
+
+                            with contextlib.suppress(OSError):
+                                _os.remove(tmp_path)
 
                     with _fresh_db() as db:
                         repo = BookSelectionRepository(db)
@@ -722,6 +806,16 @@ class BookSelectionService:
         """Get all selected books for a course."""
         books = self.repo.get_course_selected_books(course_id)
         return [CourseSelectedBookRead.model_validate(b) for b in books]
+
+    def ignore_selected_book(self, selected_book_id: int) -> CourseSelectedBookRead:
+        """Mark a selected book as ignored so it is skipped."""
+        book = self.repo.get_selected_book(selected_book_id)
+        if book is None:
+            raise ValueError(f"Selected book {selected_book_id} not found")
+        updated = self.repo.update_selected_book_status(
+            selected_book_id, BookStatus.IGNORED
+        )
+        return CourseSelectedBookRead.model_validate(updated)
 
     async def upload_to_selected_book(
         self,

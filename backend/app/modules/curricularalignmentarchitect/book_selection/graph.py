@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import logging
 
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import END, START, StateGraph
+from psycopg import AsyncConnection
+from psycopg.rows import dict_row
 
 from .nodes import (
     deduplicate_books,
@@ -45,23 +47,34 @@ from .state import (
 
 logger = logging.getLogger(__name__)
 
-# Persistent SQLite checkpointer for HITL workflows + crash recovery.
-# The file is stored alongside the app's SQLite data directory.
-_CHECKPOINT_DB_PATH = "data/langgraph_checkpoints.sqlite"
-
-# Async checkpointer — used by the actual workflow (astream / ainvoke).
-# Initialized lazily because AsyncSqliteSaver.from_conn_string is async.
-_ASYNC_CHECKPOINTER: AsyncSqliteSaver | None = None
+# Async checkpointer — uses PostgreSQL for HITL workflows + crash recovery.
+# Initialized lazily because AsyncPostgresSaver.from_conn_string is async.
+_ASYNC_CHECKPOINTER: AsyncPostgresSaver | None = None
 
 
-async def _get_async_checkpointer() -> AsyncSqliteSaver:
-    """Lazily initialize the async SQLite checkpointer."""
+def _get_checkpoint_db_url() -> str:
+    """Derive a psycopg-compatible URL from the app's DATABASE_URL."""
+    from app.core.settings import settings
+
+    url = settings.database_url
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url.removeprefix("postgres://")
+    # Strip any SQLAlchemy dialect suffix so psycopg gets a plain URL.
+    for prefix in ("postgresql+psycopg://", "postgresql+asyncpg://"):
+        if url.startswith(prefix):
+            url = "postgresql://" + url.removeprefix(prefix)
+    return url
+
+
+async def _get_async_checkpointer() -> AsyncPostgresSaver:
+    """Lazily initialize the async PostgreSQL checkpointer."""
     global _ASYNC_CHECKPOINTER  # noqa: PLW0603
     if _ASYNC_CHECKPOINTER is None:
-        import aiosqlite
-
-        conn = await aiosqlite.connect(_CHECKPOINT_DB_PATH)
-        _ASYNC_CHECKPOINTER = AsyncSqliteSaver(conn)
+        conn_string = _get_checkpoint_db_url()
+        conn = await AsyncConnection.connect(
+            conn_string, autocommit=True, prepare_threshold=0, row_factory=dict_row
+        )
+        _ASYNC_CHECKPOINTER = AsyncPostgresSaver(conn=conn)
         await _ASYNC_CHECKPOINTER.setup()
     return _ASYNC_CHECKPOINTER
 
@@ -141,7 +154,7 @@ async def build_book_selection_graph(*, checkpointer=None):
 
     Args:
         checkpointer: LangGraph checkpointer for HITL interrupt/resume.
-                      Defaults to shared AsyncSqliteSaver for single-instance deployments.
+                      Defaults to shared AsyncPostgresSaver backed by the app's PostgreSQL.
     """
     if checkpointer is None:
         checkpointer = await _get_async_checkpointer()

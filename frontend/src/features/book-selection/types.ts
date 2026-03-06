@@ -7,7 +7,8 @@ export type SessionStatus =
   | 'awaiting_review'
   | 'downloading'
   | 'completed'
-  | 'failed';
+  | 'failed'
+  | 'superseded';
 
 export type DownloadStatus =
   | 'pending'
@@ -16,7 +17,7 @@ export type DownloadStatus =
   | 'failed'
   | 'manual_upload';
 
-export type BookStatus = 'downloaded' | 'uploaded' | 'failed';
+export type BookStatus = 'downloaded' | 'uploaded' | 'failed' | 'ignored';
 
 export type CourseLevel = 'bachelor' | 'master' | 'phd';
 
@@ -662,3 +663,41 @@ export type CurriculumBuildEvent =
   | CurriculumBuildProgressEvent
   | CurriculumBuildCompleteEvent
   | CurriculumBuildErrorEvent;
+
+// ── Extraction Inspector Types ─────────────────────────────────
+
+export interface SectionPreview {
+  section_title: string;
+  section_index: number;
+  content: string;
+  content_length: number;
+  has_content: boolean;
+}
+
+export interface ChapterPreview {
+  chapter_title: string;
+  chapter_index: number;
+  content: string;
+  content_length: number;
+  sections: SectionPreview[];
+  section_count: number;
+  has_content: boolean;
+}
+
+export interface BookExtractionPreview {
+  book_id: number;
+  book_title: string;
+  authors: string | null;
+  status: string | null;
+  chapters: ChapterPreview[];
+  total_chapters: number;
+  total_sections: number;
+  total_content_chars: number;
+}
+
+export interface ExtractionPreviewResponse {
+  run_id: number;
+  run_status: ExtractionRunStatus;
+  progress_detail: string | null;
+  books: BookExtractionPreview[];
+}

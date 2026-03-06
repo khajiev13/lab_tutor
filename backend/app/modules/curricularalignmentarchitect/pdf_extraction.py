@@ -1,8 +1,8 @@
 """Shared PDF extraction module — extract once, consume twice.
 
 Downloads PDFs from Azure Blob Storage, extracts chapter structure using
-a 4-tier TOC fallback chain (Bookmarks → Printed TOC → Page Scan →
-Whole-book) via pure **pypdf**.
+a 3-strategy fallback chain (Bookmarks → Heading Detection → Page Chunking)
+via **pypdf** + **pdfplumber**.
 
 Each chapter contains sections with **populated text content**, cleaned
 via ``clean_chapter_for_llm()`` before being returned.
@@ -18,21 +18,16 @@ import logging
 import os
 import re
 import tempfile
-import threading
 from collections import Counter
 from collections.abc import Callable
 
-import pymupdf4llm
+import pdfplumber
 import pypdf
 
 from app.providers.storage import BlobService
 
 logger = logging.getLogger(__name__)
 
-
-# ── Type aliases ───────────────────────────────────────────────
-
-TocEntry = tuple[int, str, int]  # (level, title, page_1based)
 
 # ── Boilerplate / skip titles ──────────────────────────────────
 
@@ -120,11 +115,7 @@ def clean_extracted_text(text: str) -> str:
 
 
 def _clean_title(title: str) -> str:
-    """Normalise a chapter title extracted from PDF metadata.
-
-    Strips carriage-returns, tab characters, and collapsed whitespace that
-    leak from buggy bookmark / outline entries in some PDFs.
-    """
+    """Normalise a chapter title extracted from PDF metadata."""
     title = title.replace("\r", " ").replace("\t", " ")
     title = re.sub(r"\s+", " ", title)
     return title.strip()
@@ -215,530 +206,507 @@ def validate_extracted_chapters(
 
 
 def clean_chapter_for_llm(text: str) -> str:
-    """Lightweight cleanup of raw pypdf chapter text before sending to an LLM.
-
-    Composes on top of ``clean_extracted_text`` and additionally:
-    - Rejoins remaining uppercase-starting hyphenated line breaks
-    - Normalises runs of 3+ spaces/tabs to a single space
-    """
+    """Lightweight cleanup of raw chapter text before sending to an LLM."""
     text = clean_extracted_text(text)
-    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)  # catch remaining uppercase hyphens
-    text = re.sub(r"[ \t]{3,}", " ", text)  # normalize big whitespace runs
+    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)
+    text = re.sub(r"[ \t]{3,}", " ", text)
     return text
 
 
 # ════════════════════════════════════════════════════════════════
-# Heuristic section splitting for flat TOCs
+# RobustPDFExtractor — 3-strategy fallback chain
 # ════════════════════════════════════════════════════════════════
+#
+#   Strategy 1: PDF bookmarks    (pypdf outline)  — most modern PDFs
+#   Strategy 2: Heading detection (pdfplumber)     — text heading patterns
+#   Strategy 3: Page chunking    (pypdf)           — ultimate fallback
 
-# Matches top-level numbered sub-headings only: "1.1 Title", "10.2 Title"
-# (one dot = one level deep).  Does NOT match deeper levels like
-# "1.2.3 Sub-sub-section" — those stay inside their parent section.
-_SECTION_HEADING_RE = re.compile(
-    r"^(\d{1,2}\.\d{1,2})\.?\s+"
-    r"([A-Z][A-Za-z][\w\s,'\-:&/()]{2,80})"
-    r"\s*$",
-    re.MULTILINE,
+
+_BACK_MATTER_RE = re.compile(
+    r"^(bibliography|references|back\s*cover|index|glossary"
+    r"|about\s+the\s+authors?|colophon)\b",
+    re.IGNORECASE,
 )
 
 
-# ════════════════════════════════════════════════════════════════
-# pymupdf4llm — primary extraction (markdown-based)
-# ════════════════════════════════════════════════════════════════
+class _RobustPDFExtractor:
+    """Multi-strategy PDF extractor that always produces structured output."""
 
-_PYMUPDF4LLM_TIMEOUT = 90  # seconds; corrupted PDFs hang forever
+    def __init__(self, pdf_path: str):
+        self.pdf_path = pdf_path
+        self.filename = os.path.basename(pdf_path)
+        self.reader: pypdf.PdfReader | None = None
+        self.total_pages = 0
 
-
-def _pymupdf4llm_to_markdown(
-    pdf_path: str,
-    timeout: int = _PYMUPDF4LLM_TIMEOUT,
-) -> str | None:
-    """Convert PDF to markdown via pymupdf4llm with a thread-based timeout.
-
-    Returns ``None`` when the conversion exceeds *timeout* seconds
-    (typically indicates a corrupted or image-heavy PDF).
-    """
-    result: list[str | None] = [None]
-    error: list[BaseException | None] = [None]
-
-    def _worker() -> None:
+    def extract(self) -> dict:
+        """Main extraction with fallback strategies."""
         try:
-            result[0] = pymupdf4llm.to_markdown(
-                pdf_path, ignore_images=True, ignore_graphics=True
+            self.reader = pypdf.PdfReader(self.pdf_path)
+            self.total_pages = len(self.reader.pages)
+        except Exception as e:
+            return {"error": f"Failed to open PDF: {e!s}"}
+
+        # Strategy 1: bookmark-based
+        result = self._extract_from_bookmarks()
+        if result and len(result["chapters"]) > 0:
+            result["chapters"] = self._filter_to_real_chapters(result["chapters"])
+            logger.info(
+                "Strategy 1 (bookmarks) → %d chapters for '%s'",
+                len(result["chapters"]),
+                self.filename,
             )
-        except Exception as exc:  # noqa: BLE001
-            error[0] = exc
+            return result
 
-    thread = threading.Thread(target=_worker, daemon=True)
-    thread.start()
-    thread.join(timeout=timeout)
+        # Strategy 2: heading detection
+        result = self._extract_from_headings()
+        if result and len(result["chapters"]) > 0:
+            result["chapters"] = self._filter_to_real_chapters(result["chapters"])
+            logger.info(
+                "Strategy 2 (headings) → %d chapters for '%s'",
+                len(result["chapters"]),
+                self.filename,
+            )
+            return result
 
-    if thread.is_alive():
-        logger.warning(
-            "pymupdf4llm timed out after %ds — PDF likely corrupted", timeout
+        # Strategy 3: page chunking fallback
+        result = self._extract_by_pages()
+        logger.info(
+            "Strategy 3 (page chunks) → %d chunks for '%s'",
+            len(result["chapters"]),
+            self.filename,
         )
-        return None
-    if error[0]:
-        logger.warning("pymupdf4llm error: %s", error[0])
-        return None
-    return result[0]
+        return result
+
+    @staticmethod
+    def _filter_to_real_chapters(chapters: list[dict]) -> list[dict]:
+        """Drop front/back matter, keeping only real chapters."""
+        while chapters and _BACK_MATTER_RE.match(chapters[-1]["title"].strip()):
+            chapters.pop()
+
+        start = 0
+        for i, ch in enumerate(chapters):
+            title = ch["title"].strip()
+            if re.match(r"^(Chapter\s+1\b|CHAPTER\s+1\b|1[\s.:]\s*\S)", title):
+                start = i
+                break
+        chapters = chapters[start:]
+
+        if chapters:
+            first_title = chapters[0]["title"].strip()
+            if re.match(r"^(Chapter|CHAPTER)\s+\d+", first_title):
+                pattern = re.compile(r"^(Chapter|CHAPTER)\s+\d+")
+            elif re.match(r"^\d+[\s.:]", first_title):
+                pattern = re.compile(r"^\d+[\s.:]")
+            else:
+                pattern = None
+
+            if pattern:
+                end = len(chapters)
+                for j in range(len(chapters) - 1, -1, -1):
+                    if pattern.match(chapters[j]["title"].strip()):
+                        end = j + 1
+                        break
+                chapters = chapters[:end]
+
+        return chapters
+
+    # ── Strategy 1: Bookmarks ──────────────────────────────────
+
+    def _extract_from_bookmarks(self) -> dict | None:
+        try:
+            assert self.reader is not None
+            outline = self.reader.outline
+            if not outline or len(outline) == 0:
+                return None
+
+            bookmarks = self._parse_outline(outline)
+            if not bookmarks:
+                return None
+
+            chapters: list[dict] = []
+            current_chapter: dict | None = None
+
+            for bm in bookmarks:
+                if bm["level"] == 1:
+                    if current_chapter:
+                        chapters.append(current_chapter)
+                    current_chapter = {
+                        "title": _clean_title(bm["title"]),
+                        "start_page": bm["page_num"],
+                        "sections": [],
+                        "method": "bookmarks",
+                    }
+                elif bm["level"] == 2 and current_chapter:
+                    current_chapter["sections"].append(
+                        {
+                            "title": _clean_title(bm["title"]),
+                            "start_page": bm["page_num"],
+                        }
+                    )
+
+            if current_chapter:
+                chapters.append(current_chapter)
+
+            # Merge split bookmark titles for numbered sections
+            for chapter in chapters:
+                secs = chapter["sections"]
+                if not secs:
+                    continue
+                numbered_count = sum(
+                    1 for s in secs if re.match(r"^\d+\.\d+", s["title"].strip())
+                )
+                if numbered_count < len(secs) * 0.5:
+                    continue
+
+                merged: list[dict] = []
+                for sec in secs:
+                    title = sec["title"].strip()
+                    is_numbered = re.match(r"^\d+\.\d+", title)
+                    if (
+                        not is_numbered
+                        and merged
+                        and sec["start_page"] == merged[-1]["start_page"]
+                    ):
+                        merged[-1]["title"] = merged[-1]["title"].rstrip() + " " + title
+                    else:
+                        merged.append(sec)
+                chapter["sections"] = merged
+
+            # Extract text for each chapter/section
+            for i, chapter in enumerate(chapters):
+                end_page = (
+                    chapters[i + 1]["start_page"]
+                    if i + 1 < len(chapters)
+                    else self.total_pages
+                )
+
+                if chapter["sections"]:
+                    for j, section in enumerate(chapter["sections"]):
+                        sec_start = section["start_page"]
+                        sec_end = (
+                            chapter["sections"][j + 1]["start_page"]
+                            if j + 1 < len(chapter["sections"])
+                            else end_page
+                        )
+                        sec_end = max(sec_start + 1, sec_end)
+                        section["text"] = self._extract_text_range(sec_start, sec_end)
+                else:
+                    chapter["text"] = self._extract_text_range(
+                        chapter["start_page"], end_page
+                    )
+
+            # If no level-2 sections found, detect from text
+            has_any_sections = any(ch["sections"] for ch in chapters)
+            if not has_any_sections:
+                self._detect_sections_in_chapters(chapters)
+
+            return {
+                "filename": self.filename,
+                "total_pages": self.total_pages,
+                "extraction_method": "bookmarks",
+                "chapters": chapters,
+            }
+
+        except Exception as e:
+            logger.warning("Bookmark extraction error: %s", e)
+            return None
+
+    def _detect_sections_in_chapters(self, chapters: list[dict]) -> None:
+        """Detect numbered sections (N.N) within each chapter using pdfplumber."""
+        with pdfplumber.open(self.pdf_path) as pdf:
+            for ch_idx, chapter in enumerate(chapters):
+                start = chapter["start_page"]
+                end = (
+                    chapters[ch_idx + 1]["start_page"]
+                    if ch_idx + 1 < len(chapters)
+                    else self.total_pages
+                )
+
+                sections: list[dict] = []
+                for page_num in range(start, min(end, len(pdf.pages))):
+                    text = pdf.pages[page_num].extract_text()
+                    if not text:
+                        continue
+                    for line in text.split("\n"):
+                        line = line.strip()
+                        if (
+                            re.match(r"^(\d+\.\d+)\s+([A-Za-z].+)", line)
+                            and len(line) < 100
+                        ):
+                            sections.append({"title": line, "start_page": page_num})
+
+                if sections:
+                    for j, sec in enumerate(sections):
+                        sec_start = sec["start_page"]
+                        sec_end = (
+                            sections[j + 1]["start_page"]
+                            if j + 1 < len(sections)
+                            else end
+                        )
+                        sec_end = max(sec_start + 1, sec_end)
+                        sec["text"] = self._extract_text_range(sec_start, sec_end)
+                    chapter["sections"] = sections
+                    chapter.pop("text", None)
+
+    # ── Strategy 2: Heading Detection ──────────────────────────
+
+    def _extract_from_headings(self) -> dict | None:
+        try:
+            chapters: list[dict] = []
+            current_chapter: dict | None = None
+
+            with pdfplumber.open(self.pdf_path) as pdf:
+                for page_num, page in enumerate(pdf.pages):
+                    text = page.extract_text()
+                    if not text:
+                        continue
+
+                    lines = text.split("\n")
+
+                    for line_idx, line in enumerate(lines):
+                        line = line.strip()
+
+                        chapter_match = re.match(
+                            r"^(Chapter\s+\d+|CHAPTER\s+\d+)\s*$"
+                            r"|^(Chapter\s+\d+|CHAPTER\s+\d+)\s*[:.\-]\s*\S",
+                            line,
+                        )
+                        if chapter_match and len(line) < 100:
+                            title = line
+                            is_standalone = re.match(
+                                r"^(Chapter\s+\d+|CHAPTER\s+\d+)\s*$", line
+                            )
+                            if is_standalone and line_idx + 1 < len(lines):
+                                next_line = lines[line_idx + 1].strip()
+                                if next_line and len(next_line) < 80:
+                                    title = f"{line}: {next_line}"
+
+                            if current_chapter:
+                                chapters.append(current_chapter)
+                            current_chapter = {
+                                "title": title,
+                                "start_page": page_num,
+                                "sections": [],
+                                "text": "",
+                                "method": "heading_detection",
+                            }
+
+                        elif current_chapter:
+                            section_match = re.match(
+                                r"^(\d+\.\d+)\s+([A-Za-z].+)", line
+                            )
+                            if section_match and len(line) < 100:
+                                current_chapter["sections"].append(
+                                    {
+                                        "title": line,
+                                        "start_page": page_num,
+                                        "text": "",
+                                    }
+                                )
+
+                    if current_chapter:
+                        if current_chapter["sections"]:
+                            current_chapter["sections"][-1]["text"] += text + "\n\n"
+                        else:
+                            current_chapter["text"] += text + "\n\n"
+
+            if current_chapter:
+                chapters.append(current_chapter)
+
+            chapters = [
+                ch for ch in chapters if len(ch.get("text", "")) > 100 or ch["sections"]
+            ]
+
+            # Fix 0-text sections
+            for ch in chapters:
+                for j, sec in enumerate(ch.get("sections", [])):
+                    if sec.get("text", "").strip():
+                        continue
+                    sec_start = sec["start_page"]
+                    sec_end = (
+                        ch["sections"][j + 1]["start_page"]
+                        if j + 1 < len(ch["sections"])
+                        else sec_start + 1
+                    )
+                    sec_end = max(sec_start + 1, sec_end)
+                    sec["text"] = self._extract_text_range(sec_start, sec_end)
+
+            if len(chapters) < 3:
+                return None
+
+            return {
+                "filename": self.filename,
+                "total_pages": self.total_pages,
+                "extraction_method": "heading_detection",
+                "chapters": chapters,
+            }
+
+        except Exception as e:
+            logger.warning("Heading detection error: %s", e)
+            return None
+
+    # ── Strategy 3: Page Chunking ──────────────────────────────
+
+    def _extract_by_pages(self, pages_per_chunk: int = 15) -> dict:
+        chapters: list[dict] = []
+
+        for i in range(0, self.total_pages, pages_per_chunk):
+            end_page = min(i + pages_per_chunk, self.total_pages)
+            text = self._extract_text_range(i, end_page)
+
+            chapters.append(
+                {
+                    "title": f"Pages {i + 1}-{end_page}",
+                    "start_page": i,
+                    "sections": [],
+                    "text": text,
+                    "method": "page_chunks",
+                }
+            )
+
+        return {
+            "filename": self.filename,
+            "total_pages": self.total_pages,
+            "extraction_method": "page_chunks",
+            "chapters": chapters,
+        }
+
+    # ── Outline parsing ────────────────────────────────────────
+
+    def _parse_outline(self, outline: list, level: int = 1) -> list[dict]:
+        """Parse PDF outline recursively, flatten to 2 levels max."""
+        items: list[dict] = []
+        if not outline:
+            return items
+
+        for item in outline:
+            if isinstance(item, list):
+                if level < 2:
+                    items.extend(self._parse_outline(item, level + 1))
+            else:
+                try:
+                    title = (
+                        item.title
+                        if hasattr(item, "title")
+                        else str(item.get("/Title", "Untitled"))
+                    )
+                    page_obj = item.page if hasattr(item, "page") else item.get("/Page")
+                    page_num = self._get_page_number(page_obj)
+
+                    if level <= 2:
+                        items.append(
+                            {
+                                "level": level,
+                                "title": title,
+                                "page_num": page_num,
+                            }
+                        )
+                except Exception:
+                    continue
+
+        return items
+
+    def _get_page_number(self, page_obj: object) -> int:
+        """Extract page number from page object."""
+        if page_obj is None:
+            return 0
+        if isinstance(page_obj, int):
+            return page_obj
+
+        assert self.reader is not None
+        try:
+            for i, page in enumerate(self.reader.pages):
+                if page == page_obj or str(page) == str(page_obj):
+                    return i
+        except Exception:
+            pass
+        return 0
+
+    def _extract_text_range(self, start_page: int, end_page: int) -> str:
+        """Extract text from page range using pypdf."""
+        assert self.reader is not None
+        text = ""
+        try:
+            for page_num in range(start_page, min(end_page, self.total_pages)):
+                page = self.reader.pages[page_num]
+                text += page.extract_text() or ""
+                text += "\n\n---\n\n"
+        except Exception as e:
+            logger.warning("Error extracting pages %d-%d: %s", start_page, end_page, e)
+
+        return text.strip()
 
 
-def _parse_chapters_from_markdown(md_text: str) -> list[dict]:
-    """Parse pymupdf4llm markdown into chapters with heuristic section splits.
+# ════════════════════════════════════════════════════════════════
+# Adapter: convert raw extractor output → consumer contract
+# ════════════════════════════════════════════════════════════════
 
-    Looks for ``# Heading`` lines as chapter boundaries, then splits
-    each chapter into sections using ``_SECTION_HEADING_RE``.
+
+def _adapt_to_chapter_contract(raw_result: dict) -> tuple[list[dict], str]:
+    """Convert _RobustPDFExtractor output to the standard chapter contract.
+
+    Consumer contract per chapter:
+      chapter_number, title, level, start_page (1-based), end_page (1-based),
+      sections: [{title, content}], content
     """
-    chapter_pattern = re.compile(r"^# (.+)$", re.MULTILINE)
-    ch_matches = list(chapter_pattern.finditer(md_text))
+    if "error" in raw_result:
+        return [], "error"
 
-    if not ch_matches:
-        chapter_pattern = re.compile(r"^## (.+)$", re.MULTILINE)
-        ch_matches = list(chapter_pattern.finditer(md_text))
-
-    if not ch_matches:
-        return []
+    method = raw_result["extraction_method"]
+    total_pages = raw_result["total_pages"]
+    raw_chapters = raw_result["chapters"]
 
     chapters: list[dict] = []
-    for i, m in enumerate(ch_matches):
-        ch_end = ch_matches[i + 1].start() if i + 1 < len(ch_matches) else len(md_text)
-        ch_text = md_text[m.end() : ch_end].strip()
-        ch_title = _clean_title(m.group(1).replace("**", ""))
 
-        if _is_boilerplate(ch_title):
-            continue
-        if len(ch_text) < 500:
+    for idx, ch in enumerate(raw_chapters):
+        sections: list[dict] = []
+        if ch.get("sections"):
+            for sec in ch["sections"]:
+                sec_text = sec.get("text", "") or sec.get("content", "")
+                cleaned = clean_chapter_for_llm(sec_text)
+                if cleaned:
+                    sections.append(
+                        {"title": _clean_title(sec["title"]), "content": cleaned}
+                    )
+        else:
+            ch_text = ch.get("text", "") or ch.get("content", "")
+            cleaned = clean_chapter_for_llm(ch_text)
+            if cleaned:
+                sections.append(
+                    {"title": _clean_title(ch["title"]), "content": cleaned}
+                )
+
+        if not sections:
             continue
 
-        ch_text = clean_chapter_for_llm(ch_text)
-        sections = _split_chapter_into_sections(ch_text, ch_title)
-        combined = "\n\n".join(s["content"] for s in sections if s["content"])
+        combined = "\n\n".join(s["content"] for s in sections)
+        start_page_1 = ch.get("start_page", 0) + 1
+
+        if idx + 1 < len(raw_chapters):
+            end_page_1 = raw_chapters[idx + 1].get("start_page", total_pages)
+        else:
+            end_page_1 = total_pages
+        end_page_1 = max(start_page_1, end_page_1)
 
         chapters.append(
             {
                 "chapter_number": len(chapters) + 1,
-                "title": ch_title,
+                "title": _clean_title(ch["title"]),
                 "level": 1,
-                "start_page": 1,
-                "end_page": 1,
+                "start_page": start_page_1,
+                "end_page": end_page_1,
                 "sections": sections,
                 "content": combined,
             }
         )
 
-    return chapters
-
-
-def _split_chapter_into_sections(
-    chapter_text: str,
-    chapter_title: str,
-    min_section_chars: int = 200,
-) -> list[dict]:
-    """Split chapter text into sections using numbered sub-heading heuristics.
-
-    When a chapter has no TOC children (flat bookmark structure), this
-    function scans the cleaned chapter text for patterns like
-    ``1.1 Data Models``, ``2.3 Query Processing``, etc.
-
-    Returns a list of ``{"title": ..., "content": ...}`` dicts.
-    Falls back to a single section with the chapter title if no
-    sub-headings are detected.
-    """
-    matches = list(_SECTION_HEADING_RE.finditer(chapter_text))
-
-    if len(matches) < 2:
-        return [{"title": chapter_title, "content": chapter_text}]
-
-    sections: list[dict] = []
-
-    # Intro section: text before the first heading
-    intro_text = chapter_text[: matches[0].start()].strip()
-    if len(intro_text) >= min_section_chars:
-        sections.append({"title": chapter_title, "content": intro_text})
-
-    # Named sections from headings
-    for i, m in enumerate(matches):
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(chapter_text)
-        number = m.group(1).rstrip(".")
-        title = m.group(2).strip()
-        content = chapter_text[m.start() : end].strip()
-        if len(content) >= min_section_chars:
-            sections.append({"title": f"{number} {title}", "content": content})
-
-    if not sections:
-        return [{"title": chapter_title, "content": chapter_text}]
-
-    return sections
+    return chapters, method
 
 
 # ════════════════════════════════════════════════════════════════
-# TOC Extraction — 4-Tier Fallback Chain
-# ════════════════════════════════════════════════════════════════
-#
-#   Tier 1: PDF bookmarks  (pypdf outline)        — fast, most modern PDFs
-#   Tier 2: Printed TOC     (text parsing)         — dvips / Ghostscript PDFs
-#   Tier 3: Page-scan       (in-text headings)     — "Chapter N" at page tops
-#   Tier 4: Whole-book      (single chapter)       — ultimate fallback
-#
-# ``get_toc()`` handles tiers 1-3; the caller handles tier 4.
-
-
-def get_toc(
-    reader: pypdf.PdfReader,
-) -> tuple[list[TocEntry], int, str]:
-    """Extract TOC + page count from an open PdfReader.
-
-    Tries 3 tiers of extraction; the caller handles tier 4.
-
-    Returns ``(toc, page_count, toc_source)`` where *toc_source* is one
-    of ``"bookmarks"``, ``"printed_toc"``, ``"page_scan"``, or ``"none"``.
-    """
-    page_count = len(reader.pages)
-
-    # ── Tier 1: PDF bookmarks ──────────────────────────────────
-    outline = reader.outline if reader.outline else []
-
-    def _flatten(items: list, level: int = 1) -> list[TocEntry]:
-        results: list[TocEntry] = []
-        for item in items:
-            if isinstance(item, list):
-                results.extend(_flatten(item, level + 1))
-            else:
-                title = item.get("/Title", "")
-                try:
-                    page = reader.get_destination_page_number(item) + 1
-                except Exception:
-                    page = 0
-                results.append((level, title, page))
-        return results
-
-    toc = _flatten(outline)
-    toc = [(lvl, t, p) for lvl, t, p in toc if p > 0 and t.strip()]
-    if toc:
-        logger.info("Tier 1 (bookmarks) → %d entries", len(toc))
-        return toc, page_count, "bookmarks"
-
-    # ── Tier 2: Printed TOC pages ──────────────────────────────
-    toc = _parse_toc_from_text(reader, page_count)
-    if toc:
-        logger.info("Tier 2 (printed TOC) → %d entries", len(toc))
-        return toc, page_count, "printed_toc"
-
-    # ── Tier 3: In-text chapter headings ───────────────────────
-    toc = _scan_chapter_headings(reader, page_count)
-    if toc:
-        logger.info("Tier 3 (page scan) → %d entries", len(toc))
-        return toc, page_count, "page_scan"
-
-    logger.warning("No TOC found by any tier")
-    return [], page_count, "none"
-
-
-# ────────────────────────────────────────────────────────────────
-# Tier 2: Printed TOC Parser
-# ────────────────────────────────────────────────────────────────
-
-_TOC_CHAPTER_LINE = re.compile(
-    r"^(\d{1,2})\s+"
-    r"([A-Z][\s\S]+?)"
-    r"\s+(\d{1,4})\s*$",
-    re.MULTILINE,
-)
-_TOC_SECTION_LINE = re.compile(
-    r"^(\d+\.\d+(?:\.\d+)*)\s+"
-    r"(.+?)"
-    r"\s*\.{3,}\s*"
-    r"(\d{1,4})\s*$",
-    re.MULTILINE,
-)
-_TOC_APPENDIX_LINE = re.compile(
-    r"^([A-Z])\s{2,}"
-    r"([A-Z][\s\S]+?)"
-    r"\s+(\d{1,4})\s*$",
-    re.MULTILINE,
-)
-
-
-def _parse_toc_from_text(
-    reader: pypdf.PdfReader,
-    page_count: int,
-) -> list[TocEntry]:
-    """Parse printed table-of-contents pages into ``(level, title, page)``."""
-
-    # Step 1: identify TOC pages
-    toc_page_indices: list[int] = []
-    toc_started = False
-
-    for pn in range(min(40, page_count)):
-        text = reader.pages[pn].extract_text() or ""
-        lines = text.strip().split("\n")
-        if not lines:
-            continue
-
-        has_contents = any(
-            re.search(r"\bcontents\b", line, re.IGNORECASE) for line in lines[:5]
-        )
-        dot_leaders = sum(1 for line in lines if re.search(r"\.{3,}\s*\d+", line))
-        numbered = sum(1 for line in lines if re.match(r"\s*\d+\.\d+\s+", line))
-
-        is_toc = (has_contents and (dot_leaders > 2 or numbered > 2)) or (
-            toc_started and (dot_leaders > 3 or numbered > 3)
-        )
-
-        if is_toc:
-            toc_started = True
-            toc_page_indices.append(pn)
-        elif toc_started:
-            if not toc_page_indices or pn - toc_page_indices[-1] > 2:
-                break
-
-    if not toc_page_indices:
-        return []
-
-    # Step 2: join text + repair dvips artefacts
-    raw_parts = [reader.pages[pn].extract_text() or "" for pn in toc_page_indices]
-    toc_text = "\n".join(raw_parts)
-
-    # Repair page numbers split across lines by dvips
-    toc_text = re.sub(
-        r"(\.{3,}\s*\d+)\s*\n(\d+)\s*$",
-        r"\1\2",
-        toc_text,
-        flags=re.MULTILINE,
-    )
-    toc_text = re.sub(
-        r"(\b[A-Z][\w\s,'-]+?\s+\d{1,3})\s*\n(\d{1,2})\s*$",
-        r"\1\2",
-        toc_text,
-        flags=re.MULTILINE,
-    )
-
-    # Step 3: extract entries
-    entries: list[TocEntry] = []
-    seen: set[tuple[int, str]] = set()
-
-    def _add(level: int, title: str, page: int) -> None:
-        key = (level, title)
-        if key not in seen and 0 < page <= page_count:
-            seen.add(key)
-            entries.append((level, title, page))
-
-    def _clean(s: str) -> str:
-        """Fix dvips broken spaces: 'F requent' → 'Frequent'."""
-        return re.sub(r"([A-Z])\s([a-z])", r"\1\2", s.strip())
-
-    for m in _TOC_CHAPTER_LINE.finditer(toc_text):
-        _add(1, _clean(m.group(2)), int(m.group(3)))
-
-    for m in _TOC_APPENDIX_LINE.finditer(toc_text):
-        _add(1, f"Appendix {m.group(1)}: {_clean(m.group(2))}", int(m.group(3)))
-
-    for m in _TOC_SECTION_LINE.finditer(toc_text):
-        num_str = m.group(1)
-        depth = num_str.count(".") + 1
-        _add(depth, f"{num_str} {_clean(m.group(2))}", int(m.group(3)))
-
-    entries.sort(key=lambda e: (e[2], e[0]))
-
-    # Step 4: calibrate logical → physical page numbers
-    entries = _calibrate_printed_toc(entries, reader, page_count, toc_page_indices)
-
-    return entries
-
-
-# ────────────────────────────────────────────────────────────────
-# Printed TOC Page Calibration
-# ────────────────────────────────────────────────────────────────
-#
-# Printed TOC pages show the book's OWN page numbering (e.g. "Chapter 1 … 1").
-# In the physical PDF these are offset by front-matter pages (cover, preface,
-# TOC itself).  We detect the offset by searching for the first chapter heading
-# on the actual PDF pages and comparing its physical position to the logical
-# page number from the TOC.
-
-_CHAPTER_HEADING_RE = re.compile(
-    r"^\s*(?:chapter|ch\.?)\s+(\d+|[IVXLC]+)",
-    re.IGNORECASE,
-)
-
-
-def _calibrate_printed_toc(
-    entries: list[TocEntry],
-    reader: pypdf.PdfReader,
-    page_count: int,
-    toc_page_indices: list[int],
-) -> list[TocEntry]:
-    """Convert logical page numbers from a printed TOC to physical PDF pages.
-
-    Searches for the first chapter heading (e.g. "Chapter 1") on physical
-    pages after the TOC, compares that physical page to the logical page
-    number from the TOC entry, and applies the offset to all entries.
-
-    Returns the original entries unchanged if no offset is detectable.
-    """
-    if not entries:
-        return entries
-
-    ch_entries = [e for e in entries if e[0] == 1]
-    if not ch_entries:
-        return entries
-
-    first_ch = ch_entries[0]
-    target_logical_page = first_ch[2]
-    target_title = first_ch[1].strip()
-    title_words = [w.lower() for w in re.findall(r"[a-zA-Z]{3,}", target_title)]
-
-    search_start = (max(toc_page_indices) + 1) if toc_page_indices else 0
-
-    # Pass 1: look for "Chapter N" heading + title word match
-    for phys_idx in range(search_start, min(page_count, search_start + 60)):
-        text = reader.pages[phys_idx].extract_text() or ""
-        first_lines = text.split("\n")[:8]
-        combined = " ".join(first_lines).lower()
-
-        has_heading = any(
-            _CHAPTER_HEADING_RE.match(ln.strip()) for ln in first_lines[:5]
-        )
-        word_hits = sum(1 for w in title_words if w in combined) if title_words else 0
-        title_match = word_hits >= max(1, min(len(title_words), 2))
-
-        if has_heading and title_match:
-            physical_page = phys_idx + 1  # convert to 1-based
-            offset = physical_page - target_logical_page
-            if offset > 0:
-                calibrated = [
-                    (lvl, title, page + offset)
-                    for lvl, title, page in entries
-                    if 1 <= page + offset <= page_count
-                ]
-                if calibrated:
-                    logger.info(
-                        "Printed TOC calibration: offset=%+d "
-                        "(logical p.%d → physical p.%d for '%s')",
-                        offset,
-                        target_logical_page,
-                        physical_page,
-                        target_title,
-                    )
-                    return calibrated
-            break  # if offset is 0, no calibration needed
-
-    # Pass 2: title-only fallback (no "Chapter N" heading required)
-    for phys_idx in range(search_start, min(page_count, search_start + 40)):
-        text = reader.pages[phys_idx].extract_text() or ""
-        first_lines = text.split("\n")[:5]
-        combined = " ".join(first_lines).lower()
-
-        if title_words and len(title_words) >= 2:
-            word_hits = sum(1 for w in title_words if w in combined)
-            if word_hits >= min(len(title_words), 3):
-                physical_page = phys_idx + 1
-                offset = physical_page - target_logical_page
-                if offset > 0:
-                    calibrated = [
-                        (lvl, title, page + offset)
-                        for lvl, title, page in entries
-                        if 1 <= page + offset <= page_count
-                    ]
-                    if calibrated:
-                        logger.info(
-                            "Printed TOC calibration (title-only): offset=%+d",
-                            offset,
-                        )
-                        return calibrated
-                break
-
-    return entries  # No calibration possible or needed
-
-
-# ────────────────────────────────────────────────────────────────
-# Tier 3: In-text Chapter Heading Scanner
-# ────────────────────────────────────────────────────────────────
-
-_HEADING_CHAPTER = re.compile(
-    r"^\s*(?:chapter|ch\.?)\s+"
-    r"(\d+|[IVXLC]+|one|two|three|four|five|six|seven|eight|nine|ten"
-    r"|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)"
-    r"[\s:.\-—]*"
-    r"(.+)?",
-    re.IGNORECASE,
-)
-_HEADING_PART = re.compile(
-    r"^\s*part\s+"
-    r"(\d+|[IVXLC]+|one|two|three|four|five)"
-    r"[\s:.\-—]*"
-    r"(.+)?",
-    re.IGNORECASE,
-)
-_HEADING_APPENDIX = re.compile(
-    r"^\s*appendix\s+([A-Z\d])" r"[\s:.\-—]*" r"(.+)?",
-    re.IGNORECASE,
-)
-_HEADING_NUMBERED = re.compile(
-    r"^\s*(\d{1,2})\s*[.\s]\s*([A-Z][A-Za-z\s,'\-]{3,})\s*$",
-)
-
-
-def _scan_chapter_headings(
-    reader: pypdf.PdfReader,
-    page_count: int,
-) -> list[TocEntry]:
-    """Scan pages for chapter-heading patterns at the top of each page."""
-    entries: list[TocEntry] = []
-    seen_titles: set[str] = set()
-
-    for pn in range(page_count):
-        text = reader.pages[pn].extract_text() or ""
-        lines = [line.strip() for line in text.split("\n")[:8] if line.strip()]
-        if not lines:
-            continue
-
-        for line in lines[:5]:
-            entry: TocEntry | None = None
-
-            m = _HEADING_CHAPTER.match(line)
-            if m:
-                title = (m.group(2) or "").strip() or f"Chapter {m.group(1)}"
-                entry = (1, title, pn + 1)
-
-            if not entry:
-                m = _HEADING_PART.match(line)
-                if m:
-                    title = (m.group(2) or "").strip() or f"Part {m.group(1)}"
-                    entry = (
-                        1,
-                        f"Part {m.group(1)}: {title}" if m.group(2) else title,
-                        pn + 1,
-                    )
-
-            if not entry:
-                m = _HEADING_APPENDIX.match(line)
-                if m:
-                    title = (m.group(2) or "").strip() or f"Appendix {m.group(1)}"
-                    entry = (1, f"Appendix {m.group(1)}: {title}", pn + 1)
-
-            if not entry and line == lines[0]:
-                m = _HEADING_NUMBERED.match(line)
-                if m:
-                    entry = (1, m.group(2).strip(), pn + 1)
-
-            if entry:
-                norm = entry[1].lower()
-                if norm not in seen_titles:
-                    seen_titles.add(norm)
-                    entries.append(entry)
-                break
-
-    return entries if len(entries) >= 2 else []
-
-
-# ════════════════════════════════════════════════════════════════
-# Chapter Detection — 3-Strategy Cascade
+# Chapter detection helpers (kept for API compatibility)
 # ════════════════════════════════════════════════════════════════
 
-# Match "Chapter" only at the START of a title.
-# Prevents false positives like "1.8 Chapter Notes" (a subsection, not a chapter).
 _CHAPTER_TITLE_START = re.compile(
     r"^\s*(?:chapter|capítulo|chapitre|kapitel|capitolo|глава|bab|hoofdstuk)\b",
     re.IGNORECASE,
@@ -827,9 +795,6 @@ def detect_chapter_indices(
 # Orchestrator (local file)
 # ════════════════════════════════════════════════════════════════
 
-MIN_CHAPTERS = 5
-MAX_CHAPTERS = 30
-
 
 def extract_chapters_from_pdf(
     pdf_path: str,
@@ -837,39 +802,25 @@ def extract_chapters_from_pdf(
 ) -> tuple[list[dict], str]:
     """Extract structured chapters from a local PDF file.
 
-    **Primary**: pymupdf4llm markdown extraction (rich text, proper
-    heading detection). Falls back to the pypdf 4-tier TOC chain when
-    pymupdf4llm times out or extracts fewer than 2 chapters.
+    Uses a 3-strategy fallback chain via ``_RobustPDFExtractor``:
+      1. PDF bookmarks (pypdf outline)
+      2. Heading detection (pdfplumber)
+      3. Page chunking (pypdf)
 
     Returns ``(chapters, extraction_method)`` where *chapters* is a list
     of dicts with keys: ``chapter_number``, ``title``, ``level``,
     ``start_page``, ``end_page``, ``sections`` (``[{title, content}]``),
     ``content``.
     """
-    # ── Primary: pymupdf4llm ───────────────────────────────────
-    md_text = _pymupdf4llm_to_markdown(pdf_path)
-    if md_text is not None:
-        chapters = _parse_chapters_from_markdown(md_text)
-        if len(chapters) >= 2:
-            logger.info("pymupdf4llm → %d chapters for '%s'", len(chapters), title)
-            return chapters, "pymupdf4llm"
-        logger.info(
-            "pymupdf4llm produced only %d chapter(s) for '%s' — falling back to pypdf",
-            len(chapters),
-            title,
-        )
-    else:
-        logger.info("pymupdf4llm timed out for '%s' — falling back to pypdf", title)
+    extractor = _RobustPDFExtractor(pdf_path)
+    raw_result = extractor.extract()
 
-    # ── Fallback: pypdf 4-tier TOC chain ───────────────────────
-    reader = pypdf.PdfReader(pdf_path)
-    page_count = len(reader.pages)
-    page_texts = [reader.pages[pn].extract_text() or "" for pn in range(page_count)]
+    chapters, method = _adapt_to_chapter_contract(raw_result)
 
-    toc, _, toc_source = get_toc(reader)
-
-    # ── Tier 4: Whole-book fallback ────────────────────────────
-    if not toc:
+    if not chapters:
+        reader = pypdf.PdfReader(pdf_path)
+        page_count = len(reader.pages)
+        page_texts = [reader.pages[pn].extract_text() or "" for pn in range(page_count)]
         full_text = clean_chapter_for_llm("\n\n".join(page_texts))
         logger.warning("Fallback (whole-book) for '%s'", title)
         return [
@@ -884,117 +835,8 @@ def extract_chapters_from_pdf(
             }
         ], "fallback"
 
-    # ── Build hierarchy entries with content ───────────────────
-    items: list[dict] = []
-    for i, (level, entry_title, start_page) in enumerate(toc):
-        end_page = toc[i + 1][2] - 1 if i + 1 < len(toc) else page_count
-        end_page = max(start_page, end_page)
-        items.append(
-            {
-                "level": int(level),
-                "title": _clean_title(str(entry_title)),
-                "start_page": int(start_page),
-                "end_page": int(end_page),
-            }
-        )
-
-    # Attach page text to each entry
-    entries: list[dict] = []
-    for item in items:
-        start_idx = max(0, item["start_page"] - 1)
-        end_idx = min(item["end_page"], page_count)
-        content = "\n\n".join(page_texts[start_idx:end_idx])
-        entries.append({**item, "content": content})
-
-    # ── Detect chapters ────────────────────────────────────────
-    chapter_indices = detect_chapter_indices(entries)
-
-    if not chapter_indices:
-        min_level = min(e["level"] for e in entries)
-        chapter_indices = [i for i, e in enumerate(entries) if e["level"] == min_level]
-
-    if not chapter_indices:
-        full_text = clean_chapter_for_llm("\n\n".join(page_texts))
-        logger.warning("No chapters detected for '%s' — whole-book fallback", title)
-        return [
-            {
-                "chapter_number": 1,
-                "title": title,
-                "level": 1,
-                "start_page": 1,
-                "end_page": page_count,
-                "sections": [{"title": title, "content": full_text}],
-                "content": full_text,
-            }
-        ], "fallback"
-
-    # ── Build chapter dicts with sections ──────────────────────
-    chapters: list[dict] = []
-
-    for pos, ch_idx in enumerate(chapter_indices):
-        ch_entry = entries[ch_idx]
-        boundary = (
-            chapter_indices[pos + 1] if pos + 1 < len(chapter_indices) else len(entries)
-        )
-        children = entries[ch_idx + 1 : boundary]
-        last_entry = children[-1] if children else ch_entry
-
-        # Build sections from children; if no children, try to split
-        # the chapter text into sections using numbered sub-headings.
-        if children:
-            sections = [
-                {"title": c["title"], "content": clean_chapter_for_llm(c["content"])}
-                for c in children
-            ]
-            # Prepend an intro section if the chapter's own page range extends
-            # before its first child.
-            if ch_entry["start_page"] < children[0]["start_page"]:
-                intro_start = max(0, ch_entry["start_page"] - 1)
-                intro_end = min(children[0]["start_page"] - 1, page_count)
-                intro_text = "\n\n".join(page_texts[intro_start:intro_end])
-                cleaned_intro = clean_chapter_for_llm(intro_text)
-                if cleaned_intro:
-                    sections.insert(
-                        0, {"title": ch_entry["title"], "content": cleaned_intro}
-                    )
-        else:
-            cleaned_text = clean_chapter_for_llm(ch_entry["content"])
-            sections = _split_chapter_into_sections(cleaned_text, ch_entry["title"])
-
-        combined = "\n\n".join(s["content"] for s in sections if s["content"])
-        if len(combined) < 100:
-            continue
-
-        chapters.append(
-            {
-                "chapter_number": pos + 1,
-                "title": ch_entry["title"],
-                "level": ch_entry["level"],
-                "start_page": ch_entry["start_page"],
-                "end_page": last_entry["end_page"],
-                "sections": sections,
-                "content": combined,
-            }
-        )
-
-    if chapters:
-        logger.info("%s → %d chapters from '%s'", toc_source, len(chapters), title)
-        return chapters, toc_source
-
-    # Edge-case: TOC found but no viable chapters after filtering
-    full_text = clean_chapter_for_llm("\n\n".join(page_texts))
-    logger.warning("TOC found but 0 viable chapters for '%s' — fallback", title)
-    return [
-        {
-            "chapter_number": 1,
-            "title": title,
-            "level": 1,
-            "start_page": 1,
-            "end_page": page_count,
-            "sections": [{"title": title, "content": full_text}],
-            "content": full_text,
-        }
-    ], "fallback"
+    logger.info("%s → %d chapters for '%s'", method, len(chapters), title)
+    return chapters, method
 
 
 # ════════════════════════════════════════════════════════════════
@@ -1033,7 +875,7 @@ def extract_book_chapters(
         tmp_path = tmp.name
 
     try:
-        _report("Extracting chapters (pymupdf4llm → pypdf fallback)…")
+        _report("Extracting chapters (bookmarks → headings → page chunks)…")
         title = os.path.splitext(os.path.basename(blob_path))[0].replace("_", " ")
         chapters, method = extract_chapters_from_pdf(tmp_path, title=title)
     finally:
@@ -1058,8 +900,6 @@ def extract_book_chapters(
 # ════════════════════════════════════════════════════════════════
 # Backward-compat re-exports
 # ════════════════════════════════════════════════════════════════
-# These were part of the old API surface. Keep them importable but
-# they are no longer used by the main extraction pipeline.
 
 
 def extract_toc_entries(pdf_path: str) -> list[dict]:
@@ -1067,21 +907,16 @@ def extract_toc_entries(pdf_path: str) -> list[dict]:
 
     Returns list of dicts: ``{level, title, start_page, end_page}``
     """
-    reader = pypdf.PdfReader(pdf_path)
-    toc, page_count, _ = get_toc(reader)
-    items: list[dict] = []
-    for i, (level, entry_title, start_page) in enumerate(toc):
-        end_page = toc[i + 1][2] - 1 if i + 1 < len(toc) else page_count
-        end_page = max(start_page, end_page)
-        items.append(
-            {
-                "level": int(level),
-                "title": _clean_title(str(entry_title)),
-                "start_page": int(start_page),
-                "end_page": int(end_page),
-            }
-        )
-    return items
+    chapters, _ = extract_chapters_from_pdf(pdf_path)
+    return [
+        {
+            "level": ch["level"],
+            "title": ch["title"],
+            "start_page": ch["start_page"],
+            "end_page": ch["end_page"],
+        }
+        for ch in chapters
+    ]
 
 
 def extract_full_markdown(pdf_path: str) -> str:

@@ -38,6 +38,7 @@ const TERMINAL_STATUSES: SessionStatus[] = [
   'awaiting_review',
   'completed',
   'failed',
+  'superseded',
 ];
 
 const POLL_INTERVAL_MS = 3000;
