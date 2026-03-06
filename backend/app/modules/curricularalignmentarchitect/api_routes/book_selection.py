@@ -206,3 +206,17 @@ def register_routes(router):
             )
         except ValueError as e:
             raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+    @router.patch(
+        "/selected-books/{selected_book_id}/ignore",
+        response_model=CourseSelectedBookRead,
+    )
+    def ignore_selected_book(
+        selected_book_id: int,
+        _teacher: User = Depends(require_role(UserRole.TEACHER)),
+        service: BookSelectionService = Depends(_get_service),
+    ):
+        try:
+            return service.ignore_selected_book(selected_book_id)
+        except ValueError as e:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e)) from e

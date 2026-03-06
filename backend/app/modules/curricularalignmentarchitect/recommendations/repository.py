@@ -212,6 +212,14 @@ class RecommendationRepository:
 
         documents: list[TeacherDocument] = []
         for record in result:
+            # concept.name may be a list (alias variants) — flatten to first str
+            raw_names = record["concept_names"]
+            flat_names: list[str] = []
+            for n in raw_names:
+                if isinstance(n, list):
+                    flat_names.extend(s for s in n if isinstance(s, str))
+                elif isinstance(n, str):
+                    flat_names.append(n)
             documents.append(
                 TeacherDocument(
                     doc_id=record["doc_id"],
@@ -219,7 +227,7 @@ class RecommendationRepository:
                     summary=record["summary"],
                     keywords=record["keywords"],
                     source_filename=record["source_filename"],
-                    concept_names=[c for c in record["concept_names"] if c],
+                    concept_names=flat_names,
                 )
             )
 

@@ -17,6 +17,7 @@ class SessionStatus(str, Enum):
     DOWNLOADING = "downloading"
     COMPLETED = "completed"
     FAILED = "failed"
+    SUPERSEDED = "superseded"
 
 
 class DownloadStatus(str, Enum):
@@ -34,6 +35,7 @@ class BookStatus(str, Enum):
     UPLOADED = "uploaded"
     FAILED = "failed"
     CORRUPTED_PDF = "corrupted_pdf"
+    IGNORED = "ignored"
 
 
 class BookSelectionSession(Base):

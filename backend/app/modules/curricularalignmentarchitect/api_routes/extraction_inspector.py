@@ -57,13 +57,15 @@ def register_routes(router):
             db.query(BookExtractionRun)
             .filter(
                 BookExtractionRun.course_id == course_id,
-                BookExtractionRun.status.in_([
-                    ExtractionRunStatus.PENDING,
-                    ExtractionRunStatus.EXTRACTING,
-                    ExtractionRunStatus.CHUNKING,
-                    ExtractionRunStatus.EMBEDDING,
-                    ExtractionRunStatus.SCORING,
-                ]),
+                BookExtractionRun.status.in_(
+                    [
+                        ExtractionRunStatus.PENDING,
+                        ExtractionRunStatus.EXTRACTING,
+                        ExtractionRunStatus.CHUNKING,
+                        ExtractionRunStatus.EMBEDDING,
+                        ExtractionRunStatus.SCORING,
+                    ]
+                ),
             )
             .first()
         )
@@ -141,37 +143,43 @@ def register_routes(router):
                 sections_data = []
                 for sec in sorted(ch.sections, key=lambda s: s.section_index):
                     content = sec.section_content or ""
-                    sections_data.append({
-                        "section_title": sec.section_title,
-                        "section_index": sec.section_index,
-                        "content": content,
-                        "content_length": len(content),
-                        "has_content": len(content.strip()) > 0,
-                    })
+                    sections_data.append(
+                        {
+                            "section_title": sec.section_title,
+                            "section_index": sec.section_index,
+                            "content": content,
+                            "content_length": len(content),
+                            "has_content": len(content.strip()) > 0,
+                        }
+                    )
                     total_content_chars += len(content)
 
                 total_sections += len(sections_data)
                 chapter_content = ch.chapter_text or ""
-                chapters_data.append({
-                    "chapter_title": ch.chapter_title,
-                    "chapter_index": ch.chapter_index,
-                    "content": chapter_content,
-                    "content_length": len(chapter_content),
-                    "sections": sections_data,
-                    "section_count": len(sections_data),
-                    "has_content": len(chapter_content.strip()) > 0,
-                })
+                chapters_data.append(
+                    {
+                        "chapter_title": ch.chapter_title,
+                        "chapter_index": ch.chapter_index,
+                        "content": chapter_content,
+                        "content_length": len(chapter_content),
+                        "sections": sections_data,
+                        "section_count": len(sections_data),
+                        "has_content": len(chapter_content.strip()) > 0,
+                    }
+                )
 
-            books_preview.append({
-                "book_id": sb.id,
-                "book_title": sb.title,
-                "authors": sb.authors,
-                "status": sb.status.value if sb.status else None,
-                "chapters": chapters_data,
-                "total_chapters": len(chapters_data),
-                "total_sections": total_sections,
-                "total_content_chars": total_content_chars,
-            })
+            books_preview.append(
+                {
+                    "book_id": sb.id,
+                    "book_title": sb.title,
+                    "authors": sb.authors,
+                    "status": sb.status.value if sb.status else None,
+                    "chapters": chapters_data,
+                    "total_chapters": len(chapters_data),
+                    "total_sections": total_sections,
+                    "total_content_chars": total_content_chars,
+                }
+            )
 
         return {
             "run_id": run_id,

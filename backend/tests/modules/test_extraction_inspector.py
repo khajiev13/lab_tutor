@@ -142,7 +142,9 @@ class TestExtractOnlyAuth:
 class TestExtractOnlyConflict:
     def test_active_run_returns_409(self, client, db_session, teacher_auth_headers):
         course_id = self._create_course(client, teacher_auth_headers)
-        _make_run(db_session, course_id=course_id, status=ExtractionRunStatus.EXTRACTING)
+        _make_run(
+            db_session, course_id=course_id, status=ExtractionRunStatus.EXTRACTING
+        )
         db_session.commit()
 
         resp = client.post(

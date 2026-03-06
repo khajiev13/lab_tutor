@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
 import re as _re
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -41,6 +43,7 @@ from .tools import (
     download_file_from_url,
     googlebooksqueryrun,
     tavily_search,
+    validate_pdf,
 )
 from .utils import (
     compute_finals,
@@ -508,12 +511,34 @@ async def dl_attempt_download(state: DownloadState) -> dict:
             if result_data.get("ok"):
                 results = result_data.get("results", [])
                 dl_info = results[0] if results else {}
+                file_path = dl_info.get("url", "")
+
+                # ── Validate the downloaded PDF ─────────────
+                if file_path and file_path.endswith(".pdf"):
+                    vr = validate_pdf(file_path, expected_title=title)
+                    if not vr.valid:
+                        logger.warning(
+                            "PDF rejected for '%s' from %s: %s",
+                            title[:50],
+                            url[:80],
+                            vr.rejection_reason,
+                        )
+                        with contextlib.suppress(OSError):
+                            os.remove(file_path)
+                        continue  # try next URL
+                    logger.info(
+                        "PDF validated for '%s': %d pages, bookmarks=%s",
+                        title[:50],
+                        vr.page_count,
+                        vr.has_bookmarks,
+                    )
+
                 return {
                     "download_result": {
                         "book_title": title,
                         "book_authors": book.get("authors", ""),
                         "status": "success",
-                        "file_path": dl_info.get("url", ""),
+                        "file_path": file_path,
                         "file_info": dl_info.get("snippet", ""),
                         "source_url": url,
                     }

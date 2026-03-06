@@ -21,13 +21,14 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  EyeOff,
   Loader2,
   Upload,
   XCircle,
   FileText,
 } from 'lucide-react';
 import type { CourseSelectedBook, StreamEvent } from '../types';
-import { uploadToSelectedBook } from '../api';
+import { ignoreSelectedBook, uploadToSelectedBook } from '../api';
 import { toast } from 'sonner';
 
 interface DownloadStatusPanelProps {
@@ -51,9 +52,15 @@ export function DownloadStatusPanel({
     (b) => b.status === 'failed',
   ).length;
 
+  const ignoredCount = selectedBooks.filter(
+    (b) => b.status === 'ignored',
+  ).length;
+
+  const activeTotal = selectedBooks.length - ignoredCount;
+
   const progressPct =
-    selectedBooks.length > 0
-      ? Math.round((doneCount / selectedBooks.length) * 100)
+    activeTotal > 0
+      ? Math.round((doneCount / activeTotal) * 100)
       : 0;
 
   return (
@@ -68,7 +75,7 @@ export function DownloadStatusPanel({
             <CardDescription>
               {isDownloading
                 ? 'Downloading selected books...'
-                : `${doneCount}/${selectedBooks.length} books ready`}
+                : `${doneCount}/${activeTotal} books ready`}
             </CardDescription>
           </div>
           {failedCount > 0 && !isDownloading && (
@@ -83,7 +90,7 @@ export function DownloadStatusPanel({
           <div className="space-y-1">
             <Progress value={progressPct} />
             <p className="text-xs text-muted-foreground text-right tabular-nums">
-              {doneCount}/{selectedBooks.length}
+              {doneCount}/{activeTotal}
             </p>
           </div>
         )}
@@ -135,6 +142,7 @@ function DownloadRow({
   onUploaded: () => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [ignoring, setIgnoring] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = async (file: File) => {
@@ -147,6 +155,19 @@ function DownloadRow({
       toast.error(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleIgnore = async () => {
+    setIgnoring(true);
+    try {
+      await ignoreSelectedBook(book.id);
+      toast.success(`Ignored "${book.title}"`);
+      onUploaded();
+    } catch (err) {
+      toast.error(`Ignore failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIgnoring(false);
     }
   };
 
@@ -201,6 +222,19 @@ function DownloadRow({
               )}
               Upload
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleIgnore}
+              disabled={ignoring}
+            >
+              {ignoring ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <EyeOff className="mr-1 h-3 w-3" />
+              )}
+              Ignore
+            </Button>
           </>
         )}
         {(book.status === 'downloaded' || book.status === 'uploaded') && (
@@ -235,6 +269,12 @@ function StatusBadge({ status }: { status: string }) {
       return (
         <Badge variant="destructive" className="gap-1">
           <XCircle className="h-3 w-3" /> Failed
+        </Badge>
+      );
+    case 'ignored':
+      return (
+        <Badge variant="secondary" className="gap-1">
+          <EyeOff className="h-3 w-3" /> Ignored
         </Badge>
       );
     default:

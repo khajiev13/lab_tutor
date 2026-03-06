@@ -121,7 +121,7 @@ def format_teacher_documents(documents: list[dict]) -> str:
         filename = doc.get("source_filename", "")
         summary = (doc.get("summary") or "")[:300]
         concepts = doc.get("concept_names", [])
-        concepts_str = ", ".join(concepts[:10])
+        concepts_str = ", ".join(str(c) for c in concepts[:10])
         if len(concepts) > 10:
             concepts_str += f" (+{len(concepts) - 10} more)"
 
@@ -151,7 +151,7 @@ def format_skills(skills: list[dict]) -> str:
             line += f" — {sk['description'][:150]}"
         concepts = sk.get("concept_names", [])
         if concepts:
-            line += f"\n  Related concepts: {', '.join(concepts[:5])}"
+            line += f"\n  Related concepts: {', '.join(str(c) for c in concepts[:5])}"
         lines.append(line)
 
     return "\n".join(lines)

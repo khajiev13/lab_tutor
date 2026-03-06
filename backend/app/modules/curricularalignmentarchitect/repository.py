@@ -33,6 +33,19 @@ class BookSelectionRepository:
         weights: dict[str, float],
         level: str,
     ) -> BookSelectionSession:
+        # Supersede any existing non-terminal sessions for this course
+        self.db.query(BookSelectionSession).filter(
+            BookSelectionSession.course_id == course_id,
+            BookSelectionSession.status.notin_(
+                [
+                    SessionStatus.COMPLETED,
+                    SessionStatus.SUPERSEDED,
+                ]
+            ),
+        ).update(
+            {BookSelectionSession.status: SessionStatus.SUPERSEDED},
+            synchronize_session="fetch",
+        )
         session = BookSelectionSession(
             course_id=course_id,
             thread_id=thread_id,

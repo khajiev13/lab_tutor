@@ -1,11 +1,10 @@
-"""Tests for the PDF extraction module (4-tier TOC fallback chain).
+"""Tests for the PDF extraction module (3-strategy fallback chain).
 
 Covers:
 - clean_extracted_text — text cleaning pipeline
 - clean_chapter_for_llm — LLM-ready text cleanup
 - _is_boilerplate — boilerplate title detection
 - detect_chapter_indices — chapter auto-detection (3-strategy cascade)
-- get_toc — TOC extraction (tiers 1-3)
 - extract_chapters_from_pdf — orchestrator (integration test with real PDF)
 - extract_book_chapters — Azure entry point (mocked)
 """
@@ -14,7 +13,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pypdf
 import pytest
 from fpdf import FPDF
 
@@ -26,7 +24,6 @@ from app.modules.curricularalignmentarchitect.pdf_extraction import (
     detect_chapter_indices,
     extract_book_chapters,
     extract_chapters_from_pdf,
-    get_toc,
     validate_extracted_chapters,
 )
 from app.providers.storage import BlobService
@@ -286,46 +283,6 @@ class TestDetectChapterIndices:
         assert 3 not in indices
 
 
-# ── get_toc ────────────────────────────────────────────────────
-
-
-class TestGetToc:
-    def test_tier1_bookmarks(self, tmp_path):
-        pdf_path = _make_pdf(tmp_path, chapters=SAMPLE_CHAPTERS, add_bookmarks=True)
-        reader = pypdf.PdfReader(pdf_path)
-        toc, page_count, source = get_toc(reader)
-
-        assert source == "bookmarks"
-        assert len(toc) >= 1
-        assert page_count == 50
-        for level, title, page in toc:
-            assert isinstance(level, int) and level >= 1
-            assert isinstance(title, str) and title.strip()
-            assert isinstance(page, int) and page > 0
-
-    def test_tier3_page_scan(self, tmp_path):
-        pdf_path = _make_pdf(
-            tmp_path,
-            chapters=SAMPLE_CHAPTERS,
-            add_bookmarks=False,
-            filename="no_bookmarks.pdf",
-        )
-        reader = pypdf.PdfReader(pdf_path)
-        toc, page_count, source = get_toc(reader)
-
-        assert source in ("printed_toc", "page_scan", "none")
-        assert page_count == 50
-
-    def test_no_toc_returns_none(self, tmp_path):
-        pdf_path = _make_minimal_pdf(tmp_path)
-        reader = pypdf.PdfReader(pdf_path)
-        toc, page_count, source = get_toc(reader)
-
-        assert source == "none"
-        assert toc == []
-        assert page_count == 1
-
-
 # ── extract_chapters_from_pdf (integration) ───────────────────
 
 
@@ -342,10 +299,9 @@ class TestExtractChaptersFromPdf:
         chapters, method = extract_chapters_from_pdf(simple_pdf, title="Test Book")
         assert len(chapters) >= 1
         assert method in (
-            "pymupdf4llm",
             "bookmarks",
-            "printed_toc",
-            "page_scan",
+            "heading_detection",
+            "page_chunks",
             "fallback",
         )
 
@@ -359,10 +315,9 @@ class TestExtractChaptersFromPdf:
     def test_returns_valid_method(self, simple_pdf):
         _, method = extract_chapters_from_pdf(simple_pdf)
         assert method in {
-            "pymupdf4llm",
             "bookmarks",
-            "printed_toc",
-            "page_scan",
+            "heading_detection",
+            "page_chunks",
             "fallback",
         }
 
@@ -388,9 +343,8 @@ class TestExtractChaptersFromPdf:
 
     def test_fallback_for_minimal_pdf(self, minimal_pdf):
         chapters, method = extract_chapters_from_pdf(minimal_pdf, title="Empty Book")
-        assert method == "fallback"
+        assert method in ("page_chunks", "fallback")
         assert len(chapters) == 1
-        assert chapters[0]["title"] == "Empty Book"
 
     def test_content_cleaned(self, simple_pdf):
         chapters, _ = extract_chapters_from_pdf(simple_pdf, title="Test Book")

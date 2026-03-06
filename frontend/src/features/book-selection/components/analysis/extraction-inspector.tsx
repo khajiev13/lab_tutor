@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   Collapsible,
@@ -111,10 +110,10 @@ function SectionItem({ section }: { section: SectionPreview }) {
       </button>
 
       {expanded && (
-        <div className="mt-2 pl-5">
+        <div className="mt-2 pl-5 overflow-hidden">
           {section.content.trim() ? (
-            <ScrollArea className="max-h-64">
-              <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80 font-mono">
+            <div className="max-h-64 overflow-auto rounded-md">
+              <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80 font-mono p-2">
                 {section.content.slice(0, 3000)}
                 {section.content.length > 3000 && (
                   <span className="text-muted-foreground">
@@ -122,7 +121,7 @@ function SectionItem({ section }: { section: SectionPreview }) {
                   </span>
                 )}
               </pre>
-            </ScrollArea>
+            </div>
           ) : (
             <p className="text-xs italic text-red-500">
               No content extracted
@@ -195,7 +194,7 @@ function ChapterItem({ chapter }: { chapter: ChapterPreview }) {
         </button>
       </CollapsibleTrigger>
 
-      <CollapsibleContent>
+      <CollapsibleContent className="overflow-hidden">
         <div className="ml-4 mt-2 space-y-2 border-l-2 border-muted pl-4 pb-2">
           {chapter.sections.length > 0 ? (
             chapter.sections.map((sec, i) => (

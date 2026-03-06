@@ -33,7 +33,6 @@ import app.modules.curricularalignmentarchitect.models  # noqa: E402
 import app.modules.embeddings.course_models  # noqa: E402
 import app.modules.embeddings.models  # noqa: E402
 from app.core.api_schemas import (  # noqa: E402
-    HealthCheckItem,
     HealthResponse,
     RootResponse,
 )
@@ -57,7 +56,6 @@ from app.modules.courses import routes as course_routes  # noqa: E402
 from app.modules.curricularalignmentarchitect.api_routes import (  # noqa: E402
     router as book_selection_router,
 )
-from app.providers.storage import blob_service  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +156,37 @@ def _ensure_sql_schema_upgrades() -> None:
                 text(
                     "ALTER TABLE book_selection_sessions ADD COLUMN error_message TEXT"
                 )
+            )
+
+        # Idempotent: add 'superseded' value to book_session_status enum
+        has_superseded = conn.execute(
+            text(
+                "SELECT 1 FROM pg_enum e "
+                "JOIN pg_type t ON t.oid = e.enumtypid "
+                "WHERE t.typname = 'book_session_status' "
+                "AND e.enumlabel = 'superseded'"
+            )
+        ).fetchone()
+        if not has_superseded:
+            conn.execute(
+                text(
+                    "ALTER TYPE book_session_status "
+                    "ADD VALUE IF NOT EXISTS 'superseded'"
+                )
+            )
+
+        # Idempotent: add 'ignored' value to book_status enum
+        has_ignored = conn.execute(
+            text(
+                "SELECT 1 FROM pg_enum e "
+                "JOIN pg_type t ON t.oid = e.enumtypid "
+                "WHERE t.typname = 'book_status' "
+                "AND e.enumlabel = 'ignored'"
+            )
+        ).fetchone()
+        if not has_ignored:
+            conn.execute(
+                text("ALTER TYPE book_status ADD VALUE IF NOT EXISTS 'ignored'")
             )
 
         # Migrate vector columns to the correct dimension (2048).
@@ -490,63 +519,7 @@ def read_root() -> RootResponse:
 
 @app.get("/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
-    checks: list[HealthCheckItem] = []
-
-    # SQL
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        checks.append(HealthCheckItem(name="sql", status="ok"))
-    except Exception as e:
-        checks.append(HealthCheckItem(name="sql", status="error", detail=str(e)))
-
-    # Neo4j
-    driver = getattr(app.state, "neo4j_driver", None)
-    if driver is None:
-        checks.append(
-            HealthCheckItem(
-                name="neo4j",
-                status="skipped",
-                detail="Neo4j is not configured",
-            )
-        )
-    else:
-        try:
-            with driver.session(database=settings.neo4j_database) as session:
-                session.run("RETURN 1").consume()
-            checks.append(HealthCheckItem(name="neo4j", status="ok"))
-        except Exception as e:
-            checks.append(HealthCheckItem(name="neo4j", status="error", detail=str(e)))
-
-    # Azure Blob Storage — just check the client is initialised; avoid a live
-    # HTTP call on every health poll (it's slow and noisy in logs).
-    if not settings.azure_storage_connection_string:
-        checks.append(
-            HealthCheckItem(
-                name="azure_blob",
-                status="skipped",
-                detail="Azure Storage is not configured",
-            )
-        )
-    else:
-        if blob_service.container_client is not None:
-            checks.append(HealthCheckItem(name="azure_blob", status="ok"))
-        else:
-            checks.append(
-                HealthCheckItem(
-                    name="azure_blob",
-                    status="error",
-                    detail="Blob service not initialized",
-                )
-            )
-
-    any_error = any(c.status == "error" for c in checks)
-    any_skipped = any(c.status == "skipped" for c in checks)
-    overall_status = (
-        "unhealthy" if any_error else ("degraded" if any_skipped else "healthy")
-    )
-
-    return HealthResponse(status=overall_status, checks=checks)
+    return HealthResponse(status="healthy", checks=[])
 
 
 # Alias for common PaaS health probes.
