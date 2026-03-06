@@ -262,6 +262,41 @@ class BookSelectionService:
                     error_message=_sanitize_error(e),
                 )
 
+    # ── Re-discover ────────────────────────────────────────────
+
+    async def rediscover_books(self, session_id: int) -> None:
+        """Clear previous results and re-run discovery + scoring from scratch.
+
+        Useful when discovery returned 0 books (e.g. missing API keys) and
+        the user wants to try again without creating a brand-new session.
+        """
+        with _fresh_db() as db:
+            repo = BookSelectionRepository(db)
+            session = repo.get_session(session_id)
+            if session is None:
+                return
+
+            if session.status not in (
+                SessionStatus.AWAITING_REVIEW,
+                SessionStatus.FAILED,
+            ):
+                return
+
+            # Clear previous discovered books and scored books
+            repo.save_discovered_books(session_id, [])
+            from .models import CourseBook
+
+            db.query(CourseBook).filter(
+                CourseBook.session_id == session_id,
+            ).delete(synchronize_session="fetch")
+
+            # Generate a fresh thread so LangGraph starts clean
+            new_thread_id = f"bs-{session.course_id}-rediscover-{uuid.uuid4().hex[:12]}"
+            session.thread_id = new_thread_id
+            db.commit()
+
+        await self.run_discovery_and_scoring(session_id)
+
     # ── Selection + Download stream ─────────────────────────────
 
     async def resume_scoring(self, session_id: int) -> None:

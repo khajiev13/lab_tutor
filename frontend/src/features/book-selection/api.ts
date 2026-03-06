@@ -168,6 +168,16 @@ export async function resumeScoring(
   return res.data;
 }
 
+/** Re-run discovery from scratch (clears previous results). Returns immediately. */
+export async function rediscoverBooks(
+  sessionId: number,
+): Promise<BookSelectionSession> {
+  const res = await api.post<BookSelectionSession>(
+    `/book-selection/sessions/${sessionId}/rediscover`,
+  );
+  return res.data;
+}
+
 /** Select books and start downloads in the background. Returns immediately. */
 export async function selectAndDownload(
   sessionId: number,

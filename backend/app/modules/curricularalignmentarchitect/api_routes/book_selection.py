@@ -73,6 +73,27 @@ def register_routes(router):
         asyncio.create_task(service.resume_scoring(session_id))
         return service.get_session(session_id)
 
+    @router.post(
+        "/sessions/{session_id}/rediscover",
+        response_model=SessionRead,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def rediscover_books(
+        session_id: int,
+        _teacher: User = Depends(require_role(UserRole.TEACHER)),
+        service: BookSelectionService = Depends(_get_service),
+    ):
+        session = service.get_session(session_id)
+        if session is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Session not found")
+        if session.status not in ("awaiting_review", "failed"):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot rediscover from status '{session.status}'",
+            )
+        asyncio.create_task(service.rediscover_books(session_id))
+        return service.get_session(session_id)
+
     @router.get("/sessions/{session_id}", response_model=SessionRead)
     def get_session(
         session_id: int,

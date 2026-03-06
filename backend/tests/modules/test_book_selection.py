@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -557,3 +558,136 @@ class TestBookSelectionRoutes:
             headers=teacher_auth_headers,
         )
         assert resp.status_code == 422
+
+
+# ═══════════════════════════════════════════════════════════════
+# Rediscover endpoint tests
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestRediscoverRoute:
+    """Tests for POST /book-selection/sessions/{id}/rediscover."""
+
+    def _create_course_via_api(self, client, teacher_auth_headers) -> int:
+        resp = client.post(
+            "/courses/",
+            json={"title": "Rediscover Test Course", "description": "test"},
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code in (200, 201)
+        return resp.json()["id"]
+
+    def _create_session(self, client, teacher_auth_headers, course_id: int) -> int:
+        resp = client.post(
+            "/book-selection/sessions",
+            params={"course_id": course_id},
+            json={"course_level": "bachelor", "weights": TEST_WEIGHTS},
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code == 201
+        return resp.json()["id"]
+
+    @patch(
+        "app.modules.curricularalignmentarchitect.service.BookSelectionService.rediscover_books",
+        new_callable=AsyncMock,
+    )
+    def test_rediscover_from_awaiting_review(
+        self, mock_rediscover, client, teacher_auth_headers, db_session
+    ):
+        course_id = self._create_course_via_api(client, teacher_auth_headers)
+        session_id = self._create_session(client, teacher_auth_headers, course_id)
+
+        # Transition session to AWAITING_REVIEW
+        repo = BookSelectionRepository(db_session)
+        repo.update_status(session_id, SessionStatus.AWAITING_REVIEW)
+
+        resp = client.post(
+            f"/book-selection/sessions/{session_id}/rediscover",
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code == 202
+        mock_rediscover.assert_called_once_with(session_id)
+
+    @patch(
+        "app.modules.curricularalignmentarchitect.service.BookSelectionService.rediscover_books",
+        new_callable=AsyncMock,
+    )
+    def test_rediscover_from_failed(
+        self, mock_rediscover, client, teacher_auth_headers, db_session
+    ):
+        course_id = self._create_course_via_api(client, teacher_auth_headers)
+        session_id = self._create_session(client, teacher_auth_headers, course_id)
+
+        repo = BookSelectionRepository(db_session)
+        repo.update_status(session_id, SessionStatus.FAILED)
+
+        resp = client.post(
+            f"/book-selection/sessions/{session_id}/rediscover",
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code == 202
+        mock_rediscover.assert_called_once_with(session_id)
+
+    def test_rediscover_rejected_from_configuring(
+        self, client, teacher_auth_headers, db_session
+    ):
+        course_id = self._create_course_via_api(client, teacher_auth_headers)
+        session_id = self._create_session(client, teacher_auth_headers, course_id)
+
+        # Session starts in CONFIGURING — rediscover should be rejected
+        resp = client.post(
+            f"/book-selection/sessions/{session_id}/rediscover",
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "Cannot rediscover" in resp.json()["detail"]
+
+    def test_rediscover_rejected_from_downloading(
+        self, client, teacher_auth_headers, db_session
+    ):
+        course_id = self._create_course_via_api(client, teacher_auth_headers)
+        session_id = self._create_session(client, teacher_auth_headers, course_id)
+
+        repo = BookSelectionRepository(db_session)
+        repo.update_status(session_id, SessionStatus.DOWNLOADING)
+
+        resp = client.post(
+            f"/book-selection/sessions/{session_id}/rediscover",
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "Cannot rediscover" in resp.json()["detail"]
+
+    def test_rediscover_rejected_from_scoring(
+        self, client, teacher_auth_headers, db_session
+    ):
+        course_id = self._create_course_via_api(client, teacher_auth_headers)
+        session_id = self._create_session(client, teacher_auth_headers, course_id)
+
+        repo = BookSelectionRepository(db_session)
+        repo.update_status(session_id, SessionStatus.SCORING)
+
+        resp = client.post(
+            f"/book-selection/sessions/{session_id}/rediscover",
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "Cannot rediscover" in resp.json()["detail"]
+
+    def test_rediscover_not_found(self, client, teacher_auth_headers):
+        resp = client.post(
+            "/book-selection/sessions/99999/rediscover",
+            headers=teacher_auth_headers,
+        )
+        assert resp.status_code == 404
+
+    def test_rediscover_requires_auth(self, client):
+        resp = client.post("/book-selection/sessions/1/rediscover")
+        assert resp.status_code == 401
+
+    def test_rediscover_requires_teacher(self, client, student_auth_headers):
+        resp = client.post(
+            "/book-selection/sessions/1/rediscover",
+            headers=student_auth_headers,
+        )
+        assert resp.status_code == 403
