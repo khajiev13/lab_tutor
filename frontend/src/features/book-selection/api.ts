@@ -178,6 +178,16 @@ export async function rediscoverBooks(
   return res.data;
 }
 
+/** Delete all selected books and reset session to awaiting_review. */
+export async function reselectBooks(
+  sessionId: number,
+): Promise<BookSelectionSession> {
+  const res = await api.post<BookSelectionSession>(
+    `/book-selection/sessions/${sessionId}/reselect`,
+  );
+  return res.data;
+}
+
 /** Select books and start downloads in the background. Returns immediately. */
 export async function selectAndDownload(
   sessionId: number,

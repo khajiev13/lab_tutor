@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from .models import (
+    BookExtractionRun,
     BookSelectionSession,
     BookStatus,
     CourseBook,
@@ -382,3 +383,49 @@ class BookSelectionRepository:
         self.db.delete(book)
         self.db.commit()
         return True
+
+    def delete_all_selected_books_for_course(
+        self, course_id: int
+    ) -> list[CourseSelectedBook]:
+        """Delete all selected books and their analysis data for a course.
+
+        Deletes BookExtractionRun rows first (which cascade-delete chapters,
+        chunks, summaries, etc.), then deletes CourseSelectedBook rows.
+        Returns the deleted selected books so callers can clean up blobs.
+        """
+        selected = self.get_course_selected_books(course_id)
+        if not selected:
+            return []
+
+        # Load extraction runs into session so ORM cascades fire
+        # (bulk .delete() bypasses relationship cascades)
+        runs = (
+            self.db.query(BookExtractionRun)
+            .filter(BookExtractionRun.course_id == course_id)
+            .all()
+        )
+        for run in runs:
+            self.db.delete(run)
+        self.db.flush()
+
+        # Now safe to delete selected books
+        for book in selected:
+            self.db.delete(book)
+        self.db.flush()
+
+        # Reset candidate CourseBook rows
+        self.db.query(CourseBook).filter(
+            CourseBook.course_id == course_id,
+        ).update(
+            {
+                CourseBook.selected_by_teacher: False,
+                CourseBook.download_status: DownloadStatus.PENDING,
+                CourseBook.download_error: None,
+                CourseBook.blob_path: None,
+                CourseBook.source_url: None,
+            },
+            synchronize_session="fetch",
+        )
+
+        self.db.commit()
+        return selected

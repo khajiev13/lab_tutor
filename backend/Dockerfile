@@ -12,15 +12,19 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Set working directory
 WORKDIR /app
 
-# Copy dependency files and package structure needed for build
+# Copy only dependency files first (maximizes layer caching)
 COPY pyproject.toml uv.lock* ./
-COPY app/ ./app/
 
-# Install dependencies using uv sync (will create venv and install deps)
-RUN uv sync --no-cache
+# Install dependencies without the project itself (no need for app/ source)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-install-project --frozen
 
 # Copy application code
 COPY . .
+
+# Install the project itself (fast, just links the local package)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen
 
 # Make entrypoint script executable
 RUN chmod +x entrypoint.sh
