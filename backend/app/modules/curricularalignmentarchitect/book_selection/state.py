@@ -305,6 +305,8 @@ class DownloadState(TypedDict, total=False):
     book: dict
     candidate_urls: list[dict]
     download_result: dict
+    download_attempts: int
+    failed_urls: Annotated[list[str], operator.add]
 
 
 class WorkflowState(TypedDict, total=False):

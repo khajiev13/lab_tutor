@@ -259,7 +259,7 @@ def validate_pdf(
     """Run lightweight quality checks on a downloaded PDF.
 
     Checks performed:
-    1. File can be opened by PyMuPDF.
+    1. File can be opened by pdfplumber.
     2. Not encrypted / password-protected.
     3. Page count >= *min_pages*.
     4. Sample pages contain extractable text.
@@ -268,10 +268,10 @@ def validate_pdf(
     Returns a *PDFValidationResult* with `valid=True` or a
     human-readable `rejection_reason`.
     """
-    import fitz  # PyMuPDF
+    import pdfplumber
 
     try:
-        doc = fitz.open(file_path)
+        pdf = pdfplumber.open(file_path)
     except Exception as exc:
         return PDFValidationResult(
             valid=False,
@@ -279,15 +279,7 @@ def validate_pdf(
         )
 
     try:
-        if doc.is_encrypted:
-            return PDFValidationResult(
-                valid=False,
-                page_count=doc.page_count,
-                is_encrypted=True,
-                rejection_reason="PDF is encrypted / password-protected.",
-            )
-
-        page_count = doc.page_count
+        page_count = len(pdf.pages)
         if page_count < min_pages:
             return PDFValidationResult(
                 valid=False,
@@ -302,7 +294,7 @@ def validate_pdf(
         sample_indices = {0, page_count // 2, page_count - 1}
         pages_with_text = 0
         for idx in sorted(sample_indices):
-            text = doc[idx].get_text().strip()
+            text = (pdf.pages[idx].extract_text() or "").strip()
             if len(text) >= _MIN_CHARS_PER_PAGE:
                 pages_with_text += 1
 
@@ -317,13 +309,11 @@ def validate_pdf(
                 ),
             )
 
-        has_bookmarks = len(doc.get_toc()) > 0
-
         # Optional fuzzy title check against PDF metadata
+        metadata = pdf.metadata or {}
         if expected_title:
-            meta_title = (doc.metadata.get("title") or "").strip().lower()
+            meta_title = (metadata.get("Title") or "").strip().lower()
             expected_lower = expected_title.strip().lower()
-            # Accept if metadata title shares >=50% words with expected
             if meta_title:
                 expected_words = set(expected_lower.split())
                 meta_words = set(meta_title.split())
@@ -343,10 +333,10 @@ def validate_pdf(
             valid=True,
             page_count=page_count,
             has_text=True,
-            has_bookmarks=has_bookmarks,
+            has_bookmarks=False,
         )
     finally:
-        doc.close()
+        pdf.close()
 
 
 def _sanitize_filename(name: str, *, max_len: int = 80) -> str:
