@@ -537,9 +537,7 @@ async def dl_attempt_download(state: DownloadState) -> dict:
                         )
                         with contextlib.suppress(OSError):
                             os.remove(file_path)
-                        rejection_reasons.append(
-                            f"{url} → {vr.rejection_reason}"
-                        )
+                        rejection_reasons.append(f"{url} → {vr.rejection_reason}")
                         continue  # try next URL
                     logger.info(
                         "PDF validated for '%s': %d pages",
@@ -602,10 +600,7 @@ def dl_retry_feedback(state: DownloadState) -> dict:
     error = result.get("error", "Unknown failure")
     failed = state.get("failed_urls", [])
 
-    feedback = (
-        f"Previous download attempt for '{title}' FAILED.\n"
-        f"Reason: {error}\n"
-    )
+    feedback = f"Previous download attempt for '{title}' FAILED.\nReason: {error}\n"
     if failed:
         feedback += f"Already tried URLs (DO NOT use again): {', '.join(failed)}\n"
     feedback += (
