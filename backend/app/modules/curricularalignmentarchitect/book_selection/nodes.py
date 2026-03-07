@@ -59,7 +59,8 @@ logger = logging.getLogger(__name__)
 # ── Constants ───────────────────────────────────────────────────
 MAX_RESEARCH_ROUNDS = 5
 MAX_DOWNLOAD_SEARCH_ROUNDS = 4
-MAX_DOWNLOAD_ATTEMPTS = 2
+MAX_DOWNLOAD_ATTEMPTS = 5
+MAX_DOWNLOAD_RETRIES = 2
 TOP_N_DOWNLOAD = 5
 
 
@@ -477,10 +478,16 @@ async def dl_extract_urls(state: DownloadState) -> dict:
 
 
 async def dl_attempt_download(state: DownloadState) -> dict:
-    """Try downloading from top candidate URLs."""
+    """Try downloading from top candidate URLs, validate each PDF.
+
+    On failure, returns detailed feedback so the agent can retry with
+    different search terms.  Already-tried URLs (from previous rounds)
+    are skipped automatically.
+    """
     book = state["book"]
     urls = state.get("candidate_urls", [])
     title = book.get("title", "unknown")
+    previously_failed = set(state.get("failed_urls", []))
 
     safe_fn = _re.sub(r"[^\w\s-]", "", title.strip())
     safe_fn = _re.sub(r"\s+", "_", safe_fn)[:80] or "book"
@@ -491,13 +498,18 @@ async def dl_attempt_download(state: DownloadState) -> dict:
                 "book_title": title,
                 "status": "no_urls",
                 "error": "No candidate download URLs found.",
-            }
+            },
+            "download_attempts": state.get("download_attempts", 0) + 1,
         }
 
     tried_urls: list[str] = []
-    for _i, candidate in enumerate(urls[:MAX_DOWNLOAD_ATTEMPTS]):
+    rejection_reasons: list[str] = []
+
+    for candidate in urls[:MAX_DOWNLOAD_ATTEMPTS]:
         url = candidate.get("url", "")
         if not url or not url.startswith("http"):
+            continue
+        if url in previously_failed:
             continue
         tried_urls.append(url)
         try:
@@ -525,12 +537,14 @@ async def dl_attempt_download(state: DownloadState) -> dict:
                         )
                         with contextlib.suppress(OSError):
                             os.remove(file_path)
+                        rejection_reasons.append(
+                            f"{url} → {vr.rejection_reason}"
+                        )
                         continue  # try next URL
                     logger.info(
-                        "PDF validated for '%s': %d pages, bookmarks=%s",
+                        "PDF validated for '%s': %d pages",
                         title[:50],
                         vr.page_count,
-                        vr.has_bookmarks,
                     )
 
                 return {
@@ -541,22 +555,68 @@ async def dl_attempt_download(state: DownloadState) -> dict:
                         "file_path": file_path,
                         "file_info": dl_info.get("snippet", ""),
                         "source_url": url,
-                    }
+                    },
+                    "download_attempts": state.get("download_attempts", 0) + 1,
+                    "failed_urls": tried_urls[:-1],  # last one succeeded
                 }
+            else:
+                rejection_reasons.append(
+                    f"{url} → {result_data.get('error', 'download returned not-ok')}"
+                )
         except Exception as e:
             logger.warning("Download attempt failed for %s: %s", url[:60], e)
+            rejection_reasons.append(f"{url} → {e}")
 
-    remaining_urls = [
-        u.get("url", "") for u in urls if u.get("url", "") not in tried_urls
-    ]
+    # All URLs failed — provide feedback for the agent to retry
+    feedback = "; ".join(rejection_reasons) if rejection_reasons else "All URLs failed."
     return {
         "download_result": {
             "book_title": title,
             "status": "failed",
-            "error": f"Tried {len(tried_urls)} URL(s), all failed.",
+            "error": f"Tried {len(tried_urls)} URL(s): {feedback}",
             "tried_urls": tried_urls,
-            "manual_urls": remaining_urls[:5],
-        }
+        },
+        "download_attempts": state.get("download_attempts", 0) + 1,
+        "failed_urls": tried_urls,
+    }
+
+
+def dl_route_after_download(state: DownloadState) -> str:
+    """Route after download attempt: succeed → end, fail → retry or end."""
+    result = state.get("download_result", {})
+    if result.get("status") == "success":
+        return "end"
+    attempts = state.get("download_attempts", 0)
+    if attempts >= MAX_DOWNLOAD_RETRIES:
+        return "end"
+    return "retry"
+
+
+def dl_retry_feedback(state: DownloadState) -> dict:
+    """Inject validation/download failure feedback into agent messages.
+
+    Resets tool_rounds so the agent gets a fresh budget for searching.
+    """
+    result = state.get("download_result", {})
+    title = result.get("book_title", "unknown")
+    error = result.get("error", "Unknown failure")
+    failed = state.get("failed_urls", [])
+
+    feedback = (
+        f"Previous download attempt for '{title}' FAILED.\n"
+        f"Reason: {error}\n"
+    )
+    if failed:
+        feedback += f"Already tried URLs (DO NOT use again): {', '.join(failed)}\n"
+    feedback += (
+        "Search for DIFFERENT download sources. "
+        "Try alternative search terms, different repositories, "
+        "or look for mirror sites."
+    )
+
+    return {
+        "messages": [HumanMessage(content=feedback)],
+        "tool_rounds": 0,
     }
 
 

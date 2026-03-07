@@ -21,6 +21,8 @@ from .nodes import (
     discover_books,
     dl_attempt_download,
     dl_extract_urls,
+    dl_retry_feedback,
+    dl_route_after_download,
     dl_search_agent,
     dl_search_route,
     dl_search_tools,
@@ -130,6 +132,7 @@ def build_download_graph():
     dlg.add_node("dl_tools", dl_search_tools)
     dlg.add_node("extract_urls", dl_extract_urls)
     dlg.add_node("attempt_download", dl_attempt_download)
+    dlg.add_node("retry_feedback", dl_retry_feedback)
 
     dlg.add_edge(START, "dl_search")
     dlg.add_conditional_edges(
@@ -139,7 +142,12 @@ def build_download_graph():
     )
     dlg.add_edge("dl_tools", "dl_search")
     dlg.add_edge("extract_urls", "attempt_download")
-    dlg.add_edge("attempt_download", END)
+    dlg.add_conditional_edges(
+        "attempt_download",
+        dl_route_after_download,
+        {"end": END, "retry": "retry_feedback"},
+    )
+    dlg.add_edge("retry_feedback", "dl_search")
 
     return dlg.compile()
 
