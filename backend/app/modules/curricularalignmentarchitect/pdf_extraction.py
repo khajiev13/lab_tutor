@@ -874,6 +874,9 @@ def extract_book_chapters(
         tmp.flush()
         tmp_path = tmp.name
 
+    # Free download buffer before extraction to reduce peak memory
+    del pdf_bytes
+
     try:
         _report("Extracting chapters (bookmarks → headings → page chunks)…")
         title = os.path.splitext(os.path.basename(blob_path))[0].replace("_", " ")
