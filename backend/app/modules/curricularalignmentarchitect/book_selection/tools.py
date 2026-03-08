@@ -5,7 +5,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
-from typing import Literal
+from typing import Any, Literal
 
 from langchain.tools import tool
 
@@ -264,11 +264,14 @@ def validate_pdf(
     3. Page count >= *min_pages*.
     4. Sample pages contain extractable text.
     5. Optional fuzzy title match against PDF metadata.
+    6. Preview/sample detection — rejects PDFs where the TOC references
+       far more chapters than the page count could contain.
 
     Returns a *PDFValidationResult* with `valid=True` or a
     human-readable `rejection_reason`.
     """
     import pdfplumber
+    import pypdf
 
     try:
         pdf = pdfplumber.open(file_path)
@@ -309,6 +312,44 @@ def validate_pdf(
                 ),
             )
 
+        # ── Preview / sample detection ──────────────────────────
+        # Scan the first ~15 pages for TOC lines that reference page numbers
+        # beyond the actual page count — a strong signal of a publisher preview.
+        preview_reason = _detect_preview(pdf, page_count)
+        if preview_reason:
+            return PDFValidationResult(
+                valid=False,
+                page_count=page_count,
+                has_text=True,
+                rejection_reason=preview_reason,
+            )
+
+        # ── Chapter structure check ─────────────────────────────
+        # Use pypdf to check bookmarks; if none, scan for chapter headings.
+        # A textbook that resolves to page-chunked output is likely a bad PDF.
+        has_bookmarks = False
+        try:
+            reader = pypdf.PdfReader(file_path)
+            outline = reader.outline
+            has_bookmarks = bool(outline and len(outline) >= 2)
+        except Exception:
+            pass
+
+        if not has_bookmarks:
+            chapter_headings = _count_chapter_headings(pdf, page_count)
+            if chapter_headings < 2 and page_count >= 50:
+                return PDFValidationResult(
+                    valid=False,
+                    page_count=page_count,
+                    has_text=True,
+                    has_bookmarks=False,
+                    rejection_reason=(
+                        f"No bookmarks and only {chapter_headings} chapter heading(s) "
+                        f"detected in {page_count} pages. "
+                        "Likely a preview, sample, or corrupted PDF."
+                    ),
+                )
+
         # Optional fuzzy title check against PDF metadata
         metadata = pdf.metadata or {}
         if expected_title:
@@ -333,10 +374,68 @@ def validate_pdf(
             valid=True,
             page_count=page_count,
             has_text=True,
-            has_bookmarks=False,
+            has_bookmarks=has_bookmarks,
         )
     finally:
         pdf.close()
+
+
+# ── Preview detection helpers ──────────────────────────────────
+
+_TOC_PAGE_REF_RE = re.compile(r"\b(\d{2,4})\s*$")
+_CHAPTER_HEADING_RE = re.compile(
+    r"^(?:Chapter\s+\d+|CHAPTER\s+\d+)\s*(?:$|[:.\-]\s*\S)",
+)
+
+
+def _detect_preview(pdf: Any, page_count: int) -> str:
+    """Detect publisher preview PDFs by comparing TOC page refs to actual pages.
+
+    Scans the first 15 pages for lines that look like TOC entries
+    (text ending in a page number). If those referenced page numbers
+    are far beyond the actual page count, it's a preview/excerpt.
+    """
+    toc_refs: list[int] = []
+    scan_limit = min(15, page_count)
+    for pn in range(scan_limit):
+        text = pdf.pages[pn].extract_text()
+        if not text:
+            continue
+        for line in text.splitlines():
+            line = line.strip()
+            if len(line) < 10 or len(line) > 120:
+                continue
+            m = _TOC_PAGE_REF_RE.search(line)
+            if m:
+                ref_page = int(m.group(1))
+                # Skip 1 (too common) and 1900-2099 (likely years, not pages)
+                if ref_page > 1 and not (1900 <= ref_page <= 2099):
+                    toc_refs.append(ref_page)
+
+    if len(toc_refs) < 5:
+        return ""
+
+    max_ref = max(toc_refs)
+    # If TOC references pages far beyond actual page count → preview
+    if max_ref > page_count * 3 and max_ref > 100:
+        return (
+            f"TOC references page {max_ref} but PDF only has {page_count} pages. "
+            f"This is a publisher preview or sample, not the full book."
+        )
+    return ""
+
+
+def _count_chapter_headings(pdf: Any, page_count: int) -> int:
+    """Count lines matching 'Chapter N' patterns across the entire PDF."""
+    count = 0
+    for pn in range(page_count):
+        text = pdf.pages[pn].extract_text()
+        if not text:
+            continue
+        for line in text.splitlines():
+            if _CHAPTER_HEADING_RE.match(line.strip()):
+                count += 1
+    return count
 
 
 def _sanitize_filename(name: str, *, max_len: int = 80) -> str:

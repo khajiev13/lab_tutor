@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 from neo4j import GraphDatabase
 
 from app.core.settings import settings
 
 from .state import CHUNK_OVERLAP, CHUNK_SIZE, SEPARATORS
+
+logger = logging.getLogger(__name__)
 
 
 def chunk_paragraphs_text(text: str) -> list[str]:
@@ -77,7 +81,10 @@ def load_course_concepts(course_id: int) -> list[dict]:
 
     by_name: dict[str, dict] = {}
     for row in rows:
-        concept_name = (row.get("concept_name") or "").strip()
+        raw_name = row.get("concept_name") or ""
+        if isinstance(raw_name, list):
+            raw_name = raw_name[0] if raw_name else ""
+        concept_name = str(raw_name).strip()
         name_embedding = row.get("name_embedding")
         if not concept_name or not name_embedding:
             continue
@@ -104,6 +111,37 @@ def load_course_concepts(course_id: int) -> list[dict]:
     concepts = list(by_name.values())
     if not concepts:
         raise ValueError(f"No embedded course concepts found for course {course_id}")
+
+    # All embeddings must be the expected dimension (default 2048).
+    # Re-embed any concepts with wrong dimensions and update Neo4j.
+    expected_dim = settings.embedding_dims or 2048
+    bad = [c for c in concepts if len(c["name_embedding"]) != expected_dim]
+    if bad:
+        logger.warning(
+            "Re-embedding %d concepts with wrong dim (expected %d)",
+            len(bad),
+            expected_dim,
+        )
+        from app.modules.embeddings.embedding_service import EmbeddingService
+
+        embedder = EmbeddingService()
+        bad_names = [c["concept_name"] for c in bad]
+        new_vecs = embedder.embed_documents(bad_names)
+
+        reembed_driver = GraphDatabase.driver(uri, auth=(username, password))
+        try:
+            with reembed_driver.session(database=settings.neo4j_database) as neo_sess:
+                for concept, vec in zip(bad, new_vecs, strict=True):
+                    concept["name_embedding"] = vec
+                    neo_sess.run(
+                        "MATCH (c:CONCEPT {name: toLower($name)}) "
+                        "SET c.embedding = $vec",
+                        {"name": concept["concept_name"], "vec": vec},
+                    )
+        finally:
+            reembed_driver.close()
+        logger.info("Re-embedded and updated %d concepts in Neo4j", len(bad))
+
     return concepts
 
 

@@ -54,71 +54,15 @@ class CurriculumGraphRepository:
             book_id=book_id,
         ).consume()
 
-    @staticmethod
-    def link_curriculum_to_book(
-        tx: ManagedTransaction,
-        curriculum_id: str,
-        book_id: str,
-    ) -> None:
-        tx.run(
-            """
-            MATCH (cur:CURRICULUM {id: $curriculum_id})
-            MATCH (b:BOOK {id: $book_id})
-            MERGE (cur)-[:BASED_ON_BOOK]->(b)
-            """,
-            curriculum_id=curriculum_id,
-            book_id=book_id,
-        ).consume()
-
-    # ── Curriculum node ─────────────────────────────────────────
-
-    @staticmethod
-    def create_curriculum_node(
-        tx: ManagedTransaction,
-        curriculum_id: str,
-        book_title: str,
-        authors: str | None,
-        course_id: int,
-    ) -> None:
-        tx.run(
-            """
-            MERGE (cur:CURRICULUM {id: $id})
-            SET cur.book_title = $book_title,
-                cur.authors    = $authors,
-                cur.course_id  = $course_id,
-                cur.created_at = datetime()
-            """,
-            id=curriculum_id,
-            book_title=book_title,
-            authors=authors or "",
-            course_id=course_id,
-        ).consume()
-
-    @staticmethod
-    def link_curriculum_to_class(
-        tx: ManagedTransaction,
-        course_id: int,
-        curriculum_id: str,
-    ) -> None:
-        tx.run(
-            """
-            MATCH (c:CLASS {id: $course_id})
-            MATCH (cur:CURRICULUM {id: $curriculum_id})
-            MERGE (c)-[:HAS_CURRICULUM]->(cur)
-            """,
-            course_id=course_id,
-            curriculum_id=curriculum_id,
-        ).consume()
-
     # ── Chapter nodes ───────────────────────────────────────────
 
     @staticmethod
     def create_chapter_nodes(
         tx: ManagedTransaction,
-        curriculum_id: str,
+        book_id: str,
         chapters: list[dict],
     ) -> None:
-        """Create BOOK_CHAPTER nodes and link them to the CURRICULUM.
+        """Create BOOK_CHAPTER nodes and link them to the BOOK.
 
         Each dict in *chapters* must contain:
         ``id``, ``title``, ``chapter_index``, ``content``, ``summary``, ``summary_embedding``.
@@ -133,29 +77,29 @@ class CurriculumGraphRepository:
                 n.summary           = ch.summary,
                 n.summary_embedding = ch.summary_embedding
             WITH n, ch
-            MATCH (cur:CURRICULUM {id: $curriculum_id})
-            MERGE (cur)-[:HAS_CHAPTER]->(n)
+            MATCH (b:BOOK {id: $book_id})
+            MERGE (b)-[:HAS_CHAPTER]->(n)
             """,
-            curriculum_id=curriculum_id,
+            book_id=book_id,
             chapters=chapters,
         ).consume()
 
     @staticmethod
     def link_chapters_linked_list(
         tx: ManagedTransaction,
-        curriculum_id: str,
+        book_id: str,
     ) -> None:
         """Create NEXT_CHAPTER linked-list edges in chapter_index order."""
         tx.run(
             """
-            MATCH (cur:CURRICULUM {id: $curriculum_id})-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)
+            MATCH (b:BOOK {id: $book_id})-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)
             WITH ch ORDER BY ch.chapter_index
             WITH collect(ch) AS chapters
             UNWIND range(0, size(chapters) - 2) AS i
             WITH chapters[i] AS a, chapters[i + 1] AS b
             MERGE (a)-[:NEXT_CHAPTER]->(b)
             """,
-            curriculum_id=curriculum_id,
+            book_id=book_id,
         ).consume()
 
     # ── Section nodes ───────────────────────────────────────────
@@ -231,7 +175,7 @@ class CurriculumGraphRepository:
         ).consume()
 
     @staticmethod
-    def create_covers_concept_rel(
+    def create_mentions_rel(
         tx: ManagedTransaction,
         section_id: str,
         concept_name: str,
@@ -242,7 +186,7 @@ class CurriculumGraphRepository:
             """
             MATCH (s:BOOK_SECTION {id: $section_id})
             MATCH (c:CONCEPT {name: toLower($concept_name)})
-            MERGE (s)-[r:COVERS_CONCEPT]->(c)
+            MERGE (s)-[r:MENTIONS]->(c)
             SET r.relevance     = $relevance,
                 r.text_evidence = $text_evidence
             """,

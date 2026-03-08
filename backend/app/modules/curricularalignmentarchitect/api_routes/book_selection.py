@@ -228,6 +228,27 @@ def register_routes(router):
         except ValueError as e:
             raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e)) from e
 
+    @router.post(
+        "/sessions/{session_id}/reselect",
+        response_model=SessionRead,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def reselect_books(
+        session_id: int,
+        _teacher: User = Depends(require_role(UserRole.TEACHER)),
+        service: BookSelectionService = Depends(_get_service),
+    ):
+        session = service.get_session(session_id)
+        if session is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Session not found")
+        if session.status not in ("completed", "downloading"):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot reselect from status '{session.status}'",
+            )
+        await service.reselect_books(session_id)
+        return service.get_session(session_id)
+
     @router.patch(
         "/selected-books/{selected_book_id}/ignore",
         response_model=CourseSelectedBookRead,

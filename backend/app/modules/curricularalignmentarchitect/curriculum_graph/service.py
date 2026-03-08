@@ -50,16 +50,16 @@ def _fresh_db() -> Generator[Session, None, None]:
             db.close()
 
 
-def _chapter_id(curriculum_id: str, chapter_index: int) -> str:
-    return f"{curriculum_id}_ch_{chapter_index}"
+def _chapter_id(book_id: str, chapter_index: int) -> str:
+    return f"{book_id}_ch_{chapter_index}"
 
 
-def _section_id(curriculum_id: str, chapter_index: int, section_index: int) -> str:
-    return f"{curriculum_id}_ch_{chapter_index}_sec_{section_index}"
+def _section_id(book_id: str, chapter_index: int, section_index: int) -> str:
+    return f"{book_id}_ch_{chapter_index}_sec_{section_index}"
 
 
-def _skill_id(curriculum_id: str, chapter_index: int, skill_index: int) -> str:
-    return f"{curriculum_id}_ch_{chapter_index}_sk_{skill_index}"
+def _skill_id(book_id: str, chapter_index: int, skill_index: int) -> str:
+    return f"{book_id}_ch_{chapter_index}_sk_{skill_index}"
 
 
 def _parse_skills_json(raw: str | None) -> list[dict]:
@@ -136,7 +136,6 @@ class CurriculumGraphService:
             book_year = book.year
             book_id = f"book_{selected_book_id}"
 
-        curriculum_id = f"cur_{selected_book_id}"
         total_chapters = len(chapter_data)
 
         yield {
@@ -172,7 +171,6 @@ class CurriculumGraphService:
         try:
             for event in self._write_graph(
                 driver=driver,
-                curriculum_id=curriculum_id,
                 course_id=course_id,
                 book_id=book_id,
                 book_title=book_title,
@@ -190,15 +188,18 @@ class CurriculumGraphService:
             driver.close()
 
         # ── 4. Update run status in PostgreSQL ──────────────────
+        # Persist status *before* yielding the final event so it
+        # survives even if the SSE connection drops.
         with _fresh_db() as db:
             run = db.get(BookExtractionRun, run_id)
             if run:
                 run.status = ExtractionRunStatus.CURRICULUM_BUILT
                 db.commit()
+                logger.info("Run %d status set to CURRICULUM_BUILT", run_id)
 
         yield {
             "event": "complete",
-            "curriculum_id": curriculum_id,
+            "book_id": book_id,
             "total_chapters": total_chapters,
         }
 
@@ -208,7 +209,6 @@ class CurriculumGraphService:
         self,
         *,
         driver: Driver,
-        curriculum_id: str,
         course_id: int,
         book_id: str,
         book_title: str,
@@ -237,33 +237,12 @@ class CurriculumGraphService:
                 book_id=book_id,
             )
 
-            # Curriculum node + link to CLASS and BOOK
-            yield {"event": "progress", "step": "creating_curriculum_node"}
-
-            session.execute_write(
-                repo.create_curriculum_node,
-                curriculum_id=curriculum_id,
-                book_title=book_title,
-                authors=book_authors,
-                course_id=course_id,
-            )
-            session.execute_write(
-                repo.link_curriculum_to_class,
-                course_id=course_id,
-                curriculum_id=curriculum_id,
-            )
-            session.execute_write(
-                repo.link_curriculum_to_book,
-                curriculum_id=curriculum_id,
-                book_id=book_id,
-            )
-
             # Chapter nodes
             yield {"event": "progress", "step": "creating_chapters"}
 
             chapter_payloads = [
                 {
-                    "id": _chapter_id(curriculum_id, ch["chapter_index"]),
+                    "id": _chapter_id(book_id, ch["chapter_index"]),
                     "title": ch["title"],
                     "chapter_index": ch["chapter_index"],
                     "content": ch.get("content") or "",
@@ -274,19 +253,19 @@ class CurriculumGraphService:
             ]
             session.execute_write(
                 repo.create_chapter_nodes,
-                curriculum_id=curriculum_id,
+                book_id=book_id,
                 chapters=chapter_payloads,
             )
             session.execute_write(
                 repo.link_chapters_linked_list,
-                curriculum_id=curriculum_id,
+                book_id=book_id,
             )
 
             # Per-chapter: sections, concepts, skills
             concepts_seen: set[str] = set()
 
             for ch_idx, ch in enumerate(chapter_data):
-                ch_id = _chapter_id(curriculum_id, ch["chapter_index"])
+                ch_id = _chapter_id(book_id, ch["chapter_index"])
                 yield {
                     "event": "progress",
                     "step": "processing_chapter",
@@ -300,7 +279,7 @@ class CurriculumGraphService:
                 section_payloads = [
                     {
                         "id": _section_id(
-                            curriculum_id, ch["chapter_index"], sec["section_index"]
+                            book_id, ch["chapter_index"], sec["section_index"]
                         ),
                         "title": sec["title"],
                         "section_index": sec["section_index"],
@@ -322,7 +301,7 @@ class CurriculumGraphService:
                 # Concepts per section
                 for sec in ch["sections"]:
                     sec_id = _section_id(
-                        curriculum_id, ch["chapter_index"], sec["section_index"]
+                        book_id, ch["chapter_index"], sec["section_index"]
                     )
                     for concept in sec["concepts"]:
                         concept_lower = concept["name"].lower()
@@ -333,7 +312,7 @@ class CurriculumGraphService:
                             description=concept.get("description"),
                         )
                         session.execute_write(
-                            repo.create_covers_concept_rel,
+                            repo.create_mentions_rel,
                             section_id=sec_id,
                             concept_name=concept["name"],
                             relevance=concept["relevance"],
@@ -343,7 +322,7 @@ class CurriculumGraphService:
 
                 # Skills
                 for sk_idx, skill in enumerate(ch["skills"]):
-                    sk_id = _skill_id(curriculum_id, ch["chapter_index"], sk_idx)
+                    sk_id = _skill_id(book_id, ch["chapter_index"], sk_idx)
                     session.execute_write(
                         repo.create_skill_node,
                         skill_id=sk_id,

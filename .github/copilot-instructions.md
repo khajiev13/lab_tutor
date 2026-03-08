@@ -124,3 +124,7 @@
 - **Flat over nested.** Prefer early returns and guard clauses to deeply nested conditionals.
 - **Every line must earn its place.** If a line doesn't add clarity or functionality, delete it.
 - **Tests are documentation.** Write tests that clearly demonstrate expected behavior and edge cases.
+
+
+## Skills for AI Agents
+- **Use the correct skill for the task.** When writing fastapi routes, use the `fastapi` skill. For React components, use the `react` skill.

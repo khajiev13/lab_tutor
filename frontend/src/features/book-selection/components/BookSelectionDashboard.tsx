@@ -19,6 +19,7 @@ import {
   runDiscovery,
   resumeScoring,
   rediscoverBooks,
+  reselectBooks,
   selectAndDownload,
 } from '../api';
 import { WeightsConfigPanel } from './WeightsConfigPanel';
@@ -280,6 +281,30 @@ export function BookSelectionDashboard({
     [],
   );
 
+  const handleReselect = useCallback(async () => {
+    if (!session) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const updated = await reselectBooks(session.id);
+      setSession(updated);
+      setPhase(updated.status);
+      setSelectedBooks([]);
+
+      const bks = await getSessionBooks(session.id);
+      setBooks(bks);
+      toast.success('Books cleared — pick new ones below');
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Failed to reselect books';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [session]);
+
   // ── Render ──────────────────────────────────────────────────
 
   if (disabled) {
@@ -394,6 +419,8 @@ export function BookSelectionDashboard({
             downloadEvents={[]}
             isDownloading={phase === 'downloading'}
             onRefresh={refreshBooks}
+            onReselect={handleReselect}
+            isReselecting={isLoading}
           />
           <ManualUploadCard
             courseId={courseId}

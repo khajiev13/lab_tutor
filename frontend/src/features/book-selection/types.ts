@@ -650,7 +650,7 @@ export interface CurriculumBuildProgressEvent {
 
 export interface CurriculumBuildCompleteEvent {
   event: 'complete';
-  curriculum_id: string;
+  book_id: string;
   total_chapters: number;
 }
 

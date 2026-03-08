@@ -23,6 +23,7 @@ import {
   ExternalLink,
   EyeOff,
   Loader2,
+  RotateCcw,
   Upload,
   XCircle,
   FileText,
@@ -36,6 +37,8 @@ interface DownloadStatusPanelProps {
   downloadEvents: StreamEvent[];
   isDownloading: boolean;
   onRefresh: () => void;
+  onReselect?: () => void;
+  isReselecting?: boolean;
 }
 
 export function DownloadStatusPanel({
@@ -43,6 +46,8 @@ export function DownloadStatusPanel({
   downloadEvents,
   isDownloading,
   onRefresh,
+  onReselect,
+  isReselecting,
 }: DownloadStatusPanelProps) {
   const doneCount = selectedBooks.filter(
     (b) => b.status === 'downloaded' || b.status === 'uploaded',
@@ -82,6 +87,21 @@ export function DownloadStatusPanel({
             <Badge variant="destructive">
               {failedCount} failed — upload manually below
             </Badge>
+          )}
+          {!isDownloading && onReselect && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onReselect}
+              disabled={isReselecting}
+            >
+              {isReselecting ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Reselect Books
+            </Button>
           )}
         </div>
       </CardHeader>

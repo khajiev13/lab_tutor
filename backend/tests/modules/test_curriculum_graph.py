@@ -159,31 +159,11 @@ class _FakeTx:
 
 
 class TestCurriculumGraphRepository:
-    def test_create_curriculum_node(self):
-        tx = _FakeTx()
-        CurriculumGraphRepository.create_curriculum_node(
-            tx, curriculum_id="cur_1", book_title="Test", authors="Auth", course_id=1
-        )
-        assert len(tx.queries) == 1
-        q, params = tx.queries[0]
-        assert "MERGE (cur:CURRICULUM" in q
-        assert params["id"] == "cur_1"
-        assert params["book_title"] == "Test"
-
-    def test_link_curriculum_to_class(self):
-        tx = _FakeTx()
-        CurriculumGraphRepository.link_curriculum_to_class(
-            tx, course_id=1, curriculum_id="cur_1"
-        )
-        assert len(tx.queries) == 1
-        q, _ = tx.queries[0]
-        assert "HAS_CURRICULUM" in q
-
     def test_create_chapter_nodes(self):
         tx = _FakeTx()
         chapters = [
             {
-                "id": "cur_1_ch_0",
+                "id": "book_1_ch_0",
                 "title": "Ch 1",
                 "chapter_index": 0,
                 "summary": "A summary",
@@ -191,17 +171,17 @@ class TestCurriculumGraphRepository:
             }
         ]
         CurriculumGraphRepository.create_chapter_nodes(
-            tx, curriculum_id="cur_1", chapters=chapters
+            tx, book_id="book_1", chapters=chapters
         )
         assert len(tx.queries) == 1
         q, params = tx.queries[0]
         assert "BOOK_CHAPTER" in q
-        assert params["curriculum_id"] == "cur_1"
+        assert params["book_id"] == "book_1"
         assert len(params["chapters"]) == 1
 
     def test_link_chapters_linked_list(self):
         tx = _FakeTx()
-        CurriculumGraphRepository.link_chapters_linked_list(tx, curriculum_id="cur_1")
+        CurriculumGraphRepository.link_chapters_linked_list(tx, book_id="book_1")
         assert len(tx.queries) == 1
         q, _ = tx.queries[0]
         assert "NEXT_CHAPTER" in q
@@ -227,18 +207,18 @@ class TestCurriculumGraphRepository:
         assert "toLower($name)" in q
         assert params["name"] == "MapReduce"
 
-    def test_create_covers_concept_rel(self):
+    def test_create_mentions_rel(self):
         tx = _FakeTx()
-        CurriculumGraphRepository.create_covers_concept_rel(
+        CurriculumGraphRepository.create_mentions_rel(
             tx,
-            section_id="cur_1_ch_0_sec_0",
+            section_id="book_1_ch_0_sec_0",
             concept_name="MapReduce",
             relevance="core",
             text_evidence="some evidence",
         )
         assert len(tx.queries) == 1
         q, _ = tx.queries[0]
-        assert "COVERS_CONCEPT" in q
+        assert "MENTIONS" in q
 
     def test_create_skill_node(self):
         tx = _FakeTx()
@@ -478,14 +458,13 @@ class TestCurriculumGraphServiceValidation:
         assert "loaded_data" in steps
         assert "embedding_chapter_summaries" in steps
         assert "embedding_done" in steps
-        assert "creating_curriculum_node" in steps
         assert "creating_chapters" in steps
         assert "processing_chapter" in steps
         assert "merging_similar_concepts" in steps
 
-        # Complete event should have curriculum_id
+        # Complete event should have book_id
         complete_evt = events[-1]
-        assert complete_evt["curriculum_id"] == f"cur_{book.id}"
+        assert complete_evt["book_id"] == f"book_{book.id}"
         assert complete_evt["total_chapters"] == 1
 
         # Embedding service should have been called with the chapter summary

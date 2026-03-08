@@ -538,6 +538,7 @@ class BookSelectionService:
                 repo.update_download_result(book["id"], DownloadStatus.DOWNLOADING)
 
         # ── Process each book sequentially ──────────────────────
+        MAX_PDF_ATTEMPTS = 4
         download_count = 0
         serper = GoogleSerperAPIWrapper(
             serper_api_key=settings.serper_api_key,
@@ -552,19 +553,18 @@ class BookSelectionService:
                 authors = book["authors"]
                 search_query = f"{title} {authors} pdf download".strip()
 
-                # Search Google via Serper and pick the first .pdf link
-                pdf_url: str | None = None
+                # Search Google via Serper and collect all .pdf links
+                pdf_urls: list[str] = []
                 try:
                     data: dict = await serper.aresults(search_query)
                     for item in data.get("organic", []):
                         link: str = item.get("link", "")
                         if link.lower().endswith(".pdf"):
-                            pdf_url = link
-                            break
+                            pdf_urls.append(link)
                 except Exception as search_exc:
                     logger.error("Serper search failed for '%s': %s", title, search_exc)
 
-                if pdf_url is None:
+                if not pdf_urls:
                     # No PDF found — mark as failed
                     with _fresh_db() as db:
                         repo = BookSelectionRepository(db)
@@ -594,121 +594,120 @@ class BookSelectionService:
                         )
                     continue
 
-                # ── Download PDF → validate → Azure ─────────────
+                # ── Try up to MAX_PDF_ATTEMPTS URLs ─────────────
                 blob_path = f"courses/{course_id}/books/{_safe_filename(title)}.pdf"
+                book_downloaded = False
+                rejection_log: list[str] = []
 
-                try:
-                    import tempfile
-
-                    import httpx
-
-                    from .book_selection.tools import validate_pdf
-
-                    # Download to a temp file so we can validate
-                    tmp_path: str | None = None
+                for attempt_idx, pdf_url in enumerate(pdf_urls[:MAX_PDF_ATTEMPTS]):
                     try:
-                        async with httpx.AsyncClient(
-                            follow_redirects=True, timeout=120.0
-                        ) as client:
-                            resp = await client.get(pdf_url)
-                            resp.raise_for_status()
-                            pdf_bytes = resp.content
+                        import contextlib as _ctxlib
+                        import os as _os
+                        import tempfile
 
-                        with tempfile.NamedTemporaryFile(
-                            suffix=".pdf", delete=False
-                        ) as tmp:
-                            tmp.write(pdf_bytes)
-                            tmp_path = tmp.name
+                        import httpx
 
-                        vr = validate_pdf(tmp_path, expected_title=title)
-                        if not vr.valid:
-                            logger.warning(
-                                "PDF rejected for '%s' from %s: %s",
-                                title,
-                                pdf_url,
-                                vr.rejection_reason,
+                        from .book_selection.tools import validate_pdf
+
+                        tmp_path: str | None = None
+                        try:
+                            async with httpx.AsyncClient(
+                                follow_redirects=True, timeout=120.0
+                            ) as client:
+                                resp = await client.get(pdf_url)
+                                resp.raise_for_status()
+                                pdf_bytes = resp.content
+
+                            with tempfile.NamedTemporaryFile(
+                                suffix=".pdf", delete=False
+                            ) as tmp:
+                                tmp.write(pdf_bytes)
+                                tmp_path = tmp.name
+
+                            vr = validate_pdf(tmp_path, expected_title=title)
+                            if not vr.valid:
+                                reason = vr.rejection_reason
+                                logger.warning(
+                                    "PDF rejected for '%s' (attempt %d/%d) from %s: %s",
+                                    title,
+                                    attempt_idx + 1,
+                                    min(len(pdf_urls), MAX_PDF_ATTEMPTS),
+                                    pdf_url,
+                                    reason,
+                                )
+                                rejection_log.append(
+                                    f"Attempt {attempt_idx + 1}: {reason} "
+                                    f"(source: {pdf_url})"
+                                )
+                                continue  # try next URL
+
+                            # Valid — upload bytes to Azure
+                            blob_url = await self.blob_service.upload_bytes(
+                                pdf_bytes, blob_path
                             )
-                            with _fresh_db() as db:
-                                repo = BookSelectionRepository(db)
-                                repo.update_download_result(
-                                    book_id,
-                                    DownloadStatus.FAILED,
-                                    error=(
-                                        f"PDF rejected: {vr.rejection_reason} "
-                                        f"Source: {pdf_url}"
-                                    ),
-                                    source_url=pdf_url,
-                                )
-                                repo.create_selected_book(
-                                    course_id=course_id,
-                                    title=title,
-                                    authors=authors or None,
-                                    publisher=book.get("publisher"),
-                                    year=book.get("year"),
-                                    status=BookStatus.FAILED,
-                                    error_message=(
-                                        f"PDF rejected: {vr.rejection_reason} "
-                                        f"Please upload manually."
-                                    ),
-                                    source_book_id=book_id,
-                                )
-                            download_count += 1
-                            with _fresh_db() as db:
-                                BookSelectionRepository(db).update_progress(
-                                    session_id,
-                                    progress_scored=download_count,
-                                )
-                            continue
+                            logger.info(
+                                "PDF validated for '%s' (%d pages) from %s",
+                                title,
+                                vr.page_count,
+                                pdf_url,
+                            )
+                        finally:
+                            if tmp_path:
+                                with _ctxlib.suppress(OSError):
+                                    _os.remove(tmp_path)
 
-                        # Valid — upload bytes to Azure
-                        blob_url = await self.blob_service.upload_bytes(
-                            pdf_bytes, blob_path
+                        # Success — persist to DB
+                        with _fresh_db() as db:
+                            repo = BookSelectionRepository(db)
+                            repo.update_download_result(
+                                book_id,
+                                DownloadStatus.SUCCESS,
+                                blob_path=blob_path,
+                                source_url=pdf_url,
+                            )
+                            repo.create_selected_book(
+                                course_id=course_id,
+                                title=title,
+                                authors=authors or None,
+                                publisher=book.get("publisher"),
+                                year=book.get("year"),
+                                status=BookStatus.DOWNLOADED,
+                                blob_path=blob_path,
+                                blob_url=blob_url,
+                                source_book_id=book_id,
+                            )
+                        book_downloaded = True
+                        break
+
+                    except Exception as dl_exc:
+                        logger.warning(
+                            "Download attempt %d failed for '%s' from %s: %s",
+                            attempt_idx + 1,
+                            title,
+                            pdf_url,
+                            dl_exc,
                         )
-                    finally:
-                        if tmp_path:
-                            import contextlib
-                            import os as _os
-
-                            with contextlib.suppress(OSError):
-                                _os.remove(tmp_path)
-
-                    with _fresh_db() as db:
-                        repo = BookSelectionRepository(db)
-                        repo.update_download_result(
-                            book_id,
-                            DownloadStatus.SUCCESS,
-                            blob_path=blob_path,
-                            source_url=pdf_url,
-                        )
-                        repo.create_selected_book(
-                            course_id=course_id,
-                            title=title,
-                            authors=authors or None,
-                            publisher=book.get("publisher"),
-                            year=book.get("year"),
-                            status=BookStatus.DOWNLOADED,
-                            blob_path=blob_path,
-                            blob_url=blob_url,
-                            source_book_id=book_id,
+                        rejection_log.append(
+                            f"Attempt {attempt_idx + 1}: Download error: "
+                            f"{dl_exc} (source: {pdf_url})"
                         )
 
-                except Exception as dl_exc:
-                    logger.error(
-                        "Download/upload failed for '%s' from %s: %s",
-                        title,
-                        pdf_url,
-                        dl_exc,
+                if not book_downloaded:
+                    # All attempts exhausted — mark as failed
+                    attempts_tried = min(len(pdf_urls), MAX_PDF_ATTEMPTS)
+                    summary = "; ".join(rejection_log) if rejection_log else ""
+                    error_msg = (
+                        f"Tried {attempts_tried} PDF source(s), "
+                        f"none were valid. {summary} "
+                        f"Please find and upload a valid PDF manually."
                     )
                     with _fresh_db() as db:
                         repo = BookSelectionRepository(db)
                         repo.update_download_result(
                             book_id,
                             DownloadStatus.FAILED,
-                            error=(
-                                f"Download failed. "
-                                f"Try downloading manually from: {pdf_url}"
-                            ),
-                            source_url=pdf_url,
+                            error=error_msg,
+                            source_url=pdf_urls[0] if pdf_urls else None,
                         )
                         repo.create_selected_book(
                             course_id=course_id,
@@ -717,10 +716,7 @@ class BookSelectionService:
                             publisher=book.get("publisher"),
                             year=book.get("year"),
                             status=BookStatus.FAILED,
-                            error_message=(
-                                f"Download failed. "
-                                f"Try downloading manually from: {pdf_url}"
-                            ),
+                            error_message=error_msg,
                             source_book_id=book_id,
                         )
 
@@ -841,6 +837,34 @@ class BookSelectionService:
         """Get all selected books for a course."""
         books = self.repo.get_course_selected_books(course_id)
         return [CourseSelectedBookRead.model_validate(b) for b in books]
+
+    async def reselect_books(self, session_id: int) -> None:
+        """Delete all selected books, their analysis data, and blobs.
+
+        Resets the session back to awaiting_review so the teacher can
+        re-select books from the scored candidates.
+        """
+        with _fresh_db() as db:
+            repo = BookSelectionRepository(db)
+            session = repo.get_session(session_id)
+            if session is None:
+                return
+
+            course_id = session.course_id
+
+            # Collect blob paths before deleting rows
+            deleted_books = repo.delete_all_selected_books_for_course(course_id)
+            blob_paths = [b.blob_path for b in deleted_books if b.blob_path]
+
+            # Reset session back to review
+            repo.update_status(session_id, SessionStatus.AWAITING_REVIEW)
+
+        # Delete blobs outside the DB transaction
+        for path in blob_paths:
+            try:
+                await self.blob_service.delete_file(path)
+            except Exception:
+                logger.warning("Failed to delete blob %s", path, exc_info=True)
 
     def ignore_selected_book(self, selected_book_id: int) -> CourseSelectedBookRead:
         """Mark a selected book as ignored so it is skipped."""

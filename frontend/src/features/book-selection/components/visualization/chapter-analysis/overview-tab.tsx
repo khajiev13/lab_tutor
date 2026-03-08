@@ -29,6 +29,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import {
   Table,
@@ -55,7 +56,7 @@ const STEP_LABELS: Record<string, string> = {
   loaded_data: 'Data loaded from database',
   embedding_chapter_summaries: 'Embedding chapter summaries…',
   embedding_done: 'Embeddings generated',
-  creating_curriculum_node: 'Creating curriculum node',
+  creating_book_node: 'Creating book node',
   creating_chapters: 'Creating chapter nodes',
   processing_chapter: 'Processing chapter',
   merging_similar_concepts: 'Merging similar concepts…',
@@ -288,20 +289,84 @@ export function OverviewTab() {
           </CardHeader>
           <CardContent className="space-y-4">
             {state.curriculumBuilt ? (
-              <Badge variant="default" className="text-sm px-3 py-1">
-                Curriculum Built ✓
-              </Badge>
+              <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4 text-green-600 dark:text-green-400"
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-green-800 dark:text-green-300">
+                      Curriculum Graph Built
+                    </p>
+                    {selectedScore && (
+                      <p className="text-sm text-green-700/80 dark:text-green-400/80">
+                        {selectedScore.bookTitle}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Separator className="bg-green-200 dark:bg-green-800" />
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  The knowledge graph is ready. Chapters, sections, concepts,
+                  and skills have been transferred to Neo4j.
+                </p>
+              </div>
+            ) : state.isBuildingCurriculum ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="h-4 w-4 animate-spin text-primary"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span className="text-sm font-medium">Building curriculum graph…</span>
+                </div>
+                {state.curriculumBuildProgress.length > 0 && (
+                  <div className="space-y-1 text-sm pl-6">
+                    {state.curriculumBuildProgress.map((evt, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        {evt.event === 'error' ? (
+                          <span className="text-destructive">✗</span>
+                        ) : (
+                          <span className="text-muted-foreground">•</span>
+                        )}
+                        <span
+                          className={cn(
+                            'text-muted-foreground',
+                            evt.event === 'error' && 'text-destructive',
+                          )}
+                        >
+                          {evt.event === 'error'
+                            ? evt.message
+                            : evt.event === 'progress'
+                              ? stepLabel(evt)
+                              : 'Complete'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button
-                    disabled={
-                      !state.selectedBookId || state.isBuildingCurriculum
-                    }
-                  >
-                    {state.isBuildingCurriculum
-                      ? 'Building…'
-                      : 'Build Curriculum Graph'}
+                  <Button disabled={!state.selectedBookId}>
+                    Build Curriculum Graph
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -316,8 +381,7 @@ export function OverviewTab() {
                       duplicate concepts automatically.
                       {selectedScore && (
                         <span className="block mt-2 font-medium text-foreground">
-                          Book: {selectedScore.bookTitle} — {scores.length}{' '}
-                          book(s) analyzed
+                          Book: {selectedScore.bookTitle}
                         </span>
                       )}
                     </AlertDialogDescription>
@@ -336,35 +400,6 @@ export function OverviewTab() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            )}
-
-            {/* Progress steps */}
-            {state.curriculumBuildProgress.length > 0 && (
-              <div className="space-y-1 text-sm">
-                {state.curriculumBuildProgress.map((evt, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    {evt.event === 'complete' ? (
-                      <span className="text-green-600">✓</span>
-                    ) : evt.event === 'error' ? (
-                      <span className="text-destructive">✗</span>
-                    ) : (
-                      <span className="text-muted-foreground">•</span>
-                    )}
-                    <span
-                      className={cn(
-                        'text-muted-foreground',
-                        evt.event === 'error' && 'text-destructive',
-                      )}
-                    >
-                      {evt.event === 'error'
-                        ? evt.message
-                        : evt.event === 'complete'
-                          ? `Done — ${evt.curriculum_id}`
-                          : stepLabel(evt)}
-                    </span>
-                  </div>
-                ))}
-              </div>
             )}
           </CardContent>
         </Card>
