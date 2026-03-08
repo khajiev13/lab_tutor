@@ -116,11 +116,13 @@ def save_chapter_extraction(
             db.add(chapter)
             db.flush()
 
-        for sec_idx, section in enumerate(chapter_extraction.sections):
+        for idx, section in enumerate(chapter_extraction.sections):
+            if not section.concepts:
+                continue
             sec = BookSection(
                 chapter_id=chapter.id,
                 section_title=section.section_title,
-                section_index=sec_idx,
+                section_index=idx,
                 section_content=section.section_content,
             )
             db.add(sec)

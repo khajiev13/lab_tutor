@@ -55,8 +55,17 @@ WHAT NOT TO EXTRACT:
 - Websites, tools, or platforms mentioned in passing (unless they ARE core subject matter)
 - Motivational quotes or philosophical statements about the field
 
+SECTION HANDLING:
+- Extract concepts from ALL sections that contain curriculum-relevant content.
+- SKIP sections that do NOT contribute educational value to a {course_subject} curriculum, such as:
+  Bibliographic Notes, References, Conclusion/Summary sections that only recap without new concepts,
+  "Outline of the Book" or chapter roadmap sections, and similar non-instructional material.
+- If a Conclusion or Summary section introduces NEW domain concepts (not just restating earlier ones),
+  you SHOULD still extract from it.
+- When you skip a section, simply assign no concepts to that section number.
+
 RULES:
-1. Extract concepts from the ENTIRE chapter content, covering every section.
+1. Cover every curriculum-relevant section thoroughly — do not skip instructional content.
 2. Each concept MUST have:
    - name: concise, specific identifier (a domain term, not a sentence). The name MUST appear VERBATIM inside the text_evidence string — we highlight concept names in the evidence in the UI, so an exact substring match is required.
    - description: 1-2 sentence explanation grounded in the chapter text
@@ -66,7 +75,7 @@ RULES:
      * tangential — a briefly mentioned {course_subject} domain concept, not the focus of this chapter
    - text_evidence: a short quote or close paraphrase from the chapter text that CONTAINS the concept name as an exact substring (case-insensitive match is acceptable)
    - source_section: the 1-based section NUMBER (integer) from the provided numbered list
-3. Be SELECTIVE — extract concepts that are genuinely part of {course_subject} domain knowledge. Skip anecdotes, examples used only for illustration, and meta-narrative about the book itself.
+3. Be SELECTIVE — extract concepts that are genuinely part of {course_subject} domain knowledge. Skip anecdotes, examples used only for illustration, meta-narrative about the book itself, and non-instructional sections (bibliographic notes, references, etc.).
 4. Be PRECISE — use specific names, not vague terms like "databases" or "data".
 5. chapter_title in your response MUST exactly match the provided chapter title.
 6. For source_section, use the SECTION NUMBER (integer) from the numbered list provided (e.g., 1, 2, 3). If a concept spans multiple sections or comes from the chapter intro, use the most relevant section number. If there are no sections, use 1.
@@ -108,7 +117,7 @@ Evaluate whether concepts extracted from a COMPLETE BOOK CHAPTER are complete, a
 and relevant to the course subject: {course_subject}
 
 CRITERIA:
-1. COMPLETENESS: All important {course_subject} concepts from EVERY section captured? Nothing skipped?
+1. COMPLETENESS: All important {course_subject} concepts from every CURRICULUM-RELEVANT section captured? It is correct to skip non-instructional sections (Bibliographic Notes, References, Conclusions that only recap, etc.).
 2. GRANULARITY: Not too broad ("databases") and not too narrow ("line 42 of code")?
 3. ACCURACY: Descriptions match what the chapter actually says?
 4. TEXT EVIDENCE: Valid grounding from the chapter for each concept?
