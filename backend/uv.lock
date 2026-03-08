@@ -1002,41 +1002,6 @@ wheels = [
 ]
 
 [[package]]
-name = "docx2txt"
-version = "0.9"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ea/07/4486a038624e885e227fe79111914c01f55aa70a51920ff1a7f2bd216d10/docx2txt-0.9.tar.gz", hash = "sha256:18013f6229b14909028b19aa7bf4f8f3d6e4632d7b089ab29f7f0a4d1f660e28", size = 3613, upload-time = "2025-03-24T20:59:25.21Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d6/51/756e71bec48ece0ecc2a10e921ef2756e197dcb7e478f2b43673b6683902/docx2txt-0.9-py3-none-any.whl", hash = "sha256:e3718c0653fd6f2fcf4b51b02a61452ad1c38a4c163bcf0a6fd9486cd38f529a", size = 4025, upload-time = "2025-03-24T20:59:24.394Z" },
-]
-
-[[package]]
-name = "duckduckgo-search"
-version = "8.1.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-    { name = "lxml" },
-    { name = "primp" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/10/ef/07791a05751e6cc9de1dd49fb12730259ee109b18e6d097e25e6c32d5617/duckduckgo_search-8.1.1.tar.gz", hash = "sha256:9da91c9eb26a17e016ea1da26235d40404b46b0565ea86d75a9f78cc9441f935", size = 22868, upload-time = "2025-07-06T15:30:59.73Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/72/c027b3b488b1010cf71670032fcf7e681d44b81829d484bb04e31a949a8d/duckduckgo_search-8.1.1-py3-none-any.whl", hash = "sha256:f48adbb06626ee05918f7e0cef3a45639e9939805c4fc179e68c48a12f1b5062", size = 18932, upload-time = "2025-07-06T15:30:58.339Z" },
-]
-
-[[package]]
-name = "ecdsa"
-version = "0.19.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c0/1f/924e3caae75f471eae4b26bd13b698f6af2c44279f67af317439c2f4c46a/ecdsa-0.19.1.tar.gz", hash = "sha256:478cba7b62555866fcb3bb3fe985e06decbdb68ef55713c4e5ab98c57d508e61", size = 201793, upload-time = "2025-03-13T11:52:43.25Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/a3/460c57f094a4a165c84a1341c373b0a4f5ec6ac244b998d5021aade89b77/ecdsa-0.19.1-py2.py3-none-any.whl", hash = "sha256:30638e27cf77b7e15c4c4cc1973720149e1033827cfd00661ca5c8cc0cdb24c3", size = 150607, upload-time = "2025-03-13T11:52:41.757Z" },
-]
-
-[[package]]
 name = "email-validator"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1909,15 +1874,6 @@ wheels = [
 ]
 
 [[package]]
-name = "jsonpickle"
-version = "4.1.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e4/a6/d07afcfdef402900229bcca795f80506b207af13a838d4d99ad45abf530c/jsonpickle-4.1.1.tar.gz", hash = "sha256:f86e18f13e2b96c1c1eede0b7b90095bbb61d99fedc14813c44dc2f361dbbae1", size = 316885, upload-time = "2025-06-02T20:36:11.57Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c1/73/04df8a6fa66d43a9fd45c30f283cc4afff17da671886e451d52af60bdc7e/jsonpickle-4.1.1-py3-none-any.whl", hash = "sha256:bb141da6057898aa2438ff268362b126826c812a1721e31cf08a6e142910dc91", size = 47125, upload-time = "2025-06-02T20:36:08.647Z" },
-]
-
-[[package]]
 name = "jsonpointer"
 version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2209,46 +2165,31 @@ dependencies = [
     { name = "azure-storage-blob" },
     { name = "bcrypt" },
     { name = "ddgs" },
-    { name = "docx2txt" },
-    { name = "duckduckgo-search" },
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "fastapi-users", extra = ["sqlalchemy"] },
     { name = "httpx" },
-    { name = "ipywidgets" },
     { name = "langchain" },
     { name = "langchain-community" },
     { name = "langchain-core" },
-    { name = "langchain-neo4j" },
     { name = "langchain-openai" },
     { name = "langchain-text-splitters" },
-    { name = "langchain-unstructured" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
     { name = "langsmith" },
-    { name = "matplotlib" },
     { name = "neo4j" },
-    { name = "networkx" },
-    { name = "notebook" },
     { name = "openai" },
     { name = "passlib", extra = ["bcrypt"] },
     { name = "pdfplumber" },
     { name = "pgvector" },
-    { name = "pip" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pypdf" },
-    { name = "python-docx" },
     { name = "python-dotenv" },
-    { name = "python-jobspy" },
-    { name = "python-jose", extra = ["cryptography"] },
     { name = "python-multipart" },
-    { name = "pyvis" },
-    { name = "rapidfuzz" },
     { name = "sqlalchemy" },
     { name = "tavily-python" },
-    { name = "unstructured", extra = ["pdf"] },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -2257,8 +2198,16 @@ dev = [
     { name = "fpdf2" },
     { name = "httpx" },
     { name = "ipykernel" },
+    { name = "ipywidgets" },
+    { name = "langchain-neo4j" },
+    { name = "langchain-unstructured" },
+    { name = "matplotlib" },
+    { name = "networkx" },
+    { name = "notebook" },
     { name = "pytest" },
+    { name = "python-jobspy" },
     { name = "ruff" },
+    { name = "unstructured", extra = ["pdf"] },
 ]
 
 [package.metadata]
@@ -2267,46 +2216,31 @@ requires-dist = [
     { name = "azure-storage-blob", specifier = ">=12.27.1" },
     { name = "bcrypt", specifier = "<5" },
     { name = "ddgs", specifier = ">=9.10.0" },
-    { name = "docx2txt", specifier = ">=0.9" },
-    { name = "duckduckgo-search", specifier = ">=8.1.1" },
     { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fastapi", specifier = ">=0.123.5" },
     { name = "fastapi-users", extras = ["sqlalchemy"], specifier = ">=15.0.1" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "ipywidgets", specifier = ">=8.1.8" },
     { name = "langchain", specifier = ">=1.2.3" },
     { name = "langchain-community", specifier = ">=0.4.1" },
     { name = "langchain-core", specifier = ">=1.2.4" },
-    { name = "langchain-neo4j", specifier = ">=0.8.0" },
     { name = "langchain-openai", specifier = ">=1.1.6" },
     { name = "langchain-text-splitters", specifier = ">=1.1.0" },
-    { name = "langchain-unstructured", specifier = ">=1.0.1" },
     { name = "langgraph", specifier = ">=1.0.5" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3.0.4" },
     { name = "langsmith", specifier = ">=0.5.0" },
-    { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "neo4j", specifier = ">=6.0.3" },
-    { name = "networkx", specifier = ">=3.6.1" },
-    { name = "notebook", specifier = ">=7.5.3" },
     { name = "openai", specifier = ">=2.14.0" },
     { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4" },
     { name = "pdfplumber", specifier = ">=0.11.9" },
     { name = "pgvector", specifier = ">=0.4.2" },
-    { name = "pip", specifier = ">=25.3" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.2" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "pypdf", specifier = ">=6.6.2" },
-    { name = "python-docx", specifier = ">=1.2.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
-    { name = "python-jobspy", specifier = ">=1.1.13" },
-    { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "pyvis", specifier = ">=0.3.2" },
-    { name = "rapidfuzz", specifier = ">=3.14.3" },
     { name = "sqlalchemy", specifier = ">=2.0.45" },
     { name = "tavily-python", specifier = ">=0.7.17" },
-    { name = "unstructured", extras = ["pdf"], specifier = ">=0.21.5" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.38.0" },
 ]
 
@@ -2315,8 +2249,16 @@ dev = [
     { name = "fpdf2", specifier = ">=2.8.6" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipykernel", specifier = ">=7.1.0" },
+    { name = "ipywidgets", specifier = ">=8.1.8" },
+    { name = "langchain-neo4j", specifier = ">=0.8.0" },
+    { name = "langchain-unstructured", specifier = ">=1.0.1" },
+    { name = "matplotlib", specifier = ">=3.10.8" },
+    { name = "networkx", specifier = ">=3.6.1" },
+    { name = "notebook", specifier = ">=7.5.3" },
     { name = "pytest", specifier = ">=9.0.1" },
+    { name = "python-jobspy", specifier = ">=1.1.13" },
     { name = "ruff", specifier = ">=0.8.0" },
+    { name = "unstructured", extras = ["pdf"], specifier = ">=0.21.5" },
 ]
 
 [[package]]
@@ -3870,15 +3812,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pip"
-version = "25.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/fe/6e/74a3f0179a4a73a53d66ce57fdb4de0080a8baa1de0063de206d6167acc2/pip-25.3.tar.gz", hash = "sha256:8d0538dbbd7babbd207f261ed969c65de439f6bc9e5dbd3b3b9a77f25d95f343", size = 1803014, upload-time = "2025-10-25T00:55:41.394Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/44/3c/d717024885424591d5376220b5e836c2d5293ce2011523c9de23ff7bf068/pip-25.3-py3-none-any.whl", hash = "sha256:9655943313a94722b7774661c21049070f6bbb0a1516bf02f7c8d5d9201514cd", size = 1778622, upload-time = "2025-10-25T00:55:39.247Z" },
-]
-
-[[package]]
 name = "platformdirs"
 version = "4.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4450,19 +4383,6 @@ wheels = [
 ]
 
 [[package]]
-name = "python-docx"
-version = "1.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "lxml" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a9/f7/eddfe33871520adab45aaa1a71f0402a2252050c14c7e3009446c8f4701c/python_docx-1.2.0.tar.gz", hash = "sha256:7bc9d7b7d8a69c9c02ca09216118c86552704edc23bac179283f2e38f86220ce", size = 5723256, upload-time = "2025-06-16T20:46:27.921Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d0/00/1e03a4989fa5795da308cd774f05b704ace555a70f9bf9d3be057b680bcf/python_docx-1.2.0-py3-none-any.whl", hash = "sha256:3fd478f3250fbbbfd3b94fe1e985955737c145627498896a8a6bf81f4baf66c7", size = 252987, upload-time = "2025-06-16T20:46:22.506Z" },
-]
-
-[[package]]
 name = "python-dotenv"
 version = "1.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4494,25 +4414,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f4/17/42679c2d98f8ce3f83c473032e5eb167e989949c99993ce3d958271e0463/python_jobspy-1.1.13.tar.gz", hash = "sha256:24a7c450e444807699e1022a7b266809c4ae263dc201002f816d59d5e3292d41", size = 21657, upload-time = "2023-10-10T16:32:23.305Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/11/7c/403b084378c225c90300e4e8215d00b6cbe012f9736e1afef900656f1293/python_jobspy-1.1.13-py3-none-any.whl", hash = "sha256:79d7aecc572d7dcf046ef3634acfaeec3772f2d8a19ced3ef664e584a38aa399", size = 23108, upload-time = "2023-10-10T16:32:22.035Z" },
-]
-
-[[package]]
-name = "python-jose"
-version = "3.5.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "ecdsa" },
-    { name = "pyasn1" },
-    { name = "rsa" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/77/3a1c9039db7124eb039772b935f2244fbb73fc8ee65b9acf2375da1c07bf/python_jose-3.5.0.tar.gz", hash = "sha256:fb4eaa44dbeb1c26dcc69e4bd7ec54a1cb8dd64d3b4d81ef08d90ff453f2b01b", size = 92726, upload-time = "2025-05-28T17:31:54.288Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/c3/0bd11992072e6a1c513b16500a5d07f91a24017c5909b02c72c62d7ad024/python_jose-3.5.0-py2.py3-none-any.whl", hash = "sha256:abd1202f23d34dfad2c3d28cb8617b90acf34132c7afd60abd0b0b7d3cb55771", size = 34624, upload-time = "2025-05-28T17:31:52.802Z" },
-]
-
-[package.optional-dependencies]
-cryptography = [
-    { name = "cryptography" },
 ]
 
 [[package]]
@@ -4563,20 +4464,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f8/bf/abbd3cdfb8fbc7fb3d4d38d320f2441b1e7cbe29be4f23797b4a2b5d8aac/pytz-2025.2.tar.gz", hash = "sha256:360b9e3dbb49a209c21ad61809c7fb453643e048b38924c765813546746e81c3", size = 320884, upload-time = "2025-03-25T02:25:00.538Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/c4/34e93fe5f5429d7570ec1fa436f1986fb1f00c3e0f43a589fe2bbcd22c3f/pytz-2025.2-py2.py3-none-any.whl", hash = "sha256:5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00", size = 509225, upload-time = "2025-03-25T02:24:58.468Z" },
-]
-
-[[package]]
-name = "pyvis"
-version = "0.3.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "ipython" },
-    { name = "jinja2" },
-    { name = "jsonpickle" },
-    { name = "networkx" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/4b/e37e4e5d5ee1179694917b445768bdbfb084f5a59ecd38089d3413d4c70f/pyvis-0.3.2-py3-none-any.whl", hash = "sha256:5720c4ca8161dc5d9ab352015723abb7a8bb8fb443edeb07f7a322db34a97555", size = 756038, upload-time = "2023-02-24T20:29:46.758Z" },
 ]
 
 [[package]]

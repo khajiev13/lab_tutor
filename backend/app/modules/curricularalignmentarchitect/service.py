@@ -16,7 +16,7 @@ from app.core.database import SessionLocal
 from app.providers.storage import BlobService
 
 from .book_selection.graph import build_workflow
-from .models import BookStatus, DownloadStatus, SessionStatus
+from .models import BookSelectionSession, BookStatus, DownloadStatus, SessionStatus
 from .repository import BookSelectionRepository
 from .schemas import (
     BookCandidateRead,
@@ -134,16 +134,46 @@ class BookSelectionService:
         )
         return SessionRead.model_validate(session)
 
+    def _auto_heal_stuck_downloading(
+        self,
+        session: BookSelectionSession,
+    ) -> None:
+        """If session is stuck at DOWNLOADING but all selected books are resolved, transition to COMPLETED."""
+        if session.status != SessionStatus.DOWNLOADING:
+            return
+        selected_books = self.repo.get_selected_books(session.id)
+        if not selected_books:
+            return
+        terminal_statuses = {
+            DownloadStatus.SUCCESS,
+            DownloadStatus.FAILED,
+            DownloadStatus.MANUAL_UPLOAD,
+        }
+        if all(b.download_status in terminal_statuses for b in selected_books):
+            logger.info(
+                "Auto-healing session %d: all selected books resolved, transitioning to COMPLETED",
+                session.id,
+            )
+            self.repo.update_progress(
+                session.id,
+                status=SessionStatus.COMPLETED,
+                progress_scored=len(selected_books),
+                progress_total=len(selected_books),
+            )
+            session.status = SessionStatus.COMPLETED
+
     def get_session(self, session_id: int) -> SessionRead | None:
         session = self.repo.get_session(session_id)
         if session is None:
             return None
+        self._auto_heal_stuck_downloading(session)
         return SessionRead.model_validate(session)
 
     def get_latest_session(self, course_id: int) -> SessionRead | None:
         session = self.repo.get_latest_session(course_id)
         if session is None:
             return None
+        self._auto_heal_stuck_downloading(session)
         return SessionRead.model_validate(session)
 
     def get_session_books(self, session_id: int) -> list[BookCandidateRead]:
