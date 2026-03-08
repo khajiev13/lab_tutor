@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -110,22 +111,26 @@ def extract_pdf(state: ChunkingState) -> dict:
                 store_chapters(run_id, sb.id, chapters, db)
                 db.commit()
 
-            # Build combined markdown from chapters for chunking state
-            md_text = "\n\n".join(ch["content"] for ch in chapters)
+            n_chapters = len(chapters)
+            total_chars = sum(len(ch["content"]) for ch in chapters)
+
+            # Free chapter data — chunk_paragraphs reads from SQL
+            del chapters
+            gc.collect()
 
             books.append(
                 {
                     "selected_book_id": sb.id,
                     "title": sb.title,
-                    "md_text": md_text,
+                    "md_text": "",
                     "chunks": [],
                     "chunk_embeddings": [],
                 }
             )
             logger.info(
                 "Extracted %d chapters (%d chars) from '%s'",
-                len(chapters),
-                len(md_text),
+                n_chapters,
+                total_chars,
                 sb.title,
             )
         except Exception:

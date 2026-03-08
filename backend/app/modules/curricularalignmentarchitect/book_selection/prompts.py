@@ -42,7 +42,10 @@ RULES:
 - Do NOT generate queries for individual sub-topics (e.g., "MapReduce textbook", "HDFS chapter").
   Instead, combine distinctive keywords: "Big Data MapReduce Spark textbook".
 - Generate exactly 10-12 queries. No more, no less.
-- Do not forget to provide the rationale explaining your query strategy and subject identification."""
+- Do not forget to provide the rationale explaining your query strategy and subject identification.
+
+OUTPUT FORMAT — respond with a JSON object ONLY, no markdown or extra text:
+{{"rationale": "brief explanation of subject identification and query strategy", "queries": ["query1", "query2", ...]}}"""
 
 
 PER_QUERY_EXTRACTION_PROMPT = """\
