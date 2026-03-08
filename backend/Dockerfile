@@ -15,16 +15,16 @@ WORKDIR /app
 # Copy only dependency files first (maximizes layer caching)
 COPY pyproject.toml uv.lock* ./
 
-# Install dependencies without the project itself (no need for app/ source)
+# Install production dependencies only (no dev/notebook deps)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-install-project --frozen
+    uv sync --no-install-project --no-dev --frozen
 
 # Copy application code
 COPY . .
 
 # Install the project itself (fast, just links the local package)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen
+    uv sync --no-dev --frozen
 
 # Make entrypoint script executable
 RUN chmod +x entrypoint.sh

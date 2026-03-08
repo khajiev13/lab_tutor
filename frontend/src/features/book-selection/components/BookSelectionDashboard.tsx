@@ -82,6 +82,12 @@ export function BookSelectionDashboard({
           setSession(updated);
           setPhase(updated.status);
 
+          // Refresh selected books while downloading so the user sees progress
+          if (updated.status === 'downloading') {
+            const selBks = await getCourseSelectedBooks(courseId);
+            setSelectedBooks(selBks);
+          }
+
           // When we reach a terminal/review status, fetch final data and stop
           if (TERMINAL_STATUSES.includes(updated.status)) {
             stopPolling();
@@ -93,10 +99,7 @@ export function BookSelectionDashboard({
               setBooks(bks);
             }
 
-            if (
-              updated.status === 'completed' ||
-              updated.status === 'downloading'
-            ) {
+            if (updated.status === 'completed') {
               const bks = await getSessionBooks(sessionId);
               setBooks(bks);
               const selBks = await getCourseSelectedBooks(courseId);
