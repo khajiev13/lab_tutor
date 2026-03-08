@@ -110,7 +110,9 @@ async def generate_queries(state: DiscoveryState) -> dict:
         f"SYLLABUS (lectures with keywords):\n"
         f"{syllabus_sequence(ctx)}\n\n"
         f"Generate 10-12 diverse search queries to discover textbooks for this course. "
-        f"Include a brief rationale as a plain text string."
+        f"Include a brief rationale as a plain text string.\n\n"
+        f"IMPORTANT: Respond ONLY with a JSON object. No markdown, no extra text.\n"
+        f'{{"rationale": "your brief rationale here", "queries": ["query1", "query2", ...]}}'
     )
 
     max_retries = 3
