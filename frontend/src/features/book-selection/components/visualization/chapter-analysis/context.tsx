@@ -177,7 +177,10 @@ export function ChapterAnalysisProvider({
       courseId,
       latestRunId,
       bookId,
-      (evt) => setCurriculumBuildProgress((prev) => [...prev, evt]),
+      (evt) => {
+        setCurriculumBuildProgress((prev) => [...prev, evt]);
+        if (evt.event === 'complete') setCurriculumBuilt(true);
+      },
       () => setIsBuildingCurriculum(false),
       (err) => {
         setIsBuildingCurriculum(false);
