@@ -7,7 +7,8 @@ import Login from '@/features/auth/pages/Login';
 import Register from '@/features/auth/pages/Register';
 import Dashboard from '@/features/dashboard/pages/Dashboard';
 import TeacherCourses from '@/features/courses/pages/TeacherCourses';
-import TeacherCourseDetail from '@/features/courses/pages/TeacherCourseDetail';
+import AgentHubPage from '@/features/courses/pages/AgentHubPage';
+import ArchitectAgentPage from '@/features/courses/pages/ArchitectAgentPage';
 import CourseGraphPage from '@/features/graph/pages/CourseGraphPage';
 import MergeReviewPage from '@/features/normalization/pages/MergeReviewPage';
 import Profile from '@/features/auth/pages/Profile';
@@ -120,7 +121,15 @@ function AppRoutes() {
         path="/courses/:id"
         element={
           <ProtectedRoute>
-            <TeacherCourseDetail />
+            <AgentHubPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id/architect"
+        element={
+          <ProtectedRoute>
+            <ArchitectAgentPage />
           </ProtectedRoute>
         }
       />

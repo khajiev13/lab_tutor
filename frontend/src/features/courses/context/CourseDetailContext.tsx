@@ -62,6 +62,10 @@ interface CourseDetailContextValue {
   /* Embedding */
   embeddingStatus: CourseEmbeddingStatusResponse | null;
 
+  /* Step-completion signals */
+  bookSessionStatus: SessionStatus | null;
+  analysisRunStatus: ExtractionRunStatus | null;
+
   /* Stepper navigation */
   activeStep: number;
   setActiveStep: (step: number) => void;
@@ -394,6 +398,8 @@ export function CourseDetailProvider({
       refreshTrigger,
       triggerRefresh,
       embeddingStatus,
+      bookSessionStatus,
+      analysisRunStatus,
       activeStep,
       setActiveStep,
       goToNext,
@@ -414,6 +420,8 @@ export function CourseDetailProvider({
       refreshTrigger,
       triggerRefresh,
       embeddingStatus,
+      bookSessionStatus,
+      analysisRunStatus,
       activeStep,
       setActiveStep,
       goToNext,
