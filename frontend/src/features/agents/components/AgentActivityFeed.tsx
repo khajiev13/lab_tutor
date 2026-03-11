@@ -101,6 +101,9 @@ function deriveActivityEvents(ctx: {
       case "agentic_completed":
         events.push({ id: "analysis-done", message: "Analysis complete.", status: "completed" });
         break;
+      case "curriculum_built":
+        events.push({ id: "analysis-done", message: "Curriculum built.", status: "completed" });
+        break;
       case "book_picked":
         events.push({ id: "analysis-pick", message: "Book picked for analysis.", status: "info" });
         break;

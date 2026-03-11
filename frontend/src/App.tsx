@@ -11,6 +11,7 @@ import AgentHubPage from '@/features/courses/pages/AgentHubPage';
 import ArchitectAgentPage from '@/features/courses/pages/ArchitectAgentPage';
 import CourseGraphPage from '@/features/graph/pages/CourseGraphPage';
 import MergeReviewPage from '@/features/normalization/pages/MergeReviewPage';
+import MarketDemandPage from '@/features/market-demand/pages/MarketDemandPage';
 import Profile from '@/features/auth/pages/Profile';
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -21,7 +22,7 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <div className="flex min-w-0 flex-1 flex-col p-6">
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden min-h-0 p-6">
           {children}
         </div>
       </SidebarInset>
@@ -130,6 +131,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ArchitectAgentPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id/market-analyst"
+        element={
+          <ProtectedRoute>
+            <MarketDemandPage />
           </ProtectedRoute>
         }
       />

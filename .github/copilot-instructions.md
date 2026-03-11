@@ -127,4 +127,4 @@
 
 
 ## Skills for AI Agents
-- **Use the correct skill for the task.** When writing fastapi routes, use the `fastapi` skill. For React components, use the `react` skill.
+- **Always use the correct skill for the task. Think about which skill is most appropriate for the context.** When writing fastapi routes, use the `fastapi` skill. For React components, use the `react` skill.

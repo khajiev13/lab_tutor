@@ -7,6 +7,7 @@ import logging
 import re
 import uuid
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from fastapi import UploadFile
@@ -138,17 +139,45 @@ class BookSelectionService:
         self,
         session: BookSelectionSession,
     ) -> None:
-        """If session is stuck at DOWNLOADING but all selected books are resolved, transition to COMPLETED."""
+        """If session is stuck at DOWNLOADING but all selected books are resolved, transition to COMPLETED.
+
+        Also detects stale downloads: if the session hasn't been updated
+        in >30 minutes, any books still at DOWNLOADING are treated as
+        timed-out failures (the background task likely crashed).
+        """
         if session.status != SessionStatus.DOWNLOADING:
             return
         selected_books = self.repo.get_selected_books(session.id)
         if not selected_books:
             return
+
         terminal_statuses = {
             DownloadStatus.SUCCESS,
             DownloadStatus.FAILED,
             DownloadStatus.MANUAL_UPLOAD,
         }
+
+        # Detect stale downloads: if session untouched for >30 min,
+        # any book still at DOWNLOADING is a crashed/timed-out download.
+        stale_threshold = timedelta(minutes=30)
+        now = datetime.now(UTC)
+        session_age = now - session.updated_at
+        if session_age > stale_threshold:
+            for book in selected_books:
+                if book.download_status == DownloadStatus.DOWNLOADING:
+                    logger.warning(
+                        "Auto-healing book %d ('%s'): stuck at DOWNLOADING for %s, marking FAILED",
+                        book.id,
+                        book.title,
+                        session_age,
+                    )
+                    self.repo.update_download_result(
+                        book.id,
+                        DownloadStatus.FAILED,
+                        error="Download timed out (background task likely crashed).",
+                    )
+                    book.download_status = DownloadStatus.FAILED
+
         if all(b.download_status in terminal_statuses for b in selected_books):
             logger.info(
                 "Auto-healing session %d: all selected books resolved, transitioning to COMPLETED",

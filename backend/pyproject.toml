@@ -26,6 +26,7 @@ dependencies = [
     "pdfplumber>=0.11.9",
     "pgvector>=0.4.2",
     "psycopg[binary]>=3.3.2",
+    "psycopg-pool>=3.2.0",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
     "pypdf>=6.6.2",
@@ -34,6 +35,8 @@ dependencies = [
     "sqlalchemy>=2.0.45",
     "tavily-python>=0.7.17",
     "uvicorn[standard]>=0.38.0",
+    "python-jobspy>=1.1.82",
+    "langgraph-swarm>=0.1.0",
 ]
 
 [build-system]
@@ -55,9 +58,16 @@ dev = [
     "networkx>=3.6.1",
     "notebook>=7.5.3",
     "pytest>=9.0.1",
-    "python-jobspy>=1.1.13",
+    "rich>=14.0.0",
     "ruff>=0.8.0",
     "unstructured[pdf]>=0.21.5",
+]
+
+[tool.uv]
+override-dependencies = [
+    # python-jobspy pins numpy==1.26.3 but neo4j-graphrag/langchain need numpy>=2.0
+    # jobspy works fine with numpy>=2.x despite the strict pin
+    "numpy>=2.0.0",
 ]
 
 [tool.ruff]

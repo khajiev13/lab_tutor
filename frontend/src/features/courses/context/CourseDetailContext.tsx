@@ -276,6 +276,7 @@ export function CourseDetailProvider({
         "completed",
         "agentic_completed",
         "book_picked",
+        "curriculum_built",
       ];
 
       switch (index) {

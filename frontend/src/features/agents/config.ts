@@ -28,7 +28,7 @@ export const AGENTS: AgentConfig[] = [
       "Analyzes job market trends and maps course skills to industry demand.",
     icon: TrendingUp,
     route: "market-analyst",
-    enabled: false,
+    enabled: true,
     color:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
   },
