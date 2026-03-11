@@ -63,8 +63,8 @@ def _mock_astream(events_list):
 @pytest.fixture(autouse=True)
 def _reset_tool_store():
     """Clear tool_store and route state cache between tests."""
-    import app.modules.marketdemandanalyst.state as state_mod
     import app.modules.marketdemandanalyst.routes as routes_mod
+    import app.modules.marketdemandanalyst.state as state_mod
 
     state_mod.tool_store.clear()
     routes_mod._state_cache.clear()

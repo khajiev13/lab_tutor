@@ -6,6 +6,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  TooltipProvider,
 } from "@/components/ui/tooltip"
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -194,12 +195,14 @@ function StepCircle({
 
   if (step.status === "locked" && step.lockedReason) {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>{circle}</TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>{step.lockedReason}</p>
-        </TooltipContent>
-      </Tooltip>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{circle}</TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>{step.lockedReason}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 
