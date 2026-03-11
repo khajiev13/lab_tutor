@@ -95,7 +95,7 @@ function ToolCallDisplay({ toolCall }: { toolCall: ToolCall }) {
               {JSON.stringify(toolCall.input, null, 2)}
             </pre>
           </div>
-          {toolCall.output && (
+          {toolCall.output != null && (
             <div className="min-w-0">
               <p className="text-xs font-medium text-muted-foreground mb-1">
                 Output:
