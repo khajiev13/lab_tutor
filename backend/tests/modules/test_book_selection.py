@@ -729,7 +729,7 @@ class TestAutoHealStaleDownloads(TestBookSelectionRepository):
         repo.mark_selected(session.id, [b.id for b in books])
 
         repo.update_progress(session.id, status=SessionStatus.DOWNLOADING)
-        for book, status in zip(books, download_statuses):
+        for book, status in zip(books, download_statuses, strict=True):
             repo.update_download_result(book.id, status)
 
         db_session.refresh(session)

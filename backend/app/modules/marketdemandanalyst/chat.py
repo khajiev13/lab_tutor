@@ -12,16 +12,15 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
+from langchain_core.messages import AIMessageChunk, HumanMessage, ToolMessage
+from rich.console import Console
+from rich.panel import Panel
 
 # Load .env from the backend directory (where this package lives)
 _backend_dir = Path(__file__).resolve().parents[3]
 load_dotenv(_backend_dir / ".env")
 
-from langchain_core.messages import AIMessageChunk, HumanMessage, ToolMessage
-from rich.console import Console
-from rich.panel import Panel
-
-from .graph import build_graph
+from .graph import build_graph  # noqa: E402
 
 console = Console()
 
