@@ -32,6 +32,7 @@ import app.modules.courses.models  # noqa: E402
 import app.modules.curricularalignmentarchitect.models  # noqa: E402
 import app.modules.embeddings.course_models  # noqa: E402
 import app.modules.embeddings.models  # noqa: E402
+import app.modules.marketdemandanalyst.models  # noqa: E402
 from app.core.api_schemas import (  # noqa: E402
     HealthResponse,
     RootResponse,
@@ -55,6 +56,9 @@ from app.modules.concept_normalization import (  # noqa: E402
 from app.modules.courses import routes as course_routes  # noqa: E402
 from app.modules.curricularalignmentarchitect.api_routes import (  # noqa: E402
     router as book_selection_router,
+)
+from app.modules.marketdemandanalyst.routes import (  # noqa: E402
+    router as market_demand_router,
 )
 
 logger = logging.getLogger(__name__)
@@ -528,6 +532,7 @@ app.include_router(auth_routes.router)
 app.include_router(course_routes.router)
 app.include_router(concept_normalization_routes.router)
 app.include_router(book_selection_router)
+app.include_router(market_demand_router)
 
 
 @app.get("/docs", include_in_schema=False)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -14,6 +15,7 @@ from app.modules.curricularalignmentarchitect.book_selection.utils import (
     compute_finals,
 )
 from app.modules.curricularalignmentarchitect.models import (
+    CourseBook,
     DownloadStatus,
     SessionStatus,
 )
@@ -24,6 +26,7 @@ from app.modules.curricularalignmentarchitect.schemas import (
     SelectBooksRequest,
     WeightsConfig,
 )
+from app.modules.curricularalignmentarchitect.service import BookSelectionService
 
 TEST_WEIGHTS = {
     "C_topic": 0.30,
@@ -691,3 +694,115 @@ class TestRediscoverRoute:
             headers=student_auth_headers,
         )
         assert resp.status_code == 403
+
+
+# ═══════════════════════════════════════════════════════════════
+# Auto-heal stale downloads
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestAutoHealStaleDownloads(TestBookSelectionRepository):
+    """Tests for _auto_heal_stuck_downloading with stale-timeout logic."""
+
+    def _make_service(self, db_session) -> BookSelectionService:
+        repo = BookSelectionRepository(db_session)
+        blob_service = AsyncMock()
+        return BookSelectionService(repo=repo, blob_service=blob_service)
+
+    def _create_session_with_books(
+        self, db_session, *, download_statuses: list[DownloadStatus]
+    ):
+        """Helper: create a DOWNLOADING session with books at given statuses."""
+        self._ensure_course(db_session, 1)
+        repo = BookSelectionRepository(db_session)
+        session = repo.create_session(
+            course_id=1,
+            thread_id=f"test-{uuid.uuid4().hex[:8]}",
+            weights={},
+            level="bachelor",
+        )
+        scored = [
+            {"book_title": f"Book {i}", "S_final": 9.0 - i}
+            for i in range(len(download_statuses))
+        ]
+        books = repo.upsert_books(session.id, 1, scored)
+        repo.mark_selected(session.id, [b.id for b in books])
+
+        repo.update_progress(session.id, status=SessionStatus.DOWNLOADING)
+        for book, status in zip(books, download_statuses):
+            repo.update_download_result(book.id, status)
+
+        db_session.refresh(session)
+        return session, books
+
+    def test_heals_when_all_terminal(self, db_session):
+        """Session completes when all books are already terminal."""
+        service = self._make_service(db_session)
+        session, _ = self._create_session_with_books(
+            db_session,
+            download_statuses=[
+                DownloadStatus.SUCCESS,
+                DownloadStatus.FAILED,
+                DownloadStatus.MANUAL_UPLOAD,
+            ],
+        )
+        service._auto_heal_stuck_downloading(session)
+        assert session.status == SessionStatus.COMPLETED
+
+    def test_no_heal_when_recent_and_downloading(self, db_session):
+        """A recent session with a book still downloading should NOT be healed."""
+        service = self._make_service(db_session)
+        session, books = self._create_session_with_books(
+            db_session,
+            download_statuses=[
+                DownloadStatus.SUCCESS,
+                DownloadStatus.DOWNLOADING,
+            ],
+        )
+        service._auto_heal_stuck_downloading(session)
+        assert session.status == SessionStatus.DOWNLOADING
+
+    def test_heals_stale_downloading_books(self, db_session):
+        """Books stuck at DOWNLOADING in a stale session get marked FAILED and session completes."""
+        service = self._make_service(db_session)
+        session, books = self._create_session_with_books(
+            db_session,
+            download_statuses=[
+                DownloadStatus.SUCCESS,
+                DownloadStatus.DOWNLOADING,  # will be healed
+            ],
+        )
+        # Bypass SQLAlchemy's onupdate by using a raw UPDATE
+        from sqlalchemy import text
+
+        stale_ts = datetime.now(UTC) - timedelta(hours=1)
+        db_session.execute(
+            text("UPDATE book_selection_sessions SET updated_at = :ts WHERE id = :sid"),
+            {"ts": stale_ts, "sid": session.id},
+        )
+        db_session.commit()
+        db_session.refresh(session)
+
+        service._auto_heal_stuck_downloading(session)
+
+        assert session.status == SessionStatus.COMPLETED
+        stuck_book = db_session.get(CourseBook, books[1].id)
+        assert stuck_book.download_status == DownloadStatus.FAILED
+        assert "timed out" in stuck_book.download_error
+
+    def test_no_heal_on_non_downloading_session(self, db_session):
+        """Auto-heal should be a no-op for sessions not in DOWNLOADING status."""
+        service = self._make_service(db_session)
+        self._ensure_course(db_session, 1)
+        repo = BookSelectionRepository(db_session)
+        session = repo.create_session(
+            course_id=1,
+            thread_id=f"test-{uuid.uuid4().hex[:8]}",
+            weights={},
+            level="bachelor",
+        )
+        repo.update_progress(session.id, status=SessionStatus.AWAITING_REVIEW)
+        db_session.refresh(session)
+
+        service._auto_heal_stuck_downloading(session)
+        assert session.status == SessionStatus.AWAITING_REVIEW

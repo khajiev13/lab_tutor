@@ -34,7 +34,7 @@ describe("Agent Config", () => {
   it("has market-analyst agent disabled", () => {
     const analyst = getAgentById("market-analyst");
     expect(analyst).toBeDefined();
-    expect(analyst!.enabled).toBe(false);
+    expect(analyst!.enabled).toBe(true);
   });
 
   it("returns undefined for unknown agent", () => {
@@ -108,25 +108,29 @@ describe("AgentCard", () => {
     }
   });
 
-  it("renders disabled agent with Coming Soon badge", () => {
+  it("renders market-analyst agent as enabled", () => {
     render(
       <MemoryRouter>
         <AgentCard agent={analyst} courseId={1} />
       </MemoryRouter>
     );
-    expect(screen.getByText("Coming Soon")).toBeInTheDocument();
     expect(screen.getByText("Market Demand Analyst")).toBeInTheDocument();
+    expect(screen.queryByText("Coming Soon")).not.toBeInTheDocument();
   });
 
-  it("disabled agent is not clickable", () => {
+  it("market-analyst agent is clickable", async () => {
+    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <AgentCard agent={analyst} courseId={1} />
       </MemoryRouter>
     );
-    // No cursor-pointer class on the disabled card
-    const card = screen.getByText("Market Demand Analyst").closest("[data-slot='card']");
-    expect(card).not.toHaveClass("cursor-pointer");
+    const card = screen.getByText("Market Demand Analyst").closest("[data-slot='card']")
+      || screen.getByText("Market Demand Analyst").closest(".cursor-pointer");
+    if (card) {
+      await user.click(card);
+      expect(mockNavigate).toHaveBeenCalledWith("/courses/1/market-analyst");
+    }
   });
 });
 

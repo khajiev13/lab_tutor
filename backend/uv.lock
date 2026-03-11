@@ -12,6 +12,9 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform == 'win32'",
 ]
 
+[manifest]
+overrides = [{ name = "numpy", specifier = ">=2.0.0" }]
+
 [[package]]
 name = "accelerate"
 version = "1.12.0"
@@ -2176,6 +2179,7 @@ dependencies = [
     { name = "langchain-text-splitters" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
+    { name = "langgraph-swarm" },
     { name = "langsmith" },
     { name = "neo4j" },
     { name = "openai" },
@@ -2183,10 +2187,12 @@ dependencies = [
     { name = "pdfplumber" },
     { name = "pgvector" },
     { name = "psycopg", extra = ["binary"] },
+    { name = "psycopg-pool" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pypdf" },
     { name = "python-dotenv" },
+    { name = "python-jobspy" },
     { name = "python-multipart" },
     { name = "sqlalchemy" },
     { name = "tavily-python" },
@@ -2205,7 +2211,7 @@ dev = [
     { name = "networkx" },
     { name = "notebook" },
     { name = "pytest" },
-    { name = "python-jobspy" },
+    { name = "rich" },
     { name = "ruff" },
     { name = "unstructured", extra = ["pdf"] },
 ]
@@ -2227,6 +2233,7 @@ requires-dist = [
     { name = "langchain-text-splitters", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.5" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3.0.4" },
+    { name = "langgraph-swarm", specifier = ">=0.1.0" },
     { name = "langsmith", specifier = ">=0.5.0" },
     { name = "neo4j", specifier = ">=6.0.3" },
     { name = "openai", specifier = ">=2.14.0" },
@@ -2234,10 +2241,12 @@ requires-dist = [
     { name = "pdfplumber", specifier = ">=0.11.9" },
     { name = "pgvector", specifier = ">=0.4.2" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.2" },
+    { name = "psycopg-pool", specifier = ">=3.2.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "pypdf", specifier = ">=6.6.2" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "python-jobspy", specifier = ">=1.1.82" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "sqlalchemy", specifier = ">=2.0.45" },
     { name = "tavily-python", specifier = ">=0.7.17" },
@@ -2256,7 +2265,7 @@ dev = [
     { name = "networkx", specifier = ">=3.6.1" },
     { name = "notebook", specifier = ">=7.5.3" },
     { name = "pytest", specifier = ">=9.0.1" },
-    { name = "python-jobspy", specifier = ">=1.1.13" },
+    { name = "rich", specifier = ">=14.0.0" },
     { name = "ruff", specifier = ">=0.8.0" },
     { name = "unstructured", extras = ["pdf"], specifier = ">=0.21.5" },
 ]
@@ -2471,6 +2480,20 @@ wheels = [
 ]
 
 [[package]]
+name = "langgraph-swarm"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "langgraph" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/89/9c/b76ce5eb38584097e671464632fdb854ab28457dd9e8ec3912f7208a1d9a/langgraph_swarm-0.1.0.tar.gz", hash = "sha256:e0f189fc2471d06108fc293da05771d0106d72f755cd130ee37d579561942479", size = 12432, upload-time = "2025-12-04T19:04:05.56Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/1f/a2fd04e6ba6f34609ae37a290b198f37155516ed67e34c12948c5a742437/langgraph_swarm-0.1.0-py3-none-any.whl", hash = "sha256:7020b9a1ba6959b8ddd0168e49b236e8f9967ea40a8a2ccd14c28ec57fe6c227", size = 10227, upload-time = "2025-12-04T19:04:04.72Z" },
+]
+
+[[package]]
 name = "langsmith"
 version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2617,6 +2640,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5b/f5/4ec618ed16cc4f8fb3b701563655a69816155e79e24a17b651541804721d/markdown_it_py-4.0.0.tar.gz", hash = "sha256:cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3", size = 73070, upload-time = "2025-08-11T12:57:52.854Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/94/54/e7d793b573f298e1c9013b8c4dade17d481164aa517d1d7148619c2cedbf/markdown_it_py-4.0.0-py3-none-any.whl", hash = "sha256:87327c59b172c5011896038353a81343b6754500a08cd7a4973bb48c6d578147", size = 87321, upload-time = "2025-08-11T12:57:51.923Z" },
+]
+
+[[package]]
+name = "markdownify"
+version = "0.13.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/5a/bd1b685ee9efbfb0b22774a30188dfb4048c64e8a6c80a65a7f207af4ea1/markdownify-0.13.1.tar.gz", hash = "sha256:ab257f9e6bd4075118828a28c9d02f8a4bfeb7421f558834aa79b2dfeb32a098", size = 13609, upload-time = "2024-07-14T20:41:57.939Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6c/e9/6e2757a670b8c48bc48eff1c20cb9d71f1476e844038bdbdb76f17e6a12b/markdownify-0.13.1-py3-none-any.whl", hash = "sha256:1d181d43d20902bcc69d7be85b5316ed174d0dda72ff56e14ae4c95a4a407d22", size = 10800, upload-time = "2024-07-14T20:41:56.043Z" },
 ]
 
 [[package]]
@@ -3054,7 +3090,7 @@ dependencies = [
     { name = "fsspec" },
     { name = "json-repair" },
     { name = "neo4j" },
-    { name = "numpy", marker = "python_full_version < '3.15'" },
+    { name = "numpy" },
     { name = "pydantic" },
     { name = "pypdf" },
     { name = "pyyaml" },
@@ -4402,18 +4438,21 @@ wheels = [
 
 [[package]]
 name = "python-jobspy"
-version = "1.1.13"
+version = "1.1.82"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
+    { name = "markdownify" },
+    { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
+    { name = "regex" },
     { name = "requests" },
     { name = "tls-client" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/17/42679c2d98f8ce3f83c473032e5eb167e989949c99993ce3d958271e0463/python_jobspy-1.1.13.tar.gz", hash = "sha256:24a7c450e444807699e1022a7b266809c4ae263dc201002f816d59d5e3292d41", size = 21657, upload-time = "2023-10-10T16:32:23.305Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/b2/c909850134f45751aeb49075afa4121a2952f627030367dd683a43eb6781/python_jobspy-1.1.82.tar.gz", hash = "sha256:32efb486da5eb60dc54a574bb4a1fb66838fdee75699a7a601aae763637dc8ea", size = 42388, upload-time = "2025-07-28T15:18:56.126Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/7c/403b084378c225c90300e4e8215d00b6cbe012f9736e1afef900656f1293/python_jobspy-1.1.13-py3-none-any.whl", hash = "sha256:79d7aecc572d7dcf046ef3634acfaeec3772f2d8a19ced3ef664e584a38aa399", size = 23108, upload-time = "2023-10-10T16:32:22.035Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/2b/18863fcd3c544a69d81e351381a50036a33c21b61cc1c6de2a8f25931237/python_jobspy-1.1.82-py3-none-any.whl", hash = "sha256:93d638b35ffd30a714253e065907f68c5bac624e3937a3ad2ba09f618a072ee9", size = 52833, upload-time = "2025-07-28T15:18:54.84Z" },
 ]
 
 [[package]]
@@ -5381,11 +5420,11 @@ wheels = [
 
 [[package]]
 name = "tls-client"
-version = "0.2.2"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/19/b8/a9db2125a27a87edcc615a31b5277d3cfc32bea23ee0b088734e2f8a52df/tls_client-0.2.2.tar.gz", hash = "sha256:78bc0e291e3aadc6c5e903b62bb26c01374577691f2a9e5e17899900a5927a13", size = 15541, upload-time = "2023-09-17T18:49:23.499Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3c/a6/6ec27c66a836a11a085e841f825d2f5bd289092f3bcd2f645558f587c89f/tls_client-1.0.1.tar.gz", hash = "sha256:dad797f3412bb713606e0765d489f547ffb580c5ffdb74aed47a183ce8505ff5", size = 16414, upload-time = "2024-02-02T18:55:55.767Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/3b/50f14887d4f0c64e8142254afc40c13135eb64d05df904d119b62b40e9f9/tls_client-0.2.2-py3-none-any.whl", hash = "sha256:30934871397cdad6862e00b5634f382666314a452ddd3d774e18323a0ad9b765", size = 36878246, upload-time = "2023-09-17T18:49:20.168Z" },
+    { url = "https://files.pythonhosted.org/packages/75/cd/5c735818692927e07980357445569adb6ee204c3332d19c516bae01c6cfa/tls_client-1.0.1-py3-none-any.whl", hash = "sha256:2f8915c0642c2226c9e33120072a2af082812f6310d32f4ea4da322db7d3bb1c", size = 41287556, upload-time = "2024-02-02T18:55:52.226Z" },
 ]
 
 [[package]]

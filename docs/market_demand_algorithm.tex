@@ -1,0 +1,42 @@
+\begin{algorithm}[t]
+\caption{Multi-Agent Curriculum Gap Analysis}
+\label{alg:market-demand-analyst}
+\begin{algorithmic}[1]
+\Require Knowledge graph $\mathcal{G}$, language model $\textsc{LLM}$, teacher $\mathcal{T}$
+\Ensure Updated $\mathcal{G}$ with market-aligned skills and concept links
+\Statex
+\State $\mathcal{C} \leftarrow \textsc{RetrieveContext}(\mathcal{G}$: chapters, skills, concepts$)$
+\State $\{t_1,\dots,t_n\} \leftarrow \textsc{LLM}(\mathcal{C}) \to$ job-board search queries
+\State $J \leftarrow \textsc{Scrape}(t_1,\dots,t_n) \to$ deduplicated job postings
+\State $J_\text{sel} \leftarrow \mathcal{T}$ selects relevant jobs from $J$ grouped by title
+\Statex
+\State Partition $J_\text{sel}$ into batches $\{\beta_1,\dots,\beta_k\}$
+\For{each $\beta_i$ \textbf{in parallel}}
+  \State $\mathcal{S}_i \leftarrow \textsc{LLM}(\beta_i) \to$ skill names and categories
+\EndFor
+\State $\mathcal{S}_\text{ext} \leftarrow \textsc{Aggregate}(\mathcal{S}_1,\dots,\mathcal{S}_k)$ with frequency counts
+\State $\text{demand}(s) \leftarrow \text{freq}(s) / |J_\text{sel}|$ \quad $\forall\, s \in \mathcal{S}_\text{ext}$
+\Statex
+\For{each $s \in \mathcal{S}_\text{ext}$}
+  \State $\text{ctx}_s \leftarrow \textsc{RetrieveContext}(\mathcal{G}$: skills and concepts related to $s)$
+  \State $\text{status}(s) \leftarrow \textsc{LLM}(s, \text{ctx}_s) \to \begin{cases}
+    \textbf{covered} & \text{match in existing skills or concepts} \\
+    \textbf{gap} & \text{no match, fits an existing chapter} \\
+    \textbf{new\_topic} & \text{no match, no chapter fits}
+  \end{cases}$
+  \If{$\text{status}(s) \neq \textbf{covered}$}
+    \State $\text{ch}^*(s) \leftarrow \arg\max_\text{ch}\bigl(\textsc{TopicAlign}(\text{ch},s) + \textsc{ConceptOverlap}(\text{ch},s)\bigr)$
+    \State $\text{priority}(s) \leftarrow$ high if $\text{demand} \geq 40\%$, medium if $\geq 15\%$, else low
+  \EndIf
+\EndFor
+\Statex
+\State $\mathcal{S}_\text{app} \leftarrow \mathcal{T}$ reviews skills with status and priority
+\For{each $s \in \mathcal{S}_\text{app}$}
+  \State $\text{ctx}_s \leftarrow \textsc{RetrieveContext}(\mathcal{G}$: concepts in chapter $\text{ch}^*(s))$
+  \State $\text{ev}_s \leftarrow \textsc{RetrieveContext}(J_\text{sel}$: snippets mentioning $s)$
+  \State $(E_s, N_s) \leftarrow \textsc{LLM}(s,\, \text{ctx}_s,\, \text{ev}_s) \to$ linked existing concepts, proposed new concepts
+\EndFor
+\State $\mathcal{T}$ confirms concept links
+\State Write $(\mathcal{S}_\text{app},\, J_\text{sel},\, \{E_s, N_s\})$ into $\mathcal{G}$
+\end{algorithmic}
+\end{algorithm}
