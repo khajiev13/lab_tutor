@@ -1,8 +1,19 @@
 import { useParams, Link } from "react-router-dom";
-import { BrainCircuit, Loader2, PanelRightClose, PanelRightOpen, RotateCcw } from "lucide-react";
+import { BrainCircuit, Loader2, PanelRightClose, PanelRightOpen, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   ChatContainerRoot,
   ChatContainerContent,
@@ -108,16 +119,37 @@ function MarketDemandContent() {
         <div className="flex items-center gap-2">
           <ConnectionStatus isStreaming={isStreaming} hasError={!!error} />
           {messages.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearConversation}
-              disabled={isStreaming}
-              className="text-muted-foreground gap-1.5"
-            >
-              <RotateCcw className="size-3.5" />
-              New
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isStreaming}
+                  className="text-muted-foreground gap-1.5 hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="size-3.5" />
+                  Clear
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all messages and analysis data from this conversation.
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={clearConversation}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
           <Button
             variant="ghost"

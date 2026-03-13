@@ -36,7 +36,9 @@ router = APIRouter(prefix="/market-demand", tags=["market-demand"])
 # Agent display metadata (shared with frontend via agent_start events)
 AGENT_META: dict[str, dict[str, str]] = {
     "supervisor": {"displayName": "Supervisor", "emoji": "📊"},
+    "skill_finder": {"displayName": "Skill Finder", "emoji": "🔍"},
     "curriculum_mapper": {"displayName": "Curriculum Mapper", "emoji": "🗺️"},
+    "skill_cleaner": {"displayName": "Skill Cleaner", "emoji": "🧹"},
     "concept_linker": {"displayName": "Concept Linker", "emoji": "🔗"},
 }
 

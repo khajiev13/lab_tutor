@@ -40,6 +40,7 @@ interface AgentCardProps {
   status?: AgentStatus;
   progress?: number;
   lastActivity?: string;
+  hideStatus?: boolean;
 }
 
 const STATUS_CONFIG: Record<
@@ -66,9 +67,10 @@ const STATUS_CONFIG: Record<
 export function AgentCard({
   agent,
   courseId,
-  status = "not-started",
+  status,
   progress,
   lastActivity,
+  hideStatus = false,
 }: AgentCardProps) {
   const navigate = useNavigate();
   const Icon = agent.icon;
@@ -92,7 +94,8 @@ export function AgentCard({
     );
   }
 
-  const statusCfg = STATUS_CONFIG[status];
+  const statusCfg = status ? STATUS_CONFIG[status] : null;
+  const showStatus = !hideStatus && statusCfg;
 
   return (
     <HoverCard>
@@ -113,14 +116,16 @@ export function AgentCard({
                 {agent.description}
               </CardDescription>
             </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
-                </TooltipTrigger>
-                <TooltipContent>{statusCfg.tooltip}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {showStatus && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>{statusCfg.tooltip}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </CardHeader>
           {progress !== undefined && (
             <CardContent className="pt-0">

@@ -69,7 +69,12 @@ function ToolCallDisplay({ toolCall }: { toolCall: ToolCall }) {
       >
         <div className="flex items-center gap-2 min-w-0">
           <Wrench
-            className={cn("h-4 w-4 shrink-0", statusColors[toolCall.status])}
+            className={cn(
+              "h-4 w-4 shrink-0",
+              statusColors[toolCall.status],
+              (toolCall.status === "pending" || toolCall.status === "running") &&
+                "animate-[wiggle_1s_ease-in-out_infinite]"
+            )}
           />
           <span className="font-medium text-sm truncate">{toolCall.name}</span>
           {toolCall.duration && (

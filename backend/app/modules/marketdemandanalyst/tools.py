@@ -3,15 +3,14 @@ import logging
 import os
 import re
 import time
-from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 
 import pandas as pd
 from langchain.tools import tool
-from langchain_openai import ChatOpenAI
 from langgraph.types import Command
 
+from .extractor import _get_extraction_llm
 from .state import tool_store
 
 logger = logging.getLogger(__name__)
@@ -143,75 +142,6 @@ def load_curriculum_context(teacher_email: str | None = None) -> str:
         lines.append(f"  Skills: {skills_str}")
 
     return "\n".join(lines)
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Programmatic helpers — keep heavy data out of the LLM
-# ═══════════════════════════════════════════════════════════════════
-
-
-def _get_extraction_llm() -> ChatOpenAI:
-    """Create an LLM instance for skill extraction batches."""
-    return ChatOpenAI(
-        model=os.environ.get(
-            "LAB_TUTOR_LLM_MODEL",
-            os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
-        ),
-        base_url=os.environ.get(
-            "LAB_TUTOR_LLM_BASE_URL",
-            os.environ.get("OPENAI_BASE_URL"),
-        ),
-        api_key=os.environ.get(
-            "LAB_TUTOR_LLM_API_KEY",
-            os.environ.get("OPENAI_API_KEY", ""),
-        ),
-        temperature=0,
-        timeout=120,
-    )
-
-
-_BATCH_EXTRACTION_PROMPT = """\
-You are a recruiter analyst. Extract ALL technical skills, tools, \
-technologies, and methodologies mentioned in these job descriptions.
-
-For each skill:
-- name: canonical name (merge synonyms, e.g. "k8s"="Kubernetes", "Postgres"="PostgreSQL")
-- category: a short label for the skill domain (e.g. language, framework, cloud, \
-database, tool, methodology, soft_skill — pick the best fit)
-
-Return ONLY a JSON array. Example:
-[{{"name": "Python", "category": "language"}}, {{"name": "PCR", "category": "lab_technique"}}]
-
-Job descriptions to analyze:
-
-{descriptions}
-
-Return ONLY a valid JSON array of skill objects, nothing else."""
-
-
-def _extract_batch(llm: ChatOpenAI, batch: list[dict], batch_num: int) -> list[dict]:
-    """Extract skills from a single batch of jobs via LLM."""
-    desc_parts = []
-    for job in batch:
-        desc = job.get("description", "")[:3000]
-        desc_parts.append(f"--- {job['title']} @ {job['company']} ---\n{desc}")
-    prompt = _BATCH_EXTRACTION_PROMPT.format(descriptions="\n\n".join(desc_parts))
-
-    response = llm.invoke(prompt, config={"callbacks": []})
-    text = response.content.strip()
-    # Strip markdown fences if present
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-    try:
-        skills = json.loads(text)
-        if isinstance(skills, list):
-            return skills
-    except json.JSONDecodeError:
-        pass
-    return []
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -374,14 +304,15 @@ def save_skills_for_insertion(skills_json: str) -> str:
 
 @tool
 def show_current_state() -> str:
-    """Show a summary of everything collected so far: fetched jobs, selected jobs, extracted skills, graph data, and saved skills."""
+    """Show a summary of everything collected so far: fetched jobs, selected jobs, extracted skills, curated skills, mapped skills, final skills, and saved skills."""
     lines = [
         f"All fetched jobs: {len(tool_store.get('fetched_jobs', []))}",
         f"Selected jobs: {len(tool_store.get('selected_jobs', []))}",
         f"Extracted skills: {len(tool_store.get('extracted_skills', []))}",
-        f"Graph skills: {len(tool_store.get('existing_graph_skills', []))}",
-        f"Graph concepts: {len(tool_store.get('existing_concepts', []))}",
+        f"Curated skills: {len(tool_store.get('curated_skills', []))}",
         f"Curriculum mapping: {len(tool_store.get('curriculum_mapping', []))}",
+        f"Mapped skills: {sum(len(v) for v in tool_store.get('mapped_skills', {}).values())}",
+        f"Final (cleaned) skills: {len(tool_store.get('final_skills', []))}",
         f"Saved for insertion: {len(tool_store.get('selected_for_insertion', []))}",
     ]
     return " | ".join(lines)
@@ -441,109 +372,36 @@ def select_jobs_by_group(group_names: str) -> str:
     return "\n".join(lines)
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Skill Extraction (programmatic — no LLM agent needed)
-# ═══════════════════════════════════════════════════════════════════
-
-# Module-level name map for preserving original casing across batches
-_extraction_name_map: dict[str, str] = {}
-
-
-def _run_skill_extraction() -> str:
-    """Run parallel LLM extraction on selected jobs and return a summary.
-
-    This is called programmatically by start_analysis_pipeline — it is NOT
-    a LangChain tool and is never invoked directly by an LLM.
-    """
+@tool
+def start_extraction() -> Command | str:
+    """Start parallel skill extraction from selected job groups.
+    Fans out one LLM call per job, merges duplicates, then returns
+    control back to Skill Finder for teacher skill selection."""
+    # Guard: if extraction already ran, do NOT re-run.
+    existing = tool_store.get("extracted_skills", [])
+    if existing:
+        count = len(existing)
+        return (
+            f"⚠️ Extraction already complete: {count} merged skills are ready. "
+            "Call get_skills_by_category to review them. "
+            "Do NOT call select_jobs_by_group or start_extraction again."
+        )
     jobs = tool_store.get("selected_jobs", [])
     if not jobs:
-        return "No selected jobs in store. Fetch and select jobs first."
-
-    total = len(jobs)
-    batch_size = 5
-    batches = [jobs[i : i + batch_size] for i in range(0, total, batch_size)]
-    llm = _get_extraction_llm()
-
-    all_batch_skills: list[list[dict]] = []
-    errors: list[str] = []
-    with ThreadPoolExecutor(max_workers=min(len(batches), 5)) as executor:
-        futures = {
-            executor.submit(_extract_batch, llm, batch, i): i
-            for i, batch in enumerate(batches)
-        }
-        for future in as_completed(futures):
-            batch_num = futures[future]
-            try:
-                all_batch_skills.append(future.result())
-            except Exception as e:
-                errors.append(f"Batch {batch_num}: {type(e).__name__}: {e}")
-
-    # Fan-in: merge and deduplicate
-    skill_counter: Counter[str] = Counter()
-    skill_categories: dict[str, str] = {}
-    for batch_skills in all_batch_skills:
-        seen_in_batch: set[str] = set()
-        for s in batch_skills:
-            name = s.get("name", "").strip()
-            cat = s.get("category", "unknown")
-            if not name:
-                continue
-            canonical = name.lower()
-            if canonical not in seen_in_batch:
-                seen_in_batch.add(canonical)
-                skill_counter[canonical] += 1
-                if canonical not in skill_categories:
-                    skill_categories[canonical] = cat
-                    _extraction_name_map[canonical] = name
-
-    results = [
-        {
-            "name": _extraction_name_map.get(skill, skill),
-            "category": skill_categories.get(skill, "unknown"),
-            "frequency": count,
-            "pct": round(count / total * 100, 1),
-        }
-        for skill, count in skill_counter.most_common()
-    ]
-
-    tool_store["extracted_skills"] = results
-    tool_store["total_jobs_for_extraction"] = total
-
-    lines = [
-        f"Extracted {len(results)} unique skills from {total} jobs "
-        f"({len(batches)} batches of {batch_size}, {len(errors)} failures)."
-    ]
-    for s in results[:25]:
-        lines.append(
-            f"  {s['name']} ({s['category']}) — {s['frequency']}/{total} ({s['pct']}%)"
+        return Command(
+            goto="skill_finder",
+            graph=Command.PARENT,
+            update={"active_agent": "skill_finder"},
         )
-    if len(results) > 25:
-        lines.append(f"  ... and {len(results) - 25} more")
-    if errors:
-        lines.append(f"Warnings: {'; '.join(errors)}")
-    return "\n".join(lines)
-
-
-@tool
-def start_analysis_pipeline() -> Command:
-    """Run skill extraction from selected jobs and route directly to
-    Curriculum Mapper for analysis. This is a one-shot tool: extraction
-    runs programmatically (parallel LLM batches), then the mapper agent
-    takes over automatically. No further action needed from the supervisor."""
-    logger.info("start_analysis_pipeline: running extraction…")
-    t0 = time.perf_counter()
-    _run_skill_extraction()
-    logger.info(
-        "[PERF] start_analysis_pipeline: extraction took %.1fms",
-        (time.perf_counter() - t0) * 1000,
-    )
-    logger.info(
-        "start_analysis_pipeline: extraction done, routing to curriculum_mapper"
-    )
+    logger.info("start_extraction: routing to skill_extractor (%d jobs)", len(jobs))
     return Command(
-        goto="curriculum_mapper",
+        goto="skill_extractor",
         graph=Command.PARENT,
-        update={"active_agent": "curriculum_mapper"},
+        # Keep active_agent as skill_finder — skill_extractor is a temporary
+        # subgraph detour, not a real swarm agent. This ensures the checkpoint
+        # never stores "skill_extractor" as active_agent, preventing KeyError
+        # on __start__ routing when a new message arrives mid-extraction.
+        update={"active_agent": "skill_finder"},
     )
 
 
@@ -811,8 +669,10 @@ def check_skills_coverage(skill_names: str) -> str:
     """Check if market-extracted skills already exist in the knowledge graph.
     Searches both BOOK_SKILL nodes and CONCEPT nodes for matches.
     Args:
-        skill_names: comma-separated skill names to check
-            (e.g. "Python, Data Modeling, ETL, Airflow")
+        skill_names: comma-separated EXACT skill names as returned by get_extracted_skills.
+            Use the full competency statements — do NOT simplify to bare technology keywords.
+            CORRECT: "Query and analyze data using SQL, Deploy containerized applications using Kubernetes"
+            WRONG:   "SQL, Kubernetes"
     """
     from neo4j.exceptions import AuthError, ServiceUnavailable, SessionExpired
 
@@ -941,7 +801,9 @@ def save_curriculum_mapping(mapping_json: str) -> str:
     """Save the curriculum mapping analysis results.
     Args:
         mapping_json: JSON array of objects with keys:
-            - name: skill name
+            - name: EXACT skill name from get_extracted_skills (e.g.
+              "Query and analyze data using SQL"). NEVER use bare technology
+              keywords — the name must match what the Skill Extractor produced.
             - category: skill category
             - status: "covered" | "gap" | "new_topic_needed"
             - target_chapter: chapter title where this skill fits (if gap)
@@ -956,6 +818,51 @@ def save_curriculum_mapping(mapping_json: str) -> str:
 
     if not isinstance(mapping, list):
         return "Expected a JSON array."
+
+    # Auto-correct skill names: match each entry's name against the actual
+    # extracted_skills list. The LLM sometimes simplifies names (e.g. writes
+    # "SQL Querying and Analysis" instead of the canonical
+    # "Query and analyze data using SQL"). We find the best match using
+    # case-insensitive substring overlap and replace the name with the canonical one.
+    extracted = tool_store.get("extracted_skills", [])
+    if extracted:
+        canonical_names: list[str] = [s["name"] for s in extracted]
+
+        def _best_match(name: str) -> str:
+            name_lower = name.lower()
+            # Exact match first
+            for cn in canonical_names:
+                if cn.lower() == name_lower:
+                    return cn
+            # Substring match: canonical contains submitted name or vice versa
+            for cn in canonical_names:
+                cn_lower = cn.lower()
+                if name_lower in cn_lower or cn_lower in name_lower:
+                    return cn
+            # Word-overlap scoring
+            query_words = set(name_lower.split())
+            best, best_score = name, 0
+            for cn in canonical_names:
+                cn_words = set(cn.lower().split())
+                score = len(query_words & cn_words)
+                if score > best_score:
+                    best_score = score
+                    best = cn
+            return best
+
+        corrected_count = 0
+        for item in mapping:
+            original = item.get("name", "")
+            corrected = _best_match(original)
+            if corrected != original:
+                item["name"] = corrected
+                corrected_count += 1
+
+        if corrected_count:
+            logger.info(
+                "save_curriculum_mapping: auto-corrected %d skill name(s) to canonical forms",
+                corrected_count,
+            )
 
     tool_store["curriculum_mapping"] = mapping
 
@@ -1269,9 +1176,9 @@ def insert_market_skills_to_neo4j() -> str:
 
             # Steps B-E: For each skill, create node + relationships
             for skill_name, data in skill_concepts.items():
-                # B: Create MARKET_SKILL node
+                # B: Create MARKET_SKILL node (with shared :SKILL label)
                 session.run(
-                    "MERGE (s:MARKET_SKILL {name: $name}) "
+                    "MERGE (s:MARKET_SKILL:SKILL {name: $name}) "
                     "SET s.category = $category, "
                     "    s.frequency = $frequency, "
                     "    s.demand_pct = $demand_pct, "
@@ -1420,16 +1327,399 @@ def delete_market_skills(skill_names: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════
+#  Skill Finder Tools (NEW)
+# ═══════════════════════════════════════════════════════════════════
+
+
+@tool
+def get_skills_by_category() -> str:
+    """Return extracted skills grouped by category with frequency counts.
+    Call this after extraction completes to present skills to the teacher."""
+    skills = tool_store.get("extracted_skills", [])
+    if not skills:
+        return "No extracted skills found. Run start_extraction first."
+
+    total_jobs = tool_store.get("total_jobs_for_extraction", "?")
+
+    # Group by category
+    by_cat: dict[str, list[dict]] = {}
+    for s in skills:
+        cat = s.get("category", "unknown")
+        by_cat.setdefault(cat, []).append(s)
+
+    lines = [f"Extracted {len(skills)} unique skills from {total_jobs} jobs:\n"]
+    for cat, cat_skills in sorted(by_cat.items(), key=lambda x: -len(x[1])):
+        lines.append(f"## {cat.upper()} ({len(cat_skills)} skills)")
+        for s in sorted(cat_skills, key=lambda x: -x.get("frequency", 0)):
+            lines.append(
+                f"  • {s['name']} — {s.get('frequency', '?')}/{total_jobs} jobs "
+                f"({s.get('pct', '?')}%)"
+            )
+        lines.append("")
+
+    lines.append(
+        "Teacher can select by: specific names, entire categories, "
+        "or 'top N per category'."
+    )
+    return "\n".join(lines)
+
+
+@tool
+def approve_skill_selection(selection_json: str) -> str:
+    """Save the teacher's curated skill selection for downstream processing.
+    Args:
+        selection_json: JSON array of skill names the teacher wants to keep.
+            Example: ["Query data using SQL", "Deploy apps using Kubernetes"]
+            Or a JSON object with category-based selection:
+            {"categories": ["cloud", "database"], "specific": ["Train ML models"], "top_n_per_category": 3}
+    """
+    try:
+        selection = json.loads(selection_json)
+    except json.JSONDecodeError as e:
+        return f"Invalid JSON: {e}. Please provide a valid JSON array or object."
+
+    extracted = tool_store.get("extracted_skills", [])
+    if not extracted:
+        return "No extracted skills to select from. Run extraction first."
+
+    extracted_lookup = {s["name"].lower(): s for s in extracted}
+    curated: list[dict] = []
+    not_found: list[str] = []
+
+    if isinstance(selection, list):
+        # Direct list of skill names
+        for name in selection:
+            key = name.strip().lower()
+            if key in extracted_lookup:
+                curated.append(extracted_lookup[key])
+            else:
+                not_found.append(name)
+    elif isinstance(selection, dict):
+        # Category-based selection
+        categories = [c.lower() for c in selection.get("categories", [])]
+        specific = [s.lower() for s in selection.get("specific", [])]
+        top_n = selection.get("top_n_per_category")
+
+        if categories:
+            for s in extracted:
+                if s.get("category", "").lower() in categories:
+                    curated.append(s)
+        if specific:
+            for name in specific:
+                if name in extracted_lookup:
+                    curated.append(extracted_lookup[name])
+                else:
+                    not_found.append(name)
+        if top_n and isinstance(top_n, int):
+            by_cat: dict[str, list[dict]] = {}
+            for s in extracted:
+                by_cat.setdefault(s.get("category", "unknown"), []).append(s)
+            for cat_skills in by_cat.values():
+                sorted_skills = sorted(cat_skills, key=lambda x: -x.get("frequency", 0))
+                for s in sorted_skills[:top_n]:
+                    if s not in curated:
+                        curated.append(s)
+    else:
+        return "Expected a JSON array of skill names or a selection object."
+
+    # Deduplicate by name
+    seen: set[str] = set()
+    deduped: list[dict] = []
+    for s in curated:
+        key = s["name"].lower()
+        if key not in seen:
+            seen.add(key)
+            deduped.append(s)
+
+    tool_store["curated_skills"] = deduped
+    names = [s["name"] for s in deduped]
+    result = f"Saved {len(deduped)} curated skills: {', '.join(names[:10])}"
+    if len(names) > 10:
+        result += f" ... and {len(names) - 10} more"
+    if not_found:
+        result += f"\n⚠ Not found in extracted skills: {', '.join(not_found)}"
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Skill Cleaner Tools (NEW)
+# ═══════════════════════════════════════════════════════════════════
+
+
+@tool
+def load_mapped_skills() -> str:
+    """Load the Mapper's output: market skills assigned to chapters.
+    Returns the mapped_skills dict from tool_store."""
+    mapped = tool_store.get("mapped_skills")
+    if not mapped:
+        # Fall back to curriculum_mapping if mapped_skills not set
+        mapping = tool_store.get("curriculum_mapping", [])
+        if not mapping:
+            return "No mapped skills found. Curriculum Mapper must run first."
+
+        # Build mapped_skills from curriculum_mapping
+        mapped = {}
+        for m in mapping:
+            if m.get("status") in ("gap", "new_topic_needed"):
+                chapter = m.get("target_chapter", "unassigned")
+                mapped.setdefault(chapter, []).append(m["name"])
+        tool_store["mapped_skills"] = mapped
+
+    lines = [f"Mapped skills across {len(mapped)} chapters:"]
+    for chapter, skills in mapped.items():
+        lines.append(f"\n  {chapter}: {len(skills)} skills")
+        for s in skills:
+            lines.append(f"    • {s}")
+    return "\n".join(lines)
+
+
+@tool
+def load_book_skills_for_chapters(chapter_titles: str) -> str:
+    """Query Neo4j for existing BOOK_SKILL nodes linked to the given chapters.
+    Args:
+        chapter_titles: comma-separated chapter titles to check.
+    Returns per-chapter book skill lists."""
+    from neo4j.exceptions import AuthError, ServiceUnavailable, SessionExpired
+
+    titles = [t.strip() for t in chapter_titles.split(",") if t.strip()]
+    if not titles:
+        return "Please provide chapter titles."
+
+    t0 = time.perf_counter()
+    try:
+        with _neo4j_session() as session:
+            result = session.run(
+                "UNWIND $titles AS title "
+                "MATCH (ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
+                "WHERE ch.title = title "
+                "OPTIONAL MATCH (sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) "
+                "WITH ch.title AS chapter, sk.name AS skill, "
+                "     sk.description AS description, "
+                "     collect(DISTINCT c.name) AS concepts "
+                "RETURN chapter, skill, description, concepts "
+                "ORDER BY chapter, skill",
+                {"titles": titles},
+            )
+            rows = [dict(r) for r in result]
+    except (ServiceUnavailable, SessionExpired, OSError) as e:
+        logger.info(
+            "[PERF] load_book_skills_for_chapters FAILED in %.1fms",
+            (time.perf_counter() - t0) * 1000,
+        )
+        return f"Neo4j unavailable: {e}"
+    except AuthError as e:
+        return f"Neo4j auth failed: {e}"
+    logger.info(
+        "[PERF] load_book_skills_for_chapters took %.1fms (%d rows)",
+        (time.perf_counter() - t0) * 1000,
+        len(rows),
+    )
+
+    if not rows:
+        return f"No book skills found for chapters: {chapter_titles}"
+
+    by_chapter: dict[str, list[dict]] = {}
+    for r in rows:
+        by_chapter.setdefault(r["chapter"], []).append(r)
+
+    lines = [f"Book skills for {len(by_chapter)} chapters:"]
+    for chapter, skills in by_chapter.items():
+        lines.append(f"\n  {chapter} ({len(skills)} book skills):")
+        for sk in skills:
+            desc = sk.get("description", "")
+            desc_str = f" — {desc[:80]}" if desc else ""
+            lines.append(f"    • {sk['skill']}{desc_str}")
+    return "\n".join(lines)
+
+
+@tool
+def compare_and_clean(chapter_title: str) -> str:
+    """Compare mapped market skills vs existing book skills for one chapter.
+    Uses LLM to decide which market skills are redundant.
+    Args:
+        chapter_title: the chapter to clean.
+    Returns kept/dropped skill lists with reasoning."""
+    mapped = tool_store.get("mapped_skills", {})
+    market_skills = mapped.get(chapter_title, [])
+    if not market_skills:
+        return f"No mapped market skills for chapter: {chapter_title}"
+
+    # Fetch book skills for this chapter
+    from neo4j.exceptions import ServiceUnavailable, SessionExpired
+
+    book_skills: list[str] = []
+    try:
+        with _neo4j_session() as session:
+            result = session.run(
+                "MATCH (ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
+                "WHERE ch.title = $title "
+                "RETURN sk.name AS name, sk.description AS description",
+                {"title": chapter_title},
+            )
+            book_skills_data = [dict(r) for r in result]
+            book_skills = [
+                f"{s['name']}: {s.get('description', '')}" for s in book_skills_data
+            ]
+    except (ServiceUnavailable, SessionExpired, OSError) as e:
+        _get_neo4j_driver(force_new=True)
+        return f"Neo4j unavailable: {e}"
+
+    if not book_skills:
+        # No book skills to compare against — keep all market skills
+        result_data = {
+            "chapter": chapter_title,
+            "kept": market_skills,
+            "dropped": [],
+        }
+        _update_cleaned_results(result_data)
+        return (
+            f"Chapter '{chapter_title}': No book skills to compare against. "
+            f"Keeping all {len(market_skills)} market skills."
+        )
+
+    # LLM comparison
+    llm = _get_extraction_llm()
+    prompt = (
+        "You are a curriculum deduplication expert. Compare market skills against "
+        "existing book skills for redundancy.\n\n"
+        f"## Chapter: {chapter_title}\n\n"
+        "## Existing Book Skills:\n"
+        + "\n".join(f"- {s}" for s in book_skills)
+        + "\n\n## New Market Skills to evaluate:\n"
+        + "\n".join(f"- {s}" for s in market_skills)
+        + "\n\n"
+        "For each market skill, decide: KEEP or DROP.\n"
+        "DROP only if a book skill teaches essentially the same competency.\n"
+        "When in doubt, KEEP — the teacher already selected these.\n\n"
+        "Return ONLY valid JSON:\n"
+        '{"kept": [{"name": "...", "reason": "..."}], '
+        '"dropped": [{"name": "...", "overlaps_with": "...", "reason": "..."}]}'
+    )
+
+    try:
+        response = llm.invoke(prompt, config={"callbacks": []})
+        text = str(response.content).strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+        parsed = json.loads(text)
+    except (json.JSONDecodeError, Exception) as e:
+        logger.warning("compare_and_clean LLM parse error for %s: %s", chapter_title, e)
+        # On error, keep all skills
+        result_data = {
+            "chapter": chapter_title,
+            "kept": market_skills,
+            "dropped": [],
+        }
+        _update_cleaned_results(result_data)
+        return (
+            f"LLM comparison failed for '{chapter_title}', keeping all "
+            f"{len(market_skills)} market skills. Error: {e}"
+        )
+
+    kept = [k["name"] for k in parsed.get("kept", [])]
+    dropped = [d["name"] for d in parsed.get("dropped", [])]
+
+    result_data = {
+        "chapter": chapter_title,
+        "kept": kept,
+        "dropped": dropped,
+        "details": parsed,
+    }
+    _update_cleaned_results(result_data)
+
+    lines = [f"Chapter '{chapter_title}':"]
+    lines.append(f"  ✓ KEPT: {len(kept)} skills")
+    for k in parsed.get("kept", []):
+        lines.append(f"    • {k['name']} — {k.get('reason', '')}")
+    lines.append(f"  ✗ DROPPED: {len(dropped)} skills")
+    for d in parsed.get("dropped", []):
+        lines.append(
+            f"    • {d['name']} (overlaps: {d.get('overlaps_with', '?')}) — "
+            f"{d.get('reason', '')}"
+        )
+    return "\n".join(lines)
+
+
+def _update_cleaned_results(result_data: dict) -> None:
+    """Accumulate per-chapter cleaning results into tool_store."""
+    cleaned = tool_store.get("_cleaned_results", [])
+    # Replace if chapter already processed
+    cleaned = [c for c in cleaned if c["chapter"] != result_data["chapter"]]
+    cleaned.append(result_data)
+    tool_store["_cleaned_results"] = cleaned
+
+
+@tool
+def finalize_cleaned_skills() -> str:
+    """Save the final cleaned skill list to tool_store and hand off to Concept Linker.
+    Aggregates all per-chapter cleaning results into a flat list of surviving skills."""
+    cleaned = tool_store.get("_cleaned_results", [])
+    if not cleaned:
+        return "No cleaning results found. Run compare_and_clean first."
+
+    final_skills: list[str] = []
+    total_dropped = 0
+    for chapter_result in cleaned:
+        final_skills.extend(chapter_result.get("kept", []))
+        total_dropped += len(chapter_result.get("dropped", []))
+
+    # Deduplicate
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for s in final_skills:
+        key = s.lower()
+        if key not in seen:
+            seen.add(key)
+            deduped.append(s)
+
+    tool_store["final_skills"] = deduped
+
+    # Also update selected_for_insertion with enriched data from curated_skills
+    curated = tool_store.get("curated_skills", [])
+    curated_lookup = {s["name"].lower(): s for s in curated}
+    mapping = tool_store.get("curriculum_mapping", [])
+    mapping_lookup = {m["name"].lower(): m for m in mapping}
+
+    enriched: list[dict] = []
+    for name in deduped:
+        skill_data = curated_lookup.get(name.lower(), {"name": name})
+        map_data = mapping_lookup.get(name.lower(), {})
+        enriched.append(
+            {
+                "name": name,
+                "category": skill_data.get("category", "unknown"),
+                "target_chapter": map_data.get("target_chapter", ""),
+                "rationale": map_data.get("reasoning", ""),
+            }
+        )
+
+    tool_store["selected_for_insertion"] = enriched
+
+    return (
+        f"Finalized {len(deduped)} clean skills (dropped {total_dropped} redundant). "
+        f"Ready for Concept Linker."
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════
 #  Tool Groups (used by each agent)
 # ═══════════════════════════════════════════════════════════════════
 
 SUPERVISOR_TOOLS = [
-    fetch_jobs,
-    select_jobs_by_group,
-    start_analysis_pipeline,
     save_skills_for_insertion,
     delete_market_skills,
     show_current_state,
+]
+
+SKILL_FINDER_TOOLS = [
+    fetch_jobs,
+    select_jobs_by_group,
+    start_extraction,
+    get_skills_by_category,
+    approve_skill_selection,
 ]
 
 CURRICULUM_MAPPER_TOOLS = [
@@ -1441,9 +1731,22 @@ CURRICULUM_MAPPER_TOOLS = [
     save_curriculum_mapping,
 ]
 
+SKILL_CLEANER_TOOLS = [
+    load_mapped_skills,
+    load_book_skills_for_chapters,
+    compare_and_clean,
+    finalize_cleaned_skills,
+]
+
 CONCEPT_LINKER_TOOLS = [
     extract_concepts_for_skills,
     insert_market_skills_to_neo4j,
 ]
 
-ALL_TOOLS = SUPERVISOR_TOOLS + CURRICULUM_MAPPER_TOOLS + CONCEPT_LINKER_TOOLS
+ALL_TOOLS = (
+    SUPERVISOR_TOOLS
+    + SKILL_FINDER_TOOLS
+    + CURRICULUM_MAPPER_TOOLS
+    + SKILL_CLEANER_TOOLS
+    + CONCEPT_LINKER_TOOLS
+)

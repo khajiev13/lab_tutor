@@ -45,19 +45,16 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         "CREATE CONSTRAINT user_id_unique IF NOT EXISTS FOR (u:USER) REQUIRE u.id IS UNIQUE",
         "CREATE CONSTRAINT class_id_unique IF NOT EXISTS FOR (c:CLASS) REQUIRE c.id IS UNIQUE",
         "CREATE CONSTRAINT concept_name_unique IF NOT EXISTS FOR (c:CONCEPT) REQUIRE c.name IS UNIQUE",
-        # Optional IDs (if you choose stable IDs later)
-        "CREATE CONSTRAINT chapter_id_unique IF NOT EXISTS FOR (c:CHAPTER) REQUIRE c.id IS UNIQUE",
         "CREATE CONSTRAINT teacher_uploaded_document_id_unique IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) REQUIRE d.id IS UNIQUE",
         # Prefer stable dedupe by content hash per course (best-effort; may fail on older Neo4j versions).
         "CREATE CONSTRAINT teacher_uploaded_document_course_hash_key IF NOT EXISTS "
         "FOR (d:TEACHER_UPLOADED_DOCUMENT) REQUIRE (d.course_id, d.content_hash) IS NODE KEY",
-        "CREATE CONSTRAINT skill_id_unique IF NOT EXISTS FOR (s:SKILL) REQUIRE s.id IS UNIQUE",
         # Curriculum graph constraints
-        "CREATE CONSTRAINT curriculum_id_unique IF NOT EXISTS FOR (cur:CURRICULUM) REQUIRE cur.id IS UNIQUE",
         "CREATE CONSTRAINT book_chapter_id_unique IF NOT EXISTS FOR (ch:BOOK_CHAPTER) REQUIRE ch.id IS UNIQUE",
         "CREATE CONSTRAINT book_section_id_unique IF NOT EXISTS FOR (s:BOOK_SECTION) REQUIRE s.id IS UNIQUE",
         "CREATE CONSTRAINT book_skill_id_unique IF NOT EXISTS FOR (sk:BOOK_SKILL) REQUIRE sk.id IS UNIQUE",
         "CREATE CONSTRAINT book_id_unique IF NOT EXISTS FOR (b:BOOK) REQUIRE b.id IS UNIQUE",
+        "CREATE CONSTRAINT market_skill_name_unique IF NOT EXISTS FOR (ms:MARKET_SKILL) REQUIRE ms.name IS UNIQUE",
         # Helpful indexes
         "CREATE INDEX class_title_idx IF NOT EXISTS FOR (c:CLASS) ON (c.title)",
         "CREATE INDEX teacher_uploaded_document_course_id_idx IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.course_id)",
