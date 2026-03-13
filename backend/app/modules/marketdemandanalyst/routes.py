@@ -158,14 +158,44 @@ async def _sse_stream(
     last_event_time = stream_start
     tool_timings: dict[str, float] = {}  # tool_call_id → start time
 
+    # Producer task: fills a queue from graph.astream so we can inject SSE keep-alive
+    # comments during silent periods (e.g. the fan-out extraction runs for several
+    # minutes emitting no SSE-visible messages, which triggers Azure's 240-second
+    # TCP idle timeout and kills the connection).
+    _queue: asyncio.Queue[tuple | Exception | None] = asyncio.Queue()
+
+    async def _graph_producer() -> None:
+        try:
+            async for item in graph.astream(
+                input_data,
+                config=config,
+                stream_mode="messages",
+                subgraphs=True,
+            ):
+                await _queue.put(item)
+        except Exception as exc:
+            await _queue.put(exc)
+        finally:
+            await _queue.put(None)
+
+    _producer = asyncio.create_task(_graph_producer())
+
     try:
         logger.info("[PERF] SSE stream starting (thread=%s)", thread_id)
-        async for ns, (msg, _metadata) in graph.astream(
-            input_data,
-            config=config,
-            stream_mode="messages",
-            subgraphs=True,
-        ):
+        while True:
+            try:
+                item = await asyncio.wait_for(_queue.get(), timeout=30.0)
+            except TimeoutError:
+                # Keep-alive SSE comment resets Azure TCP idle clock
+                yield ": keep-alive\n\n"
+                continue
+
+            if item is None:
+                break
+            if isinstance(item, Exception):
+                raise item
+
+            ns, (msg, _metadata) = item
             now = time.perf_counter()
             gap_ms = (now - last_event_time) * 1000
             last_event_time = now
@@ -367,6 +397,8 @@ async def _sse_stream(
 
     except Exception as exc:
         logger.exception("Graph stream error: %s", exc)
+    finally:
+        _producer.cancel()
 
     # Final text_done if we were mid-stream
     if current_message_id:
