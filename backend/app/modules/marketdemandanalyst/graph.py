@@ -2,7 +2,7 @@ import logging
 import time
 from collections.abc import Sequence
 
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import create_react_agent
@@ -137,6 +137,35 @@ def _make_prompt(
         )
         if len(messages) > max_messages:
             messages = messages[-max_messages:]
+
+        # Guardrail: trimming can leave ToolMessage entries whose parent
+        # AI tool_calls message was cut off, which causes provider 400s.
+        kept_tool_call_ids: set[str] = set()
+        sanitized: list[BaseMessage] = []
+        for msg in messages:
+            if isinstance(msg, AIMessage):
+                for tc in msg.tool_calls or []:
+                    tc_id = tc.get("id")
+                    if tc_id:
+                        kept_tool_call_ids.add(tc_id)
+                sanitized.append(msg)
+                continue
+
+            if isinstance(msg, ToolMessage):
+                tc_id = msg.tool_call_id
+                if tc_id and tc_id in kept_tool_call_ids:
+                    sanitized.append(msg)
+                else:
+                    logger.debug(
+                        "Prompt builder: dropped orphan ToolMessage id=%s name=%s",
+                        tc_id,
+                        msg.name,
+                    )
+                continue
+
+            sanitized.append(msg)
+
+        messages = sanitized
 
         # Log each message type for debugging
         for i, m in enumerate(messages):
