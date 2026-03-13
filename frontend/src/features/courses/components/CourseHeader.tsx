@@ -91,10 +91,10 @@ export function CourseHeader() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => navigate(`/courses/${course.id}/graph`)}
+              onClick={() => navigate(`/courses/${course.id}/curriculum`)}
             >
               <GitBranch className="mr-2 h-4 w-4" />
-              View knowledge graph
+              View Curriculum
             </Button>
           )}
         </div>

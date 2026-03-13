@@ -7,6 +7,8 @@ from app.modules.auth.dependencies import (
 from app.modules.auth.models import User, UserRole
 from app.modules.embeddings.schemas import CourseEmbeddingStatusResponse
 
+from .curriculum_schemas import CurriculumWithChangelog
+from .curriculum_service import CurriculumService, get_curriculum_service
 from .graph_schemas import CourseGraphResponse, GraphNodeKind
 from .graph_service import CourseGraphService, get_course_graph_service
 from .schemas import (
@@ -230,3 +232,12 @@ def expand_course_graph(
         limit=limit,
         max_concepts=max_concepts,
     )
+
+
+@router.get("/{course_id}/curriculum", response_model=CurriculumWithChangelog)
+def get_course_curriculum(
+    course_id: int,
+    service: CurriculumService = Depends(get_curriculum_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.get_curriculum(course_id=course_id, teacher=teacher)

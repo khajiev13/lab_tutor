@@ -7,6 +7,7 @@ import type {
   ExtractionStatus,
 } from './types';
 import type { CourseGraphResponse, GraphNodeKind } from '@/features/graph/types';
+import type { CurriculumWithChangelog } from '@/features/curriculum/types';
 import {
   CourseFileDuplicateError,
   tryExtractContentHashFromDetail,
@@ -81,6 +82,10 @@ export const coursesApi = {
     const response = await api.get<CourseGraphResponse>(`/courses/${id}/graph/expand`, {
       params,
     });
+    return response.data;
+  },
+  getCurriculum: async (id: number): Promise<CurriculumWithChangelog> => {
+    const response = await api.get<CurriculumWithChangelog>(`/courses/${id}/curriculum`);
     return response.data;
   },
 };

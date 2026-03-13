@@ -10,7 +10,7 @@ import Dashboard from '@/features/dashboard/pages/Dashboard';
 import TeacherCourses from '@/features/courses/pages/TeacherCourses';
 import AgentHubPage from '@/features/courses/pages/AgentHubPage';
 import ArchitectAgentPage from '@/features/courses/pages/ArchitectAgentPage';
-import CourseGraphPage from '@/features/graph/pages/CourseGraphPage';
+import CurriculumPage from '@/features/curriculum/pages/CurriculumPage';
 import MergeReviewPage from '@/features/normalization/pages/MergeReviewPage';
 import MarketDemandPage from '@/features/market-demand/pages/MarketDemandPage';
 import Profile from '@/features/auth/pages/Profile';
@@ -145,10 +145,10 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/courses/:id/graph"
+        path="/courses/:id/curriculum"
         element={
           <ProtectedRoute>
-            <CourseGraphPage />
+            <CurriculumPage />
           </ProtectedRoute>
         }
       />
