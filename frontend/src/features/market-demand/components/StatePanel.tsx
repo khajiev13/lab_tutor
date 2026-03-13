@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { PipelineStepper } from "./PipelineStepper";
 import type { AgentState, PipelineStageId, StageStatus } from "../types";
 
@@ -34,9 +33,6 @@ export function StatePanel({ agentState, pipelineStages }: StatePanelProps) {
           <TabsTrigger value="skills" className="flex-1 text-xs">
             Skills
           </TabsTrigger>
-          <TabsTrigger value="coverage" className="flex-1 text-xs">
-            Coverage
-          </TabsTrigger>
           <TabsTrigger value="mapping" className="flex-1 text-xs">
             Mapping
           </TabsTrigger>
@@ -53,11 +49,6 @@ export function StatePanel({ agentState, pipelineStages }: StatePanelProps) {
         <TabsContent value="skills" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col min-h-0">
           <ScrollArea className="flex-1 min-h-0">
             <div className="p-3"><SkillsTab agentState={agentState} /></div>
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent value="coverage" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col min-h-0">
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="p-3"><CoverageTab agentState={agentState} /></div>
           </ScrollArea>
         </TabsContent>
         <TabsContent value="mapping" className="flex-1 mt-0 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col min-h-0">
@@ -77,7 +68,7 @@ export function StatePanel({ agentState, pipelineStages }: StatePanelProps) {
 
 function getActiveTab(state: AgentState): string {
   if (state.insertion_results || state.skill_concepts) return "insert";
-  if (state.curriculum_mapping) return "coverage";
+  if (state.curriculum_mapping) return "mapping";
   if (state.extracted_skills) return "skills";
   if (state.fetched_jobs || state.selected_jobs) return "jobs";
   return "jobs";
@@ -164,38 +155,6 @@ function SkillsTab({ agentState }: { agentState: AgentState }) {
   );
 }
 
-function CoverageTab({ agentState }: { agentState: AgentState }) {
-  const mapping = agentState.curriculum_mapping;
-
-  if (!mapping || mapping.length === 0) {
-    return <EmptyTab message="No coverage data yet" />;
-  }
-
-  const covered = mapping.filter((m) => m.status === "covered");
-  const gaps = mapping.filter((m) => m.status === "gap");
-  const newTopics = mapping.filter((m) => m.status === "new_topic_needed");
-
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-3">
-        <StatBox label="Covered" count={covered.length} color="text-green-600" />
-        <StatBox label="Gaps" count={gaps.length} color="text-amber-600" />
-        <StatBox label="New" count={newTopics.length} color="text-red-600" />
-      </div>
-
-      {gaps.length > 0 && (
-        <Section label="Gap Skills" items={gaps.map((g) => g.name)} color="bg-amber-500" />
-      )}
-      {covered.length > 0 && (
-        <Section label="Covered" items={covered.map((c) => c.name)} color="bg-green-500" />
-      )}
-      {newTopics.length > 0 && (
-        <Section label="New Topics" items={newTopics.map((n) => n.name)} color="bg-red-500" />
-      )}
-    </div>
-  );
-}
-
 function MappingTab({ agentState }: { agentState: AgentState }) {
   const mapping = agentState.curriculum_mapping;
 
@@ -276,57 +235,4 @@ function InsertTab({ agentState }: { agentState: AgentState }) {
 
 function EmptyTab({ message }: { message: string }) {
   return <p className="text-xs text-muted-foreground py-4 text-center">{message}</p>;
-}
-
-const STAT_DESCRIPTIONS: Record<string, string> = {
-  Covered: "Skills already taught in your course — matched to existing book skills or concepts in the knowledge graph.",
-  Gaps: "Skills found in job postings that your course partially covers but doesn't explicitly teach yet.",
-  New: "In-demand skills with no match in your curriculum. Consider adding these as new topics.",
-};
-
-function StatBox({ label, count, color }: { label: string; count: number; color: string }) {
-  const description = STAT_DESCRIPTIONS[label];
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex-1 bg-muted rounded-lg border p-2 text-center cursor-help">
-            <p className={`text-lg font-bold ${color}`}>{count}</p>
-            <p className="text-[10px] text-muted-foreground">{label}</p>
-          </div>
-        </TooltipTrigger>
-        {description && (
-          <TooltipContent side="bottom" className="max-w-52 text-center">
-            {description}
-          </TooltipContent>
-        )}
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-function Section({ label, items, color }: { label: string; items: string[]; color: string }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
-        <div className={`w-2 h-2 rounded-full ${color}`} />
-        <span className="text-xs text-muted-foreground font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground/70">{items.length}</span>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {items.slice(0, 10).map((name) => (
-          <Badge
-            key={name}
-            variant="outline"
-            className="text-[10px]"
-          >
-            {name}
-          </Badge>
-        ))}
-        {items.length > 10 && (
-          <span className="text-[10px] text-muted-foreground/70">+{items.length - 10}</span>
-        )}
-      </div>
-    </div>
-  );
 }

@@ -31,7 +31,7 @@ describe("Agent Config", () => {
     expect(architect!.route).toBe("architect");
   });
 
-  it("has market-analyst agent disabled", () => {
+  it("has market-analyst agent enabled", () => {
     const analyst = getAgentById("market-analyst");
     expect(analyst).toBeDefined();
     expect(analyst!.enabled).toBe(true);
@@ -108,7 +108,7 @@ describe("AgentCard", () => {
     }
   });
 
-  it("renders market-analyst agent as enabled", () => {
+  it("renders market-analyst agent without status badge when no status provided", () => {
     render(
       <MemoryRouter>
         <AgentCard agent={analyst} courseId={1} />
@@ -116,6 +116,9 @@ describe("AgentCard", () => {
     );
     expect(screen.getByText("Market Demand Analyst")).toBeInTheDocument();
     expect(screen.queryByText("Coming Soon")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not Started")).not.toBeInTheDocument();
+    expect(screen.queryByText("In Progress")).not.toBeInTheDocument();
+    expect(screen.queryByText("Complete")).not.toBeInTheDocument();
   });
 
   it("market-analyst agent is clickable", async () => {

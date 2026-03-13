@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/AppSidebar"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 import Login from '@/features/auth/pages/Login';
 import Register from '@/features/auth/pages/Register';
 import Dashboard from '@/features/dashboard/pages/Dashboard';
@@ -19,8 +20,9 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
+          <ThemeToggle />
         </header>
         <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden min-h-0 p-6">
           {children}

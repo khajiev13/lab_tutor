@@ -92,6 +92,20 @@ export function useAgentStream(): UseAgentStreamReturn {
     switch (event.type) {
       case "agent_start": {
         setCurrentAgent(event.agent);
+        // Resolve any pending tool calls and stop streaming on the previous agent message.
+        // Handoff tools (transfer_to_*) never emit tool_end, so we close them out here.
+        messagesRef.current = messagesRef.current.map((m, idx) => {
+          if (idx === messagesRef.current.length - 1 && m.role === "agent" && m.isStreaming) {
+            return {
+              ...m,
+              isStreaming: false,
+              toolCalls: m.toolCalls.map((tc) =>
+                tc.status === "loading" ? { ...tc, status: "success" as const } : tc
+              ),
+            };
+          }
+          return m;
+        });
         const newMsg: ChatMessage = {
           id: event.messageId,
           role: "agent",

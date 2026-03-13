@@ -67,6 +67,10 @@ class Settings(BaseSettings):
             "OPENAI_MODEL",
         ),
     )
+    llm_agent_model: str = Field(
+        default="qwen3.5-plus",
+        description="Model for agentic swarm interactions. Preferred: LAB_TUTOR_LLM_AGENT_MODEL.",
+    )
     llm_timeout_seconds: int = Field(
         default=600,
         description="LLM request timeout in seconds",

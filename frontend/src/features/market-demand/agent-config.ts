@@ -1,4 +1,4 @@
-import { Bot, type LucideIcon } from "lucide-react";
+import { Bot, Map, Network, type LucideIcon } from "lucide-react";
 import type { AgentName } from "./types";
 
 export interface AgentIdentity {
@@ -22,7 +22,7 @@ export const AGENT_IDENTITIES: Record<AgentName, AgentIdentity> = {
   curriculum_mapper: {
     displayName: "Curriculum Mapper",
     shortName: "Mapper",
-    icon: Bot,
+    icon: Map,
     accentColor: "text-emerald-500",
     bgColor: "bg-emerald-50 dark:bg-emerald-950",
     borderColor: "border-emerald-300 dark:border-emerald-700",
@@ -30,7 +30,7 @@ export const AGENT_IDENTITIES: Record<AgentName, AgentIdentity> = {
   concept_linker: {
     displayName: "Concept Linker",
     shortName: "Linker",
-    icon: Bot,
+    icon: Network,
     accentColor: "text-amber-500",
     bgColor: "bg-amber-50 dark:bg-amber-950",
     borderColor: "border-amber-300 dark:border-amber-700",

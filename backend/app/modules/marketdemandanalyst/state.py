@@ -14,7 +14,10 @@ STATE_KEYS: list[str] = [
     "total_jobs_for_extraction",
     "existing_graph_skills",
     "existing_concepts",
+    "curated_skills",
     "curriculum_mapping",
+    "mapped_skills",
+    "final_skills",
     "selected_for_insertion",
     "skill_concepts",
     "insertion_results",
@@ -55,7 +58,10 @@ def pipeline_summary() -> str:
     groups = tool_store.get("job_groups")
     selected = tool_store.get("selected_jobs")
     extracted = tool_store.get("extracted_skills")
+    curated = tool_store.get("curated_skills")
     mapping = tool_store.get("curriculum_mapping")
+    mapped = tool_store.get("mapped_skills")
+    final = tool_store.get("final_skills")
     approved = tool_store.get("selected_for_insertion")
     concepts = tool_store.get("skill_concepts")
     inserted = tool_store.get("insertion_results")
@@ -70,6 +76,8 @@ def pipeline_summary() -> str:
         parts.append(f"Selected {len(selected)} jobs for analysis")
     if extracted:
         parts.append(f"Extracted {len(extracted)} skills")
+    if curated:
+        parts.append(f"Teacher curated {len(curated)} skills")
     if mapping:
         covered = sum(1 for m in mapping if m.get("status") == "covered")
         gap = sum(1 for m in mapping if m.get("status") == "gap")
@@ -77,6 +85,11 @@ def pipeline_summary() -> str:
         parts.append(
             f"Curriculum mapping: {covered} covered, {gap} gaps, {new_t} new topics"
         )
+    if mapped:
+        total_mapped = sum(len(skills) for skills in mapped.values())
+        parts.append(f"Mapped {total_mapped} skills to {len(mapped)} chapters")
+    if final:
+        parts.append(f"Cleaned to {len(final)} final skills")
     if approved:
         parts.append(f"Teacher approved {len(approved)} skills for insertion")
     if concepts:
@@ -92,12 +105,14 @@ def pipeline_summary() -> str:
         parts.append("NEXT: Ask teacher which job groups to select")
     elif not extracted:
         parts.append("NEXT: Extract skills from selected jobs")
+    elif not curated:
+        parts.append("NEXT: Teacher picks skills from extracted list")
     elif not mapping:
-        parts.append("NEXT: Map skills to curriculum")
-    elif not approved:
-        parts.append("NEXT: Present mapping and get teacher approval")
+        parts.append("NEXT: Map curated skills to curriculum")
+    elif not final:
+        parts.append("NEXT: Clean skills (remove redundant vs book skills)")
     elif not concepts:
-        parts.append("NEXT: Link concepts for approved skills")
+        parts.append("NEXT: Link concepts for final skills")
     elif not inserted:
         parts.append("NEXT: Insert to Neo4j")
 

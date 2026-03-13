@@ -10,15 +10,20 @@ from langgraph_swarm import create_handoff_tool, create_swarm
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
+from .extractor import skill_extractor_subgraph
 from .prompts import (
     CONCEPT_LINKER_PROMPT,
     CURRICULUM_MAPPER_PROMPT,
+    SKILL_CLEANER_PROMPT,
+    SKILL_FINDER_PROMPT,
     SUPERVISOR_PROMPT,
 )
 from .state import pipeline_summary
 from .tools import (
     CONCEPT_LINKER_TOOLS,
     CURRICULUM_MAPPER_TOOLS,
+    SKILL_CLEANER_TOOLS,
+    SKILL_FINDER_TOOLS,
     SUPERVISOR_TOOLS,
     load_curriculum_context,
 )
@@ -86,7 +91,7 @@ def _create_llm() -> ChatOpenAI:
 
     api_key = settings.llm_api_key or ""
     return ChatOpenAI(
-        model=settings.llm_model,
+        model=settings.llm_agent_model,
         base_url=settings.llm_base_url,
         api_key=api_key,  # type: ignore[arg-type]
         temperature=0,
@@ -146,12 +151,13 @@ def _make_prompt(
 async def get_graph():
     """Return the shared compiled graph, building it on first call.
 
-    Architecture: Supervisor (teacher-facing) orchestrates autonomous workers.
-    - Supervisor → start_analysis_pipeline (programmatic extraction + auto-route
-      to curriculum_mapper) — no LLM needed for this transition.
-    - Curriculum Mapper → supervisor (presents findings for teacher review).
-    - Supervisor → concept_linker (after teacher approves skills).
-    - Concept Linker → supervisor (reports final stats).
+    Architecture: 5-agent swarm with linear forward chain + Supervisor hub.
+    - Supervisor → Skill Finder (fetch jobs, extract, teacher picks skills).
+    - Skill Finder → Curriculum Mapper (map curated skills to chapters).
+    - Curriculum Mapper → Skill Cleaner (remove redundant vs book skills).
+    - Skill Cleaner → Concept Linker (extract concepts, write to Neo4j).
+    - Concept Linker → Supervisor (report results).
+    - Supervisor can re-enter any agent if teacher changes mind.
     """
     global _COMPILED_GRAPH, _LLM_INSTANCE  # noqa: PLW0603
     if _COMPILED_GRAPH is not None:
@@ -170,35 +176,74 @@ async def get_graph():
     supervisor_prompt = SUPERVISOR_PROMPT.format(curriculum_context=curriculum_ctx)
 
     # ── Handoff tools ──
-    handoff_to_concept_linker = create_handoff_tool(
-        agent_name="concept_linker",
-        description=(
-            "Transfer to the Concept Linker after the teacher approves "
-            "skills for insertion. It will link concepts and write to Neo4j."
-        ),
-    )
     handoff_to_supervisor = create_handoff_tool(
         agent_name="supervisor",
-        description="Transfer to the Supervisor to report results to the teacher.",
+        description=(
+            "Transfer back to Supervisor ONLY if the teacher wants to change direction, "
+            "you encounter an error you cannot resolve, or you have completed the final "
+            "step in the chain (Concept Linker). Do NOT use this if you can proceed forward."
+        ),
+    )
+    handoff_to_skill_finder = create_handoff_tool(
+        agent_name="skill_finder",
+        description="Transfer to Skill Finder to fetch jobs and extract skills. Use ONLY after search terms are ready.",
+    )
+    handoff_to_curriculum_mapper = create_handoff_tool(
+        agent_name="curriculum_mapper",
+        description="Transfer to Curriculum Mapper ONLY after the teacher has confirmed their skill selection.",
+    )
+    handoff_to_skill_cleaner = create_handoff_tool(
+        agent_name="skill_cleaner",
+        description="Transfer to Skill Cleaner ONLY after all curated skills have been mapped to chapters.",
+    )
+    handoff_to_concept_linker = create_handoff_tool(
+        agent_name="concept_linker",
+        description="Transfer to Concept Linker ONLY after redundant skills have been cleaned.",
     )
 
     # ── Create agents ──
-    # Supervisor: the only agent that talks to the teacher.
-    # start_analysis_pipeline (in SUPERVISOR_TOOLS) runs extraction
-    # programmatically and returns Command(goto="curriculum_mapper"),
-    # skipping the LLM for this fixed transition.
+    # Supervisor: hub that can jump to any agent for re-entry.
     supervisor = create_react_agent(
         llm,
-        tools=[*SUPERVISOR_TOOLS, handoff_to_concept_linker],
+        tools=[
+            *SUPERVISOR_TOOLS,
+            handoff_to_skill_finder,
+            handoff_to_curriculum_mapper,
+            handoff_to_skill_cleaner,
+            handoff_to_concept_linker,
+        ],
         prompt=_make_prompt(supervisor_prompt),
         name="supervisor",
     )
 
+    # Skill Finder: fetches jobs, extracts skills, teacher picks.
+    skill_finder = create_react_agent(
+        llm,
+        tools=[
+            *SKILL_FINDER_TOOLS,
+            handoff_to_curriculum_mapper,
+            handoff_to_supervisor,
+        ],
+        prompt=_make_prompt(SKILL_FINDER_PROMPT),
+        name="skill_finder",
+    )
+
     curriculum_mapper = create_react_agent(
         llm,
-        tools=[*CURRICULUM_MAPPER_TOOLS, handoff_to_supervisor],
+        tools=[
+            *CURRICULUM_MAPPER_TOOLS,
+            handoff_to_skill_cleaner,
+            handoff_to_supervisor,
+        ],
         prompt=_make_prompt(CURRICULUM_MAPPER_PROMPT),
         name="curriculum_mapper",
+    )
+
+    skill_cleaner = create_react_agent(
+        llm,
+        tools=[*SKILL_CLEANER_TOOLS, handoff_to_concept_linker, handoff_to_supervisor],
+        prompt=_make_prompt(SKILL_CLEANER_PROMPT),
+        name="skill_cleaner",
     )
 
     concept_linker = create_react_agent(
@@ -208,11 +253,14 @@ async def get_graph():
         name="concept_linker",
     )
 
-    # ── Build swarm (3 agents — no skill_extractor LLM) ──
+    # ── Build swarm (5 agents) ──
     workflow = create_swarm(
-        [supervisor, curriculum_mapper, concept_linker],
+        [supervisor, skill_finder, curriculum_mapper, skill_cleaner, concept_linker],
         default_active_agent="supervisor",
     )
+
+    # ── Add skill_extractor subgraph (map-reduce, no LLM agent) ──
+    workflow.add_node("skill_extractor", skill_extractor_subgraph)
 
     t0 = time.perf_counter()
     checkpointer = await _get_async_checkpointer()

@@ -1,4 +1,10 @@
-import { BookOpen, TrendingUp, type LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  TrendingUp,
+  BookOpenText,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
 
 export interface AgentConfig {
   id: string;
@@ -25,12 +31,32 @@ export const AGENTS: AgentConfig[] = [
     id: "market-analyst",
     name: "Market Demand Analyst",
     description:
-      "Analyzes job market trends and maps course skills to industry demand.",
+      "Add or modify real market skills from job postings. Analyze demand trends and map skills to your curriculum.",
     icon: TrendingUp,
     route: "market-analyst",
     enabled: true,
     color:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
+  },
+  {
+    id: "reading-agent",
+    name: "Reading Agent",
+    description:
+      "Generates personalized reading materials and study guides tailored to your course curriculum.",
+    icon: BookOpenText,
+    route: "reading-agent",
+    enabled: false,
+    color: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400",
+  },
+  {
+    id: "video-agent",
+    name: "Video Agent",
+    description:
+      "Curates and recommends educational videos aligned with course topics and learning objectives.",
+    icon: Video,
+    route: "video-agent",
+    enabled: false,
+    color: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400",
   },
 ];
 
