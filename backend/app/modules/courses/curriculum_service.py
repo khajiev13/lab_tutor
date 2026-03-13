@@ -37,14 +37,23 @@ def _safe_float(val: object) -> float | None:
         return None
 
 
+def _first_str(val: object) -> str | None:
+    """Extract a string from a value that may be a list (merged concepts)."""
+    if isinstance(val, list):
+        return val[0] if val else None
+    return val if isinstance(val, str) else None
+
+
 def _parse_concepts(raw: list[dict] | None) -> list[ConceptRead]:
     if not raw:
         return []
-    return [
-        ConceptRead(name=c["name"], description=c.get("description"))
-        for c in raw
-        if c.get("name")
-    ]
+    out: list[ConceptRead] = []
+    for c in raw:
+        name = _first_str(c.get("name"))
+        if not name:
+            continue
+        out.append(ConceptRead(name=name, description=_first_str(c.get("description"))))
+    return out
 
 
 def _parse_job_postings(raw: list[dict] | None) -> list[JobPostingRead]:
