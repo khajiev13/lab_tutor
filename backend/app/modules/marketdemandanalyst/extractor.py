@@ -33,7 +33,7 @@ class ExtractorState(TypedDict):
 # ── LLM factory ─────────────────────────────────────────────────
 
 
-def _get_extraction_llm() -> ChatOpenAI:
+def _get_extraction_llm(timeout_seconds: int = 120) -> ChatOpenAI:
     return ChatOpenAI(
         model=os.environ.get(
             "LAB_TUTOR_LLM_MODEL",
@@ -48,7 +48,9 @@ def _get_extraction_llm() -> ChatOpenAI:
             os.environ.get("OPENAI_API_KEY", ""),
         ),
         temperature=0,
-        timeout=120,
+        timeout=timeout_seconds,
+        # Avoid multi-minute stalls from automatic retries during extraction.
+        max_retries=0,
     )
 
 
@@ -109,7 +111,7 @@ def extract_one(state: ExtractorState) -> dict:
         title=title, company=company, description=description
     )
 
-    llm = _get_extraction_llm()
+    llm = _get_extraction_llm(timeout_seconds=90)
     response = llm.invoke(prompt, config={"callbacks": []})
     text = str(response.content).strip()
 
@@ -265,12 +267,26 @@ def merge_similar_skills(state: ExtractorState) -> Command:
             update={"active_agent": "skill_finder"},
         )
 
+    # Guardrail: very large skill sets can make the merge prompt too big and
+    # stall the SSE stream for minutes if the provider times out.
+    if len(raw_skills) > 150:
+        tool_store["extracted_skills"] = raw_skills
+        logger.warning(
+            "merge_similar_skills: %d skills (skipped merge, too many for safe LLM merge)",
+            len(raw_skills),
+        )
+        return Command(
+            goto="skill_finder",
+            graph=Command.PARENT,
+            update={"active_agent": "skill_finder"},
+        )
+
     skill_list = "\n".join(
         f"- {s['name']} (category: {s['category']}, frequency: {s['frequency']})"
         for s in raw_skills
     )
 
-    llm = _get_extraction_llm()
+    llm = _get_extraction_llm(timeout_seconds=45)
     prompt = _MERGE_PROMPT.format(skill_list=skill_list)
 
     try:
