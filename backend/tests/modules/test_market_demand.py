@@ -645,3 +645,42 @@ class TestDeleteEndpoint:
 
         client.delete("/market-demand/history", headers=teacher_auth_headers)
         assert len(state_mod.tool_store) == 0
+
+
+class TestSelectJobsByGroup:
+    def test_select_jobs_by_group_all_selects_every_group(self):
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import select_jobs_by_group
+
+        state_mod.tool_store["fetched_jobs"] = [
+            {"title": "Job 1"},
+            {"title": "Job 2"},
+            {"title": "Job 3"},
+        ]
+        state_mod.tool_store["job_groups"] = {
+            "Data Engineer": [0, 1],
+            "Analytics Engineer": [2],
+        }
+
+        result = select_jobs_by_group.invoke({"group_names": "all"})
+
+        assert "Selected 3 jobs from all 2 groups" in result
+        assert len(state_mod.tool_store["selected_jobs"]) == 3
+
+    def test_select_jobs_by_group_every_group_selects_every_group(self):
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import select_jobs_by_group
+
+        state_mod.tool_store["fetched_jobs"] = [
+            {"title": "Job 1"},
+            {"title": "Job 2"},
+        ]
+        state_mod.tool_store["job_groups"] = {
+            "Machine Learning Engineer": [0],
+            "Data Scientist": [1],
+        }
+
+        result = select_jobs_by_group.invoke({"group_names": "every group"})
+
+        assert "Selected 2 jobs from all 2 groups" in result
+        assert len(state_mod.tool_store["selected_jobs"]) == 2

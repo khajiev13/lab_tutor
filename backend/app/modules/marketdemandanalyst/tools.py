@@ -326,8 +326,8 @@ def show_current_state() -> str:
 @tool
 def select_jobs_by_group(group_names: str) -> str:
     """Select entire groups from the fetched jobs.
-    Accepts group names OR numbers (comma-separated).
-    Examples: "1, 2, 5" or "Bioinformatics, Genetics".
+    Accepts group names, numbers, or "all" intents (comma-separated).
+    Examples: "1, 2, 5", "Bioinformatics, Genetics", or "all".
     """
     groups = tool_store.get("job_groups", {})
     jobs = tool_store.get("fetched_jobs", [])
@@ -337,10 +337,31 @@ def select_jobs_by_group(group_names: str) -> str:
     group_list = list(groups.items())  # already sorted by count desc
     requested = [g.strip() for g in group_names.split(",") if g.strip()]
 
+    normalized_requested = {req.casefold() for req in requested}
+    if normalized_requested & {"all", "all groups", "every group", "everything", "*"}:
+        all_indices: set[int] = set()
+        matched_groups = []
+        for cat, idxs in group_list:
+            all_indices.update(idxs)
+            matched_groups.append(f"{cat} ({len(idxs)})")
+
+        selected = [jobs[i] for i in sorted(all_indices)]
+        tool_store["selected_jobs"] = selected
+
+        lines = [
+            f"Selected {len(selected)} jobs from all {len(matched_groups)} groups:"
+        ]
+        for group in matched_groups:
+            lines.append(f"  ✓ {group}")
+        lines.append("\nSelection complete. Transfer back to Coordinator.")
+        return "\n".join(lines)
+
     selected_indices: set[int] = set()
     matched_groups: list[str] = []
 
     for req in requested:
+        normalized_req = req.casefold()
+
         # Try as number first
         if req.isdigit():
             idx = int(req) - 1
@@ -349,9 +370,25 @@ def select_jobs_by_group(group_names: str) -> str:
                 selected_indices.update(idxs)
                 matched_groups.append(f"{cat} ({len(idxs)})")
             continue
+
+        # Prefer exact name matches before substring matches.
+        exact_match = next(
+            (
+                (cat, idxs)
+                for cat, idxs in group_list
+                if normalized_req == cat.casefold()
+            ),
+            None,
+        )
+        if exact_match:
+            cat, idxs = exact_match
+            selected_indices.update(idxs)
+            matched_groups.append(f"{cat} ({len(idxs)})")
+            continue
+
         # Try as substring match on group name
         for cat, idxs in group_list:
-            if req.lower() in cat.lower():
+            if normalized_req in cat.casefold():
                 selected_indices.update(idxs)
                 matched_groups.append(f"{cat} ({len(idxs)})")
                 break
