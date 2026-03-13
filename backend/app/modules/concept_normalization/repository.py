@@ -55,8 +55,9 @@ CALL {
     {
       properties: {
         name: "discard",
+        description: "discard",
         aliases: "combine",
-        `.*`: "overwrite"
+        `.*`: "discard"
       },
       mergeRels: true
     }
