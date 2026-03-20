@@ -27,7 +27,7 @@ from app.modules.auth.models import User
 
 from .graph import get_graph
 from .models import MDAThreadState
-from .state import STATE_KEYS, restore_state, snapshot_state, tool_store
+from .state import STATE_KEYS, restore_state, snapshot_state, store
 
 logger = logging.getLogger(__name__)
 
@@ -679,7 +679,7 @@ async def delete_conversation(
             logger.exception("Failed to delete checkpoint for thread %s", thread_id)
 
     # 3. Clear in-memory tool_store and state cache
-    tool_store.clear()
+    store.clear()
     _state_cache.pop(thread_id, None)
 
     return {"status": "deleted", "threadId": thread_id}
