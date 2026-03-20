@@ -657,7 +657,7 @@ async def delete_conversation(
     - LangGraph checkpoint (messages, agent state)
     - Persisted tool_store state (jobs, skills, mapping, etc.)
 
-    Does NOT delete Neo4j data — skills/concepts already integrated
+    Does NOT delete Knowledge Map data — skills/concepts already integrated
     into the curriculum are kept.
     """
     thread_id = f"mda-{user.id}"

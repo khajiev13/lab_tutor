@@ -199,14 +199,14 @@ function InsertTab({ agentState }: { agentState: AgentState }) {
   if (results) {
     return (
       <div className="space-y-2">
-        <p className="text-xs text-green-600 font-semibold">Insertion Complete</p>
-        <div className="font-mono text-xs text-muted-foreground space-y-1">
-          <p>MARKET_SKILL nodes: {results.skills}</p>
-          <p>JOB_POSTING nodes: {results.job_postings}</p>
-          <p>Chapter links: {results.chapter_links}</p>
-          <p>Source links: {results.sourced_from}</p>
-          <p>Concept links: {results.existing_concept_links}</p>
-          <p>New concepts: {results.new_concepts}</p>
+        <p className="text-xs text-green-600 font-semibold">Knowledge Map Updated</p>
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p><span className="font-semibold text-foreground">{results.skills}</span> market skills added</p>
+          <p><span className="font-semibold text-foreground">{results.job_postings}</span> job postings linked</p>
+          <p><span className="font-semibold text-foreground">{results.chapter_links}</span> chapter relationships created</p>
+          <p><span className="font-semibold text-foreground">{results.sourced_from}</span> job posting references linked</p>
+          <p><span className="font-semibold text-foreground">{results.existing_concept_links}</span> existing concepts reused</p>
+          <p><span className="font-semibold text-foreground">{results.new_concepts}</span> new concepts discovered</p>
         </div>
       </div>
     );

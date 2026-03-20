@@ -129,6 +129,7 @@ def extract_one(state: ExtractorState) -> dict:
             for s in skills:
                 s["_source_title"] = title
                 s["_source_company"] = company
+                s["_source_url"] = job.get("url", "")
             logger.info("extract_one: %s @ %s → %d skills", title, company, len(skills))
             return {"skills": skills}
     except json.JSONDecodeError:
@@ -161,6 +162,7 @@ def synthesize_skills(state: ExtractorState) -> dict:
     skill_counter: Counter[str] = Counter()
     skill_categories: dict[str, str] = {}
     name_map: dict[str, str] = {}  # canonical → original casing
+    skill_urls: dict[str, set[str]] = {}  # canonical → set of source job URLs
 
     for s in all_skills:
         name = s.get("name", "").strip()
@@ -172,6 +174,9 @@ def synthesize_skills(state: ExtractorState) -> dict:
         if canonical not in skill_categories:
             skill_categories[canonical] = cat
             name_map[canonical] = name
+        url = s.get("_source_url", "")
+        if url:
+            skill_urls.setdefault(canonical, set()).add(url)
 
     results = [
         {
@@ -184,6 +189,7 @@ def synthesize_skills(state: ExtractorState) -> dict:
     ]
 
     tool_store["_raw_extracted_skills"] = results
+    tool_store["_raw_skill_urls"] = {k: list(v) for k, v in skill_urls.items()}
     tool_store["total_jobs_for_extraction"] = total_jobs
 
     logger.info(
@@ -237,6 +243,24 @@ Return ONLY valid JSON — an array of objects:
 """
 
 
+def _build_skill_job_urls(
+    skills: list[dict], raw_urls: dict[str, list[str]]
+) -> dict[str, list[str]]:
+    """Map each canonical skill name (lowercased) to its source job URLs.
+
+    For merged skills, unions URLs from all `merged_from` originals plus the
+    canonical name itself.  For raw (non-merged) skills, uses the name directly.
+    """
+    result: dict[str, list[str]] = {}
+    for item in skills:
+        urls: set[str] = set()
+        for orig in item.get("merged_from", []):
+            urls.update(raw_urls.get(orig.lower(), []))
+        urls.update(raw_urls.get(item["name"].lower(), []))
+        result[item["name"].lower()] = list(urls)
+    return result
+
+
 def merge_similar_skills(state: ExtractorState) -> Command:
     """LLM-based semantic deduplication of extracted skills.
 
@@ -244,11 +268,13 @@ def merge_similar_skills(state: ExtractorState) -> Command:
     then routes to skill_finder in the parent swarm.
     """
     raw_skills = tool_store.get("_raw_extracted_skills", [])
+    raw_urls: dict[str, list[str]] = tool_store.get("_raw_skill_urls", {})
     total_jobs = tool_store.get("total_jobs_for_extraction", 1)
 
     if not raw_skills:
         logger.warning("merge_similar_skills: no raw skills to merge")
         tool_store["extracted_skills"] = []
+        tool_store["skill_job_urls"] = {}
         return Command(
             goto="skill_finder",
             graph=Command.PARENT,
@@ -258,6 +284,7 @@ def merge_similar_skills(state: ExtractorState) -> Command:
     # If few enough skills, skip LLM merge
     if len(raw_skills) <= 10:
         tool_store["extracted_skills"] = raw_skills
+        tool_store["skill_job_urls"] = _build_skill_job_urls(raw_skills, raw_urls)
         logger.info(
             "merge_similar_skills: %d skills (skipped merge, too few)", len(raw_skills)
         )
@@ -271,6 +298,7 @@ def merge_similar_skills(state: ExtractorState) -> Command:
     # stall the SSE stream for minutes if the provider times out.
     if len(raw_skills) > 150:
         tool_store["extracted_skills"] = raw_skills
+        tool_store["skill_job_urls"] = _build_skill_job_urls(raw_skills, raw_urls)
         logger.warning(
             "merge_similar_skills: %d skills (skipped merge, too many for safe LLM merge)",
             len(raw_skills),
@@ -301,6 +329,7 @@ def merge_similar_skills(state: ExtractorState) -> Command:
     except (json.JSONDecodeError, Exception) as e:
         logger.warning("merge_similar_skills: LLM parse error, using raw skills: %s", e)
         tool_store["extracted_skills"] = raw_skills
+        tool_store["skill_job_urls"] = _build_skill_job_urls(raw_skills, raw_urls)
         return Command(
             goto="skill_finder",
             graph=Command.PARENT,
@@ -434,6 +463,7 @@ def merge_similar_skills(state: ExtractorState) -> Command:
     merged.sort(key=lambda x: -x.get("frequency", 0))
 
     tool_store["extracted_skills"] = merged
+    tool_store["skill_job_urls"] = _build_skill_job_urls(merged, raw_urls)
     logger.info(
         "merge_similar_skills: %d raw → %d merged skills",
         len(raw_skills),

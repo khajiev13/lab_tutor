@@ -21,6 +21,8 @@ STATE_KEYS: list[str] = [
     "selected_for_insertion",
     "skill_concepts",
     "insertion_results",
+    "skill_job_urls",
+    "_raw_skill_urls",
 ]
 
 
@@ -114,7 +116,7 @@ def pipeline_summary() -> str:
     elif not concepts:
         parts.append("NEXT: Link concepts for final skills")
     elif not inserted:
-        parts.append("NEXT: Insert to Neo4j")
+        parts.append("NEXT: Update Knowledge Map")
 
     return " | ".join(parts)
 

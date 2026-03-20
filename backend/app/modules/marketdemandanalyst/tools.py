@@ -118,7 +118,7 @@ def load_curriculum_context(teacher_email: str | None = None) -> str:
             len(rows),
         )
     except Exception:
-        return "(Curriculum data unavailable — Neo4j not reachable)"
+        return "(Curriculum data unavailable — Knowledge Map not reachable)"
 
     if not rows:
         return "(No curriculum data found for this teacher in the knowledge graph)"
@@ -475,9 +475,9 @@ def list_chapters() -> str:
             "[PERF] list_chapters Neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
-        return f"Neo4j unavailable: {e}"
+        return "Knowledge Map unavailable. Please try again in a moment."
     except AuthError as e:
-        return f"Neo4j auth failed: {e}"
+        return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] list_chapters Neo4j took %.1fms (%d chapters)",
         (time.perf_counter() - t0) * 1000,
@@ -560,9 +560,9 @@ def get_chapter_details(chapter_indices: str) -> str:
             "[PERF] get_chapter_details Neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
-        return f"Neo4j unavailable: {e}"
+        return "Knowledge Map unavailable. Please try again in a moment."
     except AuthError as e:
-        return f"Neo4j auth failed: {e}"
+        return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] get_chapter_details Neo4j took %.1fms (%d sections, %d book skills, %d market skills)",
         (time.perf_counter() - t0) * 1000,
@@ -667,9 +667,9 @@ def get_section_concepts(section_refs: str) -> str:
             "[PERF] get_section_concepts Neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
-        return f"Neo4j unavailable: {e}"
+        return "Knowledge Map unavailable. Please try again in a moment."
     except AuthError as e:
-        return f"Neo4j auth failed: {e}"
+        return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] get_section_concepts Neo4j took %.1fms (%d rows)",
         (time.perf_counter() - t0) * 1000,
@@ -764,9 +764,9 @@ def check_skills_coverage(skill_names: str) -> str:
             "[PERF] check_skills_coverage Neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
-        return f"Neo4j unavailable: {e}"
+        return "Knowledge Map unavailable. Please try again in a moment."
     except AuthError as e:
-        return f"Neo4j auth failed: {e}"
+        return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] check_skills_coverage Neo4j took %.1fms (%d skills checked)",
         (time.perf_counter() - t0) * 1000,
@@ -1055,6 +1055,7 @@ def extract_concepts_for_skills() -> str:
 
     jobs = tool_store.get("selected_jobs", [])
     total_jobs = tool_store.get("total_jobs_for_extraction", len(jobs))
+    skill_job_urls_lookup: dict[str, list[str]] = tool_store.get("skill_job_urls", {})
 
     llm = _get_extraction_llm()
     skill_concepts: dict[str, dict] = {}
@@ -1117,11 +1118,9 @@ def extract_concepts_for_skills() -> str:
             parsed = {"existing_concepts": [], "new_concepts": []}
 
         # Find which jobs mentioned this skill (for SOURCED_FROM linking)
-        source_job_urls = [
-            j["url"]
-            for j in jobs
-            if re.search(re.escape(skill_name), j.get("description", ""), re.IGNORECASE)
-        ]
+        # Use the provenance map built during extraction — the synthesized skill
+        # name won't appear verbatim in job descriptions, so regex matching fails.
+        source_job_urls = skill_job_urls_lookup.get(skill_name.lower(), [])
 
         skill_concepts[skill_name] = {
             "existing_concepts": parsed.get("existing_concepts", []),
@@ -1172,7 +1171,8 @@ def extract_concepts_for_skills() -> str:
 def insert_market_skills_to_neo4j() -> str:
     """Write MARKET_SKILL nodes, JOB_POSTING nodes, and all relationships to Neo4j.
     Creates: MARKET_SKILL nodes with full provenance, JOB_POSTING provenance nodes,
-    RELEVANT_TO_CHAPTER, SOURCED_FROM, and REQUIRES_CONCEPT relationships."""
+    RELEVANT_TO_CHAPTER, SOURCED_FROM, and REQUIRES_CONCEPT relationships.
+    New concepts are embedded and deduplicated against existing concepts."""
     from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
     skill_concepts = tool_store.get("skill_concepts")
@@ -1189,10 +1189,37 @@ def insert_market_skills_to_neo4j() -> str:
         "sourced_from": 0,
         "existing_concept_links": 0,
         "new_concepts": 0,
+        "concepts_merged": 0,
     }
+
+    # Collect all new concepts across skills for batch embedding + dedup
+    all_new_concepts: list[dict] = []
+    skill_new_concept_ranges: dict[str, tuple[int, int]] = {}
+    for skill_name, data in skill_concepts.items():
+        new_list = data.get("new_concepts", [])
+        start = len(all_new_concepts)
+        all_new_concepts.extend(new_list)
+        skill_new_concept_ranges[skill_name] = (start, start + len(new_list))
 
     try:
         with _neo4j_session() as session:
+            # Pre-compute: embed all new concepts and find matches
+            dedup_results: list[dict] = []
+            if all_new_concepts:
+                try:
+                    from app.modules.embeddings.embedding_service import (
+                        EmbeddingService,
+                    )
+
+                    dedup_results = EmbeddingService().embed_and_dedup_concepts(
+                        session, all_new_concepts
+                    )
+                except Exception:
+                    logger.exception(
+                        "Concept embedding/dedup failed; falling back to create-only"
+                    )
+                    dedup_results = []
+
             # Step A: Create JOB_POSTING nodes
             for job in jobs:
                 if not job.get("url"):
@@ -1271,21 +1298,73 @@ def insert_market_skills_to_neo4j() -> str:
                     )
                     stats["existing_concept_links"] += 1
 
-                # E: Create new concepts and link
-                for new_concept in data.get("new_concepts", []):
-                    session.run(
-                        "MERGE (c:CONCEPT {name: $cname}) "
-                        "SET c.description = $desc "
-                        "WITH c "
-                        "MATCH (s:MARKET_SKILL {name: $sname}) "
-                        "MERGE (s)-[:REQUIRES_CONCEPT]->(c)",
-                        {
-                            "cname": new_concept["name"],
-                            "desc": new_concept.get("description", ""),
-                            "sname": skill_name,
-                        },
-                    )
-                    stats["new_concepts"] += 1
+                # F: New concepts — embed, dedup, then create-or-merge + link
+                start, end = skill_new_concept_ranges.get(skill_name, (0, 0))
+                for i in range(start, end):
+                    new_concept = all_new_concepts[i]
+                    cname = new_concept["name"].strip().casefold()
+
+                    if i < len(dedup_results):
+                        dr = dedup_results[i]
+                    else:
+                        # Fallback: no dedup result (embedding failed)
+                        dr = {"action": "create_no_embedding", "target_name": cname}
+
+                    if dr["action"] == "merge":
+                        # Similar concept already exists — link to it
+                        session.run(
+                            "MATCH (s:MARKET_SKILL {name: $sname}) "
+                            "MATCH (c:CONCEPT {name: $cname}) "
+                            "MERGE (s)-[:REQUIRES_CONCEPT]->(c)",
+                            {"sname": skill_name, "cname": dr["target_name"]},
+                        )
+                        stats["concepts_merged"] += 1
+                        logger.info(
+                            "Merged new concept '%s' → existing '%s' (score=%.3f)",
+                            cname,
+                            dr["target_name"],
+                            dr.get("score", 0),
+                        )
+                    elif dr["action"] == "create":
+                        # No match — create with embedding
+                        session.run(
+                            "MERGE (c:CONCEPT {name: $cname}) "
+                            "ON CREATE SET c.description = $desc, "
+                            "              c.embedding   = $embedding, "
+                            "              c.merge_count = 0, "
+                            "              c.aliases     = [] "
+                            "ON MATCH SET  c.embedding   = CASE WHEN c.embedding IS NULL "
+                            "                              THEN $embedding "
+                            "                              ELSE c.embedding END, "
+                            "              c.description = CASE WHEN c.description IS NULL "
+                            "                              THEN $desc "
+                            "                              ELSE c.description END "
+                            "WITH c "
+                            "MATCH (s:MARKET_SKILL {name: $sname}) "
+                            "MERGE (s)-[:REQUIRES_CONCEPT]->(c)",
+                            {
+                                "cname": cname,
+                                "desc": new_concept.get("description", ""),
+                                "embedding": dr["embedding"],
+                                "sname": skill_name,
+                            },
+                        )
+                        stats["new_concepts"] += 1
+                    else:
+                        # Fallback: create without embedding (embedding service down)
+                        session.run(
+                            "MERGE (c:CONCEPT {name: $cname}) "
+                            "SET c.description = $desc "
+                            "WITH c "
+                            "MATCH (s:MARKET_SKILL {name: $sname}) "
+                            "MERGE (s)-[:REQUIRES_CONCEPT]->(c)",
+                            {
+                                "cname": cname,
+                                "desc": new_concept.get("description", ""),
+                                "sname": skill_name,
+                            },
+                        )
+                        stats["new_concepts"] += 1
 
     except (ServiceUnavailable, SessionExpired, OSError) as e:
         _get_neo4j_driver(force_new=True)
@@ -1293,7 +1372,7 @@ def insert_market_skills_to_neo4j() -> str:
             "[PERF] insert_market_skills_to_neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
-        return f"Neo4j write failed: {e}. Connection was reset — try again."
+        return "Knowledge Map update failed. Connection was reset — try again."
 
     logger.info(
         "[PERF] insert_market_skills_to_neo4j took %.1fms (stats=%s)",
@@ -1303,13 +1382,14 @@ def insert_market_skills_to_neo4j() -> str:
     tool_store["insertion_results"] = stats
 
     return (
-        f"✅ Neo4j write complete!\n"
-        f"  MARKET_SKILL nodes created: {stats['skills']}\n"
-        f"  JOB_POSTING nodes created: {stats['job_postings']}\n"
-        f"  HAS_SKILL links: {stats['chapter_links']}\n"
-        f"  SOURCED_FROM links: {stats['sourced_from']}\n"
-        f"  Existing concept links: {stats['existing_concept_links']}\n"
-        f"  New concepts created: {stats['new_concepts']}"
+        f"✅ Knowledge Map updated successfully!\n"
+        f"  Skills added: {stats['skills']}\n"
+        f"  Job postings linked: {stats['job_postings']}\n"
+        f"  Chapter links created: {stats['chapter_links']}\n"
+        f"  Source links created: {stats['sourced_from']}\n"
+        f"  Existing concept links reused: {stats['existing_concept_links']}\n"
+        f"  New concepts added: {stats['new_concepts']}\n"
+        f"  Similar concepts merged: {stats['concepts_merged']}"
     )
 
 
@@ -1352,14 +1432,24 @@ def delete_market_skills(skill_names: str) -> str:
             )
             orphans = orphan_result.single()["orphans"]
 
+            # Clean up orphaned CONCEPT nodes (no remaining relationships)
+            orphan_concepts_result = session.run(
+                "MATCH (c:CONCEPT) "
+                "WHERE NOT EXISTS { (c)-[]-() } "
+                "DELETE c "
+                "RETURN count(c) AS orphan_concepts"
+            )
+            orphan_concepts = orphan_concepts_result.single()["orphan_concepts"]
+
     except (ServiceUnavailable, SessionExpired, OSError) as e:
         _get_neo4j_driver(force_new=True)
-        return f"Neo4j unavailable: {e}. Connection was reset — try again."
+        return "Knowledge Map unavailable. Connection was reset — try again."
 
     scope = "all" if delete_all else f"matching {skill_names}"
     return (
         f"Deleted {deleted} MARKET_SKILL node(s) ({scope}).\n"
-        f"Cleaned up {orphans} orphaned JOB_POSTING node(s)."
+        f"Cleaned up {orphans} orphaned JOB_POSTING node(s).\n"
+        f"Cleaned up {orphan_concepts} orphaned CONCEPT node(s)."
     )
 
 
@@ -1543,9 +1633,9 @@ def load_book_skills_for_chapters(chapter_titles: str) -> str:
             "[PERF] load_book_skills_for_chapters FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
-        return f"Neo4j unavailable: {e}"
+        return "Knowledge Map unavailable. Please try again in a moment."
     except AuthError as e:
-        return f"Neo4j auth failed: {e}"
+        return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] load_book_skills_for_chapters took %.1fms (%d rows)",
         (time.perf_counter() - t0) * 1000,
@@ -1599,7 +1689,7 @@ def compare_and_clean(chapter_title: str) -> str:
             ]
     except (ServiceUnavailable, SessionExpired, OSError) as e:
         _get_neo4j_driver(force_new=True)
-        return f"Neo4j unavailable: {e}"
+        return "Knowledge Map unavailable. Please try again in a moment."
 
     if not book_skills:
         # No book skills to compare against — keep all market skills

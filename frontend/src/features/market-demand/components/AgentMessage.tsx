@@ -7,10 +7,32 @@ import { Loader } from "@/components/ui/loader";
 import { AGENT_IDENTITIES } from "../agent-config";
 import type { ChatMessage, ToolCall } from "../types";
 
+const TOOL_LABELS: Record<string, string> = {
+  fetch_jobs: "Fetch Jobs",
+  select_jobs_by_group: "Select Job Groups",
+  start_extraction: "Extract Skills",
+  list_chapters: "Load Curriculum Chapters",
+  get_chapter_details: "Review Chapter Details",
+  get_section_concepts: "Load Section Concepts",
+  check_skills_coverage: "Check Skill Coverage",
+  get_extracted_skills: "Review Extracted Skills",
+  save_curriculum_mapping: "Save Curriculum Mapping",
+  approve_skill_selection: "Approve Skill Selection",
+  load_mapped_skills: "Load Mapped Skills",
+  load_book_skills_for_chapters: "Load Existing Book Skills",
+  compare_and_clean: "Clean Redundant Skills",
+  finalize_cleaned_skills: "Finalize Skill Set",
+  extract_concepts_for_skills: "Link Skills to Concepts",
+  insert_market_skills_to_neo4j: "Update Knowledge Map",
+  delete_market_skills: "Remove Market Skills",
+  show_current_state: "Review Pipeline State",
+  save_skills_for_insertion: "Save Skills for Insertion",
+};
+
 function mapToolCalls(toolCalls: ToolCall[]): AgentToolCall[] {
   return toolCalls.map((tc) => ({
     id: tc.id,
-    name: tc.name,
+    name: TOOL_LABELS[tc.name] ?? tc.name,
     input: tc.args,
     output: tc.result,
     status:

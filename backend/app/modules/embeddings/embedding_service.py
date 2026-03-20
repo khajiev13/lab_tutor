@@ -155,3 +155,96 @@ class EmbeddingService:
                 raise ValueError(
                     f"Embedding dimension mismatch: expected {expected}, got {len(v)}"
                 )
+
+    # ── Concept deduplication helpers ────────────────────────────
+
+    @staticmethod
+    def find_similar_concept(
+        session,
+        *,
+        concept_name: str,
+        embedding: list[float],
+        threshold: float | None = None,
+        top_k: int = 5,
+    ) -> dict | None:
+        """Find the best matching existing CONCEPT via the Neo4j vector index.
+
+        Returns ``{"name": ..., "score": ...}`` for the top match above
+        *threshold*, or ``None`` if nothing qualifies.
+        """
+        if threshold is None:
+            threshold = settings.concept_similarity_threshold
+
+        record = session.run(
+            "CALL db.index.vector.queryNodes('concept_embedding_idx', $top_k, $embedding) "
+            "YIELD node, score "
+            "WHERE score >= $threshold AND node.name <> toLower($concept_name) "
+            "RETURN node.name AS name, score "
+            "ORDER BY score DESC LIMIT 1",
+            {
+                "embedding": embedding,
+                "threshold": threshold,
+                "top_k": top_k,
+                "concept_name": concept_name,
+            },
+        ).single()
+
+        return {"name": record["name"], "score": record["score"]} if record else None
+
+    def embed_and_dedup_concepts(
+        self,
+        session,
+        new_concepts: list[dict],
+        *,
+        threshold: float | None = None,
+    ) -> list[dict]:
+        """Embed concept names and match each against existing graph concepts.
+
+        Args:
+            session: An open Neo4j session.
+            new_concepts: List of dicts with at least ``"name"`` and
+                optionally ``"description"``.
+            threshold: Cosine similarity threshold override (defaults to
+                ``settings.concept_similarity_threshold``).
+
+        Returns a list of dicts (same length as *new_concepts*), each with:
+            - ``action``: ``"merge"`` or ``"create"``
+            - ``target_name``: concept name to link to
+            - ``embedding``: vector (only when ``action == "create"``)
+            - ``description``: original description (only when ``action == "create"``)
+        """
+        if not new_concepts:
+            return []
+
+        names = [c["name"].strip().casefold() for c in new_concepts]
+        descriptions = [c.get("description", "") for c in new_concepts]
+        vectors = self.embed_documents(names)
+
+        results: list[dict] = []
+        for name, desc, vec in zip(names, descriptions, vectors, strict=True):
+            match = self.find_similar_concept(
+                session,
+                concept_name=name,
+                embedding=vec,
+                threshold=threshold,
+            )
+            if match is not None:
+                results.append(
+                    {
+                        "action": "merge",
+                        "target_name": match["name"],
+                        "original_name": name,
+                        "score": match["score"],
+                    }
+                )
+            else:
+                results.append(
+                    {
+                        "action": "create",
+                        "target_name": name,
+                        "embedding": vec,
+                        "description": desc,
+                    }
+                )
+
+        return results

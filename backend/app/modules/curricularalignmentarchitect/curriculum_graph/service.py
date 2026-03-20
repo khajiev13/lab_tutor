@@ -389,7 +389,6 @@ class CurriculumGraphService:
                 repo.find_similar_concepts,
                 concept_name=concept_name,
                 embedding=embedding,
-                threshold=0.92,
                 top_k=5,
             )
 

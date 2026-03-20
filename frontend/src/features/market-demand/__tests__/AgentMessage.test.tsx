@@ -8,16 +8,22 @@ vi.mock("@/components/ui/agent-response", () => ({
     message,
     agentName,
     isStreaming,
+    toolCalls,
   }: {
     message: string;
     agentName: string;
     isStreaming: boolean;
     avatar: React.ReactNode;
-    toolCalls: unknown[];
+    toolCalls: Array<{ name: string }>;
   }) => (
     <div data-testid="agent-response">
       <span data-testid="agent-name">{agentName}</span>
       <span data-testid="agent-content">{message}</span>
+      {toolCalls.map((toolCall) => (
+        <span key={toolCall.name} data-testid="tool-name">
+          {toolCall.name}
+        </span>
+      ))}
       {isStreaming && <span data-testid="streaming">streaming</span>}
     </div>
   ),
@@ -85,6 +91,29 @@ describe("AgentMessage", () => {
 
     render(<AgentMessage message={message} />);
     expect(screen.getByTestId("agent-response")).toBeInTheDocument();
+  });
+
+  it("maps internal tool names to user-facing labels", () => {
+    const message: ChatMessage = {
+      id: "a5",
+      role: "agent",
+      agent: "concept_linker",
+      agentDisplayName: "Concept Linker",
+      agentEmoji: "🔗",
+      content: "Updating the graph",
+      toolCalls: [
+        {
+          id: "tc2",
+          name: "insert_market_skills_to_neo4j",
+          args: {},
+          status: "loading",
+        },
+      ],
+      isStreaming: false,
+    };
+
+    render(<AgentMessage message={message} />);
+    expect(screen.getByTestId("tool-name")).toHaveTextContent("Update Knowledge Map");
   });
 
   it("falls back to agentDisplayName when agent is not in config", () => {

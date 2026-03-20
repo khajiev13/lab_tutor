@@ -6,7 +6,6 @@ import type {
   CourseFileRead,
   ExtractionStatus,
 } from './types';
-import type { CourseGraphResponse, GraphNodeKind } from '@/features/graph/types';
 import type { CurriculumWithChangelog } from '@/features/curriculum/types';
 import {
   CourseFileDuplicateError,
@@ -61,27 +60,6 @@ export const coursesApi = {
   },
   getEnrollment: async (id: number): Promise<{ id: number } | null> => {
     const response = await api.get<{ id: number } | null>(`/courses/${id}/enrollment`);
-    return response.data;
-  },
-  getCourseGraph: async (
-    id: number,
-    params?: { max_documents?: number; max_concepts?: number }
-  ): Promise<CourseGraphResponse> => {
-    const response = await api.get<CourseGraphResponse>(`/courses/${id}/graph`, { params });
-    return response.data;
-  },
-  expandCourseGraph: async (
-    id: number,
-    params: {
-      node_kind: GraphNodeKind;
-      node_key?: string;
-      limit?: number;
-      max_concepts?: number;
-    }
-  ): Promise<CourseGraphResponse> => {
-    const response = await api.get<CourseGraphResponse>(`/courses/${id}/graph/expand`, {
-      params,
-    });
     return response.data;
   },
   getCurriculum: async (id: number): Promise<CurriculumWithChangelog> => {
