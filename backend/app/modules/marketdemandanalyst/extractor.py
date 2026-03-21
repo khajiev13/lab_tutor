@@ -18,7 +18,8 @@ from langgraph.constants import START
 from langgraph.graph import StateGraph
 from langgraph.types import Command, Send
 
-from .state import tool_store
+from .schemas import ExtractedSkill, RawExtractedSkill
+from .state import store
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +128,14 @@ def extract_one(state: ExtractorState) -> dict:
         if isinstance(skills, list):
             # Tag each skill with provenance
             for s in skills:
-                s["_source_title"] = title
-                s["_source_company"] = company
+                raw = RawExtractedSkill(
+                    name=s.get("name", ""),
+                    category=s.get("category", "unknown"),
+                    source_url=job.get("url", ""),
+                    source_title=title,
+                    source_company=company,
+                )
+                s.update(raw.model_dump())
             logger.info("extract_one: %s @ %s → %d skills", title, company, len(skills))
             return {"skills": skills}
     except json.JSONDecodeError:
@@ -141,26 +148,27 @@ def extract_one(state: ExtractorState) -> dict:
 
 
 def fan_out(state: ExtractorState) -> list[Send]:
-    """Read selected jobs from tool_store and fan out one Send per job."""
-    jobs = tool_store.get("selected_jobs", [])
+    """Read selected jobs from store and fan out one Send per job."""
+    jobs = store.selected_jobs
     if not jobs:
-        logger.warning("fan_out: no selected_jobs in tool_store")
+        logger.warning("fan_out: no selected_jobs in store")
         return []
     logger.info("fan_out: dispatching %d parallel extraction tasks", len(jobs))
-    return [Send("extract_one", {"job": job}) for job in jobs]
+    return [Send("extract_one", {"job": job.model_dump()}) for job in jobs]
 
 
 # ── Node: synthesize all extracted skills ───────────────────────
 
 
 def synthesize_skills(state: ExtractorState) -> dict:
-    """Deduplicate, count frequency, store in tool_store. Routes to merge_similar_skills."""
+    """Deduplicate, count frequency, store in store. Routes to merge_similar_skills."""
     all_skills: list[dict] = state.get("skills", [])
-    total_jobs = len(tool_store.get("selected_jobs", []))
+    total_jobs = len(store.selected_jobs)
 
     skill_counter: Counter[str] = Counter()
     skill_categories: dict[str, str] = {}
     name_map: dict[str, str] = {}  # canonical → original casing
+    skill_urls: dict[str, set[str]] = {}  # canonical → set of source job URLs
 
     for s in all_skills:
         name = s.get("name", "").strip()
@@ -172,19 +180,23 @@ def synthesize_skills(state: ExtractorState) -> dict:
         if canonical not in skill_categories:
             skill_categories[canonical] = cat
             name_map[canonical] = name
+        url = s.get("source_url", "")
+        if url:
+            skill_urls.setdefault(canonical, set()).add(url)
 
     results = [
-        {
-            "name": name_map.get(skill, skill),
-            "category": skill_categories.get(skill, "unknown"),
-            "frequency": count,
-            "pct": round(count / max(total_jobs, 1) * 100, 1),
-        }
+        ExtractedSkill(
+            name=name_map.get(skill, skill),
+            category=skill_categories.get(skill, "unknown"),
+            frequency=count,
+            pct=round(count / max(total_jobs, 1) * 100, 1),
+            source_urls=list(skill_urls.get(skill, [])),
+        )
         for skill, count in skill_counter.most_common()
     ]
 
-    tool_store["_raw_extracted_skills"] = results
-    tool_store["total_jobs_for_extraction"] = total_jobs
+    store._raw_extracted_skills = results
+    store.total_jobs_for_extraction = total_jobs
 
     logger.info(
         "synthesize_skills: %d unique skills from %d jobs", len(results), total_jobs
@@ -237,18 +249,37 @@ Return ONLY valid JSON — an array of objects:
 """
 
 
+def _union_source_urls(
+    merged_from: list[str],
+    canonical_name: str,
+    raw_skills: list[ExtractedSkill],
+) -> list[str]:
+    """Union source_urls from all raw skills that contributed to a merged skill."""
+    raw_lookup: dict[str, ExtractedSkill] = {s.name.lower(): s for s in raw_skills}
+    urls: set[str] = set()
+    for orig in merged_from:
+        raw = raw_lookup.get(orig.lower())
+        if raw:
+            urls.update(raw.source_urls)
+    # Also include the canonical name itself
+    raw = raw_lookup.get(canonical_name.lower())
+    if raw:
+        urls.update(raw.source_urls)
+    return list(urls)
+
+
 def merge_similar_skills(state: ExtractorState) -> Command:
     """LLM-based semantic deduplication of extracted skills.
 
     Clusters similar skills, picks canonical names, sums frequencies,
     then routes to skill_finder in the parent swarm.
     """
-    raw_skills = tool_store.get("_raw_extracted_skills", [])
-    total_jobs = tool_store.get("total_jobs_for_extraction", 1)
+    raw_skills = store._raw_extracted_skills
+    total_jobs = store.total_jobs_for_extraction or 1
 
     if not raw_skills:
         logger.warning("merge_similar_skills: no raw skills to merge")
-        tool_store["extracted_skills"] = []
+        store.extracted_skills = []
         return Command(
             goto="skill_finder",
             graph=Command.PARENT,
@@ -257,7 +288,7 @@ def merge_similar_skills(state: ExtractorState) -> Command:
 
     # If few enough skills, skip LLM merge
     if len(raw_skills) <= 10:
-        tool_store["extracted_skills"] = raw_skills
+        store.extracted_skills = raw_skills
         logger.info(
             "merge_similar_skills: %d skills (skipped merge, too few)", len(raw_skills)
         )
@@ -267,10 +298,9 @@ def merge_similar_skills(state: ExtractorState) -> Command:
             update={"active_agent": "skill_finder"},
         )
 
-    # Guardrail: very large skill sets can make the merge prompt too big and
-    # stall the SSE stream for minutes if the provider times out.
+    # Guardrail: very large skill sets can make the merge prompt too big
     if len(raw_skills) > 150:
-        tool_store["extracted_skills"] = raw_skills
+        store.extracted_skills = raw_skills
         logger.warning(
             "merge_similar_skills: %d skills (skipped merge, too many for safe LLM merge)",
             len(raw_skills),
@@ -282,7 +312,7 @@ def merge_similar_skills(state: ExtractorState) -> Command:
         )
 
     skill_list = "\n".join(
-        f"- {s['name']} (category: {s['category']}, frequency: {s['frequency']})"
+        f"- {s.name} (category: {s.category}, frequency: {s.frequency})"
         for s in raw_skills
     )
 
@@ -297,10 +327,10 @@ def merge_similar_skills(state: ExtractorState) -> Command:
             if text.endswith("```"):
                 text = text[:-3]
             text = text.strip()
-        merged = json.loads(text)
+        merged_raw = json.loads(text)
     except (json.JSONDecodeError, Exception) as e:
         logger.warning("merge_similar_skills: LLM parse error, using raw skills: %s", e)
-        tool_store["extracted_skills"] = raw_skills
+        store.extracted_skills = raw_skills
         return Command(
             goto="skill_finder",
             graph=Command.PARENT,
@@ -308,8 +338,6 @@ def merge_similar_skills(state: ExtractorState) -> Command:
         )
 
     # Post-merge validation: ensure every name is a proper competency statement
-    # (starts with an action verb). If the LLM still produced a noun phrase,
-    # fall back to the best original from merged_from.
     _ACTION_VERBS = {
         "implement",
         "apply",
@@ -389,14 +417,12 @@ def merge_similar_skills(state: ExtractorState) -> Command:
         "modeling",
         "visualizing",
     }
-    # Build a lookup of raw skill names for fallback
-    raw_name_set: dict[str, dict] = {s["name"]: s for s in raw_skills}
+    raw_name_lookup: dict[str, ExtractedSkill] = {s.name: s for s in raw_skills}
 
-    for item in merged:
+    for item in merged_raw:
         name = item.get("name", "")
         first_word = name.split()[0].lower() if name else ""
         if first_word not in _ACTION_VERBS:
-            # Try to find a good original from merged_from
             originals = item.get("merged_from", [])
             best_original = None
             for orig in originals:
@@ -412,32 +438,43 @@ def merge_similar_skills(state: ExtractorState) -> Command:
                 )
                 item["name"] = best_original
             else:
-                # Last resort: use the highest-frequency original
                 best_by_freq = max(
-                    (raw_name_set.get(o, {}) for o in originals),
-                    key=lambda s: s.get("frequency", 0),
-                    default={},
+                    (raw_name_lookup.get(o) for o in originals),
+                    key=lambda s: s.frequency if s else 0,
+                    default=None,
                 )
-                if best_by_freq.get("name"):
+                if best_by_freq:
                     logger.info(
                         "merge validation: no action-verb original for '%s', using '%s' (highest freq)",
                         name,
-                        best_by_freq["name"],
+                        best_by_freq.name,
                     )
-                    item["name"] = best_by_freq["name"]
+                    item["name"] = best_by_freq.name
 
-    # Recalculate pct from merged frequencies
-    for s in merged:
-        s["pct"] = round(s.get("frequency", 0) / max(total_jobs, 1) * 100, 1)
+    # Build ExtractedSkill instances with source_urls baked in
+    merged_skills: list[ExtractedSkill] = []
+    for item in merged_raw:
+        merged_from = item.get("merged_from", [])
+        source_urls = _union_source_urls(merged_from, item.get("name", ""), raw_skills)
+        merged_skills.append(
+            ExtractedSkill(
+                name=item.get("name", ""),
+                category=item.get("category", "unknown"),
+                frequency=item.get("frequency", 0),
+                pct=round(item.get("frequency", 0) / max(total_jobs, 1) * 100, 1),
+                merged_from=merged_from,
+                source_urls=source_urls,
+            )
+        )
 
     # Sort by frequency descending
-    merged.sort(key=lambda x: -x.get("frequency", 0))
+    merged_skills.sort(key=lambda x: -x.frequency)
 
-    tool_store["extracted_skills"] = merged
+    store.extracted_skills = merged_skills
     logger.info(
         "merge_similar_skills: %d raw → %d merged skills",
         len(raw_skills),
-        len(merged),
+        len(merged_skills),
     )
 
     return Command(

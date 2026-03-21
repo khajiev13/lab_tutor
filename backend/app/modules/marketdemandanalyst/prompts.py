@@ -138,11 +138,11 @@ by comparing newly mapped market skills against existing book skills per chapter
 # ── Concept Linker Agent (autonomous worker) ─────────────────────
 CONCEPT_LINKER_PROMPT = """\
 You are the Concept Linker. Map approved skills to knowledge-graph concepts \
-and persist to Neo4j. Teacher already approved — no confirmation needed.
+and update the Knowledge Map. Teacher already approved — no confirmation needed.
 
 # Process (execute without pausing)
 1. extract_concepts_for_skills → get concept mapping
-2. insert_market_skills_to_neo4j → write to graph
+2. insert_market_skills_to_neo4j → update the Knowledge Map
 3. transfer_to_supervisor → report stats
 
 # CRITICAL

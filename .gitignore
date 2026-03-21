@@ -182,3 +182,7 @@ backend/app/modules/curricularalignmentarchitect/notebooks/
 # Copilot agent skills (local config)
 .github/skills/
 skills-lock.json
+.mcp.json
+
+
+docs/

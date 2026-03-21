@@ -23,7 +23,7 @@ const STAGES: { id: PipelineStageId; label: string; icon: LucideIcon }[] = [
   { id: "map", label: "Map Curriculum", icon: Map },
   { id: "approve", label: "Approve Gaps", icon: CheckSquare },
   { id: "link", label: "Link Concepts", icon: Link2 },
-  { id: "insert", label: "Insert to Neo4j", icon: Database },
+  { id: "insert", label: "Update Knowledge Map", icon: Database },
 ];
 
 function StageIcon({ status, icon: Icon }: { status: StageStatus; icon: LucideIcon }) {

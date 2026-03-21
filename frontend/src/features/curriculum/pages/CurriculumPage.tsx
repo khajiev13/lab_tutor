@@ -3,16 +3,13 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   BookText,
   Loader2,
-  Network,
   PanelRightClose,
   PanelRightOpen,
-  TreePine,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -30,8 +27,7 @@ import {
 } from "@/components/ui/empty";
 
 import { coursesApi } from "@/features/courses/api";
-import { GraphViewer } from "@/features/graph/components/GraphViewer";
-import type { CourseGraphResponse, GraphNode } from "@/features/graph/types";
+
 import type { CurriculumWithChangelog } from "../types";
 
 import { ChapterAccordion } from "../components/ChapterAccordion";
@@ -48,11 +44,7 @@ export default function CurriculumPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Graph tab state
-  const [graph, setGraph] = useState<CourseGraphResponse | null>(null);
-  const [isLoadingGraph, setIsLoadingGraph] = useState(false);
-  const [graphLoaded, setGraphLoaded] = useState(false);
-  const [isExpanding, setIsExpanding] = useState(false);
+
 
   // Panel state
   const [panelOpen, setPanelOpen] = useState(true);
@@ -78,64 +70,7 @@ export default function CurriculumPage() {
     loadCurriculum();
   }, [loadCurriculum]);
 
-  // Lazy-load graph data when Graph tab is selected
-  const loadGraph = useCallback(async () => {
-    if (graphLoaded || !Number.isFinite(courseId)) return;
-    setIsLoadingGraph(true);
-    try {
-      const result = await coursesApi.getCourseGraph(courseId, {
-        max_documents: 120,
-        max_concepts: 900,
-      });
-      setGraph(result);
-      setGraphLoaded(true);
-    } catch {
-      toast.error("Failed to load knowledge graph");
-    } finally {
-      setIsLoadingGraph(false);
-    }
-  }, [courseId, graphLoaded]);
 
-  const mergeGraph = useCallback(
-    (prev: CourseGraphResponse, delta: CourseGraphResponse) => {
-      const nodesById = new Map(prev.nodes.map((n) => [n.id, n] as const));
-      const edgesById = new Map(prev.edges.map((e) => [e.id, e] as const));
-      for (const n of delta.nodes) nodesById.set(n.id, n);
-      for (const e of delta.edges) edgesById.set(e.id, e);
-      return {
-        nodes: Array.from(nodesById.values()),
-        edges: Array.from(edgesById.values()),
-      };
-    },
-    []
-  );
-
-  const handleExpand = useCallback(
-    async (node: GraphNode) => {
-      if (!Number.isFinite(courseId)) return;
-      setIsExpanding(true);
-      try {
-        const key =
-          node.kind === "document" && "document_id" in node.data
-            ? String(node.data.document_id)
-            : node.kind === "concept" && "name" in node.data
-              ? String(node.data.name)
-              : "";
-        const delta = await coursesApi.expandCourseGraph(courseId, {
-          node_kind: node.kind,
-          node_key: key,
-          limit: 250,
-          max_concepts: 900,
-        });
-        setGraph((prev) => (prev ? mergeGraph(prev, delta) : delta));
-      } catch {
-        toast.error("Failed to expand graph");
-      } finally {
-        setIsExpanding(false);
-      }
-    },
-    [courseId, mergeGraph]
-  );
 
   if (!Number.isFinite(courseId)) {
     return (
@@ -254,44 +189,10 @@ export default function CurriculumPage() {
               <CurriculumStats curriculum={curriculum} />
             </div>
 
-            {/* Tabs: Tree / Graph */}
-            <Tabs
-              defaultValue="tree"
-              onValueChange={(v) => {
-                if (v === "graph") loadGraph();
-              }}
-            >
-              <TabsList>
-                <TabsTrigger value="tree">
-                  <TreePine className="size-4 mr-1.5" />
-                  Curriculum Tree
-                </TabsTrigger>
-                <TabsTrigger value="graph">
-                  <Network className="size-4 mr-1.5" />
-                  Knowledge Graph
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="tree" className="mt-4">
-                <ChapterAccordion chapters={curriculum.chapters} />
-              </TabsContent>
-
-              <TabsContent value="graph" className="mt-4">
-                {isLoadingGraph && (
-                  <div className="flex items-center justify-center py-16 text-muted-foreground">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Loading graph…
-                  </div>
-                )}
-                {isExpanding && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Expanding…
-                  </div>
-                )}
-                {graph && <GraphViewer graph={graph} onExpand={handleExpand} />}
-              </TabsContent>
-            </Tabs>
+            {/* Curriculum Tree */}
+            <div className="mt-4">
+              <ChapterAccordion chapters={curriculum.chapters} />
+            </div>
           </div>
 
           {/* Timeline sidebar */}

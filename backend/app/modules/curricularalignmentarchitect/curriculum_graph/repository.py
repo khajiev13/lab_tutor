@@ -208,7 +208,8 @@ class CurriculumGraphRepository:
         tx.run(
             """
             MERGE (sk:BOOK_SKILL {id: $skill_id})
-            SET sk.name        = $name,
+            SET sk:SKILL,
+                sk.name        = $name,
                 sk.description = $description
             """,
             skill_id=skill_id,
@@ -269,10 +270,15 @@ class CurriculumGraphRepository:
         tx: ManagedTransaction,
         concept_name: str,
         embedding: list[float],
-        threshold: float = 0.92,
+        threshold: float | None = None,
         top_k: int = 5,
     ) -> list[dict]:
         """Query the vector index for similar CONCEPT nodes."""
+        from app.core.settings import settings
+
+        if threshold is None:
+            threshold = settings.concept_similarity_threshold
+
         result = tx.run(
             """
             CALL db.index.vector.queryNodes('concept_embedding_idx', $top_k, $embedding)

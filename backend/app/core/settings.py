@@ -145,6 +145,13 @@ class Settings(BaseSettings):
         default=1.0,
         description="Base seconds for exponential backoff between embedding retries.",
     )
+    concept_similarity_threshold: float = Field(
+        default=0.92,
+        description=(
+            "Cosine similarity threshold for deduplicating CONCEPT nodes. "
+            "Two concepts scoring above this are considered duplicates."
+        ),
+    )
 
     # LangSmith (observability / tracing)
     langsmith_api_key: str | None = Field(

@@ -9,8 +9,6 @@ from app.modules.embeddings.schemas import CourseEmbeddingStatusResponse
 
 from .curriculum_schemas import CurriculumWithChangelog
 from .curriculum_service import CurriculumService, get_curriculum_service
-from .graph_schemas import CourseGraphResponse, GraphNodeKind
-from .graph_service import CourseGraphService, get_course_graph_service
 from .schemas import (
     CourseCreate,
     CourseFileRead,
@@ -195,42 +193,6 @@ async def start_extraction(
     extraction_status = service.start_extraction(course_id, teacher, background_tasks)
     return StartExtractionResponse(
         message="Extraction started", status=extraction_status
-    )
-
-
-@router.get("/{course_id}/graph", response_model=CourseGraphResponse)
-def get_course_graph(
-    course_id: int,
-    max_documents: int = 100,
-    max_concepts: int = 750,
-    service: CourseGraphService = Depends(get_course_graph_service),
-    teacher: User = Depends(require_role(UserRole.TEACHER)),
-):
-    return service.get_snapshot(
-        course_id=course_id,
-        teacher=teacher,
-        max_documents=max_documents,
-        max_concepts=max_concepts,
-    )
-
-
-@router.get("/{course_id}/graph/expand", response_model=CourseGraphResponse)
-def expand_course_graph(
-    course_id: int,
-    node_kind: GraphNodeKind,
-    node_key: str = "",
-    limit: int = 200,
-    max_concepts: int = 750,
-    service: CourseGraphService = Depends(get_course_graph_service),
-    teacher: User = Depends(require_role(UserRole.TEACHER)),
-):
-    return service.expand(
-        course_id=course_id,
-        teacher=teacher,
-        node_kind=node_kind,
-        node_key=node_key,
-        limit=limit,
-        max_concepts=max_concepts,
     )
 
 
