@@ -470,13 +470,13 @@ def list_chapters() -> str:
                 "ORDER BY ch.chapter_index"
             )
             chapters = [dict(r) for r in result]
-    except (ServiceUnavailable, SessionExpired, OSError) as e:
+    except (ServiceUnavailable, SessionExpired, OSError):
         logger.info(
             "[PERF] list_chapters Neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
         return "Knowledge Map unavailable. Please try again in a moment."
-    except AuthError as e:
+    except AuthError:
         return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] list_chapters Neo4j took %.1fms (%d chapters)",
@@ -555,13 +555,13 @@ def get_chapter_details(chapter_indices: str) -> str:
                 {"indices": indices},
             )
             market_skills = [dict(r) for r in market_skills_result]
-    except (ServiceUnavailable, SessionExpired, OSError) as e:
+    except (ServiceUnavailable, SessionExpired, OSError):
         logger.info(
             "[PERF] get_chapter_details Neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
         return "Knowledge Map unavailable. Please try again in a moment."
-    except AuthError as e:
+    except AuthError:
         return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] get_chapter_details Neo4j took %.1fms (%d sections, %d book skills, %d market skills)",
@@ -662,13 +662,13 @@ def get_section_concepts(section_refs: str) -> str:
                 {"refs": refs},
             )
             rows = [dict(r) for r in result]
-    except (ServiceUnavailable, SessionExpired, OSError) as e:
+    except (ServiceUnavailable, SessionExpired, OSError):
         logger.info(
             "[PERF] get_section_concepts Neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
         return "Knowledge Map unavailable. Please try again in a moment."
-    except AuthError as e:
+    except AuthError:
         return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] get_section_concepts Neo4j took %.1fms (%d rows)",
@@ -759,13 +759,13 @@ def check_skills_coverage(skill_names: str) -> str:
                 {"names": names},
             )
             rows = [dict(r) for r in result]
-    except (ServiceUnavailable, SessionExpired, OSError) as e:
+    except (ServiceUnavailable, SessionExpired, OSError):
         logger.info(
             "[PERF] check_skills_coverage Neo4j FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
         return "Knowledge Map unavailable. Please try again in a moment."
-    except AuthError as e:
+    except AuthError:
         return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] check_skills_coverage Neo4j took %.1fms (%d skills checked)",
@@ -1366,7 +1366,7 @@ def insert_market_skills_to_neo4j() -> str:
                         )
                         stats["new_concepts"] += 1
 
-    except (ServiceUnavailable, SessionExpired, OSError) as e:
+    except (ServiceUnavailable, SessionExpired, OSError):
         _get_neo4j_driver(force_new=True)
         logger.info(
             "[PERF] insert_market_skills_to_neo4j FAILED in %.1fms",
@@ -1441,7 +1441,7 @@ def delete_market_skills(skill_names: str) -> str:
             )
             orphan_concepts = orphan_concepts_result.single()["orphan_concepts"]
 
-    except (ServiceUnavailable, SessionExpired, OSError) as e:
+    except (ServiceUnavailable, SessionExpired, OSError):
         _get_neo4j_driver(force_new=True)
         return "Knowledge Map unavailable. Connection was reset — try again."
 
@@ -1628,13 +1628,13 @@ def load_book_skills_for_chapters(chapter_titles: str) -> str:
                 {"titles": titles},
             )
             rows = [dict(r) for r in result]
-    except (ServiceUnavailable, SessionExpired, OSError) as e:
+    except (ServiceUnavailable, SessionExpired, OSError):
         logger.info(
             "[PERF] load_book_skills_for_chapters FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
         return "Knowledge Map unavailable. Please try again in a moment."
-    except AuthError as e:
+    except AuthError:
         return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
         "[PERF] load_book_skills_for_chapters took %.1fms (%d rows)",
@@ -1687,7 +1687,7 @@ def compare_and_clean(chapter_title: str) -> str:
             book_skills = [
                 f"{s['name']}: {s.get('description', '')}" for s in book_skills_data
             ]
-    except (ServiceUnavailable, SessionExpired, OSError) as e:
+    except (ServiceUnavailable, SessionExpired, OSError):
         _get_neo4j_driver(force_new=True)
         return "Knowledge Map unavailable. Please try again in a moment."
 

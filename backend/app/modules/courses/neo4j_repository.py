@@ -6,7 +6,6 @@ from typing import LiteralString
 from neo4j import ManagedTransaction
 from neo4j import Session as Neo4jSession
 
-
 UPSERT_CLASS: LiteralString = """
 MERGE (c:CLASS {id: $id})
 SET
@@ -38,6 +37,7 @@ DELETE_CLASS: LiteralString = """
 MATCH (c:CLASS {id: $class_id})
 DETACH DELETE c
 """
+
 
 class CourseGraphRepository:
     _session: Neo4jSession
