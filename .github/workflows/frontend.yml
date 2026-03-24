@@ -11,6 +11,7 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend.yml'
+  workflow_dispatch:
 
 env:
   REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
