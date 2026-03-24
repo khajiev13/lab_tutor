@@ -9,6 +9,10 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
+# Build arg for Vite (baked into the JS bundle at build time)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Copy source code
 COPY . .
 

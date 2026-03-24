@@ -2,7 +2,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
 // Production should never call localhost from the deployed site.
 // Prefer VITE_API_URL injected at build time; otherwise fall back to the known Azure backend FQDN.
-const DEFAULT_PROD_API_URL = 'https://backend.delightfuldune-93ed9346.polandcentral.azurecontainerapps.io';
+const DEFAULT_PROD_API_URL = '';
 const DEV_HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
 const DEFAULT_DEV_API_URL = `http://${DEV_HOST}:8000`;
 const API_URL =
