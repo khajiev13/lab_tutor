@@ -160,7 +160,7 @@ describe("PipelineStepper", () => {
     expect(screen.getByText(/fetch jobs/i)).toBeInTheDocument();
     expect(screen.getByText(/select/i)).toBeInTheDocument();
     expect(screen.getByText(/extract/i)).toBeInTheDocument();
-    expect(screen.getByText(/insert/i)).toBeInTheDocument();
+    expect(screen.getByText(/knowledge map/i)).toBeInTheDocument();
   });
 
   it("marks completed stages", () => {

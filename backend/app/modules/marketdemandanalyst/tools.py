@@ -11,7 +11,16 @@ from langchain.tools import tool
 from langgraph.types import Command
 
 from .extractor import _get_extraction_llm
-from .state import tool_store
+from .schemas import (
+    CurriculumMapping,
+    ExtractedSkill,
+    InsertionResults,
+    JobPosting,
+    NewConcept,
+    SkillConceptAnalysis,
+    SkillForInsertion,
+)
+from .state import store
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +225,7 @@ def fetch_jobs(
 
     # Deduplicate by title+company (case-insensitive)
     seen: set[str] = set()
-    jobs_list = []
+    jobs_list: list[JobPosting] = []
     for _, row in combined.iterrows():
         desc = str(row.get("description", ""))
         if not desc or desc == "None" or len(desc) < 50:
@@ -228,24 +237,23 @@ def fetch_jobs(
             continue
         seen.add(dedup_key)
         jobs_list.append(
-            {
-                "title": title,
-                "company": company,
-                "description": desc[:4000],
-                "url": str(row.get("job_url", "")),
-                "site": str(row.get("site", "")),
-                "search_term": str(row["_search_term"]),
-            }
+            JobPosting(
+                title=title,
+                company=company,
+                description=desc[:4000],
+                url=str(row.get("job_url", "")),
+                site=str(row.get("site", "")),
+                search_term=str(row["_search_term"]),
+            )
         )
 
     if not jobs_list:
         return "Scraped jobs but none had usable descriptions."
 
     # Store raw jobs and track which search term found each one
-    tool_store["fetched_jobs"] = jobs_list
+    store.fetched_jobs = jobs_list
 
     # ── Group by normalized job title ──
-    # Strip seniority prefixes so "Senior Data Engineer" and "Data Engineer" group together
     _SENIORITY_RE = re.compile(
         r"^(senior|sr\.?|junior|jr\.?|lead|principal|staff|entry[- ]level|mid[- ]level)\s+",
         re.IGNORECASE,
@@ -257,12 +265,12 @@ def fetch_jobs(
 
     groups: dict[str, list[int]] = {}
     for i, job in enumerate(jobs_list):
-        group = _normalize_title(job.get("title", "Other"))
+        group = _normalize_title(job.title)
         groups.setdefault(group, []).append(i)
 
     # Sort by count descending and assign stable numbers
     sorted_groups = sorted(groups.items(), key=lambda x: -len(x[1]))
-    tool_store["job_groups"] = {cat: idxs for cat, idxs in sorted_groups}
+    store.job_groups = {cat: idxs for cat, idxs in sorted_groups}
 
     # Build grouped summary (this is all the LLM sees)
     lines = [
@@ -270,7 +278,7 @@ def fetch_jobs(
     ]
     shown = sorted_groups[:10]
     for num, (cat, idxs) in enumerate(shown, 1):
-        companies = list(dict.fromkeys(jobs_list[i]["company"] for i in idxs))[:4]
+        companies = list(dict.fromkeys(jobs_list[i].company for i in idxs))[:4]
         lines.append(
             f"  [{num}] {cat} ({len(idxs)} jobs) — e.g. {', '.join(companies)}"
         )
@@ -297,8 +305,8 @@ def save_skills_for_insertion(skills_json: str) -> str:
     except json.JSONDecodeError as e:
         return f"Invalid JSON: {e}. Please provide a valid JSON array."
 
-    tool_store["selected_for_insertion"] = skills
-    names = [s["name"] for s in skills]
+    store.selected_for_insertion = [SkillForInsertion.model_validate(s) for s in skills]
+    names = [s.name for s in store.selected_for_insertion]
     return f"Saved {len(skills)} skills for future insertion: {', '.join(names)}"
 
 
@@ -306,14 +314,14 @@ def save_skills_for_insertion(skills_json: str) -> str:
 def show_current_state() -> str:
     """Show a summary of everything collected so far: fetched jobs, selected jobs, extracted skills, curated skills, mapped skills, final skills, and saved skills."""
     lines = [
-        f"All fetched jobs: {len(tool_store.get('fetched_jobs', []))}",
-        f"Selected jobs: {len(tool_store.get('selected_jobs', []))}",
-        f"Extracted skills: {len(tool_store.get('extracted_skills', []))}",
-        f"Curated skills: {len(tool_store.get('curated_skills', []))}",
-        f"Curriculum mapping: {len(tool_store.get('curriculum_mapping', []))}",
-        f"Mapped skills: {sum(len(v) for v in tool_store.get('mapped_skills', {}).values())}",
-        f"Final (cleaned) skills: {len(tool_store.get('final_skills', []))}",
-        f"Saved for insertion: {len(tool_store.get('selected_for_insertion', []))}",
+        f"All fetched jobs: {len(store.fetched_jobs)}",
+        f"Selected jobs: {len(store.selected_jobs)}",
+        f"Extracted skills: {len(store.extracted_skills)}",
+        f"Curated skills: {len(store.curated_skills)}",
+        f"Curriculum mapping: {len(store.curriculum_mapping)}",
+        f"Mapped skills: {sum(len(v) for v in store.mapped_skills.values())}",
+        f"Final (cleaned) skills: {len(store.final_skills)}",
+        f"Saved for insertion: {len(store.selected_for_insertion)}",
     ]
     return " | ".join(lines)
 
@@ -329,8 +337,8 @@ def select_jobs_by_group(group_names: str) -> str:
     Accepts group names, numbers, or "all" intents (comma-separated).
     Examples: "1, 2, 5", "Bioinformatics, Genetics", or "all".
     """
-    groups = tool_store.get("job_groups", {})
-    jobs = tool_store.get("fetched_jobs", [])
+    groups = store.job_groups
+    jobs = store.fetched_jobs
     if not groups:
         return "No job groups found. The coordinator needs to fetch jobs first."
 
@@ -346,7 +354,7 @@ def select_jobs_by_group(group_names: str) -> str:
             matched_groups.append(f"{cat} ({len(idxs)})")
 
         selected = [jobs[i] for i in sorted(all_indices)]
-        tool_store["selected_jobs"] = selected
+        store.selected_jobs = selected
 
         lines = [
             f"Selected {len(selected)} jobs from all {len(matched_groups)} groups:"
@@ -400,7 +408,7 @@ def select_jobs_by_group(group_names: str) -> str:
         return f'No groups matched "{group_names}". Available groups: {available}'
 
     selected = [jobs[i] for i in sorted(selected_indices)]
-    tool_store["selected_jobs"] = selected
+    store.selected_jobs = selected
 
     lines = [f"Selected {len(selected)} jobs from {len(matched_groups)} groups:"]
     for g in matched_groups:
@@ -415,15 +423,14 @@ def start_extraction() -> Command | str:
     Fans out one LLM call per job, merges duplicates, then returns
     control back to Skill Finder for teacher skill selection."""
     # Guard: if extraction already ran, do NOT re-run.
-    existing = tool_store.get("extracted_skills", [])
-    if existing:
-        count = len(existing)
+    if store.extracted_skills:
+        count = len(store.extracted_skills)
         return (
             f"⚠️ Extraction already complete: {count} merged skills are ready. "
             "Call get_skills_by_category to review them. "
             "Do NOT call select_jobs_by_group or start_extraction again."
         )
-    jobs = tool_store.get("selected_jobs", [])
+    jobs = store.selected_jobs
     if not jobs:
         return Command(
             goto="skill_finder",
@@ -435,9 +442,7 @@ def start_extraction() -> Command | str:
         goto="skill_extractor",
         graph=Command.PARENT,
         # Keep active_agent as skill_finder — skill_extractor is a temporary
-        # subgraph detour, not a real swarm agent. This ensures the checkpoint
-        # never stores "skill_extractor" as active_agent, preventing KeyError
-        # on __start__ routing when a new message arrives mid-extraction.
+        # subgraph detour, not a real swarm agent.
         update={"active_agent": "skill_finder"},
     )
 
@@ -487,7 +492,7 @@ def list_chapters() -> str:
     if not chapters:
         return "No chapters found in the knowledge graph."
 
-    tool_store["chapters"] = chapters
+    store.chapters = chapters
     lines = [f"Course has {len(chapters)} chapters:"]
     for ch in chapters:
         ms = ch["market_skills"]
@@ -777,7 +782,6 @@ def check_skills_coverage(skill_names: str) -> str:
     covered = 0
     partial = 0
     new = 0
-
     already_in_market = 0
 
     for r in rows:
@@ -819,16 +823,15 @@ def check_skills_coverage(skill_names: str) -> str:
 def get_extracted_skills() -> str:
     """Retrieve the extracted market skills from the Skill Extractor's analysis.
     Call this to see what skills were found in the job market before mapping them."""
-    skills = tool_store.get("extracted_skills", [])
+    skills = store.extracted_skills
     if not skills:
         return "No extracted skills found. Skill Extractor must run first."
 
-    total = tool_store.get("total_jobs_for_extraction", "?")
+    total = store.total_jobs_for_extraction or "?"
     lines = [f"Market skills ({len(skills)} unique, from {total} jobs):"]
     for s in skills:
         lines.append(
-            f"  {s['name']} ({s.get('category', '?')}) — "
-            f"{s.get('frequency', '?')}/{total} jobs ({s.get('pct', '?')}%)"
+            f"  {s.name} ({s.category}) — {s.frequency}/{total} jobs ({s.pct}%)"
         )
     return "\n".join(lines)
 
@@ -856,27 +859,20 @@ def save_curriculum_mapping(mapping_json: str) -> str:
     if not isinstance(mapping, list):
         return "Expected a JSON array."
 
-    # Auto-correct skill names: match each entry's name against the actual
-    # extracted_skills list. The LLM sometimes simplifies names (e.g. writes
-    # "SQL Querying and Analysis" instead of the canonical
-    # "Query and analyze data using SQL"). We find the best match using
-    # case-insensitive substring overlap and replace the name with the canonical one.
-    extracted = tool_store.get("extracted_skills", [])
+    # Auto-correct skill names against the canonical extracted skills list
+    extracted = store.extracted_skills
     if extracted:
-        canonical_names: list[str] = [s["name"] for s in extracted]
+        canonical_names: list[str] = [s.name for s in extracted]
 
         def _best_match(name: str) -> str:
             name_lower = name.lower()
-            # Exact match first
             for cn in canonical_names:
                 if cn.lower() == name_lower:
                     return cn
-            # Substring match: canonical contains submitted name or vice versa
             for cn in canonical_names:
                 cn_lower = cn.lower()
                 if name_lower in cn_lower or cn_lower in name_lower:
                     return cn
-            # Word-overlap scoring
             query_words = set(name_lower.split())
             best, best_score = name, 0
             for cn in canonical_names:
@@ -901,11 +897,11 @@ def save_curriculum_mapping(mapping_json: str) -> str:
                 corrected_count,
             )
 
-    tool_store["curriculum_mapping"] = mapping
+    store.curriculum_mapping = [CurriculumMapping.model_validate(m) for m in mapping]
 
-    covered = [m for m in mapping if m.get("status") == "covered"]
-    gaps = [m for m in mapping if m.get("status") == "gap"]
-    new_topics = [m for m in mapping if m.get("status") == "new_topic_needed"]
+    covered = [m for m in store.curriculum_mapping if m.status == "covered"]
+    gaps = [m for m in store.curriculum_mapping if m.status == "gap"]
+    new_topics = [m for m in store.curriculum_mapping if m.status == "new_topic_needed"]
 
     lines = [
         f"Curriculum mapping saved: {len(covered)} covered, "
@@ -914,14 +910,11 @@ def save_curriculum_mapping(mapping_json: str) -> str:
     if gaps:
         lines.append("GAP SKILLS (to add):")
         for g in gaps[:10]:
-            lines.append(
-                f"  {g['name']} → {g.get('target_chapter', 'TBD')} "
-                f"[{g.get('priority', '?')}]"
-            )
+            lines.append(f"  {g.name} → {g.target_chapter or 'TBD'} [{g.priority}]")
     if new_topics:
         lines.append("NEW TOPICS NEEDED:")
         for n in new_topics:
-            lines.append(f"  {n['name']}")
+            lines.append(f"  {n.name}")
     lines.append("\nTransfer to Job Analyst for teacher discussion.")
     return "\n".join(lines)
 
@@ -1015,18 +1008,20 @@ def _fetch_chapter_concepts(chapter_title: str) -> list[str]:
             return []
 
 
-def _find_job_snippets(skill_name: str, jobs: list[dict], window: int = 500) -> str:
+def _find_job_snippets(
+    skill_name: str, jobs: list[JobPosting], window: int = 500
+) -> str:
     """Find relevant excerpts from job descriptions that mention a skill."""
     pattern = re.compile(re.escape(skill_name), re.IGNORECASE)
     snippets: list[str] = []
     for job in jobs:
-        desc = job.get("description", "")
+        desc = job.description
         match = pattern.search(desc)
         if match:
             start = max(0, match.start() - window // 2)
             end = min(len(desc), match.end() + window // 2)
             snippet = desc[start:end].strip()
-            snippets.append(f"--- {job['title']} @ {job['company']} ---\n{snippet}")
+            snippets.append(f"--- {job.title} @ {job.company} ---\n{snippet}")
         if len(snippets) >= 5:
             break
     return (
@@ -1039,44 +1034,43 @@ def _find_job_snippets(skill_name: str, jobs: list[dict], window: int = 500) -> 
 @tool
 def extract_concepts_for_skills() -> str:
     """Analyze all approved market skills and determine which concepts each requires.
-    Reads from tool_store: selected_for_insertion, curriculum_mapping, extracted_skills, selected_jobs.
+    Reads from store: selected_for_insertion, curriculum_mapping, extracted_skills, selected_jobs.
     For each skill, queries Neo4j for chapter concepts, finds job description evidence,
     and uses LLM to match existing concepts and propose new ones."""
-    approved = tool_store.get("selected_for_insertion", [])
+    approved = store.selected_for_insertion
     if not approved:
         return "No approved skills found. Teacher must approve skills first."
 
     t0 = time.perf_counter()
-    mapping_list = tool_store.get("curriculum_mapping", [])
-    mapping_lookup = {m["name"].lower(): m for m in mapping_list}
+    mapping_lookup = {m.name.lower(): m for m in store.curriculum_mapping}
+    skills_lookup = {s.name.lower(): s for s in store.extracted_skills}
 
-    skills_list = tool_store.get("extracted_skills", [])
-    skills_lookup = {s["name"].lower(): s for s in skills_list}
-
-    jobs = tool_store.get("selected_jobs", [])
-    total_jobs = tool_store.get("total_jobs_for_extraction", len(jobs))
-    skill_job_urls_lookup: dict[str, list[str]] = tool_store.get("skill_job_urls", {})
+    jobs = store.selected_jobs
+    total_jobs = store.total_jobs_for_extraction or len(jobs)
 
     llm = _get_extraction_llm()
-    skill_concepts: dict[str, dict] = {}
+    skill_concepts: dict[str, SkillConceptAnalysis] = {}
     errors: list[str] = []
 
     for skill_info in approved:
-        skill_name = skill_info["name"]
+        skill_name = skill_info.name
         skill_key = skill_name.lower()
 
         # Enrich from curriculum mapping and extracted skills
-        cm = mapping_lookup.get(skill_key, {})
-        es = skills_lookup.get(skill_key, {})
+        cm = mapping_lookup.get(skill_key)
+        es = skills_lookup.get(skill_key)
 
-        chapter_title = skill_info.get("target_chapter") or cm.get("target_chapter", "")
-        category = skill_info.get("category") or es.get("category", "unknown")
-        frequency = es.get("frequency", 0)
-        demand_pct = es.get("pct", 0.0)
-        priority = cm.get("priority", "medium")
-        status = cm.get("status", "gap")
-        rationale = skill_info.get("rationale", "")
-        reasoning = cm.get("reasoning", "")
+        chapter_title = skill_info.target_chapter or (cm.target_chapter if cm else "")
+        category = skill_info.category or (es.category if es else "unknown")
+        frequency = es.frequency if es else 0
+        demand_pct = es.pct if es else 0.0
+        priority = cm.priority if cm else "medium"
+        status = cm.status if cm else "gap"
+        rationale = skill_info.rationale
+        reasoning = cm.reasoning if cm else ""
+
+        # Source URLs directly from the extracted skill — no separate lookup needed
+        source_job_urls = list(es.source_urls) if es else []
 
         # Fetch chapter concepts from Neo4j
         chapter_concepts = (
@@ -1117,26 +1111,23 @@ def extract_concepts_for_skills() -> str:
             errors.append(f"{skill_name}: {type(e).__name__}: {e}")
             parsed = {"existing_concepts": [], "new_concepts": []}
 
-        # Find which jobs mentioned this skill (for SOURCED_FROM linking)
-        # Use the provenance map built during extraction — the synthesized skill
-        # name won't appear verbatim in job descriptions, so regex matching fails.
-        source_job_urls = skill_job_urls_lookup.get(skill_name.lower(), [])
+        skill_concepts[skill_name] = SkillConceptAnalysis(
+            existing_concepts=parsed.get("existing_concepts", []),
+            new_concepts=[
+                NewConcept.model_validate(nc) for nc in parsed.get("new_concepts", [])
+            ],
+            chapter_title=chapter_title,
+            category=category,
+            frequency=frequency,
+            demand_pct=demand_pct,
+            priority=priority,
+            status=status,
+            rationale=rationale,
+            reasoning=reasoning,
+            source_job_urls=source_job_urls,
+        )
 
-        skill_concepts[skill_name] = {
-            "existing_concepts": parsed.get("existing_concepts", []),
-            "new_concepts": parsed.get("new_concepts", []),
-            "chapter_title": chapter_title,
-            "category": category,
-            "frequency": frequency,
-            "demand_pct": demand_pct,
-            "priority": priority,
-            "status": status,
-            "rationale": rationale,
-            "reasoning": reasoning,
-            "source_job_urls": source_job_urls,
-        }
-
-    tool_store["skill_concepts"] = skill_concepts
+    store.skill_concepts = skill_concepts
     logger.info(
         "[PERF] extract_concepts_for_skills took %.1fms (%d skills)",
         (time.perf_counter() - t0) * 1000,
@@ -1151,14 +1142,12 @@ def extract_concepts_for_skills() -> str:
     total_existing = 0
     total_new = 0
     for name, data in skill_concepts.items():
-        n_exist = len(data["existing_concepts"])
-        n_new = len(data["new_concepts"])
+        n_exist = len(data.existing_concepts)
+        n_new = len(data.new_concepts)
         total_existing += n_exist
         total_new += n_new
         flag = " ⚠️" if n_exist == 0 and n_new == 0 else ""
-        lines.append(
-            f"| {name} | {data['chapter_title']} | {n_exist} | {n_new} |{flag}"
-        )
+        lines.append(f"| {name} | {data.chapter_title} | {n_exist} | {n_new} |{flag}")
     lines.append(f"| **TOTAL** | | **{total_existing}** | **{total_new}** |")
 
     if errors:
@@ -1175,28 +1164,19 @@ def insert_market_skills_to_neo4j() -> str:
     New concepts are embedded and deduplicated against existing concepts."""
     from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
-    skill_concepts = tool_store.get("skill_concepts")
-    if not skill_concepts:
+    if not store.skill_concepts:
         return "No concept data found. Run extract_concepts_for_skills first."
 
     t0 = time.perf_counter()
-    jobs = tool_store.get("selected_jobs", [])
+    jobs = store.selected_jobs
 
-    stats = {
-        "skills": 0,
-        "job_postings": 0,
-        "chapter_links": 0,
-        "sourced_from": 0,
-        "existing_concept_links": 0,
-        "new_concepts": 0,
-        "concepts_merged": 0,
-    }
+    stats = InsertionResults()
 
     # Collect all new concepts across skills for batch embedding + dedup
     all_new_concepts: list[dict] = []
     skill_new_concept_ranges: dict[str, tuple[int, int]] = {}
-    for skill_name, data in skill_concepts.items():
-        new_list = data.get("new_concepts", [])
+    for skill_name, data in store.skill_concepts.items():
+        new_list = [nc.model_dump() for nc in data.new_concepts]
         start = len(all_new_concepts)
         all_new_concepts.extend(new_list)
         skill_new_concept_ranges[skill_name] = (start, start + len(new_list))
@@ -1222,24 +1202,24 @@ def insert_market_skills_to_neo4j() -> str:
 
             # Step A: Create JOB_POSTING nodes
             for job in jobs:
-                if not job.get("url"):
+                if not job.url:
                     continue
                 session.run(
                     "MERGE (j:JOB_POSTING {url: $url}) "
                     "SET j.title = $title, j.company = $company, "
                     "    j.site = $site, j.search_term = $search_term",
                     {
-                        "url": job["url"],
-                        "title": job.get("title", ""),
-                        "company": job.get("company", ""),
-                        "site": job.get("site", ""),
-                        "search_term": job.get("search_term", ""),
+                        "url": job.url,
+                        "title": job.title,
+                        "company": job.company,
+                        "site": job.site,
+                        "search_term": job.search_term,
                     },
                 )
-                stats["job_postings"] += 1
+                stats.job_postings += 1
 
             # Steps B-E: For each skill, create node + relationships
-            for skill_name, data in skill_concepts.items():
+            for skill_name, data in store.skill_concepts.items():
                 # B: Create MARKET_SKILL node (with shared :SKILL label)
                 session.run(
                     "MERGE (s:MARKET_SKILL:SKILL {name: $name}) "
@@ -1255,20 +1235,20 @@ def insert_market_skills_to_neo4j() -> str:
                     "    s.created_at = datetime()",
                     {
                         "name": skill_name,
-                        "category": data.get("category", ""),
-                        "frequency": data.get("frequency", 0),
-                        "demand_pct": data.get("demand_pct", 0.0),
-                        "priority": data.get("priority", ""),
-                        "status": data.get("status", ""),
-                        "target_chapter": data.get("chapter_title", ""),
-                        "rationale": data.get("rationale", ""),
-                        "reasoning": data.get("reasoning", ""),
+                        "category": data.category,
+                        "frequency": data.frequency,
+                        "demand_pct": data.demand_pct,
+                        "priority": data.priority,
+                        "status": data.status,
+                        "target_chapter": data.chapter_title,
+                        "rationale": data.rationale,
+                        "reasoning": data.reasoning,
                     },
                 )
-                stats["skills"] += 1
+                stats.skills += 1
 
                 # C: Link chapter -> skill (reuses HAS_SKILL pattern)
-                chapter = data.get("chapter_title")
+                chapter = data.chapter_title
                 if chapter:
                     session.run(
                         "MATCH (s:MARKET_SKILL {name: $name}) "
@@ -1276,27 +1256,27 @@ def insert_market_skills_to_neo4j() -> str:
                         "MERGE (ch)-[:HAS_SKILL]->(s)",
                         {"name": skill_name, "chapter": chapter},
                     )
-                    stats["chapter_links"] += 1
+                    stats.chapter_links += 1
 
-                # D: Link to job postings
-                for url in data.get("source_job_urls", []):
+                # D: Link to job postings via source_job_urls
+                for url in data.source_job_urls:
                     session.run(
                         "MATCH (s:MARKET_SKILL {name: $name}) "
                         "MATCH (j:JOB_POSTING {url: $url}) "
                         "MERGE (s)-[:SOURCED_FROM]->(j)",
                         {"name": skill_name, "url": url},
                     )
-                    stats["sourced_from"] += 1
+                    stats.sourced_from += 1
 
                 # E: Link to existing concepts
-                for concept_name in data.get("existing_concepts", []):
+                for concept_name in data.existing_concepts:
                     session.run(
                         "MATCH (s:MARKET_SKILL {name: $name}) "
                         "MATCH (c:CONCEPT) WHERE c.name = $cname "
                         "MERGE (s)-[:REQUIRES_CONCEPT]->(c)",
                         {"name": skill_name, "cname": concept_name},
                     )
-                    stats["existing_concept_links"] += 1
+                    stats.existing_concept_links += 1
 
                 # F: New concepts — embed, dedup, then create-or-merge + link
                 start, end = skill_new_concept_ranges.get(skill_name, (0, 0))
@@ -1307,18 +1287,16 @@ def insert_market_skills_to_neo4j() -> str:
                     if i < len(dedup_results):
                         dr = dedup_results[i]
                     else:
-                        # Fallback: no dedup result (embedding failed)
                         dr = {"action": "create_no_embedding", "target_name": cname}
 
                     if dr["action"] == "merge":
-                        # Similar concept already exists — link to it
                         session.run(
                             "MATCH (s:MARKET_SKILL {name: $sname}) "
                             "MATCH (c:CONCEPT {name: $cname}) "
                             "MERGE (s)-[:REQUIRES_CONCEPT]->(c)",
                             {"sname": skill_name, "cname": dr["target_name"]},
                         )
-                        stats["concepts_merged"] += 1
+                        stats.concepts_merged += 1
                         logger.info(
                             "Merged new concept '%s' → existing '%s' (score=%.3f)",
                             cname,
@@ -1326,7 +1304,6 @@ def insert_market_skills_to_neo4j() -> str:
                             dr.get("score", 0),
                         )
                     elif dr["action"] == "create":
-                        # No match — create with embedding
                         session.run(
                             "MERGE (c:CONCEPT {name: $cname}) "
                             "ON CREATE SET c.description = $desc, "
@@ -1349,9 +1326,8 @@ def insert_market_skills_to_neo4j() -> str:
                                 "sname": skill_name,
                             },
                         )
-                        stats["new_concepts"] += 1
+                        stats.new_concepts += 1
                     else:
-                        # Fallback: create without embedding (embedding service down)
                         session.run(
                             "MERGE (c:CONCEPT {name: $cname}) "
                             "SET c.description = $desc "
@@ -1364,7 +1340,7 @@ def insert_market_skills_to_neo4j() -> str:
                                 "sname": skill_name,
                             },
                         )
-                        stats["new_concepts"] += 1
+                        stats.new_concepts += 1
 
     except (ServiceUnavailable, SessionExpired, OSError):
         _get_neo4j_driver(force_new=True)
@@ -1377,19 +1353,19 @@ def insert_market_skills_to_neo4j() -> str:
     logger.info(
         "[PERF] insert_market_skills_to_neo4j took %.1fms (stats=%s)",
         (time.perf_counter() - t0) * 1000,
-        stats,
+        stats.model_dump(),
     )
-    tool_store["insertion_results"] = stats
+    store.insertion_results = stats
 
     return (
         f"✅ Knowledge Map updated successfully!\n"
-        f"  Skills added: {stats['skills']}\n"
-        f"  Job postings linked: {stats['job_postings']}\n"
-        f"  Chapter links created: {stats['chapter_links']}\n"
-        f"  Source links created: {stats['sourced_from']}\n"
-        f"  Existing concept links reused: {stats['existing_concept_links']}\n"
-        f"  New concepts added: {stats['new_concepts']}\n"
-        f"  Similar concepts merged: {stats['concepts_merged']}"
+        f"  Skills added: {stats.skills}\n"
+        f"  Job postings linked: {stats.job_postings}\n"
+        f"  Chapter links created: {stats.chapter_links}\n"
+        f"  Source links created: {stats.sourced_from}\n"
+        f"  Existing concept links reused: {stats.existing_concept_links}\n"
+        f"  New concepts added: {stats.new_concepts}\n"
+        f"  Similar concepts merged: {stats.concepts_merged}"
     )
 
 
@@ -1454,7 +1430,7 @@ def delete_market_skills(skill_names: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  Skill Finder Tools (NEW)
+#  Skill Finder Tools
 # ═══════════════════════════════════════════════════════════════════
 
 
@@ -1462,26 +1438,22 @@ def delete_market_skills(skill_names: str) -> str:
 def get_skills_by_category() -> str:
     """Return extracted skills grouped by category with frequency counts.
     Call this after extraction completes to present skills to the teacher."""
-    skills = tool_store.get("extracted_skills", [])
+    skills = store.extracted_skills
     if not skills:
         return "No extracted skills found. Run start_extraction first."
 
-    total_jobs = tool_store.get("total_jobs_for_extraction", "?")
+    total_jobs = store.total_jobs_for_extraction or "?"
 
     # Group by category
-    by_cat: dict[str, list[dict]] = {}
+    by_cat: dict[str, list[ExtractedSkill]] = {}
     for s in skills:
-        cat = s.get("category", "unknown")
-        by_cat.setdefault(cat, []).append(s)
+        by_cat.setdefault(s.category, []).append(s)
 
     lines = [f"Extracted {len(skills)} unique skills from {total_jobs} jobs:\n"]
     for cat, cat_skills in sorted(by_cat.items(), key=lambda x: -len(x[1])):
         lines.append(f"## {cat.upper()} ({len(cat_skills)} skills)")
-        for s in sorted(cat_skills, key=lambda x: -x.get("frequency", 0)):
-            lines.append(
-                f"  • {s['name']} — {s.get('frequency', '?')}/{total_jobs} jobs "
-                f"({s.get('pct', '?')}%)"
-            )
+        for s in sorted(cat_skills, key=lambda x: -x.frequency):
+            lines.append(f"  • {s.name} — {s.frequency}/{total_jobs} jobs ({s.pct}%)")
         lines.append("")
 
     lines.append(
@@ -1505,16 +1477,15 @@ def approve_skill_selection(selection_json: str) -> str:
     except json.JSONDecodeError as e:
         return f"Invalid JSON: {e}. Please provide a valid JSON array or object."
 
-    extracted = tool_store.get("extracted_skills", [])
+    extracted = store.extracted_skills
     if not extracted:
         return "No extracted skills to select from. Run extraction first."
 
-    extracted_lookup = {s["name"].lower(): s for s in extracted}
-    curated: list[dict] = []
+    extracted_lookup = {s.name.lower(): s for s in extracted}
+    curated: list[ExtractedSkill] = []
     not_found: list[str] = []
 
     if isinstance(selection, list):
-        # Direct list of skill names
         for name in selection:
             key = name.strip().lower()
             if key in extracted_lookup:
@@ -1522,14 +1493,13 @@ def approve_skill_selection(selection_json: str) -> str:
             else:
                 not_found.append(name)
     elif isinstance(selection, dict):
-        # Category-based selection
         categories = [c.lower() for c in selection.get("categories", [])]
         specific = [s.lower() for s in selection.get("specific", [])]
         top_n = selection.get("top_n_per_category")
 
         if categories:
             for s in extracted:
-                if s.get("category", "").lower() in categories:
+                if s.category.lower() in categories:
                     curated.append(s)
         if specific:
             for name in specific:
@@ -1538,11 +1508,11 @@ def approve_skill_selection(selection_json: str) -> str:
                 else:
                     not_found.append(name)
         if top_n and isinstance(top_n, int):
-            by_cat: dict[str, list[dict]] = {}
+            by_cat: dict[str, list[ExtractedSkill]] = {}
             for s in extracted:
-                by_cat.setdefault(s.get("category", "unknown"), []).append(s)
+                by_cat.setdefault(s.category, []).append(s)
             for cat_skills in by_cat.values():
-                sorted_skills = sorted(cat_skills, key=lambda x: -x.get("frequency", 0))
+                sorted_skills = sorted(cat_skills, key=lambda x: -x.frequency)
                 for s in sorted_skills[:top_n]:
                     if s not in curated:
                         curated.append(s)
@@ -1551,15 +1521,15 @@ def approve_skill_selection(selection_json: str) -> str:
 
     # Deduplicate by name
     seen: set[str] = set()
-    deduped: list[dict] = []
+    deduped: list[ExtractedSkill] = []
     for s in curated:
-        key = s["name"].lower()
+        key = s.name.lower()
         if key not in seen:
             seen.add(key)
             deduped.append(s)
 
-    tool_store["curated_skills"] = deduped
-    names = [s["name"] for s in deduped]
+    store.curated_skills = deduped
+    names = [s.name for s in deduped]
     result = f"Saved {len(deduped)} curated skills: {', '.join(names[:10])}"
     if len(names) > 10:
         result += f" ... and {len(names) - 10} more"
@@ -1569,28 +1539,28 @@ def approve_skill_selection(selection_json: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  Skill Cleaner Tools (NEW)
+#  Skill Cleaner Tools
 # ═══════════════════════════════════════════════════════════════════
 
 
 @tool
 def load_mapped_skills() -> str:
     """Load the Mapper's output: market skills assigned to chapters.
-    Returns the mapped_skills dict from tool_store."""
-    mapped = tool_store.get("mapped_skills")
+    Returns the mapped_skills dict from store."""
+    mapped = store.mapped_skills
     if not mapped:
         # Fall back to curriculum_mapping if mapped_skills not set
-        mapping = tool_store.get("curriculum_mapping", [])
+        mapping = store.curriculum_mapping
         if not mapping:
             return "No mapped skills found. Curriculum Mapper must run first."
 
         # Build mapped_skills from curriculum_mapping
         mapped = {}
         for m in mapping:
-            if m.get("status") in ("gap", "new_topic_needed"):
-                chapter = m.get("target_chapter", "unassigned")
-                mapped.setdefault(chapter, []).append(m["name"])
-        tool_store["mapped_skills"] = mapped
+            if m.status in ("gap", "new_topic_needed"):
+                chapter = m.target_chapter or "unassigned"
+                mapped.setdefault(chapter, []).append(m.name)
+        store.mapped_skills = mapped
 
     lines = [f"Mapped skills across {len(mapped)} chapters:"]
     for chapter, skills in mapped.items():
@@ -1666,7 +1636,7 @@ def compare_and_clean(chapter_title: str) -> str:
     Args:
         chapter_title: the chapter to clean.
     Returns kept/dropped skill lists with reasoning."""
-    mapped = tool_store.get("mapped_skills", {})
+    mapped = store.mapped_skills
     market_skills = mapped.get(chapter_title, [])
     if not market_skills:
         return f"No mapped market skills for chapter: {chapter_title}"
@@ -1692,7 +1662,6 @@ def compare_and_clean(chapter_title: str) -> str:
         return "Knowledge Map unavailable. Please try again in a moment."
 
     if not book_skills:
-        # No book skills to compare against — keep all market skills
         result_data = {
             "chapter": chapter_title,
             "kept": market_skills,
@@ -1734,7 +1703,6 @@ def compare_and_clean(chapter_title: str) -> str:
         parsed = json.loads(text)
     except (json.JSONDecodeError, Exception) as e:
         logger.warning("compare_and_clean LLM parse error for %s: %s", chapter_title, e)
-        # On error, keep all skills
         result_data = {
             "chapter": chapter_title,
             "kept": market_skills,
@@ -1771,19 +1739,19 @@ def compare_and_clean(chapter_title: str) -> str:
 
 
 def _update_cleaned_results(result_data: dict) -> None:
-    """Accumulate per-chapter cleaning results into tool_store."""
-    cleaned = tool_store.get("_cleaned_results", [])
+    """Accumulate per-chapter cleaning results into store."""
+    cleaned = store._cleaned_results
     # Replace if chapter already processed
     cleaned = [c for c in cleaned if c["chapter"] != result_data["chapter"]]
     cleaned.append(result_data)
-    tool_store["_cleaned_results"] = cleaned
+    store._cleaned_results = cleaned
 
 
 @tool
 def finalize_cleaned_skills() -> str:
-    """Save the final cleaned skill list to tool_store and hand off to Concept Linker.
+    """Save the final cleaned skill list to store and hand off to Concept Linker.
     Aggregates all per-chapter cleaning results into a flat list of surviving skills."""
-    cleaned = tool_store.get("_cleaned_results", [])
+    cleaned = store._cleaned_results
     if not cleaned:
         return "No cleaning results found. Run compare_and_clean first."
 
@@ -1802,28 +1770,26 @@ def finalize_cleaned_skills() -> str:
             seen.add(key)
             deduped.append(s)
 
-    tool_store["final_skills"] = deduped
+    store.final_skills = deduped
 
     # Also update selected_for_insertion with enriched data from curated_skills
-    curated = tool_store.get("curated_skills", [])
-    curated_lookup = {s["name"].lower(): s for s in curated}
-    mapping = tool_store.get("curriculum_mapping", [])
-    mapping_lookup = {m["name"].lower(): m for m in mapping}
+    curated_lookup = {s.name.lower(): s for s in store.curated_skills}
+    mapping_lookup = {m.name.lower(): m for m in store.curriculum_mapping}
 
-    enriched: list[dict] = []
+    enriched: list[SkillForInsertion] = []
     for name in deduped:
-        skill_data = curated_lookup.get(name.lower(), {"name": name})
-        map_data = mapping_lookup.get(name.lower(), {})
+        skill_data = curated_lookup.get(name.lower())
+        map_data = mapping_lookup.get(name.lower())
         enriched.append(
-            {
-                "name": name,
-                "category": skill_data.get("category", "unknown"),
-                "target_chapter": map_data.get("target_chapter", ""),
-                "rationale": map_data.get("reasoning", ""),
-            }
+            SkillForInsertion(
+                name=name,
+                category=skill_data.category if skill_data else "unknown",
+                target_chapter=map_data.target_chapter if map_data else "",
+                rationale=map_data.reasoning if map_data else "",
+            )
         )
 
-    tool_store["selected_for_insertion"] = enriched
+    store.selected_for_insertion = enriched
 
     return (
         f"Finalized {len(deduped)} clean skills (dropped {total_dropped} redundant). "

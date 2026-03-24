@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { BrainCircuit, Loader2, PanelRightClose, PanelRightOpen, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,8 @@ import { UserMessage } from "../components/UserMessage";
 import { ChatInput } from "../components/ChatInput";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { StatePanel } from "../components/StatePanel";
+import { SelectionCard, type SelectionItem } from "../components/SelectionPanel";
+import type { AgentState, ChatMessage, SkillEntry } from "../types";
 
 const PROMPT_SUGGESTIONS = [
   "Analyze the job market for this course and find relevant postings",
@@ -47,6 +49,118 @@ const PROMPT_SUGGESTIONS = [
   "Check how well the current curriculum covers market demands",
   "Find skill gaps between our course and industry requirements",
 ];
+
+// ── Pending selection detection ──
+
+// Helpers: treat null, [], and {} as "not set"
+function hasItems(v: unknown): boolean {
+  if (v == null) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === "object") return Object.keys(v).length > 0;
+  return true;
+}
+
+type PendingSelection =
+  | { kind: "search_queries"; items: SelectionItem[] }
+  | { kind: "job_groups"; items: SelectionItem[] }
+  | { kind: "skill_categories"; items: SelectionItem[] }
+  | null;
+
+/** Extract quoted search terms from agent message text */
+function extractSearchTerms(messages: ChatMessage[]): string[] {
+  // Find last agent message that contains "Proposed Search Terms" or quoted terms list
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "agent") continue;
+    const text = msg.content;
+    if (!text.includes("Search Terms") && !text.includes("search terms")) continue;
+    // Match quoted strings like "Big Data Engineer"
+    const matches = text.match(/"([^"]+)"/g);
+    if (matches && matches.length >= 2) {
+      return matches.map((m) => m.replace(/"/g, ""));
+    }
+    break;
+  }
+  return [];
+}
+
+function detectPendingSelection(state: AgentState, messages: ChatMessage[]): PendingSelection {
+  // Search query selection: agent proposed terms but no jobs fetched yet
+  if (!hasItems(state.fetched_jobs)) {
+    const terms = extractSearchTerms(messages);
+    if (terms.length > 0) {
+      return {
+        kind: "search_queries",
+        items: terms.map((term) => ({
+          id: term,
+          label: term,
+        })),
+      };
+    }
+  }
+
+  // Job group selection: groups populated but no selection made yet
+  if (hasItems(state.job_groups) && !hasItems(state.selected_jobs)) {
+    const groups = state.job_groups!;
+    const jobs = state.fetched_jobs;
+    if (groups && jobs) {
+      const items: SelectionItem[] = Object.entries(groups).map(
+        ([name, indices]) => {
+          const idxs = indices as number[];
+          const companies = [
+            ...new Set(
+              idxs
+                .map((i) => (jobs[i] as Record<string, string>)?.company)
+                .filter(Boolean)
+            ),
+          ].slice(0, 3);
+          // Build tooltip lines: "Job Title — Company" for each job in the group
+          const tooltipLines = idxs.map((i) => {
+            const job = jobs[i] as Record<string, string>;
+            const title = job?.title || "Untitled";
+            const company = job?.company;
+            return company ? `${title} — ${company}` : title;
+          });
+          return {
+            id: name,
+            label: name,
+            description: companies.join(", "),
+            count: idxs.length,
+            tooltipLines,
+          };
+        }
+      );
+      if (items.length > 0) return { kind: "job_groups", items };
+    }
+  }
+
+  // Skill category selection: skills extracted but no mapping yet
+  if (hasItems(state.extracted_skills) && !hasItems(state.curriculum_mapping)) {
+    const skills = state.extracted_skills!;
+    const byCategory = new Map<string, SkillEntry[]>();
+    for (const s of skills) {
+      const list = byCategory.get(s.category) || [];
+      list.push(s);
+      byCategory.set(s.category, list);
+    }
+
+    const items: SelectionItem[] = Array.from(byCategory.entries())
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([category, catSkills]) => ({
+        id: category,
+        label: category.replace(/_/g, " "),
+        description: catSkills
+          .slice(0, 2)
+          .map((s) => s.name)
+          .join(", "),
+        badge: `${catSkills.length} skills`,
+      }));
+
+    return { kind: "skill_categories", items };
+  }
+
+  return null;
+}
 
 // ── Main Page (wraps with CourseDetailProvider) ──
 
@@ -84,11 +198,84 @@ function MarketDemandContent() {
 
   const [panelOpen, setPanelOpen] = useState(true);
 
+  // Track confirmed selections so the card flips to a summary
+  const [confirmedSelection, setConfirmedSelection] = useState<{
+    kind: string;
+    ids: string[];
+  } | null>(null);
+
+  // Ref to avoid stale closure in confirm handlers
+  const confirmedRef = useRef(confirmedSelection);
+  confirmedRef.current = confirmedSelection;
+
   const handleSend = (text: string) => {
     send(text);
   };
 
+  const handleClear = useCallback(async () => {
+    await clearConversation();
+    setConfirmedSelection(null);
+  }, [clearConversation]);
+
+  const handleSearchQueryConfirm = useCallback(
+    (selectedIds: string[]) => {
+      setConfirmedSelection({ kind: "search_queries", ids: selectedIds });
+      // Send selected terms so the agent uses them for fetching
+      send(selectedIds.map((t) => `"${t}"`).join(", "));
+    },
+    [send]
+  );
+
+  const handleJobGroupConfirm = useCallback(
+    (selectedIds: string[]) => {
+      const groups = agentState.job_groups;
+      if (!groups) return;
+      const groupKeys = Object.keys(groups);
+      const indices = selectedIds.map((id) => groupKeys.indexOf(id) + 1);
+      setConfirmedSelection({ kind: "job_groups", ids: selectedIds });
+      send(indices.join(", "));
+    },
+    [agentState.job_groups, send]
+  );
+
+  const handleSkillConfirm = useCallback(
+    (selectedIds: string[]) => {
+      setConfirmedSelection({ kind: "skill_categories", ids: selectedIds });
+      send(selectedIds.join(", "));
+    },
+    [send]
+  );
+
   const isEmpty = messages.length === 0 && !isLoadingHistory;
+
+  // Derive pending selection from state + messages
+  const pending = detectPendingSelection(agentState, messages);
+  const showSelection =
+    pending &&
+    confirmedSelection?.kind !== pending.kind;
+
+  // Map pending kind to confirm handler and labels
+  const selectionConfig: Record<string, {
+    title: string;
+    subtitle: string;
+    onConfirm: (ids: string[]) => void;
+  }> = {
+    search_queries: {
+      title: "Select Search Queries",
+      subtitle: "Choose which job search terms to use",
+      onConfirm: handleSearchQueryConfirm,
+    },
+    job_groups: {
+      title: "Select Job Groups",
+      subtitle: "Choose which groups to analyze for skills",
+      onConfirm: handleJobGroupConfirm,
+    },
+    skill_categories: {
+      title: "Select Skill Categories",
+      subtitle: "Choose categories to map against your curriculum",
+      onConfirm: handleSkillConfirm,
+    },
+  };
 
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden">
@@ -142,7 +329,7 @@ function MarketDemandContent() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={clearConversation}
+                    onClick={handleClear}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
                     Delete
@@ -175,13 +362,40 @@ function MarketDemandContent() {
             ) : isEmpty ? (
               <EmptyState onSuggestionClick={handleSend} />
             ) : (
-              messages.map((msg) =>
-                msg.role === "user" ? (
-                  <UserMessage key={msg.id} content={msg.content} />
-                ) : (
-                  <AgentMessage key={msg.id} message={msg} />
-                )
-              )
+              <>
+                {messages.map((msg) =>
+                  msg.role === "user" ? (
+                    <UserMessage key={msg.id} content={msg.content} />
+                  ) : (
+                    <AgentMessage key={msg.id} message={msg} />
+                  )
+                )}
+
+                {/* Inline selection card — unified rendering */}
+                {showSelection && selectionConfig[pending.kind] && (
+                  <SelectionCard
+                    title={selectionConfig[pending.kind].title}
+                    subtitle={selectionConfig[pending.kind].subtitle}
+                    items={pending.items}
+                    onConfirm={selectionConfig[pending.kind].onConfirm}
+                    disabled={isStreaming}
+                  />
+                )}
+
+                {/* Confirmed selection summary */}
+                {confirmedSelection && confirmedSelection.kind !== pending?.kind && (
+                  <SelectionCard
+                    title={`Selected: ${selectionConfig[confirmedSelection.kind]?.title ?? confirmedSelection.kind}`}
+                    items={confirmedSelection.ids.map((id) => ({
+                      id,
+                      label: id.replace(/_/g, " "),
+                    }))}
+                    onConfirm={() => {}}
+                    confirmed
+                    confirmedIds={confirmedSelection.ids}
+                  />
+                )}
+              </>
             )}
             <ChatContainerScrollAnchor />
           </ChatContainerContent>
