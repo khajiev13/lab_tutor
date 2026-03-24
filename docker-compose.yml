@@ -24,6 +24,27 @@ services:
   #     retries: 3
   #     start_period: 30s
 
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: lab_tutor_postgres
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-labtutor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-labtutor}
+      POSTGRES_DB: ${POSTGRES_DB:-labtutor}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    restart: unless-stopped
+    networks:
+      - lab_tutor_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-labtutor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   backend:
     build:
       context: ./backend
@@ -42,6 +63,9 @@ services:
     restart: unless-stopped
     networks:
       - lab_tutor_network
+    depends_on:
+      postgres:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -93,6 +117,8 @@ volumes:
   neo4j_plugins:
     driver: local
   backend_data:
+    driver: local
+  postgres_data:
     driver: local
 
 networks:
