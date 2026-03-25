@@ -6,19 +6,7 @@ import {
   RadarChart,
 } from 'recharts';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ChartContainer,
@@ -29,7 +17,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
+
 import { Slider } from '@/components/ui/slider';
 import {
   Table,
@@ -50,25 +38,7 @@ import type { RecommendationWeights } from '../../../types';
 import { cn } from '@/lib/utils';
 import { useChapterAnalysis } from './context';
 
-// ── Step display helpers ───────────────────────────────────────
 
-const STEP_LABELS: Record<string, string> = {
-  loaded_data: 'Data loaded from database',
-  embedding_chapter_summaries: 'Embedding chapter summaries…',
-  embedding_done: 'Embeddings generated',
-  creating_book_node: 'Creating book node',
-  creating_chapters: 'Creating chapter nodes',
-  processing_chapter: 'Processing chapter',
-  merging_similar_concepts: 'Merging similar concepts…',
-  merging_done: 'Concept merging complete',
-};
-
-function stepLabel(evt: { step?: string; chapter_title?: string }): string {
-  if (evt.step === 'processing_chapter' && evt.chapter_title) {
-    return `Processing: ${evt.chapter_title}`;
-  }
-  return STEP_LABELS[evt.step ?? ''] ?? evt.step ?? '';
-}
 
 // ── Weight slider config ───────────────────────────────────────
 
@@ -175,7 +145,7 @@ export function OverviewTab() {
   const { state, actions } = useChapterAnalysis();
   const { scores, weights } = state;
 
-  const selectedScore = scores.find((s) => s.bookId === state.selectedBookId) ?? null;
+
   const radarData = buildRadarData(scores);
 
   const chartConfig: ChartConfig = {};
@@ -277,133 +247,8 @@ export function OverviewTab() {
         ))}
       </div>
 
-      {/* Build Curriculum Graph */}
-      {scores.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Curriculum Knowledge Graph</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Transfer extracted chapters, concepts, and skills into Neo4j for
-              graph-powered exploration.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {state.curriculumBuilt ? (
-              <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4 text-green-600 dark:text-green-400"
-                    >
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-green-800 dark:text-green-300">
-                      Curriculum Graph Built
-                    </p>
-                    {selectedScore && (
-                      <p className="text-sm text-green-700/80 dark:text-green-400/80">
-                        {selectedScore.bookTitle}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Separator className="bg-green-200 dark:bg-green-800" />
-                <p className="text-sm text-green-700 dark:text-green-400">
-                  The knowledge graph is ready. Chapters, sections, concepts,
-                  and skills have been transferred to Neo4j.
-                </p>
-              </div>
-            ) : state.isBuildingCurriculum ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <svg
-                    className="h-4 w-4 animate-spin text-primary"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  <span className="text-sm font-medium">Building curriculum graph…</span>
-                </div>
-                {state.curriculumBuildProgress.length > 0 && (
-                  <div className="space-y-1 text-sm pl-6">
-                    {state.curriculumBuildProgress.map((evt, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        {evt.event === 'error' ? (
-                          <span className="text-destructive">✗</span>
-                        ) : (
-                          <span className="text-muted-foreground">•</span>
-                        )}
-                        <span
-                          className={cn(
-                            'text-muted-foreground',
-                            evt.event === 'error' && 'text-destructive',
-                          )}
-                        >
-                          {evt.event === 'error'
-                            ? evt.message
-                            : evt.event === 'progress'
-                              ? stepLabel(evt)
-                              : 'Complete'}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button disabled={!state.selectedBookId}>
-                    Build Curriculum Graph
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Build Curriculum Graph?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will construct a knowledge graph in Neo4j from the
-                      selected book&apos;s chapters, sections, concepts, and
-                      skills. The process embeds chapter summaries and merges
-                      duplicate concepts automatically.
-                      {selectedScore && (
-                        <span className="block mt-2 font-medium text-foreground">
-                          Book: {selectedScore.bookTitle}
-                        </span>
-                      )}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => {
-                        if (state.selectedBookId) {
-                          actions.buildCurriculum(state.selectedBookId);
-                        }
-                      }}
-                    >
-                      Build
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </CardContent>
-        </Card>
-      )}
+
+
 
       {/* Radar Chart */}
       {scores.length > 0 && (
