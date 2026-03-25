@@ -680,6 +680,72 @@ class CourseService:
 
         return course.extraction_status
 
+    def get_extraction_progress(self, course_id: int) -> dict:
+        """Return per-file extraction progress stats for the SSE stream."""
+        files = list(self._repo.list_course_files(course_id))
+        total = len(files)
+        processed = sum(1 for f in files if f.status == FileProcessingStatus.PROCESSED)
+        failed = sum(1 for f in files if f.status == FileProcessingStatus.FAILED)
+        terminal = processed + failed
+        value = round((terminal / total) * 100) if total > 0 else 0
+        file_statuses = [
+            {
+                "filename": f.filename,
+                "status": f.status.value,
+                "last_error": f.last_error,
+            }
+            for f in files
+        ]
+        return {
+            "total": total,
+            "processed": processed,
+            "failed": failed,
+            "terminal": terminal,
+            "value": value,
+            "files": file_statuses,
+        }
+
+    def start_extraction_if_idle(self, course_id: int, teacher: User) -> bool:
+        """Start extraction inline (not via BackgroundTasks).
+
+        Returns True if a new extraction was started, False if one is already running.
+        Does NOT use BackgroundTasks — the caller is responsible for spawning the
+        extraction thread.
+        """
+        course = self.get_course(course_id)
+
+        if course.teacher_id != teacher.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to start extraction for this course",
+            )
+
+        if course.extraction_status == ExtractionStatus.IN_PROGRESS:
+            return False  # already running — caller should just stream progress
+
+        files = list(self._repo.list_course_files(course.id))
+        has_pending_or_failed = any(
+            f.status in (FileProcessingStatus.PENDING, FileProcessingStatus.FAILED)
+            for f in files
+        )
+        if not has_pending_or_failed:
+            return False  # nothing to do
+
+        course.extraction_status = ExtractionStatus.IN_PROGRESS
+        self._repo.update(course, commit=False)
+        self._run_graph(
+            lambda: self._graph_repo.upsert_course(
+                course_id=course.id,
+                title=course.title,
+                description=course.description,
+                created_at=course.created_at,
+                extraction_status=course.extraction_status.value,
+            ),
+            detail="Failed to sync extraction status to Neo4j",
+        )
+        self._commit_sql()
+        return True
+
 
 def get_course_service(
     repo: CourseRepository = Depends(get_course_repository),

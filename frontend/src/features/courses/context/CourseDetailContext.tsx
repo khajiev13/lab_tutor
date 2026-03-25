@@ -4,11 +4,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { toast } from "sonner";
 
-import { coursesApi } from "../api";
+import { coursesApi, streamExtraction } from "../api";
+import type {
+  ExtractionProgressEvent,
+} from "../api";
 import type {
   Course,
   CourseEmbeddingStatusResponse,
@@ -135,30 +139,74 @@ export function CourseDetailProvider({
     refreshCourse();
   }, [refreshCourse]);
 
-  /* ── Extraction polling ────────────────────────────────────── */
+  /* ── SSE extraction stream ──────────────────────────────────── */
 
-  useEffect(() => {
-    if (course?.extraction_status !== "in_progress") return;
+  const sseAbortRef = useRef<AbortController | null>(null);
 
-    const intervalId = setInterval(async () => {
-      try {
-        const updated = await coursesApi.getCourse(courseId);
-        setCourse(updated);
-        if (updated.extraction_status !== "in_progress") {
-          clearInterval(intervalId);
-          if (updated.extraction_status === "finished") {
+  const connectExtractionStream = useCallback(
+    (cId: number) => {
+      // Abort any existing connection
+      sseAbortRef.current?.abort();
+      const controller = new AbortController();
+      sseAbortRef.current = controller;
+
+      streamExtraction({
+        courseId: cId,
+        signal: controller.signal,
+        onProgress: (event: ExtractionProgressEvent) => {
+          setExtractionProgress({
+            total: event.total,
+            processed: event.processed,
+            failed: event.failed,
+            terminal: event.terminal,
+            value: event.value,
+            allTerminal: event.total > 0 && event.terminal >= event.total,
+          });
+        },
+        onComplete: (event) => {
+          setExtractionProgress({
+            total: event.total,
+            processed: event.processed,
+            failed: event.failed,
+            terminal: event.terminal,
+            value: event.value,
+            allTerminal: true,
+          });
+          setCourse((prev) =>
+            prev ? { ...prev, extraction_status: event.status } : null
+          );
+          if (event.status === "finished") {
             toast.success("Data extraction completed successfully!");
-          } else if (updated.extraction_status === "failed") {
+          } else if (event.status === "failed") {
             toast.error("Data extraction failed.");
           }
-        }
-      } catch (error) {
-        console.error("Polling failed", error);
-      }
-    }, POLL_INTERVAL_MS);
+          sseAbortRef.current = null;
+        },
+        onError: (err) => {
+          console.error("Extraction SSE error:", err);
+          // Fallback: re-fetch course to get the latest status
+          coursesApi.getCourse(cId).then(setCourse).catch(console.error);
+          sseAbortRef.current = null;
+        },
+      });
+    },
+    []
+  );
 
-    return () => clearInterval(intervalId);
-  }, [course?.extraction_status, courseId]);
+  // Auto-connect SSE on page load if extraction is already in progress
+  useEffect(() => {
+    if (course?.extraction_status !== "in_progress") return;
+    // Only connect if no existing SSE connection
+    if (sseAbortRef.current) return;
+    connectExtractionStream(courseId);
+  }, [course?.extraction_status, courseId, connectExtractionStream]);
+
+  // Cleanup SSE on unmount
+  useEffect(() => {
+    return () => {
+      sseAbortRef.current?.abort();
+    };
+  }, []);
 
   /* ── Derived ───────────────────────────────────────────────── */
 
@@ -222,17 +270,18 @@ export function CourseDetailProvider({
     if (!course) return;
     setIsExtracting(true);
     try {
-      const response = await coursesApi.startExtraction(course.id);
-      toast.success(response.message);
+      // Optimistic UI update — SSE will set real status
       setCourse((prev) =>
-        prev ? { ...prev, extraction_status: response.status } : null
+        prev ? { ...prev, extraction_status: "in_progress" } : null
       );
+      connectExtractionStream(course.id);
+      toast.success("Extraction started");
     } catch {
       toast.error("Failed to start extraction");
     } finally {
       setIsExtracting(false);
     }
-  }, [course]);
+  }, [course, connectExtractionStream]);
 
   const onProgressChange = useCallback(
     (stats: ExtractionProgressInfo) => {

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -409,7 +410,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # VNET / private endpoints can take a few seconds after the container
     # starts before the network path is ready.
     _max_retries = 5
-    _retry_delay = 3  # seconds
+    _retry_delay = 1  # seconds (kept short for fast cold starts)
     for _attempt in range(1, _max_retries + 1):
         try:
             with engine.connect() as conn:
@@ -437,53 +438,103 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         conn.commit()
 
     Base.metadata.create_all(bind=engine)
-    _ensure_sql_schema_upgrades()
-    _backfill_course_selected_books()
 
-    # Warm up both connection pools so the first real request doesn't pay
-    # the cold TCP+SSL handshake cost (~5s against Azure Postgres).
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        logger.info("Sync DB pool warmed up")
-    except Exception:
-        logger.exception("Sync DB pool warm-up failed")
+    # ── Parallel startup tasks ──────────────────────────────────────────
+    # After tables exist, fire off remaining init work concurrently to
+    # minimise cold-start latency on Azure Container Apps (scale-to-zero).
 
-    try:
-        from sqlalchemy import text as atext
+    async def _task_schema_upgrades() -> None:
+        """Idempotent ALTER TABLE checks — safe to run in a thread."""
+        try:
+            await asyncio.to_thread(_ensure_sql_schema_upgrades)
+            logger.info("Schema upgrades complete")
+        except Exception:
+            logger.exception("Schema upgrades failed")
+            raise
 
-        async with async_engine.connect() as aconn:
-            await aconn.execute(atext("SELECT 1"))
-        logger.info("Async DB pool warmed up")
-    except Exception:
-        logger.exception("Async DB pool warm-up failed")
+    async def _task_backfill() -> None:
+        try:
+            await asyncio.to_thread(_backfill_course_selected_books)
+            logger.info("Backfill complete")
+        except Exception:
+            logger.exception("Backfill failed")
 
-    # Recover any extraction runs that were left in-progress when the server
-    # was last stopped/restarted (their background tasks are now gone).
-    try:
-        from app.modules.curricularalignmentarchitect.chunking_analysis.repository import (
-            recover_orphaned_runs,
-        )
+    async def _task_warmup_sync_pool() -> None:
+        """Warm up the sync connection pool in a thread."""
+        try:
 
-        with SessionLocal() as db:
-            recovered = recover_orphaned_runs(db)
+            def _ping() -> None:
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+
+            await asyncio.to_thread(_ping)
+            logger.info("Sync DB pool warmed up")
+        except Exception:
+            logger.exception("Sync DB pool warm-up failed")
+
+    async def _task_warmup_async_pool() -> None:
+        """Warm up the async connection pool."""
+        try:
+            from sqlalchemy import text as atext
+
+            async with async_engine.connect() as aconn:
+                await aconn.execute(atext("SELECT 1"))
+            logger.info("Async DB pool warmed up")
+        except Exception:
+            logger.exception("Async DB pool warm-up failed")
+
+    async def _task_recover_orphans() -> None:
+        try:
+            from app.modules.curricularalignmentarchitect.chunking_analysis.repository import (
+                recover_orphaned_runs,
+            )
+
+            def _recover() -> int:
+                with SessionLocal() as db:
+                    return recover_orphaned_runs(db)
+
+            recovered = await asyncio.to_thread(_recover)
             if recovered:
                 logger.info(
                     "Marked %d orphaned analysis run(s) as FAILED on startup", recovered
                 )
-    except Exception:
-        logger.exception("Failed to recover orphaned analysis runs on startup")
-
-    neo4j_driver = create_neo4j_driver()
-    app.state.neo4j_driver = neo4j_driver
-    if neo4j_driver is not None:
-        try:
-            verify_neo4j_connectivity(neo4j_driver)
-            initialize_neo4j_constraints(neo4j_driver)
-            logger.info("Neo4j connectivity verified")
         except Exception:
-            logger.exception("Neo4j connectivity verification failed")
-            raise
+            logger.exception("Failed to recover orphaned analysis runs on startup")
+
+    async def _task_neo4j_init() -> object:
+        def _init() -> object:
+            driver = create_neo4j_driver()
+            if driver is not None:
+                try:
+                    verify_neo4j_connectivity(driver)
+                    initialize_neo4j_constraints(driver)
+                    logger.info("Neo4j connectivity verified")
+                except Exception:
+                    logger.exception("Neo4j connectivity verification failed")
+                    raise
+            return driver
+
+        return await asyncio.to_thread(_init)
+
+    # Run all tasks concurrently.  Schema upgrades must succeed; the rest
+    # are best-effort (warm-ups, backfill, orphan recovery).
+    results = await asyncio.gather(
+        _task_schema_upgrades(),
+        _task_backfill(),
+        _task_warmup_sync_pool(),
+        _task_warmup_async_pool(),
+        _task_recover_orphans(),
+        _task_neo4j_init(),
+        return_exceptions=True,
+    )
+    # The last result is the neo4j driver (or an exception).
+    neo4j_result = results[-1]
+    if isinstance(neo4j_result, BaseException):
+        logger.error("Neo4j init failed during startup: %s", neo4j_result)
+        app.state.neo4j_driver = None
+    else:
+        app.state.neo4j_driver = neo4j_result
+
     yield
 
     if app.state.neo4j_driver is not None:

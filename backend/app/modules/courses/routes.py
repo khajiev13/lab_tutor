@@ -1,4 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.modules.auth.dependencies import (
     current_active_user,
@@ -193,6 +194,104 @@ async def start_extraction(
     extraction_status = service.start_extraction(course_id, teacher, background_tasks)
     return StartExtractionResponse(
         message="Extraction started", status=extraction_status
+    )
+
+
+@router.get("/{course_id}/extract/stream")
+async def stream_extraction_progress(
+    course_id: int,
+    service: CourseService = Depends(get_course_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    """SSE endpoint that streams extraction progress.
+
+    - If extraction is not running, starts it in a background thread.
+    - If extraction is already running (e.g., page refresh), joins and streams
+      the existing progress.
+    - Keeps the HTTP connection alive, preventing Azure scale-to-zero.
+    """
+    import asyncio
+    import json
+    import logging
+    import threading
+
+    from app.modules.document_extraction.service import (
+        run_course_extraction_background,
+    )
+
+    logger = logging.getLogger(__name__)
+
+    started = service.start_extraction_if_idle(course_id, teacher)
+    if started:
+        extraction_thread = threading.Thread(
+            target=run_course_extraction_background,
+            kwargs={"course_id": course_id, "teacher_id": teacher.id},
+            daemon=True,
+        )
+        extraction_thread.start()
+
+    async def event_generator():
+        poll_interval = 2  # seconds
+        keepalive_interval = 25  # seconds
+        ticks_since_keepalive = 0
+        previous_terminal = -1
+
+        # Emit initial progress immediately
+        try:
+            progress = await asyncio.to_thread(
+                service.get_extraction_progress, course_id
+            )
+            previous_terminal = progress["terminal"]
+            yield f"event: progress\ndata: {json.dumps(progress)}\n\n"
+        except Exception:
+            logger.exception("Failed to get initial extraction progress")
+
+        while True:
+            await asyncio.sleep(poll_interval)
+            ticks_since_keepalive += poll_interval
+
+            try:
+                progress = await asyncio.to_thread(
+                    service.get_extraction_progress, course_id
+                )
+            except Exception:
+                logger.exception("Failed to poll extraction progress")
+                yield f"event: error\ndata: {json.dumps({'error': 'Failed to read progress'})}\n\n"
+                break
+
+            # Emit progress if anything changed
+            if progress["terminal"] != previous_terminal:
+                previous_terminal = progress["terminal"]
+                ticks_since_keepalive = 0
+                yield f"event: progress\ndata: {json.dumps(progress)}\n\n"
+
+            # All files reached terminal state — emit final event and close
+            if progress["total"] > 0 and progress["terminal"] >= progress["total"]:
+                # Re-read the course to get the final extraction_status
+                try:
+                    course = await asyncio.to_thread(service.get_course, course_id)
+                    final_status = course.extraction_status.value
+                except Exception:
+                    final_status = "finished" if progress["failed"] == 0 else "failed"
+                complete_payload = {
+                    "status": final_status,
+                    **progress,
+                }
+                yield f"event: complete\ndata: {json.dumps(complete_payload)}\n\n"
+                break
+
+            # Send keep-alive comment to prevent TCP idle timeout
+            if ticks_since_keepalive >= keepalive_interval:
+                ticks_since_keepalive = 0
+                yield ": keepalive\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

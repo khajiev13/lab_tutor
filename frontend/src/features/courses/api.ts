@@ -14,6 +14,132 @@ import {
 } from './errors';
 import axios from 'axios';
 
+/* ── SSE helpers ───────────────────────────────────────────── */
+
+const DEFAULT_PROD_API_URL = '';
+const DEV_HOST = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const DEFAULT_DEV_API_URL = `http://${DEV_HOST}:8000`;
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD ? DEFAULT_PROD_API_URL : DEFAULT_DEV_API_URL);
+
+function getAccessToken(): string | null {
+  return localStorage.getItem('access_token');
+}
+
+export interface ExtractionProgressEvent {
+  total: number;
+  processed: number;
+  failed: number;
+  terminal: number;
+  value: number;
+  files: { filename: string; status: string; last_error: string | null }[];
+}
+
+export interface ExtractionCompleteEvent extends ExtractionProgressEvent {
+  status: ExtractionStatus;
+}
+
+interface StreamExtractionArgs {
+  courseId: number;
+  onProgress: (event: ExtractionProgressEvent) => void;
+  onComplete: (event: ExtractionCompleteEvent) => void;
+  onError?: (err: unknown) => void;
+  signal?: AbortSignal;
+}
+
+export async function streamExtraction({
+  courseId,
+  onProgress,
+  onComplete,
+  onError,
+  signal,
+}: StreamExtractionArgs): Promise<void> {
+  const token = getAccessToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const res = await fetch(`${API_URL}/courses/${courseId}/extract/stream`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'text/event-stream',
+    },
+    signal,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `Extraction stream failed (${res.status})`);
+  }
+
+  if (!res.body) throw new Error('Streaming not supported by the browser');
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      let idx: number;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const rawMessage = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+
+        // Skip SSE comments (keep-alive)
+        if (rawMessage.startsWith(':')) continue;
+
+        const lines = rawMessage.split('\n').map((l) => l.trimEnd());
+        let eventType: string | null = null;
+        let eventData: string | null = null;
+
+        for (const line of lines) {
+          if (!line) continue;
+          if (line.startsWith('event:')) {
+            eventType = line.slice('event:'.length).trim();
+          } else if (line.startsWith('data:')) {
+            eventData = line.slice('data:'.length).trim();
+          }
+        }
+
+        if (!eventData) continue;
+
+        try {
+          const parsed = JSON.parse(eventData);
+          if (eventType === 'complete') {
+            onComplete(parsed as ExtractionCompleteEvent);
+          } else if (eventType === 'progress') {
+            onProgress(parsed as ExtractionProgressEvent);
+          } else if (eventType === 'error') {
+            onError?.(new Error(parsed.error || 'Unknown SSE error'));
+          }
+        } catch (e) {
+          onError?.(e);
+        }
+      }
+    }
+  } catch (e) {
+    const isAbort =
+      typeof e === 'object' &&
+      e !== null &&
+      'name' in e &&
+      (e as { name: string }).name === 'AbortError';
+    if (!isAbort) onError?.(e);
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/* ── REST API ──────────────────────────────────────────────── */
+
 export const coursesApi = {
   list: async (): Promise<Course[]> => {
     const response = await api.get<Course[]>('/courses/');
@@ -114,3 +240,4 @@ export const presentationsApi = {
     await api.delete(`/courses/${courseId}/presentations`);
   },
 };
+
