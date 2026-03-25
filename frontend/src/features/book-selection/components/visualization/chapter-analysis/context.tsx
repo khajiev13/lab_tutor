@@ -7,12 +7,11 @@ import {
   useState,
 } from 'react';
 
-import { getChapterSummaries, getLatestAnalysis, openCurriculumBuildStream, openRecommendationStream, triggerChapterScoring } from '../../../api';
+import { getChapterSummaries, getLatestAnalysis, openRecommendationStream, triggerChapterScoring } from '../../../api';
 import { rankBooks } from '../../../lib/chapter-scoring';
 import type {
   BookRecommendationScore,
   ChapterAnalysisSummary,
-  CurriculumBuildEvent,
   RecommendationItem,
   RecommendationStreamEvent,
   RecommendationWeights,
@@ -32,9 +31,7 @@ interface ChapterAnalysisState {
   weights: RecommendationWeights;
   novelThreshold: number;
   coveredThreshold: number;
-  isBuildingCurriculum: boolean;
-  curriculumBuildProgress: CurriculumBuildEvent[];
-  curriculumBuilt: boolean;
+
   isGeneratingRecommendations: boolean;
   recommendations: RecommendationItem[];
   recommendationSummary: string | null;
@@ -49,7 +46,7 @@ interface ChapterAnalysisActions {
   setNovelThreshold: (value: number) => void;
   setCoveredThreshold: (value: number) => void;
   triggerScoring: () => Promise<void>;
-  buildCurriculum: (selectedBookId: number) => void;
+
   generateRecommendations: (selectedBookId: number) => void;
 }
 
@@ -104,9 +101,7 @@ export function ChapterAnalysisProvider({
   const [isLoading, setIsLoading] = useState(true);
   const [isScoring, setIsScoring] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isBuildingCurriculum, setIsBuildingCurriculum] = useState(false);
-  const [curriculumBuildProgress, setCurriculumBuildProgress] = useState<CurriculumBuildEvent[]>([]);
-  const [curriculumBuilt, setCurriculumBuilt] = useState(false);
+
   const [isGeneratingRecommendations, setIsGeneratingRecommendations] = useState(false);
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
   const [recommendationSummary, setRecommendationSummary] = useState<string | null>(null);
@@ -132,7 +127,7 @@ export function ChapterAnalysisProvider({
         if (!cancelled) {
           setSummaries(data);
           setLatestRunId(run.id);
-          if (run.status === 'curriculum_built') setCurriculumBuilt(true);
+
           if (data.length > 0) setSelectedBook(data[0].selected_book_id);
         }
       } catch (err) {
@@ -167,27 +162,7 @@ export function ChapterAnalysisProvider({
     }
   }, [courseId, selectedBookId]);
 
-  // Build curriculum action
-  const buildCurriculum = useCallback((bookId: number) => {
-    if (!latestRunId) return;
-    setIsBuildingCurriculum(true);
-    setCurriculumBuildProgress([]);
-    setError(null);
-    openCurriculumBuildStream(
-      courseId,
-      latestRunId,
-      bookId,
-      (evt) => {
-        setCurriculumBuildProgress((prev) => [...prev, evt]);
-        if (evt.event === 'complete') setCurriculumBuilt(true);
-      },
-      () => setIsBuildingCurriculum(false),
-      (err) => {
-        setIsBuildingCurriculum(false);
-        setError(err instanceof Error ? err.message : 'Curriculum build failed');
-      },
-    );
-  }, [courseId, latestRunId]);
+
 
   // Generate recommendations action
   const generateRecommendations = useCallback((bookId: number) => {
@@ -227,11 +202,7 @@ export function ChapterAnalysisProvider({
     );
   }, [courseId, latestRunId]);
 
-  // Track completion from progress events
-  useEffect(() => {
-    const last = curriculumBuildProgress[curriculumBuildProgress.length - 1];
-    if (last?.event === 'complete') setCurriculumBuilt(true);
-  }, [curriculumBuildProgress]);
+
 
   // Recompute scores whenever summaries, weights, or thresholds change
   const scores = useMemo(
@@ -248,9 +219,7 @@ export function ChapterAnalysisProvider({
         weights,
         novelThreshold,
         coveredThreshold,
-        isBuildingCurriculum,
-        curriculumBuildProgress,
-        curriculumBuilt,
+
         isGeneratingRecommendations,
         recommendations,
         recommendationSummary,
@@ -264,7 +233,7 @@ export function ChapterAnalysisProvider({
         setNovelThreshold,
         setCoveredThreshold,
         triggerScoring: triggerScoringAction,
-        buildCurriculum,
+
         generateRecommendations,
       },
       meta: {
@@ -281,9 +250,7 @@ export function ChapterAnalysisProvider({
       weights,
       novelThreshold,
       coveredThreshold,
-      isBuildingCurriculum,
-      curriculumBuildProgress,
-      curriculumBuilt,
+
       isGeneratingRecommendations,
       recommendations,
       recommendationSummary,
@@ -294,7 +261,7 @@ export function ChapterAnalysisProvider({
       isScoring,
       error,
       triggerScoringAction,
-      buildCurriculum,
+
       generateRecommendations,
     ],
   );
