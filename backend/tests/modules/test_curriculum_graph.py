@@ -1,9 +1,9 @@
-"""Tests for curriculum graph construction (repository + service + API route).
+"""Tests for candidate book graph construction (repository + service + API route).
 
 Covers:
 - CurriculumGraphRepository — Cypher execution against a mock Neo4j session
 - CurriculumGraphService    — orchestration, data snapshot, SSE event stream
-- Build-curriculum route    — auth guards (401/403), validation (404, wrong status)
+- Build-book-graph route    — auth guards (401/403), validation (404, wrong status)
 """
 
 from __future__ import annotations
@@ -159,6 +159,19 @@ class _FakeTx:
 
 
 class TestCurriculumGraphRepository:
+    def test_link_class_to_book_uses_candidate_book(self):
+        """Verify the repository creates CANDIDATE_BOOK (not USES_BOOK) with rank/s_final."""
+        tx = _FakeTx()
+        CurriculumGraphRepository.link_class_to_book(
+            tx, course_id=1, book_id="book_1", rank=2, s_final=0.85
+        )
+        assert len(tx.queries) == 1
+        q, params = tx.queries[0]
+        assert "CANDIDATE_BOOK" in q
+        assert "USES_BOOK" not in q
+        assert params["rank"] == 2
+        assert params["s_final"] == 0.85
+
     def test_create_chapter_nodes(self):
         tx = _FakeTx()
         chapters = [
@@ -337,7 +350,7 @@ class TestCurriculumGraphServiceValidation:
 
         service = CurriculumGraphService()
         events = self._collect_events(
-            service.build_curriculum(course_id=999, run_id=999, selected_book_id=999)
+            service.build_candidate_books_graph(course_id=999, run_id=999)
         )
 
         assert len(events) == 1
@@ -350,7 +363,7 @@ class TestCurriculumGraphServiceValidation:
     def test_wrong_status(self, mock_fresh_db, db_session):
         """Yields error when run status is PENDING (not allowed)."""
         run = _make_run(db_session, status=ExtractionRunStatus.PENDING)
-        book = _make_selected_book(db_session)
+        _make_selected_book(db_session)
         db_session.commit()
 
         mock_fresh_db.return_value.__enter__ = MagicMock(return_value=db_session)
@@ -358,10 +371,9 @@ class TestCurriculumGraphServiceValidation:
 
         service = CurriculumGraphService()
         events = self._collect_events(
-            service.build_curriculum(
+            service.build_candidate_books_graph(
                 course_id=run.course_id,
                 run_id=run.id,
-                selected_book_id=book.id,
             )
         )
 
@@ -372,10 +384,9 @@ class TestCurriculumGraphServiceValidation:
     @patch(
         "app.modules.curricularalignmentarchitect.curriculum_graph.service._fresh_db"
     )
-    def test_no_chapters_yields_error(self, mock_fresh_db, db_session):
-        """Yields error when there are no chapters for the selected book."""
+    def test_no_books_yields_error(self, mock_fresh_db, db_session):
+        """Yields error when there are no selected books for the course."""
         run = _make_run(db_session, status=ExtractionRunStatus.AGENTIC_COMPLETED)
-        book = _make_selected_book(db_session)
         db_session.commit()
 
         mock_fresh_db.return_value.__enter__ = MagicMock(return_value=db_session)
@@ -383,15 +394,14 @@ class TestCurriculumGraphServiceValidation:
 
         service = CurriculumGraphService()
         events = self._collect_events(
-            service.build_curriculum(
+            service.build_candidate_books_graph(
                 course_id=run.course_id,
                 run_id=run.id,
-                selected_book_id=book.id,
             )
         )
 
         assert any(e["event"] == "error" for e in events)
-        assert "no chapters" in events[-1]["message"].lower()
+        assert "no selected books" in events[-1]["message"].lower()
 
     @patch(
         "app.modules.curricularalignmentarchitect.curriculum_graph.service.create_neo4j_driver"
@@ -405,10 +415,20 @@ class TestCurriculumGraphServiceValidation:
     def test_happy_path_events(
         self, mock_fresh_db, mock_embedding_cls, mock_neo4j_driver, db_session
     ):
-        """On valid input, the service yields progress + complete events."""
+        """On valid input, the service yields progress + complete events for all books."""
         run = _make_run(db_session, status=ExtractionRunStatus.AGENTIC_COMPLETED)
-        book = _make_selected_book(db_session)
-        _make_chapter_with_sections(db_session, run_id=run.id, selected_book_id=book.id)
+        book1 = _make_selected_book(db_session, title="Book A")
+        book2 = _make_selected_book(db_session, title="Book B")
+        _make_chapter_with_sections(
+            db_session, run_id=run.id, selected_book_id=book1.id
+        )
+        _make_chapter_with_sections(
+            db_session,
+            run_id=run.id,
+            selected_book_id=book2.id,
+            chapter_index=0,
+            chapter_title="Chapter B1",
+        )
         db_session.commit()
 
         # Mock _fresh_db to return our test session
@@ -425,7 +445,7 @@ class TestCurriculumGraphServiceValidation:
         mock_emb_instance.embed_documents.return_value = [[0.1] * 2048]
         mock_embedding_cls.return_value = mock_emb_instance
 
-        # Mock Neo4j driver with a session that records but doesn't execute
+        # Mock Neo4j driver
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
@@ -441,10 +461,9 @@ class TestCurriculumGraphServiceValidation:
 
         service = CurriculumGraphService()
         events = self._collect_events(
-            service.build_curriculum(
+            service.build_candidate_books_graph(
                 course_id=run.course_id,
                 run_id=run.id,
-                selected_book_id=book.id,
             )
         )
 
@@ -456,23 +475,12 @@ class TestCurriculumGraphServiceValidation:
         # Should include key progress steps
         steps = [e.get("step") for e in events if e["event"] == "progress"]
         assert "loaded_data" in steps
+        assert "processing_book" in steps
         assert "embedding_chapter_summaries" in steps
-        assert "embedding_done" in steps
-        assert "creating_chapters" in steps
-        assert "processing_chapter" in steps
-        assert "merging_similar_concepts" in steps
 
-        # Complete event should have book_id
+        # Complete event should have total_books
         complete_evt = events[-1]
-        assert complete_evt["book_id"] == f"book_{book.id}"
-        assert complete_evt["total_chapters"] == 1
-
-        # Embedding service should have been called with the chapter summary
-        mock_emb_instance.embed_documents.assert_called_once()
-
-        # Run status should be CURRICULUM_BUILT
-        db_session.refresh(run)
-        assert run.status == ExtractionRunStatus.CURRICULUM_BUILT
+        assert complete_evt["total_books"] == 2
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -480,22 +488,22 @@ class TestCurriculumGraphServiceValidation:
 # ────────────────────────────────────────────────────────────────────────────
 
 
-class TestBuildCurriculumRouteAuth:
-    """Auth guard tests for the build-curriculum endpoint."""
+class TestBuildBookGraphRouteAuth:
+    """Auth guard tests for the build-book-graph endpoint."""
 
     def test_requires_auth(self, client):
-        resp = client.post(f"{BASE}/1/analysis/1/build-curriculum/1")
+        resp = client.post(f"{BASE}/1/analysis/1/build-book-graph")
         assert resp.status_code == 401
 
     def test_requires_teacher(self, client, student_auth_headers):
         resp = client.post(
-            f"{BASE}/1/analysis/1/build-curriculum/1",
+            f"{BASE}/1/analysis/1/build-book-graph",
             headers=student_auth_headers,
         )
         assert resp.status_code == 403
 
 
-class TestBuildCurriculumRouteValidation:
+class TestBuildBookGraphRouteValidation:
     """Validation tests — the endpoint streams SSE events, so we check the
     first event for error conditions."""
 
@@ -510,7 +518,7 @@ class TestBuildCurriculumRouteValidation:
         self, client, db_session, teacher_auth_headers
     ):
         resp = client.post(
-            f"{BASE}/1/analysis/99999/build-curriculum/99999",
+            f"{BASE}/1/analysis/99999/build-book-graph",
             headers=teacher_auth_headers,
         )
         # SSE endpoint always returns 200 — errors come as events
@@ -523,11 +531,11 @@ class TestBuildCurriculumRouteValidation:
         self, client, db_session, teacher_auth_headers
     ):
         run = _make_run(db_session, status=ExtractionRunStatus.PENDING)
-        book = _make_selected_book(db_session)
+        _make_selected_book(db_session)
         db_session.commit()
 
         resp = client.post(
-            f"{BASE}/{run.course_id}/analysis/{run.id}/build-curriculum/{book.id}",
+            f"{BASE}/{run.course_id}/analysis/{run.id}/build-book-graph",
             headers=teacher_auth_headers,
         )
         assert resp.status_code == 200

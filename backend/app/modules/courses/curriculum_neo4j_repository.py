@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # ── Full curriculum tree ───────────────────────────────────────
 _CURRICULUM_TREE_QUERY = """
-MATCH (cl:CLASS {id: $course_id})-[:USES_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)
+MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)
 WITH b, ch ORDER BY ch.chapter_index
 
 RETURN
@@ -56,7 +56,7 @@ ORDER BY ch.chapter_index
 
 # ── Changelog: market-skill insertions ordered by time ──────────
 _CHANGELOG_QUERY = """
-MATCH (cl:CLASS {id: $course_id})-[:USES_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(ms:MARKET_SKILL)
+MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(ms:MARKET_SKILL)
 WHERE ms.created_at IS NOT NULL
 RETURN
     toString(ms.created_at) AS timestamp,

@@ -43,15 +43,21 @@ class CurriculumGraphRepository:
         tx: ManagedTransaction,
         course_id: int,
         book_id: str,
+        rank: int = 0,
+        s_final: float = 0.0,
     ) -> None:
         tx.run(
             """
             MATCH (c:CLASS {id: $course_id})
             MATCH (b:BOOK {id: $book_id})
-            MERGE (c)-[:USES_BOOK]->(b)
+            MERGE (c)-[r:CANDIDATE_BOOK]->(b)
+            SET r.rank    = $rank,
+                r.s_final = $s_final
             """,
             course_id=course_id,
             book_id=book_id,
+            rank=rank,
+            s_final=s_final,
         ).consume()
 
     # ── Chapter nodes ───────────────────────────────────────────

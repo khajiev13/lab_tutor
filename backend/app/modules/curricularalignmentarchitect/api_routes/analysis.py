@@ -151,21 +151,22 @@ def register_routes(router):
         )
 
     @router.post(
-        "/courses/{course_id}/analysis/{run_id}/build-curriculum/{selected_book_id}",
+        "/courses/{course_id}/analysis/{run_id}/build-book-graph",
     )
-    async def build_curriculum(
+    async def build_book_graph(
         course_id: int,
         run_id: int,
-        selected_book_id: int,
         _teacher: User = Depends(require_role(UserRole.TEACHER)),
     ):
-        """Stream curriculum graph construction progress via SSE."""
+        """Stream candidate book graph construction progress via SSE.
+
+        Writes ALL selected books for this course to the Neo4j knowledge graph
+        with CANDIDATE_BOOK relationships.
+        """
         service = CurriculumGraphService()
 
         async def sse_generator():
-            async for event in service.build_curriculum(
-                course_id, run_id, selected_book_id
-            ):
+            async for event in service.build_candidate_books_graph(course_id, run_id):
                 yield f"data: {json.dumps(event)}\n\n"
 
         return StreamingResponse(

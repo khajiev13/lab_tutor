@@ -99,7 +99,7 @@ def load_curriculum_context(teacher_email: str | None = None) -> str:
 
             # Find their class and curriculum
             class_result = session.run(
-                "MATCH (t:USER:TEACHER)-[:TEACHES_CLASS]->(cl:CLASS)-[:USES_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER) "
+                "MATCH (t:USER:TEACHER)-[:TEACHES_CLASS]->(cl:CLASS)-[:CANDIDATE_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER) "
                 "OPTIONAL MATCH (ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
                 "WHERE toLower(t.email) = toLower($email) OR $email IS NULL "
                 "WITH cl, b, ch, collect(sk.name) AS skills "
