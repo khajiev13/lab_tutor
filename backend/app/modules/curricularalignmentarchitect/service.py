@@ -819,8 +819,6 @@ class BookSelectionService:
 
         from app.core.settings import settings
 
-        MAX_PDF_ATTEMPTS = 4
-
         with _fresh_db() as db:
             repo = BookSelectionRepository(db)
             selected = repo.get_selected_book(selected_book_id)
@@ -901,7 +899,7 @@ class BookSelectionService:
             rejection_log: list[str] = []
             book_downloaded = False
 
-            for attempt_idx, pdf_url in enumerate(pdf_urls[:MAX_PDF_ATTEMPTS]):
+            for attempt_idx, pdf_url in enumerate(pdf_urls):
                 try:
                     import contextlib as _ctxlib
                     import os as _os
@@ -982,7 +980,7 @@ class BookSelectionService:
                     )
 
             if not book_downloaded:
-                attempts_tried = min(len(pdf_urls), MAX_PDF_ATTEMPTS)
+                attempts_tried = len(pdf_urls)
                 old_error = ""
                 with _fresh_db() as db:
                     repo = BookSelectionRepository(db)
