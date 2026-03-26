@@ -22,6 +22,7 @@ vi.mock("../api", () => ({
     getCourse: (...args: Parameters<typeof mockGetCourse>) => mockGetCourse(...args),
     getEmbeddingsStatus: (...args: unknown[]) => mockGetEmbeddingsStatus(...args),
   },
+  streamExtraction: vi.fn(),
 }));
 
 // Mock book-selection API
