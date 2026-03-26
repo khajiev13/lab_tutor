@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -61,12 +61,23 @@ export function DownloadStatusPanel({
     (b) => b.status === 'ignored',
   ).length;
 
+  const downloadingCount = selectedBooks.filter(
+    (b) => b.status === 'downloading',
+  ).length;
+
   const activeTotal = selectedBooks.length - ignoredCount;
 
   const progressPct =
     activeTotal > 0
       ? Math.round((doneCount / activeTotal) * 100)
       : 0;
+
+  // Poll while any book is downloading (background retry task running)
+  useEffect(() => {
+    if (downloadingCount === 0) return;
+    const id = setInterval(onRefresh, 3000);
+    return () => clearInterval(id);
+  }, [downloadingCount, onRefresh]);
 
   return (
     <Card>
