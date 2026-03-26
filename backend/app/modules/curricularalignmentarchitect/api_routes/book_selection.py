@@ -262,3 +262,26 @@ def register_routes(router):
             return service.ignore_selected_book(selected_book_id)
         except ValueError as e:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    @router.post(
+        "/selected-books/{selected_book_id}/retry-download",
+        response_model=CourseSelectedBookRead,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    async def retry_download_book(
+        selected_book_id: int,
+        _teacher: User = Depends(require_role(UserRole.TEACHER)),
+        service: BookSelectionService = Depends(_get_service),
+    ):
+        book = service.repo.get_selected_book(selected_book_id)
+        if book is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, detail="Selected book not found"
+            )
+        if book.status not in ("failed", "corrupted_pdf"):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot retry download from status '{book.status}'",
+            )
+        asyncio.create_task(service.retry_download_book(selected_book_id))
+        return CourseSelectedBookRead.model_validate(book)

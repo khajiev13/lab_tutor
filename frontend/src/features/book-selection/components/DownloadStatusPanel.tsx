@@ -29,7 +29,7 @@ import {
   FileText,
 } from 'lucide-react';
 import type { CourseSelectedBook, StreamEvent } from '../types';
-import { ignoreSelectedBook, uploadToSelectedBook } from '../api';
+import { ignoreSelectedBook, retryDownloadBook, uploadToSelectedBook } from '../api';
 import { toast } from 'sonner';
 
 interface DownloadStatusPanelProps {
@@ -163,7 +163,21 @@ function DownloadRow({
 }) {
   const [uploading, setUploading] = useState(false);
   const [ignoring, setIgnoring] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try {
+      await retryDownloadBook(book.id);
+      toast.success(`Retrying download for "${book.title}"`);
+      onUploaded();
+    } catch (err) {
+      toast.error(`Retry failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const handleUpload = async (file: File) => {
     setUploading(true);
@@ -219,6 +233,19 @@ function DownloadRow({
                 </a>
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRetry}
+              disabled={retrying || uploading}
+            >
+              {retrying ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-1 h-3 w-3" />
+              )}
+              Retry
+            </Button>
             <input
               ref={fileRef}
               type="file"
@@ -233,7 +260,7 @@ function DownloadRow({
               size="sm"
               variant="outline"
               onClick={() => fileRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || retrying}
             >
               {uploading ? (
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -246,7 +273,7 @@ function DownloadRow({
               size="sm"
               variant="ghost"
               onClick={handleIgnore}
-              disabled={ignoring}
+              disabled={ignoring || retrying}
             >
               {ignoring ? (
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -283,6 +310,12 @@ function StatusBadge({ status }: { status: string }) {
       return (
         <Badge className="bg-blue-500 hover:bg-blue-600 gap-1">
           <Upload className="h-3 w-3" /> Uploaded
+        </Badge>
+      );
+    case 'downloading':
+      return (
+        <Badge className="bg-yellow-500 hover:bg-yellow-600 gap-1">
+          <Loader2 className="h-3 w-3 animate-spin" /> Downloading
         </Badge>
       );
     case 'failed':

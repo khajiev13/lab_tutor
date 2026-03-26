@@ -36,6 +36,7 @@ class BookStatus(str, Enum):
     FAILED = "failed"
     CORRUPTED_PDF = "corrupted_pdf"
     IGNORED = "ignored"
+    DOWNLOADING = "downloading"
 
 
 class BookSelectionSession(Base):

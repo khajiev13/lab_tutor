@@ -231,7 +231,7 @@ _DOWNLOAD_DIR = os.path.join(
     "books",
 )
 
-MIN_PAGE_COUNT = 20
+MIN_PAGE_COUNT = 70
 _TEXT_SAMPLE_PAGES = 3
 _MIN_CHARS_PER_PAGE = 50
 

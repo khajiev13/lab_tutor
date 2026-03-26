@@ -17,7 +17,7 @@ export type DownloadStatus =
   | 'failed'
   | 'manual_upload';
 
-export type BookStatus = 'downloaded' | 'uploaded' | 'failed' | 'ignored';
+export type BookStatus = 'downloaded' | 'uploaded' | 'failed' | 'ignored' | 'downloading';
 
 export type CourseLevel = 'bachelor' | 'master' | 'phd';
 
