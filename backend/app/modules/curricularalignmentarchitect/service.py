@@ -807,6 +807,227 @@ class BookSelectionService:
 
     # ── Manual upload ───────────────────────────────────────────
 
+    async def retry_download_book(self, selected_book_id: int) -> None:
+        """Re-search and download a single failed book, skipping known-bad URLs.
+
+        Runs as a background task.  Looks up the CourseSelectedBook, parses
+        previously failed URLs from its error_message, searches Serper for
+        fresh PDF links (excluding the bad ones), and uploads the first
+        valid hit to Azure Blob Storage.
+        """
+        from langchain_community.utilities import GoogleSerperAPIWrapper
+
+        from app.core.settings import settings
+
+        MAX_PDF_ATTEMPTS = 4
+
+        with _fresh_db() as db:
+            repo = BookSelectionRepository(db)
+            selected = repo.get_selected_book(selected_book_id)
+            if selected is None:
+                logger.warning(
+                    "retry_download_book: selected book %d not found", selected_book_id
+                )
+                return
+            if selected.status not in (BookStatus.FAILED,):
+                logger.warning(
+                    "retry_download_book: book %d has status '%s', skipping",
+                    selected_book_id,
+                    selected.status,
+                )
+                return
+
+            title = selected.title
+            authors = selected.authors or ""
+            course_id = selected.course_id
+            source_book_id = selected.source_book_id
+
+            # Parse previously failed URLs from error_message
+            failed_urls: set[str] = set()
+            if selected.error_message:
+                import re as _re
+
+                for url_match in _re.finditer(
+                    r"https?://[^\s)]+", selected.error_message
+                ):
+                    failed_urls.add(url_match.group())
+
+            # Mark as downloading
+            repo.update_selected_book_status(selected_book_id, BookStatus.DOWNLOADING)
+
+        try:
+            # Search for fresh PDF links
+            serper = GoogleSerperAPIWrapper(
+                serper_api_key=settings.serper_api_key,
+                k=10,
+                type="search",
+            )
+            search_query = f"{title} {authors} pdf download".strip()
+
+            pdf_urls: list[str] = []
+            try:
+                data: dict = await serper.aresults(search_query)
+                for item in data.get("organic", []):
+                    link: str = item.get("link", "")
+                    if link.lower().endswith(".pdf") and link not in failed_urls:
+                        pdf_urls.append(link)
+            except Exception as search_exc:
+                logger.error(
+                    "Serper search failed for retry of '%s': %s", title, search_exc
+                )
+
+            if not pdf_urls:
+                error_msg = (
+                    "Retry: no new PDF links found (previously failed URLs skipped). "
+                    "Please upload manually."
+                )
+                with _fresh_db() as db:
+                    repo = BookSelectionRepository(db)
+                    repo.update_selected_book_status(
+                        selected_book_id,
+                        BookStatus.FAILED,
+                        error_message=error_msg,
+                    )
+                    if source_book_id:
+                        repo.update_download_result(
+                            source_book_id,
+                            DownloadStatus.FAILED,
+                            error=error_msg,
+                        )
+                return
+
+            # Try downloading PDFs
+            blob_path = f"courses/{course_id}/books/{_safe_filename(title)}.pdf"
+            rejection_log: list[str] = []
+            book_downloaded = False
+
+            for attempt_idx, pdf_url in enumerate(pdf_urls[:MAX_PDF_ATTEMPTS]):
+                try:
+                    import contextlib as _ctxlib
+                    import os as _os
+                    import tempfile
+
+                    import httpx
+
+                    from .book_selection.tools import validate_pdf
+
+                    tmp_path: str | None = None
+                    try:
+                        async with httpx.AsyncClient(
+                            follow_redirects=True, timeout=120.0
+                        ) as client:
+                            resp = await client.get(pdf_url)
+                            resp.raise_for_status()
+                            pdf_bytes = resp.content
+
+                        with tempfile.NamedTemporaryFile(
+                            suffix=".pdf", delete=False
+                        ) as tmp:
+                            tmp.write(pdf_bytes)
+                            tmp_path = tmp.name
+
+                        vr = validate_pdf(tmp_path, expected_title=title)
+                        if not vr.valid:
+                            rejection_log.append(
+                                f"Attempt {attempt_idx + 1}: {vr.rejection_reason} "
+                                f"(source: {pdf_url})"
+                            )
+                            continue
+
+                        # Valid — upload to Azure
+                        blob_url = await self.blob_service.upload_bytes(
+                            pdf_bytes, blob_path
+                        )
+                        logger.info(
+                            "Retry: PDF validated for '%s' (%d pages) from %s",
+                            title,
+                            vr.page_count,
+                            pdf_url,
+                        )
+                    finally:
+                        if tmp_path:
+                            with _ctxlib.suppress(OSError):
+                                _os.remove(tmp_path)
+
+                    # Success — persist to DB
+                    with _fresh_db() as db:
+                        repo = BookSelectionRepository(db)
+                        repo.update_selected_book_status(
+                            selected_book_id,
+                            BookStatus.DOWNLOADED,
+                            blob_path=blob_path,
+                            blob_url=blob_url,
+                        )
+                        if source_book_id:
+                            repo.update_download_result(
+                                source_book_id,
+                                DownloadStatus.SUCCESS,
+                                blob_path=blob_path,
+                                source_url=pdf_url,
+                            )
+                    book_downloaded = True
+                    break
+
+                except Exception as dl_exc:
+                    logger.warning(
+                        "Retry download attempt %d failed for '%s' from %s: %s",
+                        attempt_idx + 1,
+                        title,
+                        pdf_url,
+                        dl_exc,
+                    )
+                    rejection_log.append(
+                        f"Attempt {attempt_idx + 1}: Download error: "
+                        f"{dl_exc} (source: {pdf_url})"
+                    )
+
+            if not book_downloaded:
+                attempts_tried = min(len(pdf_urls), MAX_PDF_ATTEMPTS)
+                old_error = ""
+                with _fresh_db() as db:
+                    repo = BookSelectionRepository(db)
+                    sel = repo.get_selected_book(selected_book_id)
+                    if sel and sel.error_message:
+                        old_error = sel.error_message
+
+                summary = "; ".join(rejection_log) if rejection_log else ""
+                error_msg = (
+                    f"Retry: tried {attempts_tried} new PDF source(s), "
+                    f"none were valid. {summary} "
+                    f"Please find and upload a valid PDF manually."
+                )
+                # Preserve old error context so future retries skip those URLs too
+                if old_error:
+                    error_msg = f"{old_error} | {error_msg}"
+
+                with _fresh_db() as db:
+                    repo = BookSelectionRepository(db)
+                    repo.update_selected_book_status(
+                        selected_book_id,
+                        BookStatus.FAILED,
+                        error_message=error_msg,
+                    )
+                    if source_book_id:
+                        repo.update_download_result(
+                            source_book_id,
+                            DownloadStatus.FAILED,
+                            error=error_msg,
+                        )
+
+        except Exception:
+            logger.exception(
+                "Unexpected error retrying download for selected book %d",
+                selected_book_id,
+            )
+            with _fresh_db() as db:
+                repo = BookSelectionRepository(db)
+                repo.update_selected_book_status(
+                    selected_book_id,
+                    BookStatus.FAILED,
+                    error_message="Retry failed due to an unexpected error. "
+                    "Please upload manually.",
+                )
+
     async def upload_book_manually(
         self,
         session_id: int,

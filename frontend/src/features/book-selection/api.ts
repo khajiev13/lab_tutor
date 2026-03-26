@@ -128,6 +128,15 @@ export async function ignoreSelectedBook(
   return res.data;
 }
 
+export async function retryDownloadBook(
+  selectedBookId: number,
+): Promise<CourseSelectedBook> {
+  const res = await api.post<CourseSelectedBook>(
+    `/book-selection/selected-books/${selectedBookId}/retry-download`,
+  );
+  return res.data;
+}
+
 export async function uploadCustomSelectedBook(
   courseId: number,
   file: File,
