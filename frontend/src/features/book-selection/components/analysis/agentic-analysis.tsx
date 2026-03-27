@@ -501,9 +501,9 @@ export function AgenticAnalysis({
   // ── Render ─────────────────────────────────────────────────
 
   // Sync isDone from parent polling (parent detects agentic_completed)
-  const prevRunStatus = useRef(runStatus);
-  if (runStatus !== prevRunStatus.current) {
-    prevRunStatus.current = runStatus;
+  const [prevRunStatus, setPrevRunStatus] = useState(runStatus);
+  if (runStatus !== prevRunStatus) {
+    setPrevRunStatus(runStatus);
     if (runStatus === 'agentic_completed' && !isDone) {
       setIsDone(true);
       setIsRunning(false);
