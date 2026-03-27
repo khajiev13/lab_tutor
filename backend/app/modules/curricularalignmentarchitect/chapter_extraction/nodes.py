@@ -122,7 +122,9 @@ def _revise_skills(
     issues: list[str],
 ) -> ChapterSkillsResult:
     previous_json = json.dumps(previous.model_dump(), indent=2, ensure_ascii=False)
-    issue_text = "\n".join(f"- {i}" for i in issues) if issues else "(no specific issues)"
+    issue_text = (
+        "\n".join(f"- {i}" for i in issues) if issues else "(no specific issues)"
+    )
     return (SKILLS_REVISION_PROMPT | _skills_llm()).invoke(
         {
             "course_subject": course_subject,
@@ -357,7 +359,9 @@ def chapter_worker(state: ChapterWorkerInput) -> dict:
     except Exception as e:
         elapsed = time.time() - t0
         errors.append({"book": book_label, "chapter": ch_title, "error": str(e)})
-        logger.exception("Chapter skills extraction failed: %s / %s", book_label, ch_title)
+        logger.exception(
+            "Chapter skills extraction failed: %s / %s", book_label, ch_title
+        )
         writer(
             {
                 "type": "chapter_error",

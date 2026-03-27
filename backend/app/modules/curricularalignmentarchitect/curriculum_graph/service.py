@@ -350,6 +350,7 @@ class CurriculumGraphService:
                             concept_name=concept["name"],
                         )
 
+
 # ── Data snapshot helper ────────────────────────────────────────
 
 
