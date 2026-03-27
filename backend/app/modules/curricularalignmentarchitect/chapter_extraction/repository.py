@@ -142,8 +142,23 @@ def save_chapter_extraction(
                     )
                 )
 
+        chapter.agentic_processed = True
         db.commit()
         return chapter.id
+
+
+def get_completed_chapter_indices(run_id: int, book_id: int, db: Session) -> set[int]:
+    """Return chapter indices that have been successfully agentic-processed."""
+    rows = (
+        db.query(BookChapter.chapter_index)
+        .filter(
+            BookChapter.run_id == run_id,
+            BookChapter.selected_book_id == book_id,
+            BookChapter.agentic_processed.is_(True),
+        )
+        .all()
+    )
+    return {row.chapter_index for row in rows}
 
 
 def get_agentic_chapter_counts(run_id: int, db: Session) -> dict[int, dict]:

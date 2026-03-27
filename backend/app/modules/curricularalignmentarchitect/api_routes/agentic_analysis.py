@@ -26,7 +26,11 @@ from app.modules.auth.models import User, UserRole
 from app.modules.courses.models import Course
 
 from ..chapter_extraction.graph import build_book_pipeline_graph
-from ..chapter_extraction.repository import fresh_db, update_run
+from ..chapter_extraction.repository import (
+    fresh_db,
+    get_completed_chapter_indices,
+    update_run,
+)
 from ..chapter_extraction.state import BOOK_PIPELINE_MAX_CONCURRENCY
 from ..chunking_analysis.repository import get_chapters_for_book
 from ..models import (
@@ -72,6 +76,7 @@ def register_routes(router):
             ExtractionRunStatus.BOOK_PICKED,
             ExtractionRunStatus.AGENTIC_COMPLETED,
             ExtractionRunStatus.FAILED,  # Allow retry if a previous background run failed
+            ExtractionRunStatus.AGENTIC_EXTRACTING,  # Allow resume of cancelled run
         }
         if run.status not in allowed:
             raise HTTPException(
@@ -226,6 +231,49 @@ async def _run_extraction_background(
             total_chapters = len(chapters)
             grand_total_chapters += total_chapters
 
+            # Resume support: skip chapters already saved from a previous run
+            def _load_completed_indices(_bid=book_id):
+                with fresh_db() as db:
+                    return get_completed_chapter_indices(run_id, _bid, db)
+
+            completed_indices = await asyncio.to_thread(_load_completed_indices)
+            pending_chapters = [
+                ch for ch in chapters if ch["chapter_number"] not in completed_indices
+            ]
+
+            if not pending_chapters:
+                # All chapters already done — skip pipeline entirely
+                logger.info(
+                    "Book '%s': all %d chapters already completed, skipping pipeline.",
+                    book_title,
+                    total_chapters,
+                )
+                await queue.put(
+                    _sse(
+                        "book_completed",
+                        {
+                            "book_id": book_id,
+                            "book_title": book_title,
+                            "book_index": book_idx,
+                            "total_books": total_books,
+                            "chapters_done": total_chapters,
+                            "total_chapters": total_chapters,
+                            "total_concepts": 0,
+                            "resumed": True,
+                        },
+                    )
+                )
+                continue
+
+            if completed_indices:
+                logger.info(
+                    "Book '%s': resuming — %d/%d chapters already done, %d remaining.",
+                    book_title,
+                    len(completed_indices),
+                    total_chapters,
+                    len(pending_chapters),
+                )
+
             await queue.put(
                 _sse(
                     "book_started",
@@ -243,7 +291,7 @@ async def _run_extraction_background(
             _mark_status(
                 ExtractionRunStatus.AGENTIC_EXTRACTING,
                 f"Book {book_idx + 1}/{total_books}: {book_title} "
-                f"({total_chapters} chapters)",
+                f"({len(pending_chapters)}/{total_chapters} chapters remaining)",
             )
 
             # Build and stream the pipeline graph
@@ -258,7 +306,7 @@ async def _run_extraction_background(
                     "course_subject": course_subject,
                     "book_name": book_title,
                     "book_label": book_title.replace(".pdf", ""),
-                    "chapters": chapters,
+                    "chapters": pending_chapters,
                     "total_chapters": total_chapters,
                     "completed_chapters": [],
                     "errors": [],
