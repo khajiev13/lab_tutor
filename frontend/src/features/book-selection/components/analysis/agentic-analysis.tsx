@@ -122,6 +122,10 @@ export function AgenticAnalysis({
   const [isDone, setIsDone] = useState(
     runStatus === 'agentic_completed',
   );
+  // True when we detect the backend is extracting but we have no SSE connection
+  const [backgroundRunning, setBackgroundRunning] = useState(
+    runStatus === 'agentic_extracting',
+  );
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [totalStats, setTotalStats] = useState({ books: 0, chapters: 0, concepts: 0 });
 
@@ -426,6 +430,7 @@ export function AgenticAnalysis({
 
         case 'done': {
           setIsRunning(false);
+          setBackgroundRunning(false);
           setIsDone(true);
           setTotalStats({
             books: evt.total_books,
@@ -456,6 +461,7 @@ export function AgenticAnalysis({
     if (sseRef.current) return;
     setIsRunning(true);
     setIsDone(false);
+    setBackgroundRunning(false);
     setGlobalError(null);
     setLogs([]);
     setBooks([]);
@@ -497,6 +503,20 @@ export function AgenticAnalysis({
 
   // ── Render ─────────────────────────────────────────────────
 
+  // React to runStatus prop changes from parent (parent already polls every 3s)
+  useEffect(() => {
+    if (runStatus === 'agentic_completed') {
+      setBackgroundRunning(false);
+      setIsDone(true);
+      setIsRunning(false);
+    } else if (runStatus === 'agentic_extracting' && !isRunning) {
+      setBackgroundRunning(true);
+    } else if (runStatus === 'failed') {
+      setBackgroundRunning(false);
+      setIsRunning(false);
+    }
+  }, [runStatus, isRunning]);
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -509,7 +529,7 @@ export function AgenticAnalysis({
               <CheckCircle2 className="mr-1 h-3 w-3" /> Completed
             </Badge>
           )}
-          {isRunning && (
+          {(isRunning || backgroundRunning) && (
             <Badge variant="default" className="ml-2">
               <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Running
             </Badge>
@@ -518,9 +538,9 @@ export function AgenticAnalysis({
         <Button
           size="sm"
           onClick={startExtraction}
-          disabled={isRunning}
+          disabled={isRunning || backgroundRunning}
         >
-          {isRunning ? (
+          {(isRunning || backgroundRunning) ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Play className="mr-2 h-4 w-4" />
@@ -533,6 +553,20 @@ export function AgenticAnalysis({
         Deep chapter-level analysis using {WORKER_COUNT} parallel AI agents — extracts
         concepts, evaluates quality, and maps skills from each chapter.
       </p>
+
+      {/* Background extraction banner */}
+      {backgroundRunning && !isRunning && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex items-center gap-3">
+          <Loader2 className="h-5 w-5 animate-spin text-primary flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium">Extraction is running in the background</p>
+            <p className="text-xs text-muted-foreground">
+              The AI agents are processing your books on the server. This page will
+              update automatically when finished. You can safely navigate away.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Global error */}
       {globalError && (
