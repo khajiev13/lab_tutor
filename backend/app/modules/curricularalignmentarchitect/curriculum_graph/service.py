@@ -13,7 +13,7 @@ import logging
 from collections.abc import AsyncGenerator, Generator
 
 from neo4j import Driver
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.core.neo4j import create_neo4j_driver
@@ -22,7 +22,6 @@ from app.modules.embeddings.embedding_service import EmbeddingService
 
 from ..models import (
     BookChapter,
-    BookSection,
     CourseSelectedBook,
 )
 from .repository import CurriculumGraphRepository
@@ -129,11 +128,6 @@ class CurriculumGraphService:
             for idx, book in enumerate(selected_books):
                 chapters = (
                     db.query(BookChapter)
-                    .options(
-                        joinedload(BookChapter.sections).joinedload(
-                            BookSection.concepts
-                        )
-                    )
                     .filter(
                         BookChapter.run_id == run_id,
                         BookChapter.selected_book_id == book.id,
@@ -319,9 +313,8 @@ class CurriculumGraphService:
                 book_id=book_id,
             )
 
-            # Per-chapter: sections, concepts, skills
-            concepts_seen: set[str] = set()
-
+            # Per-chapter: ensure BOOK_CHAPTER nodes exist and link any skills
+            # that were already written to Neo4j during chapter_worker.
             for ch_idx, ch in enumerate(chapter_data):
                 ch_id = _chapter_id(book_id, ch["chapter_index"])
                 yield {
@@ -334,52 +327,9 @@ class CurriculumGraphService:
                     "book_title": book_title,
                 }
 
-                # Sections
-                section_payloads = [
-                    {
-                        "id": _section_id(
-                            book_id, ch["chapter_index"], sec["section_index"]
-                        ),
-                        "title": sec["title"],
-                        "section_index": sec["section_index"],
-                        "theory": sec.get("content") or "",
-                    }
-                    for sec in ch["sections"]
-                ]
-                if section_payloads:
-                    session.execute_write(
-                        repo.create_section_nodes,
-                        chapter_id=ch_id,
-                        sections=section_payloads,
-                    )
-                    session.execute_write(
-                        repo.link_sections_linked_list,
-                        chapter_id=ch_id,
-                    )
-
-                # Concepts per section
-                for sec in ch["sections"]:
-                    sec_id = _section_id(
-                        book_id, ch["chapter_index"], sec["section_index"]
-                    )
-                    for concept in sec["concepts"]:
-                        concept_lower = concept["name"].lower()
-                        session.execute_write(
-                            repo.merge_concept_node,
-                            name=concept["name"],
-                            embedding=concept.get("name_embedding"),
-                            description=concept.get("description"),
-                        )
-                        session.execute_write(
-                            repo.create_mentions_rel,
-                            section_id=sec_id,
-                            concept_name=concept["name"],
-                            relevance=concept["relevance"],
-                            text_evidence=concept.get("text_evidence"),
-                        )
-                        concepts_seen.add(concept_lower)
-
-                # Skills
+                # Skills were already written to Neo4j by chapter_worker.
+                # Ensure any skills in skills_json that are missing the HAS_SKILL
+                # relationship (e.g. from a run before this service refactor) are linked.
                 for sk_idx, skill in enumerate(ch["skills"]):
                     sk_id = _skill_id(book_id, ch["chapter_index"], sk_idx)
                     session.execute_write(
@@ -393,132 +343,26 @@ class CurriculumGraphService:
                         chapter_id=ch_id,
                         skill_id=sk_id,
                     )
-                    for concept_name in skill.get("concept_names", []):
-                        if concept_name.lower() in concepts_seen:
-                            session.execute_write(
-                                repo.link_skill_requires_concept,
-                                skill_id=sk_id,
-                                concept_name=concept_name,
-                            )
-
-            # ── Concept similarity merging pass ─────────────────
-            yield {
-                "event": "progress",
-                "step": "merging_similar_concepts",
-                "book_title": book_title,
-            }
-
-            index_ready = session.execute_read(
-                repo.vector_index_exists,
-            )
-            if index_ready:
-                merged_count = self._merge_similar_concepts(session, concepts_seen)
-            else:
-                logger.warning("Skipping concept merge: vector index not online yet")
-                merged_count = 0
-
-            yield {
-                "event": "progress",
-                "step": "merging_done",
-                "merged_count": merged_count,
-                "book_title": book_title,
-            }
-
-    def _merge_similar_concepts(
-        self,
-        session,
-        concepts_seen: set[str],
-    ) -> int:
-        """Run a single pass of vector-similarity concept merging."""
-        merged = 0
-        already_merged: set[str] = set()
-
-        for concept_name in concepts_seen:
-            if concept_name in already_merged:
-                continue
-
-            result = session.run(
-                "MATCH (c:CONCEPT {name: toLower($name)}) RETURN c.embedding AS emb",
-                name=concept_name,
-            ).single()
-
-            if result is None or result["emb"] is None:
-                continue
-
-            embedding = result["emb"]
-
-            similars = session.execute_read(
-                repo.find_similar_concepts,
-                concept_name=concept_name,
-                embedding=embedding,
-                top_k=5,
-            )
-
-            for sim in similars:
-                sim_name = sim["name"]
-                if sim_name in already_merged:
-                    continue
-                try:
-                    session.execute_write(
-                        repo.merge_similar_concepts,
-                        keep_name=concept_name,
-                        merge_name=sim_name,
-                    )
-                    already_merged.add(sim_name)
-                    merged += 1
-                    logger.info("Merged concept '%s' into '%s'", sim_name, concept_name)
-                except Exception:
-                    logger.warning(
-                        "Failed to merge '%s' into '%s'",
-                        sim_name,
-                        concept_name,
-                        exc_info=True,
-                    )
-
-        return merged
-
+                    for concept in skill.get("concepts", []):
+                        session.execute_write(
+                            repo.merge_skill_concept,
+                            skill_id=sk_id,
+                            concept_name=concept["name"],
+                        )
 
 # ── Data snapshot helper ────────────────────────────────────────
 
 
 def _snapshot_chapters(chapters: list[BookChapter]) -> list[dict]:
     """Convert ORM objects to plain dicts while still inside the session."""
-    result = []
-    for ch in chapters:
-        sections = []
-        for sec in sorted(ch.sections, key=lambda s: s.section_index):
-            concepts = []
-            for c in sec.concepts:
-                concepts.append(
-                    {
-                        "name": c.name,
-                        "description": c.description,
-                        "relevance": c.relevance.value,
-                        "text_evidence": c.text_evidence,
-                        "name_embedding": (
-                            list(c.name_embedding)
-                            if c.name_embedding is not None
-                            else None
-                        ),
-                    }
-                )
-            sections.append(
-                {
-                    "title": sec.section_title,
-                    "section_index": sec.section_index,
-                    "content": sec.section_content,
-                    "concepts": concepts,
-                }
-            )
-        result.append(
-            {
-                "title": ch.chapter_title,
-                "chapter_index": ch.chapter_index,
-                "content": ch.chapter_text,
-                "summary": ch.chapter_summary,
-                "skills": _parse_skills_json(ch.skills_json),
-                "sections": sections,
-                "summary_embedding": None,  # filled after embedding step
-            }
-        )
-    return result
+    return [
+        {
+            "title": ch.chapter_title,
+            "chapter_index": ch.chapter_index,
+            "content": ch.chapter_text,
+            "summary": ch.chapter_summary,
+            "skills": _parse_skills_json(ch.skills_json),
+            "summary_embedding": None,  # filled after embedding step
+        }
+        for ch in chapters
+    ]

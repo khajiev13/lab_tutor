@@ -1,7 +1,4 @@
-"""Prompt templates for chapter-level concept extraction.
-
-Copied verbatim from the chapter_level_extraction notebook.
-"""
+"""Prompt templates for chapter-level skills extraction."""
 
 from __future__ import annotations
 
@@ -9,234 +6,148 @@ import json
 
 from langchain_core.prompts import ChatPromptTemplate
 
-from .schemas import ChapterConceptsResult, ChapterSkillsResult, ExtractionFeedback
+from .schemas import ChapterSkillsResult, SkillsJudgeFeedback
 
 
-def _escape_for_template(s: str) -> str:
-    """Escape curly braces so LangChain prompt templates treat them as literals."""
+def _escape(s: str) -> str:
     return s.replace("{", "{{").replace("}", "}}")
 
 
-_CHAPTER_SCHEMA_ESCAPED = _escape_for_template(
-    json.dumps(ChapterConceptsResult.model_json_schema(), indent=2)
-)
-_SKILLS_SCHEMA_ESCAPED = _escape_for_template(
-    json.dumps(ChapterSkillsResult.model_json_schema(), indent=2)
-)
-_FEEDBACK_SCHEMA_ESCAPED = _escape_for_template(
-    json.dumps(ExtractionFeedback.model_json_schema(), indent=2)
-)
+_SKILLS_SCHEMA = _escape(json.dumps(ChapterSkillsResult.model_json_schema(), indent=2))
+_JUDGE_SCHEMA = _escape(json.dumps(SkillsJudgeFeedback.model_json_schema(), indent=2))
 
 
-# ── CHAPTER EXTRACTION PROMPT ─────────────────────────────────
-
-CHAPTER_EXTRACTION_SYSTEM = (
-    """You are an expert educational content analyst specializing in textbook analysis.
-Your task is to extract DOMAIN-SPECIFIC CONCEPTS from a complete book chapter in a SINGLE pass.
-The course subject is: {course_subject}
-
-DEFINITIONS:
-- CONCEPT: A domain-specific knowledge point in {course_subject} — a technical term, method,
-  algorithm, data structure, theory, mathematical principle, or named technique that a student
-  studying {course_subject} needs to UNDERSTAND.
-
-WHAT TO EXTRACT:
-- Technical terms and definitions central to {course_subject}
-- Algorithms, methods, and techniques described or explained in the chapter
-- Data structures, models, and formal frameworks
-- Mathematical formulas, theorems, and principles applied in {course_subject}
-- Named systems, architectures, or protocols that are subject matter (not just examples)
-
-WHAT NOT TO EXTRACT:
-- Illustrative examples, anecdotes, or case studies used only to explain a concept (e.g., "Netflix Challenge", "John Snow Cholera Example")
-- Book structure or meta-narrative (e.g., "Book Topics Overview", "War Stories", chapter roadmaps)
-- People, companies, or products mentioned only as examples (not as subject matter)
-- Soft skills, personality traits, or role descriptions (e.g., "Curiosity of Data Scientists")
-- Websites, tools, or platforms mentioned in passing (unless they ARE core subject matter)
-- Motivational quotes or philosophical statements about the field
-
-SECTION HANDLING:
-- Extract concepts from ALL sections that contain curriculum-relevant content.
-- SKIP sections that do NOT contribute educational value to a {course_subject} curriculum, such as:
-  Bibliographic Notes, References, Conclusion/Summary sections that only recap without new concepts,
-  "Outline of the Book" or chapter roadmap sections, and similar non-instructional material.
-- If a Conclusion or Summary section introduces NEW domain concepts (not just restating earlier ones),
-  you SHOULD still extract from it.
-- When you skip a section, simply assign no concepts to that section number.
-
-RULES:
-1. Cover every curriculum-relevant section thoroughly — do not skip instructional content.
-2. Each concept MUST have:
-   - name: concise, specific identifier (a domain term, not a sentence). The name MUST appear VERBATIM inside the text_evidence string — we highlight concept names in the evidence in the UI, so an exact substring match is required.
-   - description: 1-2 sentence explanation grounded in the chapter text
-   - relevance:
-     * core — central to this chapter's contribution to {course_subject} knowledge
-     * supplementary — supports understanding of a core {course_subject} concept
-     * tangential — a briefly mentioned {course_subject} domain concept, not the focus of this chapter
-   - text_evidence: a short quote or close paraphrase from the chapter text that CONTAINS the concept name as an exact substring (case-insensitive match is acceptable)
-   - source_section: the 1-based section NUMBER (integer) from the provided numbered list
-3. Be SELECTIVE — extract concepts that are genuinely part of {course_subject} domain knowledge. Skip anecdotes, examples used only for illustration, meta-narrative about the book itself, and non-instructional sections (bibliographic notes, references, etc.).
-4. Be PRECISE — use specific names, not vague terms like "databases" or "data".
-5. chapter_title in your response MUST exactly match the provided chapter title.
-6. For source_section, use the SECTION NUMBER (integer) from the numbered list provided (e.g., 1, 2, 3). If a concept spans multiple sections or comes from the chapter intro, use the most relevant section number. If there are no sections, use 1.
-7. If something is not a {course_subject} knowledge point at all, do NOT extract it — there is no relevance level for non-domain concepts.
-
-Respond with valid JSON matching this schema:
-"""
-    + _CHAPTER_SCHEMA_ESCAPED
-)
-
-CHAPTER_EXTRACTION_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", CHAPTER_EXTRACTION_SYSTEM),
-        (
-            "human",
-            """Extract domain-specific {course_subject} concepts from this entire chapter.
-Return ONLY a valid JSON object matching the schema above.
-
-**Course Subject:** {course_subject}
-**Book:** {book_name}
-**Chapter:** {chapter_title}
-
-**Sections in this chapter:**
-{section_list}
-
---- FULL CHAPTER CONTENT ---
-{chapter_content}
---- END CHAPTER CONTENT ---""",
-        ),
-    ]
-)
-
-
-# ── CHAPTER EVALUATION PROMPT ─────────────────────────────────
-
-CHAPTER_EVALUATION_SYSTEM = (
-    """You are a strict quality reviewer for educational concept extraction.
-Evaluate whether concepts extracted from a COMPLETE BOOK CHAPTER are complete, accurate,
-and relevant to the course subject: {course_subject}
-
-CRITERIA:
-1. COMPLETENESS: All important {course_subject} concepts from every CURRICULUM-RELEVANT section captured? It is correct to skip non-instructional sections (Bibliographic Notes, References, Conclusions that only recap, etc.).
-2. GRANULARITY: Not too broad ("databases") and not too narrow ("line 42 of code")?
-3. ACCURACY: Descriptions match what the chapter actually says?
-4. TEXT EVIDENCE: Valid grounding from the chapter for each concept?
-5. NAME IN EVIDENCE: Does the concept name appear as an exact substring inside its text_evidence? This is required for UI highlighting. Flag any concept where the name cannot be found in the evidence text (case-insensitive).
-6. RELEVANCE TAGS: core/supplementary/tangential labels accurate?
-7. CONCEPT NAMES: Specific and informative, not too generic or sentence-like?
-8. SECTION ATTRIBUTION: source_section number correctly identifies which section the concept belongs to?
-9. COVERAGE: Concepts distributed across sections, not just from the first section?
-10. SUBJECT RELEVANCE: Are ALL concepts genuinely about {course_subject}? Flag any concepts that are really just illustrative examples, anecdotes, book meta-narrative, soft skills, or role descriptions rather than domain knowledge points. These should be REMOVED, not tagged as tangential.
-
-Be STRICT but FAIR. Give NEEDS_REVISION for substantive problems, especially if non-domain concepts are included.
-
-Respond with valid JSON matching this schema:
-"""
-    + _FEEDBACK_SCHEMA_ESCAPED
-)
-
-CHAPTER_EVALUATION_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", CHAPTER_EVALUATION_SYSTEM),
-        (
-            "human",
-            """Evaluate this chapter-level concept extraction.
-
-**Course Subject:** {course_subject}
-**Book:** {book_name}
-**Chapter:** {chapter_title}
-
-**Sections in this chapter:**
-{section_list}
-
---- CHAPTER CONTENT (first 5000 chars) ---
-{chapter_content_preview}
---- END PREVIEW ---
-
---- EXTRACTION ({num_concepts} concepts) ---
-{concepts_detail}
---- END EXTRACTION ---
-
-Evaluate thoroughly — pay special attention to:
-- COMPLETENESS of {course_subject} domain concepts across all sections
-- SUBJECT RELEVANCE — flag any concepts that are NOT genuine {course_subject} knowledge points (examples, anecdotes, meta-narrative, soft skills)""",
-        ),
-    ]
-)
-
-
-# ── CHAPTER REVISION PROMPT ───────────────────────────────────
-
-CHAPTER_REVISION_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        ("system", CHAPTER_EXTRACTION_SYSTEM),
-        (
-            "human",
-            """You previously extracted concepts from this chapter, but the quality review found issues.
-Revise your extraction to fix them.
-Return ONLY a valid JSON object matching the schema above.
-
-**Course Subject:** {course_subject}
-**Book:** {book_name}
-**Chapter:** {chapter_title}
-
-**Sections in this chapter:**
-{section_list}
-
---- FULL CHAPTER CONTENT ---
-{chapter_content}
---- END CHAPTER CONTENT ---
-
---- YOUR PREVIOUS EXTRACTION ({num_prev_concepts} concepts) ---
-{prev_extraction_summary}
-
---- ISSUES FOUND ---
-{reflection_issues}
-
-Now produce a REVISED extraction that fixes all the issues above.
-Keep what was good, fix what was wrong, add what was missing.""",
-        ),
-    ]
-)
-
-
-# ── SKILLS PROMPT ─────────────────────────────────────────────
+# ── SKILLS EXTRACTION PROMPT ──────────────────────────────────────────────────
+# Direct from chapter content — no prior concept extraction needed.
 
 SKILLS_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """You are an expert educational content analyst.
-Given a chapter's extracted concepts (organized by section) from a {course_subject} textbook, identify practical SKILLS and provide a brief chapter summary.
+            """You are an expert educational content analyst building a skill bank from textbooks.
+Your task: given a chapter from a {course_subject} textbook, extract practical SKILLS
+and the CONCEPTS each skill requires.
 
-DEFINITIONS:
-- SKILL: A practical, hands-on ability in {course_subject} — something a student can DO after studying this chapter.
-- Skills use action verbs (design, implement, analyze, compare, configure...).
-- concept_names must exactly match concept names from the extraction.
+DEFINITIONS
+- SKILL: A practical, hands-on ability a student can DEMONSTRATE after studying this chapter.
+  Skills must start with an action verb (design, implement, analyze, compare, configure, apply...).
+- CONCEPT: A domain-specific knowledge unit (term, algorithm, method, principle, data structure)
+  that a student must UNDERSTAND to perform the skill.
 
-RULES:
-1. Not every chapter has skills. Purely theoretical chapters may have none.
-2. Each skill should reference specific concepts it depends on.
-3. Be selective — only include genuine practical abilities related to {course_subject}, not reworded concepts.
-4. chapter_summary: 2-3 sentences about the chapter's main {course_subject} topics.
+RULES FOR SKILLS
+1. Only extract genuine practical abilities — not reworded concept definitions.
+2. Each skill must be scoped to something teachable in one chapter, not an entire career.
+3. Purely theoretical chapters may have zero skills — that is correct.
+4. Avoid vague skills like "Understand X" or "Know about Y" — those are concepts, not skills.
+
+RULES FOR CONCEPTS
+1. Each concept must be a real {course_subject} domain term from this chapter.
+2. Give a brief, grounded description (1-2 sentences) drawn from the chapter text.
+3. A concept list of 2-5 per skill is typical; more if the skill is genuinely complex.
+4. Concept names must be concise identifiers, not full sentences.
 
 Respond with valid JSON matching this schema:
 """
-            + _SKILLS_SCHEMA_ESCAPED,
+            + _SKILLS_SCHEMA,
         ),
         (
             "human",
-            """Based on the extracted concepts below, identify practical {course_subject} skills for this chapter
-and provide a brief chapter summary.
-Return ONLY a valid JSON object matching the schema above.
+            """Extract practical {course_subject} skills (with their prerequisite concepts)
+from the chapter below.
+Return ONLY a valid JSON object matching the schema.
 
 **Course Subject:** {course_subject}
 **Book:** {book_name}
 **Chapter:** {chapter_title}
 
---- EXTRACTED CONCEPTS BY SECTION ---
-{all_sections_summary}
+--- CHAPTER CONTENT ---
+{chapter_content}
 --- END ---""",
+        ),
+    ]
+)
+
+SKILLS_REVISION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are an expert educational content analyst building a skill bank from textbooks.
+Your task: revise a previous skills extraction that a quality reviewer found lacking.
+Apply the reviewer's feedback precisely, then output the corrected result.
+
+Respond with valid JSON matching this schema:
+"""
+            + _SKILLS_SCHEMA,
+        ),
+        (
+            "human",
+            """Revise the skills extraction below based on the reviewer's feedback.
+Return ONLY a valid JSON object matching the schema.
+
+**Course Subject:** {course_subject}
+**Book:** {book_name}
+**Chapter:** {chapter_title}
+
+--- CHAPTER CONTENT ---
+{chapter_content}
+--- END ---
+
+--- PREVIOUS EXTRACTION ---
+{previous_extraction}
+--- END ---
+
+--- REVIEWER FEEDBACK ---
+{issues}
+--- END ---
+
+Produce a revised extraction that fixes all the issues above.""",
+        ),
+    ]
+)
+
+
+# ── SKILLS JUDGE PROMPT (Karpathy-style LLM-as-judge) ────────────────────────
+
+SKILLS_JUDGE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are a strict quality reviewer for educational skill extraction.
+Evaluate whether the skills extracted from a {course_subject} chapter meet the bar
+for a high-quality skill bank.
+
+WHAT TO CHECK
+1. ACTION VERBS — Do all skill names start with a concrete action verb?
+2. PRACTICAL — Are these genuine learnable abilities, not disguised concept definitions?
+3. SCOPE — Is each skill scoped to something teachable in one chapter?
+4. CONCEPTS — Are the listed concepts real {course_subject} domain terms from this chapter?
+   Are they actually REQUIRED to perform the skill (not just vaguely related)?
+5. COVERAGE — Does the skill set cover the chapter's main practical takeaways?
+6. NO DUPLICATES — Are all skills distinct (not minor rewordings of each other)?
+
+Approve if the extraction is solid. Request revision only for substantive problems —
+a single minor wording issue is not enough to reject.
+
+Respond with valid JSON matching this schema:
+"""
+            + _JUDGE_SCHEMA,
+        ),
+        (
+            "human",
+            """Evaluate this skills extraction for a {course_subject} chapter.
+
+**Book:** {book_name}
+**Chapter:** {chapter_title}
+
+--- EXTRACTED SKILLS ---
+{skills_json}
+--- END ---
+
+--- CHAPTER SUMMARY ---
+{chapter_summary}
+--- END ---
+
+Is this extraction ready for a skill bank, or does it need revision?""",
         ),
     ]
 )
