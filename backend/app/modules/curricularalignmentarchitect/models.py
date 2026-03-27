@@ -257,6 +257,7 @@ class BookChapter(Base):
     chapter_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     chapter_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     skills_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    agentic_processed: Mapped[bool] = mapped_column(default=False, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

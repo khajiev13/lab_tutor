@@ -335,6 +335,23 @@ def _ensure_sql_schema_upgrades() -> None:
                 text("ALTER TABLE book_sections ADD COLUMN section_content TEXT")
             )
 
+        # Idempotent: add agentic_processed flag to book_chapters
+        # Used to skip already-completed chapters on retry after cancellation.
+        has_agentic_processed = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'book_chapters' "
+                "AND column_name = 'agentic_processed'"
+            )
+        ).fetchone()
+        if not has_agentic_processed:
+            conn.execute(
+                text(
+                    "ALTER TABLE book_chapters "
+                    "ADD COLUMN agentic_processed BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+
         conn.commit()
 
 
