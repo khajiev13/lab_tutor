@@ -122,12 +122,11 @@ export function AgenticAnalysis({
   const [isDone, setIsDone] = useState(
     runStatus === 'agentic_completed',
   );
-  // True when we detect the backend is extracting but we have no SSE connection
-  const [backgroundRunning, setBackgroundRunning] = useState(
-    runStatus === 'agentic_extracting',
-  );
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [totalStats, setTotalStats] = useState({ books: 0, chapters: 0, concepts: 0 });
+
+  // Derived: backend is extracting but we have no SSE connection (e.g. page refresh)
+  const backgroundRunning = runStatus === 'agentic_extracting' && !isRunning;
 
   const sseRef = useRef<AbortController | null>(null);
   const agentMapRef = useRef(new Map<string, number>());
@@ -430,7 +429,6 @@ export function AgenticAnalysis({
 
         case 'done': {
           setIsRunning(false);
-          setBackgroundRunning(false);
           setIsDone(true);
           setTotalStats({
             books: evt.total_books,
@@ -461,7 +459,6 @@ export function AgenticAnalysis({
     if (sseRef.current) return;
     setIsRunning(true);
     setIsDone(false);
-    setBackgroundRunning(false);
     setGlobalError(null);
     setLogs([]);
     setBooks([]);
@@ -503,19 +500,15 @@ export function AgenticAnalysis({
 
   // ── Render ─────────────────────────────────────────────────
 
-  // React to runStatus prop changes from parent (parent already polls every 3s)
-  useEffect(() => {
-    if (runStatus === 'agentic_completed') {
-      setBackgroundRunning(false);
+  // Sync isDone from parent polling (parent detects agentic_completed)
+  const prevRunStatus = useRef(runStatus);
+  if (runStatus !== prevRunStatus.current) {
+    prevRunStatus.current = runStatus;
+    if (runStatus === 'agentic_completed' && !isDone) {
       setIsDone(true);
       setIsRunning(false);
-    } else if (runStatus === 'agentic_extracting' && !isRunning) {
-      setBackgroundRunning(true);
-    } else if (runStatus === 'failed') {
-      setBackgroundRunning(false);
-      setIsRunning(false);
     }
-  }, [runStatus, isRunning]);
+  }
 
   return (
     <div className="space-y-4">
