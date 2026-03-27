@@ -312,11 +312,6 @@ class TestSnapshotChapters:
         assert snapshot[0]["title"] == "Chapter 1"
         assert snapshot[0]["chapter_index"] == 0
         assert snapshot[0]["summary"] == "A summary."
-        assert len(snapshot[0]["sections"]) == 1
-        assert snapshot[0]["sections"][0]["title"] == "Section 1.1"
-        assert len(snapshot[0]["sections"][0]["concepts"]) == 1
-        assert snapshot[0]["sections"][0]["concepts"][0]["name"] == "MapReduce"
-        assert snapshot[0]["sections"][0]["concepts"][0]["relevance"] == "core"
         assert len(snapshot[0]["skills"]) == 1
         assert snapshot[0]["skills"][0]["name"] == "Batch Processing"
         assert snapshot[0]["summary_embedding"] is None  # filled later

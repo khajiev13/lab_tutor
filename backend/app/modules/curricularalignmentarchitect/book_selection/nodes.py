@@ -641,16 +641,17 @@ def fetch_course(state: WorkflowState) -> dict:
 
     query = """
     MATCH (c:CLASS {id: $cid})
-    OPTIONAL MATCH (d:TEACHER_UPLOADED_DOCUMENT) WHERE d.course_id = $cid
-    WITH c, d ORDER BY d.source_filename ASC
-    WITH c, collect(CASE WHEN d IS NULL THEN NULL ELSE {
-      title: coalesce(d.topic, ""),
-      keywords: coalesce(d.keywords, []),
-      summary: coalesce(d.summary, ""),
-      source_filename: coalesce(d.source_filename, "")
-    } END) AS docs
     RETURN c.title AS t, c.description AS desc,
-           [x IN docs WHERE x IS NOT NULL] AS docs
+      COLLECT {
+        MATCH (d:TEACHER_UPLOADED_DOCUMENT) WHERE d.course_id = $cid
+        RETURN {
+          title: coalesce(d.topic, ""),
+          keywords: coalesce(d.keywords, []),
+          summary: coalesce(d.summary, ""),
+          source_filename: coalesce(d.source_filename, "")
+        } AS doc
+        ORDER BY d.source_filename ASC
+      } AS docs
     """
     drv = GraphDatabase.driver(uri, auth=(usr, pwd))
     try:
