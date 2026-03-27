@@ -5,25 +5,6 @@ from __future__ import annotations
 import operator
 from typing import Annotated, TypedDict
 
-from .schemas import ChapterConceptsResult, ExtractionFeedback
-
-# ── Inner graph: extract → evaluate → revise loop for one chapter ──
-
-
-class ChapterExtractionState(TypedDict):
-    course_subject: str
-    book_name: str
-    chapter_title: str
-    section_titles: list[str]
-    section_contents: list[str]
-    chapter_content: str
-    extraction: ChapterConceptsResult | None
-    feedback: ExtractionFeedback | None
-    iteration: int
-    max_iterations: int
-    approved: bool
-
-
 # ── Outer graph: book-level pipeline with parallel chapter workers ──
 
 
@@ -47,8 +28,6 @@ class ChapterWorkerInput(TypedDict):
     book_label: str
     chapter_number: int
     chapter_title: str
-    section_titles: list[str]
-    section_contents: list[str]
     chapter_content: str
     total_chapters: int
     completed_chapters: Annotated[list, operator.add]
@@ -57,8 +36,6 @@ class ChapterWorkerInput(TypedDict):
 
 # ── Constants ──
 
-MAX_ITERATIONS = 2
-CHAPTER_GRAPH_MAX_CONCURRENCY = 2
-CHAPTER_GRAPH_RECURSION_LIMIT = 10
+MAX_JUDGE_ITERATIONS = 1  # one revision pass if judge rejects
 BOOK_PIPELINE_MAX_CONCURRENCY = 5
 BOOK_PIPELINE_RECURSION_LIMIT = 200

@@ -255,6 +255,23 @@ class CurriculumGraphRepository:
             concept_name=concept_name,
         ).consume()
 
+    @staticmethod
+    def merge_skill_concept(
+        tx: ManagedTransaction,
+        skill_id: str,
+        concept_name: str,
+    ) -> None:
+        """MERGE concept node and link it to a skill (safe to call without prior concept creation)."""
+        tx.run(
+            """
+            MATCH (sk:BOOK_SKILL {id: $skill_id})
+            MERGE (c:CONCEPT {name: toLower($concept_name)})
+            MERGE (sk)-[:REQUIRES_CONCEPT]->(c)
+            """,
+            skill_id=skill_id,
+            concept_name=concept_name,
+        ).consume()
+
     # ── Concept similarity merging ──────────────────────────────
 
     @staticmethod

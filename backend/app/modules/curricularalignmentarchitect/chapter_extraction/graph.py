@@ -1,39 +1,11 @@
-"""LangGraph graph builders for chapter-level concept extraction."""
+"""LangGraph graph builder for chapter-level skills extraction."""
 
 from __future__ import annotations
 
 from langgraph.graph import END, START, StateGraph
 
-from .nodes import (
-    api_retry_policy,
-    assign_chapters,
-    chapter_worker,
-    evaluate_chapter,
-    extract_chapter_concepts,
-    should_continue,
-    synthesize_results,
-)
-from .state import (
-    BookPipelineState,
-    ChapterExtractionState,
-)
-
-
-def build_chapter_extraction_graph():
-    """Inner graph: extract → evaluate → (revise | end) for one chapter."""
-    builder = StateGraph(ChapterExtractionState)
-    builder.add_node("extract", extract_chapter_concepts, retry=api_retry_policy)
-    builder.add_node("evaluate", evaluate_chapter, retry=api_retry_policy)
-
-    builder.add_edge(START, "extract")
-    builder.add_edge("extract", "evaluate")
-    builder.add_conditional_edges(
-        "evaluate",
-        should_continue,
-        {"revise": "extract", "end": END},
-    )
-
-    return builder.compile()
+from .nodes import api_retry_policy, assign_chapters, chapter_worker, synthesize_results
+from .state import BookPipelineState
 
 
 def build_book_pipeline_graph():
@@ -49,6 +21,4 @@ def build_book_pipeline_graph():
     builder.add_edge("chapter_worker", "synthesize")
     builder.add_edge("synthesize", END)
 
-    return builder.compile(
-        # checkpointer=None — stateless, no persistence needed
-    )
+    return builder.compile()
