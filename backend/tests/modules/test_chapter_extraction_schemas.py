@@ -18,7 +18,6 @@ from app.modules.curricularalignmentarchitect.chapter_extraction.schemas import 
     SkillsJudgeVerdict,
 )
 
-
 # ── SkillConcept ────────────────────────────────────────────────
 
 
