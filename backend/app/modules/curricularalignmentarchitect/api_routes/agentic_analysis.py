@@ -12,6 +12,7 @@ instead of re-downloading and re-extracting PDFs.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -70,13 +71,14 @@ def register_routes(router):
             ExtractionRunStatus.COMPLETED,
             ExtractionRunStatus.BOOK_PICKED,
             ExtractionRunStatus.AGENTIC_COMPLETED,
+            ExtractionRunStatus.FAILED,  # Allow retry if a previous background run failed
         }
         if run.status not in allowed:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
                 detail=(
                     f"Run status is '{run.status.value}' — "
-                    "agentic extraction requires 'completed' or 'book_picked'."
+                    "agentic extraction requires 'completed', 'book_picked', or 'failed'."
                 ),
             )
 
@@ -104,37 +106,59 @@ def register_routes(router):
         course = db.get(Course, course_id)
         course_subject = course.title if course else "General"
 
+        import asyncio
+
+        q: asyncio.Queue[str | None] = asyncio.Queue()
+        # Start the heavy extraction in a background task shielded from HTTP cancellation
+        asyncio.create_task(
+            _run_extraction_background(run_id, course_id, books_meta, course_subject, q)
+        )
+
+        async def stream_from_queue():
+            try:
+                while True:
+                    item = await q.get()
+                    if item is None:
+                        break
+                    yield item
+            except asyncio.CancelledError:
+                # Client disconnected (e.g., timeout). Background task keeps running!
+                logger.info(
+                    "Client disconnected from SSE; background extraction continues."
+                )
+
         return StreamingResponse(
-            _sse_generator(run_id, course_id, books_meta, course_subject),
+            stream_from_queue(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
 
-async def _sse_generator(
+async def _run_extraction_background(
     run_id: int,
     course_id: int,
     books_meta: list[dict],
     course_subject: str,
+    queue: asyncio.Queue[str | None],
 ):
-    """Async generator that yields SSE-formatted strings.
-
-    Processes books sequentially; within each book, the LangGraph
-    pipeline fans out up to 5 chapter workers in parallel.
-    """
+    """Background task for extraction, shielded from client disconnects."""
     import asyncio
 
     # Mark run as agentic_extracting
-    def _mark_status(s: ExtractionRunStatus, detail: str | None = None):
+    def _mark_status(
+        s: ExtractionRunStatus, detail: str | None = None, error: str | None = None
+    ):
         with fresh_db() as db:
             kwargs: dict = {"status": s}
             if detail is not None:
                 kwargs["progress_detail"] = detail
+            if error is not None:
+                kwargs["error_message"] = error
             update_run(db, run_id, **kwargs)
 
     _mark_status(
         ExtractionRunStatus.AGENTIC_EXTRACTING,
-        f"Starting agentic extraction for {len(books_meta)} book(s)…",
+        detail=f"Starting agentic extraction for {len(books_meta)} book(s)…",
     )
 
     total_books = len(books_meta)
@@ -147,14 +171,16 @@ async def _sse_generator(
             book_title = book["title"]
 
             # Notify frontend immediately so it can show the book card
-            yield _sse(
-                "loading_book",
-                {
-                    "book_id": book_id,
-                    "book_title": book_title,
-                    "book_index": book_idx,
-                    "total_books": total_books,
-                },
+            await queue.put(
+                _sse(
+                    "loading_book",
+                    {
+                        "book_id": book_id,
+                        "book_title": book_title,
+                        "book_index": book_idx,
+                        "total_books": total_books,
+                    },
+                )
             )
 
             # Read chapters from SQL (stored during shared extraction step)
@@ -182,32 +208,36 @@ async def _sse_generator(
             chapters = await asyncio.to_thread(_load_chapters)
 
             if not chapters:
-                yield _sse(
-                    "book_started",
-                    {
-                        "book_id": book_id,
-                        "book_title": book_title,
-                        "book_index": book_idx,
-                        "total_books": total_books,
-                        "total_chapters": 0,
-                        "message": "No chapters detected in TOC.",
-                    },
+                await queue.put(
+                    _sse(
+                        "book_started",
+                        {
+                            "book_id": book_id,
+                            "book_title": book_title,
+                            "book_index": book_idx,
+                            "total_books": total_books,
+                            "total_chapters": 0,
+                            "message": "No chapters detected in TOC.",
+                        },
+                    )
                 )
                 continue
 
             total_chapters = len(chapters)
             grand_total_chapters += total_chapters
 
-            yield _sse(
-                "book_started",
-                {
-                    "book_id": book_id,
-                    "book_title": book_title,
-                    "book_index": book_idx,
-                    "total_books": total_books,
-                    "total_chapters": total_chapters,
-                    "chapter_titles": [ch["title"] for ch in chapters],
-                },
+            await queue.put(
+                _sse(
+                    "book_started",
+                    {
+                        "book_id": book_id,
+                        "book_title": book_title,
+                        "book_index": book_idx,
+                        "total_books": total_books,
+                        "total_chapters": total_chapters,
+                        "chapter_titles": [ch["title"] for ch in chapters],
+                    },
+                )
             )
 
             _mark_status(
@@ -244,7 +274,7 @@ async def _sse_generator(
                     event_type = chunk.get("type", "agent_status")
                     chunk["book_id"] = book_id
                     chunk["book_index"] = book_idx
-                    yield _sse(event_type, chunk)
+                    await queue.put(_sse(event_type, chunk))
 
                     if event_type == "chapter_completed":
                         chapters_done += 1
@@ -256,39 +286,50 @@ async def _sse_generator(
 
             grand_total_concepts += book_concepts
 
-            yield _sse(
-                "book_completed",
-                {
-                    "book_id": book_id,
-                    "book_title": book_title,
-                    "book_index": book_idx,
-                    "total_books": total_books,
-                    "chapters_done": chapters_done,
-                    "total_chapters": total_chapters,
-                    "total_concepts": book_concepts,
-                },
+            await queue.put(
+                _sse(
+                    "book_completed",
+                    {
+                        "book_id": book_id,
+                        "book_title": book_title,
+                        "book_index": book_idx,
+                        "total_books": total_books,
+                        "chapters_done": chapters_done,
+                        "total_chapters": total_chapters,
+                        "total_concepts": book_concepts,
+                    },
+                )
             )
 
         # All books done
         _mark_status(
             ExtractionRunStatus.AGENTIC_COMPLETED,
-            f"Agentic extraction completed: {grand_total_chapters} chapters, "
+            detail=f"Agentic extraction completed: {grand_total_chapters} chapters, "
             f"{grand_total_concepts} concepts from {total_books} book(s).",
         )
 
-        yield _sse(
-            "done",
-            {
-                "total_books": total_books,
-                "total_chapters": grand_total_chapters,
-                "total_concepts": grand_total_concepts,
-            },
+        await queue.put(
+            _sse(
+                "done",
+                {
+                    "total_books": total_books,
+                    "total_chapters": grand_total_chapters,
+                    "total_concepts": grand_total_concepts,
+                },
+            )
         )
-
+        await queue.put(None)  # EOF
+    except asyncio.CancelledError:
+        # Task was explicitly cancelled, propagate it to ensure clean resource release
+        logger.info("Background extraction task was cancelled.")
+        await queue.put(None)
     except Exception as e:
         logger.exception("Agentic extraction failed for run %d", run_id)
-        _mark_status(ExtractionRunStatus.FAILED, f"Agentic extraction error: {e}")
-        yield _sse("error", {"message": str(e)[:500]})
+        _mark_status(
+            ExtractionRunStatus.FAILED, detail="Agentic extraction error", error=str(e)
+        )
+        await queue.put(_sse("error", {"message": str(e)[:500]}))
+        await queue.put(None)
 
 
 def _sse(event: str, data: dict) -> str:
