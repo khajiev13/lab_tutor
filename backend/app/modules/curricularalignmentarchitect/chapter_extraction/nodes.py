@@ -185,8 +185,13 @@ def _save_skills_to_neo4j(
         with driver.session(database=_settings.neo4j_database) as session:
             # Ensure stub BOOK_CHAPTER node exists (enriched later by CurriculumGraphService)
             session.run(
-                "MERGE (ch:BOOK_CHAPTER {id: $id})",
-                id=chapter_id,
+                """
+                MERGE (b:BOOK {id: $book_id})
+                MERGE (ch:BOOK_CHAPTER {id: $ch_id})
+                MERGE (b)-[:HAS_CHAPTER]->(ch)
+                """,
+                book_id=book_neo4j_id,
+                ch_id=chapter_id,
             )
 
             skill_payloads = [
