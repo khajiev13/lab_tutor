@@ -142,10 +142,11 @@ describe("StreamEvent type contracts", () => {
     expect(event.status).toBe("success");
   });
 
-  it("AgentState has all 11 keys", () => {
+  it("AgentState has all 12 keys", () => {
     const keys = Object.keys(EMPTY_STATE);
-    expect(keys).toHaveLength(11);
+    expect(keys).toHaveLength(12);
     expect(keys).toContain("fetched_jobs");
     expect(keys).toContain("insertion_results");
+    expect(keys).toContain("skill_job_urls");
   });
 });

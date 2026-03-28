@@ -25,8 +25,9 @@ cd backend && LAB_TUTOR_DATABASE_URL="postgresql://khajievroma@localhost:5432/la
 
 > If any test fails, STOP. Report failures clearly. Do not proceed.
 
-## Step 4 — Lint and build frontend
+## Step 4 — Test, lint, and build frontend
 // parallel
+cd frontend && npm run test -- --run
 cd frontend && npm run lint
 cd frontend && npm run build
 // capture: FRONTEND_RESULT
@@ -67,6 +68,7 @@ gh pr create --title "<commit summary>" --body "
 
 ## Verification
 - [ ] Backend: uv run pytest -v — all pass
+- [ ] Frontend: npm run test -- --run — all pass
 - [ ] Frontend: npm run lint && npm run build — clean
 
 🤖 Lab Tutor Agent"
