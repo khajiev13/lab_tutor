@@ -58,6 +58,9 @@ from app.modules.courses import routes as course_routes  # noqa: E402
 from app.modules.curricularalignmentarchitect.api_routes import (  # noqa: E402
     router as book_selection_router,
 )
+from app.modules.curricularalignmentarchitect.curriculum_planning import (  # noqa: E402
+    router as chapter_plan_router,
+)
 from app.modules.marketdemandanalyst.routes import (  # noqa: E402
     router as market_demand_router,
 )
@@ -601,6 +604,7 @@ app.include_router(course_routes.router)
 app.include_router(concept_normalization_routes.router)
 app.include_router(book_selection_router)
 app.include_router(market_demand_router)
+app.include_router(chapter_plan_router)
 
 
 @app.get("/docs", include_in_schema=False)

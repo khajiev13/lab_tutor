@@ -21,6 +21,7 @@ import { CourseHeader } from '../components/CourseHeader';
 import { CourseStepperHeader } from '../components/CourseStepperHeader';
 import { MaterialsStep } from '../components/steps/MaterialsStep';
 import { NormalizationStep } from '../components/steps/NormalizationStep';
+import { BuildChaptersStep } from '@/features/curriculum-planning/components/BuildChaptersStep';
 import { BookSelectionStep } from '../components/steps/BookSelectionStep';
 
 /* Lazy-load heavy steps */
@@ -71,17 +72,21 @@ function TeacherContent() {
       </StepContent>
 
       <StepContent activeIndex={activeStep} index={2}>
+        <BuildChaptersStep />
+      </StepContent>
+
+      <StepContent activeIndex={activeStep} index={3}>
         <BookSelectionStep />
       </StepContent>
 
       <Suspense fallback={<StepSkeleton />}>
-        <StepContent activeIndex={activeStep} index={3}>
+        <StepContent activeIndex={activeStep} index={4}>
           <AnalysisStep />
         </StepContent>
       </Suspense>
 
       <Suspense fallback={<StepSkeleton />}>
-        <StepContent activeIndex={activeStep} index={4}>
+        <StepContent activeIndex={activeStep} index={5}>
           <VisualizationStep />
         </StepContent>
       </Suspense>

@@ -53,6 +53,8 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         "CREATE CONSTRAINT book_chapter_id_unique IF NOT EXISTS FOR (ch:BOOK_CHAPTER) REQUIRE ch.id IS UNIQUE",
         "CREATE CONSTRAINT book_section_id_unique IF NOT EXISTS FOR (s:BOOK_SECTION) REQUIRE s.id IS UNIQUE",
         "CREATE CONSTRAINT book_skill_id_unique IF NOT EXISTS FOR (sk:BOOK_SKILL) REQUIRE sk.id IS UNIQUE",
+        "CREATE CONSTRAINT course_chapter_id_unique IF NOT EXISTS FOR (ch:COURSE_CHAPTER) REQUIRE ch.id IS UNIQUE",
+        "CREATE INDEX course_chapter_course_id_idx IF NOT EXISTS FOR (ch:COURSE_CHAPTER) ON (ch.course_id)",
         "CREATE CONSTRAINT book_id_unique IF NOT EXISTS FOR (b:BOOK) REQUIRE b.id IS UNIQUE",
         "CREATE CONSTRAINT market_skill_name_unique IF NOT EXISTS FOR (ms:MARKET_SKILL) REQUIRE ms.name IS UNIQUE",
         # Helpful indexes

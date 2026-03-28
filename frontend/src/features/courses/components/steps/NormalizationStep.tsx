@@ -30,7 +30,7 @@ export function NormalizationStep() {
       {!disabled && (
         <div className="flex justify-end pt-2">
           <Button onClick={goToNext} variant="outline" className="gap-2">
-            Continue to Book Selection
+            Continue to Build Chapters
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>

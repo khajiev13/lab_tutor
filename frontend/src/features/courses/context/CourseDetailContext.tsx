@@ -26,6 +26,7 @@ import type { SessionStatus, ExtractionRunStatus } from "@/features/book-selecti
 export const COURSE_STEPS = [
   "materials",
   "normalization",
+  "build-chapters",
   "book-selection",
   "analysis",
   "visualization",
@@ -339,21 +340,24 @@ export function CourseDetailProvider({
           if (bookSessionStatus && DONE_SESSION.includes(bookSessionStatus))
             return "completed";
           return "pending";
-        case 2: // Book Selection
+        case 2: // Build Chapters — optional, unlocked once extraction done
+          if (!extractionDone) return "locked";
+          return "pending";
+        case 3: // Book Selection
           if (!extractionDone) return "locked";
           if (bookSessionStatus && DONE_SESSION.includes(bookSessionStatus))
             return "completed";
           if (bookSessionStatus && ACTIVE_SESSION.includes(bookSessionStatus))
             return "active";
           return "pending";
-        case 3: // Analysis
+        case 4: // Analysis
           if (!extractionDone) return "locked";
           if (analysisRunStatus && DONE_ANALYSIS.includes(analysisRunStatus))
             return "completed";
           if (analysisRunStatus && ACTIVE_ANALYSIS.includes(analysisRunStatus))
             return "active";
           return "pending";
-        case 4: // Visualization
+        case 5: // Visualization
           if (!extractionDone) return "locked";
           if (analysisRunStatus && DONE_ANALYSIS.includes(analysisRunStatus))
             return "completed";

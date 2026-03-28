@@ -1,6 +1,7 @@
 import {
   FileUp,
   GitMerge,
+  Layers,
   BookOpen,
   Cpu,
   BarChart3,
@@ -13,6 +14,7 @@ import { useCourseDetail } from "../context/CourseDetailContext";
 const STEP_DEFS: { label: string; icon: React.ElementType; lockMsg: string }[] = [
   { label: "Upload Materials", icon: FileUp, lockMsg: "" },
   { label: "Normalize Concepts", icon: GitMerge, lockMsg: "Complete extraction first" },
+  { label: "Build Chapters", icon: Layers, lockMsg: "Complete extraction first" },
   { label: "Select Books", icon: BookOpen, lockMsg: "Complete extraction first" },
   { label: "Analyze Books", icon: Cpu, lockMsg: "Complete extraction first" },
   { label: "Visualize Results", icon: BarChart3, lockMsg: "Complete extraction first" },
@@ -29,7 +31,7 @@ export function CourseStepperHeader() {
       status,
       lockedReason: status === "locked" ? def.lockMsg : undefined,
       description:
-        i === 1 && status !== "locked"
+        (i === 1 || i === 2) && status !== "locked"
           ? "Optional"
           : undefined,
     };
@@ -45,8 +47,8 @@ export function CourseStepperHeader() {
           if (s !== "locked") setActiveStep(i);
         }}
       />
-      {/* Optional badge for normalization when active */}
-      {activeStep === 1 && (
+      {/* Optional badge for normalization and build-chapters when active */}
+      {(activeStep === 1 || activeStep === 2) && (
         <div className="flex items-center gap-2 pl-2 pt-1">
           <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-400">
             Optional step
