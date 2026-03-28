@@ -20,6 +20,7 @@ import type {
 import type { StepStatus } from "@/components/ui/stepper";
 import { getLatestSession, getLatestAnalysis } from "@/features/book-selection/api";
 import type { SessionStatus, ExtractionRunStatus } from "@/features/book-selection/types";
+import { getChapterPlan } from "@/features/curriculum-planning/api";
 
 /* ── Step definitions ───────────────────────────────────────── */
 
@@ -70,6 +71,8 @@ interface CourseDetailContextValue {
   /* Step-completion signals */
   bookSessionStatus: SessionStatus | null;
   analysisRunStatus: ExtractionRunStatus | null;
+  hasChapters: boolean;
+  setHasChapters: (val: boolean) => void;
 
   /* Stepper navigation */
   activeStep: number;
@@ -120,6 +123,7 @@ export function CourseDetailProvider({
   /* Step-completion signals from backend */
   const [bookSessionStatus, setBookSessionStatus] = useState<SessionStatus | null>(null);
   const [analysisRunStatus, setAnalysisRunStatus] = useState<ExtractionRunStatus | null>(null);
+  const [hasChapters, setHasChapters] = useState(false);
   const [stepStatusesFetched, setStepStatusesFetched] = useState(false);
 
   /* ── Fetch course ──────────────────────────────────────────── */
@@ -222,13 +226,15 @@ export function CourseDetailProvider({
 
     async function fetchStatuses() {
       try {
-        const [session, analysis] = await Promise.all([
+        const [session, analysis, plan] = await Promise.all([
           getLatestSession(courseId),
           getLatestAnalysis(courseId),
+          getChapterPlan(courseId).catch(() => null),
         ]);
         if (cancelled) return;
         if (session) setBookSessionStatus(session.status);
         if (analysis) setAnalysisRunStatus(analysis.status);
+        if (plan && plan.chapters && plan.chapters.length > 0) setHasChapters(true);
       } catch (error) {
         console.error("Failed to fetch step statuses", error);
       } finally {
@@ -342,6 +348,7 @@ export function CourseDetailProvider({
           return "pending";
         case 2: // Build Chapters — optional, unlocked once extraction done
           if (!extractionDone) return "locked";
+          if (hasChapters) return "completed";
           return "pending";
         case 3: // Book Selection
           if (!extractionDone) return "locked";
@@ -366,7 +373,7 @@ export function CourseDetailProvider({
           return "locked";
       }
     },
-    [course?.extraction_status, extractionDone, bookSessionStatus, analysisRunStatus]
+    [course?.extraction_status, extractionDone, bookSessionStatus, analysisRunStatus, hasChapters]
   );
 
   const canNavigateToStep = useCallback(
@@ -454,6 +461,8 @@ export function CourseDetailProvider({
       embeddingStatus,
       bookSessionStatus,
       analysisRunStatus,
+      hasChapters,
+      setHasChapters,
       activeStep,
       setActiveStep,
       goToNext,
@@ -476,6 +485,7 @@ export function CourseDetailProvider({
       embeddingStatus,
       bookSessionStatus,
       analysisRunStatus,
+      hasChapters,
       activeStep,
       setActiveStep,
       goToNext,
