@@ -143,6 +143,7 @@ def _revise_skills(
 def _save_skills_to_neo4j(
     selected_book_id: int,
     chapter_index: int,
+    chapter_title: str,
     skills: list[Skill],
 ) -> None:
     """Write BOOK_SKILL + CONCEPT nodes to Neo4j for one chapter.
@@ -178,6 +179,7 @@ def _save_skills_to_neo4j(
         b_publisher = book.publisher
         b_year = book.year
         b_url = book.blob_url
+        b_course_id = book.course_id
 
     repo = CurriculumGraphRepository()
     chapter_id = f"{book_neo4j_id}_ch_{chapter_index}"
@@ -200,7 +202,7 @@ def _save_skills_to_neo4j(
 
     try:
         with driver.session(database=_settings.neo4j_database) as session:
-            # Ensure stub BOOK_CHAPTER node exists (enriched later by CurriculumGraphService)
+            # Ensure BOOK + BOOK_CHAPTER stubs exist and CLASS→CANDIDATE_BOOK link
             session.run(
                 """
                 MERGE (b:BOOK {id: $book_id})
@@ -210,10 +212,18 @@ def _save_skills_to_neo4j(
                     b.year = $year,
                     b.blob_url = $blob_url
                 MERGE (ch:BOOK_CHAPTER {id: $ch_id})
+                SET ch.title = $ch_title,
+                    ch.chapter_index = $ch_index
                 MERGE (b)-[:HAS_CHAPTER]->(ch)
+                WITH b
+                MATCH (cl:CLASS {id: $course_id})
+                MERGE (cl)-[:CANDIDATE_BOOK]->(b)
                 """,
                 book_id=book_neo4j_id,
                 ch_id=chapter_id,
+                ch_title=chapter_title,
+                ch_index=chapter_index,
+                course_id=b_course_id,
                 title=b_title,
                 authors=b_authors,
                 publisher=b_publisher,
@@ -372,7 +382,7 @@ def chapter_worker(state: ChapterWorkerInput) -> dict:
 
         # ── 4. Persist to Neo4j ────────────────────────────────────
         try:
-            _save_skills_to_neo4j(selected_book_id, ch_num, result.skills)
+            _save_skills_to_neo4j(selected_book_id, ch_num, ch_title, result.skills)
         except Exception:
             logger.exception(
                 "Neo4j skill write failed for %s / %s — PostgreSQL save succeeded",

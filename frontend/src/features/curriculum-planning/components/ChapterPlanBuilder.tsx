@@ -8,10 +8,15 @@ import {
   useDraggable,
 } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
-import { GripVertical, Loader2 } from 'lucide-react';
+import { GripVertical, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { saveChapterPlan } from '../api';
 import type { ChapterPlan, ChapterPlanResponse, DocumentInfo } from '../types';
@@ -30,19 +35,55 @@ function DocumentCard({
     data: { containerId },
   });
 
+  const displayTitle = doc.topic || doc.source_filename;
+  const hasSummary = Boolean(doc.summary);
+
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
       className={cn(
-        'flex items-center gap-1.5 px-2 py-1 rounded-md border bg-background text-xs cursor-grab select-none',
-        isDragging && 'opacity-50 shadow-lg',
+        'flex items-center gap-2 px-2.5 py-1.5 rounded-md border bg-background cursor-grab select-none transition-shadow w-full group',
+        isDragging && 'opacity-50 shadow-lg ring-2 ring-primary/30',
+        !isDragging && 'hover:shadow-sm',
       )}
-      title={[doc.topic, doc.summary?.slice(0, 120)].filter(Boolean).join(' — ')}
     >
-      <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
-      <span className="truncate max-w-[160px]">{doc.source_filename}</span>
+      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium leading-tight line-clamp-1">
+          {displayTitle}
+        </p>
+        {doc.topic && (
+          <p className="text-[11px] text-muted-foreground/60 leading-tight truncate">
+            {doc.source_filename}
+          </p>
+        )}
+      </div>
+      {hasSummary && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Details for ${displayTitle}`}
+              className="shrink-0 p-1 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Info className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="right" align="start" className="w-80 space-y-2">
+            <h4 className="text-sm font-semibold">{displayTitle}</h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {doc.summary}
+            </p>
+            <p className="text-[11px] text-muted-foreground/60 pt-1 border-t">
+              {doc.source_filename}
+            </p>
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }
@@ -77,7 +118,7 @@ function ChapterCard({
           </p>
         )}
       </div>
-      <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+      <div className="grid gap-1.5 min-h-[32px]">
         {chapterDocs.map((doc) => (
           <DocumentCard key={doc.id} doc={doc} containerId={`chapter-${chapter.number}`} />
         ))}
@@ -112,7 +153,7 @@ function UnassignedPool({
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
         Unassigned Documents
       </p>
-      <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+      <div className="grid gap-1.5 sm:grid-cols-2 min-h-[32px]">
         {docs.map((doc) => (
           <DocumentCard key={doc.id} doc={doc} containerId="unassigned" />
         ))}
@@ -201,11 +242,18 @@ export function ChapterPlanBuilder({ initialPlan, onSave, courseId }: ChapterPla
     }
   };
 
+  const hasUnassigned = unassignedIds.length > 0;
+
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="space-y-6">
-        <div className="flex justify-end">
-          <Button onClick={() => void handleSave()} disabled={saving}>
+        <div className="flex items-center justify-end gap-3">
+          {hasUnassigned && (
+            <p className="text-xs text-muted-foreground">
+              Assign all documents to chapters before saving
+            </p>
+          )}
+          <Button onClick={() => void handleSave()} disabled={saving || hasUnassigned}>
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Save Changes
           </Button>
