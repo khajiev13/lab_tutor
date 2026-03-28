@@ -58,6 +58,7 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         # Helpful indexes
         "CREATE INDEX class_title_idx IF NOT EXISTS FOR (c:CLASS) ON (c.title)",
         "CREATE INDEX teacher_uploaded_document_course_id_idx IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.course_id)",
+        "CREATE INDEX skill_name_idx IF NOT EXISTS FOR (s:SKILL) ON (s.name)",
     ]
 
     embedding_dims = settings.embedding_dims
@@ -83,6 +84,22 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         vector_statements.append(
             "CREATE VECTOR INDEX book_chapter_summary_vector_idx IF NOT EXISTS "
             "FOR (ch:BOOK_CHAPTER) ON (ch.summary_embedding) "
+            "OPTIONS {indexConfig: {`vector.dimensions`: "
+            + str(int(embedding_dims))
+            + ", `vector.similarity_function`: 'cosine'}}"
+        )
+
+        vector_statements.append(
+            "CREATE VECTOR INDEX skill_name_embedding_idx IF NOT EXISTS "
+            "FOR (s:SKILL) ON (s.name_embedding) "
+            "OPTIONS {indexConfig: {`vector.dimensions`: "
+            + str(int(embedding_dims))
+            + ", `vector.similarity_function`: 'cosine'}}"
+        )
+
+        vector_statements.append(
+            "CREATE VECTOR INDEX skill_description_embedding_idx IF NOT EXISTS "
+            "FOR (s:SKILL) ON (s.description_embedding) "
             "OPTIONS {indexConfig: {`vector.dimensions`: "
             + str(int(embedding_dims))
             + ", `vector.similarity_function`: 'cosine'}}"

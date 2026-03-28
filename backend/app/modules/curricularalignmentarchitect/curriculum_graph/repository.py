@@ -210,17 +210,23 @@ class CurriculumGraphRepository:
         skill_id: str,
         name: str,
         description: str,
+        name_embedding: list[float] | None = None,
+        description_embedding: list[float] | None = None,
     ) -> None:
         tx.run(
             """
             MERGE (sk:BOOK_SKILL {id: $skill_id})
             SET sk:SKILL,
-                sk.name        = $name,
-                sk.description = $description
+                sk.name                  = $name,
+                sk.description           = $description,
+                sk.name_embedding        = $name_embedding,
+                sk.description_embedding = $description_embedding
             """,
             skill_id=skill_id,
             name=name,
             description=description,
+            name_embedding=name_embedding,
+            description_embedding=description_embedding,
         ).consume()
 
     @staticmethod
@@ -271,6 +277,65 @@ class CurriculumGraphRepository:
             skill_id=skill_id,
             concept_name=concept_name,
         ).consume()
+
+    @staticmethod
+    def create_skill_nodes_batch(
+        tx: ManagedTransaction,
+        chapter_id: str,
+        skills: list[dict],
+    ) -> None:
+        """Batch-create BOOK_SKILL nodes, link to chapter, and link to concepts.
+
+        Each dict in *skills* must contain:
+        ``id``, ``name``, ``description``, ``name_embedding``, ``description_embedding``,
+        ``concepts`` (list of concept name strings).
+        """
+        # Create skill nodes + link to chapter in one UNWIND
+        tx.run(
+            """
+            UNWIND $skills AS sk
+            MERGE (n:BOOK_SKILL {id: sk.id})
+            SET n:SKILL,
+                n.name                  = sk.name,
+                n.description           = sk.description,
+                n.name_embedding        = sk.name_embedding,
+                n.description_embedding = sk.description_embedding
+            WITH n, sk
+            MATCH (ch:BOOK_CHAPTER {id: $chapter_id})
+            MERGE (ch)-[:HAS_SKILL]->(n)
+            WITH n, sk
+            UNWIND sk.concepts AS concept_name
+            MERGE (c:CONCEPT {name: toLower(concept_name)})
+            MERGE (n)-[:REQUIRES_CONCEPT]->(c)
+            """,
+            chapter_id=chapter_id,
+            skills=skills,
+        ).consume()
+
+    # ── Skill similarity search ─────────────────────────────────
+
+    @staticmethod
+    def find_similar_skills(
+        tx: ManagedTransaction,
+        skill_id: str,
+        embedding: list[float],
+        threshold: float = 0.85,
+        top_k: int = 5,
+    ) -> list[dict]:
+        """Query the vector index for similar SKILL nodes."""
+        result = tx.run(
+            """
+            CALL db.index.vector.queryNodes('skill_name_embedding_idx', $top_k, $embedding)
+            YIELD node, score
+            WHERE score >= $threshold AND node.id <> $skill_id
+            RETURN node { .id, .name, .description } AS skill, score
+            """,
+            embedding=embedding,
+            threshold=threshold,
+            top_k=top_k,
+            skill_id=skill_id,
+        )
+        return [record.data() for record in result]
 
     # ── Concept similarity merging ──────────────────────────────
 

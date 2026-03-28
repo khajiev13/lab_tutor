@@ -313,8 +313,56 @@ class CurriculumGraphService:
                 book_id=book_id,
             )
 
-            # Per-chapter: ensure BOOK_CHAPTER nodes exist and link any skills
-            # that were already written to Neo4j during chapter_worker.
+            # ── Batch-embed all skills for this book ────────────────
+            all_skills_flat: list[dict] = []
+            for ch in chapter_data:
+                for sk_idx, skill in enumerate(ch["skills"]):
+                    all_skills_flat.append(
+                        {
+                            "name": skill["name"],
+                            "description": skill.get("description", ""),
+                            "chapter_index": ch["chapter_index"],
+                            "sk_idx": sk_idx,
+                            "concepts": [c["name"] for c in skill.get("concepts", [])],
+                        }
+                    )
+
+            if all_skills_flat:
+                yield {
+                    "event": "progress",
+                    "step": "embedding_skills",
+                    "book_title": book_title,
+                    "skill_count": len(all_skills_flat),
+                }
+
+                try:
+                    embedding_svc = EmbeddingService()
+                    skill_name_embeddings = embedding_svc.embed_documents(
+                        [s["name"] for s in all_skills_flat]
+                    )
+                    skill_desc_embeddings = embedding_svc.embed_documents(
+                        [s["description"] for s in all_skills_flat]
+                    )
+                except Exception as exc:
+                    logger.exception("Failed to embed skills for book %s", book_title)
+                    yield {
+                        "event": "error",
+                        "message": f"Skill embedding failed for '{book_title}': {exc}",
+                    }
+                    # Fall back to writing skills without embeddings
+                    skill_name_embeddings = [None] * len(all_skills_flat)
+                    skill_desc_embeddings = [None] * len(all_skills_flat)
+
+                for i, s in enumerate(all_skills_flat):
+                    s["name_embedding"] = skill_name_embeddings[i]
+                    s["description_embedding"] = skill_desc_embeddings[i]
+
+            # ── Write skills per chapter via batch Cypher ──────────
+            # Group skills back by chapter_index
+            skills_by_chapter: dict[int, list[dict]] = {}
+            for s in all_skills_flat:
+                skills_by_chapter.setdefault(s["chapter_index"], []).append(s)
+
             for ch_idx, ch in enumerate(chapter_data):
                 ch_id = _chapter_id(book_id, ch["chapter_index"])
                 yield {
@@ -327,28 +375,24 @@ class CurriculumGraphService:
                     "book_title": book_title,
                 }
 
-                # Skills were already written to Neo4j by chapter_worker.
-                # Ensure any skills in skills_json that are missing the HAS_SKILL
-                # relationship (e.g. from a run before this service refactor) are linked.
-                for sk_idx, skill in enumerate(ch["skills"]):
-                    sk_id = _skill_id(book_id, ch["chapter_index"], sk_idx)
+                ch_skills = skills_by_chapter.get(ch["chapter_index"], [])
+                if ch_skills:
+                    skill_payloads = [
+                        {
+                            "id": _skill_id(book_id, ch["chapter_index"], s["sk_idx"]),
+                            "name": s["name"],
+                            "description": s["description"],
+                            "name_embedding": s["name_embedding"],
+                            "description_embedding": s["description_embedding"],
+                            "concepts": s["concepts"],
+                        }
+                        for s in ch_skills
+                    ]
                     session.execute_write(
-                        repo.create_skill_node,
-                        skill_id=sk_id,
-                        name=skill["name"],
-                        description=skill.get("description", ""),
-                    )
-                    session.execute_write(
-                        repo.link_skill_to_chapter,
+                        repo.create_skill_nodes_batch,
                         chapter_id=ch_id,
-                        skill_id=sk_id,
+                        skills=skill_payloads,
                     )
-                    for concept in skill.get("concepts", []):
-                        session.execute_write(
-                            repo.merge_skill_concept,
-                            skill_id=sk_id,
-                            concept_name=concept["name"],
-                        )
 
 
 # ── Data snapshot helper ────────────────────────────────────────
