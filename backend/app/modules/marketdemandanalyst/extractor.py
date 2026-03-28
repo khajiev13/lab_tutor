@@ -261,11 +261,11 @@ def _build_skill_job_urls(
     return result
 
 
-def merge_similar_skills(state: ExtractorState) -> Command:
+def merge_similar_skills(state: ExtractorState) -> dict:
     """LLM-based semantic deduplication of extracted skills.
 
-    Clusters similar skills, picks canonical names, sums frequencies,
-    then routes to skill_finder in the parent swarm.
+    Clusters similar skills, picks canonical names, sums frequencies.
+    Stores result in tool_store for the next node (normalize_skills_by_embedding).
     """
     raw_skills = tool_store.get("_raw_extracted_skills", [])
     raw_urls: dict[str, list[str]] = tool_store.get("_raw_skill_urls", {})
@@ -275,39 +275,27 @@ def merge_similar_skills(state: ExtractorState) -> Command:
         logger.warning("merge_similar_skills: no raw skills to merge")
         tool_store["extracted_skills"] = []
         tool_store["skill_job_urls"] = {}
-        return Command(
-            goto="skill_finder",
-            graph=Command.PARENT,
-            update={"active_agent": "skill_finder"},
-        )
+        return {"skills": []}
 
-    # If few enough skills, skip LLM merge
+    # If few enough skills, skip LLM merge — embedding pass will still run
     if len(raw_skills) <= 10:
-        tool_store["extracted_skills"] = raw_skills
+        tool_store["_llm_merged_skills"] = raw_skills
         tool_store["skill_job_urls"] = _build_skill_job_urls(raw_skills, raw_urls)
         logger.info(
-            "merge_similar_skills: %d skills (skipped merge, too few)", len(raw_skills)
-        )
-        return Command(
-            goto="skill_finder",
-            graph=Command.PARENT,
-            update={"active_agent": "skill_finder"},
-        )
-
-    # Guardrail: very large skill sets can make the merge prompt too big and
-    # stall the SSE stream for minutes if the provider times out.
-    if len(raw_skills) > 150:
-        tool_store["extracted_skills"] = raw_skills
-        tool_store["skill_job_urls"] = _build_skill_job_urls(raw_skills, raw_urls)
-        logger.warning(
-            "merge_similar_skills: %d skills (skipped merge, too many for safe LLM merge)",
+            "merge_similar_skills: %d skills (skipped LLM merge, too few)",
             len(raw_skills),
         )
-        return Command(
-            goto="skill_finder",
-            graph=Command.PARENT,
-            update={"active_agent": "skill_finder"},
+        return {"skills": []}
+
+    # Guardrail: very large skill sets can make the merge prompt too big
+    if len(raw_skills) > 150:
+        tool_store["_llm_merged_skills"] = raw_skills
+        tool_store["skill_job_urls"] = _build_skill_job_urls(raw_skills, raw_urls)
+        logger.warning(
+            "merge_similar_skills: %d skills (skipped LLM merge, too many)",
+            len(raw_skills),
         )
+        return {"skills": []}
 
     skill_list = "\n".join(
         f"- {s['name']} (category: {s['category']}, frequency: {s['frequency']})"
@@ -328,17 +316,11 @@ def merge_similar_skills(state: ExtractorState) -> Command:
         merged = json.loads(text)
     except (json.JSONDecodeError, Exception) as e:
         logger.warning("merge_similar_skills: LLM parse error, using raw skills: %s", e)
-        tool_store["extracted_skills"] = raw_skills
+        tool_store["_llm_merged_skills"] = raw_skills
         tool_store["skill_job_urls"] = _build_skill_job_urls(raw_skills, raw_urls)
-        return Command(
-            goto="skill_finder",
-            graph=Command.PARENT,
-            update={"active_agent": "skill_finder"},
-        )
+        return {"skills": []}
 
     # Post-merge validation: ensure every name is a proper competency statement
-    # (starts with an action verb). If the LLM still produced a noun phrase,
-    # fall back to the best original from merged_from.
     _ACTION_VERBS = {
         "implement",
         "apply",
@@ -418,14 +400,12 @@ def merge_similar_skills(state: ExtractorState) -> Command:
         "modeling",
         "visualizing",
     }
-    # Build a lookup of raw skill names for fallback
     raw_name_set: dict[str, dict] = {s["name"]: s for s in raw_skills}
 
     for item in merged:
         name = item.get("name", "")
         first_word = name.split()[0].lower() if name else ""
         if first_word not in _ACTION_VERBS:
-            # Try to find a good original from merged_from
             originals = item.get("merged_from", [])
             best_original = None
             for orig in originals:
@@ -441,7 +421,6 @@ def merge_similar_skills(state: ExtractorState) -> Command:
                 )
                 item["name"] = best_original
             else:
-                # Last resort: use the highest-frequency original
                 best_by_freq = max(
                     (raw_name_set.get(o, {}) for o in originals),
                     key=lambda s: s.get("frequency", 0),
@@ -449,7 +428,8 @@ def merge_similar_skills(state: ExtractorState) -> Command:
                 )
                 if best_by_freq.get("name"):
                     logger.info(
-                        "merge validation: no action-verb original for '%s', using '%s' (highest freq)",
+                        "merge validation: no action-verb original for '%s', "
+                        "using '%s' (highest freq)",
                         name,
                         best_by_freq["name"],
                     )
@@ -459,15 +439,151 @@ def merge_similar_skills(state: ExtractorState) -> Command:
     for s in merged:
         s["pct"] = round(s.get("frequency", 0) / max(total_jobs, 1) * 100, 1)
 
-    # Sort by frequency descending
     merged.sort(key=lambda x: -x.get("frequency", 0))
 
-    tool_store["extracted_skills"] = merged
+    # Store LLM-merged results for the embedding normalization pass
+    tool_store["_llm_merged_skills"] = merged
     tool_store["skill_job_urls"] = _build_skill_job_urls(merged, raw_urls)
     logger.info(
-        "merge_similar_skills: %d raw → %d merged skills",
+        "merge_similar_skills: %d raw → %d LLM-merged skills",
         len(raw_skills),
         len(merged),
+    )
+    return {"skills": []}
+
+
+# ── Embedding-based skill normalization ────────────────────────
+
+_SIMILARITY_THRESHOLD = 0.92
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Compute cosine similarity between two vectors."""
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
+    norm_a = sum(x * x for x in a) ** 0.5
+    norm_b = sum(x * x for x in b) ** 0.5
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def normalize_skills_by_embedding(state: ExtractorState) -> Command:
+    """Embedding-based deduplication of skills.
+
+    Embeds all skill names, finds pairs above the similarity threshold,
+    and merges them (keeping the higher-frequency skill as canonical).
+    This catches near-duplicates the LLM merge missed, like:
+    - "Query and analyze data using SQL"  vs  "Query and manipulate data using SQL"
+    """
+    import time as _time
+
+    t0 = _time.perf_counter()
+    skills = tool_store.get("_llm_merged_skills", [])
+    raw_urls: dict[str, list[str]] = tool_store.get("_raw_skill_urls", {})
+    total_jobs = tool_store.get("total_jobs_for_extraction", 1)
+
+    if not skills or len(skills) <= 1:
+        tool_store["extracted_skills"] = skills or []
+        return Command(
+            goto="skill_finder",
+            graph=Command.PARENT,
+            update={"active_agent": "skill_finder"},
+        )
+
+    # Embed all skill names
+    try:
+        from app.modules.embeddings.embedding_service import EmbeddingService
+
+        svc = EmbeddingService()
+        names = [s["name"] for s in skills]
+        vectors = svc.embed_documents(names)
+    except Exception as e:
+        logger.warning(
+            "normalize_skills_by_embedding: embedding failed (%s), skipping", e
+        )
+        tool_store["extracted_skills"] = skills
+        return Command(
+            goto="skill_finder",
+            graph=Command.PARENT,
+            update={"active_agent": "skill_finder"},
+        )
+
+    # Union-Find for clustering similar skills
+    parent = list(range(len(skills)))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x: int, y: int) -> None:
+        rx, ry = find(x), find(y)
+        if rx != ry:
+            parent[rx] = ry
+
+    # Find similar pairs
+    merge_count = 0
+    for i in range(len(skills)):
+        for j in range(i + 1, len(skills)):
+            sim = _cosine_similarity(vectors[i], vectors[j])
+            if sim >= _SIMILARITY_THRESHOLD:
+                union(i, j)
+                merge_count += 1
+                logger.debug(
+                    "embedding merge: '%.60s' ↔ '%.60s' (sim=%.3f)",
+                    skills[i]["name"],
+                    skills[j]["name"],
+                    sim,
+                )
+
+    # Group by cluster root
+    clusters: dict[int, list[int]] = {}
+    for i in range(len(skills)):
+        root = find(i)
+        clusters.setdefault(root, []).append(i)
+
+    # Merge each cluster: keep highest-frequency skill, sum frequencies
+    normalized: list[dict] = []
+    for indices in clusters.values():
+        if len(indices) == 1:
+            normalized.append(skills[indices[0]])
+            continue
+
+        # Sort by frequency descending — canonical = highest frequency
+        sorted_indices = sorted(indices, key=lambda i: -skills[i].get("frequency", 0))
+        canonical = dict(skills[sorted_indices[0]])  # copy
+
+        # Merge data from the rest
+        merged_from = list(canonical.get("merged_from", [canonical["name"]]))
+        for idx in sorted_indices[1:]:
+            other = skills[idx]
+            canonical["frequency"] = canonical.get("frequency", 0) + other.get(
+                "frequency", 0
+            )
+            merged_from.extend(other.get("merged_from", [other["name"]]))
+
+        canonical["merged_from"] = merged_from
+        canonical["pct"] = round(
+            canonical.get("frequency", 0) / max(total_jobs, 1) * 100, 1
+        )
+        normalized.append(canonical)
+
+    # Sort by frequency descending
+    normalized.sort(key=lambda x: -x.get("frequency", 0))
+
+    tool_store["extracted_skills"] = normalized
+    tool_store["skill_job_urls"] = _build_skill_job_urls(normalized, raw_urls)
+
+    elapsed_ms = (_time.perf_counter() - t0) * 1000
+    logger.info(
+        "normalize_skills_by_embedding: %d → %d skills "
+        "(merged %d pairs, threshold=%.2f) in %.1fms",
+        len(skills),
+        len(normalized),
+        merge_count,
+        _SIMILARITY_THRESHOLD,
+        elapsed_ms,
     )
 
     return Command(
@@ -483,8 +599,10 @@ _builder = StateGraph(ExtractorState)
 _builder.add_node("extract_one", extract_one)
 _builder.add_node("synthesize_skills", synthesize_skills)
 _builder.add_node("merge_similar_skills", merge_similar_skills)
+_builder.add_node("normalize_skills_by_embedding", normalize_skills_by_embedding)
 _builder.add_conditional_edges(START, fan_out, ["extract_one"])
 _builder.add_edge("extract_one", "synthesize_skills")
 _builder.add_edge("synthesize_skills", "merge_similar_skills")
+_builder.add_edge("merge_similar_skills", "normalize_skills_by_embedding")
 
 skill_extractor_subgraph = _builder.compile()

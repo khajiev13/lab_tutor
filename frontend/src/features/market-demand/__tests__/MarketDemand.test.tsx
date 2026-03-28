@@ -60,6 +60,7 @@ const EMPTY_STATE: AgentState = {
   selected_for_insertion: null,
   skill_concepts: null,
   insertion_results: null,
+  skill_job_urls: null,
 };
 
 const ALL_PENDING: Record<PipelineStageId, StageStatus> = {

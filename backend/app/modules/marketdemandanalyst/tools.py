@@ -395,28 +395,72 @@ def start_extraction() -> Command | str:
 
 @tool
 def list_chapters() -> str:
-    """List all chapters in the curriculum knowledge graph.
-    Returns chapter titles, indices, and existing skill counts.
+    """List all course chapters in the curriculum knowledge graph.
+    Returns chapter titles and existing MARKET_SKILL counts.
     Call this first to get an overview of the course structure.
 
-    TODO: Reimplement once transcript-based chapters are stored in Neo4j.
-    Previous implementation traversed BOOK → BOOK_CHAPTER, which assumed
-    chapters came from books. Now chapters are built from categorized
-    transcripts. The new query should match chapters directly (e.g.
-    MATCH (ch:CHAPTER) or whatever label the transcript chapters use)
-    without requiring a BOOK parent node. The output contract (chapter
-    title, index, skill counts) should remain the same so downstream
-    tools (get_chapter_details, save_curriculum_mapping) keep working.
+    Queries COURSE_CHAPTER nodes linked to CLASS via HAS_CHAPTER.
     """
-    # Chapters are now built from transcripts, not books.
-    # This tool needs to be reimplemented once the transcript-based
-    # chapter graph schema is finalized.
-    return "No chapters found — transcript-based chapters not yet loaded into the knowledge graph."
+    from neo4j.exceptions import AuthError, ServiceUnavailable, SessionExpired
+
+    course_id = tool_store.get("course_id")
+    if not course_id:
+        return "No course_id set. Cannot look up chapters."
+
+    t0 = time.perf_counter()
+    try:
+        with _neo4j_session() as session:
+            result = session.run(
+                "MATCH (cl:CLASS {id: $course_id})-[:HAS_CHAPTER]->(ch:COURSE_CHAPTER) "
+                "RETURN ch.title AS title, ch.chapter_index AS idx, "
+                "  [(ch)<-[:MAPPED_TO]-(ms:MARKET_SKILL) | ms.name] AS market_skills, "
+                "  [(ch)-[:INCLUDES_DOCUMENT]->(d:TEACHER_UPLOADED_DOCUMENT) | d.topic] AS doc_topics, "
+                "  [(ch)-[:TEACHES_CONCEPT]->(c:CONCEPT) | c.name] AS concepts "
+                "ORDER BY ch.chapter_index",
+                {"course_id": course_id},
+            )
+            rows = [dict(r) for r in result]
+    except (ServiceUnavailable, SessionExpired, OSError):
+        logger.info(
+            "[PERF] list_chapters FAILED in %.1fms",
+            (time.perf_counter() - t0) * 1000,
+        )
+        return "Knowledge Map unavailable. Please try again in a moment."
+    except AuthError:
+        return "Knowledge Map connection failed. Check credentials."
+
+    logger.info(
+        "[PERF] list_chapters took %.1fms (%d chapters)",
+        (time.perf_counter() - t0) * 1000,
+        len(rows),
+    )
+
+    if not rows:
+        return "No course chapters found in the knowledge graph for this course."
+
+    lines = [f"Course has {len(rows)} chapters:"]
+    for r in rows:
+        idx = r.get("idx", "?")
+        title = r.get("title", "Untitled")
+        ms = r.get("market_skills", [])
+        docs = r.get("doc_topics", [])
+        concepts = r.get("concepts", [])
+        lines.append(f"\n  [{idx}] {title}")
+        lines.append(
+            f"      Documents: {len(docs)} | Concepts: {len(concepts)} | Market Skills: {len(ms)}"
+        )
+        if docs:
+            lines.append(f"      Doc topics: {', '.join(str(d) for d in docs[:5])}")
+        if ms:
+            lines.append(
+                f"      Existing market skills: {', '.join(str(s) for s in ms[:5])}"
+            )
+    return "\n".join(lines)
 
 
 @tool
 def get_chapter_details(chapter_indices: str) -> str:
-    """Get sections and existing BOOK_SKILL nodes for specific chapters.
+    """Get documents, concepts, and existing MARKET_SKILL nodes for specific course chapters.
     Args:
         chapter_indices: comma-separated chapter numbers (e.g. "1, 2, 4")
     """
@@ -432,18 +476,14 @@ def get_chapter_details(chapter_indices: str) -> str:
     try:
         with _neo4j_session() as session:
             result = session.run(
-                "MATCH (ch:BOOK_CHAPTER) "
+                "MATCH (ch:COURSE_CHAPTER) "
                 "WHERE ch.chapter_index IN $indices "
                 "RETURN ch.chapter_index AS ch_idx, ch.title AS ch_title, "
-                "  [(ch)-[:HAS_SECTION]->(s:BOOK_SECTION) | "
-                "    s { .title, .section_index, "
-                "      concept_count: size([(s)-[:MENTIONS]->(:CONCEPT) | 1]) "
-                "  }] AS sections, "
-                "  [(ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) | "
-                "    sk { .name, .description, "
-                "      concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] "
-                "  }] AS book_skills, "
-                "  [(ch)-[:HAS_SKILL]->(ms:MARKET_SKILL) | "
+                "  [(ch)-[:INCLUDES_DOCUMENT]->(d:TEACHER_UPLOADED_DOCUMENT) | "
+                "    d { .topic, .title } "
+                "  ] AS documents, "
+                "  [(ch)-[:TEACHES_CONCEPT]->(c:CONCEPT) | c.name] AS concepts, "
+                "  [(ch)<-[:MAPPED_TO]-(ms:MARKET_SKILL) | "
                 "    ms { .name, .status, .demand_pct, .category, "
                 "      concepts: [(ms)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] "
                 "  }] AS market_skills "
@@ -473,26 +513,19 @@ def get_chapter_details(chapter_indices: str) -> str:
         lines.append(f"[{idx}] {title}")
         lines.append(f"{'=' * 60}")
 
-        secs = sorted(ch.get("sections", []), key=lambda s: s.get("section_index", 0))
-        if secs:
-            lines.append("  Sections:")
-            for s in secs:
-                prefix = s["title"].split(" ")[0]
-                lines.append(
-                    f"    [{prefix}] {s['title']} ({s['concept_count']} concepts)"
-                )
+        docs = ch.get("documents", [])
+        if docs:
+            lines.append("  Documents:")
+            for d in docs:
+                lines.append(f"    • {d.get('topic', d.get('title', 'Untitled'))}")
 
-        sks = ch.get("book_skills", [])
-        if sks:
-            lines.append("  Book Skills:")
-            for sk in sks:
-                concepts = sk.get("concepts", [])
-                concepts_str = ", ".join(concepts[:5])
-                if len(concepts) > 5:
-                    concepts_str += f" (+{len(concepts) - 5} more)"
-                lines.append(f"    • {sk['name']}")
-                if concepts_str:
-                    lines.append(f"      requires: {concepts_str}")
+        concepts = ch.get("concepts", [])
+        if concepts:
+            lines.append(f"  Concepts ({len(concepts)}):")
+            for c in concepts[:10]:
+                lines.append(f"    • {c}")
+            if len(concepts) > 10:
+                lines.append(f"    ... and {len(concepts) - 10} more")
 
         mks = ch.get("market_skills", [])
         if mks:
@@ -502,7 +535,6 @@ def get_chapter_details(chapter_indices: str) -> str:
                 status = ms.get("status", "?")
                 lines.append(f"    ★ {ms['name']} [{status}] (demand: {demand}%)")
 
-    lines.append("\nUse get_section_concepts to drill into specific sections.")
     return "\n".join(lines)
 
 
@@ -1115,13 +1147,13 @@ def insert_market_skills_to_neo4j() -> str:
                 )
                 stats["skills"] += 1
 
-                # C: Link chapter -> skill (reuses HAS_SKILL pattern)
+                # C: Link chapter -> skill via MAPPED_TO
                 chapter = data.get("chapter_title")
                 if chapter:
                     session.run(
                         "MATCH (s:MARKET_SKILL {name: $name}) "
-                        "MATCH (ch:BOOK_CHAPTER {title: $chapter}) "
-                        "MERGE (ch)-[:HAS_SKILL]->(s)",
+                        "MATCH (ch:COURSE_CHAPTER {title: $chapter}) "
+                        "MERGE (s)-[:MAPPED_TO]->(ch)",
                         {"name": skill_name, "chapter": chapter},
                     )
                     stats["chapter_links"] += 1
@@ -1449,11 +1481,11 @@ def load_mapped_skills() -> str:
 
 
 @tool
-def load_book_skills_for_chapters(chapter_titles: str) -> str:
-    """Query Neo4j for existing BOOK_SKILL nodes linked to the given chapters.
+def load_existing_skills_for_chapters(chapter_titles: str) -> str:
+    """Query Neo4j for existing MARKET_SKILL nodes linked to course chapters.
     Args:
         chapter_titles: comma-separated chapter titles to check.
-    Returns per-chapter book skill lists."""
+    Returns per-chapter existing skill lists."""
     from neo4j.exceptions import AuthError, ServiceUnavailable, SessionExpired
 
     titles = [t.strip() for t in chapter_titles.split(",") if t.strip()]
@@ -1465,9 +1497,9 @@ def load_book_skills_for_chapters(chapter_titles: str) -> str:
         with _neo4j_session() as session:
             result = session.run(
                 "UNWIND $titles AS title "
-                "MATCH (ch:BOOK_CHAPTER) WHERE ch.title = title "
+                "MATCH (ch:COURSE_CHAPTER) WHERE ch.title = title "
                 "RETURN ch.title AS chapter, "
-                "  [(ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) | "
+                "  [(ch)<-[:MAPPED_TO]-(sk:MARKET_SKILL) | "
                 "    sk { .name, .description, "
                 "      concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] "
                 "  }] AS skills "
@@ -1477,25 +1509,25 @@ def load_book_skills_for_chapters(chapter_titles: str) -> str:
             rows = [dict(r) for r in result]
     except (ServiceUnavailable, SessionExpired, OSError):
         logger.info(
-            "[PERF] load_book_skills_for_chapters FAILED in %.1fms",
+            "[PERF] load_existing_skills_for_chapters FAILED in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
         return "Knowledge Map unavailable. Please try again in a moment."
     except AuthError:
         return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
-        "[PERF] load_book_skills_for_chapters took %.1fms (%d rows)",
+        "[PERF] load_existing_skills_for_chapters took %.1fms (%d rows)",
         (time.perf_counter() - t0) * 1000,
         len(rows),
     )
 
     if not rows:
-        return f"No book skills found for chapters: {chapter_titles}"
+        return f"No existing skills found for chapters: {chapter_titles}"
 
-    lines = [f"Book skills for {len(rows)} chapters:"]
+    lines = [f"Existing skills for {len(rows)} chapters:"]
     for r in rows:
         skills = r.get("skills", [])
-        lines.append(f"\n  {r['chapter']} ({len(skills)} book skills):")
+        lines.append(f"\n  {r['chapter']} ({len(skills)} existing skills):")
         for sk in skills:
             desc = sk.get("description", "")
             desc_str = f" — {desc[:80]}" if desc else ""
@@ -1505,38 +1537,38 @@ def load_book_skills_for_chapters(chapter_titles: str) -> str:
 
 @tool
 def compare_and_clean(chapter_title: str) -> str:
-    """Compare mapped market skills vs existing book skills for one chapter.
+    """Compare mapped market skills vs existing skills for one course chapter.
     Uses LLM to decide which market skills are redundant.
     Args:
-        chapter_title: the chapter to clean.
+        chapter_title: the course chapter to clean.
     Returns kept/dropped skill lists with reasoning."""
     mapped = tool_store.get("mapped_skills", {})
     market_skills = mapped.get(chapter_title, [])
     if not market_skills:
         return f"No mapped market skills for chapter: {chapter_title}"
 
-    # Fetch book skills for this chapter
+    # Fetch existing skills for this course chapter
     from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
-    book_skills: list[str] = []
+    existing_skills: list[str] = []
     try:
         with _neo4j_session() as session:
             result = session.run(
-                "MATCH (ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
-                "WHERE ch.title = $title "
-                "RETURN sk.name AS name, sk.description AS description",
+                "MATCH (ch:COURSE_CHAPTER) WHERE ch.title = $title "
+                "OPTIONAL MATCH (ch)<-[:MAPPED_TO]-(ms:MARKET_SKILL) "
+                "RETURN ms.name AS name, ms.description AS description",
                 {"title": chapter_title},
             )
-            book_skills_data = [dict(r) for r in result]
-            book_skills = [
-                f"{s['name']}: {s.get('description', '')}" for s in book_skills_data
+            skills_data = [dict(r) for r in result if r["name"]]
+            existing_skills = [
+                f"{s['name']}: {s.get('description', '')}" for s in skills_data
             ]
     except (ServiceUnavailable, SessionExpired, OSError):
         _get_neo4j_driver(force_new=True)
         return "Knowledge Map unavailable. Please try again in a moment."
 
-    if not book_skills:
-        # No book skills to compare against — keep all market skills
+    if not existing_skills:
+        # No existing skills to compare against — keep all market skills
         result_data = {
             "chapter": chapter_title,
             "kept": market_skills,
@@ -1544,23 +1576,23 @@ def compare_and_clean(chapter_title: str) -> str:
         }
         _update_cleaned_results(result_data)
         return (
-            f"Chapter '{chapter_title}': No book skills to compare against. "
+            f"Chapter '{chapter_title}': No existing skills to compare against. "
             f"Keeping all {len(market_skills)} market skills."
         )
 
     # LLM comparison
     llm = _get_extraction_llm()
     prompt = (
-        "You are a curriculum deduplication expert. Compare market skills against "
-        "existing book skills for redundancy.\n\n"
+        "You are a curriculum deduplication expert. Compare new market skills against "
+        "existing skills already in the course chapter for redundancy.\n\n"
         f"## Chapter: {chapter_title}\n\n"
-        "## Existing Book Skills:\n"
-        + "\n".join(f"- {s}" for s in book_skills)
+        "## Existing Skills (already in curriculum):\n"
+        + "\n".join(f"- {s}" for s in existing_skills)
         + "\n\n## New Market Skills to evaluate:\n"
         + "\n".join(f"- {s}" for s in market_skills)
         + "\n\n"
         "For each market skill, decide: KEEP or DROP.\n"
-        "DROP only if a book skill teaches essentially the same competency.\n"
+        "DROP only if an existing skill teaches essentially the same competency.\n"
         "When in doubt, KEEP — the teacher already selected these.\n\n"
         "Return ONLY valid JSON:\n"
         '{"kept": [{"name": "...", "reason": "..."}], '
@@ -1704,7 +1736,7 @@ CURRICULUM_MAPPER_TOOLS = [
 
 SKILL_CLEANER_TOOLS = [
     load_mapped_skills,
-    load_book_skills_for_chapters,
+    load_existing_skills_for_chapters,
     compare_and_clean,
     finalize_cleaned_skills,
 ]

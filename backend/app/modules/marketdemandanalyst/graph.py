@@ -197,7 +197,7 @@ async def get_graph():
     _LLM_INSTANCE = llm
 
     t0 = time.perf_counter()
-    curriculum_ctx = load_curriculum_context(teacher_email=None)
+    curriculum_ctx = load_curriculum_context()
     logger.info(
         "[PERF] load_curriculum_context (Neo4j) took %.1fms",
         (time.perf_counter() - t0) * 1000,
