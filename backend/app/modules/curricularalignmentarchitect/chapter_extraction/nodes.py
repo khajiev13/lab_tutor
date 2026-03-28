@@ -147,14 +147,15 @@ def _save_skills_to_neo4j(
 ) -> None:
     """Write BOOK_SKILL + CONCEPT nodes to Neo4j for one chapter.
 
-    Creates a stub BOOK_CHAPTER node (MERGE on id) so the HAS_SKILL relationship
-    can be established even before CurriculumGraphService runs its full graph build.
+    Batch-embeds skill names and descriptions, then creates skill nodes
+    with embeddings and links them to a stub BOOK_CHAPTER node.
     """
     from app.core.neo4j import create_neo4j_driver
     from app.core.settings import settings as _settings
     from app.modules.curricularalignmentarchitect.curriculum_graph.repository import (
         CurriculumGraphRepository,
     )
+    from app.modules.embeddings.embedding_service import EmbeddingService
 
     driver = create_neo4j_driver()
     if driver is None:
@@ -164,6 +165,22 @@ def _save_skills_to_neo4j(
     repo = CurriculumGraphRepository()
     chapter_id = f"{book_neo4j_id}_ch_{chapter_index}"
 
+    # Batch-embed skill names and descriptions
+    name_embeddings: list[list[float] | None]
+    desc_embeddings: list[list[float] | None]
+    try:
+        embedder = EmbeddingService()
+        name_embeddings = embedder.embed_documents([s.name for s in skills])
+        desc_embeddings = embedder.embed_documents([s.description for s in skills])
+    except Exception:
+        logger.exception(
+            "Skill embedding failed for %s ch %d — writing without embeddings",
+            book_neo4j_id,
+            chapter_index,
+        )
+        name_embeddings = [None] * len(skills)
+        desc_embeddings = [None] * len(skills)
+
     try:
         with driver.session(database=_settings.neo4j_database) as session:
             # Ensure stub BOOK_CHAPTER node exists (enriched later by CurriculumGraphService)
@@ -172,33 +189,24 @@ def _save_skills_to_neo4j(
                 id=chapter_id,
             )
 
-            for sk_idx, skill in enumerate(skills):
-                skill_id = f"{book_neo4j_id}_ch_{chapter_index}_sk_{sk_idx}"
+            skill_payloads = [
+                {
+                    "id": f"{book_neo4j_id}_ch_{chapter_index}_sk_{sk_idx}",
+                    "name": skill.name,
+                    "description": skill.description,
+                    "name_embedding": name_embeddings[sk_idx],
+                    "description_embedding": desc_embeddings[sk_idx],
+                    "concepts": [c.name for c in skill.concepts],
+                }
+                for sk_idx, skill in enumerate(skills)
+            ]
 
+            if skill_payloads:
                 session.execute_write(
-                    repo.create_skill_node,
-                    skill_id=skill_id,
-                    name=skill.name,
-                    description=skill.description,
-                )
-                session.execute_write(
-                    repo.link_skill_to_chapter,
+                    repo.create_skill_nodes_batch,
                     chapter_id=chapter_id,
-                    skill_id=skill_id,
+                    skills=skill_payloads,
                 )
-
-                for concept in skill.concepts:
-                    session.execute_write(
-                        repo.merge_concept_node,
-                        name=concept.name,
-                        embedding=None,  # embeddings added by concept_normalization pipeline
-                        description=concept.description,
-                    )
-                    session.execute_write(
-                        repo.merge_skill_concept,
-                        skill_id=skill_id,
-                        concept_name=concept.name,
-                    )
     finally:
         driver.close()
 
