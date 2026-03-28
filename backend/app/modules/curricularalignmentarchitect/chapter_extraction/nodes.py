@@ -141,7 +141,7 @@ def _revise_skills(
 
 
 def _save_skills_to_neo4j(
-    book_neo4j_id: str,
+    selected_book_id: int,
     chapter_index: int,
     skills: list[Skill],
 ) -> None:
@@ -152,15 +152,32 @@ def _save_skills_to_neo4j(
     """
     from app.core.neo4j import create_neo4j_driver
     from app.core.settings import settings as _settings
+    from app.modules.curricularalignmentarchitect.chapter_extraction.repository import (
+        fresh_db,
+    )
     from app.modules.curricularalignmentarchitect.curriculum_graph.repository import (
         CurriculumGraphRepository,
     )
+    from app.modules.curricularalignmentarchitect.models import CourseSelectedBook
     from app.modules.embeddings.embedding_service import EmbeddingService
 
     driver = create_neo4j_driver()
     if driver is None:
         logger.warning("Neo4j not configured — skipping skill graph write")
         return
+
+    book_neo4j_id = f"book_{selected_book_id}"
+
+    with fresh_db() as db:
+        book = db.get(CourseSelectedBook, selected_book_id)
+        if not book:
+            logger.warning("Book %d not found in psycopg", selected_book_id)
+            return
+        b_title = book.title
+        b_authors = book.authors
+        b_publisher = book.publisher
+        b_year = book.year
+        b_url = book.blob_url
 
     repo = CurriculumGraphRepository()
     chapter_id = f"{book_neo4j_id}_ch_{chapter_index}"
@@ -187,11 +204,21 @@ def _save_skills_to_neo4j(
             session.run(
                 """
                 MERGE (b:BOOK {id: $book_id})
+                SET b.title = $title,
+                    b.authors = $authors,
+                    b.publisher = $publisher,
+                    b.year = $year,
+                    b.blob_url = $blob_url
                 MERGE (ch:BOOK_CHAPTER {id: $ch_id})
                 MERGE (b)-[:HAS_CHAPTER]->(ch)
                 """,
                 book_id=book_neo4j_id,
                 ch_id=chapter_id,
+                title=b_title,
+                authors=b_authors,
+                publisher=b_publisher,
+                year=b_year,
+                blob_url=b_url,
             )
 
             skill_payloads = [
@@ -344,9 +371,8 @@ def chapter_worker(state: ChapterWorkerInput) -> dict:
         )
 
         # ── 4. Persist to Neo4j ────────────────────────────────────
-        book_neo4j_id = f"book_{selected_book_id}"
         try:
-            _save_skills_to_neo4j(book_neo4j_id, ch_num, result.skills)
+            _save_skills_to_neo4j(selected_book_id, ch_num, result.skills)
         except Exception:
             logger.exception(
                 "Neo4j skill write failed for %s / %s — PostgreSQL save succeeded",
