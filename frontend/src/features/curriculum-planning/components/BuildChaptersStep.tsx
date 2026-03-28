@@ -9,7 +9,7 @@ import { ChapterPlanBuilder } from './ChapterPlanBuilder';
 import type { ChapterPlanResponse } from '../types';
 
 export function BuildChaptersStep() {
-  const { courseId, course, goToNext } = useCourseDetail();
+  const { courseId, course, goToNext, setHasChapters } = useCourseDetail();
   const [plan, setPlan] = useState<ChapterPlanResponse | null>(null);
   const [generating, setGenerating] = useState(false);
   const [planLoading, setPlanLoading] = useState(false);
@@ -22,13 +22,16 @@ export function BuildChaptersStep() {
     setPlanLoading(true);
     getChapterPlan(courseId)
       .then((p) => {
-        if (p.chapters.length > 0) setPlan(p);
+        if (p.chapters.length > 0) {
+          setPlan(p);
+          setHasChapters(true);
+        }
       })
       .catch(() => {
         // no plan yet, that's fine
       })
       .finally(() => setPlanLoading(false));
-  }, [courseId, disabled]);
+  }, [courseId, disabled, setHasChapters]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -36,6 +39,9 @@ export function BuildChaptersStep() {
     try {
       const p = await generateChapterPlan(courseId);
       setPlan(p);
+      if (p.chapters.length > 0) {
+        setHasChapters(true);
+      }
     } catch {
       setError('Failed to generate chapter plan. Please try again.');
     } finally {
