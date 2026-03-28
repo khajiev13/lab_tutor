@@ -62,32 +62,45 @@ class CourseRepository:
     def delete(self, course: Course, *, commit: bool = True) -> None:
         # Manually cascade delete dependent records from other modules
         # that lack ON DELETE CASCADE in the database schema.
+        # ORDER MATTERS: deepest FK children first, working up the chain.
+        from sqlalchemy import delete as sa_delete
+
         from app.modules.curricularalignmentarchitect.models import (
             BookExtractionRun,
             BookSelectionSession,
+            CourseBook,
             CourseSelectedBook,
         )
 
+        # 1. BookExtractionRun (CASCADE deletes chapters/chunks/summaries via ORM)
         runs = self.db.scalars(
             select(BookExtractionRun).where(BookExtractionRun.course_id == course.id)
         ).all()
         for r in runs:
             self.db.delete(r)
+        self.db.flush()
 
-        selected = self.db.scalars(
-            select(CourseSelectedBook).where(CourseSelectedBook.course_id == course.id)
-        ).all()
-        for s in selected:
-            self.db.delete(s)
+        # 2. CourseSelectedBook (source_book_id → course_books.id)
+        self.db.execute(
+            sa_delete(CourseSelectedBook).where(
+                CourseSelectedBook.course_id == course.id
+            )
+        )
+        self.db.flush()
 
-        sessions = self.db.scalars(
-            select(BookSelectionSession).where(
+        # 3. CourseBook (session_id → book_selection_sessions.id)
+        self.db.execute(sa_delete(CourseBook).where(CourseBook.course_id == course.id))
+        self.db.flush()
+
+        # 4. BookSelectionSession (course_id → courses.id)
+        self.db.execute(
+            sa_delete(BookSelectionSession).where(
                 BookSelectionSession.course_id == course.id
             )
-        ).all()
-        for sess in sessions:
-            self.db.delete(sess)
+        )
+        self.db.flush()
 
+        # 5. Finally delete the course itself
         self.db.delete(course)
         if commit:
             self.db.commit()
