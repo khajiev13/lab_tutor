@@ -100,14 +100,14 @@ def load_curriculum_context(teacher_email: str | None = None) -> str:
             # Find their class and curriculum
             class_result = session.run(
                 "MATCH (t:USER:TEACHER)-[:TEACHES_CLASS]->(cl:CLASS)-[:CANDIDATE_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER) "
-                "OPTIONAL MATCH (ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
                 "WHERE toLower(t.email) = toLower($email) OR $email IS NULL "
-                "WITH cl, b, ch, collect(sk.name) AS skills "
+                "WITH cl, b, ch "
                 "ORDER BY ch.chapter_index "
                 "RETURN cl.title AS course, cl.description AS course_desc, "
                 "       b.title AS book, b.authors AS authors, b.year AS year, "
                 "       ch.chapter_index AS idx, ch.title AS ch_title, "
-                "       ch.summary AS ch_summary, skills",
+                "       ch.summary AS ch_summary, "
+                "       [(ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) | sk.name] AS skills",
                 {"email": teacher_email_val} if teacher_email_val else {"email": None},
             )
             rows = [dict(r) for r in class_result]
@@ -459,14 +459,10 @@ def list_chapters() -> str:
         with _neo4j_session() as session:
             result = session.run(
                 "MATCH (b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER) "
-                "OPTIONAL MATCH (ch)-[:HAS_SECTION]->(s:BOOK_SECTION) "
-                "OPTIONAL MATCH (ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
-                "OPTIONAL MATCH (ch)-[:HAS_SKILL]->(ms:MARKET_SKILL) "
-                "WITH ch, count(DISTINCT s) AS sections, "
-                "     count(DISTINCT sk) AS book_skills, "
-                "     count(DISTINCT ms) AS market_skills "
-                "RETURN ch.title AS title, ch.chapter_index AS idx, sections, "
-                "       book_skills, market_skills "
+                "RETURN ch.title AS title, ch.chapter_index AS idx, "
+                "  size([(ch)-[:HAS_SECTION]->(:BOOK_SECTION) | 1]) AS sections, "
+                "  size([(ch)-[:HAS_SKILL]->(:BOOK_SKILL) | 1]) AS book_skills, "
+                "  size([(ch)-[:HAS_SKILL]->(:MARKET_SKILL) | 1]) AS market_skills "
                 "ORDER BY ch.chapter_index"
             )
             chapters = [dict(r) for r in result]
@@ -517,44 +513,26 @@ def get_chapter_details(chapter_indices: str) -> str:
     t0 = time.perf_counter()
     try:
         with _neo4j_session() as session:
-            sections_result = session.run(
-                "MATCH (ch:BOOK_CHAPTER)-[:HAS_SECTION]->(s:BOOK_SECTION) "
+            result = session.run(
+                "MATCH (ch:BOOK_CHAPTER) "
                 "WHERE ch.chapter_index IN $indices "
-                "OPTIONAL MATCH (s)-[:MENTIONS]->(c:CONCEPT) "
-                "WITH ch, s, count(c) AS concept_count "
                 "RETURN ch.chapter_index AS ch_idx, ch.title AS ch_title, "
-                "       s.title AS section_title, s.section_index AS s_idx, concept_count "
-                "ORDER BY ch.chapter_index, s.section_index",
+                "  [(ch)-[:HAS_SECTION]->(s:BOOK_SECTION) | "
+                "    s { .title, .section_index, "
+                "      concept_count: size([(s)-[:MENTIONS]->(:CONCEPT) | 1]) "
+                "  }] AS sections, "
+                "  [(ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) | "
+                "    sk { .name, .description, "
+                "      concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] "
+                "  }] AS book_skills, "
+                "  [(ch)-[:HAS_SKILL]->(ms:MARKET_SKILL) | "
+                "    ms { .name, .status, .demand_pct, .category, "
+                "      concepts: [(ms)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] "
+                "  }] AS market_skills "
+                "ORDER BY ch.chapter_index",
                 {"indices": indices},
             )
-            sections = [dict(r) for r in sections_result]
-
-            skills_result = session.run(
-                "MATCH (ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
-                "WHERE ch.chapter_index IN $indices "
-                "OPTIONAL MATCH (sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) "
-                "WITH ch, sk, collect(c.name) AS concepts "
-                "RETURN ch.chapter_index AS ch_idx, sk.name AS skill, "
-                "       sk.description AS description, concepts, "
-                "       'book' AS skill_type "
-                "ORDER BY ch.chapter_index, sk.name",
-                {"indices": indices},
-            )
-            skills = [dict(r) for r in skills_result]
-
-            market_skills_result = session.run(
-                "MATCH (ch:BOOK_CHAPTER)-[:HAS_SKILL]->(ms:MARKET_SKILL) "
-                "WHERE ch.chapter_index IN $indices "
-                "OPTIONAL MATCH (ms)-[:REQUIRES_CONCEPT]->(c:CONCEPT) "
-                "WITH ch, ms, collect(c.name) AS concepts "
-                "RETURN ch.chapter_index AS ch_idx, ms.name AS skill, "
-                "       ms.status AS status, ms.demand_pct AS demand_pct, "
-                "       ms.category AS category, concepts, "
-                "       'market' AS skill_type "
-                "ORDER BY ch.chapter_index, ms.name",
-                {"indices": indices},
-            )
-            market_skills = [dict(r) for r in market_skills_result]
+            chapters = [dict(r) for r in result]
     except (ServiceUnavailable, SessionExpired, OSError):
         logger.info(
             "[PERF] get_chapter_details Neo4j FAILED in %.1fms",
@@ -564,74 +542,47 @@ def get_chapter_details(chapter_indices: str) -> str:
     except AuthError:
         return "Knowledge Map connection failed. Check the graph service credentials."
     logger.info(
-        "[PERF] get_chapter_details Neo4j took %.1fms (%d sections, %d book skills, %d market skills)",
+        "[PERF] get_chapter_details Neo4j took %.1fms (%d chapters)",
         (time.perf_counter() - t0) * 1000,
-        len(sections),
-        len(skills),
-        len(market_skills),
+        len(chapters),
     )
-
-    # Group by chapter
-    ch_sections: dict[int, list] = {}
-    ch_skills: dict[int, list] = {}
-    ch_market_skills: dict[int, list] = {}
-    ch_titles: dict[int, str] = {}
-
-    for s in sections:
-        ch_sections.setdefault(s["ch_idx"], []).append(s)
-        ch_titles[s["ch_idx"]] = s["ch_title"]
-    for sk in skills:
-        ch_skills.setdefault(sk["ch_idx"], []).append(sk)
-    for ms in market_skills:
-        ch_market_skills.setdefault(ms["ch_idx"], []).append(ms)
 
     lines = []
-    all_idx = sorted(
-        set(
-            list(ch_sections.keys())
-            + list(ch_skills.keys())
-            + list(ch_market_skills.keys())
-        )
-    )
-    for idx in all_idx:
-        title = ch_titles.get(idx, f"Chapter {idx}")
+    for ch in chapters:
+        idx = ch["ch_idx"]
+        title = ch["ch_title"]
         lines.append(f"\n{'=' * 60}")
         lines.append(f"[{idx}] {title}")
         lines.append(f"{'=' * 60}")
 
-        secs = ch_sections.get(idx, [])
+        secs = sorted(ch.get("sections", []), key=lambda s: s.get("section_index", 0))
         if secs:
             lines.append("  Sections:")
             for s in secs:
-                prefix = s["section_title"].split(" ")[0]
+                prefix = s["title"].split(" ")[0]
                 lines.append(
-                    f"    [{prefix}] {s['section_title']} ({s['concept_count']} concepts)"
+                    f"    [{prefix}] {s['title']} ({s['concept_count']} concepts)"
                 )
 
-        sks = ch_skills.get(idx, [])
+        sks = ch.get("book_skills", [])
         if sks:
             lines.append("  Book Skills:")
             for sk in sks:
-                concepts_flat = []
-                for c in sk["concepts"]:
-                    if isinstance(c, list):
-                        concepts_flat.extend(c)
-                    else:
-                        concepts_flat.append(c)
-                concepts_str = ", ".join(concepts_flat[:5])
-                if len(concepts_flat) > 5:
-                    concepts_str += f" (+{len(concepts_flat) - 5} more)"
-                lines.append(f"    • {sk['skill']}")
+                concepts = sk.get("concepts", [])
+                concepts_str = ", ".join(concepts[:5])
+                if len(concepts) > 5:
+                    concepts_str += f" (+{len(concepts) - 5} more)"
+                lines.append(f"    • {sk['name']}")
                 if concepts_str:
                     lines.append(f"      requires: {concepts_str}")
 
-        mks = ch_market_skills.get(idx, [])
+        mks = ch.get("market_skills", [])
         if mks:
             lines.append("  Market Skills (already in graph):")
             for ms in mks:
                 demand = ms.get("demand_pct", "?")
                 status = ms.get("status", "?")
-                lines.append(f"    ★ {ms['skill']} [{status}] (demand: {demand}%)")
+                lines.append(f"    ★ {ms['name']} [{status}] (demand: {demand}%)")
 
     lines.append("\nUse get_section_concepts to drill into specific sections.")
     return "\n".join(lines)
@@ -656,9 +607,10 @@ def get_section_concepts(section_refs: str) -> str:
             result = session.run(
                 "UNWIND $refs AS ref "
                 "MATCH (s:BOOK_SECTION) WHERE s.title STARTS WITH ref "
-                "OPTIONAL MATCH (s)-[m:MENTIONS]->(c:CONCEPT) "
-                "RETURN s.title AS section, c.name AS concept, m.definition AS definition "
-                "ORDER BY s.title, c.name",
+                "RETURN s.title AS section, "
+                "  [(s)-[m:MENTIONS]->(c:CONCEPT) | "
+                "    { name: c.name, definition: m.definition }] AS concepts "
+                "ORDER BY s.title",
                 {"refs": refs},
             )
             rows = [dict(r) for r in result]
@@ -679,22 +631,18 @@ def get_section_concepts(section_refs: str) -> str:
     if not rows:
         return f"No sections found matching: {section_refs}"
 
-    by_section: dict[str, list] = {}
-    for r in rows:
-        by_section.setdefault(r["section"], []).append(r)
-
     lines = []
-    for section, concepts in by_section.items():
-        lines.append(f"\n[{section}]")
-        valid = [c for c in concepts if c.get("concept")]
-        if valid:
-            for c in valid:
+    for r in rows:
+        lines.append(f"\n[{r['section']}]")
+        concepts = r.get("concepts", [])
+        if concepts:
+            for c in concepts:
                 defn = c.get("definition", "")
                 if defn:
                     defn = defn[:100] + "..." if len(defn) > 100 else defn
-                    lines.append(f"  • {c['concept']}: {defn}")
+                    lines.append(f"  • {c['name']}: {defn}")
                 else:
-                    lines.append(f"  • {c['concept']}")
+                    lines.append(f"  • {c['name']}")
         else:
             lines.append("  (no concepts)")
 
@@ -1617,14 +1565,13 @@ def load_book_skills_for_chapters(chapter_titles: str) -> str:
         with _neo4j_session() as session:
             result = session.run(
                 "UNWIND $titles AS title "
-                "MATCH (ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
-                "WHERE ch.title = title "
-                "OPTIONAL MATCH (sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) "
-                "WITH ch.title AS chapter, sk.name AS skill, "
-                "     sk.description AS description, "
-                "     collect(DISTINCT c.name) AS concepts "
-                "RETURN chapter, skill, description, concepts "
-                "ORDER BY chapter, skill",
+                "MATCH (ch:BOOK_CHAPTER) WHERE ch.title = title "
+                "RETURN ch.title AS chapter, "
+                "  [(ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) | "
+                "    sk { .name, .description, "
+                "      concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] "
+                "  }] AS skills "
+                "ORDER BY chapter",
                 {"titles": titles},
             )
             rows = [dict(r) for r in result]
@@ -1645,17 +1592,14 @@ def load_book_skills_for_chapters(chapter_titles: str) -> str:
     if not rows:
         return f"No book skills found for chapters: {chapter_titles}"
 
-    by_chapter: dict[str, list[dict]] = {}
+    lines = [f"Book skills for {len(rows)} chapters:"]
     for r in rows:
-        by_chapter.setdefault(r["chapter"], []).append(r)
-
-    lines = [f"Book skills for {len(by_chapter)} chapters:"]
-    for chapter, skills in by_chapter.items():
-        lines.append(f"\n  {chapter} ({len(skills)} book skills):")
+        skills = r.get("skills", [])
+        lines.append(f"\n  {r['chapter']} ({len(skills)} book skills):")
         for sk in skills:
             desc = sk.get("description", "")
             desc_str = f" — {desc[:80]}" if desc else ""
-            lines.append(f"    • {sk['skill']}{desc_str}")
+            lines.append(f"    • {sk['name']}{desc_str}")
     return "\n".join(lines)
 
 

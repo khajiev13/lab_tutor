@@ -18,7 +18,6 @@ REMOVE u.role
 REMOVE u:STUDENT:TEACHER
 FOREACH (_ IN CASE WHEN $role = 'student' THEN [1] ELSE [] END | SET u:STUDENT)
 FOREACH (_ IN CASE WHEN $role = 'teacher' THEN [1] ELSE [] END | SET u:TEACHER)
-RETURN u
 """
 
 

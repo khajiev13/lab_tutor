@@ -417,46 +417,33 @@ export type AgenticStreamEvent =
 
 // ── Chapter-level analysis types ───────────────────────────────
 
-export type ConceptRelevance = 'core' | 'supplementary' | 'tangential';
-
-export interface SkillItem {
+export interface SkillConceptDetail {
   name: string;
   description: string;
-  concept_names: string[];
-}
-
-export interface SectionConceptItem {
-  name: string;
-  description: string;
-  relevance: ConceptRelevance;
-  text_evidence: string;
   sim_max: number | null;
   best_course_match: string | null;
 }
 
-export interface SectionDetail {
-  section_title: string;
-  concepts: SectionConceptItem[];
+export interface SkillItem {
+  name: string;
+  description: string;
+  concepts: SkillConceptDetail[];
 }
 
 export interface ChapterDetail {
   chapter_title: string;
   chapter_index: number;
   chapter_summary: string | null;
+  skill_count: number;
   concept_count: number;
-  core_count: number;
-  supplementary_count: number;
   skills: SkillItem[];
-  sections: SectionDetail[];
 }
 
 export interface ChapterUniqueConceptItem {
   name: string;
   description: string;
-  relevance: ConceptRelevance;
-  text_evidence: string;
+  skill_name: string;
   chapter_title: string | null;
-  section_title: string | null;
   sim_max: number;
   best_course_match: string | null;
 }

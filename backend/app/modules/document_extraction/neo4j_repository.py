@@ -42,7 +42,6 @@ MERGE (t:USER {id: $teacher_id})
 MERGE (c:CLASS {id: $course_id})
 MERGE (t)-[:UPLOADED_DOCUMENT]->(d)
 MERGE (c)-[:HAS_DOCUMENT]->(d)
-RETURN d
 """
 
 
@@ -115,7 +114,6 @@ RETURN documents_deleted, count(c) AS concepts_deleted
 SET_DOCUMENT_EMBEDDING: LiteralString = """
 MATCH (d:TEACHER_UPLOADED_DOCUMENT {id: $document_id})
 SET d.summary_embedding = $vector
-RETURN d
 """
 
 
@@ -124,27 +122,26 @@ MATCH (d:TEACHER_UPLOADED_DOCUMENT {id: $document_id})-[m:MENTIONS]->(c:CONCEPT 
 SET
     m.definition_embedding = $definition_embedding,
     m.text_evidence_embedding = $text_evidence_embedding
-RETURN m
 """
 
 
 SET_CONCEPT_EMBEDDING: LiteralString = """
 MATCH (c:CONCEPT {name: $concept_name})
 SET c.embedding = $vector
-RETURN c
 """
 
 
 LIST_COURSE_DOCUMENTS_WITH_MENTIONS: LiteralString = """
 MATCH (c:CLASS {id: $course_id})-[:HAS_DOCUMENT]->(d:TEACHER_UPLOADED_DOCUMENT)
-OPTIONAL MATCH (d)-[m:MENTIONS]->(con:CONCEPT)
-WITH d, collect({
-    name: con.name,
-    original_name: coalesce(m.original_name, con.name),
-    definition: coalesce(m.definition, ''),
-    text_evidence: coalesce(m.text_evidence, ''),
-    source_document: coalesce(m.source_document, d.source_filename)
-}) AS mentions
+WITH d,
+  [(d)-[m:MENTIONS]->(con:CONCEPT) |
+    {
+      name: con.name,
+      original_name: coalesce(m.original_name, con.name),
+      definition: coalesce(m.definition, ''),
+      text_evidence: coalesce(m.text_evidence, ''),
+      source_document: coalesce(m.source_document, d.source_filename)
+    }] AS mentions
 RETURN
     d.id AS document_id,
     d.course_id AS course_id,

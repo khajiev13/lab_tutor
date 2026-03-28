@@ -26,18 +26,18 @@ ORDER BY c.name ASC
 GET_CONCEPT_DEFINITIONS: LiteralString = """
 UNWIND $names AS name
 MATCH (c:CONCEPT {name: toLower(name)})
-OPTIONAL MATCH (d:TEACHER_UPLOADED_DOCUMENT)-[m:MENTIONS]->(c)
-WITH name, collect(DISTINCT m.definition) AS defs
-RETURN name AS name, [d IN defs WHERE d IS NOT NULL AND trim(d) <> ""] AS definitions
+RETURN name AS name,
+  [d IN [(:TEACHER_UPLOADED_DOCUMENT)-[m:MENTIONS]->(c) | m.definition]
+   WHERE d IS NOT NULL AND trim(d) <> ""] AS definitions
 """
 
 
 GET_COURSE_CONCEPT_DEFINITIONS: LiteralString = """
 UNWIND $names AS name
 MATCH (c:CONCEPT {name: toLower(name)})
-OPTIONAL MATCH (d:TEACHER_UPLOADED_DOCUMENT {course_id: $course_id})-[m:MENTIONS]->(c)
-WITH name, collect(DISTINCT m.definition) AS defs
-RETURN name AS name, [d IN defs WHERE d IS NOT NULL AND trim(d) <> ""] AS definitions
+RETURN name AS name,
+  [d IN [(doc:TEACHER_UPLOADED_DOCUMENT {course_id: $course_id})-[m:MENTIONS]->(c) | m.definition]
+   WHERE d IS NOT NULL AND trim(d) <> ""] AS definitions
 """
 
 APOC_MERGE_CONCEPTS: LiteralString = """

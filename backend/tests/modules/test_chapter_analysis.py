@@ -8,6 +8,7 @@ Covers:
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -21,12 +22,9 @@ from app.modules.curricularalignmentarchitect.chapter_extraction.scoring import 
 )
 from app.modules.curricularalignmentarchitect.models import (
     BookChapter,
-    BookConcept,
     BookExtractionRun,
-    BookSection,
     BookStatus,
     ChapterAnalysisSummary,
-    ConceptRelevance,
     CourseConceptCache,
     CourseSelectedBook,
     ExtractionRunStatus,
@@ -147,20 +145,28 @@ def _seed_course_concepts(db_session, run_id: int):
 
 
 def _seed_book_chapters(db_session, run_id: int, selected_book_id: int):
-    """Insert 1 chapter with 2 sections, each with 1 concept."""
+    """Insert 1 chapter with 1 skill containing 2 inline concepts."""
     ch = BookChapter(
         run_id=run_id,
         selected_book_id=selected_book_id,
         chapter_index=0,
         chapter_title="Ch 1: Databases",
         chapter_summary="About databases",
-        total_concept_count=2,
         skills_json=json.dumps(
             [
                 {
                     "name": "SQL Querying",
-                    "description": "Write SQL",
-                    "concept_names": ["Distributed Databases", "Query Optimization"],
+                    "description": "Write SQL queries",
+                    "concepts": [
+                        {
+                            "name": "Distributed DB Systems",
+                            "description": "Overview of distributed DB",
+                        },
+                        {
+                            "name": "Neural Networks",
+                            "description": "Deep learning basics",
+                        },
+                    ],
                 },
             ]
         ),
@@ -168,54 +174,32 @@ def _seed_book_chapters(db_session, run_id: int, selected_book_id: int):
     db_session.add(ch)
     db_session.flush()
 
-    sec1 = BookSection(
-        chapter_id=ch.id,
-        section_index=0,
-        section_title="Section 1.1: Intro",
-    )
-    db_session.add(sec1)
-    db_session.flush()
 
-    # Close to course concept "Distributed Databases" (VEC_A → VEC_B, high sim)
-    db_session.add(
-        BookConcept(
-            section_id=sec1.id,
-            run_id=run_id,
-            name="Distributed DB Systems",
-            description="Overview of distributed DB systems",
-            relevance=ConceptRelevance.CORE,
-            text_evidence="Some evidence",
-            name_embedding=_norm(_VEC_B),
-        )
-    )
-    db_session.flush()
-
-    sec2 = BookSection(
-        chapter_id=ch.id,
-        section_index=1,
-        section_title="Section 1.2: Advanced",
-    )
-    db_session.add(sec2)
-    db_session.flush()
-
-    # Close to course concept "Machine Learning" (VEC_C → VEC_D, high sim)
-    db_session.add(
-        BookConcept(
-            section_id=sec2.id,
-            run_id=run_id,
-            name="Neural Networks",
-            description="Deep learning basics",
-            relevance=ConceptRelevance.SUPPLEMENTARY,
-            text_evidence="Some neural evidence",
-            name_embedding=_norm(_VEC_D),
-        )
-    )
-    db_session.flush()
+def _mock_embedder(concept_names: list[str]) -> list[list[float]]:
+    """Return deterministic embeddings: VEC_B for first concept, VEC_D for second."""
+    mapping = {
+        "Distributed DB Systems": _norm(_VEC_B),
+        "Neural Networks": _norm(_VEC_D),
+    }
+    return [
+        mapping.get(name, _norm(_make_vec(hash(name) % _DIM))) for name in concept_names
+    ]
 
 
 # ────────────────────────────────────────────────────────────────
 # Scoring unit tests (DB-backed)
 # ────────────────────────────────────────────────────────────────
+
+
+def _patched_compute(run_id, book_id, db_session):
+    """Run compute_chapter_analysis with a mocked EmbeddingService."""
+    mock_emb = MagicMock()
+    mock_emb.embed_documents.side_effect = _mock_embedder
+    with patch(
+        "app.modules.curricularalignmentarchitect.chapter_extraction.scoring.EmbeddingService",
+        return_value=mock_emb,
+    ):
+        return compute_chapter_analysis(run_id, book_id, db_session)
 
 
 class TestChapterAnalysisScoring:
@@ -225,14 +209,14 @@ class TestChapterAnalysisScoring:
         _seed_course_concepts(db_session, run.id)
         _seed_book_chapters(db_session, run.id, book.id)
 
-        summary = compute_chapter_analysis(run.id, book.id, db_session)
+        summary = _patched_compute(run.id, book.id, db_session)
 
         assert isinstance(summary, ChapterAnalysisSummary)
         assert summary.book_title == "Test DB Book"
         assert summary.total_chapters == 1
-        assert summary.total_core_concepts == 1
-        assert summary.total_supplementary_concepts == 1
         assert summary.total_skills == 1
+        # total_supplementary_concepts is repurposed to store total inline concepts
+        assert summary.total_supplementary_concepts == 2
 
     def test_compute_coverage_has_correct_length(self, db_session):
         run = _make_run(db_session, course_id=501)
@@ -240,7 +224,7 @@ class TestChapterAnalysisScoring:
         _seed_course_concepts(db_session, run.id)
         _seed_book_chapters(db_session, run.id, book.id)
 
-        summary = compute_chapter_analysis(run.id, book.id, db_session)
+        summary = _patched_compute(run.id, book.id, db_session)
         coverage = json.loads(summary.course_coverage_json)
 
         # We seeded 2 course concepts
@@ -257,7 +241,7 @@ class TestChapterAnalysisScoring:
         _seed_course_concepts(db_session, run.id)
         _seed_book_chapters(db_session, run.id, book.id)
 
-        summary = compute_chapter_analysis(run.id, book.id, db_session)
+        summary = _patched_compute(run.id, book.id, db_session)
         coverage = json.loads(summary.course_coverage_json)
 
         # Both course concepts should have high sim_max (> 0.9)
@@ -273,14 +257,14 @@ class TestChapterAnalysisScoring:
         _seed_course_concepts(db_session, run.id)
         _seed_book_chapters(db_session, run.id, book.id)
 
-        summary = compute_chapter_analysis(run.id, book.id, db_session)
+        summary = _patched_compute(run.id, book.id, db_session)
         chapters = json.loads(summary.chapter_details_json)
 
         assert len(chapters) == 1
         ch = chapters[0]
-        # Both concepts should have sim_max enriched
-        for sec in ch["sections"]:
-            for concept in sec["concepts"]:
+        # Skill concepts should have sim_max enriched
+        for skill in ch["skills"]:
+            for concept in skill["concepts"]:
                 assert "sim_max" in concept
 
     def test_compute_populates_topic_scores(self, db_session):
@@ -289,7 +273,7 @@ class TestChapterAnalysisScoring:
         _seed_course_concepts(db_session, run.id)
         _seed_book_chapters(db_session, run.id, book.id)
 
-        summary = compute_chapter_analysis(run.id, book.id, db_session)
+        summary = _patched_compute(run.id, book.id, db_session)
         topic_scores = json.loads(summary.topic_scores_json)
 
         # We have 2 topics: "Storage Systems" and "AI"
@@ -304,10 +288,10 @@ class TestChapterAnalysisScoring:
         _seed_course_concepts(db_session, run.id)
         _seed_book_chapters(db_session, run.id, book.id)
 
-        summary = compute_chapter_analysis(run.id, book.id, db_session)
+        summary = _patched_compute(run.id, book.id, db_session)
         book_unique = json.loads(summary.book_unique_concepts_json)
 
-        # We seeded 2 book concepts (1 core + 1 supplementary)
+        # We seeded 1 skill with 2 inline concepts
         assert len(book_unique) == 2
         for item in book_unique:
             assert "name" in item
@@ -321,15 +305,15 @@ class TestChapterAnalysisScoring:
         _seed_book_chapters(db_session, run.id, book.id)
 
         with pytest.raises(ValueError, match="No course concept cache"):
-            compute_chapter_analysis(run.id, book.id, db_session)
+            _patched_compute(run.id, book.id, db_session)
 
     def test_compute_returns_empty_when_no_book_concepts(self, db_session):
         run = _make_run(db_session, course_id=507)
         book = _make_selected_book(db_session, course_id=507)
         _seed_course_concepts(db_session, run.id)
-        # No book chapters/concepts seeded → should return empty summary
+        # No book chapters seeded → should return empty summary
 
-        summary = compute_chapter_analysis(run.id, book.id, db_session)
+        summary = _patched_compute(run.id, book.id, db_session)
 
         assert summary.total_chapters == 0
         assert summary.total_core_concepts == 0
@@ -356,7 +340,7 @@ class TestChapterAnalysisScoring:
         _seed_course_concepts(db_session, run.id)
         _seed_book_chapters(db_session, run.id, book.id)
 
-        compute_chapter_analysis(run.id, book.id, db_session)
+        _patched_compute(run.id, book.id, db_session)
         results = get_chapter_summaries_for_run(run.id, db_session)
 
         assert len(results) == 1
@@ -368,8 +352,8 @@ class TestChapterAnalysisScoring:
         _seed_course_concepts(db_session, run.id)
         _seed_book_chapters(db_session, run.id, book.id)
 
-        s1 = compute_chapter_analysis(run.id, book.id, db_session)
-        s2 = compute_chapter_analysis(run.id, book.id, db_session)
+        s1 = _patched_compute(run.id, book.id, db_session)
+        s2 = _patched_compute(run.id, book.id, db_session)
 
         results = get_chapter_summaries_for_run(run.id, db_session)
         assert len(results) == 1

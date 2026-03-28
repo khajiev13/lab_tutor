@@ -10,7 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .models import (
     AnalysisStrategy,
     BookStatus,
-    ConceptRelevance,
     DownloadStatus,
     ExtractionRunStatus,
     SessionStatus,
@@ -333,54 +332,41 @@ class BookAnalysisSummaryRead(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 
+class SkillConceptDetail(BaseModel):
+    """One concept within a skill, optionally enriched with similarity data."""
+
+    name: str
+    description: str
+    sim_max: float | None = None
+    best_course_match: str | None = None
+
+
 class SkillItem(BaseModel):
     """One skill extracted from a chapter."""
 
     name: str
     description: str
-    concept_names: list[str] = Field(default_factory=list)
-
-
-class SectionConceptItem(BaseModel):
-    """A single concept within a section, enriched with similarity data."""
-
-    name: str
-    description: str
-    relevance: ConceptRelevance
-    text_evidence: str
-    sim_max: float | None = None
-    best_course_match: str | None = None
-
-
-class SectionDetail(BaseModel):
-    """Full section with its concepts."""
-
-    section_title: str
-    concepts: list[SectionConceptItem] = Field(default_factory=list)
+    concepts: list[SkillConceptDetail] = Field(default_factory=list)
 
 
 class ChapterDetail(BaseModel):
-    """Full chapter with sections, skills, and summary."""
+    """Full chapter with skills (each skill has inline concepts) and summary."""
 
     chapter_title: str
     chapter_index: int
     chapter_summary: str | None = None
+    skill_count: int = 0
     concept_count: int = 0
-    core_count: int = 0
-    supplementary_count: int = 0
     skills: list[SkillItem] = Field(default_factory=list)
-    sections: list[SectionDetail] = Field(default_factory=list)
 
 
 class ChapterUniqueConceptItem(BaseModel):
-    """Book→course direction: one book concept with chapter/section context."""
+    """Book→course direction: one skill concept with chapter context."""
 
     name: str
     description: str
-    relevance: ConceptRelevance
-    text_evidence: str
+    skill_name: str = ""
     chapter_title: str | None = None
-    section_title: str | None = None
     sim_max: float
     best_course_match: str | None = None
 
@@ -394,10 +380,15 @@ class ChapterAnalysisSummaryRead(BaseModel):
     book_title: str
 
     # Scalars
-    total_core_concepts: int
-    total_supplementary_concepts: int
+    total_core_concepts: int  # always 0 (kept for DB compat)
+    total_supplementary_concepts: int  # repurposed: total inline concepts
     total_skills: int
     total_chapters: int
+
+    @property
+    def total_concepts(self) -> int:
+        return self.total_supplementary_concepts
+
     s_final_name: float
     s_final_evidence: float
     s_final_weighted: float = 0.0

@@ -13,7 +13,6 @@ SET
     c.description = $description,
     c.created_at = $created_at,
     c.extraction_status = $extraction_status
-RETURN c
 """
 
 LINK_TEACHER_TEACHES_CLASS: LiteralString = """

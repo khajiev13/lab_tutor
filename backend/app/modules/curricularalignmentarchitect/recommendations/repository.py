@@ -181,7 +181,9 @@ class RecommendationRepository:
                         name=sk.get("name", ""),
                         description=sk.get("description", ""),
                         chapter_title=chapter_title,
-                        concept_names=sk.get("concept_names", []),
+                        concept_names=[
+                            c["name"] for c in sk.get("concepts", []) if "name" in c
+                        ],
                     )
                 )
 
