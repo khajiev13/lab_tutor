@@ -59,7 +59,7 @@ export function computeNovelty(
   bookUniqueConcepts: ChapterUniqueConceptItem[],
   novelThreshold: number,
 ): number {
-  const core = bookUniqueConcepts.filter((c) => c.relevance === 'core');
+  const core = bookUniqueConcepts;
   if (core.length === 0) return 0;
   let novel = 0;
   for (let i = 0; i < core.length; i++) {
@@ -105,7 +105,7 @@ export function computeSkillRichness(
   let rich = 0;
   for (let i = 0; i < chapters.length; i++) {
     const linkedSkills = chapters[i].skills.filter(
-      (s) => s.concept_names.length >= 2,
+      (s) => s.concepts.length >= 2,
     );
     if (linkedSkills.length > 0) rich++;
   }
@@ -123,7 +123,7 @@ export function computeConceptDensity(
   const chapters = summary.chapter_details;
   if (chapters.length === 0 || maxDensity === 0) return 0;
   let totalCore = 0;
-  for (let i = 0; i < chapters.length; i++) totalCore += chapters[i].core_count;
+  for (let i = 0; i < chapters.length; i++) totalCore += chapters[i].concept_count;
   const mean = totalCore / chapters.length;
   return Math.min(1, mean / maxDensity);
 }
@@ -220,7 +220,7 @@ function computeMaxDensity(summaries: ChapterAnalysisSummary[]): number {
   for (const s of summaries) {
     if (s.chapter_details.length === 0) continue;
     let totalCore = 0;
-    for (const ch of s.chapter_details) totalCore += ch.core_count;
+    for (const ch of s.chapter_details) totalCore += ch.concept_count;
     const mean = totalCore / s.chapter_details.length;
     if (mean > max) max = mean;
   }

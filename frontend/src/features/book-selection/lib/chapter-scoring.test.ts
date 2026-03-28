@@ -44,8 +44,7 @@ function makeUniqueConcepts(
   return entries.map((e, i) => ({
     name: `BookConcept ${i}`,
     description: 'desc',
-    relevance: e.relevance,
-    text_evidence: 'evidence',
+    skill_name: 'Mock Skill',
     chapter_title: 'Ch 1',
     section_title: 'Sec 1',
     sim_max: e.sim,
@@ -78,25 +77,9 @@ function makeSummary(
         chapter_index: 0,
         chapter_summary: 'Summary',
         concept_count: 3,
-        core_count: 2,
-        supplementary_count: 1,
+        skill_count: 1,
         skills: [
-          { name: 'SQL', description: 'Write SQL', concept_names: ['A', 'B'] },
-        ],
-        sections: [
-          {
-            section_title: 'Sec 1',
-            concepts: [
-              {
-                name: 'A',
-                description: 'desc',
-                relevance: 'core',
-                text_evidence: 'ev',
-                sim_max: 0.8,
-                best_course_match: 'Match A',
-              },
-            ],
-          },
+          { name: 'SQL', description: 'Write SQL', concepts: [{ name: 'A', description: '', sim_max: 0.8, best_course_match: 'A' }, { name: 'B', description: '', sim_max: 0.8, best_course_match: 'B' }] },
         ],
       },
       {
@@ -104,10 +87,8 @@ function makeSummary(
         chapter_index: 1,
         chapter_summary: null,
         concept_count: 2,
-        core_count: 1,
-        supplementary_count: 1,
+        skill_count: 0,
         skills: [],
-        sections: [],
       },
     ],
     course_coverage: makeCoverage([0.9, 0.6, 0.3]),
@@ -191,23 +172,23 @@ describe('computeNovelty', () => {
     expect(computeNovelty([], 0.35)).toBe(0);
   });
 
-  it('only considers core concepts', () => {
+  it('returns correct ratio for mixed similarities', () => {
     const concepts = makeUniqueConcepts([
       { sim: 0.1, relevance: 'core' },
       { sim: 0.9, relevance: 'supplementary' },
       { sim: 0.1, relevance: 'tangential' },
     ]);
-    // 1 core concept, 1 is novel (0.1 < 0.35) → 1/1 = 1
-    expect(computeNovelty(concepts, 0.35)).toBe(1);
+    // 2 out of 3 concepts have sim < 0.35
+    expect(computeNovelty(concepts, 0.35)).toBeCloseTo(2 / 3);
   });
 
-  it('returns correct ratio for mixed cores', () => {
+  it('returns correct ratio for all items', () => {
     const concepts = makeUniqueConcepts([
       { sim: 0.1, relevance: 'core' },
       { sim: 0.7, relevance: 'core' },
       { sim: 0.2, relevance: 'core' },
     ]);
-    // 2 of 3 core concepts have sim < 0.35
+    // 2 of 3 concepts have sim < 0.35
     expect(computeNovelty(concepts, 0.35)).toBeCloseTo(2 / 3);
   });
 });
@@ -256,12 +237,10 @@ describe('computeSkillRichness', () => {
           chapter_index: 0,
           chapter_summary: null,
           concept_count: 2,
-          core_count: 2,
-          supplementary_count: 0,
+          skill_count: 1,
           skills: [
-            { name: 'S1', description: 'd', concept_names: ['A', 'B'] },
+            { name: 'S1', description: 'd', concepts: [{ name: 'A', description: '', sim_max: 0.8, best_course_match: 'A' }, { name: 'B', description: '', sim_max: 0.8, best_course_match: 'B' }] },
           ],
-          sections: [],
         },
       ],
     });
@@ -284,9 +263,9 @@ describe('computeConceptDensity', () => {
 
   it('returns correct normalized density', () => {
     const s = makeSummary();
-    // Ch 1: core_count=2, Ch 2: core_count=1 → mean=1.5
-    // maxDensity=3 → 1.5/3 = 0.5
-    expect(computeConceptDensity(s, 3)).toBeCloseTo(0.5);
+    // Ch 1: concept_count=3, Ch 2: concept_count=2 → mean=2.5
+    // maxDensity=3 → 2.5/3 = 0.833333333
+    expect(computeConceptDensity(s, 3)).toBeCloseTo(2.5 / 3);
   });
 
   it('caps at 1', () => {

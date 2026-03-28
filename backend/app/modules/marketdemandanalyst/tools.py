@@ -71,77 +71,23 @@ def _neo4j_session():
 
 
 def load_curriculum_context(teacher_email: str | None = None) -> str:
-    """Fetch course + book + chapter summaries for a given teacher from Neo4j.
+    """Fetch course + chapter summaries for a given teacher from Neo4j.
 
     If teacher_email is None, defaults to the first teacher in the DB.
     Returns a compact text block suitable for embedding in a system prompt.
+
+    TODO: Reimplement once transcript-based chapters are stored in Neo4j.
+    Previous implementation traversed CLASS → BOOK → BOOK_CHAPTER, which
+    assumed chapters came from books. Now chapters are built from categorized
+    transcripts, so the graph traversal path will change (e.g. CLASS → CHAPTER
+    or CLASS → TRANSCRIPT_COLLECTION → CHAPTER). The output format should
+    remain the same: teacher name, course title, and per-chapter summaries
+    with their skills.
     """
-    try:
-        t0 = time.perf_counter()
-        with _neo4j_session() as session:
-            # Find teacher node
-            if teacher_email:
-                teacher_result = session.run(
-                    "MATCH (t:USER:TEACHER) WHERE toLower(t.email) = toLower($email) RETURN t.first_name AS first, t.last_name AS last, t.email AS email, t.id AS id LIMIT 1",
-                    {"email": teacher_email},
-                )
-            else:
-                teacher_result = session.run(
-                    "MATCH (t:USER:TEACHER) RETURN t.first_name AS first, t.last_name AS last, t.email AS email, t.id AS id LIMIT 1"
-                )
-            teacher_row = teacher_result.single()
-            if not teacher_row:
-                teacher_name = "(Unknown Teacher)"
-                teacher_email_val = ""
-            else:
-                teacher_name = f"{teacher_row['first']} {teacher_row['last']}".strip()
-                teacher_email_val = teacher_row["email"]
-
-            # Find their class and curriculum
-            class_result = session.run(
-                "MATCH (t:USER:TEACHER)-[:TEACHES_CLASS]->(cl:CLASS)-[:CANDIDATE_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER) "
-                "WHERE toLower(t.email) = toLower($email) OR $email IS NULL "
-                "WITH cl, b, ch "
-                "ORDER BY ch.chapter_index "
-                "RETURN cl.title AS course, cl.description AS course_desc, "
-                "       b.title AS book, b.authors AS authors, b.year AS year, "
-                "       ch.chapter_index AS idx, ch.title AS ch_title, "
-                "       ch.summary AS ch_summary, "
-                "       [(ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) | sk.name] AS skills",
-                {"email": teacher_email_val} if teacher_email_val else {"email": None},
-            )
-            rows = [dict(r) for r in class_result]
-        neo4j_ms = (time.perf_counter() - t0) * 1000
-        logger.info(
-            "[PERF] load_curriculum_context Neo4j queries took %.1fms (%d rows)",
-            neo4j_ms,
-            len(rows),
-        )
-    except Exception:
-        return "(Curriculum data unavailable — Knowledge Map not reachable)"
-
-    if not rows:
-        return "(No curriculum data found for this teacher in the knowledge graph)"
-
-    r0 = rows[0]
-    lines = [
-        f"Teacher: {teacher_name}",
-        f"Course: {r0['course']}",
-    ]
-    if r0["course_desc"]:
-        lines.append(f"Description: {r0['course_desc']}")
-    lines.append(f"Textbook: {r0['book']} ({r0['authors']}, {r0['year']})")
-    lines.append(f"Chapters: {len(rows)}")
-    lines.append("")
-
-    for r in rows:
-        skills_str = ", ".join(r["skills"]) if r["skills"] else "(none yet)"
-        lines.append(f"Ch {r['idx']}: {r['ch_title']}")
-        if r["ch_summary"]:
-            lines.append(f"  Summary: {r['ch_summary']}")
-        lines.append(f"  Skills: {skills_str}")
-
-    return "\n".join(lines)
+    # Chapters are now built from transcripts, not books.
+    # This function needs to be reimplemented once the transcript-based
+    # chapter graph schema is finalized.
+    return "(Curriculum context not yet available — transcript-based chapters pending)"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -450,50 +396,22 @@ def start_extraction() -> Command | str:
 @tool
 def list_chapters() -> str:
     """List all chapters in the curriculum knowledge graph.
-    Returns chapter titles, indices, section counts, and existing skill counts.
-    Call this first to get an overview of the course structure."""
-    from neo4j.exceptions import AuthError, ServiceUnavailable, SessionExpired
+    Returns chapter titles, indices, and existing skill counts.
+    Call this first to get an overview of the course structure.
 
-    t0 = time.perf_counter()
-    try:
-        with _neo4j_session() as session:
-            result = session.run(
-                "MATCH (b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER) "
-                "RETURN ch.title AS title, ch.chapter_index AS idx, "
-                "  size([(ch)-[:HAS_SECTION]->(:BOOK_SECTION) | 1]) AS sections, "
-                "  size([(ch)-[:HAS_SKILL]->(:BOOK_SKILL) | 1]) AS book_skills, "
-                "  size([(ch)-[:HAS_SKILL]->(:MARKET_SKILL) | 1]) AS market_skills "
-                "ORDER BY ch.chapter_index"
-            )
-            chapters = [dict(r) for r in result]
-    except (ServiceUnavailable, SessionExpired, OSError):
-        logger.info(
-            "[PERF] list_chapters Neo4j FAILED in %.1fms",
-            (time.perf_counter() - t0) * 1000,
-        )
-        return "Knowledge Map unavailable. Please try again in a moment."
-    except AuthError:
-        return "Knowledge Map connection failed. Check the graph service credentials."
-    logger.info(
-        "[PERF] list_chapters Neo4j took %.1fms (%d chapters)",
-        (time.perf_counter() - t0) * 1000,
-        len(chapters),
-    )
-
-    if not chapters:
-        return "No chapters found in the knowledge graph."
-
-    tool_store["chapters"] = chapters
-    lines = [f"Course has {len(chapters)} chapters:"]
-    for ch in chapters:
-        ms = ch["market_skills"]
-        ms_str = f", {ms} market skills" if ms else ""
-        lines.append(
-            f"  [{ch['idx']}] {ch['title']} — "
-            f"{ch['sections']} sections, {ch['book_skills']} book skills{ms_str}"
-        )
-    lines.append("\nUse get_chapter_details with chapter numbers to drill deeper.")
-    return "\n".join(lines)
+    TODO: Reimplement once transcript-based chapters are stored in Neo4j.
+    Previous implementation traversed BOOK → BOOK_CHAPTER, which assumed
+    chapters came from books. Now chapters are built from categorized
+    transcripts. The new query should match chapters directly (e.g.
+    MATCH (ch:CHAPTER) or whatever label the transcript chapters use)
+    without requiring a BOOK parent node. The output contract (chapter
+    title, index, skill counts) should remain the same so downstream
+    tools (get_chapter_details, save_curriculum_mapping) keep working.
+    """
+    # Chapters are now built from transcripts, not books.
+    # This tool needs to be reimplemented once the transcript-based
+    # chapter graph schema is finalized.
+    return "No chapters found — transcript-based chapters not yet loaded into the knowledge graph."
 
 
 @tool
@@ -930,37 +848,19 @@ Return ONLY valid JSON, no commentary:
 
 
 def _fetch_chapter_concepts(chapter_title: str) -> list[str]:
-    """Fetch all concept names for a chapter from Neo4j."""
-    from neo4j.exceptions import ServiceUnavailable, SessionExpired
+    """Fetch all concept names for a chapter from Neo4j.
 
-    try:
-        with _neo4j_session() as session:
-            result = session.run(
-                "MATCH (ch:BOOK_CHAPTER)-[:HAS_SECTION]->(s:BOOK_SECTION)"
-                "-[:MENTIONS]->(c:CONCEPT) "
-                "WHERE ch.title = $title "
-                "WITH c, CASE WHEN valueType(c.name) STARTS WITH 'STRING' "
-                "  THEN c.name ELSE head(c.name) END AS cname "
-                "RETURN DISTINCT cname ORDER BY cname",
-                {"title": chapter_title},
-            )
-            return [r["cname"] for r in result]
-    except (ServiceUnavailable, SessionExpired, OSError):
-        _get_neo4j_driver(force_new=True)
-        try:
-            with _neo4j_session() as session:
-                result = session.run(
-                    "MATCH (ch:BOOK_CHAPTER)-[:HAS_SECTION]->(s:BOOK_SECTION)"
-                    "-[:MENTIONS]->(c:CONCEPT) "
-                    "WHERE ch.title = $title "
-                    "WITH c, CASE WHEN valueType(c.name) STARTS WITH 'STRING' "
-                    "  THEN c.name ELSE head(c.name) END AS cname "
-                    "RETURN DISTINCT cname ORDER BY cname",
-                    {"title": chapter_title},
-                )
-                return [r["cname"] for r in result]
-        except Exception:
-            return []
+    TODO: Reimplement once transcript-based chapters are stored in Neo4j.
+    Previous implementation traversed BOOK_CHAPTER → BOOK_SECTION → CONCEPT,
+    which assumed chapters had section sub-nodes from book parsing. Transcript-
+    based chapters may store concepts differently (e.g. CHAPTER → MENTIONS →
+    CONCEPT directly, without intermediate section nodes). The return type
+    (list of concept name strings) should stay the same — it feeds into the
+    concept linker LLM prompt for extract_concepts_for_skills.
+    """
+    # Transcript-based chapters not yet loaded — return empty until
+    # the new graph schema is finalized and chapters are populated.
+    return []
 
 
 def _find_job_snippets(skill_name: str, jobs: list[dict], window: int = 500) -> str:
