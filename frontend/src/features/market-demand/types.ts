@@ -58,6 +58,7 @@ export interface AgentState {
   selected_for_insertion: Record<string, unknown>[] | null;
   skill_concepts: Record<string, unknown> | null;
   insertion_results: InsertionResults | null;
+  skill_job_urls: Record<string, string[]> | null;
 }
 
 export interface SkillEntry {

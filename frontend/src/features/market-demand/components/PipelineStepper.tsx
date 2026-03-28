@@ -21,7 +21,7 @@ const STAGES: { id: PipelineStageId; label: string; icon: LucideIcon }[] = [
   { id: "select", label: "Select Groups", icon: Filter },
   { id: "extract", label: "Extract Skills", icon: Zap },
   { id: "map", label: "Map Curriculum", icon: Map },
-  { id: "approve", label: "Approve Gaps", icon: CheckSquare },
+  { id: "approve", label: "Clean Skills", icon: CheckSquare },
   { id: "link", label: "Link Concepts", icon: Link2 },
   { id: "insert", label: "Update Knowledge Map", icon: Database },
 ];

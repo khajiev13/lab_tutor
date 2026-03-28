@@ -7,6 +7,7 @@ tool_store: dict = {}
 
 # Keys we track for persistence and state_update SSE events
 STATE_KEYS: list[str] = [
+    "course_id",
     "fetched_jobs",
     "job_groups",
     "selected_jobs",
@@ -125,6 +126,7 @@ class AgentState(TypedDict):
     """State for the Market Demand Agent conversation."""
 
     messages: Annotated[list, add_messages]
+    course_id: int
     fetched_jobs: list[dict]
     selected_jobs: list[dict]
     extracted_skills: list[dict]

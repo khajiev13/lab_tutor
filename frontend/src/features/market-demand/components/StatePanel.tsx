@@ -121,6 +121,8 @@ function JobsTab({ agentState }: { agentState: AgentState }) {
 
 function SkillsTab({ agentState }: { agentState: AgentState }) {
   const skills = agentState.extracted_skills;
+  const jobUrls = agentState.skill_job_urls;
+  const [expandedSkill, setExpandedSkill] = useState<string | null>(null);
 
   if (!skills || skills.length === 0) {
     return <EmptyTab message="No skills extracted yet" />;
@@ -134,23 +136,56 @@ function SkillsTab({ agentState }: { agentState: AgentState }) {
         <p className="text-xs text-muted-foreground">{skills.length} unique skills</p>
         <p className="text-[10px] text-muted-foreground/70">Freq in jobs →</p>
       </div>
-      {skills.map((skill) => (
-        <div key={skill.name} className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground truncate">{skill.name}</p>
+      {skills.map((skill) => {
+        const urls = jobUrls?.[skill.name] || [];
+        const isExpanded = expandedSkill === skill.name;
+        return (
+          <div key={skill.name}>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-foreground truncate">{skill.name}</p>
+              </div>
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                {skill.category}
+              </Badge>
+              {urls.length > 0 && (
+                <button
+                  onClick={() => setExpandedSkill(isExpanded ? null : skill.name)}
+                  className="text-[10px] text-blue-500 hover:text-blue-400 shrink-0 cursor-pointer"
+                  title="Show job sources"
+                >
+                  {urls.length} job{urls.length > 1 ? "s" : ""}
+                </button>
+              )}
+              <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden shrink-0" title={`${skill.pct}% of jobs mention this skill`}>
+                <div
+                  className="h-full bg-purple-500 rounded-full"
+                  style={{ width: `${(skill.frequency / maxFreq) * 100}%` }}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground w-8 text-right shrink-0">{skill.pct}%</span>
+            </div>
+            {isExpanded && urls.length > 0 && (
+              <div className="ml-4 mt-1 mb-2 space-y-0.5">
+                {urls.slice(0, 5).map((url, i) => (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-[10px] text-blue-400 hover:text-blue-300 truncate"
+                  >
+                    {url}
+                  </a>
+                ))}
+                {urls.length > 5 && (
+                  <p className="text-[10px] text-muted-foreground/60">+{urls.length - 5} more</p>
+                )}
+              </div>
+            )}
           </div>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
-            {skill.category}
-          </Badge>
-          <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden shrink-0" title={`${skill.pct}% of jobs mention this skill`}>
-            <div
-              className="h-full bg-purple-500 rounded-full"
-              style={{ width: `${(skill.frequency / maxFreq) * 100}%` }}
-            />
-          </div>
-          <span className="text-xs text-muted-foreground w-8 text-right shrink-0">{skill.pct}%</span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
