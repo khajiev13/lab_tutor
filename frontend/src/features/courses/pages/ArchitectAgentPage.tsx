@@ -16,10 +16,12 @@ import {
 import {
   CourseDetailProvider,
   useCourseDetail,
+  COURSE_STEPS,
 } from "@/features/courses/context/CourseDetailContext";
 import { CourseStepperHeader } from "@/features/courses/components/CourseStepperHeader";
 import { MaterialsStep } from "@/features/courses/components/steps/MaterialsStep";
 import { NormalizationStep } from "@/features/courses/components/steps/NormalizationStep";
+import { BuildChaptersStep } from "@/features/curriculum-planning/components/BuildChaptersStep";
 import { BookSelectionStep } from "@/features/courses/components/steps/BookSelectionStep";
 import { getAgentById } from "@/features/agents/config";
 import { AgentPageHeader } from "@/features/agents/components/AgentPageHeader";
@@ -54,11 +56,11 @@ function useArchitectAgentStatus(): AgentStatus {
   if (!course) return "not-started";
 
   let completedSteps = 0;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < COURSE_STEPS.length; i++) {
     if (getStepStatus(i) === "completed") completedSteps++;
   }
 
-  if (completedSteps === 5) return "completed";
+  if (completedSteps === COURSE_STEPS.length) return "completed";
   if (
     completedSteps > 0 ||
     course.extraction_status === "in_progress"
@@ -130,17 +132,21 @@ function ArchitectContent() {
           </StepContent>
 
           <StepContent activeIndex={activeStep} index={2}>
+            <BuildChaptersStep />
+          </StepContent>
+
+          <StepContent activeIndex={activeStep} index={3}>
             <BookSelectionStep />
           </StepContent>
 
           <Suspense fallback={<StepSkeleton />}>
-            <StepContent activeIndex={activeStep} index={3}>
+            <StepContent activeIndex={activeStep} index={4}>
               <AnalysisStep />
             </StepContent>
           </Suspense>
 
           <Suspense fallback={<StepSkeleton />}>
-            <StepContent activeIndex={activeStep} index={4}>
+            <StepContent activeIndex={activeStep} index={5}>
               <VisualizationStep />
             </StepContent>
           </Suspense>
