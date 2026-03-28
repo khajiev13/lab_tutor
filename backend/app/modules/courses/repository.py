@@ -60,6 +60,26 @@ class CourseRepository:
         return course
 
     def delete(self, course: Course, *, commit: bool = True) -> None:
+        # Manually cascade delete dependent records from other modules
+        # that lack ON DELETE CASCADE in the database schema.
+        from app.modules.curricularalignmentarchitect.models import (
+            BookExtractionRun,
+            BookSelectionSession,
+            CourseSelectedBook,
+        )
+
+        runs = self.db.scalars(select(BookExtractionRun).where(BookExtractionRun.course_id == course.id)).all()
+        for r in runs:
+            self.db.delete(r)
+
+        selected = self.db.scalars(select(CourseSelectedBook).where(CourseSelectedBook.course_id == course.id)).all()
+        for s in selected:
+            self.db.delete(s)
+
+        sessions = self.db.scalars(select(BookSelectionSession).where(BookSelectionSession.course_id == course.id)).all()
+        for sess in sessions:
+            self.db.delete(sess)
+
         self.db.delete(course)
         if commit:
             self.db.commit()
