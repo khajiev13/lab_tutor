@@ -136,15 +136,17 @@ describe("getStepStatus", () => {
     expect(result.current.getStepStatus(2)).toBe("locked");
     expect(result.current.getStepStatus(3)).toBe("locked");
     expect(result.current.getStepStatus(4)).toBe("locked");
+    expect(result.current.getStepStatus(5)).toBe("locked");
   });
 
   it("unlocks normalization/book-selection as pending after extraction", async () => {
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    // Without backend statuses, steps 1-4 should be pending (unlocked)
+    // Without backend statuses, steps 1-5 should be pending (unlocked)
     expect(result.current.getStepStatus(1)).toBe("pending");
     expect(result.current.getStepStatus(2)).toBe("pending");
+    expect(result.current.getStepStatus(3)).toBe("pending");
   });
 
   it("marks book-selection 'completed' when session status is completed", async () => {
@@ -152,7 +154,7 @@ describe("getStepStatus", () => {
     mockGetLatestAnalysis.mockResolvedValue(null);
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(2)).toBe("completed"));
+    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("completed"));
   });
 
   it("marks normalization 'completed' when book-selection is completed (inferred)", async () => {
@@ -166,21 +168,21 @@ describe("getStepStatus", () => {
     mockGetLatestSession.mockResolvedValue(makeSession({ status: "discovering" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(2)).toBe("active"));
+    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
   });
 
   it("marks book-selection 'active' when session is scoring", async () => {
     mockGetLatestSession.mockResolvedValue(makeSession({ status: "scoring" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(2)).toBe("active"));
+    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
   });
 
   it("marks book-selection 'active' when session is downloading", async () => {
     mockGetLatestSession.mockResolvedValue(makeSession({ status: "downloading" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(2)).toBe("active"));
+    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
   });
 
   it("marks analysis 'completed' when run status is completed", async () => {
@@ -188,56 +190,56 @@ describe("getStepStatus", () => {
     mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "completed" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("completed"));
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("completed"));
   });
 
   it("marks analysis 'completed' when run status is agentic_completed", async () => {
     mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "agentic_completed" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("completed"));
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("completed"));
   });
 
   it("marks analysis 'completed' when run status is book_picked", async () => {
     mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "book_picked" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("completed"));
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("completed"));
   });
 
   it("marks analysis 'active' when run is extracting", async () => {
     mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "extracting" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("active"));
   });
 
   it("marks analysis 'active' when run is agentic_extracting", async () => {
     mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "agentic_extracting" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("active"));
   });
 
   it("marks analysis 'active' when run is chunking", async () => {
     mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "chunking" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("active"));
   });
 
   it("marks analysis 'active' when run is embedding", async () => {
     mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "embedding" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("active"));
   });
 
   it("marks visualization 'completed' when analysis is completed", async () => {
     mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "completed" }));
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("completed"));
+    await waitFor(() => expect(result.current.getStepStatus(5)).toBe("completed"));
   });
 
   it("marks visualization 'pending' when analysis is not done", async () => {
@@ -245,14 +247,14 @@ describe("getStepStatus", () => {
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
     // Visualization stays pending while analysis is still running
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("pending"));
+    await waitFor(() => expect(result.current.getStepStatus(5)).toBe("pending"));
   });
 
   it("returns 'locked' for out-of-range indices", async () => {
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.getStepStatus(5)).toBe("locked");
+    expect(result.current.getStepStatus(6)).toBe("locked");
     expect(result.current.getStepStatus(-1)).toBe("locked");
   });
 });
@@ -289,8 +291,8 @@ describe("auto-navigation", () => {
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
 
-    // Should auto-navigate to visualization (step 4) — last step, all completed
-    await waitFor(() => expect(result.current.activeStep).toBe(4));
+    // Should auto-navigate to visualization (step 5) — last step, all completed
+    await waitFor(() => expect(result.current.activeStep).toBe(5));
   });
 
   it("auto-navigates to an active step if one exists", async () => {
@@ -332,8 +334,8 @@ describe("auto-navigation", () => {
 
     const { result } = renderHook(() => useCourseDetail(), { wrapper });
 
-    // Steps 0-2 completed, step 3 pending → should land on step 3
-    await waitFor(() => expect(result.current.activeStep).toBe(3));
+    // Steps 0-3 completed, step 4 pending → should land on step 4
+    await waitFor(() => expect(result.current.activeStep).toBe(4));
   });
 });
 
@@ -364,8 +366,8 @@ describe("step status fetch effect", () => {
 
     // Should still load without crashing — steps fall back to pending
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.getStepStatus(2)).toBe("pending");
     expect(result.current.getStepStatus(3)).toBe("pending");
+    expect(result.current.getStepStatus(4)).toBe("pending");
   });
 });
 
