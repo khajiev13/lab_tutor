@@ -12,24 +12,22 @@ export function BuildChaptersStep() {
   const { courseId, course, goToNext } = useCourseDetail();
   const [plan, setPlan] = useState<ChapterPlanResponse | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [planLoading, setPlanLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const disabled = course?.extraction_status !== 'finished';
 
   useEffect(() => {
-    if (disabled) {
-      setLoading(false);
-      return;
-    }
+    if (disabled) return;
+    setPlanLoading(true);
     getChapterPlan(courseId)
       .then((p) => {
         if (p.chapters.length > 0) setPlan(p);
       })
       .catch(() => {
-        // 404 = no plan yet, that's fine
+        // no plan yet, that's fine
       })
-      .finally(() => setLoading(false));
+      .finally(() => setPlanLoading(false));
   }, [courseId, disabled]);
 
   const handleGenerate = async () => {
@@ -44,14 +42,6 @@ export function BuildChaptersStep() {
       setGenerating(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -93,7 +83,14 @@ export function BuildChaptersStep() {
         </Alert>
       )}
 
-      {plan && plan.chapters.length > 0 && (
+      {planLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading existing plan...
+        </div>
+      )}
+
+      {!planLoading && plan && plan.chapters.length > 0 && (
         <ChapterPlanBuilder initialPlan={plan} onSave={setPlan} courseId={courseId} />
       )}
 
