@@ -1,7 +1,7 @@
 import type { AgentState, ChatMessage, StreamEvent } from "./types";
 import api from "@/services/api";
 
-const DEFAULT_PROD_API_URL = "https://backend.mangoocean-d0c97d4f.westus2.azurecontainerapps.io";
+const DEFAULT_PROD_API_URL = "";
 const DEV_HOST = typeof window !== "undefined" ? window.location.hostname : "localhost";
 const DEFAULT_DEV_API_URL = `http://${DEV_HOST}:8000`;
 const API_URL =

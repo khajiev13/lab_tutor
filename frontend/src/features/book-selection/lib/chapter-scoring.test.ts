@@ -44,8 +44,7 @@ function makeUniqueConcepts(
   return entries.map((e, i) => ({
     name: `BookConcept ${i}`,
     description: 'desc',
-    relevance: e.relevance,
-    text_evidence: 'evidence',
+    skill_name: 'Mock Skill',
     chapter_title: 'Ch 1',
     section_title: 'Sec 1',
     sim_max: e.sim,
@@ -78,25 +77,9 @@ function makeSummary(
         chapter_index: 0,
         chapter_summary: 'Summary',
         concept_count: 3,
-        core_count: 2,
-        supplementary_count: 1,
+        skill_count: 1,
         skills: [
-          { name: 'SQL', description: 'Write SQL', concept_names: ['A', 'B'] },
-        ],
-        sections: [
-          {
-            section_title: 'Sec 1',
-            concepts: [
-              {
-                name: 'A',
-                description: 'desc',
-                relevance: 'core',
-                text_evidence: 'ev',
-                sim_max: 0.8,
-                best_course_match: 'Match A',
-              },
-            ],
-          },
+          { name: 'SQL', description: 'Write SQL', concepts: [{ name: 'A', description: '', sim_max: 0.8, best_course_match: 'A' }, { name: 'B', description: '', sim_max: 0.8, best_course_match: 'B' }] },
         ],
       },
       {
@@ -104,10 +87,8 @@ function makeSummary(
         chapter_index: 1,
         chapter_summary: null,
         concept_count: 2,
-        core_count: 1,
-        supplementary_count: 1,
+        skill_count: 0,
         skills: [],
-        sections: [],
       },
     ],
     course_coverage: makeCoverage([0.9, 0.6, 0.3]),
@@ -256,12 +237,10 @@ describe('computeSkillRichness', () => {
           chapter_index: 0,
           chapter_summary: null,
           concept_count: 2,
-          core_count: 2,
-          supplementary_count: 0,
+          skill_count: 1,
           skills: [
-            { name: 'S1', description: 'd', concept_names: ['A', 'B'] },
+            { name: 'S1', description: 'd', concepts: [{ name: 'A', description: '', sim_max: 0.8, best_course_match: 'A' }, { name: 'B', description: '', sim_max: 0.8, best_course_match: 'B' }] },
           ],
-          sections: [],
         },
       ],
     });
