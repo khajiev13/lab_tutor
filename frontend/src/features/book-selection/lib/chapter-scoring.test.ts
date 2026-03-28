@@ -172,23 +172,23 @@ describe('computeNovelty', () => {
     expect(computeNovelty([], 0.35)).toBe(0);
   });
 
-  it('only considers core concepts', () => {
+  it('returns correct ratio for mixed similarities', () => {
     const concepts = makeUniqueConcepts([
       { sim: 0.1, relevance: 'core' },
       { sim: 0.9, relevance: 'supplementary' },
       { sim: 0.1, relevance: 'tangential' },
     ]);
-    // 1 core concept, 1 is novel (0.1 < 0.35) → 1/1 = 1
-    expect(computeNovelty(concepts, 0.35)).toBe(1);
+    // 2 out of 3 concepts have sim < 0.35
+    expect(computeNovelty(concepts, 0.35)).toBeCloseTo(2 / 3);
   });
 
-  it('returns correct ratio for mixed cores', () => {
+  it('returns correct ratio for all items', () => {
     const concepts = makeUniqueConcepts([
       { sim: 0.1, relevance: 'core' },
       { sim: 0.7, relevance: 'core' },
       { sim: 0.2, relevance: 'core' },
     ]);
-    // 2 of 3 core concepts have sim < 0.35
+    // 2 of 3 concepts have sim < 0.35
     expect(computeNovelty(concepts, 0.35)).toBeCloseTo(2 / 3);
   });
 });
@@ -263,9 +263,9 @@ describe('computeConceptDensity', () => {
 
   it('returns correct normalized density', () => {
     const s = makeSummary();
-    // Ch 1: core_count=2, Ch 2: core_count=1 → mean=1.5
-    // maxDensity=3 → 1.5/3 = 0.5
-    expect(computeConceptDensity(s, 3)).toBeCloseTo(0.5);
+    // Ch 1: concept_count=3, Ch 2: concept_count=2 → mean=2.5
+    // maxDensity=3 → 2.5/3 = 0.833333333
+    expect(computeConceptDensity(s, 3)).toBeCloseTo(2.5 / 3);
   });
 
   it('caps at 1', () => {
