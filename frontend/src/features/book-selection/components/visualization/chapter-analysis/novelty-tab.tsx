@@ -32,7 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-import type { ChapterDetail, SectionConceptItem } from '../../../types';
+import type { ChapterDetail, SkillConceptDetail } from '../../../types';
 import { useChapterAnalysis } from './context';
 
 // ── Component ──────────────────────────────────────────────────
@@ -84,8 +84,8 @@ export function NoveltyTab() {
     return summary.chapter_details.map((ch) => {
       let novel = 0,
         total = 0;
-      for (const sec of ch.sections) {
-        for (const c of sec.concepts) {
+      for (const skill of ch.skills) {
+        for (const c of skill.concepts) {
           total++;
           if (c.sim_max !== null && c.sim_max < localNovel) novel++;
           else if (c.sim_max === null) novel++;
@@ -265,8 +265,8 @@ function NovelConceptsTable({
   );
   if (!chapter) return null;
 
-  const concepts = chapter.sections.flatMap((sec) =>
-    sec.concepts.map((c) => ({ ...c, section: sec.section_title })),
+  const concepts = chapter.skills.flatMap((skill) =>
+    skill.concepts.map((c) => ({ ...c, section: skill.name })),
   );
 
   return (
@@ -318,7 +318,7 @@ function ConceptHoverCard({
   concept,
   chapterSummary,
 }: {
-  concept: SectionConceptItem & { section: string };
+  concept: SkillConceptDetail & { section: string };
   chapterSummary: string | null;
 }) {
   return (
@@ -340,9 +340,11 @@ function ConceptHoverCard({
         <div className="space-y-1">
           <p className="text-sm font-semibold">{concept.name}</p>
           <div className="flex items-center gap-1.5">
-            <Badge variant="outline" className="text-[10px] capitalize">
-              {concept.relevance}
-            </Badge>
+            {concept.sim_max !== null && concept.sim_max !== undefined && (
+              <Badge variant="outline" className="text-[10px]">
+                Sim: {(concept.sim_max * 100).toFixed(0)}%
+              </Badge>
+            )}
             {concept.best_course_match && (
               <span className="text-[10px] text-muted-foreground">
                 closest match: {concept.best_course_match}
@@ -361,18 +363,13 @@ function ConceptHoverCard({
           </div>
         )}
 
-        {/* Text Evidence with highlighting */}
-        {concept.text_evidence && (
+        {/* Skill context */}
+        {concept.section && (
           <div className="space-y-1">
             <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-              Book Evidence
+              Skill
             </p>
-            <div className="text-xs leading-relaxed rounded-md bg-muted/50 p-2.5 border border-border/50">
-              <HighlightedEvidence
-                text={concept.text_evidence}
-                term={concept.name}
-              />
-            </div>
+            <p className="text-xs">{concept.section}</p>
           </div>
         )}
 
