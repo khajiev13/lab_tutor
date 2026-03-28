@@ -68,15 +68,23 @@ class CourseRepository:
             CourseSelectedBook,
         )
 
-        runs = self.db.scalars(select(BookExtractionRun).where(BookExtractionRun.course_id == course.id)).all()
+        runs = self.db.scalars(
+            select(BookExtractionRun).where(BookExtractionRun.course_id == course.id)
+        ).all()
         for r in runs:
             self.db.delete(r)
 
-        selected = self.db.scalars(select(CourseSelectedBook).where(CourseSelectedBook.course_id == course.id)).all()
+        selected = self.db.scalars(
+            select(CourseSelectedBook).where(CourseSelectedBook.course_id == course.id)
+        ).all()
         for s in selected:
             self.db.delete(s)
 
-        sessions = self.db.scalars(select(BookSelectionSession).where(BookSelectionSession.course_id == course.id)).all()
+        sessions = self.db.scalars(
+            select(BookSelectionSession).where(
+                BookSelectionSession.course_id == course.id
+            )
+        ).all()
         for sess in sessions:
             self.db.delete(sess)
 
