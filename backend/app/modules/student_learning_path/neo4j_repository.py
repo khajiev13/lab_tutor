@@ -122,7 +122,7 @@ def get_selected_skills(
     result = session.run(
         """
         MATCH (u:USER:STUDENT {id: $student_id})-[r:SELECTED_SKILL]->(sk:SKILL)
-        MATCH (cl:CLASS {id: $course_id})-[:USES_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)
+        MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)
         RETURN sk {
             .name, .description,
             source: r.source,
@@ -152,7 +152,7 @@ def get_selected_job_postings(
         RETURN jp {
             .url, .title, .company,
             skills: [
-                (cl:CLASS {id: $course_id})-[:USES_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)
+                (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)
                 -[:HAS_SKILL]->(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp)
                 | ms.name
             ]
@@ -206,7 +206,7 @@ def get_learning_path(
     # Get chapters with selected skills and their resources using nested COLLECT
     result = session.run(
         """
-        MATCH (cl:CLASS {id: $course_id})-[:USES_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)
+        MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)
         WHERE EXISTS { (ch)-[:HAS_SKILL]->()<-[:SELECTED_SKILL]-(:USER:STUDENT {id: $student_id}) }
         WITH ch ORDER BY ch.chapter_index
         RETURN ch {
@@ -282,7 +282,7 @@ def get_peer_selection_counts(
     """Count how many students selected each skill (for peer badges)."""
     result = session.run(
         """
-        MATCH (cl:CLASS {id: $course_id})-[:USES_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)
+        MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)
               -[:HAS_SKILL]->(sk:SKILL)<-[:SELECTED_SKILL]-(s:STUDENT)
         RETURN sk.name AS skill_name, count(DISTINCT s) AS student_count
         """,
@@ -305,7 +305,7 @@ def get_student_skill_banks(
     selected_result = session.run(
         """
         MATCH (u:USER:STUDENT {id: $student_id})-[r:SELECTED_SKILL]->(sk:SKILL)
-        MATCH (cl:CLASS {id: $course_id})-[:USES_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)
+        MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)
         RETURN sk.name AS name, r.source AS source
         """,
         student_id=student_id,

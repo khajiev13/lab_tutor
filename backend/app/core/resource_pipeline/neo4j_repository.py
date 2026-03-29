@@ -32,7 +32,7 @@ def load_skills_from_neo4j(session: Neo4jSession, course_id: int) -> list[SkillP
 
     # BOOK_SKILL nodes
     book_result = session.run(
-        "MATCH (cl:CLASS {id: $course_id})-[:USES_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
+        "MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:BOOK_SKILL) "
         "RETURN sk {"
         "  .name, .description, "
         "  ch_title: ch.title, ch_summary: ch.summary, ch_idx: ch.chapter_index, "
@@ -63,7 +63,7 @@ def load_skills_from_neo4j(session: Neo4jSession, course_id: int) -> list[SkillP
 
     # MARKET_SKILL nodes
     market_result = session.run(
-        "MATCH (cl:CLASS {id: $course_id})-[:USES_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(ms:MARKET_SKILL) "
+        "MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(ms:MARKET_SKILL) "
         "RETURN ms {"
         "  .name, .category, .demand_pct, .priority, .status, "
         "  ch_title: ch.title, ch_summary: ch.summary, ch_idx: ch.chapter_index, "
@@ -152,7 +152,7 @@ def get_resources_for_course(
 ) -> list[dict]:
     """Read all resources grouped by skill for a course."""
     result = session.run(
-        f"MATCH (cl:CLASS {{id: $course_id}})-[:USES_BOOK]->(:BOOK)-[:HAS_CHAPTER]->"
+        f"MATCH (cl:CLASS {{id: $course_id}})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->"
         f"(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)-[:{relationship}]->(r:{resource_label}) "
         f"WITH sk, ch, r ORDER BY r.final_score DESC "
         f"WITH sk, ch, collect(r {{.title, .url, .domain, .snippet, .video_id, "
