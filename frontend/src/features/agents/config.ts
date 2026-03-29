@@ -42,20 +42,20 @@ export const AGENTS: AgentConfig[] = [
     id: "reading-agent",
     name: "Reading Agent",
     description:
-      "Generates personalized reading materials and study guides tailored to your course curriculum.",
+      "Discovers the best online reading materials for every skill in your curriculum.",
     icon: BookOpenText,
     route: "reading-agent",
-    enabled: false,
+    enabled: true,
     color: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400",
   },
   {
     id: "video-agent",
     name: "Video Agent",
     description:
-      "Curates and recommends educational videos aligned with course topics and learning objectives.",
+      "Discovers the best YouTube videos for every skill in your curriculum.",
     icon: Video,
     route: "video-agent",
-    enabled: false,
+    enabled: true,
     color: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400",
   },
 ];

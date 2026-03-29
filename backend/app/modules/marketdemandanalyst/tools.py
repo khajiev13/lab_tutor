@@ -411,7 +411,7 @@ def list_chapters() -> str:
     try:
         with _neo4j_session() as session:
             result = session.run(
-                "MATCH (cl:CLASS {id: $course_id})-[:HAS_CHAPTER]->(ch:COURSE_CHAPTER) "
+                "MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER) "
                 "RETURN ch.title AS title, ch.chapter_index AS idx, "
                 "  [(ch)<-[:MAPPED_TO]-(ms:MARKET_SKILL) | ms.name] AS market_skills, "
                 "  [(ch)-[:INCLUDES_DOCUMENT]->(d:TEACHER_UPLOADED_DOCUMENT) | d.topic] AS doc_topics, "

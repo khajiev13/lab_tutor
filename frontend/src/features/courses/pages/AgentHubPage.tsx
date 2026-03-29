@@ -96,6 +96,7 @@ function HubContent() {
 function StudentContent({ courseId }: { courseId: number }) {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const checkEnrollment = useCallback(async () => {
     try {
@@ -139,7 +140,8 @@ function StudentContent({ courseId }: { courseId: number }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Student Dashboard</h2>
           <Button
             onClick={isEnrolled ? handleLeave : handleJoin}
             disabled={isLoading}
@@ -161,12 +163,21 @@ function StudentContent({ courseId }: { courseId: number }) {
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
           {isEnrolled
-            ? "You are enrolled in this course."
-            : "Join this course to access materials and assessments."}
+            ? "You are enrolled in this course. You can now build your personalized learning path."
+            : "Join this course to access materials and build a personalized learning path."}
         </p>
+
+        {isEnrolled && (
+          <Button 
+            className="w-full sm:w-auto" 
+            onClick={() => navigate(`/courses/${courseId}/learning-path`)}
+          >
+            Go to My Learning Path
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

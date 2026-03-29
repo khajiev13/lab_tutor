@@ -6,7 +6,7 @@ import type {
   CourseFileRead,
   ExtractionStatus,
 } from './types';
-import type { CurriculumWithChangelog } from '@/features/curriculum/types';
+import type { CurriculumWithChangelog, SkillBanksResponse } from '@/features/curriculum/types';
 import {
   CourseFileDuplicateError,
   tryExtractContentHashFromDetail,
@@ -190,6 +190,10 @@ export const coursesApi = {
   },
   getCurriculum: async (id: number): Promise<CurriculumWithChangelog> => {
     const response = await api.get<CurriculumWithChangelog>(`/courses/${id}/curriculum`);
+    return response.data;
+  },
+  getSkillBanks: async (id: number): Promise<SkillBanksResponse> => {
+    const response = await api.get<SkillBanksResponse>(`/courses/${id}/skill-banks`);
     return response.data;
   },
 };

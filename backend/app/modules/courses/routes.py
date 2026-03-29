@@ -8,7 +8,7 @@ from app.modules.auth.dependencies import (
 from app.modules.auth.models import User, UserRole
 from app.modules.embeddings.schemas import CourseEmbeddingStatusResponse
 
-from .curriculum_schemas import CurriculumWithChangelog
+from .curriculum_schemas import CurriculumWithChangelog, SkillBanksResponse
 from .curriculum_service import CurriculumService, get_curriculum_service
 from .schemas import (
     CourseCreate,
@@ -302,3 +302,12 @@ def get_course_curriculum(
     teacher: User = Depends(require_role(UserRole.TEACHER)),
 ):
     return service.get_curriculum(course_id=course_id, teacher=teacher)
+
+
+@router.get("/{course_id}/skill-banks", response_model=SkillBanksResponse)
+def get_course_skill_banks(
+    course_id: int,
+    service: CurriculumService = Depends(get_curriculum_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.get_skill_banks(course_id=course_id, teacher=teacher)

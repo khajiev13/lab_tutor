@@ -80,10 +80,14 @@ class Settings(BaseSettings):
         description="Max completion tokens for extraction responses",
     )
 
-    # Serper API (Google Search for PDF discovery)
+    # Search APIs
     serper_api_key: str | None = Field(
         default=None,
         description="Serper API key for Google Search. Used for book PDF discovery.",
+    )
+    tavily_api_key: str | None = Field(
+        default=None,
+        description="Tavily API key for web search. Used by resource discovery agents.",
     )
 
     extraction_workers: int = Field(
