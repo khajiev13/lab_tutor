@@ -8,10 +8,17 @@ and assert the SSE frames emitted to the client.
 
 import json
 import uuid
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
+from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
+
+from app.modules.auth.models import User, UserRole
+from app.modules.marketdemandanalyst.models import MDAThreadState
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -57,6 +64,46 @@ def _mock_astream(events_list):
     return _astream
 
 
+def _create_course(client, headers, *, title="Market Demand Test Course") -> int:
+    response = client.post(
+        "/courses",
+        json={"title": title, "description": "Course used by market demand tests"},
+        headers=headers,
+    )
+    assert response.status_code == 201
+    return int(response.json()["id"])
+
+
+def _create_teacher_headers(
+    client,
+    *,
+    email: str,
+    first_name: str = "Teacher",
+    last_name: str = "Two",
+) -> dict[str, str]:
+    password = "password"
+    client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "first_name": first_name,
+            "last_name": last_name,
+            "role": UserRole.TEACHER.value,
+        },
+    )
+    response = client.post(
+        "/auth/jwt/login",
+        data={"username": email, "password": password},
+    )
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _get_user_id(db_session, email: str) -> int:
+    return db_session.execute(select(User.id).where(User.email == email)).scalar_one()
+
+
 # ── Fixtures ─────────────────────────────────────────────────
 
 
@@ -85,13 +132,13 @@ def auth_client(client, teacher_auth_headers):
 class TestChatAuth:
     def test_unauthenticated_chat_returns_401(self, client):
         resp = client.post(
-            "/market-demand/chat",
+            "/courses/1/market-demand/chat",
             json={"message": "hello"},
         )
         assert resp.status_code == 401
 
     def test_unauthenticated_state_returns_401(self, client):
-        resp = client.get("/market-demand/state")
+        resp = client.get("/courses/1/market-demand/state")
         assert resp.status_code == 401
 
 
@@ -102,12 +149,13 @@ class TestChatSSE:
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_returns_sse_content_type(self, mock_get_graph, auth_client):
         client, headers = auth_client
+        course_id = _create_course(client, headers)
         mock_g = MagicMock()
         mock_g.astream = _mock_astream([])
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": "hi"},
             headers=headers,
         )
@@ -117,12 +165,13 @@ class TestChatSSE:
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_returns_thread_id_header(self, mock_get_graph, auth_client):
         client, headers = auth_client
+        course_id = _create_course(client, headers)
         mock_g = MagicMock()
         mock_g.astream = _mock_astream([])
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": "hi"},
             headers=headers,
         )
@@ -131,12 +180,13 @@ class TestChatSSE:
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_stream_end_always_emitted(self, mock_get_graph, auth_client):
         client, headers = auth_client
+        course_id = _create_course(client, headers)
         mock_g = MagicMock()
         mock_g.astream = _mock_astream([])
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": "hi"},
             headers=headers,
         )
@@ -148,6 +198,7 @@ class TestChatSSE:
     def test_text_tokens_streamed(self, mock_get_graph, auth_client):
         """Agent text is emitted as agent_start → text_delta → text_done."""
         client, headers = auth_client
+        course_id = _create_course(client, headers)
 
         ns = ("job_analyst:abc123",)
         events_from_graph = [
@@ -160,7 +211,7 @@ class TestChatSSE:
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": "hi"},
             headers=headers,
         )
@@ -184,6 +235,7 @@ class TestChatSSE:
     def test_tool_call_events(self, mock_get_graph, auth_client):
         """Tool calls produce tool_start and tool_end events."""
         client, headers = auth_client
+        course_id = _create_course(client, headers)
 
         ns = ("job_analyst:abc123",)
         tc_id = str(uuid.uuid4())
@@ -210,7 +262,7 @@ class TestChatSSE:
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": "fetch jobs"},
             headers=headers,
         )
@@ -232,6 +284,7 @@ class TestChatSSE:
     def test_tool_args_accumulated_across_chunks(self, mock_get_graph, auth_client):
         """Args streamed across multiple chunks are accumulated and emitted via tool_args_update."""
         client, headers = auth_client
+        course_id = _create_course(client, headers)
 
         ns = ("job_analyst:abc123",)
         tc_id = str(uuid.uuid4())
@@ -279,7 +332,7 @@ class TestChatSSE:
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": "fetch jobs"},
             headers=headers,
         )
@@ -298,6 +351,7 @@ class TestChatSSE:
     ):
         """When the active agent changes, text_done for previous agent is emitted first."""
         client, headers = auth_client
+        course_id = _create_course(client, headers)
 
         events_from_graph = [
             (("job_analyst:abc",), (_make_ai_chunk("job text"), {})),
@@ -309,7 +363,7 @@ class TestChatSSE:
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": "go"},
             headers=headers,
         )
@@ -335,6 +389,7 @@ class TestChatSSE:
         import app.modules.marketdemandanalyst.state as state_mod
 
         client, headers = auth_client
+        course_id = _create_course(client, headers)
         ns = ("job_analyst:abc",)
         tc_id = str(uuid.uuid4())
 
@@ -360,7 +415,7 @@ class TestChatSSE:
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": "fetch"},
             headers=headers,
         )
@@ -376,30 +431,33 @@ class TestChatSSE:
         assert fetched_update["data"]["value"] == [{"title": "Python Dev"}]
 
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
-    def test_custom_thread_id_is_preserved(self, mock_get_graph, auth_client):
-        """Sending a thread_id reuses it instead of generating a new one."""
+    def test_thread_id_is_course_scoped(self, mock_get_graph, auth_client, db_session):
+        """Thread ids are derived from the teacher+course pair, not the request body."""
         client, headers = auth_client
+        course_id = _create_course(client, headers)
+        teacher_id = _get_user_id(db_session, "teacher@example.com")
         mock_g = MagicMock()
         mock_g.astream = _mock_astream([])
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
-            json={"message": "hi", "thread_id": "my-thread-42"},
+            f"/courses/{course_id}/market-demand/chat",
+            json={"message": "hi"},
             headers=headers,
         )
-        assert resp.headers.get("x-thread-id") == "my-thread-42"
+        assert resp.headers.get("x-thread-id") == f"mda-{teacher_id}-course-{course_id}"
 
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_empty_message_accepted(self, mock_get_graph, auth_client):
         """An empty message (initial greeting) doesn't error."""
         client, headers = auth_client
+        course_id = _create_course(client, headers)
         mock_g = MagicMock()
         mock_g.astream = _mock_astream([])
         mock_get_graph.return_value = (mock_g, MagicMock())
 
         resp = client.post(
-            "/market-demand/chat",
+            f"/courses/{course_id}/market-demand/chat",
             json={"message": ""},
             headers=headers,
         )
@@ -411,13 +469,17 @@ class TestChatSSE:
 
 class TestGetState:
     def test_returns_all_tracked_keys(self, client, teacher_auth_headers):
+        course_id = _create_course(client, teacher_auth_headers)
         resp = client.get(
-            "/market-demand/state",
+            f"/courses/{course_id}/market-demand/state",
             headers=teacher_auth_headers,
         )
         assert resp.status_code == 200
         data = resp.json()
         expected_keys = [
+            "course_id",
+            "course_title",
+            "course_description",
             "fetched_jobs",
             "job_groups",
             "selected_jobs",
@@ -434,13 +496,52 @@ class TestGetState:
             assert key in data
 
     def test_empty_state_has_null_values(self, client, teacher_auth_headers):
+        course_id = _create_course(client, teacher_auth_headers)
         resp = client.get(
-            "/market-demand/state",
+            f"/courses/{course_id}/market-demand/state",
             headers=teacher_auth_headers,
         )
         data = resp.json()
-        for v in data.values():
-            assert v is None
+        assert data["course_id"] == course_id
+        assert data["course_title"] == "Market Demand Test Course"
+        assert data["course_description"] == "Course used by market demand tests"
+        for key, value in data.items():
+            if key.startswith("course_"):
+                continue
+            assert value is None
+
+    def test_state_is_isolated_per_course(
+        self, client, teacher_auth_headers, db_session
+    ):
+        course_a = _create_course(client, teacher_auth_headers, title="Course A")
+        course_b = _create_course(client, teacher_auth_headers, title="Course B")
+        teacher_id = _get_user_id(db_session, "teacher@example.com")
+        db_session.add(
+            MDAThreadState(
+                thread_id=f"mda-{teacher_id}-course-{course_a}",
+                state_json={
+                    "course_id": course_a,
+                    "course_title": "Course A",
+                    "fetched_jobs": [{"title": "Backend Engineer"}],
+                },
+            )
+        )
+        db_session.commit()
+
+        resp_a = client.get(
+            f"/courses/{course_a}/market-demand/state",
+            headers=teacher_auth_headers,
+        )
+        resp_b = client.get(
+            f"/courses/{course_b}/market-demand/state",
+            headers=teacher_auth_headers,
+        )
+
+        assert resp_a.status_code == 200
+        assert resp_b.status_code == 200
+        assert resp_a.json()["fetched_jobs"] == [{"title": "Backend Engineer"}]
+        assert resp_b.json()["fetched_jobs"] is None
+        assert resp_b.json()["course_id"] == course_b
 
 
 # ── Tests: SSE Helper Functions ──────────────────────────────
@@ -526,6 +627,26 @@ class TestSSEHelpers:
         result = pipeline_summary()
         assert "Pipeline COMPLETE" in result
 
+    def test_pipeline_summary_requires_complete_mapping(self):
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.state import pipeline_summary
+
+        state_mod.tool_store["course_id"] = 2
+        state_mod.tool_store["course_title"] = "Big Data"
+        state_mod.tool_store["curated_skills"] = [
+            {"name": "Skill A"},
+            {"name": "Skill B"},
+        ]
+        state_mod.tool_store["curriculum_mapping"] = [
+            {"name": "Skill A", "status": "covered"}
+        ]
+
+        result = pipeline_summary()
+
+        assert "Teacher curated 2 skills" in result
+        assert "Mapping coverage: 1/2 curated skills accounted for" in result
+        assert "NEXT: Map curated skills to curriculum" in result
+
     def test_extract_agent_from_message(self):
         from langchain_core.messages import AIMessage
 
@@ -543,18 +664,22 @@ class TestSSEHelpers:
 
 class TestHistoryEndpoint:
     def test_unauthenticated_history_returns_401(self, client):
-        resp = client.get("/market-demand/history")
+        resp = client.get("/courses/1/market-demand/history")
         assert resp.status_code == 401
 
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_empty_history(self, mock_get_graph, client, teacher_auth_headers):
+        course_id = _create_course(client, teacher_auth_headers)
         mock_g = MagicMock()
         mock_state = MagicMock()
         mock_state.values = {}
         mock_g.aget_state = AsyncMock(return_value=mock_state)
         mock_get_graph.return_value = (mock_g, MagicMock())
 
-        resp = client.get("/market-demand/history", headers=teacher_auth_headers)
+        resp = client.get(
+            f"/courses/{course_id}/market-demand/history",
+            headers=teacher_auth_headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["messages"] == []
@@ -564,6 +689,7 @@ class TestHistoryEndpoint:
     def test_history_converts_messages(
         self, mock_get_graph, client, teacher_auth_headers
     ):
+        course_id = _create_course(client, teacher_auth_headers)
         mock_g = MagicMock()
         mock_state = MagicMock()
         mock_state.values = {
@@ -575,7 +701,10 @@ class TestHistoryEndpoint:
         mock_g.aget_state = AsyncMock(return_value=mock_state)
         mock_get_graph.return_value = (mock_g, MagicMock())
 
-        resp = client.get("/market-demand/history", headers=teacher_auth_headers)
+        resp = client.get(
+            f"/courses/{course_id}/market-demand/history",
+            headers=teacher_auth_headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["messages"]) == 2
@@ -590,6 +719,7 @@ class TestHistoryEndpoint:
         self, mock_get_graph, client, teacher_auth_headers
     ):
         """Consecutive AI messages from the same agent are merged."""
+        course_id = _create_course(client, teacher_auth_headers)
         mock_g = MagicMock()
         mock_state = MagicMock()
         mock_state.values = {
@@ -601,7 +731,10 @@ class TestHistoryEndpoint:
         mock_g.aget_state = AsyncMock(return_value=mock_state)
         mock_get_graph.return_value = (mock_g, MagicMock())
 
-        resp = client.get("/market-demand/history", headers=teacher_auth_headers)
+        resp = client.get(
+            f"/courses/{course_id}/market-demand/history",
+            headers=teacher_auth_headers,
+        )
         data = resp.json()
         # Two consecutive supervisor messages should be merged into one
         agent_msgs = [m for m in data["messages"] if m["role"] == "agent"]
@@ -614,18 +747,22 @@ class TestHistoryEndpoint:
 
 class TestDeleteEndpoint:
     def test_unauthenticated_delete_returns_401(self, client):
-        resp = client.delete("/market-demand/history")
+        resp = client.delete("/courses/1/market-demand/history")
         assert resp.status_code == 401
 
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_delete_returns_status(self, mock_get_graph, client, teacher_auth_headers):
+        course_id = _create_course(client, teacher_auth_headers)
         mock_g = MagicMock()
         mock_checkpointer = MagicMock()
         mock_checkpointer.adelete_thread = AsyncMock()
         mock_g.checkpointer = mock_checkpointer
         mock_get_graph.return_value = (mock_g, MagicMock())
 
-        resp = client.delete("/market-demand/history", headers=teacher_auth_headers)
+        resp = client.delete(
+            f"/courses/{course_id}/market-demand/history",
+            headers=teacher_auth_headers,
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "deleted"
@@ -637,13 +774,17 @@ class TestDeleteEndpoint:
     ):
         import app.modules.marketdemandanalyst.state as state_mod
 
+        course_id = _create_course(client, teacher_auth_headers)
         state_mod.tool_store["fetched_jobs"] = [{"title": "Dev"}]
 
         mock_g = MagicMock()
         mock_g.checkpointer = None
         mock_get_graph.return_value = (mock_g, MagicMock())
 
-        client.delete("/market-demand/history", headers=teacher_auth_headers)
+        client.delete(
+            f"/courses/{course_id}/market-demand/history",
+            headers=teacher_auth_headers,
+        )
         assert len(state_mod.tool_store) == 0
 
 
@@ -684,3 +825,402 @@ class TestSelectJobsByGroup:
 
         assert "Selected 2 jobs from all 2 groups" in result
         assert len(state_mod.tool_store["selected_jobs"]) == 2
+
+
+class TestCourseScopedContext:
+    @patch("app.modules.marketdemandanalyst.routes.get_graph")
+    def test_chat_seeds_course_context(
+        self, mock_get_graph, client, teacher_auth_headers
+    ):
+        import app.modules.marketdemandanalyst.state as state_mod
+
+        course_id = _create_course(client, teacher_auth_headers, title="Big Data")
+        mock_g = MagicMock()
+        mock_g.astream = _mock_astream([])
+        mock_get_graph.return_value = (mock_g, MagicMock())
+
+        resp = client.post(
+            f"/courses/{course_id}/market-demand/chat",
+            json={"message": "hello"},
+            headers=teacher_auth_headers,
+        )
+
+        assert resp.status_code == 200
+        assert state_mod.tool_store["course_id"] == course_id
+        assert state_mod.tool_store["course_title"] == "Big Data"
+        assert state_mod.tool_store["course_description"] == (
+            "Course used by market demand tests"
+        )
+
+    def test_other_teacher_cannot_access_course(self, client, teacher_auth_headers):
+        course_id = _create_course(client, teacher_auth_headers)
+        other_headers = _create_teacher_headers(client, email="teacher2@example.com")
+
+        resp = client.get(
+            f"/courses/{course_id}/market-demand/state",
+            headers=other_headers,
+        )
+
+        assert resp.status_code == 404
+
+
+class TestCourseScopedQueries:
+    def test_get_chapter_details_scopes_lookup_to_course(self, monkeypatch):
+        import app.modules.marketdemandanalyst.state as state_mod
+        import app.modules.marketdemandanalyst.tools as tools_mod
+
+        state_mod.tool_store["course_id"] = 2
+        state_mod.tool_store["course_title"] = "Big Data"
+
+        session = MagicMock()
+        session.run.return_value = []
+
+        class _SessionCtx:
+            def __enter__(self):
+                return session
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        monkeypatch.setattr(tools_mod, "_neo4j_session", lambda: _SessionCtx())
+
+        tools_mod.get_chapter_details.invoke({"chapter_indices": "1"})
+
+        query, params = session.run.call_args.args
+        assert "MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->" in query
+        assert "INCLUDES_DOCUMENT" in query
+        assert "TEACHES_CONCEPT" not in query
+        assert params["course_id"] == 2
+
+    def test_check_skills_coverage_accepts_json_array_and_uses_document_concepts(
+        self, monkeypatch
+    ):
+        import app.modules.marketdemandanalyst.state as state_mod
+        import app.modules.marketdemandanalyst.tools as tools_mod
+
+        state_mod.tool_store["course_id"] = 2
+
+        session = MagicMock()
+        session.run.return_value = []
+
+        class _SessionCtx:
+            def __enter__(self):
+                return session
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        monkeypatch.setattr(tools_mod, "_neo4j_session", lambda: _SessionCtx())
+
+        tools_mod.check_skills_coverage.invoke(
+            {
+                "skill_names": json.dumps(
+                    ["Implement APIs with OpenAI, Anthropic, Google"]
+                )
+            }
+        )
+
+        query, params = session.run.call_args.args
+        assert params["names"] == ["Implement APIs with OpenAI, Anthropic, Google"]
+        assert "INCLUDES_DOCUMENT" in query
+        assert "TEACHES_CONCEPT" not in query
+        assert (
+            "MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)<-[:MAPPED_TO]-(ms:MARKET_SKILL)"
+            in query
+        )
+
+    def test_load_existing_skills_includes_book_and_market_skills(self, monkeypatch):
+        import app.modules.marketdemandanalyst.state as state_mod
+        import app.modules.marketdemandanalyst.tools as tools_mod
+
+        state_mod.tool_store["course_id"] = 2
+
+        session = MagicMock()
+        session.run.return_value = []
+
+        class _SessionCtx:
+            def __enter__(self):
+                return session
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        monkeypatch.setattr(tools_mod, "_neo4j_session", lambda: _SessionCtx())
+
+        tools_mod.load_existing_skills_for_chapters.invoke(
+            {"chapter_titles": json.dumps(["Foundations of Big Data"])}
+        )
+
+        query, params = session.run.call_args.args
+        assert params["titles"] == ["Foundations of Big Data"]
+        assert "BOOK_SKILL" in query
+        assert "MARKET_SKILL" in query
+
+    def test_insert_market_skills_uses_course_scoped_identity(self, monkeypatch):
+        import app.modules.marketdemandanalyst.state as state_mod
+        import app.modules.marketdemandanalyst.tools as tools_mod
+
+        state_mod.tool_store["course_id"] = 2
+        state_mod.tool_store["skill_concepts"] = {
+            "Query and analyze data using SQL": {
+                "chapter_title": "Data Storage",
+                "category": "database",
+                "frequency": 3,
+                "demand_pct": 33.3,
+                "priority": "high",
+                "status": "gap",
+                "rationale": "",
+                "reasoning": "",
+                "existing_concepts": [],
+                "new_concepts": [],
+                "source_job_urls": [],
+            }
+        }
+        state_mod.tool_store["selected_jobs"] = []
+
+        session = MagicMock()
+
+        class _SessionCtx:
+            def __enter__(self):
+                return session
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        monkeypatch.setattr(tools_mod, "_neo4j_session", lambda: _SessionCtx())
+
+        result = tools_mod.insert_market_skills_to_neo4j.invoke({})
+
+        assert "Knowledge Map updated successfully" in result
+        queries = [call.args[0] for call in session.run.call_args_list]
+        params_list = [call.args[1] for call in session.run.call_args_list]
+        assert any(
+            "MERGE (s:MARKET_SKILL:SKILL {name: $name})" in query for query in queries
+        )
+        assert any(
+            "s.course_id = coalesce(s.course_id, $course_id)" in query
+            for query in queries
+        )
+        assert any(
+            params.get("course_id") == 2
+            for params in params_list
+            if isinstance(params, dict)
+        )
+
+    def test_delete_market_skills_all_scopes_to_current_course(self, monkeypatch):
+        import app.modules.marketdemandanalyst.state as state_mod
+        import app.modules.marketdemandanalyst.tools as tools_mod
+
+        state_mod.tool_store["course_id"] = 2
+
+        session = MagicMock()
+        delete_result = MagicMock()
+        delete_result.single.return_value = {"deleted": 1}
+        orphan_jobs = MagicMock()
+        orphan_jobs.single.return_value = {"orphans": 0}
+        orphan_concepts = MagicMock()
+        orphan_concepts.single.return_value = {"orphan_concepts": 0}
+        session.run.side_effect = [delete_result, orphan_jobs, orphan_concepts]
+
+        class _SessionCtx:
+            def __enter__(self):
+                return session
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        monkeypatch.setattr(tools_mod, "_neo4j_session", lambda: _SessionCtx())
+
+        result = tools_mod.delete_market_skills.invoke({"skill_names": "all"})
+
+        assert "course 2" in result
+        query, params = session.run.call_args_list[0].args
+        assert (
+            "MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)<-[:MAPPED_TO]-(s:MARKET_SKILL)"
+            in query
+        )
+        assert params["course_id"] == 2
+
+
+class TestDatabaseResilience:
+    def test_get_owned_course_retries_with_fresh_session(self, monkeypatch):
+        import app.modules.marketdemandanalyst.routes as routes_mod
+
+        teacher = SimpleNamespace(id=7)
+        course = SimpleNamespace(id=2, teacher_id=7)
+
+        primary_db = MagicMock()
+        primary_bind = MagicMock()
+        primary_db.get_bind.return_value = primary_bind
+        primary_db.get.side_effect = OperationalError(
+            "SELECT 1",
+            {},
+            Exception("server closed the connection unexpectedly"),
+        )
+
+        retry_db = MagicMock()
+        retry_db.get.return_value = course
+        monkeypatch.setattr(routes_mod, "SessionLocal", lambda: retry_db)
+
+        result = routes_mod._get_owned_course(2, teacher, primary_db)
+
+        assert result is course
+        primary_db.rollback.assert_called_once()
+        primary_bind.dispose.assert_called_once()
+        retry_db.close.assert_called_once()
+
+    def test_get_owned_course_returns_503_after_retry_failure(self, monkeypatch):
+        import app.modules.marketdemandanalyst.routes as routes_mod
+
+        teacher = SimpleNamespace(id=7)
+        primary_db = MagicMock()
+        primary_bind = MagicMock()
+        primary_db.get_bind.return_value = primary_bind
+        primary_db.get.side_effect = OperationalError(
+            "SELECT 1",
+            {},
+            Exception("server closed the connection unexpectedly"),
+        )
+
+        retry_db = MagicMock()
+        retry_db.get.side_effect = OperationalError(
+            "SELECT 1",
+            {},
+            Exception("server closed the connection unexpectedly"),
+        )
+        monkeypatch.setattr(routes_mod, "SessionLocal", lambda: retry_db)
+
+        with pytest.raises(HTTPException) as exc_info:
+            routes_mod._get_owned_course(2, teacher, primary_db)
+
+        assert exc_info.value.status_code == 503
+        assert "Database is temporarily unavailable" in exc_info.value.detail
+        retry_db.close.assert_called_once()
+
+    @pytest.mark.anyio
+    async def test_load_persisted_state_returns_none_after_retries(self, monkeypatch):
+        import app.modules.marketdemandanalyst.routes as routes_mod
+
+        routes_mod._state_cache.clear()
+
+        class BrokenAsyncSession:
+            async def __aenter__(self):
+                raise RuntimeError("database unavailable")
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        monkeypatch.setattr(
+            routes_mod, "AsyncSessionLocal", lambda: BrokenAsyncSession()
+        )
+
+        result = await routes_mod._load_persisted_state("thread-xyz")
+
+        assert result is None
+        assert routes_mod._state_cache["thread-xyz"] is None
+
+
+class TestCurriculumMappingValidation:
+    def test_save_curriculum_mapping_requires_every_curated_skill(self):
+        import app.modules.marketdemandanalyst.state as state_mod
+        import app.modules.marketdemandanalyst.tools as tools_mod
+
+        state_mod.tool_store["curated_skills"] = [
+            {"name": "Skill A", "category": "cloud"},
+            {"name": "Skill B", "category": "database"},
+        ]
+        state_mod.tool_store["extracted_skills"] = [
+            {"name": "Skill A", "category": "cloud"},
+            {"name": "Skill B", "category": "database"},
+        ]
+
+        result = tools_mod.save_curriculum_mapping.invoke(
+            {
+                "mapping_json": json.dumps(
+                    [
+                        {
+                            "name": "Skill A",
+                            "category": "cloud",
+                            "status": "covered",
+                            "target_chapter": "",
+                            "priority": "high",
+                            "reasoning": "Already taught",
+                        }
+                    ]
+                )
+            }
+        )
+
+        assert (
+            "Curriculum mapping must account for every curated skill exactly once."
+            in result
+        )
+        assert "Missing curated skills (1): Skill B" in result
+        assert "curriculum_mapping" not in state_mod.tool_store
+
+    def test_save_curriculum_mapping_sets_mapped_skills_and_clears_downstream_state(
+        self,
+    ):
+        import app.modules.marketdemandanalyst.state as state_mod
+        import app.modules.marketdemandanalyst.tools as tools_mod
+
+        state_mod.tool_store["curated_skills"] = [
+            {"name": "Skill A", "category": "cloud"},
+            {"name": "Skill B", "category": "database"},
+            {"name": "Skill C", "category": "devops"},
+        ]
+        state_mod.tool_store["extracted_skills"] = [
+            {"name": "Skill A", "category": "cloud"},
+            {"name": "Skill B", "category": "database"},
+            {"name": "Skill C", "category": "devops"},
+        ]
+        state_mod.tool_store["final_skills"] = ["stale"]
+        state_mod.tool_store["selected_for_insertion"] = [{"name": "stale"}]
+        state_mod.tool_store["skill_concepts"] = {"stale": {}}
+        state_mod.tool_store["insertion_results"] = {"skills": 1}
+        state_mod.tool_store["_cleaned_results"] = [{"chapter": "stale"}]
+
+        result = tools_mod.save_curriculum_mapping.invoke(
+            {
+                "mapping_json": json.dumps(
+                    [
+                        {
+                            "name": "Skill A",
+                            "category": "cloud",
+                            "status": "covered",
+                            "target_chapter": "",
+                            "priority": "high",
+                            "reasoning": "Already taught",
+                        },
+                        {
+                            "name": "Skill B",
+                            "category": "database",
+                            "status": "gap",
+                            "target_chapter": "Chapter 2",
+                            "priority": "medium",
+                            "reasoning": "Fits storage chapter",
+                        },
+                        {
+                            "name": "Skill C",
+                            "category": "devops",
+                            "status": "new_topic_needed",
+                            "target_chapter": "Chapter 5",
+                            "priority": "medium",
+                            "reasoning": "Useful extension",
+                        },
+                    ]
+                )
+            }
+        )
+
+        assert "Curriculum mapping saved for 3 curated skills" in result
+        assert "Skills requiring insertion: 2" in result
+        assert state_mod.tool_store["mapped_skills"] == {
+            "Chapter 2": ["Skill B"],
+            "Chapter 5": ["Skill C"],
+        }
+        assert "final_skills" not in state_mod.tool_store
+        assert "selected_for_insertion" not in state_mod.tool_store
+        assert "skill_concepts" not in state_mod.tool_store
+        assert "insertion_results" not in state_mod.tool_store
+        assert "_cleaned_results" not in state_mod.tool_store

@@ -25,7 +25,6 @@ from .tools import (
     SKILL_CLEANER_TOOLS,
     SKILL_FINDER_TOOLS,
     SUPERVISOR_TOOLS,
-    load_curriculum_context,
 )
 
 logger = logging.getLogger(__name__)
@@ -122,9 +121,23 @@ def _make_prompt(
     """
 
     def _prompt(state: dict) -> Sequence[BaseMessage]:
-        # Dynamic pipeline context (reads tool_store at call time)
+        # Dynamic course + pipeline context (reads checkpoint state first, then tool_store)
+        course_id = state.get("course_id")
+        course_title = state.get("course_title")
+        course_description = state.get("course_description")
+
+        course_lines: list[str] = []
+        if course_id:
+            course_lines.append(f"Course ID: {course_id}")
+        if course_title:
+            course_lines.append(f"Course Title: {course_title}")
+        if course_description:
+            course_lines.append(f"Course Description: {course_description}")
+
         ctx = pipeline_summary()
         full_prompt = system_prompt
+        if course_lines:
+            full_prompt += "\n\n# Current Course Context\n" + "\n".join(course_lines)
         if ctx:
             full_prompt += f"\n\n# Current Pipeline State\n{ctx}"
 
@@ -196,14 +209,6 @@ async def get_graph():
     llm = _create_llm()
     _LLM_INSTANCE = llm
 
-    t0 = time.perf_counter()
-    curriculum_ctx = load_curriculum_context()
-    logger.info(
-        "[PERF] load_curriculum_context (Neo4j) took %.1fms",
-        (time.perf_counter() - t0) * 1000,
-    )
-    supervisor_prompt = SUPERVISOR_PROMPT.format(curriculum_context=curriculum_ctx)
-
     # ── Handoff tools ──
     handoff_to_supervisor = create_handoff_tool(
         agent_name="supervisor",
@@ -241,7 +246,7 @@ async def get_graph():
             handoff_to_skill_cleaner,
             handoff_to_concept_linker,
         ],
-        prompt=_make_prompt(supervisor_prompt),
+        prompt=_make_prompt(SUPERVISOR_PROMPT),
         name="supervisor",
     )
 

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.neo4j import get_neo4j_driver
-from app.modules.auth.dependencies import current_active_user, require_role
+from app.modules.auth.dependencies import fastapi_users, require_role
 from app.modules.auth.models import User, UserRole
 
 from .schemas import (
@@ -24,6 +24,7 @@ from .schemas import (
     LearningPathResponse,
     SelectJobPostingsRequest,
     SelectSkillsRequest,
+    StudentSkillBankResponse,
 )
 from .service import StudentLearningPathService, get_queue
 
@@ -52,13 +53,13 @@ def _sse(event: str, data: dict) -> str:
 # ── Skill Banks ──────────────────────────────────────────────
 
 
-@router.get("/{course_id}/skill-banks")
+@router.get("/{course_id}/skill-banks", response_model=StudentSkillBankResponse)
 def get_skill_banks(
     course_id: int,
     student: StudentDep,
     db: DbDep,
     driver: Neo4jDep,
-) -> dict:
+) -> StudentSkillBankResponse:
     """Skill banks with selection overlay + peer counts."""
     service = _get_service(db, driver)
     return service.get_skill_banks(student.id, course_id)
@@ -146,9 +147,44 @@ async def build_learning_path(
 async def stream_build_progress(
     course_id: int,
     run_id: str,
-    _user: Annotated[User, Depends(current_active_user)],
+    token: str | None = None,
+    _user: User | None = Depends(
+        fastapi_users.current_user(active=True, optional=True)
+    ),
 ):
-    """SSE stream of build progress events."""
+    """SSE stream of build progress events.
+
+    EventSource cannot set Authorization headers, so the frontend passes the
+    JWT as a ``?token=`` query parameter.  We first try the standard Bearer
+    header (via optional ``current_user``) and fall back to validating the
+    query-string token manually.
+    """
+    if _user is None and token:
+        import jwt as pyjwt
+
+        from app.core.settings import settings as _settings
+
+        try:
+            payload = pyjwt.decode(
+                token,
+                _settings.secret_key,
+                algorithms=[_settings.algorithm],
+                audience="fastapi-users:auth",
+            )
+            user_id = int(payload["sub"])
+            from app.core.database import AsyncSessionLocal
+
+            async with AsyncSessionLocal() as session:
+                from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
+
+                user_db = SQLAlchemyUserDatabase(session, User)
+                _user = await user_db.get(user_id)
+        except Exception:
+            logger.warning("SSE token validation failed for run %s", run_id)
+
+    if _user is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
     queue = get_queue(run_id)
     if queue is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Run not found")

@@ -14,6 +14,7 @@ from app.modules.courses.repository import CourseRepository
 
 from . import neo4j_repository
 from .graph import learning_path_graph
+from .schemas import StudentSkillBankResponse
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class StudentLearningPathService:
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
             return neo4j_repository.select_skills(
-                session, student_id, skill_names, source
+                session, student_id, course_id, skill_names, source
             )
 
     def deselect_skills(
@@ -67,7 +68,9 @@ class StudentLearningPathService:
         self._validate_enrollment(student_id, course_id)
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
-            return neo4j_repository.deselect_skills(session, student_id, skill_names)
+            return neo4j_repository.deselect_skills(
+                session, student_id, course_id, skill_names
+            )
 
     def select_job_postings(
         self, student_id: int, course_id: int, posting_urls: list[str]
@@ -76,7 +79,7 @@ class StudentLearningPathService:
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
             return neo4j_repository.select_job_postings(
-                session, student_id, posting_urls
+                session, student_id, course_id, posting_urls
             )
 
     def deselect_job_posting(
@@ -86,10 +89,12 @@ class StudentLearningPathService:
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
             return neo4j_repository.deselect_job_posting(
-                session, student_id, posting_url
+                session, student_id, course_id, posting_url
             )
 
-    def get_skill_banks(self, student_id: int, course_id: int) -> dict:
+    def get_skill_banks(
+        self, student_id: int, course_id: int
+    ) -> StudentSkillBankResponse:
         self._validate_enrollment(student_id, course_id)
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
@@ -158,4 +163,8 @@ class StudentLearningPathService:
             await queue.put({"type": "error", "detail": "Build failed"})
         finally:
             await queue.put(None)  # Signal stream end
+            # Delay cleanup so the client has time to connect and drain events.
+            # When all skills are skipped the pipeline finishes in milliseconds,
+            # before the frontend can open the SSE stream.
+            await asyncio.sleep(30)
             _active_runs.pop(run_id, None)

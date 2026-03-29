@@ -13,8 +13,8 @@ function getAccessToken(): string | null {
 }
 
 interface StreamChatArgs {
+  courseId: number;
   message: string;
-  threadId: string | null;
   onEvent: (event: StreamEvent) => void;
   onThreadId?: (threadId: string) => void;
   onError?: (err: unknown) => void;
@@ -74,8 +74,8 @@ async function fetchWithAuth(
 }
 
 export async function streamMarketDemandChat({
+  courseId,
   message,
-  threadId,
   onEvent,
   onThreadId,
   onError,
@@ -86,8 +86,8 @@ export async function streamMarketDemandChat({
     throw new Error("Not authenticated");
   }
 
-  const url = `${API_URL}/market-demand/chat`;
-  const body = JSON.stringify({ message, thread_id: threadId });
+  const url = `${API_URL}/courses/${courseId}/market-demand/chat`;
+  const body = JSON.stringify({ message });
   const res = await fetchWithAuth(url, body, token, signal);
 
   if (!res.ok) {
@@ -170,16 +170,20 @@ export interface HistoryResponse {
   threadId: string;
 }
 
-export async function fetchConversationHistory(): Promise<HistoryResponse> {
-  const { data } = await api.get<HistoryResponse>("/market-demand/history");
+export async function fetchConversationHistory(courseId: number): Promise<HistoryResponse> {
+  const { data } = await api.get<HistoryResponse>(
+    `/courses/${courseId}/market-demand/history`
+  );
   return data;
 }
 
-export async function fetchAgentState(): Promise<AgentState> {
-  const { data } = await api.get<AgentState>("/market-demand/state");
+export async function fetchAgentState(courseId: number): Promise<AgentState> {
+  const { data } = await api.get<AgentState>(
+    `/courses/${courseId}/market-demand/state`
+  );
   return data;
 }
 
-export async function deleteConversation(): Promise<void> {
-  await api.delete("/market-demand/history");
+export async function deleteConversation(courseId: number): Promise<void> {
+  await api.delete(`/courses/${courseId}/market-demand/history`);
 }

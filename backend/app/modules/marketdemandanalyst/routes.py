@@ -7,6 +7,7 @@ and state updates in real time.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import time
@@ -14,16 +15,19 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 from pydantic import BaseModel
 from sqlalchemy import delete, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
 
-from app.core.database import AsyncSessionLocal
-from app.modules.auth.dependencies import current_active_user
-from app.modules.auth.models import User
+from app.core.database import AsyncSessionLocal, SessionLocal, get_db
+from app.modules.auth.dependencies import require_role
+from app.modules.auth.models import User, UserRole
+from app.modules.courses.models import Course
 
 from .graph import get_graph
 from .models import MDAThreadState
@@ -31,7 +35,7 @@ from .state import STATE_KEYS, restore_state, snapshot_state, tool_store
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/market-demand", tags=["market-demand"])
+router = APIRouter(prefix="/courses", tags=["market-demand"])
 
 # Agent display metadata (shared with frontend via agent_start events)
 AGENT_META: dict[str, dict[str, str]] = {
@@ -43,7 +47,7 @@ AGENT_META: dict[str, dict[str, str]] = {
 }
 
 
-CurrentUserDep = Annotated[User, Depends(current_active_user)]
+TeacherDep = Annotated[User, Depends(require_role(UserRole.TEACHER))]
 
 
 def _sse(event: str, data: dict) -> str:
@@ -62,6 +66,69 @@ def _resolve_agent(ns: tuple) -> str:
 # In-memory cache for persisted state (avoids 2-3s Azure PG round-trips on
 # every request). Invalidated on write in _persist_state / delete.
 _state_cache: dict[str, dict[str, Any] | None] = {}
+
+
+def _load_owned_course(session: Session, course_id: int, teacher_id: int) -> Course:
+    course = session.get(Course, course_id)
+    if course is None or course.teacher_id != teacher_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Course not found",
+        )
+    return course
+
+
+def _get_owned_course(course_id: int, teacher: User, db: Session) -> Course:
+    try:
+        return _load_owned_course(db, course_id, teacher.id)
+    except OperationalError:
+        logger.warning(
+            "Course lookup failed for teacher=%s course=%s; retrying with a fresh session",
+            teacher.id,
+            course_id,
+            exc_info=True,
+        )
+        with contextlib.suppress(Exception):
+            db.rollback()
+        with contextlib.suppress(Exception):
+            bind = db.get_bind()
+            if bind is not None:
+                bind.dispose()
+        with contextlib.suppress(Exception):
+            db.close()
+
+        retry_db = SessionLocal()
+        try:
+            return _load_owned_course(retry_db, course_id, teacher.id)
+        except OperationalError as retry_exc:
+            logger.exception(
+                "Database unavailable during course lookup for teacher=%s course=%s",
+                teacher.id,
+                course_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database is temporarily unavailable. Please retry in a moment.",
+            ) from retry_exc
+        finally:
+            with contextlib.suppress(Exception):
+                retry_db.close()
+
+
+def _get_thread_id(user_id: int, course_id: int) -> str:
+    return f"mda-{user_id}-course-{course_id}"
+
+
+def _seed_course_context(course: Course) -> None:
+    tool_store["course_id"] = course.id
+    tool_store["course_title"] = course.title
+    tool_store["course_description"] = course.description or ""
+
+
+def _restore_thread_state(persisted: dict[str, Any] | None, course: Course) -> None:
+    # When a thread has no persisted snapshot yet, clear any prior thread's state.
+    restore_state(persisted or {})
+    _seed_course_context(course)
 
 
 async def _persist_state_to_db(thread_id: str, state: dict[str, Any]) -> None:
@@ -104,17 +171,31 @@ async def _load_persisted_state(thread_id: str) -> dict[str, Any] | None:
         return _state_cache[thread_id]
 
     t0 = time.perf_counter()
-    async with AsyncSessionLocal() as session:
-        row = await session.get(MDAThreadState, thread_id)
-        if row:
-            _state_cache[thread_id] = row.state_json
-            elapsed = (time.perf_counter() - t0) * 1000
-            logger.info(
-                "[PERF] _load_persisted_state took %.1fms (DB, thread=%s)",
-                elapsed,
-                thread_id,
-            )
-            return row.state_json
+    for attempt in range(2):
+        try:
+            async with AsyncSessionLocal() as session:
+                row = await session.get(MDAThreadState, thread_id)
+                if row:
+                    _state_cache[thread_id] = row.state_json
+                    elapsed = (time.perf_counter() - t0) * 1000
+                    logger.info(
+                        "[PERF] _load_persisted_state took %.1fms (DB, thread=%s)",
+                        elapsed,
+                        thread_id,
+                    )
+                    return row.state_json
+                break
+        except Exception:
+            if attempt == 0:
+                logger.warning(
+                    "_load_persisted_state failed for %s (attempt 1), retrying…",
+                    thread_id,
+                    exc_info=True,
+                )
+                continue
+            logger.exception("_load_persisted_state failed for %s", thread_id)
+            _state_cache[thread_id] = None
+            return None
     _state_cache[thread_id] = None
     elapsed = (time.perf_counter() - t0) * 1000
     logger.info(
@@ -417,13 +498,14 @@ async def _sse_stream(
 
 class ChatRequest(BaseModel):
     message: str = ""
-    thread_id: str | None = None
 
 
-@router.post("/chat")
+@router.post("/{course_id}/market-demand/chat")
 async def market_demand_chat(
+    course_id: int,
     body: ChatRequest,
-    user: CurrentUserDep,
+    teacher: TeacherDep,
+    db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """Stream a Market Demand Agent conversation turn.
 
@@ -431,8 +513,9 @@ async def market_demand_chat(
     and receives an SSE stream of agent events.
     """
     chat_start = time.perf_counter()
-    # Deterministic thread_id per user so sessions persist across refreshes
-    thread_id = body.thread_id or f"mda-{user.id}"
+    course = _get_owned_course(course_id, teacher, db)
+    # Deterministic thread_id per teacher+course so sessions stay course-scoped.
+    thread_id = _get_thread_id(teacher.id, course.id)
     logger.info(
         "[PERF] /chat request received (thread=%s, msg_len=%d)",
         thread_id,
@@ -448,11 +531,15 @@ async def market_demand_chat(
     parallel_ms = (time.perf_counter() - t0) * 1000
     logger.info("[PERF] Parallel state+graph load took %.1fms", parallel_ms)
 
-    if persisted:
-        restore_state(persisted)
+    _restore_thread_state(persisted, course)
 
     config = {"configurable": {"thread_id": thread_id}}
-    input_data = {"messages": [HumanMessage(content=body.message)]}
+    input_data = {
+        "messages": [HumanMessage(content=body.message)],
+        "course_id": course.id,
+        "course_title": course.title,
+        "course_description": course.description or "",
+    }
 
     # Pre-warm: read the checkpoint with retry so stale SSL connections in the
     # pool are discarded *before* we enter the SSE generator (where retry is
@@ -488,21 +575,25 @@ async def market_demand_chat(
     )
 
 
-@router.get("/state")
+@router.get("/{course_id}/market-demand/state")
 async def get_agent_state(
-    user: CurrentUserDep,
+    course_id: int,
+    teacher: TeacherDep,
+    db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     """Return the persisted agent state for the user's thread."""
-    thread_id = f"mda-{user.id}"
+    course = _get_owned_course(course_id, teacher, db)
+    thread_id = _get_thread_id(teacher.id, course.id)
     persisted = await _load_persisted_state(thread_id)
-    if persisted:
-        return persisted
+    _restore_thread_state(persisted, course)
     return snapshot_state()
 
 
-@router.get("/history")
+@router.get("/{course_id}/market-demand/history")
 async def get_conversation_history(
-    user: CurrentUserDep,
+    course_id: int,
+    teacher: TeacherDep,
+    db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     """Return conversation history from the checkpoint for page refresh restoration.
 
@@ -512,7 +603,8 @@ async def get_conversation_history(
     Retries once on connection errors (stale SSL connections in the pool).
     """
     history_start = time.perf_counter()
-    thread_id = f"mda-{user.id}"
+    course = _get_owned_course(course_id, teacher, db)
+    thread_id = _get_thread_id(teacher.id, course.id)
     logger.info("[PERF] /history request received (thread=%s)", thread_id)
 
     t0 = time.perf_counter()
@@ -547,8 +639,7 @@ async def get_conversation_history(
     logger.info("[PERF] /history parallel checkpoint+state took %.1fms", checkpoint_ms)
 
     # Restore tool_store from persisted state so pipeline stages are correct
-    if persisted:
-        restore_state(persisted)
+    _restore_thread_state(persisted, course)
 
     if not state or not state.values:
         return {"messages": [], "threadId": thread_id}
@@ -647,9 +738,11 @@ def _extract_agent_from_message(msg: AIMessage | AIMessageChunk) -> str:
     return "unknown"
 
 
-@router.delete("/history")
+@router.delete("/{course_id}/market-demand/history")
 async def delete_conversation(
-    user: CurrentUserDep,
+    course_id: int,
+    teacher: TeacherDep,
+    db: Session = Depends(get_db),
 ) -> dict[str, str]:
     """Delete the conversation thread and all associated state.
 
@@ -660,7 +753,8 @@ async def delete_conversation(
     Does NOT delete Knowledge Map data — skills/concepts already integrated
     into the curriculum are kept.
     """
-    thread_id = f"mda-{user.id}"
+    course = _get_owned_course(course_id, teacher, db)
+    thread_id = _get_thread_id(teacher.id, course.id)
 
     # 1. Delete persisted agent state
     async with AsyncSessionLocal() as session:

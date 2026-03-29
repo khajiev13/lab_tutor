@@ -11,6 +11,9 @@ import type {
 } from "../types";
 
 const EMPTY_STATE: AgentState = {
+  course_id: null,
+  course_title: null,
+  course_description: null,
   fetched_jobs: null,
   job_groups: null,
   selected_jobs: null,
@@ -24,8 +27,6 @@ const EMPTY_STATE: AgentState = {
   insertion_results: null,
   skill_job_urls: null,
 };
-
-const THREAD_STORAGE_KEY = "mda-thread-id";
 
 function derivePipelineStages(state: AgentState): Record<PipelineStageId, StageStatus> {
   const stages: Record<PipelineStageId, StageStatus> = {
@@ -72,15 +73,12 @@ export interface UseAgentStreamReturn {
   error: string | null;
 }
 
-export function useAgentStream(): UseAgentStreamReturn {
+export function useAgentStream(courseId: number): UseAgentStreamReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<AgentName | null>(null);
   const [agentState, setAgentState] = useState<AgentState>(EMPTY_STATE);
-  const [threadId, setThreadId] = useState<string | null>(() => {
-    // Restore threadId from localStorage on mount
-    return localStorage.getItem(THREAD_STORAGE_KEY);
-  });
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -216,19 +214,19 @@ export function useAgentStream(): UseAgentStreamReturn {
     }
   }, []);
 
-  // Persist threadId to localStorage whenever it changes
-  useEffect(() => {
-    if (threadId) {
-      localStorage.setItem(THREAD_STORAGE_KEY, threadId);
-    }
-  }, [threadId]);
-
-  // Load conversation history on mount (always try — backend derives thread from user)
+  // Load course-scoped conversation history whenever the course changes.
   useEffect(() => {
     let cancelled = false;
     setIsLoadingHistory(true);
+    messagesRef.current = [];
+    setMessages([]);
+    agentStateRef.current = EMPTY_STATE;
+    setAgentState(EMPTY_STATE);
+    setThreadId(null);
+    setCurrentAgent(null);
+    setError(null);
 
-    Promise.all([fetchConversationHistory(), fetchAgentState()])
+    Promise.all([fetchConversationHistory(courseId), fetchAgentState(courseId)])
       .then(([historyData, stateData]) => {
         if (cancelled) return;
         if (historyData.messages.length > 0) {
@@ -254,7 +252,7 @@ export function useAgentStream(): UseAgentStreamReturn {
     return () => {
       cancelled = true;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [courseId]);
 
   const send = useCallback(
     async (text: string) => {
@@ -279,8 +277,8 @@ export function useAgentStream(): UseAgentStreamReturn {
 
       try {
         await streamMarketDemandChat({
+          courseId,
           message: text,
-          threadId,
           signal: abort.signal,
           onThreadId: (id) => setThreadId(id),
           onEvent: handleEvent,
@@ -304,7 +302,7 @@ export function useAgentStream(): UseAgentStreamReturn {
         setCurrentAgent(null);
       }
     },
-    [threadId, handleEvent]
+    [courseId, handleEvent]
   );
 
   const stop = useCallback(() => {
@@ -315,20 +313,19 @@ export function useAgentStream(): UseAgentStreamReturn {
 
   const clearConversation = useCallback(async () => {
     try {
-      await deleteConversation();
+      await deleteConversation(courseId);
       messagesRef.current = [];
       setMessages([]);
       agentStateRef.current = EMPTY_STATE;
       setAgentState(EMPTY_STATE);
       setThreadId(null);
-      localStorage.removeItem(THREAD_STORAGE_KEY);
       setError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to clear conversation";
       setError(msg);
       console.error("Clear conversation error:", e);
     }
-  }, []);
+  }, [courseId]);
 
   const pipelineStages = derivePipelineStages(agentState);
 

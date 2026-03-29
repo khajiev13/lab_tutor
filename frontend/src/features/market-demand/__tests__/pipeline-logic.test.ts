@@ -36,6 +36,9 @@ function derivePipelineStages(state: AgentState): Record<PipelineStageId, StageS
 }
 
 const EMPTY_STATE: AgentState = {
+  course_id: null,
+  course_title: null,
+  course_description: null,
   fetched_jobs: null,
   job_groups: null,
   selected_jobs: null,
@@ -142,9 +145,11 @@ describe("StreamEvent type contracts", () => {
     expect(event.status).toBe("success");
   });
 
-  it("AgentState has all 12 keys", () => {
+  it("AgentState has all course-scoped state keys", () => {
     const keys = Object.keys(EMPTY_STATE);
-    expect(keys).toHaveLength(12);
+    expect(keys).toHaveLength(15);
+    expect(keys).toContain("course_id");
+    expect(keys).toContain("course_title");
     expect(keys).toContain("fetched_jobs");
     expect(keys).toContain("insertion_results");
     expect(keys).toContain("skill_job_urls");
