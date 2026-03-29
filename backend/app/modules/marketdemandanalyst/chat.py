@@ -27,7 +27,9 @@ console = Console()
 # Agent display names
 AGENT_NAMES = {
     "supervisor": "📊 Supervisor",
+    "skill_finder": "🔍 Skill Finder",
     "curriculum_mapper": "🗺️ Curriculum Mapper",
+    "skill_cleaner": "🧹 Skill Cleaner",
     "concept_linker": "🔗 Concept Linker",
 }
 
@@ -128,7 +130,7 @@ def main() -> None:
     console.print(
         Panel(
             "[bold]Market Demand Agent[/] — Multi-Agent Swarm\n"
-            "Agents: Job Analyst · Skill Extractor · Curriculum Mapper\n"
+            "Agents: Supervisor · Skill Finder · Curriculum Mapper · Skill Cleaner · Concept Linker\n"
             "Type [bold cyan]quit[/] or [bold cyan]exit[/] to stop.",
             border_style="bright_cyan",
         )

@@ -12,6 +12,13 @@ class GeneratedQuestion(BaseModel):
 
     text: str = Field(..., description="The question text")
     difficulty: Literal["easy", "medium", "hard"]
+    options: list[str] = Field(
+        ...,
+        min_length=4,
+        max_length=4,
+        description="Exactly four answer options in A/B/C/D order",
+    )
+    correct_option: Literal["A", "B", "C", "D"]
     answer: str = Field(..., description="The model answer")
 
 

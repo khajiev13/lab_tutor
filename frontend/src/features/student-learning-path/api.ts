@@ -2,9 +2,43 @@ import api from '@/services/api';
 
 const BASE = '/student-learning-path';
 
+export interface StudentSkillBankSkill {
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  is_selected?: boolean;
+  source?: string | null;
+  peer_count?: number;
+}
+
+export interface StudentSkillBankChapter {
+  chapter_id: string;
+  title: string;
+  chapter_index: number;
+  skills: StudentSkillBankSkill[];
+}
+
+export interface StudentSkillBankBook {
+  book_id: string;
+  title: string;
+  authors?: string | null;
+  chapters: StudentSkillBankChapter[];
+}
+
+export interface StudentSkillBankJobPosting {
+  url: string;
+  title: string;
+  company: string | null;
+  site?: string | null;
+  search_term?: string | null;
+  is_interested: boolean;
+  skills: StudentSkillBankSkill[];
+}
+
 export interface SkillBanksResponse {
+  book_skill_banks: StudentSkillBankBook[];
+  market_skill_bank: StudentSkillBankJobPosting[];
   selected_skill_names: string[];
-  selected_map: Record<string, string>;
   interested_posting_urls: string[];
   peer_selection_counts: Record<string, number>;
 }
@@ -38,6 +72,8 @@ export interface LearningPathSkill {
     id: string;
     text: string;
     difficulty: 'easy' | 'medium' | 'hard';
+    options: string[];
+    correct_option: 'A' | 'B' | 'C' | 'D' | null;
     answer: string;
   }[];
   resource_status: 'loaded' | 'pending';

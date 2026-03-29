@@ -179,7 +179,7 @@ export default function MarketDemandPage() {
 // ── Content ──
 
 function MarketDemandContent() {
-  const { course } = useCourseDetail();
+  const { course, courseId } = useCourseDetail();
   const agent = getAgentById("market-analyst");
   const {
     messages,
@@ -191,7 +191,7 @@ function MarketDemandContent() {
     stop,
     clearConversation,
     error,
-  } = useAgentStream();
+  } = useAgentStream(courseId);
 
   const [panelOpen, setPanelOpen] = useState(true);
 

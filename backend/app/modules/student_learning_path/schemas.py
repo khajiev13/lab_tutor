@@ -35,6 +35,8 @@ class QuestionRead(BaseModel):
     id: str
     text: str
     difficulty: Literal["easy", "medium", "hard"]
+    options: list[str] = []
+    correct_option: Literal["A", "B", "C", "D"] | None = None
     answer: str
 
 
@@ -65,7 +67,7 @@ class VideoResourceRead(BaseModel):
 
 class ConceptRead(BaseModel):
     name: str
-    description: str = ""
+    description: str | None = None
 
 
 class LearningPathSkill(BaseModel):
@@ -98,20 +100,23 @@ class LearningPathResponse(BaseModel):
 class StudentSkillBankSkill(BaseModel):
     name: str
     description: str | None = None
+    category: str | None = None
     is_selected: bool = False
     source: str | None = None
     peer_count: int = 0
 
 
 class StudentSkillBankBookChapter(BaseModel):
+    chapter_id: str
     title: str
     chapter_index: int
     skills: list[StudentSkillBankSkill] = []
 
 
 class StudentSkillBankBook(BaseModel):
-    book_title: str
-    book_authors: list[str] = []
+    book_id: str
+    title: str
+    authors: str | None = None
     chapters: list[StudentSkillBankBookChapter] = []
 
 
@@ -119,6 +124,8 @@ class StudentSkillBankJobPosting(BaseModel):
     url: str
     title: str
     company: str = ""
+    site: str | None = None
+    search_term: str | None = None
     is_interested: bool = False
     skills: list[StudentSkillBankSkill] = []
 

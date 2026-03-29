@@ -35,7 +35,7 @@ def _strip_json_fence(raw: str) -> str:
 
 SYSTEM_PROMPT = """You are an expert question generator for university courses.
 
-Given a skill profile (name, description, concepts, course level), generate exactly 3 questions
+Given a skill profile (name, description, concepts, course level), generate exactly 3 multiple-choice questions
 at different difficulty levels.
 
 DIFFICULTY DEFINITIONS:
@@ -50,15 +50,37 @@ CONSTRAINTS:
 - Generate questions based ONLY on the skill metadata (name, description, concepts).
 - Do NOT reference any specific reading material, video, or textbook.
 - Each question should be self-contained — a student should understand the question without external context.
-- Answers should be concise but complete (2-4 sentences for easy, 3-6 for medium, 4-8 for hard).
+- Each question must have exactly 4 answer options in A/B/C/D order.
+- Exactly one option must be correct.
+- Distractors should be plausible and clearly distinct from the correct answer.
+- Keep the correct option balanced across the 3 questions. Do not always use the same letter.
+- Answers should briefly explain why the correct option is right (1-3 sentences).
 - Tailor complexity to the course level (bachelor = fundamentals, master = deeper analysis, phd = research-level).
 
 Return ONLY valid JSON matching this schema:
 {
   "questions": [
-    {"text": "...", "difficulty": "easy", "answer": "..."},
-    {"text": "...", "difficulty": "medium", "answer": "..."},
-    {"text": "...", "difficulty": "hard", "answer": "..."}
+    {
+      "text": "...",
+      "difficulty": "easy",
+      "options": ["...", "...", "...", "..."],
+      "correct_option": "A",
+      "answer": "..."
+    },
+    {
+      "text": "...",
+      "difficulty": "medium",
+      "options": ["...", "...", "...", "..."],
+      "correct_option": "B",
+      "answer": "..."
+    },
+    {
+      "text": "...",
+      "difficulty": "hard",
+      "options": ["...", "...", "...", "..."],
+      "correct_option": "C",
+      "answer": "..."
+    }
   ]
 }"""
 

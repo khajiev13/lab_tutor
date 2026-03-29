@@ -12,13 +12,16 @@ from .schemas import GeneratedQuestion
 
 logger = logging.getLogger(__name__)
 
+QUESTION_OPTIONS_KEY = "options"
+QUESTION_CORRECT_OPTION_KEY = "correct_option"
+
 
 def write_questions(
     session: Neo4jSession,
     skill_name: str,
     questions: list[GeneratedQuestion],
 ) -> int:
-    """Write QUESTION nodes and link via HAS_QUESTION. Idempotent via MERGE on id."""
+    """Replace QUESTION nodes for a skill and link via HAS_QUESTION."""
     now = datetime.now(UTC).isoformat()
 
     question_dicts = [
@@ -26,6 +29,8 @@ def write_questions(
             "id": str(uuid.uuid4()),
             "text": q.text,
             "difficulty": q.difficulty,
+            "options": q.options,
+            "correct_option": q.correct_option,
             "answer": q.answer,
             "skill_name": skill_name,
             "created_at": now,
@@ -35,15 +40,21 @@ def write_questions(
 
     result = session.run(
         """
+        MATCH (:SKILL {name: $skill_name})-[:HAS_QUESTION]->(existing:QUESTION)
+        DETACH DELETE existing
+        WITH 1 AS _
         UNWIND $questions AS q
         MATCH (sk:SKILL {name: $skill_name})
-        MERGE (qn:QUESTION {text: q.text, skill_name: q.skill_name, difficulty: q.difficulty})
-        ON CREATE SET
-            qn.id = q.id,
-            qn.answer = q.answer,
-            qn.created_at = datetime(q.created_at)
-        ON MATCH SET
-            qn.answer = q.answer
+        CREATE (qn:QUESTION {
+            id: q.id,
+            text: q.text,
+            difficulty: q.difficulty,
+            options: q.options,
+            correct_option: q.correct_option,
+            answer: q.answer,
+            skill_name: q.skill_name,
+            created_at: datetime(q.created_at)
+        })
         MERGE (sk)-[:HAS_QUESTION]->(qn)
         RETURN count(qn) AS written
         """,
@@ -57,10 +68,22 @@ def write_questions(
 
 
 def has_questions(session: Neo4jSession, skill_name: str) -> bool:
-    """Check if questions already exist for a skill."""
+    """Check if a skill already has a complete multiple-choice question set."""
     result = session.run(
-        "RETURN EXISTS { (:SKILL {name: $skill_name})-[:HAS_QUESTION]->(:QUESTION) } AS has_questions",
+        """
+        MATCH (sk:SKILL {name: $skill_name})
+        OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION)
+        WITH count(q) AS total_questions,
+             count(CASE
+                 WHEN size(coalesce(q[$options_key], [])) = 4
+                  AND q[$correct_option_key] IN ['A', 'B', 'C', 'D']
+                 THEN 1
+             END) AS mcq_questions
+        RETURN total_questions = 3 AND mcq_questions = 3 AS has_questions
+        """,
         skill_name=skill_name,
+        options_key=QUESTION_OPTIONS_KEY,
+        correct_option_key=QUESTION_CORRECT_OPTION_KEY,
     )
     record = result.single()
     return bool(record and record["has_questions"])
@@ -72,7 +95,13 @@ def get_questions_for_skill(session: Neo4jSession, skill_name: str) -> list[dict
         """
         MATCH (:SKILL {name: $skill_name})-[:HAS_QUESTION]->(q:QUESTION)
         RETURN q {
-            .id, .text, .difficulty, .answer, .skill_name,
+            .id,
+            .text,
+            .difficulty,
+            .answer,
+            .skill_name,
+            correct_option: q[$correct_option_key],
+            options: coalesce(q[$options_key], []),
             created_at: toString(q.created_at)
         } AS question
         ORDER BY
@@ -83,5 +112,7 @@ def get_questions_for_skill(session: Neo4jSession, skill_name: str) -> list[dict
             END
         """,
         skill_name=skill_name,
+        options_key=QUESTION_OPTIONS_KEY,
+        correct_option_key=QUESTION_CORRECT_OPTION_KEY,
     )
     return [r["question"] for r in result]

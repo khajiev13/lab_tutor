@@ -356,6 +356,27 @@ async def _run_extraction_background(
             f"{grand_total_concepts} concepts from {total_books} book(s).",
         )
 
+        # Auto-trigger book skill mapping now that skills are extracted
+        await queue.put(_sse("skill_mapping_started", {"course_id": course_id}))
+        try:
+            from ..book_skill_mapping.graph import build_book_skill_mapping_graph
+
+            mapping_graph = build_book_skill_mapping_graph()
+            async for mode, chunk in mapping_graph.astream(
+                {"course_id": course_id, "mappings": [], "errors": []},
+                stream_mode=["custom", "updates"],
+                config={"max_concurrency": 5},
+            ):
+                if mode == "custom":
+                    event_type = chunk.get("type", "skill_mapping_progress")
+                    chunk["auto_triggered"] = True
+                    await queue.put(_sse(event_type, chunk))
+        except Exception as e:
+            logger.warning(
+                "Auto book skill mapping failed for course %d: %s", course_id, e
+            )
+            # Don't fail the whole extraction — mapping is best-effort
+
         await queue.put(
             _sse(
                 "done",

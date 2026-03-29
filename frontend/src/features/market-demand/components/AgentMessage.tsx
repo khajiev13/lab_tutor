@@ -19,7 +19,7 @@ const TOOL_LABELS: Record<string, string> = {
   save_curriculum_mapping: "Save Curriculum Mapping",
   approve_skill_selection: "Approve Skill Selection",
   load_mapped_skills: "Load Mapped Skills",
-  load_book_skills_for_chapters: "Load Existing Book Skills",
+  load_existing_skills_for_chapters: "Load Existing Chapter Skills",
   compare_and_clean: "Clean Redundant Skills",
   finalize_cleaned_skills: "Finalize Skill Set",
   extract_concepts_for_skills: "Link Skills to Concepts",

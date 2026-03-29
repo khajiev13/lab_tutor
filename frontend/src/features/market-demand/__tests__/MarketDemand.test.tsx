@@ -13,6 +13,7 @@ vi.mock("@/features/courses/context/CourseDetailContext", () => ({
   CourseDetailProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useCourseDetail: () => ({
     course: { id: 1, title: "Test Course" },
+    courseId: 1,
     getStepStatus: () => "not-started",
   }),
 }));
@@ -49,6 +50,9 @@ import { UserMessage } from "../components/UserMessage";
 // ── Shared constants ────────────────────────────────────────
 
 const EMPTY_STATE: AgentState = {
+  course_id: null,
+  course_title: null,
+  course_description: null,
   fetched_jobs: null,
   job_groups: null,
   selected_jobs: null,
@@ -191,7 +195,21 @@ describe("UserMessage", () => {
 
 describe("MarketDemandPage", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
+  });
+
+  it("passes the route course id into the market-demand hook", async () => {
+    const { default: MarketDemandPage } = await import(
+      "../pages/MarketDemandPage"
+    );
+    render(
+      <MemoryRouter>
+        <MarketDemandPage />
+      </MemoryRouter>
+    );
+
+    expect(useAgentStream).toHaveBeenCalledWith(1);
   });
 
   it("renders without crashing", async () => {

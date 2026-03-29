@@ -1,5 +1,10 @@
 // SSE event types from the backend
-export type AgentName = "supervisor" | "curriculum_mapper" | "concept_linker";
+export type AgentName =
+  | "supervisor"
+  | "skill_finder"
+  | "curriculum_mapper"
+  | "skill_cleaner"
+  | "concept_linker";
 
 export type StreamEvent =
   | { type: "agent_start"; agent: AgentName; messageId: string; displayName: string; emoji: string }
@@ -47,6 +52,9 @@ export type StageStatus = "complete" | "active" | "pending";
 
 // Agent state from tool_store
 export interface AgentState {
+  course_id: number | null;
+  course_title: string | null;
+  course_description: string | null;
   fetched_jobs: Record<string, unknown>[] | null;
   job_groups: Record<string, number[]> | null;
   selected_jobs: Record<string, unknown>[] | null;

@@ -48,10 +48,21 @@ Require artifacts for:
 ## Skills to Load
 
 Always load these skills before the relevant work:
+
+### Core (always available)
 - `fastapi` — before any backend route/schema work
 - `shadcn-ui` — before any UI component work
 - `neo4j-cypher` — before any Cypher query work
 - `langgraph-docs` — before any agent/LangGraph work
+
+### Testing & Quality
+- `e2e-testing` — before writing or running any Playwright/browser tests (POM patterns, flaky test fixes)
+- `postgres-patterns` — before writing any SQLAlchemy queries, schema changes, or index work
+
+### Agentic Development
+- `autonomous-loops` — before designing or refactoring any multi-agent pipeline (RFC-driven DAG patterns)
+- `search-first` — before implementing any new library integration or unfamiliar API (research-first workflow)
+- `continuous-learning-v2` — when capturing session patterns or evolving instincts into reusable skills
 
 ## Turbo Rules
 
