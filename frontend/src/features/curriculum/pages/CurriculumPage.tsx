@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
+  BookOpen,
   BookText,
+  FileText,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
+  TrendingUp,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -28,11 +31,13 @@ import {
 
 import { coursesApi } from "@/features/courses/api";
 
-import type { CurriculumWithChangelog } from "../types";
+import type { CurriculumWithChangelog, SkillBanksResponse } from "../types";
 
-import { ChapterAccordion } from "../components/ChapterAccordion";
 import { ChangelogTimeline } from "../components/ChangelogTimeline";
 import { CurriculumStats } from "../components/CurriculumStats";
+import { TranscriptChapters } from "../components/TranscriptChapters";
+import { BookSkillBank } from "../components/BookSkillBank";
+import { MarketSkillBank } from "../components/MarketSkillBank";
 
 export default function CurriculumPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,22 +46,25 @@ export default function CurriculumPage() {
 
   // Curriculum tree state
   const [data, setData] = useState<CurriculumWithChangelog | null>(null);
+  const [skillBanks, setSkillBanks] = useState<SkillBanksResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-
 
   // Panel state
   const [panelOpen, setPanelOpen] = useState(true);
 
-  // Load curriculum tree
+  // Load curriculum tree + skill banks
   const loadCurriculum = useCallback(async () => {
     if (!Number.isFinite(courseId)) return;
     setIsLoading(true);
     setError(null);
     try {
-      const result = await coursesApi.getCurriculum(courseId);
-      setData(result);
+      const [curriculumResult, skillBanksResult] = await Promise.all([
+        coursesApi.getCurriculum(courseId),
+        coursesApi.getSkillBanks(courseId),
+      ]);
+      setData(curriculumResult);
+      setSkillBanks(skillBanksResult);
     } catch {
       setError(
         "Failed to load curriculum. Ensure the course has a linked book and Neo4j is available."
@@ -70,8 +78,6 @@ export default function CurriculumPage() {
     loadCurriculum();
   }, [loadCurriculum]);
 
-
-
   if (!Number.isFinite(courseId)) {
     return (
       <Alert variant="destructive">
@@ -82,7 +88,11 @@ export default function CurriculumPage() {
   }
 
   const curriculum = data?.curriculum;
-  const isEmpty = curriculum && curriculum.chapters.length === 0;
+  const hasTranscripts = (skillBanks?.course_chapters.length ?? 0) > 0;
+  const hasBookSkills = (skillBanks?.book_skill_bank.length ?? 0) > 0;
+  const hasMarketSkills = (skillBanks?.market_skill_bank.length ?? 0) > 0;
+  const hasCurriculum = curriculum && curriculum.chapters.length > 0;
+  const isEmpty = !hasCurriculum && !hasTranscripts && !hasBookSkills && !hasMarketSkills;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -111,7 +121,12 @@ export default function CurriculumPage() {
         </Breadcrumb>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={loadCurriculum} disabled={isLoading}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={loadCurriculum}
+            disabled={isLoading}
+          >
             Refresh
           </Button>
           <Button
@@ -119,6 +134,7 @@ export default function CurriculumPage() {
             size="icon"
             onClick={() => setPanelOpen(!panelOpen)}
             className="text-muted-foreground"
+            aria-label={panelOpen ? "Close panel" : "Open panel"}
           >
             {panelOpen ? (
               <PanelRightClose className="size-4" />
@@ -168,14 +184,16 @@ export default function CurriculumPage() {
       )}
 
       {/* Main content */}
-      {!isLoading && curriculum && curriculum.chapters.length > 0 && (
+      {!isLoading && !isEmpty && (
         <div className="flex flex-1 min-h-0 gap-0">
           {/* Main column */}
           <div className="flex-1 min-w-0 overflow-y-auto pr-2">
             {/* Book info header */}
-            {curriculum.book_title && (
+            {curriculum?.book_title && (
               <div className="mb-4">
-                <h2 className="text-lg font-semibold">{curriculum.book_title}</h2>
+                <h2 className="text-lg font-semibold">
+                  {curriculum.book_title}
+                </h2>
                 {curriculum.book_authors && (
                   <p className="text-sm text-muted-foreground">
                     {curriculum.book_authors}
@@ -185,14 +203,60 @@ export default function CurriculumPage() {
             )}
 
             {/* Stats */}
-            <div className="mb-5">
-              <CurriculumStats curriculum={curriculum} />
-            </div>
+            {hasCurriculum && (
+              <div className="mb-5">
+                <CurriculumStats curriculum={curriculum} />
+              </div>
+            )}
 
-            {/* Curriculum Tree */}
-            <div className="mt-4">
-              <ChapterAccordion chapters={curriculum.chapters} />
-            </div>
+            {/* Tabs for different views */}
+            <Tabs defaultValue="transcripts" className="mt-2">
+              <TabsList className="mb-4">
+                <TabsTrigger value="transcripts" className="gap-1.5">
+                  <FileText className="size-3.5" />
+                  Transcripts
+                  {hasTranscripts && (
+                    <span className="ml-1 text-[10px] bg-muted rounded-full px-1.5">
+                      {skillBanks!.course_chapters.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="book-skills" className="gap-1.5">
+                  <BookOpen className="size-3.5" />
+                  Book Skills
+                  {hasBookSkills && (
+                    <span className="ml-1 text-[10px] bg-muted rounded-full px-1.5">
+                      {skillBanks!.book_skill_bank.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="market-skills" className="gap-1.5">
+                  <TrendingUp className="size-3.5" />
+                  Market Skills
+                  {hasMarketSkills && (
+                    <span className="ml-1 text-[10px] bg-muted rounded-full px-1.5">
+                      {skillBanks!.market_skill_bank.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="transcripts">
+                <TranscriptChapters
+                  chapters={skillBanks?.course_chapters ?? []}
+                />
+              </TabsContent>
+
+              <TabsContent value="book-skills">
+                <BookSkillBank books={skillBanks?.book_skill_bank ?? []} />
+              </TabsContent>
+
+              <TabsContent value="market-skills">
+                <MarketSkillBank
+                  jobPostings={skillBanks?.market_skill_bank ?? []}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Timeline sidebar */}

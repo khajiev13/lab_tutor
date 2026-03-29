@@ -34,7 +34,9 @@ RETURN
         .name,
         .description,
         source: 'book',
-        concepts: [(bsk)-[:REQUIRES_CONCEPT]->(bc:CONCEPT) | bc { .name, .description }]
+        concepts: [(bsk)-[:REQUIRES_CONCEPT]->(bc:CONCEPT) | bc { .name, .description }],
+        readings: [(bsk)-[:HAS_READING]->(rr:READING_RESOURCE) | rr { .title, .url, .domain, .final_score, .resource_type, .concepts_covered }],
+        videos: [(bsk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr { .title, .url, .video_id, .domain, .final_score, .resource_type, .concepts_covered }]
     }] AS book_skills,
     [(ch)-[:HAS_SKILL]->(msk:MARKET_SKILL) | msk {
         .name,
@@ -48,7 +50,9 @@ RETURN
         .rationale,
         created_at: toString(msk.created_at),
         concepts: [(msk)-[:REQUIRES_CONCEPT]->(mc:CONCEPT) | mc { .name, .description }],
-        job_postings: [(msk)-[:SOURCED_FROM]->(jp:JOB_POSTING) | jp { .url, .title, .company, .site }]
+        job_postings: [(msk)-[:SOURCED_FROM]->(jp:JOB_POSTING) | jp { .url, .title, .company, .site }],
+        readings: [(msk)-[:HAS_READING]->(rr:READING_RESOURCE) | rr { .title, .url, .domain, .final_score, .resource_type, .concepts_covered }],
+        videos: [(msk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr { .title, .url, .video_id, .domain, .final_score, .resource_type, .concepts_covered }]
     }] AS market_skills
 
 ORDER BY ch.chapter_index
@@ -66,6 +70,57 @@ RETURN
     ms.category AS category,
     ch.title AS chapter
 ORDER BY ms.created_at DESC
+"""
+
+# ── Teacher transcripts (course chapters with included documents) ──
+_TEACHER_TRANSCRIPTS_QUERY = """
+MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)
+WITH cc ORDER BY cc.chapter_index
+RETURN cc {
+    .title,
+    .chapter_index,
+    .description,
+    .learning_objectives,
+    documents: [(cc)-[:INCLUDES_DOCUMENT]->(doc:TEACHER_UPLOADED_DOCUMENT) | doc {
+        .topic,
+        .source_filename
+    }]
+} AS chapter
+ORDER BY cc.chapter_index
+"""
+
+# ── Book skill bank (books → chapters → skills) ──
+_BOOK_SKILL_BANK_QUERY = """
+MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)
+WITH b, ch ORDER BY ch.chapter_index
+WITH b,
+     COLLECT(ch {
+         .chapter_index,
+         chapter_id: ch.id,
+         skills: [(ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) | sk { .name, .description }]
+     }) AS chapters
+RETURN b {
+    book_id: b.id,
+    .title,
+    .authors,
+    chapters: chapters
+} AS book
+ORDER BY b.title
+"""
+
+# ── Market skill bank (job postings → skills) ──
+_MARKET_SKILL_BANK_QUERY = """
+MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)-[:HAS_SKILL]->(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp:JOB_POSTING)
+WITH jp, COLLECT(DISTINCT ms { .name, .category, .status, .priority, .demand_pct }) AS skills
+RETURN jp {
+    .title,
+    .company,
+    .site,
+    .url,
+    .search_term,
+    skills: skills
+} AS job_posting
+ORDER BY jp.title
 """
 
 
@@ -91,3 +146,18 @@ class CurriculumNeo4jRepository:
         """Return market-skill changelog entries ordered by time desc."""
         result = self._session.run(_CHANGELOG_QUERY, course_id=course_id)
         return [r.data() for r in result]
+
+    def get_teacher_transcripts(self, course_id: int) -> list[dict]:
+        """Return course chapters with their included teacher documents."""
+        result = self._session.run(_TEACHER_TRANSCRIPTS_QUERY, course_id=course_id)
+        return [r.data().get("chapter", {}) for r in result]
+
+    def get_book_skill_bank(self, course_id: int) -> list[dict]:
+        """Return books with their chapters and skills."""
+        result = self._session.run(_BOOK_SKILL_BANK_QUERY, course_id=course_id)
+        return [r.data().get("book", {}) for r in result]
+
+    def get_market_skill_bank(self, course_id: int) -> list[dict]:
+        """Return job postings with their associated market skills."""
+        result = self._session.run(_MARKET_SKILL_BANK_QUERY, course_id=course_id)
+        return [r.data().get("job_posting", {}) for r in result]

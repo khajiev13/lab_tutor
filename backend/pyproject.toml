@@ -33,6 +33,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "python-multipart>=0.0.20",
     "sqlalchemy>=2.0.45",
+    "duckduckgo-search>=7.0.0",
     "tavily-python>=0.7.17",
     "uvicorn[standard]>=0.38.0",
     "python-jobspy>=1.1.82",

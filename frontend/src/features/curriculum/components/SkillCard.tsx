@@ -1,10 +1,13 @@
 import { useState } from "react";
 import {
   BookOpen,
+  BookOpenText,
   TrendingUp,
   ChevronDown,
   Briefcase,
+  ExternalLink,
   Lightbulb,
+  Video,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -41,6 +44,8 @@ const STATUS_LABELS: Record<string, { label: string; className: string }> = {
 
 export function SkillCard({ skill }: { skill: SkillRead }) {
   const [jobsOpen, setJobsOpen] = useState(false);
+  const [readingsOpen, setReadingsOpen] = useState(false);
+  const [videosOpen, setVideosOpen] = useState(false);
   const isMarket = skill.source === "market_demand";
 
   return (
@@ -155,6 +160,76 @@ export function SkillCard({ skill }: { skill: SkillRead }) {
                         at {jp.company}
                       </span>
                     )}
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        {/* Reading resources (collapsible) */}
+        {skill.readings?.length > 0 && (
+          <Collapsible open={readingsOpen} onOpenChange={setReadingsOpen}>
+            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <BookOpenText className="size-3" />
+              <span>{skill.readings.length} readings</span>
+              <ChevronDown
+                className={cn(
+                  "size-3 transition-transform",
+                  readingsOpen && "rotate-180"
+                )}
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <ul className="mt-1.5 space-y-1 pl-[18px]">
+                {skill.readings.map((r) => (
+                  <li key={r.url} className="text-xs">
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground hover:underline inline-flex items-center gap-1"
+                    >
+                      {r.title}
+                      <ExternalLink className="size-2.5" />
+                    </a>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      ({r.domain})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        {/* Video resources (collapsible) */}
+        {skill.videos?.length > 0 && (
+          <Collapsible open={videosOpen} onOpenChange={setVideosOpen}>
+            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <Video className="size-3" />
+              <span>{skill.videos.length} videos</span>
+              <ChevronDown
+                className={cn(
+                  "size-3 transition-transform",
+                  videosOpen && "rotate-180"
+                )}
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <ul className="mt-1.5 space-y-1 pl-[18px]">
+                {skill.videos.map((v) => (
+                  <li key={v.url} className="text-xs">
+                    <a
+                      href={v.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground hover:underline inline-flex items-center gap-1"
+                    >
+                      {v.title}
+                      <ExternalLink className="size-2.5" />
+                    </a>
                   </li>
                 ))}
               </ul>

@@ -10,15 +10,23 @@ from app.modules.auth.models import User
 
 from .curriculum_neo4j_repository import CurriculumNeo4jRepository
 from .curriculum_schemas import (
+    BookSkillBankBook,
+    BookSkillBankChapter,
+    BookSkillBankSkill,
     ChangelogEntry,
     ChapterRead,
     ConceptRead,
+    CourseChapterRead,
     CurriculumResponse,
     CurriculumWithChangelog,
     JobPostingRead,
+    MarketSkillBankJobPosting,
+    MarketSkillBankSkill,
     SectionRead,
+    SkillBanksResponse,
     SkillRead,
     SkillSource,
+    TranscriptDocumentRead,
 )
 from .repository import CourseRepository
 
@@ -197,6 +205,88 @@ class CurriculumService:
             )
 
         return CurriculumWithChangelog(curriculum=curriculum, changelog=changelog)
+
+    def get_skill_banks(self, *, course_id: int, teacher: User) -> SkillBanksResponse:
+        self._require_teacher_owns_course(course_id=course_id, teacher=teacher)
+
+        # ── Teacher transcripts ──
+        raw_transcripts = self._graph_repo.get_teacher_transcripts(course_id)
+        course_chapters = [
+            CourseChapterRead(
+                chapter_index=_safe_int(ch.get("chapter_index")),
+                title=ch.get("title", ""),
+                description=ch.get("description"),
+                learning_objectives=ch.get("learning_objectives") or [],
+                documents=[
+                    TranscriptDocumentRead(
+                        topic=doc.get("topic", ""),
+                        source_filename=doc.get("source_filename"),
+                    )
+                    for doc in (ch.get("documents") or [])
+                    if doc.get("topic")
+                ],
+            )
+            for ch in raw_transcripts
+            if ch.get("title")
+        ]
+
+        # ── Book skill bank ──
+        raw_books = self._graph_repo.get_book_skill_bank(course_id)
+        book_skill_bank = [
+            BookSkillBankBook(
+                book_id=b.get("book_id", ""),
+                title=b.get("title", ""),
+                authors=b.get("authors"),
+                chapters=[
+                    BookSkillBankChapter(
+                        chapter_index=_safe_int(ch.get("chapter_index")),
+                        chapter_id=ch.get("chapter_id", ""),
+                        skills=[
+                            BookSkillBankSkill(
+                                name=sk.get("name", ""),
+                                description=sk.get("description"),
+                            )
+                            for sk in (ch.get("skills") or [])
+                            if sk and sk.get("name")
+                        ],
+                    )
+                    for ch in (b.get("chapters") or [])
+                ],
+            )
+            for b in raw_books
+            if b.get("title")
+        ]
+
+        # ── Market skill bank ──
+        raw_jobs = self._graph_repo.get_market_skill_bank(course_id)
+        market_skill_bank = [
+            MarketSkillBankJobPosting(
+                title=jp.get("title", ""),
+                company=jp.get("company"),
+                site=jp.get("site"),
+                url=jp.get("url", ""),
+                search_term=jp.get("search_term"),
+                skills=[
+                    MarketSkillBankSkill(
+                        name=sk.get("name", ""),
+                        category=sk.get("category"),
+                        status=sk.get("status"),
+                        priority=sk.get("priority"),
+                        demand_pct=_safe_float(sk.get("demand_pct")),
+                    )
+                    for sk in (jp.get("skills") or [])
+                    if sk and sk.get("name")
+                ],
+            )
+            for jp in raw_jobs
+            if jp.get("url")
+        ]
+
+        return SkillBanksResponse(
+            course_chapters=course_chapters,
+            book_skill_bank=book_skill_bank,
+            market_skill_bank=market_skill_bank,
+        )
 
 
 def _get_course_repository(db: Session = Depends(get_db)) -> CourseRepository:

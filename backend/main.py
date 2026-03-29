@@ -64,6 +64,9 @@ from app.modules.curricularalignmentarchitect.curriculum_planning import (  # no
 from app.modules.marketdemandanalyst.routes import (  # noqa: E402
     router as market_demand_router,
 )
+from app.modules.student_learning_path.routes import (  # noqa: E402
+    router as student_learning_path_router,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -604,6 +607,7 @@ app.include_router(course_routes.router)
 app.include_router(concept_normalization_routes.router)
 app.include_router(book_selection_router)
 app.include_router(market_demand_router)
+app.include_router(student_learning_path_router)
 app.include_router(chapter_plan_router)
 
 

@@ -13,6 +13,7 @@ import ArchitectAgentPage from '@/features/courses/pages/ArchitectAgentPage';
 import CurriculumPage from '@/features/curriculum/pages/CurriculumPage';
 import MergeReviewPage from '@/features/normalization/pages/MergeReviewPage';
 import MarketDemandPage from '@/features/market-demand/pages/MarketDemandPage';
+import StudentLearningPathPage from '@/features/student-learning-path/pages/StudentLearningPathPage';
 import Profile from '@/features/auth/pages/Profile';
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -141,6 +142,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MarketDemandPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id/learning-path"
+        element={
+          <ProtectedRoute>
+            <StudentLearningPathPage />
           </ProtectedRoute>
         }
       />
