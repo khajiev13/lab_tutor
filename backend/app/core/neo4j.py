@@ -27,6 +27,8 @@ def create_neo4j_driver() -> Driver | None:
     return GraphDatabase.driver(
         settings.neo4j_uri,
         auth=(settings.neo4j_username, settings.neo4j_password),
+        max_connection_lifetime=200,
+        keep_alive=True,
     )
 
 
