@@ -10,6 +10,7 @@ STATE_KEYS: list[str] = [
     "course_id",
     "course_title",
     "course_description",
+    "job_search_location",
     "fetched_jobs",
     "job_groups",
     "selected_jobs",

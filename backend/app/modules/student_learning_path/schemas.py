@@ -47,6 +47,12 @@ class ReadingResourceRead(BaseModel):
     url: str
     domain: str = ""
     snippet: str = ""
+    search_content: str = ""
+    search_result_url: str = ""
+    search_result_domain: str = ""
+    source_engine: str = ""
+    source_engines: list[str] = []
+    search_metadata_json: str = "[]"
     resource_type: str = ""
     final_score: float = 0.0
     concepts_covered: list[str] = []
@@ -59,7 +65,13 @@ class VideoResourceRead(BaseModel):
     url: str
     domain: str = ""
     snippet: str = ""
+    search_content: str = ""
     video_id: str = ""
+    search_result_url: str = ""
+    search_result_domain: str = ""
+    source_engine: str = ""
+    source_engines: list[str] = []
+    search_metadata_json: str = "[]"
     resource_type: str = ""
     final_score: float = 0.0
     concepts_covered: list[str] = []
@@ -142,7 +154,9 @@ class BuildProgressEvent(BaseModel):
     """SSE event for build progress."""
 
     skill_name: str
-    phase: str  # "reading" | "video" | "question" | "skipped" | "done"
+    phase: (
+        str  # "reading" | "video" | "question" | "question_error" | "skipped" | "done"
+    )
     detail: str = ""
     skills_completed: int = 0
     total_skills: int = 0

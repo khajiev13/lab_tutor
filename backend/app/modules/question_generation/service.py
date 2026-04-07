@@ -52,6 +52,12 @@ CONSTRAINTS:
 - Each question should be self-contained — a student should understand the question without external context.
 - Each question must have exactly 4 answer options in A/B/C/D order.
 - Exactly one option must be correct.
+- Return a single valid JSON object and no explanatory text before or after it.
+- The top-level object must have exactly one key named "questions".
+- Use these exact literal field names in every question object:
+  "text", "difficulty", "options", "correct_option", "answer".
+- The "questions" array must contain exactly 3 objects:
+  one "easy", one "medium", and one "hard".
 - Distractors should be plausible and clearly distinct from the correct answer.
 - Keep the correct option balanced across the 3 questions. Do not always use the same letter.
 - Answers should briefly explain why the correct option is right (1-3 sentences).
@@ -126,7 +132,8 @@ def generate_questions_for_skill(
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},
         ],
-        temperature=0.3,
+        response_format={"type": "json_object"},
+        temperature=0,
         max_completion_tokens=4096,
     )
 

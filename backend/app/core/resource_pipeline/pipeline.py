@@ -117,7 +117,7 @@ def embedding_filter(
         return [], {}
 
     profile_text = skill.build_profile_text()
-    candidate_texts = [f"{c.title}. {c.snippet}" for c in candidates]
+    candidate_texts = [c.text_for_embedding() for c in candidates]
 
     all_texts = [profile_text] + candidate_texts
     all_embeddings = _embed_texts(all_texts)
@@ -175,7 +175,18 @@ def score_candidates(
     profile_text = skill.build_profile_text()
     concept_list = _build_concept_list_for_prompt(skill)
     candidates_text = "\n\n".join(
-        f"[{i}] Title: {c.title}\n    URL: {c.url}\n    Domain: {c.domain}\n    Snippet: {c.snippet}"
+        (
+            f"[{i}] Title: {c.title}\n"
+            f"    URL: {c.url}\n"
+            f"    Domain: {c.domain}\n"
+            f"    Snippet: {c.snippet}\n"
+            f"    Search Content: {c.search_content[:1200]}"
+            + (
+                f"\n    Original Search Result URL: {c.search_result_url}"
+                if c.search_result_url and c.search_result_url != c.url
+                else ""
+            )
+        )
         for i, (c, _sim) in enumerate(candidates)
     )
 
@@ -309,6 +320,8 @@ def process_single_skill(
     blacklist_domains: set[str],
     exclude_sites: list[str],
     tavily_include_domains: list[str] | None,
+    resolve_video_pages: bool = False,
+    video_only: bool = False,
     top_k: int = 3,
     progress: ProgressCallback | None = None,
 ) -> list[tuple[CandidateResource, ResourceScore, float]]:
@@ -330,6 +343,8 @@ def process_single_skill(
         blacklist_domains=blacklist_domains,
         exclude_sites=exclude_sites,
         tavily_include_domains=tavily_include_domains,
+        resolve_video_pages=resolve_video_pages,
+        video_only=video_only,
     )
     logger.info("Found %d unique candidates for skill %s", len(candidates), skill.name)
 

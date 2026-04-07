@@ -26,6 +26,13 @@ class ReadingResourceRead(BaseModel):
     title: str
     url: str
     domain: str
+    snippet: str = ""
+    search_content: str = ""
+    search_result_url: str = ""
+    search_result_domain: str = ""
+    source_engine: str = ""
+    source_engines: list[str] = []
+    search_metadata_json: str = "[]"
     final_score: float
     resource_type: str
     concepts_covered: list[str] = []
@@ -36,6 +43,13 @@ class VideoResourceRead(BaseModel):
     url: str
     video_id: str
     domain: str
+    snippet: str = ""
+    search_content: str = ""
+    search_result_url: str = ""
+    search_result_domain: str = ""
+    source_engine: str = ""
+    source_engines: list[str] = []
+    search_metadata_json: str = "[]"
     final_score: float
     resource_type: str
     concepts_covered: list[str] = []

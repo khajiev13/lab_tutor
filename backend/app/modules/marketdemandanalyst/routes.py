@@ -119,16 +119,21 @@ def _get_thread_id(user_id: int, course_id: int) -> str:
     return f"mda-{user_id}-course-{course_id}"
 
 
-def _seed_course_context(course: Course) -> None:
+def _seed_course_context(course: Course, location: str = "United States") -> None:
     tool_store["course_id"] = course.id
     tool_store["course_title"] = course.title
     tool_store["course_description"] = course.description or ""
+    # Preserve existing location if already set (don't overwrite mid-session)
+    if "job_search_location" not in tool_store:
+        tool_store["job_search_location"] = location
 
 
-def _restore_thread_state(persisted: dict[str, Any] | None, course: Course) -> None:
+def _restore_thread_state(
+    persisted: dict[str, Any] | None, course: Course, location: str = "United States"
+) -> None:
     # When a thread has no persisted snapshot yet, clear any prior thread's state.
     restore_state(persisted or {})
-    _seed_course_context(course)
+    _seed_course_context(course, location)
 
 
 async def _persist_state_to_db(thread_id: str, state: dict[str, Any]) -> None:
@@ -498,6 +503,7 @@ async def _sse_stream(
 
 class ChatRequest(BaseModel):
     message: str = ""
+    location: str = "United States"  # job search location passed to fetch_jobs
 
 
 @router.post("/{course_id}/market-demand/chat")
@@ -531,7 +537,7 @@ async def market_demand_chat(
     parallel_ms = (time.perf_counter() - t0) * 1000
     logger.info("[PERF] Parallel state+graph load took %.1fms", parallel_ms)
 
-    _restore_thread_state(persisted, course)
+    _restore_thread_state(persisted, course, body.location)
 
     config = {"configurable": {"thread_id": thread_id}}
     input_data = {

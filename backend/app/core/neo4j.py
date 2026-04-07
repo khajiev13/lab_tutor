@@ -65,6 +65,7 @@ def initialize_neo4j_constraints(driver: Driver) -> None:
         "CREATE INDEX class_title_idx IF NOT EXISTS FOR (c:CLASS) ON (c.title)",
         "CREATE INDEX teacher_uploaded_document_course_id_idx IF NOT EXISTS FOR (d:TEACHER_UPLOADED_DOCUMENT) ON (d.course_id)",
         "CREATE INDEX skill_name_idx IF NOT EXISTS FOR (s:SKILL) ON (s.name)",
+        "CREATE INDEX skill_prerequisite_confidence_idx IF NOT EXISTS FOR ()-[r:PREREQUISITE]-() ON (r.confidence)",
     ]
 
     embedding_dims = settings.embedding_dims

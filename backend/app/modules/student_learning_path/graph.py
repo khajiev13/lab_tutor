@@ -76,6 +76,14 @@ class SkillWorkerInput(TypedDict):
 # ── Nodes ─────────────────────────────────────────────────────
 
 
+def _format_question_error(exc: Exception) -> str:
+    detail = str(exc).strip() or exc.__class__.__name__
+    detail = " ".join(detail.split())
+    if len(detail) > 180:
+        detail = detail[:177] + "..."
+    return f"Question generation failed: {detail}"
+
+
 def load_selected_skills(state: BuildState) -> dict:
     """Load selected skills and check which need resources/questions."""
     driver = state["neo4j_driver"]
@@ -161,6 +169,7 @@ def process_skill(state: SkillWorkerInput) -> dict:
         "readings_added": 0,
         "videos_added": 0,
         "questions_added": 0,
+        "question_error": "",
         "skipped": False,
     }
 
@@ -271,17 +280,42 @@ def process_skill(state: SkillWorkerInput) -> dict:
                         skill_profile.concepts,
                         skill_profile.course_level,
                     )
-                    write_questions(session, skill_name, questions)
-                    result["questions_added"] = len(questions)
-        except Exception:
+                    written = write_questions(session, skill_name, questions)
+                    if written != len(questions):
+                        raise RuntimeError(
+                            f"Question persistence mismatch for {skill_name}: "
+                            f"wrote {written} of {len(questions)} questions"
+                        )
+                    result["questions_added"] = written
+        except Exception as exc:
+            error_detail = _format_question_error(exc)
+            result["question_error"] = error_detail
+            writer(
+                {
+                    "type": "skill_progress",
+                    "skill_name": skill_name,
+                    "phase": "question_error",
+                    "detail": error_detail,
+                    "skills_completed": idx,
+                    "total_skills": total,
+                }
+            )
             logger.warning("Question gen failed for %s", skill_name, exc_info=True)
+
+    done_detail = (
+        f"Readings: {result['readings_added']}, "
+        f"Videos: {result['videos_added']}, "
+        f"Questions: {result['questions_added']}"
+    )
+    if result["question_error"]:
+        done_detail = f"{done_detail} ({result['question_error']})"
 
     writer(
         {
             "type": "skill_progress",
             "skill_name": skill_name,
             "phase": "done",
-            "detail": f"Readings: {result['readings_added']}, Videos: {result['videos_added']}, Questions: {result['questions_added']}",
+            "detail": done_detail,
             "skills_completed": idx + 1,
             "total_skills": total,
         }

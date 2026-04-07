@@ -35,8 +35,33 @@ RETURN
         .description,
         source: 'book',
         concepts: [(bsk)-[:REQUIRES_CONCEPT]->(bc:CONCEPT) | bc { .name, .description }],
-        readings: [(bsk)-[:HAS_READING]->(rr:READING_RESOURCE) | rr { .title, .url, .domain, .final_score, .resource_type, .concepts_covered }],
-        videos: [(bsk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr { .title, .url, .video_id, .domain, .final_score, .resource_type, .concepts_covered }]
+        readings: [(bsk)-[:HAS_READING]->(rr:READING_RESOURCE) | rr {
+            .title, .url,
+            domain: coalesce(rr.domain, ''),
+            snippet: coalesce(rr.snippet, ''),
+            search_content: coalesce(rr.search_content, ''),
+            search_result_url: coalesce(rr.search_result_url, ''),
+            search_result_domain: coalesce(rr.search_result_domain, ''),
+            source_engine: coalesce(rr.source_engine, ''),
+            source_engines: coalesce(rr.source_engines, []),
+            search_metadata_json: coalesce(rr.search_metadata_json, '[]'),
+            .final_score, .resource_type,
+            concepts_covered: coalesce(rr.concepts_covered, [])
+        }],
+        videos: [(bsk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr {
+            .title, .url,
+            video_id: coalesce(vr.video_id, ''),
+            domain: coalesce(vr.domain, ''),
+            snippet: coalesce(vr.snippet, ''),
+            search_content: coalesce(vr.search_content, ''),
+            search_result_url: coalesce(vr.search_result_url, ''),
+            search_result_domain: coalesce(vr.search_result_domain, ''),
+            source_engine: coalesce(vr.source_engine, ''),
+            source_engines: coalesce(vr.source_engines, []),
+            search_metadata_json: coalesce(vr.search_metadata_json, '[]'),
+            .final_score, .resource_type,
+            concepts_covered: coalesce(vr.concepts_covered, [])
+        }]
     }] AS book_skills,
     [(ch)-[:HAS_SKILL]->(msk:MARKET_SKILL) | msk {
         .name,
@@ -51,8 +76,33 @@ RETURN
         created_at: toString(msk.created_at),
         concepts: [(msk)-[:REQUIRES_CONCEPT]->(mc:CONCEPT) | mc { .name, .description }],
         job_postings: [(msk)-[:SOURCED_FROM]->(jp:JOB_POSTING) | jp { .url, .title, .company, .site }],
-        readings: [(msk)-[:HAS_READING]->(rr:READING_RESOURCE) | rr { .title, .url, .domain, .final_score, .resource_type, .concepts_covered }],
-        videos: [(msk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr { .title, .url, .video_id, .domain, .final_score, .resource_type, .concepts_covered }]
+        readings: [(msk)-[:HAS_READING]->(rr:READING_RESOURCE) | rr {
+            .title, .url,
+            domain: coalesce(rr.domain, ''),
+            snippet: coalesce(rr.snippet, ''),
+            search_content: coalesce(rr.search_content, ''),
+            search_result_url: coalesce(rr.search_result_url, ''),
+            search_result_domain: coalesce(rr.search_result_domain, ''),
+            source_engine: coalesce(rr.source_engine, ''),
+            source_engines: coalesce(rr.source_engines, []),
+            search_metadata_json: coalesce(rr.search_metadata_json, '[]'),
+            .final_score, .resource_type,
+            concepts_covered: coalesce(rr.concepts_covered, [])
+        }],
+        videos: [(msk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr {
+            .title, .url,
+            video_id: coalesce(vr.video_id, ''),
+            domain: coalesce(vr.domain, ''),
+            snippet: coalesce(vr.snippet, ''),
+            search_content: coalesce(vr.search_content, ''),
+            search_result_url: coalesce(vr.search_result_url, ''),
+            search_result_domain: coalesce(vr.search_result_domain, ''),
+            source_engine: coalesce(vr.source_engine, ''),
+            source_engines: coalesce(vr.source_engines, []),
+            search_metadata_json: coalesce(vr.search_metadata_json, '[]'),
+            .final_score, .resource_type,
+            concepts_covered: coalesce(vr.concepts_covered, [])
+        }]
     }] AS market_skills
 
 ORDER BY ch.chapter_index
