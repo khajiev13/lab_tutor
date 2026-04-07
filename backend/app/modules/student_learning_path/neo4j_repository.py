@@ -370,12 +370,31 @@ def get_learning_path(
                     skill_type: CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
                     concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c { .name, .description }],
                     readings: [(sk)-[:HAS_READING]->(rr:READING_RESOURCE) | rr {
-                        .title, .url, .domain, .snippet, .resource_type,
-                        .final_score, .concepts_covered
+                        .title, .url,
+                        domain: coalesce(rr.domain, ''),
+                        snippet: coalesce(rr.snippet, ''),
+                        search_content: coalesce(rr.search_content, ''),
+                        search_result_url: coalesce(rr.search_result_url, ''),
+                        search_result_domain: coalesce(rr.search_result_domain, ''),
+                        source_engine: coalesce(rr.source_engine, ''),
+                        source_engines: coalesce(rr.source_engines, []),
+                        search_metadata_json: coalesce(rr.search_metadata_json, '[]'),
+                        .resource_type, .final_score,
+                        concepts_covered: coalesce(rr.concepts_covered, [])
                     }],
                     videos: [(sk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr {
-                        .title, .url, .domain, .snippet, .video_id,
-                        .resource_type, .final_score, .concepts_covered
+                        .title, .url,
+                        domain: coalesce(vr.domain, ''),
+                        snippet: coalesce(vr.snippet, ''),
+                        search_content: coalesce(vr.search_content, ''),
+                        video_id: coalesce(vr.video_id, ''),
+                        search_result_url: coalesce(vr.search_result_url, ''),
+                        search_result_domain: coalesce(vr.search_result_domain, ''),
+                        source_engine: coalesce(vr.source_engine, ''),
+                        source_engines: coalesce(vr.source_engines, []),
+                        search_metadata_json: coalesce(vr.search_metadata_json, '[]'),
+                        .resource_type, .final_score,
+                        concepts_covered: coalesce(vr.concepts_covered, [])
                     }],
                     questions: COLLECT {
                         MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION)

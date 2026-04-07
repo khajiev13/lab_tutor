@@ -42,6 +42,8 @@ def fetch_videos_for_skill(
         blacklist_domains=config.BLACKLIST_DOMAINS,
         exclude_sites=config.QUERY_EXCLUDE_SITES,
         tavily_include_domains=config.TAVILY_INCLUDE_DOMAINS,
+        resolve_video_pages=True,
+        video_only=True,
         top_k=config.TOP_K_FINAL,
         progress=progress,
     )

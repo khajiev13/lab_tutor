@@ -192,14 +192,22 @@ def _fetch_existing_chapter_skill_rows(
 @tool
 def fetch_jobs(
     search_terms: str,
-    location: str = "San Francisco, CA",
+    location: str = "",
     results_per_site: int = 15,
 ) -> str:
     """Fetch real job postings from Indeed and LinkedIn.
     search_terms: comma-separated queries (e.g. "Bioinformatics Researcher, Lab Technician").
     Scrapes all terms, deduplicates by title+company.
+    location: optional override — if blank, uses the location configured for this course.
     IMPORTANT: Always use ONE call with all search terms. Never call this tool multiple times."""
     from jobspy import scrape_jobs
+
+    # Prefer explicit arg → tool_store (seeded from route) → fallback
+    effective_location = (
+        location.strip()
+        or str(tool_store.get("job_search_location", "")).strip()
+        or "United States"
+    )
 
     terms = [t.strip() for t in search_terms.split(",") if t.strip()]
     sites = ["indeed", "linkedin"]
@@ -210,7 +218,7 @@ def fetch_jobs(
         df = scrape_jobs(
             site_name=[site],
             search_term=term,
-            location=location,
+            location=effective_location,
             results_wanted=results_per_site,
             hours_old=72,
             country_indeed="USA",
@@ -1362,13 +1370,15 @@ def insert_market_skills_to_neo4j() -> str:
                 session.run(
                     "MERGE (j:JOB_POSTING {url: $url}) "
                     "SET j.title = $title, j.company = $company, "
-                    "    j.site = $site, j.search_term = $search_term",
+                    "    j.site = $site, j.search_term = $search_term, "
+                    "    j.description = $description",
                     {
                         "url": job["url"],
                         "title": job.get("title", ""),
                         "company": job.get("company", ""),
                         "site": job.get("site", ""),
                         "search_term": job.get("search_term", ""),
+                        "description": job.get("description", ""),
                     },
                 )
                 stats["job_postings"] += 1

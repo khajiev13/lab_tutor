@@ -505,10 +505,12 @@ class TestGetState:
         assert data["course_id"] == course_id
         assert data["course_title"] == "Market Demand Test Course"
         assert data["course_description"] == "Course used by market demand tests"
+        # Keys with non-null defaults should be skipped
+        keys_with_defaults = {"job_search_location"}
         for key, value in data.items():
-            if key.startswith("course_"):
+            if key.startswith("course_") or key in keys_with_defaults:
                 continue
-            assert value is None
+            assert value is None, f"Expected None for key '{key}', got {value!r}"
 
     def test_state_is_isolated_per_course(
         self, client, teacher_auth_headers, db_session

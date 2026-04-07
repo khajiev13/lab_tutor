@@ -120,12 +120,22 @@ def write_resources(
             f"MATCH (sk:{skill_label} {{name: $skill_name}}) "
             f"MERGE (r:{resource_label} {{url: $url}}) "
             f"ON CREATE SET r.id = $id, r.title = $title, r.domain = $domain, "
-            f"  r.snippet = $snippet, r.video_id = $video_id, "
-            f"  r.source_engine = $source_engine, r.resource_type = $resource_type, "
-            f"  r.estimated_year = $estimated_year, r.final_score = $final_score, "
-            f"  r.concepts_covered = $concepts_covered, r.created_at = datetime($created_at) "
-            f"ON MATCH SET r.title = $title, r.final_score = $final_score, "
-            f"  r.resource_type = $resource_type, r.concepts_covered = $concepts_covered "
+            f"  r.snippet = $snippet, r.search_content = $search_content, "
+            f"  r.video_id = $video_id, r.search_result_url = $search_result_url, "
+            f"  r.search_result_domain = $search_result_domain, "
+            f"  r.source_engine = $source_engine, r.source_engines = $source_engines, "
+            f"  r.search_metadata_json = $search_metadata_json, "
+            f"  r.resource_type = $resource_type, r.estimated_year = $estimated_year, "
+            f"  r.final_score = $final_score, r.concepts_covered = $concepts_covered, "
+            f"  r.created_at = datetime($created_at) "
+            f"ON MATCH SET r.title = $title, r.domain = $domain, r.snippet = $snippet, "
+            f"  r.search_content = $search_content, r.video_id = $video_id, "
+            f"  r.search_result_url = $search_result_url, "
+            f"  r.search_result_domain = $search_result_domain, "
+            f"  r.source_engine = $source_engine, r.source_engines = $source_engines, "
+            f"  r.search_metadata_json = $search_metadata_json, "
+            f"  r.resource_type = $resource_type, r.estimated_year = $estimated_year, "
+            f"  r.final_score = $final_score, r.concepts_covered = $concepts_covered "
             f"MERGE (sk)-[:{relationship}]->(r)",
             skill_name=skill_name,
             id=resource_id,
@@ -133,8 +143,13 @@ def write_resources(
             title=candidate.title,
             domain=candidate.domain,
             snippet=candidate.snippet[:500],
+            search_content=candidate.search_content[:4000],
             video_id=candidate.video_id,
+            search_result_url=candidate.search_result_url,
+            search_result_domain=candidate.search_result_domain,
             source_engine=candidate.source_engine,
+            source_engines=candidate.source_engines,
+            search_metadata_json=candidate.metadata_json(),
             resource_type=score.resource_type,
             estimated_year=score.estimated_year,
             final_score=final_score,
@@ -155,8 +170,20 @@ def get_resources_for_course(
         f"MATCH (cl:CLASS {{id: $course_id}})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->"
         f"(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)-[:{relationship}]->(r:{resource_label}) "
         f"WITH sk, ch, r ORDER BY r.final_score DESC "
-        f"WITH sk, ch, collect(r {{.title, .url, .domain, .snippet, .video_id, "
-        f"  .source_engine, .resource_type, .estimated_year, .final_score, .concepts_covered}}) AS resources "
+        f"WITH sk, ch, collect(r {{"
+        f"  .title, .url, "
+        f"  domain: coalesce(r.domain, ''), "
+        f"  snippet: coalesce(r.snippet, ''), "
+        f"  search_content: coalesce(r.search_content, ''), "
+        f"  video_id: coalesce(r.video_id, ''), "
+        f"  search_result_url: coalesce(r.search_result_url, ''), "
+        f"  search_result_domain: coalesce(r.search_result_domain, ''), "
+        f"  source_engine: coalesce(r.source_engine, ''), "
+        f"  source_engines: coalesce(r.source_engines, []), "
+        f"  search_metadata_json: coalesce(r.search_metadata_json, '[]'), "
+        f"  .resource_type, .estimated_year, .final_score, "
+        f"  concepts_covered: coalesce(r.concepts_covered, [])"
+        f"}}) AS resources "
         f"RETURN sk.name AS skill_name, "
         f"  CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END AS skill_type, "
         f"  ch.title AS chapter_title, resources "

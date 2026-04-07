@@ -40,11 +40,12 @@ def write_questions(
 
     result = session.run(
         """
-        MATCH (:SKILL {name: $skill_name})-[:HAS_QUESTION]->(existing:QUESTION)
-        DETACH DELETE existing
-        WITH 1 AS _
-        UNWIND $questions AS q
         MATCH (sk:SKILL {name: $skill_name})
+        OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(existing:QUESTION)
+        WITH sk, collect(existing) AS existing_questions
+        FOREACH (node IN existing_questions | DETACH DELETE node)
+        WITH sk
+        UNWIND $questions AS q
         CREATE (qn:QUESTION {
             id: q.id,
             text: q.text,
