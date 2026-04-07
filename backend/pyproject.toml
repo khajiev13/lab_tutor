@@ -52,6 +52,7 @@ dev = [
     "fpdf2>=2.8.6",
     "httpx>=0.28.1",
     "langchain-neo4j>=0.8.0",
+    "nbformat>=5.10.4",
     "pytest>=9.0.1",
     "rich>=14.0.0",
     "ruff>=0.8.0",
