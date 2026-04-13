@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
@@ -12,20 +12,20 @@ if TYPE_CHECKING:
     from app.modules.auth.models import User
 
 
-class CourseLevel(str, Enum):
+class CourseLevel(StrEnum):
     BACHELOR = "bachelor"
     MASTER = "master"
     PHD = "phd"
 
 
-class ExtractionStatus(str, Enum):
+class ExtractionStatus(StrEnum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     FINISHED = "finished"
     FAILED = "failed"
 
 
-class FileProcessingStatus(str, Enum):
+class FileProcessingStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     PROCESSED = "processed"

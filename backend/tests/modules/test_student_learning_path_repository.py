@@ -192,3 +192,40 @@ def test_select_job_postings_scopes_market_skills_to_course():
     assert "ms.course_id = $course_id OR ms.course_id IS NULL" in query
     assert "WITH u, jp, skill_name, head(collect(ms)) AS ms" in query
     assert params["course_id"] == 2
+
+
+def test_get_learning_path_marks_skills_pending_without_resources():
+    session = MagicMock()
+    course_result = MagicMock()
+    course_result.single.return_value = {"title": "Data Systems"}
+    session.run.side_effect = [
+        course_result,
+        [
+            {
+                "chapter": {
+                    "title": "Foundations",
+                    "chapter_index": 1,
+                    "description": None,
+                    "selected_skills": [
+                        {
+                            "name": "Batch Processing",
+                            "description": "Process large datasets reliably.",
+                            "source": "book",
+                            "skill_type": "book",
+                            "concepts": [],
+                            "readings": [],
+                            "videos": [],
+                            "questions": [],
+                        }
+                    ],
+                }
+            }
+        ],
+    ]
+
+    result = neo4j_repository.get_learning_path(session, student_id=11, course_id=2)
+
+    assert result["course_title"] == "Data Systems"
+    assert result["total_selected_skills"] == 1
+    assert result["skills_with_resources"] == 0
+    assert result["chapters"][0]["selected_skills"][0]["resource_status"] == "pending"

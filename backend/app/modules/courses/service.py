@@ -293,11 +293,13 @@ class CourseService:
         # Delete extraction-created documents for this course and any concepts that become orphaned.
         # This keeps the Neo4j "concept graph" clean when a course (and its documents) are removed.
         self._run_doc_graph(
-            lambda: self._document_graph_repo.delete_documents_by_course_and_orphan_concepts(
-                course_id=course.id
-            )
-            if self._document_graph_repo is not None
-            else None,
+            lambda: (
+                self._document_graph_repo.delete_documents_by_course_and_orphan_concepts(
+                    course_id=course.id
+                )
+                if self._document_graph_repo is not None
+                else None
+            ),
             detail="Failed to delete extracted documents from Neo4j",
         )
         self._run_graph(
@@ -436,9 +438,11 @@ class CourseService:
             elif self._document_graph_repo is not None:
                 # Fallback: if the SQL row is missing, delete by (course_id, filename).
                 self._run_doc_graph(
-                    lambda: self._document_graph_repo.delete_documents_by_course_and_filename_and_orphan_concepts(
-                        course_id=course.id,
-                        source_filename=filename,
+                    lambda: (
+                        self._document_graph_repo.delete_documents_by_course_and_filename_and_orphan_concepts(
+                            course_id=course.id,
+                            source_filename=filename,
+                        )
                     ),
                     detail="Failed to delete extracted document(s) from Neo4j",
                 )
@@ -476,8 +480,10 @@ class CourseService:
 
             if self._document_graph_repo is not None:
                 self._run_doc_graph(
-                    lambda: self._document_graph_repo.delete_documents_by_course_and_orphan_concepts(
-                        course_id=course.id
+                    lambda: (
+                        self._document_graph_repo.delete_documents_by_course_and_orphan_concepts(
+                            course_id=course.id
+                        )
                     ),
                     detail="Failed to delete extracted documents from Neo4j",
                 )

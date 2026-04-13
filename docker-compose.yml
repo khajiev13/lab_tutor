@@ -49,6 +49,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        UV_SYNC_ARGS: --group dev --frozen
     container_name: lab_tutor_backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"

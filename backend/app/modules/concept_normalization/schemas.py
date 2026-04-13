@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -101,7 +101,7 @@ class NormalizationStreamEvent(BaseModel):
     total_relationships: int = Field(default=0, ge=0)
 
 
-class MergeProposalDecision(str, Enum):
+class MergeProposalDecision(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"

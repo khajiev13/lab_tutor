@@ -8,21 +8,21 @@ all aggregated into a single ``RecommendationResponse``.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
 # ── Enums ─────────────────────────────────────────────────────
 
 
-class RecommendationCategory(str, Enum):
+class RecommendationCategory(StrEnum):
     MISSING_CONCEPT = "missing_concept"
     INSUFFICIENT_COVERAGE = "insufficient_coverage"
     SUGGESTED_SKILL = "suggested_skill"
     STRUCTURAL = "structural"
 
 
-class RecommendationPriority(str, Enum):
+class RecommendationPriority(StrEnum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
