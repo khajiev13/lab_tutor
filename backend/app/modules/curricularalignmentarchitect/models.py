@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
-class SessionStatus(str, Enum):
+class SessionStatus(StrEnum):
     CONFIGURING = "configuring"
     DISCOVERING = "discovering"
     SCORING = "scoring"
@@ -20,7 +20,7 @@ class SessionStatus(str, Enum):
     SUPERSEDED = "superseded"
 
 
-class DownloadStatus(str, Enum):
+class DownloadStatus(StrEnum):
     PENDING = "pending"
     DOWNLOADING = "downloading"
     SUCCESS = "success"
@@ -28,7 +28,7 @@ class DownloadStatus(str, Enum):
     MANUAL_UPLOAD = "manual_upload"
 
 
-class BookStatus(str, Enum):
+class BookStatus(StrEnum):
     """Status of a book in the course_selected_books table."""
 
     DOWNLOADED = "downloaded"
@@ -158,7 +158,7 @@ class CourseSelectedBook(Base):
 EMBEDDING_DIMS = 2048
 
 
-class ExtractionRunStatus(str, Enum):
+class ExtractionRunStatus(StrEnum):
     PENDING = "pending"
     EXTRACTING = "extracting"
     CHAPTER_EXTRACTED = "chapter_extracted"
@@ -173,12 +173,12 @@ class ExtractionRunStatus(str, Enum):
     CURRICULUM_BUILT = "curriculum_built"
 
 
-class AnalysisStrategy(str, Enum):
+class AnalysisStrategy(StrEnum):
     CHUNKING = "chunking"
     AGENTIC = "agentic"
 
 
-class ConceptRelevance(str, Enum):
+class ConceptRelevance(StrEnum):
     CORE = "core"
     SUPPLEMENTARY = "supplementary"
     TANGENTIAL = "tangential"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from collections import defaultdict
 
 from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session as SQLSession
@@ -14,7 +15,7 @@ from app.modules.courses.repository import CourseRepository
 
 from . import neo4j_repository
 from .graph import learning_path_graph
-from .schemas import StudentSkillBankResponse
+from .schemas import BuildSelectedSkillRequest, StudentSkillBankResponse
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,19 @@ class StudentLearningPathService:
             raise ValueError(
                 f"Student {student_id} is not enrolled in course {course_id}"
             )
+
+    def _group_selected_skills_by_source(
+        self,
+        selected_skills: list[BuildSelectedSkillRequest],
+    ) -> dict[str, list[str]]:
+        selected_by_name: dict[str, str] = {}
+        for skill in selected_skills:
+            selected_by_name[skill.name] = skill.source
+
+        grouped: dict[str, list[str]] = defaultdict(list)
+        for skill_name, source in selected_by_name.items():
+            grouped[source].append(skill_name)
+        return grouped
 
     def select_skills(
         self, student_id: int, course_id: int, skill_names: list[str], source: str
@@ -109,11 +123,46 @@ class StudentLearningPathService:
             return neo4j_repository.get_learning_path(session, student_id, course_id)
 
     async def build_learning_path(
-        self, student_id: int, course_id: int
+        self,
+        student_id: int,
+        course_id: int,
+        selected_skills: list[BuildSelectedSkillRequest] | None = None,
     ) -> tuple[str, asyncio.Queue]:
         """Launch the LangGraph pipeline. Returns (run_id, progress_queue)."""
         self._validate_enrollment(student_id, course_id)
         driver = self._require_neo4j()
+
+        with driver.session(database=settings.neo4j_database) as session:
+            persisted_selected_skills = neo4j_repository.get_selected_skills(
+                session,
+                student_id,
+                course_id,
+            )
+            if not persisted_selected_skills:
+                grouped_selected_skills = self._group_selected_skills_by_source(
+                    selected_skills or []
+                )
+                if not grouped_selected_skills:
+                    raise ValueError("Select at least one skill before building")
+
+                for source in ("book", "market"):
+                    skill_names = grouped_selected_skills.get(source, [])
+                    if skill_names:
+                        neo4j_repository.select_skills(
+                            session,
+                            student_id,
+                            course_id,
+                            skill_names,
+                            source,
+                        )
+
+                persisted_selected_skills = neo4j_repository.get_selected_skills(
+                    session,
+                    student_id,
+                    course_id,
+                )
+                if not persisted_selected_skills:
+                    raise ValueError("Select at least one valid skill before building")
 
         run_id = str(uuid.uuid4())
         queue: asyncio.Queue = asyncio.Queue()

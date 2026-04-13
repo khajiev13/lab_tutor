@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -41,7 +41,7 @@ class ChapterSkillsResult(BaseModel):
     )
 
 
-class SkillsJudgeVerdict(str, Enum):
+class SkillsJudgeVerdict(StrEnum):
     APPROVED = "APPROVED"
     NEEDS_REVISION = "NEEDS_REVISION"
 

@@ -1,7 +1,6 @@
 import { type ReactNode, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,13 +26,10 @@ import {
 } from 'lucide-react';
 import {
   buildLearningPath,
-  deselectJobPosting,
-  deselectSkills,
   getLearningPath,
   getSkillBanks,
-  selectJobPostings,
-  selectSkills,
   streamBuildProgress,
+  type BuildSelectedSkillInput,
   type BuildProgressEvent,
   type LearningPathResponse,
   type SkillBanksResponse,
@@ -42,55 +38,39 @@ import {
   type StudentSkillBankSkill,
 } from '../api';
 
-const SKILL_SYNC_DELAY_MS = 180;
-
 export default function StudentLearningPathPage() {
   const { id: courseId } = useParams<{ id: string }>();
   const numericCourseId = Number(courseId);
 
-  const [activeTab, setActiveTab] = useState<'select' | 'path'>('select');
   const [skillBanks, setSkillBanks] = useState<SkillBanksResponse | null>(null);
   const [learningPath, setLearningPath] = useState<LearningPathResponse | null>(null);
-  const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
+  const [draftSelectedSkills, setDraftSelectedSkills] = useState<Map<string, 'book' | 'market'>>(
+    new Map(),
+  );
   const [interestedPostings, setInterestedPostings] = useState<Set<string>>(new Set());
-  const [pendingSkillNames, setPendingSkillNames] = useState<Set<string>>(new Set());
-  const [pendingPostingUrls, setPendingPostingUrls] = useState<Set<string>>(new Set());
-  const [isSyncingSkills, setIsSyncingSkills] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildProgress, setBuildProgress] = useState<BuildProgressEvent[]>([]);
   const [buildPercent, setBuildPercent] = useState(0);
   const [loading, setLoading] = useState(true);
-
-  const selectedSkillsRef = useRef<Set<string>>(new Set());
-  const interestedPostingsRef = useRef<Set<string>>(new Set());
-  const pendingSkillOpsRef = useRef<Map<string, 'book' | 'market' | null>>(new Map());
-  const skillSyncTimerRef = useRef<number | null>(null);
+  const buildHadQuestionErrorsRef = useRef(false);
+  const buildCompletedSkillsRef = useRef(0);
 
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
-
-  const clearSkillSyncTimer = useCallback(() => {
-    if (skillSyncTimerRef.current !== null) {
-      window.clearTimeout(skillSyncTimerRef.current);
-      skillSyncTimerRef.current = null;
-    }
-  }, []);
 
   const loadSkillBanks = useCallback(async () => {
     try {
       const data = await getSkillBanks(numericCourseId);
-      const nextSelectedSkills = new Set(data.selected_skill_names);
       const nextInterestedPostings = new Set(data.interested_posting_urls);
 
       setSkillBanks(data);
-      selectedSkillsRef.current = nextSelectedSkills;
-      interestedPostingsRef.current = nextInterestedPostings;
-      setSelectedSkills(nextSelectedSkills);
       setInterestedPostings(nextInterestedPostings);
+      return data;
     } catch (err) {
       toast.error('Failed to load skill banks');
       console.error(err);
+      return null;
     }
   }, [numericCourseId]);
 
@@ -98,211 +78,148 @@ export default function StudentLearningPathPage() {
     try {
       const data = await getLearningPath(numericCourseId);
       setLearningPath(data);
+      return data;
     } catch {
       // If no path exists yet, keep the empty state.
+      return null;
     }
   }, [numericCourseId]);
-
-  const scheduleSkillSync = useCallback(
-    (flush: () => Promise<boolean>) => {
-      clearSkillSyncTimer();
-      skillSyncTimerRef.current = window.setTimeout(() => {
-        void flush();
-      }, SKILL_SYNC_DELAY_MS);
-    },
-    [clearSkillSyncTimer],
-  );
-
-  const flushSkillChanges = useCallback(async () => {
-    clearSkillSyncTimer();
-
-    const queuedOps = pendingSkillOpsRef.current;
-    if (queuedOps.size === 0) {
-      return true;
-    }
-
-    pendingSkillOpsRef.current = new Map();
-    const flushedSkillNames = Array.from(queuedOps.keys());
-    const bookSelections: string[] = [];
-    const marketSelections: string[] = [];
-    const deselections: string[] = [];
-
-    for (const [skillName, nextSource] of queuedOps) {
-      if (nextSource === null) {
-        deselections.push(skillName);
-        continue;
-      }
-      if (nextSource === 'book') {
-        bookSelections.push(skillName);
-        continue;
-      }
-      marketSelections.push(skillName);
-    }
-
-    setIsSyncingSkills(true);
-
-    try {
-      const writes: Promise<unknown>[] = [];
-      if (deselections.length > 0) {
-        writes.push(deselectSkills(numericCourseId, deselections));
-      }
-      if (bookSelections.length > 0) {
-        writes.push(selectSkills(numericCourseId, bookSelections, 'book'));
-      }
-      if (marketSelections.length > 0) {
-        writes.push(selectSkills(numericCourseId, marketSelections, 'market'));
-      }
-      await Promise.all(writes);
-      return true;
-    } catch (err) {
-      toast.error('Failed to save your latest skill changes. Reloading selections.');
-      console.error(err);
-      await loadSkillBanks();
-      return false;
-    } finally {
-      setIsSyncingSkills(false);
-      setPendingSkillNames((prev) => {
-        const next = new Set(prev);
-        for (const skillName of flushedSkillNames) {
-          next.delete(skillName);
-        }
-        return next;
-      });
-
-      if (pendingSkillOpsRef.current.size > 0) {
-        scheduleSkillSync(flushSkillChanges);
-      }
-    }
-  }, [clearSkillSyncTimer, loadSkillBanks, numericCourseId, scheduleSkillSync]);
 
   useEffect(() => {
     async function init() {
       setLoading(true);
-      await Promise.all([loadSkillBanks(), loadLearningPath()]);
+      const nextSkillBanks = await loadSkillBanks();
+      if ((nextSkillBanks?.selected_skill_names.length ?? 0) > 0) {
+        await loadLearningPath();
+      } else {
+        setLearningPath(null);
+      }
       setLoading(false);
     }
 
     init();
   }, [loadLearningPath, loadSkillBanks]);
 
-  useEffect(() => {
-    return () => {
-      clearSkillSyncTimer();
-    };
-  }, [clearSkillSyncTimer]);
-
   const toggleSkill = useCallback(
     (skillName: string, source: 'book' | 'market') => {
-      const nextSelectedSkills = new Set(selectedSkillsRef.current);
-
-      if (nextSelectedSkills.has(skillName)) {
-        nextSelectedSkills.delete(skillName);
-        pendingSkillOpsRef.current.set(skillName, null);
-      } else {
-        nextSelectedSkills.add(skillName);
-        pendingSkillOpsRef.current.set(skillName, source);
-      }
-
-      selectedSkillsRef.current = nextSelectedSkills;
-      setSelectedSkills(nextSelectedSkills);
-      setPendingSkillNames((prev) => new Set(prev).add(skillName));
-      scheduleSkillSync(flushSkillChanges);
+      setDraftSelectedSkills((prev) => {
+        const next = new Map(prev);
+        if (next.has(skillName)) {
+          next.delete(skillName);
+        } else {
+          next.set(skillName, source);
+        }
+        return next;
+      });
     },
-    [flushSkillChanges, scheduleSkillSync],
+    [],
   );
 
   const toggleJobPosting = useCallback(
-    async (posting: StudentSkillBankJobPosting) => {
-      const wasInterested = interestedPostingsRef.current.has(posting.url);
-      const nextInterestedPostings = new Set(interestedPostingsRef.current);
-
-      if (wasInterested) {
-        nextInterestedPostings.delete(posting.url);
-      } else {
-        nextInterestedPostings.add(posting.url);
-      }
-
-      interestedPostingsRef.current = nextInterestedPostings;
-      setInterestedPostings(nextInterestedPostings);
-      setPendingPostingUrls((prev) => new Set(prev).add(posting.url));
-
-      try {
-        const synced = await flushSkillChanges();
-        if (!synced) {
-          return;
-        }
-
-        if (wasInterested) {
-          await deselectJobPosting(numericCourseId, posting.url);
-        } else {
-          await selectJobPostings(numericCourseId, [posting.url]);
-        }
-
-        await loadSkillBanks();
-      } catch (err) {
-        const revertedInterestedPostings = new Set(interestedPostingsRef.current);
-        if (wasInterested) {
-          revertedInterestedPostings.add(posting.url);
-        } else {
-          revertedInterestedPostings.delete(posting.url);
-        }
-        interestedPostingsRef.current = revertedInterestedPostings;
-        setInterestedPostings(revertedInterestedPostings);
-        toast.error(`Failed to ${wasInterested ? 'remove' : 'add'} job posting interest`);
-        console.error(err);
-      } finally {
-        setPendingPostingUrls((prev) => {
-          const next = new Set(prev);
+    (posting: StudentSkillBankJobPosting) => {
+      setInterestedPostings((prev) => {
+        const next = new Set(prev);
+        if (next.has(posting.url)) {
           next.delete(posting.url);
-          return next;
-        });
-      }
+        } else {
+          next.add(posting.url);
+        }
+        return next;
+      });
     },
-    [flushSkillChanges, loadSkillBanks, numericCourseId],
+    [],
   );
 
   const handleBuild = async () => {
-    if (selectedSkillsRef.current.size === 0) {
-      toast.warning('Select at least one skill first');
-      return;
-    }
+    const stagedSelectedSkills: BuildSelectedSkillInput[] = Array.from(
+      draftSelectedSkills,
+      ([name, source]) => ({
+        name,
+        source,
+      }),
+    );
+    const persistedSelectedSkillNames = skillBanks?.selected_skill_names ?? [];
+    const selectionLocked = persistedSelectedSkillNames.length > 0;
 
-    const synced = await flushSkillChanges();
-    if (!synced) {
-      toast.warning('Please retry once your selections are saved.');
+    if (!selectionLocked && stagedSelectedSkills.length === 0) {
+      toast.warning('Select at least one skill first');
       return;
     }
 
     setIsBuilding(true);
     setBuildProgress([]);
     setBuildPercent(0);
+    buildHadQuestionErrorsRef.current = false;
+    buildCompletedSkillsRef.current = 0;
 
     try {
-      const { run_id } = await buildLearningPath(numericCourseId);
+      const { run_id } = await buildLearningPath(
+        numericCourseId,
+        selectionLocked ? [] : stagedSelectedSkills,
+      );
 
       streamBuildProgress(
         numericCourseId,
         run_id,
         (event) => {
+          if (event.phase === 'question_error') {
+            buildHadQuestionErrorsRef.current = true;
+          }
           setBuildProgress((prev) => [...prev, event]);
-          if (event.total_skills > 0) {
-            setBuildPercent(Math.round((event.skills_completed / event.total_skills) * 100));
+          if (event.total_skills > 0 && (event.phase === 'done' || event.phase === 'skipped')) {
+            buildCompletedSkillsRef.current = Math.max(
+              buildCompletedSkillsRef.current,
+              event.skills_completed,
+            );
+            setBuildPercent(
+              Math.round((buildCompletedSkillsRef.current / event.total_skills) * 100),
+            );
           }
         },
         async () => {
           setIsBuilding(false);
           setBuildPercent(100);
-          toast.success('Learning path built successfully!');
-          await loadLearningPath();
-          setActiveTab('path');
+          const updatedSkillBanks = await loadSkillBanks();
+          const updatedLearningPath =
+            (updatedSkillBanks?.selected_skill_names.length ?? 0) > 0
+              ? await loadLearningPath()
+              : null;
+          const skillsMissingQuestions =
+            updatedLearningPath?.chapters.reduce(
+              (total, chapter) =>
+                total +
+                chapter.selected_skills.filter((skill) => skill.questions.length === 0).length,
+              0,
+            ) ?? 0;
+
+          if (skillsMissingQuestions > 0) {
+            toast.warning(
+              `Learning path built, but ${skillsMissingQuestions} skill${
+                skillsMissingQuestions === 1 ? '' : 's'
+              } still have no questions. If you recently changed the backend code, restart it and rebuild.`,
+            );
+          } else if (buildHadQuestionErrorsRef.current) {
+            toast.warning(
+              'Learning path built with some question-generation issues. Try rebuilding to backfill missing questions.',
+            );
+          } else {
+            toast.success('Learning path built successfully!');
+          }
         },
-        (err) => {
+        async (err) => {
           setIsBuilding(false);
+          const updatedSkillBanks = await loadSkillBanks();
+          if ((updatedSkillBanks?.selected_skill_names.length ?? 0) > 0) {
+            await loadLearningPath();
+          } else {
+            setLearningPath(null);
+          }
           toast.error(`Build failed: ${err.message}`);
         },
       );
-    } catch {
+    } catch (err) {
       setIsBuilding(false);
+      console.error(err);
       toast.error('Failed to start build');
     }
   };
@@ -317,6 +234,13 @@ export default function StudentLearningPathPage() {
 
   const allBooks = skillBanks?.book_skill_banks ?? [];
   const allMarketPostings = skillBanks?.market_skill_bank ?? [];
+  const persistedSelectedSkills = new Set(skillBanks?.selected_skill_names ?? []);
+  const selectedSkills = new Set(
+    persistedSelectedSkills.size > 0
+      ? persistedSelectedSkills
+      : Array.from(draftSelectedSkills.keys()),
+  );
+  const selectionLocked = persistedSelectedSkills.size > 0;
 
   const filteredBookBanks = filterBookSkillBanks(
     allBooks,
@@ -329,6 +253,7 @@ export default function StudentLearningPathPage() {
     deferredSearchQuery,
     showSelectedOnly,
     selectedSkills,
+    interestedPostings,
   );
 
   const totalBookCount = allBooks.length;
@@ -357,11 +282,11 @@ export default function StudentLearningPathPage() {
     0,
   );
 
-  const selectionStatusLabel = isSyncingSkills
-    ? 'Saving selections...'
-    : pendingSkillNames.size > 0
-      ? `${pendingSkillNames.size} change${pendingSkillNames.size === 1 ? '' : 's'} queued`
-      : 'Selections saved';
+  const selectionStatusLabel = selectionLocked
+    ? 'Study mode'
+    : selectedSkills.size > 0
+      ? `${selectedSkills.size} draft skill${selectedSkills.size === 1 ? '' : 's'} selected`
+      : 'Draft selections stay local until build';
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-auto">
@@ -391,12 +316,7 @@ export default function StudentLearningPathPage() {
               </Badge>
               <Button
                 onClick={handleBuild}
-                disabled={
-                  isBuilding ||
-                  selectedSkills.size === 0 ||
-                  isSyncingSkills ||
-                  pendingPostingUrls.size > 0
-                }
+                disabled={isBuilding || (!selectionLocked && selectedSkills.size === 0)}
                 size="lg"
                 className="gap-2 shadow-sm"
               >
@@ -405,7 +325,11 @@ export default function StudentLearningPathPage() {
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                {isBuilding ? 'Building...' : 'Build My Learning Path'}
+                {isBuilding
+                  ? 'Building...'
+                  : selectionLocked
+                    ? 'Rebuild Learning Path'
+                    : 'Build My Learning Path'}
               </Button>
             </div>
           </div>
@@ -429,14 +353,22 @@ export default function StudentLearningPathPage() {
               icon={<CheckCircle2 className="h-4 w-4" />}
               label="Selected skills"
               value={`${selectedSkills.size}`}
-              detail={selectedSkills.size > 0 ? 'Ready for path building' : 'Choose what to learn'}
+              detail={
+                selectionLocked
+                  ? 'Saved in your learning path'
+                  : selectedSkills.size > 0
+                    ? 'Ready for path building'
+                    : 'Choose what to learn'
+              }
               tone="selected"
             />
             <HeroStat
               icon={<Search className="h-4 w-4" />}
               label="Interested postings"
               value={`${interestedPostings.size}`}
-              detail="Pinned to the top of the market bank"
+              detail={
+                selectionLocked ? 'Saved from prior selections' : 'Pinned to the top while selecting'
+              }
               tone="neutral"
             />
           </div>
@@ -462,29 +394,8 @@ export default function StudentLearningPathPage() {
         </Card>
       )}
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'select' | 'path')}>
-        <TabsList className="w-fit">
-          <TabsTrigger value="select" className="gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            Select Skills
-            {selectedSkills.size > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {selectedSkills.size}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="path" className="gap-2">
-            <BookOpen className="h-4 w-4" />
-            Learning Path
-            {learningPath && learningPath.total_selected_skills > 0 && (
-              <Badge variant="secondary" className="ml-1">
-                {learningPath.skills_with_resources}/{learningPath.total_selected_skills}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="select" className="mt-4 space-y-4">
+      {!selectionLocked ? (
+        <section className="space-y-4">
           <Card className="border-border/60 bg-card/70 shadow-none">
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -561,8 +472,6 @@ export default function StudentLearningPathPage() {
                       key={book.book_id}
                       book={book}
                       selectedSkills={selectedSkills}
-                      pendingSkillNames={pendingSkillNames}
-                      peerSelectionCounts={skillBanks?.peer_selection_counts ?? {}}
                       onSkillClick={toggleSkill}
                     />
                   ))
@@ -602,7 +511,6 @@ export default function StudentLearningPathPage() {
                   >
                     {filteredMarketSkillBank.map((posting) => {
                       const isInterested = interestedPostings.has(posting.url);
-                      const isPending = pendingPostingUrls.has(posting.url);
 
                       return (
                         <AccordionItem key={posting.url} value={`job-${posting.url}`}>
@@ -643,14 +551,10 @@ export default function StudentLearningPathPage() {
                                 onClick={(event) => {
                                   event.preventDefault();
                                   event.stopPropagation();
-                                  void toggleJobPosting(posting);
+                                  toggleJobPosting(posting);
                                 }}
                               >
-                                {isPending ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Sparkles className="h-3.5 w-3.5" />
-                                )}
+                                <Sparkles className="h-3.5 w-3.5" />
                                 {isInterested ? 'Saved' : 'Save'}
                               </Button>
                             </div>
@@ -674,13 +578,8 @@ export default function StudentLearningPathPage() {
                                       key={skill.name}
                                       skill={skill}
                                       isSelected={selectedSkills.has(skill.name)}
-                                      isPending={pendingSkillNames.has(skill.name)}
-                                      peerCount={
-                                        skill.peer_count ??
-                                        skillBanks?.peer_selection_counts[skill.name] ??
-                                        0
-                                      }
-                                      onClick={() => toggleSkill(skill.name, normalizeSkillSource(skill.source))}
+                                      peerCount={skill.peer_count ?? 0}
+                                      onClick={() => toggleSkill(skill.name, 'market')}
                                     />
                                   ))}
                                 </div>
@@ -705,18 +604,21 @@ export default function StudentLearningPathPage() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        <TabsContent value="path" className="mt-4">
+        </section>
+      ) : (
+        <section className="space-y-4">
           {!learningPath || learningPath.chapters.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
                 <Sparkles className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-                <p>No learning path yet. Select skills and click &quot;Build My Learning Path&quot; to get started.</p>
+                <p>No learning path yet. Click &quot;Build My Learning Path&quot; to get started.</p>
               </CardContent>
             </Card>
           ) : (
-            <Accordion type="multiple" defaultValue={learningPath.chapters.map((_, i) => `ch-${i}`)}>
+            <Accordion
+              type="multiple"
+              defaultValue={learningPath.chapters.length > 0 ? ['ch-0'] : []}
+            >
               {learningPath.chapters.map((chapter, chIdx) => (
                 <AccordionItem key={chIdx} value={`ch-${chIdx}`}>
                   <AccordionTrigger className="text-lg font-semibold">
@@ -809,6 +711,16 @@ export default function StudentLearningPathPage() {
                                 </div>
                               </>
                             )}
+
+                            {skill.questions.length === 0 &&
+                              (skill.readings.length > 0 || skill.videos.length > 0) && (
+                                <>
+                                  <Separator />
+                                  <div className="rounded-md border border-amber-200/60 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+                                    Questions are not available yet. Try rebuilding the learning path.
+                                  </div>
+                                </>
+                              )}
                           </CardContent>
                         </Card>
                       ))}
@@ -818,8 +730,8 @@ export default function StudentLearningPathPage() {
               ))}
             </Accordion>
           )}
-        </TabsContent>
-      </Tabs>
+        </section>
+      )}
     </div>
   );
 }
@@ -861,14 +773,10 @@ function HeroStat({
 function BookBankCard({
   book,
   selectedSkills,
-  pendingSkillNames,
-  peerSelectionCounts,
   onSkillClick,
 }: {
   book: StudentSkillBankBook;
   selectedSkills: Set<string>;
-  pendingSkillNames: Set<string>;
-  peerSelectionCounts: Record<string, number>;
   onSkillClick: (skillName: string, source: 'book' | 'market') => void;
 }) {
   const skillCount = book.chapters.reduce((total, chapter) => total + chapter.skills.length, 0);
@@ -923,8 +831,7 @@ function BookBankCard({
                         key={`${chapter.chapter_id}-${skill.name}`}
                         skill={skill}
                         isSelected={selectedSkills.has(skill.name)}
-                        isPending={pendingSkillNames.has(skill.name)}
-                        peerCount={skill.peer_count ?? peerSelectionCounts[skill.name] ?? 0}
+                        peerCount={skill.peer_count ?? 0}
                         onClick={() => onSkillClick(skill.name, 'book')}
                       />
                     ))}
@@ -946,13 +853,11 @@ function BookBankCard({
 function SkillChip({
   skill,
   isSelected,
-  isPending,
   peerCount,
   onClick,
 }: {
   skill: StudentSkillBankSkill;
   isSelected: boolean;
-  isPending: boolean;
   peerCount: number;
   onClick: () => void;
 }) {
@@ -961,16 +866,11 @@ function SkillChip({
       type="button"
       variant={isSelected ? 'default' : 'outline'}
       size="sm"
-      className={cn(
-        'h-auto min-h-9 rounded-full px-3 py-1.5 transition-all',
-        isPending && 'ring-2 ring-primary/25',
-      )}
+      className="h-auto min-h-9 rounded-full px-3 py-1.5 transition-all"
       onClick={onClick}
       title={skill.description || ''}
     >
-      {isPending ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : isSelected ? (
+      {isSelected ? (
         <CheckCircle2 className="h-3.5 w-3.5" />
       ) : null}
       <span className="max-w-[16rem] truncate">{skill.name}</span>
@@ -1076,10 +976,6 @@ type QuestionWithOptions = {
   correct_option?: 'A' | 'B' | 'C' | 'D' | null;
 };
 
-function normalizeSkillSource(source?: string | null): 'book' | 'market' {
-  return source === 'book' ? 'book' : 'market';
-}
-
 function matchesSearch(query: string, ...values: Array<string | null | undefined>): boolean {
   if (!query) {
     return false;
@@ -1135,28 +1031,39 @@ function filterMarketSkillBank(
   query: string,
   showSelectedOnly: boolean,
   selectedSkills: Set<string>,
+  interestedPostings: Set<string>,
 ): StudentSkillBankJobPosting[] {
   const hasQuery = query.length > 0;
 
-  return postings.flatMap((posting) => {
-    const postingMatches =
-      hasQuery && matchesSearch(query, posting.title, posting.company, posting.site, posting.search_term);
+  return postings
+    .flatMap((posting) => {
+      const postingMatches =
+        hasQuery &&
+        matchesSearch(query, posting.title, posting.company, posting.site, posting.search_term);
 
-    const skills = posting.skills.filter((skill) => {
-      const isSelected = selectedSkills.has(skill.name);
-      if (showSelectedOnly && !isSelected) {
-        return false;
+      const skills = posting.skills.filter((skill) => {
+        const isSelected = selectedSkills.has(skill.name);
+        if (showSelectedOnly && !isSelected) {
+          return false;
+        }
+        if (!hasQuery || postingMatches) {
+          return true;
+        }
+        return matchesSearch(query, skill.name, skill.description, skill.category);
+      });
+
+      if (!postingMatches && skills.length === 0) {
+        return [];
       }
-      if (!hasQuery || postingMatches) {
-        return true;
+
+      return [{ ...posting, skills }];
+    })
+    .sort((left, right) => {
+      const leftInterested = interestedPostings.has(left.url);
+      const rightInterested = interestedPostings.has(right.url);
+      if (leftInterested !== rightInterested) {
+        return leftInterested ? -1 : 1;
       }
-      return matchesSearch(query, skill.name, skill.description, skill.category);
+      return left.title.localeCompare(right.title);
     });
-
-    if (!postingMatches && skills.length === 0) {
-      return [];
-    }
-
-    return [{ ...posting, skills }];
-  });
 }

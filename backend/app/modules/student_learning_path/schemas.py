@@ -26,6 +26,15 @@ class DeselectJobPostingRequest(BaseModel):
     posting_url: str
 
 
+class BuildSelectedSkillRequest(BaseModel):
+    name: str
+    source: Literal["book", "market"]
+
+
+class BuildLearningPathRequest(BaseModel):
+    selected_skills: list[BuildSelectedSkillRequest] = Field(default_factory=list)
+
+
 # ── Response schemas ─────────────────────────────────────────
 
 

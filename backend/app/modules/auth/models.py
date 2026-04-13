@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from fastapi_users.db import SQLAlchemyBaseUserTable
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from app.modules.courses.models import Course, CourseEnrollment
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     STUDENT = "student"
     TEACHER = "teacher"
 
