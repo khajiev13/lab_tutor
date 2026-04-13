@@ -19,6 +19,7 @@ from app.modules.auth.dependencies import fastapi_users, require_role
 from app.modules.auth.models import User, UserRole
 
 from .schemas import (
+    BuildLearningPathRequest,
     DeselectJobPostingRequest,
     DeselectSkillsRequest,
     LearningPathResponse,
@@ -136,10 +137,18 @@ async def build_learning_path(
     student: StudentDep,
     db: DbDep,
     driver: Neo4jDep,
+    body: BuildLearningPathRequest | None = None,
 ) -> dict:
     """'Build My Learning Path' — launches LangGraph pipeline. Returns run_id."""
     service = _get_service(db, driver)
-    run_id, _ = await service.build_learning_path(student.id, course_id)
+    try:
+        run_id, _ = await service.build_learning_path(
+            student.id,
+            course_id,
+            body.selected_skills if body else [],
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return {"run_id": run_id, "status": "started"}
 
 

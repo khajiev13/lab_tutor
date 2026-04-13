@@ -54,6 +54,12 @@ export interface LearningPathSkill {
     url: string;
     domain: string;
     snippet: string;
+    search_content: string;
+    search_result_url: string;
+    search_result_domain: string;
+    source_engine: string;
+    source_engines: string[];
+    search_metadata_json: string;
     resource_type: string;
     final_score: number;
     concepts_covered: string[];
@@ -63,7 +69,13 @@ export interface LearningPathSkill {
     url: string;
     domain: string;
     snippet: string;
+    search_content: string;
     video_id: string;
+    search_result_url: string;
+    search_result_domain: string;
+    source_engine: string;
+    source_engines: string[];
+    search_metadata_json: string;
     resource_type: string;
     final_score: number;
     concepts_covered: string[];
@@ -101,6 +113,11 @@ export interface BuildProgressEvent {
   detail: string;
   skills_completed: number;
   total_skills: number;
+}
+
+export interface BuildSelectedSkillInput {
+  name: string;
+  source: 'book' | 'market';
 }
 
 export async function getSkillBanks(courseId: number): Promise<SkillBanksResponse> {
@@ -152,8 +169,10 @@ export async function deselectJobPosting(
 
 export async function buildLearningPath(
   courseId: number,
+  selectedSkills: BuildSelectedSkillInput[] = [],
 ): Promise<{ run_id: string; status: string }> {
-  const { data } = await api.post(`${BASE}/${courseId}/build`);
+  const payload = selectedSkills.length > 0 ? { selected_skills: selectedSkills } : undefined;
+  const { data } = await api.post(`${BASE}/${courseId}/build`, payload);
   return data;
 }
 

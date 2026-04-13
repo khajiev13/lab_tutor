@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -62,7 +62,7 @@ class WeightsConfig(BaseModel):
         }
 
 
-class CourseLevelEnum(str, Enum):
+class CourseLevelEnum(StrEnum):
     BACHELOR = "bachelor"
     MASTER = "master"
     PHD = "phd"
@@ -158,7 +158,7 @@ class SelectedBookManualUploadResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 
-class StreamEventType(str, Enum):
+class StreamEventType(StrEnum):
     PHASE_UPDATE = "phase_update"
     DISCOVERY_PROGRESS = "discovery_progress"
     SCORING_PROGRESS = "scoring_progress"
