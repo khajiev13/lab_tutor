@@ -9,6 +9,8 @@ import * as studentLearningPathApi from '../api';
 vi.mock('../api', () => ({
   getSkillBanks: vi.fn(),
   getLearningPath: vi.fn(),
+  getChapterQuiz: vi.fn(),
+  submitChapterQuiz: vi.fn(),
   buildLearningPath: vi.fn(),
   streamBuildProgress: vi.fn(),
   selectSkills: vi.fn(),
@@ -109,16 +111,63 @@ const permissiveLockedSkillBanks = {
   },
 };
 
-const learningPathResponse = {
+const gatingLearningPathResponse = {
   course_id: 1,
   course_title: 'Data Systems',
-  total_selected_skills: 1,
-  skills_with_resources: 1,
+  total_selected_skills: 3,
+  skills_with_resources: 3,
   chapters: [
     {
       title: 'Foundations',
       chapter_index: 1,
       description: null,
+      quiz_status: 'quiz_required',
+      easy_question_count: 1,
+      answered_count: 0,
+      selected_skills: [
+        {
+          name: 'Batch Processing',
+          source: 'book',
+          description: 'Process large datasets reliably.',
+          skill_type: 'book',
+          concepts: [],
+          readings: [],
+          videos: [],
+          questions: [],
+          is_known: false,
+          resource_status: 'loaded',
+        },
+      ],
+    },
+    {
+      title: 'Streaming Systems',
+      chapter_index: 2,
+      description: null,
+      quiz_status: 'locked',
+      easy_question_count: 1,
+      answered_count: 0,
+      selected_skills: [
+        {
+          name: 'Kafka',
+          source: 'market',
+          description: 'Stream events across services.',
+          skill_type: 'market',
+          concepts: [],
+          readings: [],
+          videos: [],
+          questions: [],
+          is_known: false,
+          resource_status: 'loaded',
+        },
+      ],
+    },
+    {
+      title: 'Batch Review',
+      chapter_index: 3,
+      description: null,
+      quiz_status: 'learning',
+      easy_question_count: 1,
+      answered_count: 1,
       selected_skills: [
         {
           name: 'Batch Processing',
@@ -145,6 +194,82 @@ const learningPathResponse = {
           ],
           videos: [],
           questions: [],
+          is_known: true,
+          resource_status: 'loaded',
+        },
+      ],
+    },
+  ],
+};
+
+const learningPathResponse = {
+  course_id: 1,
+  course_title: 'Data Systems',
+  total_selected_skills: 2,
+  skills_with_resources: 2,
+  chapters: [
+    {
+      title: 'Foundations',
+      chapter_index: 1,
+      description: null,
+      quiz_status: 'learning',
+      easy_question_count: 2,
+      answered_count: 1,
+      selected_skills: [
+        {
+          name: 'Batch Processing',
+          source: 'book',
+          description: 'Process large datasets reliably.',
+          skill_type: 'book',
+          concepts: [],
+          readings: [
+            {
+              title: 'Batch Systems Guide',
+              url: 'https://example.com/reading',
+              domain: 'example.com',
+              snippet: '',
+              search_content: '',
+              search_result_url: '',
+              search_result_domain: '',
+              source_engine: '',
+              source_engines: [],
+              search_metadata_json: '[]',
+              resource_type: 'article',
+              final_score: 0.9,
+              concepts_covered: [],
+            },
+          ],
+          videos: [],
+          questions: [],
+          is_known: true,
+          resource_status: 'loaded',
+        },
+        {
+          name: 'Streaming Basics',
+          source: 'book',
+          description: 'Understand event streams.',
+          skill_type: 'book',
+          concepts: [],
+          readings: [
+            {
+              title: 'Streaming Primer',
+              url: 'https://example.com/streaming',
+              domain: 'example.com',
+              snippet: '',
+              search_content: '',
+              search_result_url: '',
+              search_result_domain: '',
+              source_engine: '',
+              source_engines: [],
+              search_metadata_json: '[]',
+              resource_type: 'article',
+              final_score: 0.8,
+              concepts_covered: [],
+            },
+          ],
+          videos: [],
+          questions: [],
+          is_known: false,
           resource_status: 'loaded',
         },
       ],
@@ -262,7 +387,7 @@ describe('StudentLearningPathPage', () => {
     });
   });
 
-  it('reloads into locked study mode after build completion', async () => {
+  it('reloads into chapter learning mode after build completion', async () => {
     (studentLearningPathApi.getSkillBanks as Mock)
       .mockResolvedValueOnce(permissiveUnlockedSkillBanks)
       .mockResolvedValueOnce(permissiveLockedSkillBanks);
@@ -300,15 +425,29 @@ describe('StudentLearningPathPage', () => {
     });
   });
 
-  it('shows only study mode for locked students and opens the first chapter', async () => {
+  it('renders chapter gating and known-skill collapse', async () => {
     (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
-    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(learningPathResponse);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(gatingLearningPathResponse);
 
     renderPage();
 
     expect(await screen.findByText('Chapter 1: Foundations')).toBeInTheDocument();
-    expect(screen.queryByText('Book Skill Banks')).not.toBeInTheDocument();
-    expect(screen.getByText('Reading Resources')).toBeInTheDocument();
+    expect(screen.getByText('Quiz required')).toBeInTheDocument();
+    expect(screen.getByText('Locked')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Start chapter - take quiz/i })).toHaveAttribute(
+      'href',
+      '/courses/1/learning-path/chapters/1/quiz',
+    );
+    expect(screen.queryByText('Batch Systems Guide')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Show Answer/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Batch Processing/i }));
+    expect(await screen.findByText('Batch Systems Guide')).toBeInTheDocument();
+    expect(screen.getByText('Known · Review anyway')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Retake diagnostic/i })).toHaveAttribute(
+      'href',
+      '/courses/1/learning-path/chapters/3/quiz',
+    );
   });
 
   it('redirects back to the course page when skill banks return 403', async () => {
