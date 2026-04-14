@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -45,8 +46,50 @@ class QuestionRead(BaseModel):
     text: str
     difficulty: Literal["easy", "medium", "hard"]
     options: list[str] = []
-    correct_option: Literal["A", "B", "C", "D"] | None = None
-    answer: str
+
+
+class QuizQuestion(BaseModel):
+    id: str
+    skill_name: str
+    text: str
+    options: list[str] = []
+
+
+class PreviousAnswer(BaseModel):
+    selected_option: Literal["A", "B", "C", "D"]
+    answered_right: bool
+    answered_at: datetime
+
+
+class ChapterQuizResponse(BaseModel):
+    course_id: int
+    chapter_index: int
+    chapter_title: str
+    questions: list[QuizQuestion] = []
+    previous_answers: dict[str, PreviousAnswer] = {}
+
+
+class QuizAnswerSubmission(BaseModel):
+    question_id: str
+    selected_option: Literal["A", "B", "C", "D"]
+
+
+class QuizSubmitRequest(BaseModel):
+    answers: list[QuizAnswerSubmission] = []
+
+
+class QuizAnswerResult(BaseModel):
+    question_id: str
+    skill_name: str
+    selected_option: Literal["A", "B", "C", "D"]
+    answered_right: bool
+    correct_option: Literal["A", "B", "C", "D"]
+
+
+class QuizSubmitResponse(BaseModel):
+    chapter_index: int
+    results: list[QuizAnswerResult] = []
+    skills_known: list[str] = []
 
 
 class ReadingResourceRead(BaseModel):
@@ -100,6 +143,7 @@ class LearningPathSkill(BaseModel):
     videos: list[VideoResourceRead] = []
     questions: list[QuestionRead] = []
     resource_status: Literal["loaded", "pending"] = "pending"
+    is_known: bool = False
 
 
 class LearningPathChapter(BaseModel):
@@ -108,6 +152,9 @@ class LearningPathChapter(BaseModel):
     description: str | None = None
     learning_objectives: list[str] = []
     selected_skills: list[LearningPathSkill] = []
+    quiz_status: Literal["locked", "quiz_required", "learning", "completed"]
+    easy_question_count: int = 0
+    answered_count: int = 0
 
 
 class LearningPathResponse(BaseModel):

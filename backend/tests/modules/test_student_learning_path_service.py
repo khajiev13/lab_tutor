@@ -6,7 +6,10 @@ import pytest
 from fastapi import HTTPException, status
 
 from app.modules.student_learning_path import neo4j_repository
-from app.modules.student_learning_path.schemas import BuildSelectedSkillRequest
+from app.modules.student_learning_path.schemas import (
+    BuildSelectedSkillRequest,
+    QuizSubmitRequest,
+)
 from app.modules.student_learning_path.service import StudentLearningPathService
 
 
@@ -204,3 +207,136 @@ def test_validate_enrollment_raises_403_when_student_is_not_enrolled(caplog):
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
     assert exc_info.value.detail == "Student is not enrolled in this course"
     assert "student_id=4 course_id=2" in caplog.text
+
+
+def test_get_chapter_quiz_enforces_enrollment(monkeypatch):
+    service = StudentLearningPathService(MagicMock(), MagicMock())
+
+    monkeypatch.setattr(
+        service,
+        "_validate_enrollment",
+        MagicMock(side_effect=HTTPException(status.HTTP_403_FORBIDDEN, "nope")),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.get_chapter_quiz(11, 2, 1)
+
+    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_submit_chapter_quiz_requires_full_chapter_submission(monkeypatch):
+    service = _build_service(monkeypatch)
+
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_chapter_quiz_progress",
+        lambda _session, _student_id, _course_id: [
+            {"chapter_index": 1, "easy_question_count": 2, "answered_count": 0}
+        ],
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_chapter_easy_questions",
+        lambda _session, _student_id, _course_id, _chapter_index: {
+            "chapter_title": "Foundations",
+            "questions": [
+                {
+                    "id": "q-1",
+                    "skill_name": "Batch Processing",
+                    "text": "Q1",
+                    "options": ["A", "B", "C", "D"],
+                },
+                {
+                    "id": "q-2",
+                    "skill_name": "Kafka",
+                    "text": "Q2",
+                    "options": ["A", "B", "C", "D"],
+                },
+            ],
+            "previous_answers": {},
+        },
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        service.submit_chapter_quiz(
+            11,
+            2,
+            1,
+            payload=QuizSubmitRequest(
+                answers=[
+                    {"question_id": "q-1", "selected_option": "A"},
+                ]
+            ),
+        )
+
+    assert str(exc_info.value) == "Quiz submission must include every easy question in the chapter"
+
+
+def test_get_chapter_quiz_rejects_locked_chapter(monkeypatch):
+    service = _build_service(monkeypatch)
+
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_chapter_quiz_progress",
+        lambda _session, _student_id, _course_id: [
+            {"chapter_index": 2, "easy_question_count": 1, "answered_count": 0}
+        ],
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        service.get_chapter_quiz(11, 2, 2)
+
+    assert str(exc_info.value) == "Chapter quiz is locked"
+
+
+def test_submit_chapter_quiz_returns_results_and_known_skills(monkeypatch):
+    service = _build_service(monkeypatch)
+
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_chapter_quiz_progress",
+        lambda _session, _student_id, _course_id: [
+            {"chapter_index": 1, "easy_question_count": 1, "answered_count": 0}
+        ],
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_chapter_easy_questions",
+        lambda _session, _student_id, _course_id, _chapter_index: {
+            "chapter_title": "Foundations",
+            "questions": [
+                {
+                    "id": "q-1",
+                    "skill_name": "Batch Processing",
+                    "text": "Q1",
+                    "options": ["A", "B", "C", "D"],
+                }
+            ],
+            "previous_answers": {},
+        },
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "submit_chapter_answers",
+        lambda _session, _student_id, _course_id, _chapter_index, _answers: [
+            {
+                "question_id": "q-1",
+                "skill_name": "Batch Processing",
+                "selected_option": "A",
+                "answered_right": True,
+                "correct_option": "A",
+            }
+        ],
+    )
+
+    result = service.submit_chapter_quiz(
+        11,
+        2,
+        1,
+        payload=QuizSubmitRequest(
+            answers=[{"question_id": "q-1", "selected_option": "A"}]
+        ),
+    )
+
+    assert result.chapter_index == 1
+    assert result.skills_known == ["Batch Processing"]

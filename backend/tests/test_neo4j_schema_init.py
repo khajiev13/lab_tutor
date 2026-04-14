@@ -48,6 +48,11 @@ def test_initialize_neo4j_constraints_idempotent_and_relationship_fallback(caplo
 
     # Should have attempted node vector index creation.
     assert any(
+        s.startswith("CREATE CONSTRAINT question_id_unique")
+        for s in driver.session_obj.statements
+    )
+
+    assert any(
         s.startswith(
             "CREATE VECTOR INDEX teacher_uploaded_document_summary_embedding_vector_idx"
         )

@@ -245,15 +245,24 @@ def test_get_learning_path_marks_skills_pending_without_resources():
                             "description": "Process large datasets reliably.",
                             "source": "book",
                             "skill_type": "book",
+                            "is_known": False,
                             "concepts": [],
                             "readings": [],
                             "videos": [],
-                            "questions": [],
+                            "questions": [
+                                {
+                                    "id": "q-1",
+                                    "text": "What is a batch?",
+                                    "difficulty": "easy",
+                                    "options": ["A", "B", "C", "D"],
+                                }
+                            ],
                         }
                     ],
                 }
             }
         ],
+        [{"chapter_index": 1, "easy_question_count": 1, "answered_count": 0}],
     ]
 
     result = neo4j_repository.get_learning_path(session, student_id=11, course_id=2)
@@ -261,4 +270,133 @@ def test_get_learning_path_marks_skills_pending_without_resources():
     assert result["course_title"] == "Data Systems"
     assert result["total_selected_skills"] == 1
     assert result["skills_with_resources"] == 0
+    assert result["chapters"][0]["quiz_status"] == "quiz_required"
+    assert result["chapters"][0]["easy_question_count"] == 1
+    assert result["chapters"][0]["answered_count"] == 0
     assert result["chapters"][0]["selected_skills"][0]["resource_status"] == "pending"
+    assert result["chapters"][0]["selected_skills"][0]["is_known"] is False
+    assert "answer" not in result["chapters"][0]["selected_skills"][0]["questions"][0]
+    assert (
+        "correct_option"
+        not in result["chapters"][0]["selected_skills"][0]["questions"][0]
+    )
+
+
+def test_get_learning_path_applies_strict_sequence_quiz_status_math():
+    session = MagicMock()
+    course_result = MagicMock()
+    course_result.single.return_value = {"title": "Data Systems"}
+    session.run.side_effect = [
+        course_result,
+        [
+            {
+                "chapter": {
+                    "title": "Foundations",
+                    "chapter_index": 1,
+                    "description": None,
+                    "selected_skills": [],
+                }
+            },
+            {
+                "chapter": {
+                    "title": "Streaming",
+                    "chapter_index": 2,
+                    "description": None,
+                    "selected_skills": [],
+                }
+            },
+        ],
+        [
+            {"chapter_index": 1, "easy_question_count": 2, "answered_count": 2},
+            {"chapter_index": 2, "easy_question_count": 3, "answered_count": 0},
+        ],
+    ]
+
+    result = neo4j_repository.get_learning_path(session, student_id=11, course_id=2)
+
+    assert result["chapters"][0]["quiz_status"] == "learning"
+    assert result["chapters"][1]["quiz_status"] == "locked"
+    assert result["chapters"][0]["answered_count"] == 2
+    assert result["chapters"][1]["easy_question_count"] == 3
+
+
+def test_get_chapter_easy_questions_omits_correct_answer_and_collects_previous_answers():
+    session = MagicMock()
+    session.run.return_value = [
+        {
+            "chapter_title": "Foundations",
+            "id": "q-1",
+            "skill_name": "Batch Processing",
+            "text": "What is a batch job?",
+            "options": ["A", "B", "C", "D"],
+            "previous_answer": {
+                "selected_option": "B",
+                "answered_right": True,
+                "answered_at": "2026-04-14T08:00:00Z",
+            },
+        }
+    ]
+
+    result = neo4j_repository.get_chapter_easy_questions(
+        session,
+        student_id=11,
+        course_id=2,
+        chapter_index=1,
+    )
+
+    assert result["chapter_title"] == "Foundations"
+    assert result["questions"] == [
+        {
+            "id": "q-1",
+            "skill_name": "Batch Processing",
+            "text": "What is a batch job?",
+            "options": ["A", "B", "C", "D"],
+        }
+    ]
+    assert result["previous_answers"]["q-1"]["selected_option"] == "B"
+
+
+def test_submit_chapter_answers_merges_answered_relationship():
+    session = MagicMock()
+    session.run.return_value = [
+        {
+            "question_id": "q-1",
+            "skill_name": "Batch Processing",
+            "selected_option": "B",
+            "answered_right": True,
+            "correct_option": "B",
+        }
+    ]
+
+    result = neo4j_repository.submit_chapter_answers(
+        session,
+        student_id=11,
+        course_id=2,
+        chapter_index=1,
+        submissions=[{"question_id": "q-1", "selected_option": "B"}],
+    )
+
+    query = session.run.call_args.args[0]
+
+    assert result[0]["correct_option"] == "B"
+    assert "MERGE (u)-[a:ANSWERED]->(q)" in query
+    assert "a.answered_right = correct" in query
+
+
+def test_get_chapter_quiz_progress_returns_counts_per_selected_chapter():
+    session = MagicMock()
+    session.run.return_value = [
+        {"chapter_index": 1, "easy_question_count": 2, "answered_count": 1},
+        {"chapter_index": 2, "easy_question_count": 3, "answered_count": 0},
+    ]
+
+    result = neo4j_repository.get_chapter_quiz_progress(
+        session,
+        student_id=11,
+        course_id=2,
+    )
+
+    assert result == [
+        {"chapter_index": 1, "easy_question_count": 2, "answered_count": 1},
+        {"chapter_index": 2, "easy_question_count": 3, "answered_count": 0},
+    ]

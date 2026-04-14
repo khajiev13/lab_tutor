@@ -20,9 +20,12 @@ from app.modules.auth.models import User, UserRole
 
 from .schemas import (
     BuildLearningPathRequest,
+    ChapterQuizResponse,
     DeselectJobPostingRequest,
     DeselectSkillsRequest,
     LearningPathResponse,
+    QuizSubmitRequest,
+    QuizSubmitResponse,
     SelectJobPostingsRequest,
     SelectSkillsRequest,
     StudentSkillBankResponse,
@@ -237,3 +240,47 @@ def get_learning_path(
     """Read the personalized learning path."""
     service = _get_service(db, driver)
     return service.get_learning_path(student.id, course_id)
+
+
+@router.get(
+    "/{course_id}/chapters/{chapter_index}/quiz",
+    response_model=ChapterQuizResponse,
+)
+def get_chapter_quiz(
+    course_id: int,
+    chapter_index: int,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> ChapterQuizResponse:
+    """Read the entry quiz for a chapter."""
+    service = _get_service(db, driver)
+    try:
+        return service.get_chapter_quiz(student.id, course_id, chapter_index)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{course_id}/chapters/{chapter_index}/quiz/submit",
+    response_model=QuizSubmitResponse,
+)
+def submit_chapter_quiz(
+    course_id: int,
+    chapter_index: int,
+    body: QuizSubmitRequest,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> QuizSubmitResponse:
+    """Submit the entry quiz for a chapter."""
+    service = _get_service(db, driver)
+    try:
+        return service.submit_chapter_quiz(
+            student.id,
+            course_id,
+            chapter_index,
+            body,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

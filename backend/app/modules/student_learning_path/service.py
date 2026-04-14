@@ -17,7 +17,13 @@ from app.modules.courses.repository import CourseRepository
 
 from . import neo4j_repository
 from .graph import learning_path_graph
-from .schemas import BuildSelectedSkillRequest, StudentSkillBankResponse
+from .schemas import (
+    BuildSelectedSkillRequest,
+    ChapterQuizResponse,
+    QuizSubmitRequest,
+    QuizSubmitResponse,
+    StudentSkillBankResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +135,151 @@ class StudentLearningPathService:
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
             return neo4j_repository.get_learning_path(session, student_id, course_id)
+
+    def _get_chapter_quiz_status(
+        self,
+        session,
+        student_id: int,
+        course_id: int,
+        chapter_index: int,
+    ) -> tuple[str | None, dict[str, int]]:
+        progress_rows = neo4j_repository.get_chapter_quiz_progress(
+            session,
+            student_id,
+            course_id,
+        )
+        progress_map = {
+            row["chapter_index"]: row
+            for row in progress_rows
+        }
+        progress = progress_map.get(chapter_index)
+        if progress is None:
+            return None, {"easy_question_count": 0, "answered_count": 0}
+
+        status_name = (
+            "quiz_required"
+            if chapter_index == 1 and progress["answered_count"] == 0
+            else "learning"
+            if chapter_index == 1
+            else "locked"
+        )
+        return status_name, progress
+
+    def get_chapter_quiz(
+        self,
+        student_id: int,
+        course_id: int,
+        chapter_index: int,
+    ) -> ChapterQuizResponse:
+        self._validate_enrollment(student_id, course_id)
+        driver = self._require_neo4j()
+        with driver.session(database=settings.neo4j_database) as session:
+            quiz_status, _progress = self._get_chapter_quiz_status(
+                session,
+                student_id,
+                course_id,
+                chapter_index,
+            )
+            if quiz_status is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Chapter quiz not found",
+                )
+            if quiz_status == "locked":
+                raise ValueError("Chapter quiz is locked")
+
+            chapter_quiz = neo4j_repository.get_chapter_easy_questions(
+                session,
+                student_id,
+                course_id,
+                chapter_index,
+            )
+            if not chapter_quiz["questions"]:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Chapter quiz not found",
+                )
+
+            return ChapterQuizResponse(
+                course_id=course_id,
+                chapter_index=chapter_index,
+                chapter_title=chapter_quiz["chapter_title"],
+                questions=chapter_quiz["questions"],
+                previous_answers=chapter_quiz["previous_answers"],
+            )
+
+    def submit_chapter_quiz(
+        self,
+        student_id: int,
+        course_id: int,
+        chapter_index: int,
+        payload: QuizSubmitRequest,
+    ) -> QuizSubmitResponse:
+        self._validate_enrollment(student_id, course_id)
+        driver = self._require_neo4j()
+        with driver.session(database=settings.neo4j_database) as session:
+            quiz_status, _progress = self._get_chapter_quiz_status(
+                session,
+                student_id,
+                course_id,
+                chapter_index,
+            )
+            if quiz_status is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Chapter quiz not found",
+                )
+            if quiz_status == "locked":
+                raise ValueError("Chapter quiz is locked")
+
+            chapter_quiz = neo4j_repository.get_chapter_easy_questions(
+                session,
+                student_id,
+                course_id,
+                chapter_index,
+            )
+            expected_question_ids = {
+                question["id"] for question in chapter_quiz["questions"]
+            }
+            submitted_question_ids = {
+                answer.question_id for answer in payload.answers
+            }
+            if not expected_question_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Chapter quiz not found",
+                )
+            if (
+                len(payload.answers) != len(expected_question_ids)
+                or submitted_question_ids != expected_question_ids
+            ):
+                raise ValueError(
+                    "Quiz submission must include every easy question in the chapter"
+                )
+
+            results = neo4j_repository.submit_chapter_answers(
+                session,
+                student_id,
+                course_id,
+                chapter_index,
+                [
+                    {
+                        "question_id": answer.question_id,
+                        "selected_option": answer.selected_option,
+                    }
+                    for answer in payload.answers
+                ],
+            )
+            skills_known = [
+                result["skill_name"]
+                for result in results
+                if result["answered_right"]
+            ]
+            return QuizSubmitResponse(
+                chapter_index=chapter_index,
+                results=results,
+                skills_known=skills_known,
+            )
 
     async def build_learning_path(
         self,
