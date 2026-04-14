@@ -7,6 +7,7 @@ import logging
 import uuid
 from collections import defaultdict
 
+from fastapi import HTTPException, status
 from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session as SQLSession
 
@@ -47,10 +48,16 @@ class StudentLearningPathService:
 
     def _validate_enrollment(self, student_id: int, course_id: int) -> None:
         """Ensure student is enrolled in the course."""
-        enrollment = self._course_repo.get_enrollment(student_id, course_id)
+        enrollment = self._course_repo.get_enrollment(course_id, student_id)
         if enrollment is None:
-            raise ValueError(
-                f"Student {student_id} is not enrolled in course {course_id}"
+            logger.warning(
+                "Student learning path enrollment denied: student_id=%s course_id=%s",
+                student_id,
+                course_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Student is not enrolled in this course",
             )
 
     def _group_selected_skills_by_source(

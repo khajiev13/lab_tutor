@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,8 +38,18 @@ import {
   type StudentSkillBankSkill,
 } from '../api';
 
+function getErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object' || !('response' in error)) {
+    return null;
+  }
+
+  const response = (error as { response?: { status?: unknown } }).response;
+  return typeof response?.status === 'number' ? response.status : null;
+}
+
 export default function StudentLearningPathPage() {
   const { id: courseId } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const numericCourseId = Number(courseId);
 
   const [skillBanks, setSkillBanks] = useState<SkillBanksResponse | null>(null);
@@ -68,11 +78,19 @@ export default function StudentLearningPathPage() {
       setInterestedPostings(nextInterestedPostings);
       return data;
     } catch (err) {
+      if (getErrorStatus(err) === 403) {
+        setSkillBanks(null);
+        setLearningPath(null);
+        toast.error('Join the course before opening the learning path.');
+        navigate(`/courses/${numericCourseId}`, { replace: true });
+        return null;
+      }
+
       toast.error('Failed to load skill banks');
       console.error(err);
       return null;
     }
-  }, [numericCourseId]);
+  }, [navigate, numericCourseId]);
 
   const loadLearningPath = useCallback(async () => {
     try {

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi, type Mock } from 'vitest';
+import { toast } from 'sonner';
 
 import StudentLearningPathPage from './StudentLearningPathPage';
 import * as studentLearningPathApi from '../api';
@@ -125,6 +126,7 @@ function renderPage() {
     <MemoryRouter initialEntries={['/courses/1/learning-path']}>
       <Routes>
         <Route path="/courses/:id/learning-path" element={<StudentLearningPathPage />} />
+        <Route path="/courses/:id" element={<div>Course Page</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -226,5 +228,16 @@ describe('StudentLearningPathPage', () => {
     expect(await screen.findByText('Chapter 1: Foundations')).toBeInTheDocument();
     expect(screen.queryByText('Book Skill Banks')).not.toBeInTheDocument();
     expect(screen.getByText('Reading Resources')).toBeInTheDocument();
+  });
+
+  it('redirects back to the course page when skill banks return 403', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockRejectedValue({
+      response: { status: 403 },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('Course Page')).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith('Join the course before opening the learning path.');
   });
 });
