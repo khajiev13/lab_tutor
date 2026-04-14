@@ -35,12 +35,27 @@ export interface StudentSkillBankJobPosting {
   skills: StudentSkillBankSkill[];
 }
 
+export interface SkillSelectionRange {
+  min_skills: number;
+  max_skills: number;
+  is_default: boolean;
+}
+
+export interface PrerequisiteEdge {
+  prerequisite_name: string;
+  dependent_name: string;
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+}
+
 export interface SkillBanksResponse {
   book_skill_banks: StudentSkillBankBook[];
   market_skill_bank: StudentSkillBankJobPosting[];
   selected_skill_names: string[];
   interested_posting_urls: string[];
   peer_selection_counts: Record<string, number>;
+  selection_range: SkillSelectionRange;
+  prerequisite_edges: PrerequisiteEdge[];
 }
 
 export interface LearningPathSkill {

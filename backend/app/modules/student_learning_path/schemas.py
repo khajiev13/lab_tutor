@@ -151,12 +151,27 @@ class StudentSkillBankJobPosting(BaseModel):
     skills: list[StudentSkillBankSkill] = []
 
 
+class SkillSelectionRange(BaseModel):
+    min_skills: int
+    max_skills: int
+    is_default: bool
+
+
+class PrerequisiteEdge(BaseModel):
+    prerequisite_name: str
+    dependent_name: str
+    confidence: Literal["high", "medium", "low"] = "medium"
+    reasoning: str = ""
+
+
 class StudentSkillBankResponse(BaseModel):
     book_skill_banks: list[StudentSkillBankBook] = []
     market_skill_bank: list[StudentSkillBankJobPosting] = []
     selected_skill_names: list[str] = []
     interested_posting_urls: list[str] = []
     peer_selection_counts: dict[str, int] = {}
+    selection_range: SkillSelectionRange
+    prerequisite_edges: list[PrerequisiteEdge] = []
 
 
 class BuildProgressEvent(BaseModel):

@@ -12,6 +12,7 @@ from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session as SQLSession
 
 from app.core.settings import settings
+from app.modules.courses.neo4j_repository import CourseGraphRepository
 from app.modules.courses.repository import CourseRepository
 
 from . import neo4j_repository
@@ -151,6 +152,20 @@ class StudentLearningPathService:
                 )
                 if not grouped_selected_skills:
                     raise ValueError("Select at least one skill before building")
+
+                selection_range = CourseGraphRepository(
+                    session
+                ).get_skill_selection_range(course_id=course_id)
+                selected_skill_count = sum(
+                    len(skill_names)
+                    for skill_names in grouped_selected_skills.values()
+                )
+                min_skills = int(selection_range["min_skills"])
+                max_skills = int(selection_range["max_skills"])
+                if selected_skill_count < min_skills or selected_skill_count > max_skills:
+                    raise ValueError(
+                        f"Select between {min_skills} and {max_skills} skills before building"
+                    )
 
                 for source in ("book", "market"):
                     skill_names = grouped_selected_skills.get(source, [])
