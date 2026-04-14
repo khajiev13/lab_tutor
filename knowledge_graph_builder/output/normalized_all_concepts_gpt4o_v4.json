@@ -1,0 +1,3277 @@
+{
+  "metadata": {
+    "timestamp": "2025-10-15T22:37:25.788672",
+    "processing_time_seconds": 872.5,
+    "total_iterations": 10,
+    "total_concept_merges": 16,
+    "total_weak_merges": 22,
+    "total_valid_relationships": 148,
+    "total_weak_patterns": 33,
+    "convergence": {
+      "achieved": true,
+      "reason": "Maximum iterations (10) reached",
+      "merge_count_trend": [
+        6,
+        6,
+        10,
+        8,
+        6,
+        5,
+        12,
+        11,
+        10,
+        12
+      ],
+      "valid_merge_trend": [
+        5,
+        3,
+        7,
+        6,
+        4,
+        2,
+        6,
+        6,
+        4,
+        1
+      ],
+      "weak_merge_trend": [
+        1,
+        3,
+        3,
+        1,
+        2,
+        2,
+        5,
+        4,
+        5,
+        7
+      ],
+      "total_merges_trend": [
+        5,
+        5,
+        7,
+        8,
+        8,
+        8,
+        10,
+        13,
+        16,
+        16
+      ],
+      "valid_count_trend": [
+        19,
+        16,
+        17,
+        20,
+        51,
+        13,
+        18,
+        20,
+        21,
+        18
+      ],
+      "weak_count_trend": [
+        2,
+        4,
+        6,
+        1,
+        3,
+        9,
+        3,
+        3,
+        2,
+        2
+      ],
+      "total_accumulated_trend": [
+        19,
+        30,
+        41,
+        56,
+        98,
+        105,
+        113,
+        123,
+        137,
+        148
+      ],
+      "quality_trend": null,
+      "operations_trend": null
+    },
+    "configuration": {
+      "model": "gpt-4o-2024-08-06",
+      "max_iterations": 10,
+      "relationship_types": [
+        "USED_FOR",
+        "RELATED_TO"
+      ]
+    }
+  },
+  "concept_merges": {
+    "total": 16,
+    "merges": [
+      {
+        "concept_a": "ETL",
+        "concept_b": "ETL (Extract, Transform, and Load)",
+        "canonical": "ETL",
+        "variants": [
+          "ETL",
+          "ETL (Extract, Transform, and Load)"
+        ],
+        "reasoning": "Punctuation variation"
+      },
+      {
+        "concept_a": "ETL",
+        "concept_b": "ETL (Extract, Transform, load)",
+        "canonical": "ETL",
+        "variants": [
+          "ETL",
+          "ETL (Extract, Transform, load)"
+        ],
+        "reasoning": "Acronym match, identical meaning"
+      },
+      {
+        "concept_a": "Machine Learning",
+        "concept_b": "machine learning",
+        "canonical": "Machine Learning",
+        "variants": [
+          "Machine Learning",
+          "machine learning"
+        ],
+        "reasoning": "Case difference"
+      },
+      {
+        "concept_a": "ML",
+        "concept_b": "Machine Learning",
+        "canonical": "Machine Learning",
+        "variants": [
+          "ML",
+          "Machine Learning"
+        ],
+        "reasoning": "Acronym and full form"
+      },
+      {
+        "concept_a": "Web crawler",
+        "concept_b": "Web crawlers",
+        "canonical": "Web crawler",
+        "variants": [
+          "Web crawler",
+          "Web crawlers"
+        ],
+        "reasoning": "Pluralization"
+      },
+      {
+        "concept_a": "CNN",
+        "concept_b": "Convolutional Neural Network",
+        "canonical": "Convolutional Neural Network",
+        "variants": [
+          "CNN",
+          "Convolutional Neural Network"
+        ],
+        "reasoning": "Acronym"
+      },
+      {
+        "concept_a": "Data Normalization",
+        "concept_b": "Data normalization",
+        "canonical": "Data Normalization",
+        "variants": [
+          "Data Normalization",
+          "Data normalization"
+        ],
+        "reasoning": "Case difference"
+      },
+      {
+        "concept_a": "Data",
+        "concept_b": "data",
+        "canonical": "Data",
+        "variants": [
+          "Data",
+          "data"
+        ],
+        "reasoning": "Case difference"
+      },
+      {
+        "concept_a": "Column-based",
+        "concept_b": "Column-oriented databases",
+        "canonical": "Column-oriented databases",
+        "variants": [
+          "Column-based",
+          "Column-oriented databases"
+        ],
+        "reasoning": "Name similarity, same concept"
+      },
+      {
+        "concept_a": "Data Integration",
+        "concept_b": "Data integration",
+        "canonical": "Data Integration",
+        "variants": [
+          "Data Integration",
+          "Data integration"
+        ],
+        "reasoning": "Case difference"
+      },
+      {
+        "concept_a": "Data Transformation",
+        "concept_b": "Data transform",
+        "canonical": "Data Transformation",
+        "variants": [
+          "Data Transformation",
+          "Data transform"
+        ],
+        "reasoning": "Case difference"
+      },
+      {
+        "concept_a": "Data Cleaning",
+        "concept_b": "Missing value cleaning",
+        "canonical": "Data Cleaning",
+        "variants": [
+          "Data Cleaning",
+          "Missing value cleaning"
+        ],
+        "reasoning": "Related tasks"
+      },
+      {
+        "concept_a": "ETL",
+        "concept_b": "ETL (Extract, Transform, Load)",
+        "canonical": "ETL",
+        "variants": [
+          "ETL",
+          "ETL (Extract, Transform, Load)"
+        ],
+        "reasoning": "Acronym definition"
+      },
+      {
+        "concept_a": "Spark MLlib",
+        "concept_b": "Machine Learning",
+        "canonical": "Machine Learning",
+        "variants": [
+          "Spark MLlib",
+          "Machine Learning"
+        ],
+        "reasoning": "MLlib is a machine learning library"
+      },
+      {
+        "concept_a": "OLAP",
+        "concept_b": "OLAP: Online Analytical",
+        "canonical": "OLAP: Online Analytical",
+        "variants": [
+          "OLAP",
+          "OLAP: Online Analytical"
+        ],
+        "reasoning": "Same concept, different phrasing"
+      },
+      {
+        "concept_a": "Deep Learning",
+        "concept_b": "Deep Learning",
+        "canonical": "Deep Learning",
+        "variants": [
+          "Deep Learning",
+          "deep learning"
+        ],
+        "reasoning": "Case difference"
+      }
+    ],
+    "weak_merges": [
+      {
+        "concept_a": "TensorFlow",
+        "concept_b": "TensorFlow Lite",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "Clustering",
+        "concept_b": "Unsupervised learning",
+        "reason": "Hierarchy"
+      },
+      {
+        "concept_a": "Deep Learning",
+        "concept_b": "Deep Web",
+        "reason": "Different Meaning"
+      },
+      {
+        "concept_a": "Spark",
+        "concept_b": "Spark SQL",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "Data Reduction",
+        "concept_b": "Data reduction",
+        "reason": "Different definitions"
+      },
+      {
+        "concept_a": "Massively Parallel Processing (MPP)",
+        "concept_b": "Massively parallel processing (MPP)",
+        "reason": "Case difference"
+      },
+      {
+        "concept_a": "HDFS",
+        "concept_b": "HDFS (Hadoop Distributed File System)",
+        "reason": "hierarchy"
+      },
+      {
+        "concept_a": "Spark",
+        "concept_b": "Spark Core",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "ETL",
+        "concept_b": "ETL (Extract, Transform, load)",
+        "reason": "Different definitions"
+      },
+      {
+        "concept_a": "Web crawler",
+        "concept_b": "Web crawlers",
+        "reason": "Pluralization"
+      },
+      {
+        "concept_a": "Data",
+        "concept_b": "data",
+        "reason": "Different Scope"
+      },
+      {
+        "concept_a": "Deep Learning",
+        "concept_b": "deep learning",
+        "reason": "Case difference"
+      },
+      {
+        "concept_a": "Distributed",
+        "concept_b": "Distributed file",
+        "reason": "component"
+      },
+      {
+        "concept_a": "ETL (Extract, Transform, and Load)",
+        "concept_b": "ETL (Extract, Transform, load)",
+        "reason": "different meaning"
+      },
+      {
+        "concept_a": "TensorFlow",
+        "concept_b": "TensorFlow.js",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "Data Flow Graph",
+        "concept_b": "Dataflow graphs",
+        "reason": "name variation"
+      },
+      {
+        "concept_a": "Data Integration",
+        "concept_b": "Data integration",
+        "reason": "Different definitions"
+      },
+      {
+        "concept_a": "ML Pipelines",
+        "concept_b": "Machine Learning",
+        "reason": "Hierarchy"
+      },
+      {
+        "concept_a": "TensorFlow",
+        "concept_b": "TensorFlow Processing Unit (TPU)",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "Document-Oriented",
+        "concept_b": "Document-Oriented NoSQL DB",
+        "reason": "Component"
+      },
+      {
+        "concept_a": "Graph database",
+        "concept_b": "Graph-Based",
+        "reason": "Different Meaning"
+      },
+      {
+        "concept_a": "ETL",
+        "concept_b": "ETL (Extract, Transform, and Load)",
+        "reason": "Weak Definition"
+      }
+    ]
+  },
+  "relationships": {
+    "total": 148,
+    "original": [
+      {
+        "s": "TensorFlow",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Tool for building machine learning models"
+      },
+      {
+        "s": "TensorFlow",
+        "t": "Deep Learning",
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for developing deep learning models"
+      },
+      {
+        "s": "MapReduce",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "MapReduce is used for processing Big Data in distributed systems"
+      },
+      {
+        "s": "Hadoop",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "Used for processing and storing large datasets in a distributed system"
+      },
+      {
+        "s": "Spark",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "Spark is a framework for Big Data processing and analytics"
+      },
+      {
+        "s": "Clustering",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Clustering is a key ML technique for grouping data"
+      },
+      {
+        "s": "Deep Learning",
+        "t": "Artificial Intelligence",
+        "rel": "RELATED_TO",
+        "r": "Subfield of AI focusing on neural networks"
+      },
+      {
+        "s": "GraphX",
+        "t": "Apache Spark",
+        "rel": "USED_FOR",
+        "r": "Library for graph-parallel computation"
+      },
+      {
+        "s": "OLAP",
+        "t": "Data Warehousing",
+        "rel": "USED_FOR",
+        "r": "Tool for analyzing multidimensional data"
+      },
+      {
+        "s": "OLTP",
+        "t": "Database",
+        "rel": "USED_FOR",
+        "r": "System for managing transactional databases"
+      },
+      {
+        "s": "Reinforcement Learning",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Reinforcement learning is used to train agents in ML"
+      },
+      {
+        "s": "Collaborative filtering",
+        "t": "Recommendation",
+        "rel": "USED_FOR",
+        "r": "Used for providing personalized recommendations based on user behavior"
+      },
+      {
+        "s": "PCA",
+        "t": "Dimensionality reduction",
+        "rel": "USED_FOR",
+        "r": "PCA is a technique for reducing data dimensionality"
+      },
+      {
+        "s": "Data Normalization",
+        "t": "Data Cleaning",
+        "rel": "USED_FOR",
+        "r": "Process for scaling features to a common range"
+      },
+      {
+        "s": "Column-oriented databases",
+        "t": "Data Storage",
+        "rel": "USED_FOR",
+        "r": "Databases optimized for column-based data storage"
+      },
+      {
+        "s": "Asynchronous replication",
+        "t": "Data Availability",
+        "rel": "USED_FOR",
+        "r": "Asynchronous replication ensures data availability across nodes"
+      },
+      {
+        "s": "HDFS",
+        "t": "Distributed File System",
+        "rel": "USED_FOR",
+        "r": "System for storing large files across multiple machines"
+      },
+      {
+        "s": "NoSQL Database",
+        "t": "Database",
+        "rel": "USED_FOR",
+        "r": "Type of database for unstructured or semi-structured data"
+      },
+      {
+        "s": "Dimensionality reduction",
+        "t": "Data Preprocessing",
+        "rel": "USED_FOR",
+        "r": "Method for reducing feature space in data preprocessing"
+      },
+      {
+        "s": "Keras",
+        "t": "Deep Learning",
+        "rel": "USED_FOR",
+        "r": "Keras is a framework for building deep learning models"
+      },
+      {
+        "s": "HDFS",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "HDFS is used for storing large datasets in Big Data systems"
+      },
+      {
+        "s": "GraphX",
+        "t": "Graph processing",
+        "rel": "USED_FOR",
+        "r": "Spark library for graph computation"
+      },
+      {
+        "s": "MLlib",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "MLlib provides tools for machine learning algorithms in Spark"
+      },
+      {
+        "s": "Scikit-learn",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Scikit-learn is used for machine learning tasks"
+      },
+      {
+        "s": "Reinforcement Learning(RL)",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "RL is used for machine learning optimization"
+      },
+      {
+        "s": "Document-Oriented NoSQL DB",
+        "t": "NoSQL Database",
+        "rel": "USED_FOR",
+        "r": "Document-Oriented DB stores unstructured data"
+      },
+      {
+        "s": "RDBMS",
+        "t": "Structured data",
+        "rel": "USED_FOR",
+        "r": "RDBMS stores structured data in tables"
+      },
+      {
+        "s": "Deep Web",
+        "t": "Web",
+        "rel": "RELATED_TO",
+        "r": "Deep Web is part of the internet not indexed by search engines"
+      },
+      {
+        "s": "Data Governance",
+        "t": "Data",
+        "rel": "USED_FOR",
+        "r": "Data governance manages data usage and quality"
+      },
+      {
+        "s": "Resilient Distributed dataset architecture (RDD)",
+        "t": "Spark",
+        "rel": "USED_FOR",
+        "r": "Core abstraction in Spark for distributed data processing"
+      },
+      {
+        "s": "Alternating Least Square (ALS)",
+        "t": "Collaborative filtering",
+        "rel": "USED_FOR",
+        "r": "Used for matrix factorization in recommendation systems"
+      },
+      {
+        "s": "Atomicity",
+        "t": "Database transactions",
+        "rel": "USED_FOR",
+        "r": "Ensures transactions are completed fully or not at all"
+      },
+      {
+        "s": "Batch",
+        "t": "Big data",
+        "rel": "USED_FOR",
+        "r": "Batch processing is used for handling big data."
+      },
+      {
+        "s": "CAP Theorem",
+        "t": "Distributed systems",
+        "rel": "RELATED_TO",
+        "r": "Describes trade-offs between consistency, availability, and partition tolerance"
+      },
+      {
+        "s": "Cost function",
+        "t": "Machine learning",
+        "rel": "USED_FOR",
+        "r": "Cost function is used to evaluate model performance."
+      },
+      {
+        "s": "Data Cube Aggregation",
+        "t": "OLAP",
+        "rel": "USED_FOR",
+        "r": "Data cube aggregation enables multidimensional analysis in OLAP"
+      },
+      {
+        "s": "Distributed file",
+        "t": "Data storage",
+        "rel": "USED_FOR",
+        "r": "Distributed files are used for scalable data storage."
+      },
+      {
+        "s": "MLlib (Machine Learning Library)",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Library for ML in Spark"
+      },
+      {
+        "s": "OLAP",
+        "t": "Data analysis",
+        "rel": "USED_FOR",
+        "r": "OLAP is used for multidimensional data analysis in business intelligence"
+      },
+      {
+        "s": "Parallel Execution",
+        "t": "Computational tasks",
+        "rel": "USED_FOR",
+        "r": "Parallel execution is used to speed up computational tasks."
+      },
+      {
+        "s": "Scikit-learn (Sklearn)",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Library for classical ML algorithms"
+      },
+      {
+        "s": "Asynchronous replication",
+        "t": "Availability",
+        "rel": "USED_FOR",
+        "r": "Asynchronous replication ensures higher availability in distributed systems"
+      },
+      {
+        "s": "BASE",
+        "t": "NoSQL databases",
+        "rel": "USED_FOR",
+        "r": "BASE is used to define properties of NoSQL databases"
+      },
+      {
+        "s": "Binning",
+        "t": "Data transformation",
+        "rel": "USED_FOR",
+        "r": "Binning is used for discretizing continuous data into categories"
+      },
+      {
+        "s": "Clustering",
+        "t": "Unsupervised learning",
+        "rel": "USED_FOR",
+        "r": "Clustering is a key method in unsupervised learning tasks"
+      },
+      {
+        "s": "Collaborative filtering",
+        "t": "Recommendation systems",
+        "rel": "USED_FOR",
+        "r": "Collaborative filtering is used to generate personalized recommendations"
+      },
+      {
+        "s": "Data",
+        "t": "Data analysis",
+        "rel": "USED_FOR",
+        "r": "Data is used as the foundation for performing data analysis"
+      },
+      {
+        "s": "Deep Learning",
+        "t": "Neural networks",
+        "rel": "USED_FOR",
+        "r": "Deep Learning leverages neural networks for complex tasks"
+      },
+      {
+        "s": "ETL",
+        "t": "Data warehousing",
+        "rel": "USED_FOR",
+        "r": "ETL processes data for efficient storage in data warehouses"
+      },
+      {
+        "s": "Hadoop",
+        "t": "Distributed processing",
+        "rel": "USED_FOR",
+        "r": "Hadoop is used for distributed data processing at scale"
+      },
+      {
+        "s": "HDFS",
+        "t": "Big data storage",
+        "rel": "USED_FOR",
+        "r": "HDFS is used for storing large datasets in a distributed manner"
+      },
+      {
+        "s": "Linear regression",
+        "t": "Supervised learning",
+        "rel": "USED_FOR",
+        "r": "Used for predicting a continuous output variable"
+      },
+      {
+        "s": "MapReduce",
+        "t": "Data processing",
+        "rel": "USED_FOR",
+        "r": "Used for processing large datasets in parallel across clusters"
+      },
+      {
+        "s": "Recommendation",
+        "t": "Personalized content",
+        "rel": "USED_FOR",
+        "r": "Recommendation systems are used to deliver personalized content"
+      },
+      {
+        "s": "Spark SQL",
+        "t": "Big data processing",
+        "rel": "USED_FOR",
+        "r": "Spark SQL is used for querying large-scale structured data in Spark"
+      },
+      {
+        "s": "Supervised learning",
+        "t": "Machine learning",
+        "rel": "USED_FOR",
+        "r": "Supervised learning is a type of machine learning with labeled data"
+      },
+      {
+        "s": "Spark",
+        "t": "Big data",
+        "rel": "USED_FOR",
+        "r": "Distributed engine for big data processing"
+      },
+      {
+        "s": "HDFS",
+        "t": "Data storage",
+        "rel": "USED_FOR",
+        "r": "Stores large distributed datasets"
+      },
+      {
+        "s": "Singular Value Decomposition (SVD)",
+        "t": "Matrix Factorization",
+        "rel": "USED_FOR",
+        "r": "Factorizes matrices for ML"
+      },
+      {
+        "s": "Content-based Filtering Recommendations",
+        "t": "Recommendation",
+        "rel": "USED_FOR",
+        "r": "Recommends based on item features"
+      },
+      {
+        "s": "Pregel",
+        "t": "Graph processing",
+        "rel": "USED_FOR",
+        "r": "Model for large-scale graph computation"
+      },
+      {
+        "s": "Apache Giraph",
+        "t": "Graph processing",
+        "rel": "USED_FOR",
+        "r": "Distributed graph processing system"
+      },
+      {
+        "s": "ETL (Extract, Transform, and Load)",
+        "t": "Data Integration",
+        "rel": "USED_FOR",
+        "r": "Combines data from multiple sources"
+      },
+      {
+        "s": "Data Cleaning",
+        "t": "Data preprocessing",
+        "rel": "USED_FOR",
+        "r": "Removes or corrects noisy data"
+      },
+      {
+        "s": "Data Normalization",
+        "t": "Data preprocessing",
+        "rel": "USED_FOR",
+        "r": "Scales data to a common range"
+      },
+      {
+        "s": "Gradient Descent",
+        "t": "Optimization",
+        "rel": "USED_FOR",
+        "r": "Minimizes model cost function"
+      },
+      {
+        "s": "Cost function",
+        "t": "Optimization",
+        "rel": "RELATED_TO",
+        "r": "Objective minimized by gradient descent"
+      },
+      {
+        "s": "CNN",
+        "t": "Deep Learning",
+        "rel": "USED_FOR",
+        "r": "Performs image recognition tasks"
+      },
+      {
+        "s": "Transformers",
+        "t": "Deep Learning",
+        "rel": "USED_FOR",
+        "r": "Processes sequential data efficiently"
+      },
+      {
+        "s": "TensorFlow Lite",
+        "t": "Mobile AI",
+        "rel": "USED_FOR",
+        "r": "TensorFlow Lite is used for deploying AI models on mobile devices"
+      },
+      {
+        "s": "TensorFlow Serving",
+        "t": "Model deployment",
+        "rel": "USED_FOR",
+        "r": "Serves trained ML models"
+      },
+      {
+        "s": "TensorFlow Processing Unit (TPU)",
+        "t": "Deep Learning",
+        "rel": "USED_FOR",
+        "r": "Accelerates neural network computation"
+      },
+      {
+        "s": "tf.data",
+        "t": "Data pipeline",
+        "rel": "USED_FOR",
+        "r": "Builds efficient TensorFlow input pipelines"
+      },
+      {
+        "s": "Reinforcement Learning(RL)",
+        "t": "Machine Learning",
+        "rel": "RELATED_TO",
+        "r": "A learning paradigm in ML"
+      },
+      {
+        "s": "Supervised learning",
+        "t": "Machine Learning",
+        "rel": "RELATED_TO",
+        "r": "Type of ML using labeled data"
+      },
+      {
+        "s": "Unsupervised learning",
+        "t": "Machine Learning",
+        "rel": "RELATED_TO",
+        "r": "Type of ML without labels"
+      },
+      {
+        "s": "Semi-supervised learning",
+        "t": "Machine Learning",
+        "rel": "RELATED_TO",
+        "r": "Combines labeled and unlabeled data"
+      },
+      {
+        "s": "OLTP",
+        "t": "Transaction processing",
+        "rel": "USED_FOR",
+        "r": "Manages online transaction data"
+      },
+      {
+        "s": "Atomicity",
+        "t": "ACID",
+        "rel": "RELATED_TO",
+        "r": "Core ACID property of transactions"
+      },
+      {
+        "s": "Isolation",
+        "t": "ACID",
+        "rel": "RELATED_TO",
+        "r": "Ensures transaction independence"
+      },
+      {
+        "s": "Durability",
+        "t": "ACID",
+        "rel": "RELATED_TO",
+        "r": "Guarantees persistence after commit"
+      },
+      {
+        "s": "Consistency",
+        "t": "ACID",
+        "rel": "RELATED_TO",
+        "r": "Ensures valid transaction states"
+      },
+      {
+        "s": "BASE",
+        "t": "NoSQL Database",
+        "rel": "RELATED_TO",
+        "r": "Consistency model for NoSQL systems"
+      },
+      {
+        "s": "Eventual consistency",
+        "t": "BASE",
+        "rel": "RELATED_TO",
+        "r": "Key property of BASE systems"
+      },
+      {
+        "s": "Bulk Synchronous Parallel",
+        "t": "Parallel processing",
+        "rel": "USED_FOR",
+        "r": "Synchronizes distributed computations"
+      },
+      {
+        "s": "JobTracker",
+        "t": "MapReduce",
+        "rel": "USED_FOR",
+        "r": "Schedules MapReduce jobs"
+      },
+      {
+        "s": "TaskTracker",
+        "t": "MapReduce",
+        "rel": "USED_FOR",
+        "r": "Executes tasks assigned by JobTracker"
+      },
+      {
+        "s": "Spark SQL",
+        "t": "Structured data processing",
+        "rel": "USED_FOR",
+        "r": "Processes structured data via SQL"
+      },
+      {
+        "s": "Spark Streaming",
+        "t": "Stream processing",
+        "rel": "USED_FOR",
+        "r": "Processes real-time data streams"
+      },
+      {
+        "s": "Spout",
+        "t": "Stream",
+        "rel": "USED_FOR",
+        "r": "Emits data streams in Storm topology"
+      },
+      {
+        "s": "Bolt",
+        "t": "Stream",
+        "rel": "USED_FOR",
+        "r": "Processes tuples in Storm topology"
+      },
+      {
+        "s": "Nimbus",
+        "t": "Storm",
+        "rel": "USED_FOR",
+        "r": "Master node managing topology in Storm"
+      },
+      {
+        "s": "Supervisor",
+        "t": "Storm",
+        "rel": "USED_FOR",
+        "r": "Manages worker nodes in Storm"
+      },
+      {
+        "s": "Aggregation",
+        "t": "Data reduction",
+        "rel": "USED_FOR",
+        "r": "Summarizes data into compact form"
+      },
+      {
+        "s": "Data cube aggregation",
+        "t": "OLAP",
+        "rel": "USED_FOR",
+        "r": "Supports multidimensional aggregation"
+      },
+      {
+        "s": "Virtualization",
+        "t": "Computing platform and engine",
+        "rel": "USED_FOR",
+        "r": "Abstracts hardware for resource sharing"
+      },
+      {
+        "s": "Data governance",
+        "t": "Data management",
+        "rel": "USED_FOR",
+        "r": "Ensures quality and security of data"
+      },
+      {
+        "s": "Enterprise Data Warehouse",
+        "t": "Data storage",
+        "rel": "USED_FOR",
+        "r": "Central repository for enterprise data"
+      },
+      {
+        "s": "Apache Giraph",
+        "t": "Graph-Based",
+        "rel": "USED_FOR",
+        "r": "Giraph processes graph-based data efficiently"
+      },
+      {
+        "s": "Batch",
+        "t": "Data Processing",
+        "rel": "USED_FOR",
+        "r": "Batch processing is used for handling large data in intervals"
+      },
+      {
+        "s": "Collaborative filtering",
+        "t": "Recommendation System",
+        "rel": "USED_FOR",
+        "r": "Collaborative filtering recommends items based on user behavior"
+      },
+      {
+        "s": "Hadoop",
+        "t": "Distributed Computing",
+        "rel": "USED_FOR",
+        "r": "Hadoop provides distributed processing for big data"
+      },
+      {
+        "s": "HDFS",
+        "t": "Data Storage",
+        "rel": "USED_FOR",
+        "r": "HDFS is a distributed file system for big data storage"
+      },
+      {
+        "s": "PCA",
+        "t": "Dimensionality Reduction",
+        "rel": "USED_FOR",
+        "r": "PCA reduces dimensions by projecting data onto principal components"
+      },
+      {
+        "s": "Spark Streaming",
+        "t": "Real-Time Analytics",
+        "rel": "USED_FOR",
+        "r": "Spark Streaming is used for real-time data stream processing"
+      },
+      {
+        "s": "Apache Giraph",
+        "t": "Bulk Synchronous Parallel",
+        "rel": "USED_FOR",
+        "r": "Giraph uses BSP for distributed graph processing"
+      },
+      {
+        "s": "CAP Theorem",
+        "t": "Consistency",
+        "rel": "RELATED_TO",
+        "r": "CAP Theorem discusses consistency in distributed systems"
+      },
+      {
+        "s": "Deep Learning",
+        "t": "Machine Learning",
+        "rel": "RELATED_TO",
+        "r": "Deep learning is a subset of machine learning"
+      },
+      {
+        "s": "Dimensionality reduction",
+        "t": "Data Analysis",
+        "rel": "USED_FOR",
+        "r": "Dimensionality reduction aids in data analysis by simplifying datasets"
+      },
+      {
+        "s": "ETL",
+        "t": "Data Transformation",
+        "rel": "USED_FOR",
+        "r": "ETL is a method for extracting and transforming data"
+      },
+      {
+        "s": "Gradient Descent",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Gradient descent is used for optimizing machine learning models"
+      },
+      {
+        "s": "Linear regression",
+        "t": "Machine Learning",
+        "rel": "USED_FOR",
+        "r": "Linear regression is used for predictive modeling in ML"
+      },
+      {
+        "s": "NoSQL Database",
+        "t": "Big Data",
+        "rel": "USED_FOR",
+        "r": "NoSQL databases are used to store and manage Big Data"
+      },
+      {
+        "s": "Aggregation",
+        "t": "Data",
+        "rel": "USED_FOR",
+        "r": "Used for summarizing and combining data"
+      },
+      {
+        "s": "Asynchronous replication",
+        "t": "Data consistency",
+        "rel": "USED_FOR",
+        "r": "Ensures data consistency across distributed systems"
+      },
+      {
+        "s": "Atomicity",
+        "t": "Transactions",
+        "rel": "USED_FOR",
+        "r": "Guarantees transaction completeness in databases"
+      },
+      {
+        "s": "Colossus",
+        "t": "Distributed file system",
+        "rel": "USED_FOR",
+        "r": "Used for scalable file storage at Google"
+      },
+      {
+        "s": "Cost function",
+        "t": "Optimization",
+        "rel": "USED_FOR",
+        "r": "Guides the optimization process in machine learning models"
+      },
+      {
+        "s": "Data Mining",
+        "t": "Data Analysis",
+        "rel": "USED_FOR",
+        "r": "Used for discovering patterns in large datasets"
+      },
+      {
+        "s": "Dimensionality reduction",
+        "t": "Data preprocessing",
+        "rel": "USED_FOR",
+        "r": "Used for reducing the number of features in a dataset"
+      },
+      {
+        "s": "ETL (Extract, Transform, Load)",
+        "t": "Data Integration",
+        "rel": "USED_FOR",
+        "r": "Used for preparing data from various sources for analysis"
+      },
+      {
+        "s": "HDFS",
+        "t": "Distributed file system",
+        "rel": "USED_FOR",
+        "r": "Used for storing large files across distributed nodes"
+      },
+      {
+        "s": "Machine Learning",
+        "t": "Data Science",
+        "rel": "RELATED_TO",
+        "r": "Core component of data science for building predictive models"
+      },
+      {
+        "s": "Apache Giraph",
+        "t": "GraphX",
+        "rel": "USED_FOR",
+        "r": "Giraph is used for large-scale graph processing"
+      },
+      {
+        "s": "Atomicity",
+        "t": "Database Transactions",
+        "rel": "USED_FOR",
+        "r": "Atomicity guarantees the indivisibility of database transactions"
+      },
+      {
+        "s": "Attribute construction",
+        "t": "Feature Engineering",
+        "rel": "USED_FOR",
+        "r": "Attribute construction helps in creating useful features for models"
+      },
+      {
+        "s": "Attributes subset selection",
+        "t": "Feature Selection",
+        "rel": "USED_FOR",
+        "r": "Selecting relevant attributes helps improve model efficiency"
+      },
+      {
+        "s": "Big Data",
+        "t": "Data Analysis",
+        "rel": "USED_FOR",
+        "r": "Big Data is processed for extracting meaningful insights"
+      },
+      {
+        "s": "Collaborative filtering",
+        "t": "Recommendation Systems",
+        "rel": "USED_FOR",
+        "r": "Collaborative filtering is widely used in recommendation systems"
+      },
+      {
+        "s": "Data Cleaning",
+        "t": "Data Quality",
+        "rel": "USED_FOR",
+        "r": "Data cleaning improves the quality of data for analysis"
+      },
+      {
+        "s": "Dimensionality reduction",
+        "t": "Feature Engineering",
+        "rel": "USED_FOR",
+        "r": "Dimensionality reduction simplifies features for model training"
+      },
+      {
+        "s": "Distributed File System",
+        "t": "Data Storage",
+        "rel": "USED_FOR",
+        "r": "Distributed file systems store data across multiple nodes"
+      },
+      {
+        "s": "Hadoop",
+        "t": "MapReduce",
+        "rel": "USED_FOR",
+        "r": "Hadoop implements the MapReduce programming model for processing data"
+      },
+      {
+        "s": "Machine Learning",
+        "t": "Prediction",
+        "rel": "USED_FOR",
+        "r": "Machine learning is used to build models for prediction tasks"
+      },
+      {
+        "s": "NoSQL Database",
+        "t": "Data Storage",
+        "rel": "USED_FOR",
+        "r": "NoSQL databases store unstructured or semi-structured data"
+      },
+      {
+        "s": "Recommendation Systems",
+        "t": "User Personalization",
+        "rel": "USED_FOR",
+        "r": "Recommendation systems personalize content for users"
+      },
+      {
+        "s": "Vertex",
+        "t": "Graph Theory",
+        "rel": "RELATED_TO",
+        "r": "Vertices are fundamental components of graph theory"
+      },
+      {
+        "s": "Asynchronous replication",
+        "t": "Data availability",
+        "rel": "USED_FOR",
+        "r": "Ensures availability through asynchronous data sync"
+      },
+      {
+        "s": "BASE",
+        "t": "Eventual consistency",
+        "rel": "USED_FOR",
+        "r": "BASE model defines eventual consistency in distributed systems"
+      },
+      {
+        "s": "Data cleaning",
+        "t": "Data preprocessing",
+        "rel": "USED_FOR",
+        "r": "Data cleaning prepares raw data for analysis or modeling"
+      },
+      {
+        "s": "Data integration",
+        "t": "Data analytics",
+        "rel": "USED_FOR",
+        "r": "Data integration combines data from multiple sources for analytics"
+      },
+      {
+        "s": "Graph database",
+        "t": "Graph theory",
+        "rel": "USED_FOR",
+        "r": "Graph databases are optimized for graph-based data structures"
+      },
+      {
+        "s": "Machine Learning",
+        "t": "Data analysis",
+        "rel": "USED_FOR",
+        "r": "Machine learning techniques are widely applied in data analysis"
+      },
+      {
+        "s": "MapReduce",
+        "t": "Distributed computing",
+        "rel": "USED_FOR",
+        "r": "MapReduce is used for distributed data processing"
+      },
+      {
+        "s": "Reinforcement learning",
+        "t": "Artificial Intelligence",
+        "rel": "USED_FOR",
+        "r": "Reinforcement learning is a key approach in AI development"
+      },
+      {
+        "s": "Spark",
+        "t": "Big Data processing",
+        "rel": "USED_FOR",
+        "r": "Spark is used for large-scale data processing in Big Data environments"
+      },
+      {
+        "s": "HDFS",
+        "t": "Distributed storage",
+        "rel": "USED_FOR",
+        "r": "HDFS provides distributed storage for large datasets in Hadoop ecosystems"
+      },
+      {
+        "s": "Data mining",
+        "t": "Pattern recognition",
+        "rel": "USED_FOR",
+        "r": "Data mining identifies patterns in large datasets for insights"
+      }
+    ],
+    "canonical_preview": [
+      {
+        "original": {
+          "s": "TensorFlow",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "TensorFlow",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Tool for building machine learning models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "TensorFlow",
+          "t": "Deep Learning"
+        },
+        "canonical": {
+          "s": "TensorFlow",
+          "t": "Deep Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow is used for developing deep learning models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "MapReduce",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "MapReduce",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "MapReduce is used for processing Big Data in distributed systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Hadoop",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "Hadoop",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for processing and storing large datasets in a distributed system",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "Spark",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark is a framework for Big Data processing and analytics",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Clustering",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Clustering",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Clustering is a key ML technique for grouping data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Deep Learning",
+          "t": "Artificial Intelligence"
+        },
+        "canonical": {
+          "s": "Deep Learning",
+          "t": "Artificial Intelligence"
+        },
+        "rel": "RELATED_TO",
+        "r": "Subfield of AI focusing on neural networks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "GraphX",
+          "t": "Apache Spark"
+        },
+        "canonical": {
+          "s": "GraphX",
+          "t": "Apache Spark"
+        },
+        "rel": "USED_FOR",
+        "r": "Library for graph-parallel computation",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "OLAP",
+          "t": "Data Warehousing"
+        },
+        "canonical": {
+          "s": "OLAP: Online Analytical",
+          "t": "Data Warehousing"
+        },
+        "rel": "USED_FOR",
+        "r": "Tool for analyzing multidimensional data",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "OLTP",
+          "t": "Database"
+        },
+        "canonical": {
+          "s": "OLTP",
+          "t": "Database"
+        },
+        "rel": "USED_FOR",
+        "r": "System for managing transactional databases",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Reinforcement Learning",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Reinforcement Learning",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Reinforcement learning is used to train agents in ML",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Collaborative filtering",
+          "t": "Recommendation"
+        },
+        "canonical": {
+          "s": "Collaborative filtering",
+          "t": "Recommendation"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for providing personalized recommendations based on user behavior",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "PCA",
+          "t": "Dimensionality reduction"
+        },
+        "canonical": {
+          "s": "PCA",
+          "t": "Dimensionality reduction"
+        },
+        "rel": "USED_FOR",
+        "r": "PCA is a technique for reducing data dimensionality",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data Normalization",
+          "t": "Data Cleaning"
+        },
+        "canonical": {
+          "s": "Data Normalization",
+          "t": "Data Cleaning"
+        },
+        "rel": "USED_FOR",
+        "r": "Process for scaling features to a common range",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Column-oriented databases",
+          "t": "Data Storage"
+        },
+        "canonical": {
+          "s": "Column-oriented databases",
+          "t": "Data Storage"
+        },
+        "rel": "USED_FOR",
+        "r": "Databases optimized for column-based data storage",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Asynchronous replication",
+          "t": "Data Availability"
+        },
+        "canonical": {
+          "s": "Asynchronous replication",
+          "t": "Data Availability"
+        },
+        "rel": "USED_FOR",
+        "r": "Asynchronous replication ensures data availability across nodes",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Distributed File System"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Distributed File System"
+        },
+        "rel": "USED_FOR",
+        "r": "System for storing large files across multiple machines",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "NoSQL Database",
+          "t": "Database"
+        },
+        "canonical": {
+          "s": "NoSQL Database",
+          "t": "Database"
+        },
+        "rel": "USED_FOR",
+        "r": "Type of database for unstructured or semi-structured data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Dimensionality reduction",
+          "t": "Data Preprocessing"
+        },
+        "canonical": {
+          "s": "Dimensionality reduction",
+          "t": "Data Preprocessing"
+        },
+        "rel": "USED_FOR",
+        "r": "Method for reducing feature space in data preprocessing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Keras",
+          "t": "Deep Learning"
+        },
+        "canonical": {
+          "s": "Keras",
+          "t": "Deep Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Keras is a framework for building deep learning models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "HDFS is used for storing large datasets in Big Data systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "GraphX",
+          "t": "Graph processing"
+        },
+        "canonical": {
+          "s": "GraphX",
+          "t": "Graph processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark library for graph computation",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "MLlib",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "MLlib",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "MLlib provides tools for machine learning algorithms in Spark",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Scikit-learn",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Scikit-learn",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Scikit-learn is used for machine learning tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Reinforcement Learning(RL)",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Reinforcement Learning(RL)",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "RL is used for machine learning optimization",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Document-Oriented NoSQL DB",
+          "t": "NoSQL Database"
+        },
+        "canonical": {
+          "s": "Document-Oriented NoSQL DB",
+          "t": "NoSQL Database"
+        },
+        "rel": "USED_FOR",
+        "r": "Document-Oriented DB stores unstructured data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "RDBMS",
+          "t": "Structured data"
+        },
+        "canonical": {
+          "s": "RDBMS",
+          "t": "Structured data"
+        },
+        "rel": "USED_FOR",
+        "r": "RDBMS stores structured data in tables",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Deep Web",
+          "t": "Web"
+        },
+        "canonical": {
+          "s": "Deep Web",
+          "t": "Web"
+        },
+        "rel": "RELATED_TO",
+        "r": "Deep Web is part of the internet not indexed by search engines",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data Governance",
+          "t": "Data"
+        },
+        "canonical": {
+          "s": "Data Governance",
+          "t": "Data"
+        },
+        "rel": "USED_FOR",
+        "r": "Data governance manages data usage and quality",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Resilient Distributed dataset architecture (RDD)",
+          "t": "Spark"
+        },
+        "canonical": {
+          "s": "Resilient Distributed dataset architecture (RDD)",
+          "t": "Spark"
+        },
+        "rel": "USED_FOR",
+        "r": "Core abstraction in Spark for distributed data processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Alternating Least Square (ALS)",
+          "t": "Collaborative filtering"
+        },
+        "canonical": {
+          "s": "Alternating Least Square (ALS)",
+          "t": "Collaborative filtering"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for matrix factorization in recommendation systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Atomicity",
+          "t": "Database transactions"
+        },
+        "canonical": {
+          "s": "Atomicity",
+          "t": "Database transactions"
+        },
+        "rel": "USED_FOR",
+        "r": "Ensures transactions are completed fully or not at all",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Batch",
+          "t": "Big data"
+        },
+        "canonical": {
+          "s": "Batch",
+          "t": "Big data"
+        },
+        "rel": "USED_FOR",
+        "r": "Batch processing is used for handling big data.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "CAP Theorem",
+          "t": "Distributed systems"
+        },
+        "canonical": {
+          "s": "CAP Theorem",
+          "t": "Distributed systems"
+        },
+        "rel": "RELATED_TO",
+        "r": "Describes trade-offs between consistency, availability, and partition tolerance",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Cost function",
+          "t": "Machine learning"
+        },
+        "canonical": {
+          "s": "Cost function",
+          "t": "Machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Cost function is used to evaluate model performance.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data Cube Aggregation",
+          "t": "OLAP"
+        },
+        "canonical": {
+          "s": "Data Cube Aggregation",
+          "t": "OLAP: Online Analytical"
+        },
+        "rel": "USED_FOR",
+        "r": "Data cube aggregation enables multidimensional analysis in OLAP",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "Distributed file",
+          "t": "Data storage"
+        },
+        "canonical": {
+          "s": "Distributed file",
+          "t": "Data storage"
+        },
+        "rel": "USED_FOR",
+        "r": "Distributed files are used for scalable data storage.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "MLlib (Machine Learning Library)",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "MLlib (Machine Learning Library)",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Library for ML in Spark",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "OLAP",
+          "t": "Data analysis"
+        },
+        "canonical": {
+          "s": "OLAP: Online Analytical",
+          "t": "Data analysis"
+        },
+        "rel": "USED_FOR",
+        "r": "OLAP is used for multidimensional data analysis in business intelligence",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "Parallel Execution",
+          "t": "Computational tasks"
+        },
+        "canonical": {
+          "s": "Parallel Execution",
+          "t": "Computational tasks"
+        },
+        "rel": "USED_FOR",
+        "r": "Parallel execution is used to speed up computational tasks.",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Scikit-learn (Sklearn)",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Scikit-learn (Sklearn)",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Library for classical ML algorithms",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Asynchronous replication",
+          "t": "Availability"
+        },
+        "canonical": {
+          "s": "Asynchronous replication",
+          "t": "Availability"
+        },
+        "rel": "USED_FOR",
+        "r": "Asynchronous replication ensures higher availability in distributed systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "BASE",
+          "t": "NoSQL databases"
+        },
+        "canonical": {
+          "s": "BASE",
+          "t": "NoSQL databases"
+        },
+        "rel": "USED_FOR",
+        "r": "BASE is used to define properties of NoSQL databases",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Binning",
+          "t": "Data transformation"
+        },
+        "canonical": {
+          "s": "Binning",
+          "t": "Data transformation"
+        },
+        "rel": "USED_FOR",
+        "r": "Binning is used for discretizing continuous data into categories",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Clustering",
+          "t": "Unsupervised learning"
+        },
+        "canonical": {
+          "s": "Clustering",
+          "t": "Unsupervised learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Clustering is a key method in unsupervised learning tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Collaborative filtering",
+          "t": "Recommendation systems"
+        },
+        "canonical": {
+          "s": "Collaborative filtering",
+          "t": "Recommendation systems"
+        },
+        "rel": "USED_FOR",
+        "r": "Collaborative filtering is used to generate personalized recommendations",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data",
+          "t": "Data analysis"
+        },
+        "canonical": {
+          "s": "Data",
+          "t": "Data analysis"
+        },
+        "rel": "USED_FOR",
+        "r": "Data is used as the foundation for performing data analysis",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Deep Learning",
+          "t": "Neural networks"
+        },
+        "canonical": {
+          "s": "Deep Learning",
+          "t": "Neural networks"
+        },
+        "rel": "USED_FOR",
+        "r": "Deep Learning leverages neural networks for complex tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "ETL",
+          "t": "Data warehousing"
+        },
+        "canonical": {
+          "s": "ETL",
+          "t": "Data warehousing"
+        },
+        "rel": "USED_FOR",
+        "r": "ETL processes data for efficient storage in data warehouses",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Hadoop",
+          "t": "Distributed processing"
+        },
+        "canonical": {
+          "s": "Hadoop",
+          "t": "Distributed processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Hadoop is used for distributed data processing at scale",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Big data storage"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Big data storage"
+        },
+        "rel": "USED_FOR",
+        "r": "HDFS is used for storing large datasets in a distributed manner",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Linear regression",
+          "t": "Supervised learning"
+        },
+        "canonical": {
+          "s": "Linear regression",
+          "t": "Supervised learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for predicting a continuous output variable",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "MapReduce",
+          "t": "Data processing"
+        },
+        "canonical": {
+          "s": "MapReduce",
+          "t": "Data processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for processing large datasets in parallel across clusters",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Recommendation",
+          "t": "Personalized content"
+        },
+        "canonical": {
+          "s": "Recommendation",
+          "t": "Personalized content"
+        },
+        "rel": "USED_FOR",
+        "r": "Recommendation systems are used to deliver personalized content",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark SQL",
+          "t": "Big data processing"
+        },
+        "canonical": {
+          "s": "Spark SQL",
+          "t": "Big data processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark SQL is used for querying large-scale structured data in Spark",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Supervised learning",
+          "t": "Machine learning"
+        },
+        "canonical": {
+          "s": "Supervised learning",
+          "t": "Machine learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Supervised learning is a type of machine learning with labeled data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark",
+          "t": "Big data"
+        },
+        "canonical": {
+          "s": "Spark",
+          "t": "Big data"
+        },
+        "rel": "USED_FOR",
+        "r": "Distributed engine for big data processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Data storage"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Data storage"
+        },
+        "rel": "USED_FOR",
+        "r": "Stores large distributed datasets",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Singular Value Decomposition (SVD)",
+          "t": "Matrix Factorization"
+        },
+        "canonical": {
+          "s": "Singular Value Decomposition (SVD)",
+          "t": "Matrix Factorization"
+        },
+        "rel": "USED_FOR",
+        "r": "Factorizes matrices for ML",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Content-based Filtering Recommendations",
+          "t": "Recommendation"
+        },
+        "canonical": {
+          "s": "Content-based Filtering Recommendations",
+          "t": "Recommendation"
+        },
+        "rel": "USED_FOR",
+        "r": "Recommends based on item features",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Pregel",
+          "t": "Graph processing"
+        },
+        "canonical": {
+          "s": "Pregel",
+          "t": "Graph processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Model for large-scale graph computation",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Apache Giraph",
+          "t": "Graph processing"
+        },
+        "canonical": {
+          "s": "Apache Giraph",
+          "t": "Graph processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Distributed graph processing system",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "ETL (Extract, Transform, and Load)",
+          "t": "Data Integration"
+        },
+        "canonical": {
+          "s": "ETL",
+          "t": "Data Integration"
+        },
+        "rel": "USED_FOR",
+        "r": "Combines data from multiple sources",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "Data Cleaning",
+          "t": "Data preprocessing"
+        },
+        "canonical": {
+          "s": "Data Cleaning",
+          "t": "Data preprocessing"
+        },
+        "rel": "USED_FOR",
+        "r": "Removes or corrects noisy data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data Normalization",
+          "t": "Data preprocessing"
+        },
+        "canonical": {
+          "s": "Data Normalization",
+          "t": "Data preprocessing"
+        },
+        "rel": "USED_FOR",
+        "r": "Scales data to a common range",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Gradient Descent",
+          "t": "Optimization"
+        },
+        "canonical": {
+          "s": "Gradient Descent",
+          "t": "Optimization"
+        },
+        "rel": "USED_FOR",
+        "r": "Minimizes model cost function",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Cost function",
+          "t": "Optimization"
+        },
+        "canonical": {
+          "s": "Cost function",
+          "t": "Optimization"
+        },
+        "rel": "RELATED_TO",
+        "r": "Objective minimized by gradient descent",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "CNN",
+          "t": "Deep Learning"
+        },
+        "canonical": {
+          "s": "Convolutional Neural Network",
+          "t": "Deep Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Performs image recognition tasks",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "Transformers",
+          "t": "Deep Learning"
+        },
+        "canonical": {
+          "s": "Transformers",
+          "t": "Deep Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Processes sequential data efficiently",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "TensorFlow Lite",
+          "t": "Mobile AI"
+        },
+        "canonical": {
+          "s": "TensorFlow Lite",
+          "t": "Mobile AI"
+        },
+        "rel": "USED_FOR",
+        "r": "TensorFlow Lite is used for deploying AI models on mobile devices",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "TensorFlow Serving",
+          "t": "Model deployment"
+        },
+        "canonical": {
+          "s": "TensorFlow Serving",
+          "t": "Model deployment"
+        },
+        "rel": "USED_FOR",
+        "r": "Serves trained ML models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "TensorFlow Processing Unit (TPU)",
+          "t": "Deep Learning"
+        },
+        "canonical": {
+          "s": "TensorFlow Processing Unit (TPU)",
+          "t": "Deep Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Accelerates neural network computation",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "tf.data",
+          "t": "Data pipeline"
+        },
+        "canonical": {
+          "s": "tf.data",
+          "t": "Data pipeline"
+        },
+        "rel": "USED_FOR",
+        "r": "Builds efficient TensorFlow input pipelines",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Reinforcement Learning(RL)",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Reinforcement Learning(RL)",
+          "t": "Machine Learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "A learning paradigm in ML",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Supervised learning",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Supervised learning",
+          "t": "Machine Learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Type of ML using labeled data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Unsupervised learning",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Unsupervised learning",
+          "t": "Machine Learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Type of ML without labels",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Semi-supervised learning",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Semi-supervised learning",
+          "t": "Machine Learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Combines labeled and unlabeled data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "OLTP",
+          "t": "Transaction processing"
+        },
+        "canonical": {
+          "s": "OLTP",
+          "t": "Transaction processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Manages online transaction data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Atomicity",
+          "t": "ACID"
+        },
+        "canonical": {
+          "s": "Atomicity",
+          "t": "ACID"
+        },
+        "rel": "RELATED_TO",
+        "r": "Core ACID property of transactions",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Isolation",
+          "t": "ACID"
+        },
+        "canonical": {
+          "s": "Isolation",
+          "t": "ACID"
+        },
+        "rel": "RELATED_TO",
+        "r": "Ensures transaction independence",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Durability",
+          "t": "ACID"
+        },
+        "canonical": {
+          "s": "Durability",
+          "t": "ACID"
+        },
+        "rel": "RELATED_TO",
+        "r": "Guarantees persistence after commit",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Consistency",
+          "t": "ACID"
+        },
+        "canonical": {
+          "s": "Consistency",
+          "t": "ACID"
+        },
+        "rel": "RELATED_TO",
+        "r": "Ensures valid transaction states",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "BASE",
+          "t": "NoSQL Database"
+        },
+        "canonical": {
+          "s": "BASE",
+          "t": "NoSQL Database"
+        },
+        "rel": "RELATED_TO",
+        "r": "Consistency model for NoSQL systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Eventual consistency",
+          "t": "BASE"
+        },
+        "canonical": {
+          "s": "Eventual consistency",
+          "t": "BASE"
+        },
+        "rel": "RELATED_TO",
+        "r": "Key property of BASE systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Bulk Synchronous Parallel",
+          "t": "Parallel processing"
+        },
+        "canonical": {
+          "s": "Bulk Synchronous Parallel",
+          "t": "Parallel processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Synchronizes distributed computations",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "JobTracker",
+          "t": "MapReduce"
+        },
+        "canonical": {
+          "s": "JobTracker",
+          "t": "MapReduce"
+        },
+        "rel": "USED_FOR",
+        "r": "Schedules MapReduce jobs",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "TaskTracker",
+          "t": "MapReduce"
+        },
+        "canonical": {
+          "s": "TaskTracker",
+          "t": "MapReduce"
+        },
+        "rel": "USED_FOR",
+        "r": "Executes tasks assigned by JobTracker",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark SQL",
+          "t": "Structured data processing"
+        },
+        "canonical": {
+          "s": "Spark SQL",
+          "t": "Structured data processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Processes structured data via SQL",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark Streaming",
+          "t": "Stream processing"
+        },
+        "canonical": {
+          "s": "Spark Streaming",
+          "t": "Stream processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Processes real-time data streams",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spout",
+          "t": "Stream"
+        },
+        "canonical": {
+          "s": "Spout",
+          "t": "Stream"
+        },
+        "rel": "USED_FOR",
+        "r": "Emits data streams in Storm topology",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Bolt",
+          "t": "Stream"
+        },
+        "canonical": {
+          "s": "Bolt",
+          "t": "Stream"
+        },
+        "rel": "USED_FOR",
+        "r": "Processes tuples in Storm topology",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Nimbus",
+          "t": "Storm"
+        },
+        "canonical": {
+          "s": "Nimbus",
+          "t": "Storm"
+        },
+        "rel": "USED_FOR",
+        "r": "Master node managing topology in Storm",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Supervisor",
+          "t": "Storm"
+        },
+        "canonical": {
+          "s": "Supervisor",
+          "t": "Storm"
+        },
+        "rel": "USED_FOR",
+        "r": "Manages worker nodes in Storm",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Aggregation",
+          "t": "Data reduction"
+        },
+        "canonical": {
+          "s": "Aggregation",
+          "t": "Data reduction"
+        },
+        "rel": "USED_FOR",
+        "r": "Summarizes data into compact form",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data cube aggregation",
+          "t": "OLAP"
+        },
+        "canonical": {
+          "s": "Data cube aggregation",
+          "t": "OLAP: Online Analytical"
+        },
+        "rel": "USED_FOR",
+        "r": "Supports multidimensional aggregation",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "Virtualization",
+          "t": "Computing platform and engine"
+        },
+        "canonical": {
+          "s": "Virtualization",
+          "t": "Computing platform and engine"
+        },
+        "rel": "USED_FOR",
+        "r": "Abstracts hardware for resource sharing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data governance",
+          "t": "Data management"
+        },
+        "canonical": {
+          "s": "Data governance",
+          "t": "Data management"
+        },
+        "rel": "USED_FOR",
+        "r": "Ensures quality and security of data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Enterprise Data Warehouse",
+          "t": "Data storage"
+        },
+        "canonical": {
+          "s": "Enterprise Data Warehouse",
+          "t": "Data storage"
+        },
+        "rel": "USED_FOR",
+        "r": "Central repository for enterprise data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Apache Giraph",
+          "t": "Graph-Based"
+        },
+        "canonical": {
+          "s": "Apache Giraph",
+          "t": "Graph-Based"
+        },
+        "rel": "USED_FOR",
+        "r": "Giraph processes graph-based data efficiently",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Batch",
+          "t": "Data Processing"
+        },
+        "canonical": {
+          "s": "Batch",
+          "t": "Data Processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Batch processing is used for handling large data in intervals",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Collaborative filtering",
+          "t": "Recommendation System"
+        },
+        "canonical": {
+          "s": "Collaborative filtering",
+          "t": "Recommendation System"
+        },
+        "rel": "USED_FOR",
+        "r": "Collaborative filtering recommends items based on user behavior",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Hadoop",
+          "t": "Distributed Computing"
+        },
+        "canonical": {
+          "s": "Hadoop",
+          "t": "Distributed Computing"
+        },
+        "rel": "USED_FOR",
+        "r": "Hadoop provides distributed processing for big data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Data Storage"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Data Storage"
+        },
+        "rel": "USED_FOR",
+        "r": "HDFS is a distributed file system for big data storage",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "PCA",
+          "t": "Dimensionality Reduction"
+        },
+        "canonical": {
+          "s": "PCA",
+          "t": "Dimensionality Reduction"
+        },
+        "rel": "USED_FOR",
+        "r": "PCA reduces dimensions by projecting data onto principal components",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark Streaming",
+          "t": "Real-Time Analytics"
+        },
+        "canonical": {
+          "s": "Spark Streaming",
+          "t": "Real-Time Analytics"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark Streaming is used for real-time data stream processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Apache Giraph",
+          "t": "Bulk Synchronous Parallel"
+        },
+        "canonical": {
+          "s": "Apache Giraph",
+          "t": "Bulk Synchronous Parallel"
+        },
+        "rel": "USED_FOR",
+        "r": "Giraph uses BSP for distributed graph processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "CAP Theorem",
+          "t": "Consistency"
+        },
+        "canonical": {
+          "s": "CAP Theorem",
+          "t": "Consistency"
+        },
+        "rel": "RELATED_TO",
+        "r": "CAP Theorem discusses consistency in distributed systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Deep Learning",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Deep Learning",
+          "t": "Machine Learning"
+        },
+        "rel": "RELATED_TO",
+        "r": "Deep learning is a subset of machine learning",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Dimensionality reduction",
+          "t": "Data Analysis"
+        },
+        "canonical": {
+          "s": "Dimensionality reduction",
+          "t": "Data Analysis"
+        },
+        "rel": "USED_FOR",
+        "r": "Dimensionality reduction aids in data analysis by simplifying datasets",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "ETL",
+          "t": "Data Transformation"
+        },
+        "canonical": {
+          "s": "ETL",
+          "t": "Data Transformation"
+        },
+        "rel": "USED_FOR",
+        "r": "ETL is a method for extracting and transforming data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Gradient Descent",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Gradient Descent",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Gradient descent is used for optimizing machine learning models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Linear regression",
+          "t": "Machine Learning"
+        },
+        "canonical": {
+          "s": "Linear regression",
+          "t": "Machine Learning"
+        },
+        "rel": "USED_FOR",
+        "r": "Linear regression is used for predictive modeling in ML",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "NoSQL Database",
+          "t": "Big Data"
+        },
+        "canonical": {
+          "s": "NoSQL Database",
+          "t": "Big Data"
+        },
+        "rel": "USED_FOR",
+        "r": "NoSQL databases are used to store and manage Big Data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Aggregation",
+          "t": "Data"
+        },
+        "canonical": {
+          "s": "Aggregation",
+          "t": "Data"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for summarizing and combining data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Asynchronous replication",
+          "t": "Data consistency"
+        },
+        "canonical": {
+          "s": "Asynchronous replication",
+          "t": "Data consistency"
+        },
+        "rel": "USED_FOR",
+        "r": "Ensures data consistency across distributed systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Atomicity",
+          "t": "Transactions"
+        },
+        "canonical": {
+          "s": "Atomicity",
+          "t": "Transactions"
+        },
+        "rel": "USED_FOR",
+        "r": "Guarantees transaction completeness in databases",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Colossus",
+          "t": "Distributed file system"
+        },
+        "canonical": {
+          "s": "Colossus",
+          "t": "Distributed file system"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for scalable file storage at Google",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Cost function",
+          "t": "Optimization"
+        },
+        "canonical": {
+          "s": "Cost function",
+          "t": "Optimization"
+        },
+        "rel": "USED_FOR",
+        "r": "Guides the optimization process in machine learning models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data Mining",
+          "t": "Data Analysis"
+        },
+        "canonical": {
+          "s": "Data Mining",
+          "t": "Data Analysis"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for discovering patterns in large datasets",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Dimensionality reduction",
+          "t": "Data preprocessing"
+        },
+        "canonical": {
+          "s": "Dimensionality reduction",
+          "t": "Data preprocessing"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for reducing the number of features in a dataset",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "ETL (Extract, Transform, Load)",
+          "t": "Data Integration"
+        },
+        "canonical": {
+          "s": "ETL",
+          "t": "Data Integration"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for preparing data from various sources for analysis",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Distributed file system"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Distributed file system"
+        },
+        "rel": "USED_FOR",
+        "r": "Used for storing large files across distributed nodes",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Machine Learning",
+          "t": "Data Science"
+        },
+        "canonical": {
+          "s": "Machine Learning",
+          "t": "Data Science"
+        },
+        "rel": "RELATED_TO",
+        "r": "Core component of data science for building predictive models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Apache Giraph",
+          "t": "GraphX"
+        },
+        "canonical": {
+          "s": "Apache Giraph",
+          "t": "GraphX"
+        },
+        "rel": "USED_FOR",
+        "r": "Giraph is used for large-scale graph processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Atomicity",
+          "t": "Database Transactions"
+        },
+        "canonical": {
+          "s": "Atomicity",
+          "t": "Database Transactions"
+        },
+        "rel": "USED_FOR",
+        "r": "Atomicity guarantees the indivisibility of database transactions",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Attribute construction",
+          "t": "Feature Engineering"
+        },
+        "canonical": {
+          "s": "Attribute construction",
+          "t": "Feature Engineering"
+        },
+        "rel": "USED_FOR",
+        "r": "Attribute construction helps in creating useful features for models",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Attributes subset selection",
+          "t": "Feature Selection"
+        },
+        "canonical": {
+          "s": "Attributes subset selection",
+          "t": "Feature Selection"
+        },
+        "rel": "USED_FOR",
+        "r": "Selecting relevant attributes helps improve model efficiency",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Big Data",
+          "t": "Data Analysis"
+        },
+        "canonical": {
+          "s": "Big Data",
+          "t": "Data Analysis"
+        },
+        "rel": "USED_FOR",
+        "r": "Big Data is processed for extracting meaningful insights",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Collaborative filtering",
+          "t": "Recommendation Systems"
+        },
+        "canonical": {
+          "s": "Collaborative filtering",
+          "t": "Recommendation Systems"
+        },
+        "rel": "USED_FOR",
+        "r": "Collaborative filtering is widely used in recommendation systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data Cleaning",
+          "t": "Data Quality"
+        },
+        "canonical": {
+          "s": "Data Cleaning",
+          "t": "Data Quality"
+        },
+        "rel": "USED_FOR",
+        "r": "Data cleaning improves the quality of data for analysis",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Dimensionality reduction",
+          "t": "Feature Engineering"
+        },
+        "canonical": {
+          "s": "Dimensionality reduction",
+          "t": "Feature Engineering"
+        },
+        "rel": "USED_FOR",
+        "r": "Dimensionality reduction simplifies features for model training",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Distributed File System",
+          "t": "Data Storage"
+        },
+        "canonical": {
+          "s": "Distributed File System",
+          "t": "Data Storage"
+        },
+        "rel": "USED_FOR",
+        "r": "Distributed file systems store data across multiple nodes",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Hadoop",
+          "t": "MapReduce"
+        },
+        "canonical": {
+          "s": "Hadoop",
+          "t": "MapReduce"
+        },
+        "rel": "USED_FOR",
+        "r": "Hadoop implements the MapReduce programming model for processing data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Machine Learning",
+          "t": "Prediction"
+        },
+        "canonical": {
+          "s": "Machine Learning",
+          "t": "Prediction"
+        },
+        "rel": "USED_FOR",
+        "r": "Machine learning is used to build models for prediction tasks",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "NoSQL Database",
+          "t": "Data Storage"
+        },
+        "canonical": {
+          "s": "NoSQL Database",
+          "t": "Data Storage"
+        },
+        "rel": "USED_FOR",
+        "r": "NoSQL databases store unstructured or semi-structured data",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Recommendation Systems",
+          "t": "User Personalization"
+        },
+        "canonical": {
+          "s": "Recommendation Systems",
+          "t": "User Personalization"
+        },
+        "rel": "USED_FOR",
+        "r": "Recommendation systems personalize content for users",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Vertex",
+          "t": "Graph Theory"
+        },
+        "canonical": {
+          "s": "Vertex",
+          "t": "Graph Theory"
+        },
+        "rel": "RELATED_TO",
+        "r": "Vertices are fundamental components of graph theory",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Asynchronous replication",
+          "t": "Data availability"
+        },
+        "canonical": {
+          "s": "Asynchronous replication",
+          "t": "Data availability"
+        },
+        "rel": "USED_FOR",
+        "r": "Ensures availability through asynchronous data sync",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "BASE",
+          "t": "Eventual consistency"
+        },
+        "canonical": {
+          "s": "BASE",
+          "t": "Eventual consistency"
+        },
+        "rel": "USED_FOR",
+        "r": "BASE model defines eventual consistency in distributed systems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data cleaning",
+          "t": "Data preprocessing"
+        },
+        "canonical": {
+          "s": "Data cleaning",
+          "t": "Data preprocessing"
+        },
+        "rel": "USED_FOR",
+        "r": "Data cleaning prepares raw data for analysis or modeling",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data integration",
+          "t": "Data analytics"
+        },
+        "canonical": {
+          "s": "Data Integration",
+          "t": "Data analytics"
+        },
+        "rel": "USED_FOR",
+        "r": "Data integration combines data from multiple sources for analytics",
+        "was_mapped": true
+      },
+      {
+        "original": {
+          "s": "Graph database",
+          "t": "Graph theory"
+        },
+        "canonical": {
+          "s": "Graph database",
+          "t": "Graph theory"
+        },
+        "rel": "USED_FOR",
+        "r": "Graph databases are optimized for graph-based data structures",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Machine Learning",
+          "t": "Data analysis"
+        },
+        "canonical": {
+          "s": "Machine Learning",
+          "t": "Data analysis"
+        },
+        "rel": "USED_FOR",
+        "r": "Machine learning techniques are widely applied in data analysis",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "MapReduce",
+          "t": "Distributed computing"
+        },
+        "canonical": {
+          "s": "MapReduce",
+          "t": "Distributed computing"
+        },
+        "rel": "USED_FOR",
+        "r": "MapReduce is used for distributed data processing",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Reinforcement learning",
+          "t": "Artificial Intelligence"
+        },
+        "canonical": {
+          "s": "Reinforcement learning",
+          "t": "Artificial Intelligence"
+        },
+        "rel": "USED_FOR",
+        "r": "Reinforcement learning is a key approach in AI development",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Spark",
+          "t": "Big Data processing"
+        },
+        "canonical": {
+          "s": "Spark",
+          "t": "Big Data processing"
+        },
+        "rel": "USED_FOR",
+        "r": "Spark is used for large-scale data processing in Big Data environments",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "HDFS",
+          "t": "Distributed storage"
+        },
+        "canonical": {
+          "s": "HDFS",
+          "t": "Distributed storage"
+        },
+        "rel": "USED_FOR",
+        "r": "HDFS provides distributed storage for large datasets in Hadoop ecosystems",
+        "was_mapped": false
+      },
+      {
+        "original": {
+          "s": "Data mining",
+          "t": "Pattern recognition"
+        },
+        "canonical": {
+          "s": "Data mining",
+          "t": "Pattern recognition"
+        },
+        "rel": "USED_FOR",
+        "r": "Data mining identifies patterns in large datasets for insights",
+        "was_mapped": false
+      }
+    ]
+  },
+  "iteration_history": [
+    {
+      "iteration": 0,
+      "timestamp": "2025-10-15T22:24:07.486053",
+      "valid_count": 19,
+      "weak_count": 2,
+      "total_accumulated": 19
+    },
+    {
+      "iteration": 1,
+      "timestamp": "2025-10-15T22:25:27.577153",
+      "valid_count": 16,
+      "weak_count": 4,
+      "total_accumulated": 30
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2025-10-15T22:26:55.198567",
+      "valid_count": 17,
+      "weak_count": 6,
+      "total_accumulated": 41
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2025-10-15T22:28:14.023649",
+      "valid_count": 20,
+      "weak_count": 1,
+      "total_accumulated": 56
+    },
+    {
+      "iteration": 4,
+      "timestamp": "2025-10-15T22:30:40.992975",
+      "valid_count": 51,
+      "weak_count": 3,
+      "total_accumulated": 98
+    },
+    {
+      "iteration": 5,
+      "timestamp": "2025-10-15T22:32:01.642126",
+      "valid_count": 13,
+      "weak_count": 9,
+      "total_accumulated": 105
+    },
+    {
+      "iteration": 6,
+      "timestamp": "2025-10-15T22:33:21.924617",
+      "valid_count": 18,
+      "weak_count": 3,
+      "total_accumulated": 113
+    },
+    {
+      "iteration": 7,
+      "timestamp": "2025-10-15T22:34:49.171053",
+      "valid_count": 20,
+      "weak_count": 3,
+      "total_accumulated": 123
+    },
+    {
+      "iteration": 8,
+      "timestamp": "2025-10-15T22:36:10.368570",
+      "valid_count": 21,
+      "weak_count": 2,
+      "total_accumulated": 137
+    },
+    {
+      "iteration": 9,
+      "timestamp": "2025-10-15T22:37:25.775841",
+      "valid_count": 18,
+      "weak_count": 2,
+      "total_accumulated": 148
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+[project]
+name = "knowledge-graph-builder"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "docx2txt>=0.9",
+    "python-dotenv>=1.0.0",
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.29",
+    "langchain-core>=0.3.27",
+    "langchain-neo4j>=0.5.0",
+    "langchain-openai>=0.3.33",
+    "langgraph>=0.6.7",
+    "matplotlib>=3.10.6",
+    "networkx>=3.5",
+    "openai>=1.107.1",
+    "pydantic>=2.0.0",
+    "python-docx>=1.2.0",
+    "tavily-python>=0.7.17",
+    "rapidfuzz>=3.14.3",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+]
