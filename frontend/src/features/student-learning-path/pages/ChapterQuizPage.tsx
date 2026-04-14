@@ -40,6 +40,10 @@ const ANSWER_OPTIONS = ['A', 'B', 'C', 'D'] as const;
 type QuizChoice = (typeof ANSWER_OPTIONS)[number];
 type QuizFormValues = { answers: Record<string, QuizChoice> };
 
+function isQuizChoice(value: unknown): value is QuizChoice {
+  return typeof value === 'string' && ANSWER_OPTIONS.includes(value as QuizChoice);
+}
+
 function getErrorStatus(error: unknown): number | null {
   if (!error || typeof error !== 'object' || !('response' in error)) {
     return null;
@@ -211,7 +215,10 @@ function ChapterQuizForm({
   });
 
   const answers = form.watch('answers') ?? {};
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = quiz.questions.reduce(
+    (count, question) => count + (isQuizChoice(answers[question.id]) ? 1 : 0),
+    0,
+  );
   const allAnswered = quiz.questions.length > 0 && answeredCount === quiz.questions.length;
   const hasRetakeAnswers = Object.keys(quiz.previous_answers).length > 0;
 

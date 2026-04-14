@@ -59,6 +59,23 @@ describe('ChapterQuizPage', () => {
     vi.clearAllMocks();
   });
 
+  it('starts with unanswered progress and a disabled submit button', async () => {
+    (studentLearningPathApi.getChapterQuiz as Mock).mockResolvedValue(quizResponse);
+
+    renderPage();
+
+    expect(await screen.findByText('Foundations')).toBeInTheDocument();
+    expect(screen.getByText('0/2 answered')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Submit quiz/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('radio', { name: /A\. One/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1/2 answered')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /Submit quiz/i })).toBeDisabled();
+  });
+
   it('submits answers and shows the summary dialog', async () => {
     (studentLearningPathApi.getChapterQuiz as Mock).mockResolvedValue(quizResponse);
     (studentLearningPathApi.submitChapterQuiz as Mock).mockResolvedValue({
