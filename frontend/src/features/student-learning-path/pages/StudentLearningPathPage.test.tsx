@@ -362,14 +362,18 @@ describe('StudentLearningPathPage', () => {
 
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: /Requires 1/i }));
-    expect(await screen.findByText('Direct prerequisites')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /1 prerequisite/i }));
+    expect(await screen.findByText('Prerequisite chain')).toBeInTheDocument();
+    expect(screen.getByText('Must learn first')).toBeInTheDocument();
     expect(screen.getByText('Batch concepts should come before streaming concepts.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Kafka/i }));
     fireEvent.click(screen.getByRole('button', { name: /Build My Learning Path/i }));
 
     expect(await screen.findByText('Review prerequisites')).toBeInTheDocument();
+    expect(screen.getByText('Add this prerequisite')).toBeInTheDocument();
+    expect(screen.getByText('Unlocks these selected skills')).toBeInTheDocument();
+    expect(screen.getByText('Why it shows up')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continue build/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: /I already know this/i }));

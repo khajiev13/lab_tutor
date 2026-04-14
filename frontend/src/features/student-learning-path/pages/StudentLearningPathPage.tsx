@@ -29,6 +29,7 @@ import {
   Briefcase,
   Building2,
   CheckCircle2,
+  ChevronRight,
   ExternalLink,
   Globe,
   Library,
@@ -46,6 +47,7 @@ import {
   getLearningPath,
   getSkillBanks,
   streamBuildProgress,
+  trackResourceOpen,
   type BuildSelectedSkillInput,
   type BuildProgressEvent,
   type LearningPathChapter,
@@ -987,24 +989,37 @@ function SkillChip({
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" size="sm" variant="outline" className="h-8 rounded-full px-2.5 text-[11px]">
-              Requires {directPrerequisites.length}
+              {directPrerequisites.length} prerequisite{directPrerequisites.length === 1 ? '' : 's'}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-80">
             <PopoverHeader>
-              <PopoverTitle>Direct prerequisites</PopoverTitle>
+              <PopoverTitle>Prerequisite chain</PopoverTitle>
               <PopoverDescription>
-                These skills are linked as foundations for {skill.name}.
+                Learn these skills before {skill.name}.
               </PopoverDescription>
             </PopoverHeader>
             <div className="mt-3 space-y-3">
               {directPrerequisites.map((prerequisite) => (
-                <div key={`${skill.name}-${prerequisite.prerequisite_name}`} className="space-y-1">
+                <div key={`${skill.name}-${prerequisite.prerequisite_name}`} className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium">{prerequisite.prerequisite_name}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      Must learn first
+                    </p>
                     <Badge variant="outline" className="text-[10px]">
                       {formatPrerequisiteConfidence(prerequisite.confidence)}
                     </Badge>
+                  </div>
+                  <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{prerequisite.prerequisite_name}</p>
+                    </div>
+                    <div className="flex items-center justify-center text-muted-foreground">
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{skill.name}</p>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {prerequisite.reasoning || 'Marked as a prerequisite in the course graph.'}
@@ -1154,6 +1169,12 @@ function LearningPathChapterCard({
                                 href={reading.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                onClick={() => {
+                                  void trackResourceOpen(courseId, {
+                                    resource_type: 'reading',
+                                    url: reading.url,
+                                  });
+                                }}
                                 className="flex items-start gap-2 rounded-md border p-2 text-sm transition-colors hover:bg-accent"
                               >
                                 <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -1180,6 +1201,12 @@ function LearningPathChapterCard({
                                 href={video.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                onClick={() => {
+                                  void trackResourceOpen(courseId, {
+                                    resource_type: 'video',
+                                    url: video.url,
+                                  });
+                                }}
                                 className="flex items-start gap-2 rounded-md border p-2 text-sm transition-colors hover:bg-accent"
                               >
                                 <Video className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
