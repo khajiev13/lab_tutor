@@ -25,9 +25,11 @@ from .curriculum_schemas import (
     SectionRead,
     SkillBanksResponse,
     SkillRead,
+    SkillSelectionRange,
     SkillSource,
     TranscriptDocumentRead,
 )
+from .neo4j_repository import CourseGraphRepository
 from .repository import CourseRepository
 
 
@@ -135,6 +137,7 @@ class CurriculumService:
     def __init__(self, repo: CourseRepository, neo4j_session: Neo4jSession) -> None:
         self._repo = repo
         self._graph_repo = CurriculumNeo4jRepository(neo4j_session)
+        self._course_graph_repo = CourseGraphRepository(neo4j_session)
 
     def _require_teacher_owns_course(self, *, course_id: int, teacher: User) -> None:
         course = self._repo.get_by_id(course_id)
@@ -282,10 +285,33 @@ class CurriculumService:
             if jp.get("url")
         ]
 
+        selection_range = SkillSelectionRange.model_validate(
+            self._course_graph_repo.get_skill_selection_range(course_id=course_id)
+        )
+
         return SkillBanksResponse(
             course_chapters=course_chapters,
             book_skill_bank=book_skill_bank,
             market_skill_bank=market_skill_bank,
+            selection_range=selection_range,
+        )
+
+    def update_skill_selection_range(
+        self,
+        *,
+        teacher: User,
+        course_id: int,
+        min_skills: int,
+        max_skills: int,
+    ) -> SkillSelectionRange:
+        self._require_teacher_owns_course(course_id=course_id, teacher=teacher)
+        self._course_graph_repo.set_skill_selection_range(
+            course_id=course_id,
+            min_skills=min_skills,
+            max_skills=max_skills,
+        )
+        return SkillSelectionRange.model_validate(
+            self._course_graph_repo.get_skill_selection_range(course_id=course_id)
         )
 
 

@@ -38,6 +38,7 @@ import { CurriculumStats } from "../components/CurriculumStats";
 import { TranscriptChapters } from "../components/TranscriptChapters";
 import { BookSkillBank } from "../components/BookSkillBank";
 import { MarketSkillBank } from "../components/MarketSkillBank";
+import { SkillSelectionRangeCard } from "../components/SkillSelectionRangeCard";
 
 export default function CurriculumPage() {
   const { id } = useParams<{ id: string }>();
@@ -207,6 +208,16 @@ export default function CurriculumPage() {
               <div className="mb-5">
                 <CurriculumStats curriculum={curriculum} />
               </div>
+            )}
+
+            {skillBanks && (
+              <SkillSelectionRangeCard
+                courseId={courseId}
+                selectionRange={skillBanks.selection_range}
+                onUpdated={(selectionRange) =>
+                  setSkillBanks((prev) => (prev ? { ...prev, selection_range: selectionRange } : prev))
+                }
+              />
             )}
 
             {/* Tabs for different views */}

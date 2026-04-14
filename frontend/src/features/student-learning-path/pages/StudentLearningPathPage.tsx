@@ -1,4 +1,12 @@
-import { type ReactNode, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -8,6 +16,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import {
   BookOpen,
@@ -32,11 +48,22 @@ import {
   type BuildSelectedSkillInput,
   type BuildProgressEvent,
   type LearningPathResponse,
+  type PrerequisiteEdge,
   type SkillBanksResponse,
   type StudentSkillBankBook,
   type StudentSkillBankJobPosting,
   type StudentSkillBankSkill,
 } from '../api';
+import {
+  PrerequisiteReviewDialog,
+  type PrerequisiteReviewItem,
+} from '../components/PrerequisiteReviewDialog';
+
+const DEFAULT_SELECTION_RANGE = {
+  min_skills: 20,
+  max_skills: 35,
+  is_default: true,
+} as const;
 
 function getErrorStatus(error: unknown): number | null {
   if (!error || typeof error !== 'object' || !('response' in error)) {
@@ -64,6 +91,8 @@ export default function StudentLearningPathPage() {
   const [buildProgress, setBuildProgress] = useState<BuildProgressEvent[]>([]);
   const [buildPercent, setBuildPercent] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [acknowledgedKnownSkills, setAcknowledgedKnownSkills] = useState<Set<string>>(new Set());
+  const [prerequisiteReviewOpen, setPrerequisiteReviewOpen] = useState(false);
   const buildHadQuestionErrorsRef = useRef(false);
   const buildCompletedSkillsRef = useRef(0);
 
@@ -118,6 +147,48 @@ export default function StudentLearningPathPage() {
     init();
   }, [loadLearningPath, loadSkillBanks]);
 
+  const persistedSelectedSkills = useMemo(
+    () => new Set(skillBanks?.selected_skill_names ?? []),
+    [skillBanks?.selected_skill_names],
+  );
+  const selectionLocked = persistedSelectedSkills.size > 0;
+  const selectedSkills = useMemo(
+    () =>
+      new Set(
+        selectionLocked ? Array.from(persistedSelectedSkills) : Array.from(draftSelectedSkills.keys()),
+      ),
+    [draftSelectedSkills, persistedSelectedSkills, selectionLocked],
+  );
+  const selectionRange = skillBanks?.selection_range ?? DEFAULT_SELECTION_RANGE;
+  const directPrerequisiteIndex = useMemo(
+    () => buildPrerequisiteIndex(skillBanks?.prerequisite_edges ?? []),
+    [skillBanks?.prerequisite_edges],
+  );
+  const prerequisiteClosure = useMemo(
+    () => collectTransitivePrerequisites(selectedSkills, directPrerequisiteIndex),
+    [directPrerequisiteIndex, selectedSkills],
+  );
+  const activeAcknowledgedKnownSkills = useMemo(() => {
+    if (selectionLocked) {
+      return new Set<string>();
+    }
+
+    return new Set(
+      Array.from(acknowledgedKnownSkills).filter(
+        (skillName) => prerequisiteClosure.has(skillName) && !selectedSkills.has(skillName),
+      ),
+    );
+  }, [acknowledgedKnownSkills, prerequisiteClosure, selectedSkills, selectionLocked]);
+  const unresolvedPrerequisiteItems = useMemo(
+    () =>
+      buildPrerequisiteReviewItems(
+        selectedSkills,
+        activeAcknowledgedKnownSkills,
+        directPrerequisiteIndex,
+      ),
+    [activeAcknowledgedKnownSkills, directPrerequisiteIndex, selectedSkills],
+  );
+
   const toggleSkill = useCallback(
     (skillName: string, source: 'book' | 'market') => {
       setDraftSelectedSkills((prev) => {
@@ -148,99 +219,175 @@ export default function StudentLearningPathPage() {
     [],
   );
 
-  const handleBuild = async () => {
-    const stagedSelectedSkills: BuildSelectedSkillInput[] = Array.from(
-      draftSelectedSkills,
-      ([name, source]) => ({
+  const buildDraftSelection = useCallback(
+    (): BuildSelectedSkillInput[] =>
+      Array.from(draftSelectedSkills, ([name, source]) => ({
         name,
         source,
-      }),
-    );
-    const persistedSelectedSkillNames = skillBanks?.selected_skill_names ?? [];
-    const selectionLocked = persistedSelectedSkillNames.length > 0;
+      })),
+    [draftSelectedSkills],
+  );
+
+  const validateSelectionCount = useCallback(
+    (count: number) => {
+      if (count < selectionRange.min_skills || count > selectionRange.max_skills) {
+        toast.warning(
+          `Select between ${selectionRange.min_skills} and ${selectionRange.max_skills} skills before building.`,
+        );
+        return false;
+      }
+      return true;
+    },
+    [selectionRange.max_skills, selectionRange.min_skills],
+  );
+
+  const startBuild = useCallback(
+    async (stagedSelectedSkills: BuildSelectedSkillInput[]) => {
+      setIsBuilding(true);
+      setBuildProgress([]);
+      setBuildPercent(0);
+      buildHadQuestionErrorsRef.current = false;
+      buildCompletedSkillsRef.current = 0;
+
+      try {
+        const { run_id } = await buildLearningPath(
+          numericCourseId,
+          selectionLocked ? [] : stagedSelectedSkills,
+        );
+
+        streamBuildProgress(
+          numericCourseId,
+          run_id,
+          (event) => {
+            if (event.phase === 'question_error') {
+              buildHadQuestionErrorsRef.current = true;
+            }
+            setBuildProgress((prev) => [...prev, event]);
+            if (event.total_skills > 0 && (event.phase === 'done' || event.phase === 'skipped')) {
+              buildCompletedSkillsRef.current = Math.max(
+                buildCompletedSkillsRef.current,
+                event.skills_completed,
+              );
+              setBuildPercent(
+                Math.round((buildCompletedSkillsRef.current / event.total_skills) * 100),
+              );
+            }
+          },
+          async () => {
+            setIsBuilding(false);
+            setBuildPercent(100);
+            setAcknowledgedKnownSkills(new Set());
+            setPrerequisiteReviewOpen(false);
+            const updatedSkillBanks = await loadSkillBanks();
+            const updatedLearningPath =
+              (updatedSkillBanks?.selected_skill_names.length ?? 0) > 0
+                ? await loadLearningPath()
+                : null;
+            const skillsMissingQuestions =
+              updatedLearningPath?.chapters.reduce(
+                (total, chapter) =>
+                  total +
+                  chapter.selected_skills.filter((skill) => skill.questions.length === 0).length,
+                0,
+              ) ?? 0;
+
+            if (skillsMissingQuestions > 0) {
+              toast.warning(
+                `Learning path built, but ${skillsMissingQuestions} skill${
+                  skillsMissingQuestions === 1 ? '' : 's'
+                } still have no questions. If you recently changed the backend code, restart it and rebuild.`,
+              );
+            } else if (buildHadQuestionErrorsRef.current) {
+              toast.warning(
+                'Learning path built with some question-generation issues. Try rebuilding to backfill missing questions.',
+              );
+            } else {
+              toast.success('Learning path built successfully!');
+            }
+          },
+          async (err) => {
+            setIsBuilding(false);
+            const updatedSkillBanks = await loadSkillBanks();
+            if ((updatedSkillBanks?.selected_skill_names.length ?? 0) > 0) {
+              await loadLearningPath();
+            } else {
+              setLearningPath(null);
+            }
+            toast.error(`Build failed: ${err.message}`);
+          },
+        );
+      } catch (err) {
+        setIsBuilding(false);
+        console.error(err);
+        const detail =
+          err &&
+          typeof err === 'object' &&
+          'response' in err &&
+          typeof (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail ===
+            'string'
+            ? (err as { response: { data: { detail: string } } }).response.data.detail
+            : 'Failed to start build';
+        toast.error(detail);
+      }
+    },
+    [loadLearningPath, loadSkillBanks, numericCourseId, selectionLocked],
+  );
+
+  const handleBuild = async () => {
+    const stagedSelectedSkills = buildDraftSelection();
 
     if (!selectionLocked && stagedSelectedSkills.length === 0) {
       toast.warning('Select at least one skill first');
       return;
     }
 
-    setIsBuilding(true);
-    setBuildProgress([]);
-    setBuildPercent(0);
-    buildHadQuestionErrorsRef.current = false;
-    buildCompletedSkillsRef.current = 0;
-
-    try {
-      const { run_id } = await buildLearningPath(
-        numericCourseId,
-        selectionLocked ? [] : stagedSelectedSkills,
-      );
-
-      streamBuildProgress(
-        numericCourseId,
-        run_id,
-        (event) => {
-          if (event.phase === 'question_error') {
-            buildHadQuestionErrorsRef.current = true;
-          }
-          setBuildProgress((prev) => [...prev, event]);
-          if (event.total_skills > 0 && (event.phase === 'done' || event.phase === 'skipped')) {
-            buildCompletedSkillsRef.current = Math.max(
-              buildCompletedSkillsRef.current,
-              event.skills_completed,
-            );
-            setBuildPercent(
-              Math.round((buildCompletedSkillsRef.current / event.total_skills) * 100),
-            );
-          }
-        },
-        async () => {
-          setIsBuilding(false);
-          setBuildPercent(100);
-          const updatedSkillBanks = await loadSkillBanks();
-          const updatedLearningPath =
-            (updatedSkillBanks?.selected_skill_names.length ?? 0) > 0
-              ? await loadLearningPath()
-              : null;
-          const skillsMissingQuestions =
-            updatedLearningPath?.chapters.reduce(
-              (total, chapter) =>
-                total +
-                chapter.selected_skills.filter((skill) => skill.questions.length === 0).length,
-              0,
-            ) ?? 0;
-
-          if (skillsMissingQuestions > 0) {
-            toast.warning(
-              `Learning path built, but ${skillsMissingQuestions} skill${
-                skillsMissingQuestions === 1 ? '' : 's'
-              } still have no questions. If you recently changed the backend code, restart it and rebuild.`,
-            );
-          } else if (buildHadQuestionErrorsRef.current) {
-            toast.warning(
-              'Learning path built with some question-generation issues. Try rebuilding to backfill missing questions.',
-            );
-          } else {
-            toast.success('Learning path built successfully!');
-          }
-        },
-        async (err) => {
-          setIsBuilding(false);
-          const updatedSkillBanks = await loadSkillBanks();
-          if ((updatedSkillBanks?.selected_skill_names.length ?? 0) > 0) {
-            await loadLearningPath();
-          } else {
-            setLearningPath(null);
-          }
-          toast.error(`Build failed: ${err.message}`);
-        },
-      );
-    } catch (err) {
-      setIsBuilding(false);
-      console.error(err);
-      toast.error('Failed to start build');
+    if (!selectionLocked && unresolvedPrerequisiteItems.length > 0) {
+      setPrerequisiteReviewOpen(true);
+      return;
     }
+
+    if (!selectionLocked && !validateSelectionCount(stagedSelectedSkills.length)) {
+      return;
+    }
+
+    await startBuild(stagedSelectedSkills);
   };
+
+  const handleAddPrerequisiteToSelection = useCallback((skillName: string) => {
+    const inferredSource = inferPrerequisiteSource(skillName, skillBanks);
+    setDraftSelectedSkills((prev) => {
+      const next = new Map(prev);
+      next.set(skillName, inferredSource);
+      return next;
+    });
+    setAcknowledgedKnownSkills((prev) => {
+      if (!prev.has(skillName)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.delete(skillName);
+      return next;
+    });
+  }, [skillBanks]);
+
+  const handleAcknowledgeKnownPrerequisite = useCallback((skillName: string) => {
+    setAcknowledgedKnownSkills((prev) => new Set(prev).add(skillName));
+  }, []);
+
+  const handleContinueBuildAfterPrerequisiteReview = useCallback(async () => {
+    if (unresolvedPrerequisiteItems.length > 0) {
+      return;
+    }
+
+    const stagedSelectedSkills = buildDraftSelection();
+    if (!validateSelectionCount(stagedSelectedSkills.length)) {
+      setPrerequisiteReviewOpen(false);
+      return;
+    }
+
+    setPrerequisiteReviewOpen(false);
+    await startBuild(stagedSelectedSkills);
+  }, [buildDraftSelection, startBuild, unresolvedPrerequisiteItems.length, validateSelectionCount]);
 
   if (loading) {
     return (
@@ -252,13 +399,6 @@ export default function StudentLearningPathPage() {
 
   const allBooks = skillBanks?.book_skill_banks ?? [];
   const allMarketPostings = skillBanks?.market_skill_bank ?? [];
-  const persistedSelectedSkills = new Set(skillBanks?.selected_skill_names ?? []);
-  const selectedSkills = new Set(
-    persistedSelectedSkills.size > 0
-      ? persistedSelectedSkills
-      : Array.from(draftSelectedSkills.keys()),
-  );
-  const selectionLocked = persistedSelectedSkills.size > 0;
 
   const filteredBookBanks = filterBookSkillBanks(
     allBooks,
@@ -300,11 +440,23 @@ export default function StudentLearningPathPage() {
     0,
   );
 
+  const isSelectionCountInRange =
+    selectedSkills.size >= selectionRange.min_skills &&
+    selectedSkills.size <= selectionRange.max_skills;
   const selectionStatusLabel = selectionLocked
     ? 'Study mode'
-    : selectedSkills.size > 0
-      ? `${selectedSkills.size} draft skill${selectedSkills.size === 1 ? '' : 's'} selected`
-      : 'Draft selections stay local until build';
+    : `${selectedSkills.size} of ${selectionRange.min_skills}-${selectionRange.max_skills} skills selected`;
+  const selectionHelperText = selectionLocked
+    ? 'Your saved learning path is ready to study and rebuild when needed.'
+    : isSelectionCountInRange
+      ? 'Your current draft is within the course range. Build after you review any prerequisite gaps.'
+      : selectedSkills.size < selectionRange.min_skills
+        ? `Select at least ${selectionRange.min_skills - selectedSkills.size} more skill${
+            selectionRange.min_skills - selectedSkills.size === 1 ? '' : 's'
+          } before building.`
+        : `Remove at least ${selectedSkills.size - selectionRange.max_skills} skill${
+            selectedSkills.size - selectionRange.max_skills === 1 ? '' : 's'
+          } before building.`;
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-auto">
@@ -327,8 +479,13 @@ export default function StudentLearningPathPage() {
 
             <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
               <Badge
-                variant="outline"
-                className="justify-center rounded-full border-white/20 bg-background/70 px-3 py-1 text-[11px]"
+                variant={selectionLocked || isSelectionCountInRange ? 'outline' : 'secondary'}
+                className={cn(
+                  'justify-center rounded-full px-3 py-1 text-[11px]',
+                  selectionLocked || isSelectionCountInRange
+                    ? 'border-white/20 bg-background/70'
+                    : 'border-amber-200 bg-amber-100 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100',
+                )}
               >
                 {selectionStatusLabel}
               </Badge>
@@ -352,6 +509,17 @@ export default function StudentLearningPathPage() {
             </div>
           </div>
 
+          <p
+            className={cn(
+              'text-sm',
+              selectionLocked || isSelectionCountInRange
+                ? 'text-muted-foreground'
+                : 'text-amber-900 dark:text-amber-100',
+            )}
+          >
+            {selectionHelperText}
+          </p>
+
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <HeroStat
               icon={<Library className="h-4 w-4" />}
@@ -374,9 +542,7 @@ export default function StudentLearningPathPage() {
               detail={
                 selectionLocked
                   ? 'Saved in your learning path'
-                  : selectedSkills.size > 0
-                    ? 'Ready for path building'
-                    : 'Choose what to learn'
+                  : `${selectionRange.min_skills}-${selectionRange.max_skills} allowed before build`
               }
               tone="selected"
             />
@@ -411,6 +577,15 @@ export default function StudentLearningPathPage() {
           </CardContent>
         </Card>
       )}
+
+      <PrerequisiteReviewDialog
+        open={prerequisiteReviewOpen}
+        onOpenChange={setPrerequisiteReviewOpen}
+        items={unresolvedPrerequisiteItems}
+        onAddToLearningPath={handleAddPrerequisiteToSelection}
+        onAcknowledgeKnown={handleAcknowledgeKnownPrerequisite}
+        onContinueBuild={() => void handleContinueBuildAfterPrerequisiteReview()}
+      />
 
       {!selectionLocked ? (
         <section className="space-y-4">
@@ -490,6 +665,7 @@ export default function StudentLearningPathPage() {
                       key={book.book_id}
                       book={book}
                       selectedSkills={selectedSkills}
+                      prerequisiteIndex={directPrerequisiteIndex}
                       onSkillClick={toggleSkill}
                     />
                   ))
@@ -597,6 +773,7 @@ export default function StudentLearningPathPage() {
                                       skill={skill}
                                       isSelected={selectedSkills.has(skill.name)}
                                       peerCount={skill.peer_count ?? 0}
+                                      directPrerequisites={directPrerequisiteIndex.get(skill.name) ?? []}
                                       onClick={() => toggleSkill(skill.name, 'market')}
                                     />
                                   ))}
@@ -791,10 +968,12 @@ function HeroStat({
 function BookBankCard({
   book,
   selectedSkills,
+  prerequisiteIndex,
   onSkillClick,
 }: {
   book: StudentSkillBankBook;
   selectedSkills: Set<string>;
+  prerequisiteIndex: Map<string, PrerequisiteEdge[]>;
   onSkillClick: (skillName: string, source: 'book' | 'market') => void;
 }) {
   const skillCount = book.chapters.reduce((total, chapter) => total + chapter.skills.length, 0);
@@ -850,6 +1029,7 @@ function BookBankCard({
                         skill={skill}
                         isSelected={selectedSkills.has(skill.name)}
                         peerCount={skill.peer_count ?? 0}
+                        directPrerequisites={prerequisiteIndex.get(skill.name) ?? []}
                         onClick={() => onSkillClick(skill.name, 'book')}
                       />
                     ))}
@@ -872,36 +1052,73 @@ function SkillChip({
   skill,
   isSelected,
   peerCount,
+  directPrerequisites,
   onClick,
 }: {
   skill: StudentSkillBankSkill;
   isSelected: boolean;
   peerCount: number;
+  directPrerequisites: PrerequisiteEdge[];
   onClick: () => void;
 }) {
+  const hasDirectPrerequisites = directPrerequisites.length > 0;
+
   return (
-    <Button
-      type="button"
-      variant={isSelected ? 'default' : 'outline'}
-      size="sm"
-      className="h-auto min-h-9 rounded-full px-3 py-1.5 transition-all"
-      onClick={onClick}
-      title={skill.description || ''}
-    >
-      {isSelected ? (
-        <CheckCircle2 className="h-3.5 w-3.5" />
-      ) : null}
-      <span className="max-w-[16rem] truncate">{skill.name}</span>
-      {peerCount > 0 && (
-        <Badge
-          variant={isSelected ? 'secondary' : 'default'}
-          className="ml-1 rounded-full px-1.5 py-0 text-[10px] opacity-85"
-        >
-          <Users className="mr-0.5 h-3 w-3" />
-          {peerCount}
-        </Badge>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        variant={isSelected ? 'default' : 'outline'}
+        size="sm"
+        className="h-auto min-h-9 rounded-full px-3 py-1.5 transition-all"
+        onClick={onClick}
+        title={skill.description || ''}
+      >
+        {isSelected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+        <span className="max-w-[16rem] truncate">{skill.name}</span>
+        {peerCount > 0 && (
+          <Badge
+            variant={isSelected ? 'secondary' : 'default'}
+            className="ml-1 rounded-full px-1.5 py-0 text-[10px] opacity-85"
+          >
+            <Users className="mr-0.5 h-3 w-3" />
+            {peerCount}
+          </Badge>
+        )}
+      </Button>
+
+      {hasDirectPrerequisites && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button type="button" size="sm" variant="outline" className="h-8 rounded-full px-2.5 text-[11px]">
+              Requires {directPrerequisites.length}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80">
+            <PopoverHeader>
+              <PopoverTitle>Direct prerequisites</PopoverTitle>
+              <PopoverDescription>
+                These skills are linked as foundations for {skill.name}.
+              </PopoverDescription>
+            </PopoverHeader>
+            <div className="mt-3 space-y-3">
+              {directPrerequisites.map((prerequisite) => (
+                <div key={`${skill.name}-${prerequisite.prerequisite_name}`} className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium">{prerequisite.prerequisite_name}</p>
+                    <Badge variant="outline" className="text-[10px]">
+                      {formatPrerequisiteConfidence(prerequisite.confidence)}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {prerequisite.reasoning || 'Marked as a prerequisite in the course graph.'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
-    </Button>
+    </div>
   );
 }
 
@@ -984,6 +1201,95 @@ function QuestionCard({ question }: { question: QuestionWithOptions }) {
       )}
     </div>
   );
+}
+
+function formatPrerequisiteConfidence(confidence: 'high' | 'medium' | 'low') {
+  return `${confidence[0]!.toUpperCase()}${confidence.slice(1)} confidence`;
+}
+
+function buildPrerequisiteIndex(edges: PrerequisiteEdge[]) {
+  return edges.reduce<Map<string, PrerequisiteEdge[]>>((index, edge) => {
+    const existing = index.get(edge.dependent_name) ?? [];
+    existing.push(edge);
+    index.set(edge.dependent_name, existing);
+    return index;
+  }, new Map());
+}
+
+function collectTransitivePrerequisites(
+  selectedSkills: Set<string>,
+  prerequisiteIndex: Map<string, PrerequisiteEdge[]>,
+) {
+  const visited = new Set<string>();
+  const queue = Array.from(selectedSkills);
+
+  while (queue.length > 0) {
+    const skillName = queue.shift();
+    if (!skillName) {
+      continue;
+    }
+    for (const edge of prerequisiteIndex.get(skillName) ?? []) {
+      if (visited.has(edge.prerequisite_name)) {
+        continue;
+      }
+      visited.add(edge.prerequisite_name);
+      queue.push(edge.prerequisite_name);
+    }
+  }
+
+  return visited;
+}
+
+function buildPrerequisiteReviewItems(
+  selectedSkills: Set<string>,
+  acknowledgedKnownSkills: Set<string>,
+  prerequisiteIndex: Map<string, PrerequisiteEdge[]>,
+): PrerequisiteReviewItem[] {
+  const itemMap = new Map<string, PrerequisiteReviewItem>();
+  const queue = Array.from(selectedSkills);
+  const visitedDependents = new Set<string>();
+
+  while (queue.length > 0) {
+    const skillName = queue.shift();
+    if (!skillName || visitedDependents.has(skillName)) {
+      continue;
+    }
+    visitedDependents.add(skillName);
+
+    for (const edge of prerequisiteIndex.get(skillName) ?? []) {
+      if (!selectedSkills.has(edge.prerequisite_name) && !acknowledgedKnownSkills.has(edge.prerequisite_name)) {
+        const existing = itemMap.get(edge.prerequisite_name);
+        if (existing) {
+          if (!existing.dependentSkillNames.includes(skillName)) {
+            existing.dependentSkillNames.push(skillName);
+          }
+          if (!existing.reasoning && edge.reasoning) {
+            existing.reasoning = edge.reasoning;
+          }
+        } else {
+          itemMap.set(edge.prerequisite_name, {
+            name: edge.prerequisite_name,
+            dependentSkillNames: [skillName],
+            reasoning: edge.reasoning,
+            confidence: edge.confidence,
+          });
+        }
+      }
+      queue.push(edge.prerequisite_name);
+    }
+  }
+
+  return Array.from(itemMap.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function inferPrerequisiteSource(
+  skillName: string,
+  skillBanks: SkillBanksResponse | null,
+): 'book' | 'market' {
+  const isBookSkill = skillBanks?.book_skill_banks.some((book) =>
+    book.chapters.some((chapter) => chapter.skills.some((skill) => skill.name === skillName)),
+  );
+  return isBookSkill ? 'book' : 'market';
 }
 
 type QuestionWithOptions = {

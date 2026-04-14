@@ -5,12 +5,27 @@ from app.modules.student_learning_path import neo4j_repository
 
 def test_get_student_skill_banks_returns_nested_books():
     session = MagicMock()
+    neo4j_repository.CourseGraphRepository.get_skill_selection_range = (  # type: ignore[method-assign]
+        lambda self, *, course_id: {
+            "min_skills": 20,
+            "max_skills": 35,
+            "is_default": True,
+        }
+    )
     session.run.side_effect = [
         [{"name": "Batch Processing", "source": "book"}],
         [{"url": "https://jobs.example/backend"}],
         [
             {"skill_name": "Batch Processing", "student_count": 3},
             {"skill_name": "Kafka", "student_count": 1},
+        ],
+        [
+            {
+                "prerequisite_name": "Addition",
+                "dependent_name": "Multiplication",
+                "confidence": "high",
+                "reasoning": "Addition comes first.",
+            }
         ],
         [
             {
@@ -80,11 +95,21 @@ def test_get_student_skill_banks_returns_nested_books():
     assert result.book_skill_banks[0].chapters[0].skills[0].peer_count == 3
     assert result.market_skill_bank[0].is_interested is True
     assert result.market_skill_bank[0].skills[0].category == "data_processing"
+    assert result.selection_range.min_skills == 20
+    assert result.prerequisite_edges[0].prerequisite_name == "Addition"
 
 
 def test_get_student_skill_banks_handles_missing_book_and_chapter_titles():
     session = MagicMock()
+    neo4j_repository.CourseGraphRepository.get_skill_selection_range = (  # type: ignore[method-assign]
+        lambda self, *, course_id: {
+            "min_skills": 20,
+            "max_skills": 35,
+            "is_default": True,
+        }
+    )
     session.run.side_effect = [
+        [],
         [],
         [],
         [],
@@ -118,7 +143,15 @@ def test_get_student_skill_banks_handles_missing_book_and_chapter_titles():
 
 def test_get_student_skill_banks_keeps_legacy_market_skills_visible():
     session = MagicMock()
+    neo4j_repository.CourseGraphRepository.get_skill_selection_range = (  # type: ignore[method-assign]
+        lambda self, *, course_id: {
+            "min_skills": 20,
+            "max_skills": 35,
+            "is_default": True,
+        }
+    )
     session.run.side_effect = [
+        [],
         [],
         [],
         [],
