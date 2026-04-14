@@ -1,0 +1,43 @@
+name: Validate Skill
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate SKILL.md format
+        run: |
+          set -e
+          SKILL_FILE="paper-polish-workflow/SKILL.md"
+          
+          echo "Validating $SKILL_FILE..."
+          
+          # 1. Check file exists
+          [ -f "$SKILL_FILE" ] || { echo "ERROR: $SKILL_FILE not found"; exit 1; }
+          echo "✓ File exists"
+          
+          # 2. Check frontmatter starts with ---
+          head -1 "$SKILL_FILE" | grep -q "^---$" || { echo "ERROR: Missing frontmatter start"; exit 1; }
+          echo "✓ Frontmatter start OK"
+          
+          # 3. Check frontmatter closes within first 10 lines
+          [ $(head -10 "$SKILL_FILE" | grep -c "^---$") -eq 2 ] || { echo "ERROR: Frontmatter not closed"; exit 1; }
+          echo "✓ Frontmatter closed OK"
+          
+          # 4. Check name field exists and matches directory
+          grep -q "^name: paper-polish-workflow$" "$SKILL_FILE" || { echo "ERROR: name field missing or incorrect"; exit 1; }
+          echo "✓ Name field OK"
+          
+          # 5. Check description field exists and is non-empty
+          grep -q "^description: ..*$" "$SKILL_FILE" || { echo "ERROR: description field missing or empty"; exit 1; }
+          echo "✓ Description field OK"
+          
+          echo ""
+          echo "All validations passed!"

@@ -1,0 +1,223 @@
+import hashlib
+import logging
+
+import httpx
+from azure.core.exceptions import ResourceNotFoundError
+from azure.storage.blob import BlobServiceClient
+from fastapi import UploadFile
+from pydantic import BaseModel, Field
+
+from app.core.settings import settings
+
+logger = logging.getLogger(__name__)
+
+
+class BlobInfo(BaseModel):
+    """JSON-serializable blob metadata/properties for debugging/observability."""
+
+    name: str
+    url: str
+    size_bytes: int | None = None
+    content_type: str | None = None
+    etag: str | None = None
+    last_modified: str | None = None
+    creation_time: str | None = None
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class BlobService:
+    def __init__(self):
+        self.connection_string = settings.azure_storage_connection_string
+        self.container_name = settings.azure_container_name
+        self.service_client = None
+        self.container_client = None
+
+        if self.connection_string:
+            try:
+                self.service_client = BlobServiceClient.from_connection_string(
+                    self.connection_string
+                )
+                self.container_client = self.service_client.get_container_client(
+                    self.container_name
+                )
+                if not self.container_client.exists():
+                    self.container_client.create_container()
+                logger.info("Successfully connected to Azure Blob Storage")
+            except Exception as e:
+                logger.error(f"Failed to initialize BlobService: {e}")
+        else:
+            logger.warning(
+                "Azure Storage Connection String is missing. Blob Service will not work."
+            )
+
+    async def upload_bytes(
+        self, content: bytes, destination_path: str, *, overwrite: bool = True
+    ) -> str:
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        blob_client = self.container_client.get_blob_client(destination_path)
+        try:
+            blob_client.upload_blob(content, overwrite=overwrite)
+            return blob_client.url
+        except Exception as e:
+            logger.error(f"Failed to upload bytes to {destination_path}: {e}")
+            raise
+
+    async def upload_file(self, file: UploadFile, destination_path: str) -> str:
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        try:
+            # Reset file pointer to the beginning
+            await file.seek(0)
+            content = await file.read()
+
+            return await self.upload_bytes(content, destination_path, overwrite=True)
+        except Exception as e:
+            logger.error(f"Failed to upload file {destination_path}: {e}")
+            raise
+
+    @staticmethod
+    def sha256_hex(content: bytes) -> str:
+        return hashlib.sha256(content).hexdigest()
+
+    async def upload_from_url(
+        self,
+        url: str,
+        destination_path: str,
+        *,
+        timeout_s: float = 120.0,
+    ) -> str:
+        """Stream a file from *url* directly into Azure Blob Storage.
+
+        No local disk is touched — the HTTP response body is piped
+        chunk-by-chunk into the blob. Returns the public blob URL.
+        """
+        if not self.container_client:
+            raise RuntimeError("Blob service is not configured")
+
+        blob_client = self.container_client.get_blob_client(destination_path)
+
+        try:
+            async with (
+                httpx.AsyncClient(
+                    follow_redirects=True,
+                    timeout=timeout_s,
+                ) as client,
+                client.stream(
+                    "GET",
+                    url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                ) as response,
+            ):
+                response.raise_for_status()
+                # Collect chunks — Azure SDK upload_blob expects
+                # bytes or an iterable (sync), so we accumulate here.
+                chunks: list[bytes] = []
+                async for chunk in response.aiter_bytes(chunk_size=8192):
+                    chunks.append(chunk)
+                content = b"".join(chunks)
+
+            blob_client.upload_blob(content, overwrite=True)
+            return blob_client.url
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "HTTP %s downloading %s: %s",
+                exc.response.status_code,
+                url,
+                exc,
+            )
+            raise
+        except Exception as e:
+            logger.error("Failed to stream %s to %s: %s", url, destination_path, e)
+            raise
+
+    async def delete_file(self, blob_path: str) -> None:
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        blob_client = self.container_client.get_blob_client(blob_path)
+        try:
+            blob_client.delete_blob()
+        except ResourceNotFoundError:
+            # Treat missing blobs as already deleted (idempotent delete).
+            return
+        except Exception as e:
+            logger.error(f"Failed to delete file {blob_path}: {e}")
+            raise
+
+    async def delete_folder(self, folder_path: str) -> None:
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        try:
+            blobs = self.container_client.list_blobs(name_starts_with=folder_path)
+            for blob in blobs:
+                try:
+                    self.container_client.delete_blob(blob.name)
+                except ResourceNotFoundError:
+                    # Idempotent deletion; ignore missing blobs.
+                    continue
+        except Exception as e:
+            logger.error(f"Failed to delete folder {folder_path}: {e}")
+            raise
+
+    async def list_files(self, folder_path: str) -> list[str]:
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        try:
+            blobs = self.container_client.list_blobs(name_starts_with=folder_path)
+            return [blob.name for blob in blobs]
+        except Exception as e:
+            logger.error(f"Failed to list files in {folder_path}: {e}")
+            raise
+
+    def download_file(self, blob_path: str, *, max_concurrency: int = 8) -> bytes:
+        """Download a blob by path and return its bytes.
+
+        Uses parallel chunk downloads (max_concurrency=8 by default) which is
+        significantly faster than single-threaded readall() for large files.
+        """
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        blob_client = self.container_client.get_blob_client(blob_path)
+        try:
+            downloader = blob_client.download_blob(max_concurrency=max_concurrency)
+            return downloader.readall()
+        except Exception as e:
+            logger.error(f"Failed to download file {blob_path}: {e}")
+            raise
+
+    def get_blob_info(self, blob_path: str) -> BlobInfo:
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+
+        blob_client = self.container_client.get_blob_client(blob_path)
+        try:
+            props = blob_client.get_blob_properties()
+            # Keep the return value JSON-friendly (no datetime objects).
+            return BlobInfo(
+                name=getattr(props, "name", blob_path),
+                url=blob_client.url,
+                size_bytes=getattr(props, "size", None),
+                content_type=getattr(
+                    getattr(props, "content_settings", None), "content_type", None
+                ),
+                etag=getattr(props, "etag", None),
+                last_modified=props.last_modified.isoformat()
+                if getattr(props, "last_modified", None)
+                else None,
+                creation_time=props.creation_time.isoformat()
+                if getattr(props, "creation_time", None)
+                else None,
+                metadata=getattr(props, "metadata", None) or {},
+            )
+        except Exception as e:
+            logger.error(f"Failed to get blob properties for {blob_path}: {e}")
+            raise
+
+
+blob_service = BlobService()

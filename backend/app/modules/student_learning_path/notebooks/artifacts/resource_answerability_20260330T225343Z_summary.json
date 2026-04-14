@@ -1,0 +1,97 @@
+{
+  "overall": {
+    "judgments": 549,
+    "supported_judgments": 78,
+    "unsupported_judgments": 471,
+    "correct_judgments": 78,
+    "support_rate": 0.14207650273224043,
+    "accuracy_rate": 0.14207650273224043,
+    "conditional_accuracy_rate": 1.0
+  },
+  "by_modality": [
+    {
+      "modality": "combined",
+      "judgments": 183,
+      "supported_judgments": 30,
+      "unsupported_judgments": 153,
+      "correct_judgments": 30,
+      "support_rate": 0.16393442622950818,
+      "accuracy_rate": 0.16393442622950818,
+      "conditional_accuracy_rate": 1.0
+    },
+    {
+      "modality": "readings",
+      "judgments": 183,
+      "supported_judgments": 33,
+      "unsupported_judgments": 150,
+      "correct_judgments": 33,
+      "support_rate": 0.18032786885245902,
+      "accuracy_rate": 0.18032786885245902,
+      "conditional_accuracy_rate": 1.0
+    },
+    {
+      "modality": "videos",
+      "judgments": 183,
+      "supported_judgments": 15,
+      "unsupported_judgments": 168,
+      "correct_judgments": 15,
+      "support_rate": 0.08196721311475409,
+      "accuracy_rate": 0.08196721311475409,
+      "conditional_accuracy_rate": 1.0
+    }
+  ],
+  "by_skill_type": [
+    {
+      "skill_type": "book",
+      "judgments": 207,
+      "supported_judgments": 47,
+      "unsupported_judgments": 160,
+      "correct_judgments": 47,
+      "support_rate": 0.22705314009661837,
+      "accuracy_rate": 0.22705314009661837,
+      "conditional_accuracy_rate": 1.0
+    },
+    {
+      "skill_type": "market",
+      "judgments": 342,
+      "supported_judgments": 31,
+      "unsupported_judgments": 311,
+      "correct_judgments": 31,
+      "support_rate": 0.09064327485380116,
+      "accuracy_rate": 0.09064327485380116,
+      "conditional_accuracy_rate": 1.0
+    }
+  ],
+  "by_difficulty": [
+    {
+      "difficulty": "easy",
+      "judgments": 183,
+      "supported_judgments": 39,
+      "unsupported_judgments": 144,
+      "correct_judgments": 39,
+      "support_rate": 0.21311475409836064,
+      "accuracy_rate": 0.21311475409836064,
+      "conditional_accuracy_rate": 1.0
+    },
+    {
+      "difficulty": "hard",
+      "judgments": 183,
+      "supported_judgments": 7,
+      "unsupported_judgments": 176,
+      "correct_judgments": 7,
+      "support_rate": 0.03825136612021858,
+      "accuracy_rate": 0.03825136612021858,
+      "conditional_accuracy_rate": 1.0
+    },
+    {
+      "difficulty": "medium",
+      "judgments": 183,
+      "supported_judgments": 32,
+      "unsupported_judgments": 151,
+      "correct_judgments": 32,
+      "support_rate": 0.17486338797814208,
+      "accuracy_rate": 0.17486338797814208,
+      "conditional_accuracy_rate": 1.0
+    }
+  ]
+}

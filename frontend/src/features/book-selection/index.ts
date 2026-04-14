@@ -1,0 +1,9 @@
+export { BookSelectionDashboard } from './components/BookSelectionDashboard';
+export { WeightsConfigPanel } from './components/WeightsConfigPanel';
+export { DiscoveryScoringProgress } from './components/DiscoveryScoringProgress';
+export { BookReviewTable } from './components/BookReviewTable';
+export { DownloadStatusPanel } from './components/DownloadStatusPanel';
+export { ManualUploadCard } from './components/ManualUploadCard';
+export { CourseBookList } from './components/CourseBookList';
+export { BookAnalysisTab } from './components/analysis';
+export { BookVisualizationTab } from './components/visualization';

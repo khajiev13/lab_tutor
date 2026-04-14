@@ -1,0 +1,61 @@
+{
+  "overall": {
+    "judgments": 342,
+    "answerability_rate": 0.3830409356725146,
+    "accuracy_rate": 0.3830409356725146
+  },
+  "by_modality": [
+    {
+      "modality": "combined",
+      "judgments": 114,
+      "answerability_rate": 0.4649122807017544,
+      "accuracy_rate": 0.4649122807017544
+    },
+    {
+      "modality": "readings",
+      "judgments": 114,
+      "answerability_rate": 0.4824561403508772,
+      "accuracy_rate": 0.4824561403508772
+    },
+    {
+      "modality": "videos",
+      "judgments": 114,
+      "answerability_rate": 0.20175438596491227,
+      "accuracy_rate": 0.20175438596491227
+    }
+  ],
+  "by_skill_type": [
+    {
+      "skill_type": "book",
+      "judgments": 207,
+      "answerability_rate": 0.4444444444444444,
+      "accuracy_rate": 0.4444444444444444
+    },
+    {
+      "skill_type": "market",
+      "judgments": 135,
+      "answerability_rate": 0.28888888888888886,
+      "accuracy_rate": 0.28888888888888886
+    }
+  ],
+  "by_difficulty": [
+    {
+      "difficulty": "easy",
+      "judgments": 114,
+      "answerability_rate": 0.5,
+      "accuracy_rate": 0.5
+    },
+    {
+      "difficulty": "hard",
+      "judgments": 114,
+      "answerability_rate": 0.15789473684210525,
+      "accuracy_rate": 0.15789473684210525
+    },
+    {
+      "difficulty": "medium",
+      "judgments": 114,
+      "answerability_rate": 0.49122807017543857,
+      "accuracy_rate": 0.49122807017543857
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "name": "@lylll9436/paper-polish-workflow-skill",
+  "version": "2.1.0",
+  "description": "A 14-Skill suite (ppw:* namespace) for academic paper writing, repo-to-paper generation, and submission — powered by Claude Code.",
+  "keywords": [
+    "claude-code",
+    "claude-code-skills",
+    "academic-writing",
+    "paper-polishing",
+    "latex",
+    "ai-assisted-writing"
+  ],
+  "author": "Lylll9436",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lylll9436/Paper-Polish-Workflow-skill.git"
+  },
+  "homepage": "https://github.com/Lylll9436/Paper-Polish-Workflow-skill#readme",
+  "bugs": {
+    "url": "https://github.com/Lylll9436/Paper-Polish-Workflow-skill/issues"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "files": [
+    "paper-polish-workflow/",
+    ".claude/skills/",
+    "references/",
+    "examples/",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "CONTRIBUTING_CN.md",
+    "LICENSE",
+    "README.md"
+  ]
+}

@@ -1,0 +1,165 @@
+import os
+
+# Point tests at a local/CI PostgreSQL instance BEFORE importing app modules.
+# CI provides this via a PostgreSQL service container; locally you can override it.
+os.environ.setdefault(
+    "LAB_TUTOR_DATABASE_URL",
+    "postgresql://postgres:postgres@localhost:5432/lab_tutor_test",
+)
+# Ensure optional external services don't run in tests.
+os.environ.setdefault("LAB_TUTOR_NEO4J_URI", "")
+os.environ.setdefault("LAB_TUTOR_AZURE_STORAGE_CONNECTION_STRING", "")
+
+from collections.abc import AsyncGenerator, Generator
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
+
+from app.core.database import (
+    ASYNC_CONNECT_ARGS,
+    ASYNC_DATABASE_URL,
+    DATABASE_URL,
+    Base,
+    get_async_db,
+    get_db,
+)
+from app.modules.auth.models import UserRole
+from app.providers.storage import BlobService
+from main import app
+
+# Re-use the URLs the app already derived from LAB_TUTOR_DATABASE_URL so
+# the test engines connect with the same credentials (works on CI with
+# postgres:postgres and locally with the OS user).
+SQLALCHEMY_DATABASE_URL = DATABASE_URL
+ASYNC_SQLALCHEMY_DATABASE_URL = ASYNC_DATABASE_URL
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# NullPool prevents asyncpg connection-pool conflicts with TestClient's
+# internal event loop ("another operation is in progress" errors).
+async_engine = create_async_engine(
+    ASYNC_SQLALCHEMY_DATABASE_URL,
+    connect_args=ASYNC_CONNECT_ARGS,
+    poolclass=NullPool,
+)
+AsyncTestingSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
+
+
+@pytest.fixture(scope="function")
+def db_session():
+    with engine.connect() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.commit()
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="function")
+def client(db_session):
+    def override_get_db() -> Generator:
+        yield db_session
+
+    async def override_get_async_db() -> AsyncGenerator[AsyncSession, None]:
+        async with AsyncTestingSessionLocal() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_async_db] = override_get_async_db
+
+    with TestClient(app) as c:
+        yield c
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def mock_blob_service(monkeypatch):
+    mock_service = MagicMock(spec=BlobService)
+    mock_service.upload_bytes = AsyncMock(return_value="http://mock-url/file.pdf")
+    mock_service.upload_file = AsyncMock(return_value="http://mock-url/file.pdf")
+    mock_service.list_files = AsyncMock(return_value=["file1.pdf", "file2.pdf"])
+    mock_service.delete_file = AsyncMock(return_value=None)
+    mock_service.delete_folder = AsyncMock(return_value=None)
+    mock_service.download_file = MagicMock(return_value=b"mock-bytes")
+    mock_service.sha256_hex = BlobService.sha256_hex
+    mock_service.get_blob_info = MagicMock(
+        return_value={
+            "name": "mock",
+            "url": "http://mock-url/blob",
+            "size_bytes": 9,
+            "content_type": "application/pdf",
+            "etag": "etag",
+            "last_modified": "2025-12-20T00:00:00Z",
+            "creation_time": "2025-12-20T00:00:00Z",
+            "metadata": {},
+        }
+    )
+
+    # Patch the instance in the service module
+    monkeypatch.setattr("app.modules.courses.service.blob_service", mock_service)
+    return mock_service
+
+
+@pytest.fixture
+def teacher_auth_headers(client):
+    email = "teacher@example.com"
+    password = "password"
+
+    # Register
+    client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "first_name": "Teacher",
+            "last_name": "One",
+            "role": UserRole.TEACHER.value,
+        },
+    )
+
+    # Login
+    response = client.post(
+        "/auth/jwt/login",
+        data={"username": email, "password": password},
+    )
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def student_auth_headers(client):
+    email = "student@example.com"
+    password = "password"
+
+    # Register
+    client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "first_name": "Student",
+            "last_name": "One",
+            "role": UserRole.STUDENT.value,
+        },
+    )
+
+    # Login
+    response = client.post(
+        "/auth/jwt/login",
+        data={"username": email, "password": password},
+    )
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
