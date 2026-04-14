@@ -6,6 +6,9 @@ from typing import LiteralString
 from neo4j import ManagedTransaction
 from neo4j import Session as Neo4jSession
 
+DEFAULT_MIN_SELECTED_SKILLS = 20
+DEFAULT_MAX_SELECTED_SKILLS = 35
+
 UPSERT_CLASS: LiteralString = """
 MERGE (c:CLASS {id: $id})
 SET
@@ -41,6 +44,20 @@ OPTIONAL MATCH (ch)-[:HAS_CHUNK]->(chunk1:BOOK_CHUNK)
 OPTIONAL MATCH (sec)-[:HAS_CHUNK]->(chunk2:BOOK_CHUNK)
 OPTIONAL MATCH (ch)-[:HAS_SKILL]->(skill:BOOK_SKILL)
 DETACH DELETE c, b, ch, sec, chunk1, chunk2, skill
+"""
+
+SET_SKILL_SELECTION_RANGE: LiteralString = """
+MATCH (c:CLASS {id: $class_id})
+SET
+    c.selection_min_skills = $min_skills,
+    c.selection_max_skills = $max_skills
+"""
+
+GET_SKILL_SELECTION_RANGE: LiteralString = """
+MATCH (c:CLASS {id: $class_id})
+RETURN
+    c.selection_min_skills AS min_skills,
+    c.selection_max_skills AS max_skills
 """
 
 
@@ -103,3 +120,45 @@ class CourseGraphRepository:
             tx.run(DELETE_CLASS, params).consume()
 
         self._session.execute_write(_tx)
+
+    def set_skill_selection_range(
+        self,
+        *,
+        course_id: int,
+        min_skills: int,
+        max_skills: int,
+    ) -> None:
+        params = {
+            "class_id": course_id,
+            "min_skills": min_skills,
+            "max_skills": max_skills,
+        }
+
+        def _tx(tx: ManagedTransaction) -> None:
+            tx.run(SET_SKILL_SELECTION_RANGE, params).consume()
+
+        self._session.execute_write(_tx)
+
+    def get_skill_selection_range(self, *, course_id: int) -> dict[str, int | bool]:
+        params = {"class_id": course_id}
+
+        def _tx(tx: ManagedTransaction) -> dict[str, int | bool]:
+            record = tx.run(GET_SKILL_SELECTION_RANGE, params).single()
+            stored_min = (
+                int(record["min_skills"])
+                if record and record["min_skills"] is not None
+                else None
+            )
+            stored_max = (
+                int(record["max_skills"])
+                if record and record["max_skills"] is not None
+                else None
+            )
+            is_default = stored_min is None or stored_max is None
+            return {
+                "min_skills": stored_min or DEFAULT_MIN_SELECTED_SKILLS,
+                "max_skills": stored_max or DEFAULT_MAX_SELECTED_SKILLS,
+                "is_default": is_default,
+            }
+
+        return self._session.execute_read(_tx)

@@ -16,6 +16,13 @@ export interface ReadingResourceRead {
   title: string;
   url: string;
   domain: string;
+  snippet: string;
+  search_content: string;
+  search_result_url: string;
+  search_result_domain: string;
+  source_engine: string;
+  source_engines: string[];
+  search_metadata_json: string;
   final_score: number;
   resource_type: string;
   concepts_covered: string[];
@@ -26,6 +33,13 @@ export interface VideoResourceRead {
   url: string;
   video_id: string;
   domain: string;
+  snippet: string;
+  search_content: string;
+  search_result_url: string;
+  search_result_domain: string;
+  source_engine: string;
+  source_engines: string[];
+  search_metadata_json: string;
   final_score: number;
   resource_type: string;
   concepts_covered: string[];
@@ -138,8 +152,15 @@ export interface MarketSkillBankJobPosting {
   skills: MarketSkillBankSkill[];
 }
 
+export interface SkillSelectionRange {
+  min_skills: number;
+  max_skills: number;
+  is_default: boolean;
+}
+
 export interface SkillBanksResponse {
   course_chapters: CourseChapter[];
   book_skill_bank: BookSkillBankBook[];
   market_skill_bank: MarketSkillBankJobPosting[];
+  selection_range: SkillSelectionRange;
 }

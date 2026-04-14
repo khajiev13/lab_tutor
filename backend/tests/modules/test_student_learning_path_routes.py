@@ -38,6 +38,12 @@ def test_skill_banks_route_returns_data_for_enrolled_student_with_mismatched_ids
             "selected_skill_names": [],
             "interested_posting_urls": [],
             "peer_selection_counts": {},
+            "selection_range": {
+                "min_skills": 20,
+                "max_skills": 35,
+                "is_default": True,
+            },
+            "prerequisite_edges": [],
         },
     )
 

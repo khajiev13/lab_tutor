@@ -71,11 +71,42 @@ const unlockedSkillBanks = {
     'Batch Processing': 2,
     Kafka: 1,
   },
+  selection_range: {
+    min_skills: 20,
+    max_skills: 35,
+    is_default: true,
+  },
+  prerequisite_edges: [
+    {
+      prerequisite_name: 'Batch Processing',
+      dependent_name: 'Kafka',
+      confidence: 'high',
+      reasoning: 'Batch concepts should come before streaming concepts.',
+    },
+  ],
 };
 
 const lockedSkillBanks = {
   ...unlockedSkillBanks,
   selected_skill_names: ['Batch Processing'],
+};
+
+const permissiveUnlockedSkillBanks = {
+  ...unlockedSkillBanks,
+  selection_range: {
+    min_skills: 1,
+    max_skills: 35,
+    is_default: false,
+  },
+};
+
+const permissiveLockedSkillBanks = {
+  ...lockedSkillBanks,
+  selection_range: {
+    min_skills: 1,
+    max_skills: 35,
+    is_default: false,
+  },
 };
 
 const learningPathResponse = {
@@ -156,14 +187,14 @@ describe('StudentLearningPathPage', () => {
     const skillChip = await screen.findByRole('button', { name: /Batch Processing/i });
     fireEvent.click(skillChip);
 
-    expect(await screen.findByText('1 draft skill selected')).toBeInTheDocument();
+    expect(await screen.findByText('1 of 20-35 skills selected')).toBeInTheDocument();
     expect(studentLearningPathApi.selectSkills).not.toHaveBeenCalled();
     expect(studentLearningPathApi.deselectSkills).not.toHaveBeenCalled();
     expect(studentLearningPathApi.selectJobPostings).not.toHaveBeenCalled();
   });
 
   it('sends staged selections only when build is clicked', async () => {
-    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(unlockedSkillBanks);
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(permissiveUnlockedSkillBanks);
     (studentLearningPathApi.buildLearningPath as Mock).mockResolvedValue({
       run_id: 'run-1',
       status: 'started',
@@ -181,10 +212,60 @@ describe('StudentLearningPathPage', () => {
     });
   });
 
+  it('blocks build with a range-aware warning when the draft count is outside the course range', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(unlockedSkillBanks);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Batch Processing/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Build My Learning Path/i }));
+
+    await waitFor(() => {
+      expect(toast.warning).toHaveBeenCalledWith(
+        'Select between 20 and 35 skills before building.',
+      );
+    });
+    expect(studentLearningPathApi.buildLearningPath).not.toHaveBeenCalled();
+  });
+
+  it('shows prerequisite guidance while browsing and before build', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(permissiveUnlockedSkillBanks);
+    (studentLearningPathApi.buildLearningPath as Mock).mockResolvedValue({
+      run_id: 'run-1',
+      status: 'started',
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Requires 1/i }));
+    expect(await screen.findByText('Direct prerequisites')).toBeInTheDocument();
+    expect(screen.getByText('Batch concepts should come before streaming concepts.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Kafka/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Build My Learning Path/i }));
+
+    expect(await screen.findByText('Review prerequisites')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue build/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /I already know this/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Continue build/i })).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue build/i }));
+
+    await waitFor(() => {
+      expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledWith(1, [
+        { name: 'Kafka', source: 'market' },
+      ]);
+    });
+  });
+
   it('reloads into locked study mode after build completion', async () => {
     (studentLearningPathApi.getSkillBanks as Mock)
-      .mockResolvedValueOnce(unlockedSkillBanks)
-      .mockResolvedValueOnce(lockedSkillBanks);
+      .mockResolvedValueOnce(permissiveUnlockedSkillBanks)
+      .mockResolvedValueOnce(permissiveLockedSkillBanks);
     (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(learningPathResponse);
     (studentLearningPathApi.buildLearningPath as Mock).mockResolvedValue({
       run_id: 'run-1',
