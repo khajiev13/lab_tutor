@@ -1,4 +1,5 @@
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,13 +10,29 @@ from app.modules.student_learning_path.schemas import BuildSelectedSkillRequest
 from app.modules.student_learning_path.service import StudentLearningPathService
 
 
-def _build_service(monkeypatch):
+def _build_service(
+    monkeypatch,
+    *,
+    min_skills: int = 20,
+    max_skills: int = 35,
+    is_default: bool = True,
+):
     driver = MagicMock()
     service = StudentLearningPathService(MagicMock(), driver)
     monkeypatch.setattr(
         service,
         "_validate_enrollment",
         lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.modules.student_learning_path.service.CourseGraphRepository",
+        lambda session: SimpleNamespace(
+            get_skill_selection_range=lambda *, course_id: {
+                "min_skills": min_skills,
+                "max_skills": max_skills,
+                "is_default": is_default,
+            }
+        ),
     )
     return service
 
@@ -36,6 +53,16 @@ def test_build_learning_path_persists_first_time_selected_skills(monkeypatch):
     service = _build_service(monkeypatch)
     scheduled = _stub_background_task(monkeypatch)
     select_calls: list[tuple[list[str], str]] = []
+
+    market_skills = [f"Kafka {index}" for index in range(1, 20)]
+    requested_skills = [
+        BuildSelectedSkillRequest(name="Batch Processing", source="book"),
+        *[
+            BuildSelectedSkillRequest(name=skill_name, source="market")
+            for skill_name in market_skills
+        ],
+        BuildSelectedSkillRequest(name=market_skills[0], source="market"),
+    ]
 
     monkeypatch.setattr(
         neo4j_repository,
@@ -59,11 +86,7 @@ def test_build_learning_path_persists_first_time_selected_skills(monkeypatch):
         service.build_learning_path(
             11,
             2,
-            [
-                BuildSelectedSkillRequest(name="Batch Processing", source="book"),
-                BuildSelectedSkillRequest(name="Kafka", source="market"),
-                BuildSelectedSkillRequest(name="Kafka", source="market"),
-            ],
+            requested_skills,
         )
     )
 
@@ -71,7 +94,7 @@ def test_build_learning_path_persists_first_time_selected_skills(monkeypatch):
     assert queue is not None
     assert select_calls == [
         (["Batch Processing"], "book"),
-        (["Kafka"], "market"),
+        (market_skills, "market"),
     ]
     assert len(scheduled) == 1
 
@@ -114,6 +137,50 @@ def test_build_learning_path_requires_selection_for_first_time_build(monkeypatch
         asyncio.run(service.build_learning_path(11, 2, []))
 
     assert str(exc_info.value) == "Select at least one skill before building"
+
+
+def test_build_learning_path_rejects_first_time_build_below_course_minimum(monkeypatch):
+    service = _build_service(monkeypatch, min_skills=2, max_skills=4, is_default=False)
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_selected_skills",
+        MagicMock(side_effect=[[]]),
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        asyncio.run(
+            service.build_learning_path(
+                11,
+                2,
+                [BuildSelectedSkillRequest(name="Batch Processing", source="book")],
+            )
+        )
+
+    assert str(exc_info.value) == "Select between 2 and 4 skills before building"
+
+
+def test_build_learning_path_rejects_first_time_build_above_course_maximum(monkeypatch):
+    service = _build_service(monkeypatch, min_skills=1, max_skills=2, is_default=False)
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_selected_skills",
+        MagicMock(side_effect=[[]]),
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        asyncio.run(
+            service.build_learning_path(
+                11,
+                2,
+                [
+                    BuildSelectedSkillRequest(name="Batch Processing", source="book"),
+                    BuildSelectedSkillRequest(name="Kafka", source="market"),
+                    BuildSelectedSkillRequest(name="SQL", source="market"),
+                ],
+            )
+        )
+
+    assert str(exc_info.value) == "Select between 1 and 2 skills before building"
 
 
 def test_validate_enrollment_uses_course_id_then_student_id():

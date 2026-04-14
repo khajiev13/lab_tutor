@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 
 class SkillSource(StrEnum):
@@ -163,7 +163,25 @@ class MarketSkillBankJobPosting(BaseModel):
     skills: list[MarketSkillBankSkill] = []
 
 
+class SkillSelectionRange(BaseModel):
+    min_skills: int
+    max_skills: int
+    is_default: bool
+
+
+class SkillSelectionRangeUpdate(BaseModel):
+    min_skills: int = Field(ge=1, le=200)
+    max_skills: int = Field(ge=1, le=200)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> SkillSelectionRangeUpdate:
+        if self.min_skills > self.max_skills:
+            raise ValueError("min_skills must be less than or equal to max_skills")
+        return self
+
+
 class SkillBanksResponse(BaseModel):
     course_chapters: list[CourseChapterRead] = []
     book_skill_bank: list[BookSkillBankBook] = []
     market_skill_bank: list[MarketSkillBankJobPosting] = []
+    selection_range: SkillSelectionRange

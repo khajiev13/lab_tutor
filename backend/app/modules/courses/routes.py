@@ -8,7 +8,12 @@ from app.modules.auth.dependencies import (
 from app.modules.auth.models import User, UserRole
 from app.modules.embeddings.schemas import CourseEmbeddingStatusResponse
 
-from .curriculum_schemas import CurriculumWithChangelog, SkillBanksResponse
+from .curriculum_schemas import (
+    CurriculumWithChangelog,
+    SkillBanksResponse,
+    SkillSelectionRange,
+    SkillSelectionRangeUpdate,
+)
 from .curriculum_service import CurriculumService, get_curriculum_service
 from .schemas import (
     CourseCreate,
@@ -311,3 +316,21 @@ def get_course_skill_banks(
     teacher: User = Depends(require_role(UserRole.TEACHER)),
 ):
     return service.get_skill_banks(course_id=course_id, teacher=teacher)
+
+
+@router.patch(
+    "/{course_id}/skill-selection-range",
+    response_model=SkillSelectionRange,
+)
+def update_course_skill_selection_range(
+    course_id: int,
+    body: SkillSelectionRangeUpdate,
+    service: CurriculumService = Depends(get_curriculum_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.update_skill_selection_range(
+        teacher=teacher,
+        course_id=course_id,
+        min_skills=body.min_skills,
+        max_skills=body.max_skills,
+    )

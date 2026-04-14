@@ -11,7 +11,11 @@ from datetime import UTC, datetime
 
 from neo4j import Session as Neo4jSession
 
+from app.modules.courses.neo4j_repository import CourseGraphRepository
+
 from .schemas import (
+    PrerequisiteEdge,
+    SkillSelectionRange,
     StudentSkillBankBook,
     StudentSkillBankBookChapter,
     StudentSkillBankJobPosting,
@@ -471,6 +475,39 @@ def get_peer_selection_counts(
     return {r["skill_name"]: r["student_count"] for r in result}
 
 
+def get_prerequisite_edges(
+    session: Neo4jSession,
+    course_id: int,
+) -> list[PrerequisiteEdge]:
+    result = session.run(
+        """
+        MATCH (cl:CLASS {id: $course_id})
+        MATCH (cl)-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
+              <-[:MAPPED_TO]-(prerequisite:SKILL)-[r:PREREQUISITE]->(dependent:SKILL)
+        RETURN
+            prerequisite.name AS prerequisite_name,
+            dependent.name AS dependent_name,
+            coalesce(r.confidence, 'medium') AS confidence,
+            coalesce(r.reasoning, '') AS reasoning
+        UNION
+        MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)
+              -[:HAS_SKILL]->(prerequisite:SKILL)-[r:PREREQUISITE]->(dependent:SKILL)
+        RETURN
+            prerequisite.name AS prerequisite_name,
+            dependent.name AS dependent_name,
+            coalesce(r.confidence, 'medium') AS confidence,
+            coalesce(r.reasoning, '') AS reasoning
+        """,
+        course_id=course_id,
+    )
+    return [
+        PrerequisiteEdge.model_validate(
+            record.data() if hasattr(record, "data") else record
+        )
+        for record in result
+    ]
+
+
 def get_student_skill_banks(
     session: Neo4jSession,
     student_id: int,
@@ -510,6 +547,10 @@ def get_student_skill_banks(
 
     # Peer counts
     peer_counts = get_peer_selection_counts(session, course_id)
+    selection_range = SkillSelectionRange.model_validate(
+        CourseGraphRepository(session).get_skill_selection_range(course_id=course_id)
+    )
+    prerequisite_edges = get_prerequisite_edges(session, course_id)
 
     book_result = session.run(_BOOK_SKILL_BANKS_QUERY, course_id=course_id)
     book_skill_banks = []
@@ -596,4 +637,6 @@ def get_student_skill_banks(
         selected_skill_names=list(selected_map.keys()),
         interested_posting_urls=interested_urls,
         peer_selection_counts=peer_counts,
+        selection_range=selection_range,
+        prerequisite_edges=prerequisite_edges,
     )

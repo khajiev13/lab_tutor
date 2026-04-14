@@ -196,6 +196,16 @@ export const coursesApi = {
     const response = await api.get<SkillBanksResponse>(`/courses/${id}/skill-banks`);
     return response.data;
   },
+  updateSkillSelectionRange: async (
+    id: number,
+    payload: { min_skills: number; max_skills: number },
+  ): Promise<SkillBanksResponse['selection_range']> => {
+    const response = await api.patch<SkillBanksResponse['selection_range']>(
+      `/courses/${id}/skill-selection-range`,
+      payload,
+    );
+    return response.data;
+  },
 };
 
 export const presentationsApi = {
@@ -244,4 +254,3 @@ export const presentationsApi = {
     await api.delete(`/courses/${courseId}/presentations`);
   },
 };
-
