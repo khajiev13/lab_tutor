@@ -18,7 +18,9 @@ class _FakeCurriculumService:
             },
         }
 
-    def update_skill_selection_range(self, *, teacher, course_id: int, min_skills: int, max_skills: int):
+    def update_skill_selection_range(
+        self, *, teacher, course_id: int, min_skills: int, max_skills: int
+    ):
         self.updated_payloads.append(
             {
                 "course_id": course_id,
@@ -34,7 +36,9 @@ class _FakeCurriculumService:
         }
 
 
-def test_get_course_skill_banks_returns_default_selection_range(client, teacher_auth_headers):
+def test_get_course_skill_banks_returns_default_selection_range(
+    client, teacher_auth_headers
+):
     service = _FakeCurriculumService()
     app.dependency_overrides[get_curriculum_service] = lambda: service
 
@@ -48,7 +52,9 @@ def test_get_course_skill_banks_returns_default_selection_range(client, teacher_
     }
 
 
-def test_update_course_skill_selection_range_route_updates_range(client, teacher_auth_headers):
+def test_update_course_skill_selection_range_route_updates_range(
+    client, teacher_auth_headers
+):
     service = _FakeCurriculumService()
     app.dependency_overrides[get_curriculum_service] = lambda: service
 

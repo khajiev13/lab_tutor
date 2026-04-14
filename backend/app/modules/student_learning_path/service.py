@@ -157,12 +157,14 @@ class StudentLearningPathService:
                     session
                 ).get_skill_selection_range(course_id=course_id)
                 selected_skill_count = sum(
-                    len(skill_names)
-                    for skill_names in grouped_selected_skills.values()
+                    len(skill_names) for skill_names in grouped_selected_skills.values()
                 )
                 min_skills = int(selection_range["min_skills"])
                 max_skills = int(selection_range["max_skills"])
-                if selected_skill_count < min_skills or selected_skill_count > max_skills:
+                if (
+                    selected_skill_count < min_skills
+                    or selected_skill_count > max_skills
+                ):
                     raise ValueError(
                         f"Select between {min_skills} and {max_skills} skills before building"
                     )
