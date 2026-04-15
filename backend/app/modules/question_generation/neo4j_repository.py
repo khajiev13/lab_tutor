@@ -42,9 +42,8 @@ def write_questions(
         """
         MATCH (sk:SKILL {name: $skill_name})
         OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(existing:QUESTION)
-        WHERE NOT EXISTS { (existing)<-[:ANSWERED]-(:USER:STUDENT) }
-        WITH sk, collect(existing) AS deletable_questions
-        FOREACH (node IN deletable_questions | DETACH DELETE node)
+        WITH sk, collect(existing) AS existing_questions
+        FOREACH (node IN existing_questions | DETACH DELETE node)
         WITH sk
         UNWIND $questions AS q
         CREATE (qn:QUESTION {

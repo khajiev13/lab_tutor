@@ -43,5 +43,4 @@ def test_write_questions_does_not_require_existing_question_nodes():
     assert written == 3
     assert "MATCH (sk:SKILL {name: $skill_name})" in query
     assert "OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(existing:QUESTION)" in query
-    assert "WHERE NOT EXISTS { (existing)<-[:ANSWERED]-(:USER:STUDENT) }" in query
-    assert "FOREACH (node IN deletable_questions | DETACH DELETE node)" in query
+    assert "FOREACH (node IN existing_questions | DETACH DELETE node)" in query
