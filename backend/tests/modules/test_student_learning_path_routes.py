@@ -6,7 +6,10 @@ import pytest
 from fastapi import HTTPException, status
 
 from app.modules.student_learning_path import routes
-from app.modules.student_learning_path.schemas import QuizSubmitRequest, ResourceOpenRequest
+from app.modules.student_learning_path.schemas import (
+    QuizSubmitRequest,
+    ResourceOpenRequest,
+)
 
 
 def _mock_driver_with_session():

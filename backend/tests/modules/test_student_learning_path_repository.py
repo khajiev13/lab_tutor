@@ -1,5 +1,4 @@
 import logging
-
 from unittest.mock import MagicMock
 
 from app.modules.student_learning_path import neo4j_repository
