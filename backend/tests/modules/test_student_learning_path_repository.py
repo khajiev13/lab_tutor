@@ -316,7 +316,15 @@ def test_get_learning_path_marks_skills_pending_without_resources():
                         }
                     ],
                 }
-            }
+            },
+            {
+                "chapter": {
+                    "title": "Streaming",
+                    "chapter_index": 2,
+                    "description": None,
+                    "selected_skills": [],
+                }
+            },
         ],
         [{"chapter_index": 1, "easy_question_count": 1, "answered_count": 0}],
     ]
@@ -324,11 +332,14 @@ def test_get_learning_path_marks_skills_pending_without_resources():
     result = neo4j_repository.get_learning_path(session, student_id=11, course_id=2)
 
     assert result["course_title"] == "Data Systems"
+    assert len(result["chapters"]) == 2
     assert result["total_selected_skills"] == 1
     assert result["skills_with_resources"] == 0
     assert result["chapters"][0]["quiz_status"] == "quiz_required"
     assert result["chapters"][0]["easy_question_count"] == 1
     assert result["chapters"][0]["answered_count"] == 0
+    assert result["chapters"][1]["title"] == "Streaming"
+    assert result["chapters"][1]["selected_skills"] == []
     assert result["chapters"][0]["selected_skills"][0]["resource_status"] == "pending"
     assert result["chapters"][0]["selected_skills"][0]["is_known"] is False
     assert "answer" not in result["chapters"][0]["selected_skills"][0]["questions"][0]

@@ -277,6 +277,22 @@ const learningPathResponse = {
   ],
 };
 
+const learningPathResponseWithEmptyChapter = {
+  ...learningPathResponse,
+  chapters: [
+    ...learningPathResponse.chapters,
+    {
+      title: 'Optimization',
+      chapter_index: 2,
+      description: null,
+      quiz_status: 'locked',
+      easy_question_count: 0,
+      answered_count: 0,
+      selected_skills: [],
+    },
+  ],
+};
+
 function renderPage() {
   render(
     <MemoryRouter initialEntries={['/courses/1/learning-path']}>
@@ -452,6 +468,19 @@ describe('StudentLearningPathPage', () => {
       'href',
       '/courses/1/learning-path/chapters/3/quiz',
     );
+  });
+
+  it('renders chapters that currently have no selected skills', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(
+      learningPathResponseWithEmptyChapter,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('Chapter 2: Optimization')).toBeInTheDocument();
+    expect(screen.getByText('No selected skills in this chapter yet.')).toBeInTheDocument();
+    expect(screen.getByText('No selected skills')).toBeInTheDocument();
   });
 
   it('redirects back to the course page when skill banks return 403', async () => {

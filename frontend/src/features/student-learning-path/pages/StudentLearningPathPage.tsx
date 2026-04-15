@@ -1061,7 +1061,14 @@ function LearningPathChapterCard({
   chapter: LearningPathChapter;
   courseId: number;
 }) {
-  const statusMeta = getChapterStatusMeta(chapter.quiz_status);
+  const hasSelectedSkills = chapter.selected_skills.length > 0;
+  const statusMeta = hasSelectedSkills
+    ? getChapterStatusMeta(chapter.quiz_status)
+    : {
+        label: 'No selected skills',
+        variant: 'secondary' as const,
+        icon: <Library className="h-4 w-4 text-muted-foreground" />,
+      };
   const skillAccordionDefaultValue = chapter.selected_skills
     .filter((skill) => !skill.is_known)
     .map((skill) => skill.name);
@@ -1081,7 +1088,8 @@ function LearningPathChapterCard({
             <Badge variant={statusMeta.variant} className="rounded-full">
               {statusMeta.label}
             </Badge>
-            {(chapter.quiz_status === 'learning' || chapter.quiz_status === 'completed') && (
+            {hasSelectedSkills &&
+              (chapter.quiz_status === 'learning' || chapter.quiz_status === 'completed') && (
               <Button asChild size="sm" variant="outline" className="gap-2 rounded-full">
                 <Link to={`/courses/${courseId}/learning-path/chapters/${chapter.chapter_index}/quiz`}>
                   <PlayCircle className="h-4 w-4" />
@@ -1089,9 +1097,11 @@ function LearningPathChapterCard({
                 </Link>
               </Button>
             )}
-            <Badge variant="outline" className="rounded-full">
-              {chapter.answered_count}/{chapter.easy_question_count} answered
-            </Badge>
+            {hasSelectedSkills && (
+              <Badge variant="outline" className="rounded-full">
+                {chapter.answered_count}/{chapter.easy_question_count} answered
+              </Badge>
+            )}
             <Badge variant="secondary" className="rounded-full">
               {chapter.selected_skills.length} skills
             </Badge>
@@ -1099,15 +1109,17 @@ function LearningPathChapterCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 pt-6">
-        {chapter.quiz_status === 'locked' && (
+        {!hasSelectedSkills && <ChapterWithoutSelectedSkillsState />}
+
+        {hasSelectedSkills && chapter.quiz_status === 'locked' && (
           <ChapterLockedState chapterIndex={chapter.chapter_index} />
         )}
 
-        {chapter.quiz_status === 'quiz_required' && (
+        {hasSelectedSkills && chapter.quiz_status === 'quiz_required' && (
           <ChapterQuizRequiredState courseId={courseId} chapterIndex={chapter.chapter_index} />
         )}
 
-        {(chapter.quiz_status === 'learning' || chapter.quiz_status === 'completed') && (
+        {hasSelectedSkills && (chapter.quiz_status === 'learning' || chapter.quiz_status === 'completed') && (
           <div className="space-y-4">
             {chapter.quiz_status === 'completed' && (
               <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100">
@@ -1234,6 +1246,22 @@ function LearningPathChapterCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ChapterWithoutSelectedSkillsState() {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-background text-muted-foreground">
+        <Library className="h-4 w-4" />
+      </div>
+      <div className="space-y-1">
+        <p className="font-medium">No selected skills in this chapter yet.</p>
+        <p className="text-sm text-muted-foreground">
+          This chapter is still part of the course structure, but your current learning path does not map any selected skills into it.
+        </p>
+      </div>
+    </div>
   );
 }
 

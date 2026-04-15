@@ -542,11 +542,11 @@ def get_learning_path(
     ).single()
     course_title = course_row["title"] if course_row else ""
 
-    # Get chapters with selected skills and their resources using nested COLLECT
+    # Get every course chapter. Chapters without selected skills should still
+    # render in the UI with an empty selected_skills list.
     result = session.run(
         """
         MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
-        WHERE EXISTS { (ch)<-[:MAPPED_TO]-()<-[:SELECTED_SKILL]-(:USER:STUDENT {id: $student_id}) }
         WITH ch ORDER BY ch.chapter_index
         RETURN ch {
             .title,
