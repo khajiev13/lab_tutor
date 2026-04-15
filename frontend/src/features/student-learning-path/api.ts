@@ -100,9 +100,8 @@ export interface LearningPathSkill {
     text: string;
     difficulty: 'easy' | 'medium' | 'hard';
     options: string[];
-    correct_option: 'A' | 'B' | 'C' | 'D' | null;
-    answer: string;
   }[];
+  is_known: boolean;
   resource_status: 'loaded' | 'pending';
 }
 
@@ -111,6 +110,9 @@ export interface LearningPathChapter {
   chapter_index: number;
   description: string | null;
   selected_skills: LearningPathSkill[];
+  quiz_status: 'locked' | 'quiz_required' | 'learning' | 'completed';
+  easy_question_count: number;
+  answered_count: number;
 }
 
 export interface LearningPathResponse {
@@ -133,6 +135,50 @@ export interface BuildProgressEvent {
 export interface BuildSelectedSkillInput {
   name: string;
   source: 'book' | 'market';
+}
+
+export interface QuizQuestion {
+  id: string;
+  skill_name: string;
+  text: string;
+  options: string[];
+}
+
+export interface PreviousAnswer {
+  selected_option: 'A' | 'B' | 'C' | 'D';
+  answered_right: boolean;
+  answered_at: string;
+}
+
+export interface ChapterQuizResponse {
+  course_id: number;
+  chapter_index: number;
+  chapter_title: string;
+  questions: QuizQuestion[];
+  previous_answers: Record<string, PreviousAnswer>;
+}
+
+export interface QuizAnswerSubmission {
+  question_id: string;
+  selected_option: 'A' | 'B' | 'C' | 'D';
+}
+
+export interface QuizSubmitRequest {
+  answers: QuizAnswerSubmission[];
+}
+
+export interface QuizAnswerResult {
+  question_id: string;
+  skill_name: string;
+  selected_option: 'A' | 'B' | 'C' | 'D';
+  answered_right: boolean;
+  correct_option: 'A' | 'B' | 'C' | 'D';
+}
+
+export interface QuizSubmitResponse {
+  chapter_index: number;
+  results: QuizAnswerResult[];
+  skills_known: string[];
 }
 
 export async function getSkillBanks(courseId: number): Promise<SkillBanksResponse> {
@@ -196,6 +242,31 @@ export async function getLearningPath(
 ): Promise<LearningPathResponse> {
   const { data } = await api.get(`${BASE}/${courseId}/path`);
   return data;
+}
+
+export async function getChapterQuiz(
+  courseId: number,
+  chapterIndex: number,
+): Promise<ChapterQuizResponse> {
+  const { data } = await api.get(`${BASE}/${courseId}/chapters/${chapterIndex}/quiz`);
+  return data;
+}
+
+export async function submitChapterQuiz(
+  courseId: number,
+  chapterIndex: number,
+  answers: QuizAnswerSubmission[],
+): Promise<QuizSubmitResponse> {
+  const payload: QuizSubmitRequest = { answers };
+  const { data } = await api.post(`${BASE}/${courseId}/chapters/${chapterIndex}/quiz/submit`, payload);
+  return data;
+}
+
+export async function trackResourceOpen(
+  courseId: number,
+  payload: { resource_type: 'reading' | 'video'; url: string },
+): Promise<void> {
+  await api.post(`${BASE}/${courseId}/resources/open`, payload).catch(() => {});
 }
 
 export function streamBuildProgress(

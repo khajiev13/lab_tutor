@@ -1,0 +1,50 @@
+\documentclass[varwidth=8.25in,border=8pt]{standalone}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{caption}
+\usepackage[T1]{fontenc}
+\DeclareCaptionType{algorithm}[Algorithm][List of Algorithms]
+\captionsetup[algorithm]{font=small,labelfont=bf,textfont=bf}
+\begin{document}
+\setcounter{algorithm}{0}
+\small
+\captionof{algorithm}{\textbf{Curricular Alignment Architect: Book-Skill Bank Construction}}
+
+\begin{algorithmic}[1]
+\bfseries
+\Require Teacher-approved books $\mathcal{B}_{sel}$, course chapter scaffold $\mathcal{C}$, course subject $\sigma$
+\Ensure Book skill bank $\mathcal{S}_{B}$ mapped into course chapters
+
+\State \textbf{// Stage 1: Parallel Chapter-Level Skill Collection}
+\For{each $B_i \in \mathcal{B}_{sel}$}
+    \State $\{ch_1, \dots, ch_{N_i}\} \leftarrow \text{LoadExtractedChapters}(B_i)$
+    \For{each unfinished chapter $ch_j$ \textbf{in parallel}}
+        \State $R_j \leftarrow \text{LLM}_{skills}(ch_j,\ \sigma)$
+        \Statex \hspace{\algorithmicindent} $\triangleright$ extract summary, skills, and concepts
+        \State $F_j \leftarrow \text{LLM}_{judge}(R_j,\ ch_j)$
+        \If{$F_j.\text{verdict} = \texttt{NEEDS\_REVISION}$}
+            \State $R_j \leftarrow \text{LLM}_{revise}(R_j,\ F_j.\text{issues},\ ch_j)$
+            \Statex \hspace{\algorithmicindent} $\triangleright$ allow at most one revision
+        \EndIf
+        \State $(\mathbf{e}^{name}_j,\ \mathbf{e}^{desc}_j) \leftarrow \text{EmbedBatch}(R_j.\text{skills})$
+        \State $\text{UpdateKnowledgeGraph}(ch_j,\ R_j)$
+        \Statex \hspace{\algorithmicindent} $\triangleright$ write skills and concepts to the knowledge graph
+    \EndFor
+\EndFor
+
+\State
+\State \textbf{// Stage 2: Curriculum Mapping of Book Skills}
+\State $\mathcal{C} \leftarrow \text{LoadCourseChapters}()$
+\State $\mathcal{H} \leftarrow \text{LoadBookChaptersWithSkills}(\mathcal{B}_{sel})$
+\For{each book chapter $h \in \mathcal{H}$}
+    \State $\mathcal{M}_h \leftarrow \text{LLM}_{map}(h.\text{skills},\ \mathcal{C})$
+    \Statex \hspace{\algorithmicindent} $\triangleright$ map skills to course chapters
+    \State $\text{WriteMappings}(\mathcal{M}_h)$
+    \Statex \hspace{\algorithmicindent} $\triangleright$ write chapter mappings to the knowledge graph
+\EndFor
+
+\State
+\State $\mathcal{S}_{B} \leftarrow \{s \mid s:\texttt{BOOK\_SKILL},\ s \xrightarrow{\texttt{MAPPED\_TO}} c,\ c \in \mathcal{C}\}$
+\State \Return $\mathcal{S}_{B}$
+\end{algorithmic}
+\end{document}

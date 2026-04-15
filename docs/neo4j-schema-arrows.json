@@ -1,0 +1,446 @@
+{
+  "graph": {
+    "style": {
+      "font-family": "sans-serif",
+      "background-color": "#ffffff",
+      "background-image": "",
+      "node-color": "#4C8EDA",
+      "border-width": 2,
+      "border-color": "#2870c2",
+      "radius": 60,
+      "node-padding": 5,
+      "node-margin": 2,
+      "outside-position": "auto",
+      "node-icon-image": "",
+      "node-background-image": "",
+      "icon-position": "inside",
+      "icon-size": 64,
+      "caption-position": "inside",
+      "caption-max-width": 100,
+      "caption-color": "#ffffff",
+      "caption-font-size": 14,
+      "caption-font-weight": "bold",
+      "label-position": "inside",
+      "label-display": "pill",
+      "label-color": "#ffffff",
+      "label-background-color": "#848484",
+      "label-border-color": "#848484",
+      "label-border-width": 4,
+      "label-font-size": 14,
+      "label-padding": 5,
+      "label-margin": 4,
+      "directionality": "directed",
+      "detail-position": "above",
+      "detail-orientation": "parallel",
+      "arrow-width": 3,
+      "arrow-color": "#848484",
+      "margin-start": 5,
+      "margin-end": 5,
+      "margin-peer": 20,
+      "attachment-start": "normal",
+      "attachment-end": "normal",
+      "relationship-icon-image": "",
+      "type-color": "#848484",
+      "type-background-color": "#ffffff",
+      "type-border-color": "#848484",
+      "type-border-width": 0,
+      "type-font-size": 11,
+      "type-padding": 5,
+      "property-position": "outside",
+      "property-alignment": "colon",
+      "property-color": "#848484",
+      "property-font-size": 11,
+      "property-font-weight": "normal"
+    },
+    "nodes": [
+      {
+        "id": "n0",
+        "position": { "x": 0, "y": -400 },
+        "caption": "USER",
+        "labels": [],
+        "properties": {
+          "id": "INTEGER (idx)",
+          "email": "STRING",
+          "first_name": "STRING",
+          "last_name": "STRING"
+        },
+        "style": {
+          "node-color": "#68A5E2",
+          "caption-color": "#ffffff"
+        }
+      },
+      {
+        "id": "n1",
+        "position": { "x": 500, "y": -400 },
+        "caption": "TEACHER",
+        "labels": [],
+        "properties": {
+          "id": "INTEGER",
+          "email": "STRING",
+          "first_name": "STRING",
+          "last_name": "STRING"
+        },
+        "style": {
+          "node-color": "#DA7194",
+          "caption-color": "#ffffff"
+        }
+      },
+      {
+        "id": "n2",
+        "position": { "x": -500, "y": -400 },
+        "caption": "STUDENT",
+        "labels": [],
+        "properties": {
+          "id": "INTEGER",
+          "email": "STRING",
+          "first_name": "STRING",
+          "last_name": "STRING"
+        },
+        "style": {
+          "node-color": "#6DCE9E",
+          "caption-color": "#ffffff"
+        }
+      },
+      {
+        "id": "n3",
+        "position": { "x": 750, "y": -100 },
+        "caption": "CLASS",
+        "labels": [],
+        "properties": {
+          "id": "INTEGER (idx)",
+          "title": "STRING (idx)",
+          "description": "STRING"
+        },
+        "style": {
+          "node-color": "#57C7E3",
+          "caption-color": "#ffffff"
+        }
+      },
+      {
+        "id": "n4",
+        "position": { "x": 250, "y": -100 },
+        "caption": "TEACHER_UPLOADED\n_DOCUMENT",
+        "labels": [],
+        "properties": {
+          "id": "STRING (idx)",
+          "topic": "STRING",
+          "source_filename": "STRING",
+          "content_hash": "STRING (idx)"
+        },
+        "style": {
+          "node-color": "#F79767",
+          "caption-color": "#ffffff",
+          "radius": 70
+        }
+      },
+      {
+        "id": "n5",
+        "position": { "x": 500, "y": 200 },
+        "caption": "COURSE\n_CHAPTER",
+        "labels": [],
+        "properties": {
+          "id": "STRING (idx)",
+          "title": "STRING",
+          "number": "INTEGER",
+          "course_id": "INTEGER (idx)"
+        },
+        "style": {
+          "node-color": "#D9C8AE",
+          "caption-color": "#2A2A2A"
+        }
+      },
+      {
+        "id": "n6",
+        "position": { "x": -250, "y": -100 },
+        "caption": "CONCEPT",
+        "labels": [],
+        "properties": {
+          "name": "STRING (idx)",
+          "description": "STRING",
+          "embedding": "VECTOR (idx)"
+        },
+        "style": {
+          "node-color": "#ECB5C9",
+          "caption-color": "#2A2A2A"
+        }
+      },
+      {
+        "id": "n7",
+        "position": { "x": -600, "y": 0 },
+        "caption": "JOB_POSTING",
+        "labels": [],
+        "properties": {
+          "title": "STRING",
+          "company": "STRING",
+          "url": "STRING",
+          "site": "STRING"
+        },
+        "style": {
+          "node-color": "#4C8EDA",
+          "caption-color": "#ffffff"
+        }
+      },
+      {
+        "id": "n8",
+        "position": { "x": -100, "y": 300 },
+        "caption": "SKILL",
+        "labels": ["MARKET_SKILL", "BOOK_SKILL"],
+        "properties": {
+          "name": "STRING (idx)",
+          "description": "STRING",
+          "category": "STRING",
+          "source": "STRING",
+          "frequency": "INTEGER",
+          "demand_pct": "FLOAT",
+          "name_embedding": "VECTOR (idx)",
+          "description_embedding": "VECTOR (idx)"
+        },
+        "style": {
+          "node-color": "#FFC454",
+          "caption-color": "#2A2A2A",
+          "radius": 75
+        }
+      },
+      {
+        "id": "n11",
+        "position": { "x": 900, "y": 200 },
+        "caption": "BOOK",
+        "labels": [],
+        "properties": {
+          "id": "STRING (idx)",
+          "title": "STRING",
+          "authors": "STRING",
+          "year": "STRING"
+        },
+        "style": {
+          "node-color": "#569480",
+          "caption-color": "#ffffff"
+        }
+      },
+      {
+        "id": "n12",
+        "position": { "x": 700, "y": 450 },
+        "caption": "BOOK_CHAPTER",
+        "labels": [],
+        "properties": {
+          "id": "STRING (idx)",
+          "chapter_index": "INTEGER"
+        },
+        "style": {
+          "node-color": "#F16667",
+          "caption-color": "#ffffff"
+        }
+      },
+      {
+        "id": "n13",
+        "position": { "x": -600, "y": 400 },
+        "caption": "VIDEO\n_RESOURCE",
+        "labels": [],
+        "properties": {
+          "id": "STRING (idx)",
+          "title": "STRING",
+          "url": "STRING",
+          "final_score": "FLOAT"
+        },
+        "style": {
+          "node-color": "#FF6C60",
+          "caption-color": "#ffffff"
+        }
+      },
+      {
+        "id": "n14",
+        "position": { "x": -300, "y": 550 },
+        "caption": "READING\n_RESOURCE",
+        "labels": [],
+        "properties": {
+          "id": "STRING (idx)",
+          "title": "STRING",
+          "url": "STRING",
+          "final_score": "FLOAT"
+        },
+        "style": {
+          "node-color": "#A5ABB6",
+          "caption-color": "#ffffff"
+        }
+      }
+    ],
+    "relationships": [
+      {
+        "id": "r0",
+        "fromId": "n0",
+        "toId": "n7",
+        "type": "INTERESTED_IN",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r1",
+        "fromId": "n2",
+        "toId": "n7",
+        "type": "INTERESTED_IN",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r2",
+        "fromId": "n0",
+        "toId": "n4",
+        "type": "UPLOADED_DOCUMENT",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r3",
+        "fromId": "n1",
+        "toId": "n4",
+        "type": "UPLOADED_DOCUMENT",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r4",
+        "fromId": "n4",
+        "toId": "n6",
+        "type": "MENTIONS",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r5",
+        "fromId": "n0",
+        "toId": "n3",
+        "type": "TEACHES_CLASS",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r6",
+        "fromId": "n1",
+        "toId": "n3",
+        "type": "TEACHES_CLASS",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r7",
+        "fromId": "n2",
+        "toId": "n3",
+        "type": "ENROLLED_IN_CLASS",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r8",
+        "fromId": "n0",
+        "toId": "n3",
+        "type": "ENROLLED_IN_CLASS",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r9",
+        "fromId": "n3",
+        "toId": "n5",
+        "type": "HAS_COURSE_CHAPTER",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r10",
+        "fromId": "n3",
+        "toId": "n4",
+        "type": "HAS_DOCUMENT",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r11",
+        "fromId": "n3",
+        "toId": "n11",
+        "type": "CANDIDATE_BOOK",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r12",
+        "fromId": "n5",
+        "toId": "n4",
+        "type": "INCLUDES_DOCUMENT",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r13",
+        "fromId": "n11",
+        "toId": "n12",
+        "type": "HAS_CHAPTER",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r14",
+        "fromId": "n12",
+        "toId": "n8",
+        "type": "HAS_SKILL",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r16",
+        "fromId": "n8",
+        "toId": "n5",
+        "type": "MAPPED_TO",
+        "properties": { "confidence": "STRING", "status": "STRING" },
+        "style": {}
+      },
+      {
+        "id": "r19",
+        "fromId": "n8",
+        "toId": "n6",
+        "type": "REQUIRES_CONCEPT",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r22",
+        "fromId": "n8",
+        "toId": "n7",
+        "type": "SOURCED_FROM",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r24",
+        "fromId": "n0",
+        "toId": "n8",
+        "type": "SELECTED_SKILL",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r27",
+        "fromId": "n2",
+        "toId": "n8",
+        "type": "SELECTED_SKILL",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r30",
+        "fromId": "n8",
+        "toId": "n13",
+        "type": "HAS_VIDEO",
+        "properties": {},
+        "style": {}
+      },
+      {
+        "id": "r33",
+        "fromId": "n8",
+        "toId": "n14",
+        "type": "HAS_READING",
+        "properties": {},
+        "style": {}
+      }
+    ]
+  }
+}

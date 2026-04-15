@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1230" viewBox="0 0 1800 1230">
+<defs>
+<marker id="arrow-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+<path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+</marker>
+<marker id="arrow-start" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+<path d="M 10 0 L 0 5 L 10 10 z" fill="#64748b"/>
+</marker>
+</defs>
+<rect width="100%" height="100%" fill="#fcfcfd"/>
+<text x="900" y="70" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700" fill="#0f172a" text-anchor="middle">Task-Level Multi-Agent Architecture</text>
+<text x="900" y="108" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#475569" text-anchor="middle">Task 1 builds the baseline scaffold, Tasks 2 and 3 enrich it independently, and Task 4 turns the enriched graph into learning support.</text>
+<rect x="360" y="150" width="1080" height="240" rx="34" fill="#ffffff" stroke="#2563eb" stroke-width="3"/>
+<rect x="386" y="172" width="140" height="54" rx="18" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="456" y="207" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#2563eb" text-anchor="middle">Task 1</text>
+<text x="390" y="268" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#0f172a" text-anchor="start">Document Extraction</text>
+<text x="390" y="308" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#2563eb" text-anchor="start">Teacher-owned curriculum scaffold</text>
+<text x="390" y="362" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#0f172a" text-anchor="start"><tspan x="390" dy="0">Input: teacher materials</tspan><tspan x="390" dy="34">Output: course chapters, concepts, embeddings</tspan><tspan x="390" dy="34">Review: concept/chapter review</tspan></text>
+<rect x="590" y="430" width="620" height="140" rx="34" fill="#ecfeff" stroke="#0f766e" stroke-width="3"/>
+<text x="900" y="490" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#0f766e" text-anchor="middle">Shared Neo4j Curriculum Graph</text>
+<text x="900" y="530" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#115e59" text-anchor="middle">Shared semantic substrate and coordination layer</text>
+<rect x="80" y="640" width="720" height="270" rx="34" fill="#ffffff" stroke="#15803d" stroke-width="3"/>
+<rect x="106" y="662" width="140" height="54" rx="18" fill="#dcfce7" stroke="#15803d" stroke-width="2"/>
+<text x="176" y="697" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#15803d" text-anchor="middle">Task 2</text>
+<text x="110" y="758" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#0f172a" text-anchor="start">Textbook Alignment</text>
+<text x="110" y="798" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#15803d" text-anchor="start">Curricular Alignment Architect</text>
+<text x="110" y="852" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#0f172a" text-anchor="start"><tspan x="110" dy="0">Input: approved books</tspan><tspan x="110" dy="34">Output: mapped BOOK_SKILL layer</tspan><tspan x="110" dy="34">Review: textbook approval</tspan></text>
+<rect x="1000" y="640" width="720" height="270" rx="34" fill="#ffffff" stroke="#c2410c" stroke-width="3"/>
+<rect x="1026" y="662" width="140" height="54" rx="18" fill="#ffedd5" stroke="#c2410c" stroke-width="2"/>
+<text x="1096" y="697" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#c2410c" text-anchor="middle">Task 3</text>
+<text x="1030" y="758" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#0f172a" text-anchor="start">Market Alignment</text>
+<text x="1030" y="798" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#c2410c" text-anchor="start">Market Demand Analyst</text>
+<text x="1030" y="852" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#0f172a" text-anchor="start"><tspan x="1030" dy="0">Input: filtered job postings</tspan><tspan x="1030" dy="34">Output: mapped MARKET_SKILL layer</tspan><tspan x="1030" dy="34">Review: job relevance and skill curation</tspan></text>
+<rect x="360" y="970" width="1080" height="200" rx="34" fill="#ffffff" stroke="#6d28d9" stroke-width="3"/>
+<rect x="386" y="992" width="140" height="54" rx="18" fill="#ede9fe" stroke="#6d28d9" stroke-width="2"/>
+<text x="456" y="1027" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#6d28d9" text-anchor="middle">Task 4</text>
+<text x="390" y="1088" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#0f172a" text-anchor="start">Resource Curation</text>
+<text x="390" y="1128" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#6d28d9" text-anchor="start">Textual Resource Analyst + Video Agent</text>
+<text x="390" y="1182" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="400" fill="#0f172a" text-anchor="start"><tspan x="390" dy="0">Input: enriched skill set</tspan><tspan x="390" dy="34">Output: readings, videos, questions</tspan><tspan x="390" dy="34">Review: optional resource review</tspan></text>
+<line x1="900" y1="390" x2="900" y2="430" stroke="#64748b" stroke-width="6" stroke-linecap="round" marker-end="url(#arrow-end)"/>
+<text x="955" y="420" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#475569" text-anchor="start">build baseline scaffold</text>
+<line x1="590" y1="570" x2="440" y2="640" stroke="#64748b" stroke-width="6" stroke-linecap="round" marker-start="url(#arrow-start)" marker-end="url(#arrow-end)"/>
+<text x="420" y="605" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#475569" text-anchor="middle">shared read / write</text>
+<line x1="1210" y1="570" x2="1360" y2="640" stroke="#64748b" stroke-width="6" stroke-linecap="round" marker-start="url(#arrow-start)" marker-end="url(#arrow-end)"/>
+<text x="1380" y="605" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#475569" text-anchor="middle">shared read / write</text>
+<line x1="900" y1="570" x2="900" y2="970" stroke="#64748b" stroke-width="6" stroke-linecap="round" marker-end="url(#arrow-end)"/>
+<text x="990" y="790" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#475569" text-anchor="start">enriched skill bank</text>
+<text x="900" y="610" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="400" fill="#475569" text-anchor="middle">Tasks 2 and 3 are independent enrichment paths that both map back into the same graph.</text>
+</svg>
