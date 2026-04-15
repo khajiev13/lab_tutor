@@ -9,6 +9,7 @@ from app.modules.student_learning_path import neo4j_repository
 from app.modules.student_learning_path.schemas import (
     BuildSelectedSkillRequest,
     QuizSubmitRequest,
+    ResourceOpenRequest,
 )
 from app.modules.student_learning_path.service import StudentLearningPathService
 
@@ -207,6 +208,62 @@ def test_validate_enrollment_raises_403_when_student_is_not_enrolled(caplog):
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
     assert exc_info.value.detail == "Student is not enrolled in this course"
     assert "student_id=4 course_id=2" in caplog.text
+
+
+def test_record_resource_open_delegates_to_neo4j_repository(monkeypatch):
+    driver = MagicMock()
+    session = MagicMock()
+    driver.session.return_value.__enter__.return_value = session
+    driver.session.return_value.__exit__.return_value = False
+    service = StudentLearningPathService(MagicMock(), driver)
+
+    validate = MagicMock()
+    monkeypatch.setattr(service, "_validate_enrollment", validate)
+    record_resource_open = MagicMock()
+    monkeypatch.setattr(
+        neo4j_repository,
+        "record_resource_open",
+        record_resource_open,
+    )
+
+    payload = ResourceOpenRequest(
+        resource_type="reading",
+        url="https://example.com/reading",
+    )
+    service.record_resource_open(11, 2, payload)
+
+    validate.assert_called_once_with(11, 2)
+    record_resource_open.assert_called_once_with(
+        session,
+        student_id=11,
+        resource_type="reading",
+        url="https://example.com/reading",
+    )
+
+
+def test_record_resource_open_raises_403_when_student_is_not_enrolled(monkeypatch):
+    driver = MagicMock()
+    service = StudentLearningPathService(MagicMock(), driver)
+    service._course_repo = MagicMock()
+    service._course_repo.get_enrollment.return_value = None
+
+    record_resource_open = MagicMock()
+    monkeypatch.setattr(
+        neo4j_repository,
+        "record_resource_open",
+        record_resource_open,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.record_resource_open(
+            11,
+            2,
+            ResourceOpenRequest(resource_type="reading", url="https://example.com/reading"),
+        )
+
+    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+    record_resource_open.assert_not_called()
+    driver.session.assert_not_called()
 
 
 def test_get_chapter_quiz_enforces_enrollment(monkeypatch):

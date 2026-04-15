@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 # ── Request schemas ──────────────────────────────────────────
 
@@ -25,6 +25,11 @@ class SelectJobPostingsRequest(BaseModel):
 
 class DeselectJobPostingRequest(BaseModel):
     posting_url: str
+
+
+class ResourceOpenRequest(BaseModel):
+    resource_type: Literal["reading", "video"]
+    url: HttpUrl
 
 
 class BuildSelectedSkillRequest(BaseModel):

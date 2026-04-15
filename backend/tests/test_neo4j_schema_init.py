@@ -51,6 +51,14 @@ def test_initialize_neo4j_constraints_idempotent_and_relationship_fallback(caplo
         s.startswith("CREATE CONSTRAINT question_id_unique")
         for s in driver.session_obj.statements
     )
+    assert any(
+        s.startswith("CREATE CONSTRAINT reading_resource_url_unique")
+        for s in driver.session_obj.statements
+    )
+    assert any(
+        s.startswith("CREATE CONSTRAINT video_resource_url_unique")
+        for s in driver.session_obj.statements
+    )
 
     assert any(
         s.startswith(

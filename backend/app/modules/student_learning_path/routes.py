@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,7 @@ from .schemas import (
     LearningPathResponse,
     QuizSubmitRequest,
     QuizSubmitResponse,
+    ResourceOpenRequest,
     SelectJobPostingsRequest,
     SelectSkillsRequest,
     StudentSkillBankResponse,
@@ -129,6 +130,20 @@ def deselect_job_posting(
     service = _get_service(db, driver)
     count = service.deselect_job_posting(student.id, course_id, body.posting_url)
     return {"orphans_deleted": count}
+
+
+@router.post("/{course_id}/resources/open", status_code=status.HTTP_204_NO_CONTENT)
+def record_resource_open(
+    course_id: int,
+    body: ResourceOpenRequest,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> Response:
+    """Track a resource open without blocking the user navigation."""
+    service = _get_service(db, driver)
+    service.record_resource_open(student.id, course_id, body)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── Build Learning Path ──────────────────────────────────────

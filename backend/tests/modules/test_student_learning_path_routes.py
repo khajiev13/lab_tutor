@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException, status
 
 from app.modules.student_learning_path import routes
-from app.modules.student_learning_path.schemas import QuizSubmitRequest
+from app.modules.student_learning_path.schemas import QuizSubmitRequest, ResourceOpenRequest
 
 
 def _mock_driver_with_session():
@@ -241,6 +241,40 @@ def test_submit_chapter_quiz_route_returns_404_when_quiz_missing(monkeypatch):
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_record_resource_open_route_returns_204_and_delegates(monkeypatch):
+    driver, _ = _mock_driver_with_session()
+    called = {}
+
+    monkeypatch.setattr(
+        "app.modules.courses.repository.CourseRepository.get_enrollment",
+        lambda self, course_id, student_id: object(),
+    )
+
+    def fake_record_resource_open(self, student_id, course_id, payload):
+        called["args"] = (student_id, course_id, payload)
+
+    monkeypatch.setattr(
+        "app.modules.student_learning_path.service.StudentLearningPathService.record_resource_open",
+        fake_record_resource_open,
+    )
+
+    response = routes.record_resource_open(
+        course_id=1,
+        body=ResourceOpenRequest(
+            resource_type="reading",
+            url="https://example.com/reading",
+        ),
+        student=SimpleNamespace(id=2),
+        db=MagicMock(),
+        driver=driver,
+    )
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert called["args"][0] == 2
+    assert called["args"][1] == 1
+    assert str(called["args"][2].url) == "https://example.com/reading"
+
+
 def test_submit_chapter_quiz_route_returns_results(monkeypatch):
     driver, _ = _mock_driver_with_session()
 
@@ -277,3 +311,19 @@ def test_submit_chapter_quiz_route_returns_results(monkeypatch):
     )
 
     assert response["skills_known"] == ["Batch Processing"]
+
+
+def test_record_resource_open_endpoint_requires_student_role(
+    client,
+    teacher_auth_headers,
+):
+    response = client.post(
+        "/student-learning-path/1/resources/open",
+        headers=teacher_auth_headers,
+        json={
+            "resource_type": "reading",
+            "url": "https://example.com/reading",
+        },
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN

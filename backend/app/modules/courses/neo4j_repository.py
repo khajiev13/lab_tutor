@@ -145,10 +145,14 @@ class CourseGraphRepository:
         def _tx(tx: ManagedTransaction) -> dict[str, int | bool]:
             record = tx.run(GET_SKILL_SELECTION_RANGE, params).single()
             stored_min = (
-                int(record["min_skills"]) if record and record["min_skills"] is not None else None
+                int(record["min_skills"])
+                if record and record["min_skills"] is not None
+                else None
             )
             stored_max = (
-                int(record["max_skills"]) if record and record["max_skills"] is not None else None
+                int(record["max_skills"])
+                if record and record["max_skills"] is not None
+                else None
             )
             is_default = stored_min is None or stored_max is None
             return {

@@ -262,6 +262,13 @@ export async function submitChapterQuiz(
   return data;
 }
 
+export async function trackResourceOpen(
+  courseId: number,
+  payload: { resource_type: 'reading' | 'video'; url: string },
+): Promise<void> {
+  await api.post(`${BASE}/${courseId}/resources/open`, payload).catch(() => {});
+}
+
 export function streamBuildProgress(
   courseId: number,
   runId: string,

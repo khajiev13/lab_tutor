@@ -266,6 +266,53 @@ def deselect_job_posting(
     return record["orphans_deleted"] if record else 0
 
 
+def record_resource_open(
+    session: Neo4jSession,
+    *,
+    student_id: int,
+    resource_type: str,
+    url: str,
+) -> None:
+    """Track a student opening a reading or video resource."""
+
+    if resource_type == "reading":
+        resource_label = "READING_RESOURCE"
+        relationship_type = "OPENED_READING"
+    elif resource_type == "video":
+        resource_label = "VIDEO_RESOURCE"
+        relationship_type = "OPENED_VIDEO"
+    else:
+        raise ValueError(f"Unsupported resource type: {resource_type}")
+
+    result = session.run(
+        f"""
+        MATCH (u:USER:STUDENT {{id: $student_id}})
+        MATCH (r:{resource_label} {{url: $url}})
+        MERGE (u)-[rel:{relationship_type}]->(r)
+          ON CREATE SET
+            rel.first_opened_at = datetime(),
+            rel.last_opened_at = datetime(),
+            rel.open_count = 1,
+            rel.opened_at = [datetime()]
+          ON MATCH SET
+            rel.last_opened_at = datetime(),
+            rel.open_count = coalesce(rel.open_count, 0) + 1,
+            rel.opened_at = coalesce(rel.opened_at, []) + [datetime()]
+        RETURN rel.open_count AS open_count
+        """,
+        student_id=student_id,
+        url=url,
+    )
+    record = result.single()
+    if record is None:
+        logger.info(
+            "Skipping resource open tracking because the student or resource node was not found: student_id=%s resource_type=%s url=%s",
+            student_id,
+            resource_type,
+            url,
+        )
+
+
 def get_selected_skills(
     session: Neo4jSession,
     student_id: int,

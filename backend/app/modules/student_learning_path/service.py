@@ -22,6 +22,7 @@ from .schemas import (
     ChapterQuizResponse,
     QuizSubmitRequest,
     QuizSubmitResponse,
+    ResourceOpenRequest,
     StudentSkillBankResponse,
 )
 
@@ -118,6 +119,22 @@ class StudentLearningPathService:
         with driver.session(database=settings.neo4j_database) as session:
             return neo4j_repository.deselect_job_posting(
                 session, student_id, course_id, posting_url
+            )
+
+    def record_resource_open(
+        self,
+        student_id: int,
+        course_id: int,
+        payload: ResourceOpenRequest,
+    ) -> None:
+        self._validate_enrollment(student_id, course_id)
+        driver = self._require_neo4j()
+        with driver.session(database=settings.neo4j_database) as session:
+            neo4j_repository.record_resource_open(
+                session,
+                student_id=student_id,
+                resource_type=payload.resource_type,
+                url=str(payload.url),
             )
 
     def get_skill_banks(
@@ -308,12 +325,14 @@ class StudentLearningPathService:
                     session
                 ).get_skill_selection_range(course_id=course_id)
                 selected_skill_count = sum(
-                    len(skill_names)
-                    for skill_names in grouped_selected_skills.values()
+                    len(skill_names) for skill_names in grouped_selected_skills.values()
                 )
                 min_skills = int(selection_range["min_skills"])
                 max_skills = int(selection_range["max_skills"])
-                if selected_skill_count < min_skills or selected_skill_count > max_skills:
+                if (
+                    selected_skill_count < min_skills
+                    or selected_skill_count > max_skills
+                ):
                     raise ValueError(
                         f"Select between {min_skills} and {max_skills} skills before building"
                     )

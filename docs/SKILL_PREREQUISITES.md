@@ -24,38 +24,7 @@ Skills are of two types (both handled uniformly via the shared `:SKILL` label):
 
 ### 2.1 High-Level Overview
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                        React Frontend                            │
-│   (SSE progress stream + prerequisite DAG visualization)         │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │ POST /book-selection/courses/{id}/skill-prerequisites/build
-                       │ GET  /book-selection/courses/{id}/skill-prerequisites
-                       │
-┌──────────────────────▼──────────────────────────────────────────┐
-│                  FastAPI SSE Router                               │
-│   api_routes/skill_prerequisites.py                              │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────────┐
-│              LangGraph Batch Pipeline                             │
-│                                                                   │
-│  embed_missing → find_and_merge_dupes → load_skills_for_clustering│
-│       │                                        │                  │
-│       │                           [fan_out: judge_cluster × N]    │
-│       │                                        │                  │
-│       └──────────────────────────── synthesize → enforce_dag → persist
-└─────────────────────────────────────────────────────────────────┘
-                       │
-            ┌──────────▼──────────┐
-            │       Neo4j         │
-            │                     │
-            │  :SKILL nodes       │
-            │  :CONCEPT nodes     │
-            │  :PREREQUISITE rels │
-            │  stored embeddings   │
-            └─────────────────────┘
-```
+![Skill Prerequisites Architecture](/Users/khajievroma/Projects/lab_tutor/docs/skill_prerequisites_architecture.png)
 
 ### 2.2 Module Structure
 
@@ -85,6 +54,8 @@ Orphaned market skills (no `course_id`, no chapter mapping, no concepts) are exc
 ---
 
 ## 4. Pipeline Phases
+
+![Skill Prerequisites Workflow](/Users/khajievroma/Projects/lab_tutor/docs/skill_prerequisites_workflow.png)
 
 ### 4.1 Phase 0 — Embed Missing (`embed_missing`)
 
