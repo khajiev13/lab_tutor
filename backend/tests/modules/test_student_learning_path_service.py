@@ -258,7 +258,9 @@ def test_record_resource_open_raises_403_when_student_is_not_enrolled(monkeypatc
         service.record_resource_open(
             11,
             2,
-            ResourceOpenRequest(resource_type="reading", url="https://example.com/reading"),
+            ResourceOpenRequest(
+                resource_type="reading", url="https://example.com/reading"
+            ),
         )
 
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
@@ -326,7 +328,10 @@ def test_submit_chapter_quiz_requires_full_chapter_submission(monkeypatch):
             ),
         )
 
-    assert str(exc_info.value) == "Quiz submission must include every easy question in the chapter"
+    assert (
+        str(exc_info.value)
+        == "Quiz submission must include every easy question in the chapter"
+    )
 
 
 def test_get_chapter_quiz_rejects_locked_chapter(monkeypatch):

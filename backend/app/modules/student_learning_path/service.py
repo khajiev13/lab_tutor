@@ -165,10 +165,7 @@ class StudentLearningPathService:
             student_id,
             course_id,
         )
-        progress_map = {
-            row["chapter_index"]: row
-            for row in progress_rows
-        }
+        progress_map = {row["chapter_index"]: row for row in progress_rows}
         progress = progress_map.get(chapter_index)
         if progress is None:
             return None, {"easy_question_count": 0, "answered_count": 0}
@@ -258,9 +255,7 @@ class StudentLearningPathService:
             expected_question_ids = {
                 question["id"] for question in chapter_quiz["questions"]
             }
-            submitted_question_ids = {
-                answer.question_id for answer in payload.answers
-            }
+            submitted_question_ids = {answer.question_id for answer in payload.answers}
             if not expected_question_ids:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -288,9 +283,7 @@ class StudentLearningPathService:
                 ],
             )
             skills_known = [
-                result["skill_name"]
-                for result in results
-                if result["answered_right"]
+                result["skill_name"] for result in results if result["answered_right"]
             ]
             return QuizSubmitResponse(
                 chapter_index=chapter_index,
