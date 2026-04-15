@@ -277,6 +277,14 @@ const learningPathResponse = {
   ],
 };
 
+const emptyLearningPathResponse = {
+  course_id: 1,
+  course_title: 'Data Systems',
+  total_selected_skills: 1,
+  skills_with_resources: 0,
+  chapters: [],
+};
+
 function renderPage() {
   render(
     <MemoryRouter initialEntries={['/courses/1/learning-path']}>
@@ -300,6 +308,7 @@ describe('StudentLearningPathPage', () => {
     renderPage();
 
     expect(await screen.findByText('Book Skill Banks')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Build My Learning Path/i })).toBeInTheDocument();
     expect(studentLearningPathApi.getLearningPath).not.toHaveBeenCalled();
     expect(screen.queryByText(/No learning path yet/i)).not.toBeInTheDocument();
   });
@@ -426,6 +435,51 @@ describe('StudentLearningPathPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Chapter 1: Foundations')).toBeInTheDocument();
       expect(screen.queryByText('Book Skill Banks')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Build My Learning Path/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Build Learning Path/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it('hides the hero build button after a locked learning path loads', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(learningPathResponse);
+
+    renderPage();
+
+    expect(await screen.findByText('Chapter 1: Foundations')).toBeInTheDocument();
+    expect(screen.getByText('Your saved learning path is ready to study.')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Your saved learning path is ready to study and rebuild when needed.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Build My Learning Path/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Build Learning Path/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps a recovery build button when skills are locked but the learning path is empty', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(emptyLearningPathResponse);
+    (studentLearningPathApi.buildLearningPath as Mock).mockResolvedValue({
+      run_id: 'run-1',
+      status: 'started',
+    });
+
+    renderPage();
+
+    expect(
+      await screen.findByText(
+        'Your skill choices are locked in. Build the learning path to finish loading your study surface.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Your skills are already fixed. Build the learning path to finish loading your study surface.',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Build Learning Path/i }));
+
+    await waitFor(() => {
+      expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledWith(1, []);
     });
   });
 

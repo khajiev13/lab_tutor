@@ -299,11 +299,11 @@ export default function StudentLearningPathPage() {
               toast.warning(
                 `Learning path built, but ${skillsMissingQuestions} skill${
                   skillsMissingQuestions === 1 ? '' : 's'
-                } still have no questions. If you recently changed the backend code, restart it and rebuild.`,
+                } still have no questions. If you recently changed the backend code, restart it and refresh this page.`,
               );
             } else if (buildHadQuestionErrorsRef.current) {
               toast.warning(
-                'Learning path built with some question-generation issues. Try rebuilding to backfill missing questions.',
+                'Learning path built with some question-generation issues. Some questions may take longer to appear.',
               );
             } else {
               toast.success('Learning path built successfully!');
@@ -443,6 +443,8 @@ export default function StudentLearningPathPage() {
     (total, posting) => total + posting.skills.length,
     0,
   );
+  const hasLearningPathChapters = (learningPath?.chapters.length ?? 0) > 0;
+  const showHeroBuildButton = !selectionLocked || !hasLearningPathChapters;
 
   const isSelectionCountInRange =
     selectedSkills.size >= selectionRange.min_skills &&
@@ -451,7 +453,9 @@ export default function StudentLearningPathPage() {
     ? 'Study mode'
     : `${selectedSkills.size} of ${selectionRange.min_skills}-${selectionRange.max_skills} skills selected`;
   const selectionHelperText = selectionLocked
-    ? 'Your saved learning path is ready to study and rebuild when needed.'
+    ? hasLearningPathChapters
+      ? 'Your saved learning path is ready to study.'
+      : 'Your skill choices are locked in. Build the learning path to finish loading your study surface.'
     : isSelectionCountInRange
       ? 'Your current draft is within the course range. Build after you review any prerequisite gaps.'
       : selectedSkills.size < selectionRange.min_skills
@@ -493,23 +497,25 @@ export default function StudentLearningPathPage() {
               >
                 {selectionStatusLabel}
               </Badge>
-              <Button
-                onClick={handleBuild}
-                disabled={isBuilding || (!selectionLocked && selectedSkills.size === 0)}
-                size="lg"
-                className="gap-2 shadow-sm"
-              >
-                {isBuilding ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {isBuilding
-                  ? 'Building...'
-                  : selectionLocked
-                    ? 'Rebuild Learning Path'
-                    : 'Build My Learning Path'}
-              </Button>
+              {showHeroBuildButton && (
+                <Button
+                  onClick={handleBuild}
+                  disabled={isBuilding || (!selectionLocked && selectedSkills.size === 0)}
+                  size="lg"
+                  className="gap-2 shadow-sm"
+                >
+                  {isBuilding ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {isBuilding
+                    ? 'Building...'
+                    : selectionLocked
+                      ? 'Build Learning Path'
+                      : 'Build My Learning Path'}
+                </Button>
+              )}
             </div>
           </div>
 
@@ -810,7 +816,7 @@ export default function StudentLearningPathPage() {
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
                 <Sparkles className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-                <p>No learning path yet. Click &quot;Build My Learning Path&quot; to get started.</p>
+                <p>Your skills are already fixed. Build the learning path to finish loading your study surface.</p>
               </CardContent>
             </Card>
           ) : (
@@ -1222,7 +1228,7 @@ function LearningPathChapterCard({
 
                       {skill.readings.length === 0 && skill.videos.length === 0 && (
                         <div className="rounded-md border border-amber-200/60 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
-                          No reading or video resources are available yet. Try rebuilding the learning path.
+                          No reading or video resources are available yet for this skill.
                         </div>
                       )}
                     </div>
