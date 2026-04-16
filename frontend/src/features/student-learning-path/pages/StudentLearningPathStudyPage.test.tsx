@@ -188,6 +188,19 @@ describe('StudentLearningPathStudyPage', () => {
       expect(studentLearningPathApi.getLearningPath).toHaveBeenCalledWith(1);
     });
 
+    expect(screen.getByTestId('study-page-shell')).toHaveClass(
+      'h-svh',
+      'min-h-svh',
+      'p-3',
+      'md:p-4',
+    );
+    expect(screen.getByTestId('study-page-layout')).toHaveClass(
+      'flex-1',
+      'min-h-0',
+      'xl:grid-cols-[minmax(0,1fr)_22rem]',
+    );
+    expect(screen.getByTestId('resource-viewer-pane')).toHaveClass('h-full', 'min-h-0');
+
     const iframe = await screen.findByTitle('Streaming Primer');
     expect(iframe).toHaveAttribute('src', 'https://example.com/streaming');
     expect(iframe).toHaveAttribute(
@@ -232,7 +245,13 @@ describe('StudentLearningPathStudyPage', () => {
     });
 
     expect(await screen.findByText('Resource Agent')).toBeInTheDocument();
-    expect(screen.getByTestId('resource-agent-pane')).toHaveClass('hidden', 'md:block');
+    expect(screen.getByTestId('resource-agent-pane')).toHaveClass(
+      'hidden',
+      'h-full',
+      'min-h-0',
+      'md:flex',
+      'md:flex-col',
+    );
   });
 
   it('close viewer returns to the previous page when navigation history is available', async () => {

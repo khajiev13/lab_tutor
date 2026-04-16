@@ -149,37 +149,46 @@ export default function StudentLearningPathStudyPage() {
   }, [loadFailed, numericCourseId, resourceId, resourceKind]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-4 p-4 md:p-6">
-        {isLoading ? (
-          <StudyPageSkeleton />
-        ) : resolvedResource ? (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <ResourceViewerPane resource={resolvedResource} onClose={handleClose} />
-            <ResourceAgentPane resource={resolvedResource} />
-          </div>
-        ) : (
+    <div
+      data-testid="study-page-shell"
+      className="flex h-svh min-h-svh flex-col overflow-hidden bg-background p-3 md:p-4"
+    >
+      {isLoading ? (
+        <StudyPageSkeleton />
+      ) : resolvedResource ? (
+        <div
+          data-testid="study-page-layout"
+          className="grid min-h-0 flex-1 gap-3 md:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]"
+        >
+          <ResourceViewerPane resource={resolvedResource} onClose={handleClose} />
+          <ResourceAgentPane resource={resolvedResource} />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 items-center justify-center">
           <StudyResourceUnavailableCard
             title={fallbackContent.title}
             description={fallbackContent.description}
             returnHref={learningPathHref}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function StudyPageSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <Card className="flex min-h-[70vh] flex-col overflow-hidden border-border/60 shadow-none">
+    <div
+      data-testid="study-page-layout"
+      className="grid min-h-0 flex-1 gap-3 md:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]"
+    >
+      <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-none">
         <div className="space-y-4 border-b border-border/60 px-5 py-4">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-8 w-2/3" />
           <Skeleton className="h-4 w-40" />
         </div>
-        <div className="space-y-4 p-5">
+        <div className="min-h-0 flex-1 space-y-4 p-5">
           <Skeleton className="h-7 w-1/3" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-full" />
@@ -189,11 +198,11 @@ function StudyPageSkeleton() {
         </div>
       </Card>
 
-      <Card className="hidden border-border/60 shadow-none md:block">
+      <Card className="hidden h-full min-h-0 border-border/60 shadow-none md:flex md:flex-col">
         <CardHeader>
           <Skeleton className="h-6 w-36" />
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="min-h-0 flex-1 space-y-3">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-5/6" />
           <Skeleton className="h-4 w-4/6" />

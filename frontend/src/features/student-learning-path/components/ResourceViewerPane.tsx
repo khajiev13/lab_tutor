@@ -13,7 +13,10 @@ export function ResourceViewerPane({
   onClose: () => void;
 }) {
   return (
-    <Card className="flex min-h-[70vh] flex-col overflow-hidden border-border/60 shadow-none">
+    <Card
+      data-testid="resource-viewer-pane"
+      className="flex h-full min-h-0 flex-col overflow-hidden border-border/60 shadow-none"
+    >
       <div className="border-b border-border/60 px-5 py-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-1">
@@ -69,8 +72,8 @@ function VideoResourceBody({
   }
 
   return (
-    <div className="h-full overflow-y-auto p-5">
-      <div className="aspect-video w-full overflow-hidden rounded-3xl border border-border/60 bg-black shadow-sm">
+    <div className="grid h-full min-h-0 place-items-center overflow-hidden p-3 md:p-4">
+      <div className="aspect-video w-full max-h-full overflow-hidden rounded-3xl border border-border/60 bg-black shadow-sm">
         <iframe
           title={resource.title}
           src={`https://www.youtube.com/embed/${encodeURIComponent(resource.videoId)}?rel=0`}
@@ -91,7 +94,7 @@ function ReadingResourceBody({
   const [iframeLoaded, setIframeLoaded] = useState(false);
 
   return (
-    <div className="relative h-full bg-background">
+    <div className="relative h-full min-h-0 bg-background">
       {!iframeLoaded && (
         <div
           role="status"
