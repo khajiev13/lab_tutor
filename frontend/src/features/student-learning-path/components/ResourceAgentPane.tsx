@@ -7,11 +7,14 @@ export function ResourceAgentPane({
   resource: ActiveLearningPathResource;
 }) {
   return (
-    <Card data-testid="resource-agent-pane" className="hidden border-border/60 shadow-none md:block">
+    <Card
+      data-testid="resource-agent-pane"
+      className="hidden h-full min-h-0 border-border/60 shadow-none md:flex md:flex-col"
+    >
       <CardHeader>
         <CardTitle className="text-base">Resource Agent</CardTitle>
       </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
+      <CardContent className="min-h-0 flex-1 overflow-auto text-sm text-muted-foreground">
         To be implemented. This will guide you through &quot;{resource.title}&quot;.
       </CardContent>
     </Card>
