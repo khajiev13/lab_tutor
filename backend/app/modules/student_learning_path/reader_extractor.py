@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Literal
 
@@ -63,39 +63,41 @@ async def extract_reading_markdown(url: str) -> ReaderExtractionResult:
     """Fetch a reading URL and extract article markdown."""
 
     try:
-        async with _build_async_client() as client:
-            async with client.stream("GET", url) as response:
-                response.raise_for_status()
+        async with (
+            _build_async_client() as client,
+            client.stream("GET", url) as response,
+        ):
+            response.raise_for_status()
 
-                media_type = (
-                    response.headers.get("content-type", "")
-                    .split(";", 1)[0]
-                    .strip()
-                    .lower()
+            media_type = (
+                response.headers.get("content-type", "")
+                .split(";", 1)[0]
+                .strip()
+                .lower()
+            )
+            if media_type not in ACCEPTED_CONTENT_TYPES:
+                return _failure(
+                    "non_html",
+                    "This source is not an HTML article that can be shown in-app.",
                 )
-                if media_type not in ACCEPTED_CONTENT_TYPES:
-                    return _failure(
-                        "non_html",
-                        "This source is not an HTML article that can be shown in-app.",
-                    )
 
-                content_length = response.headers.get("content-length")
-                if content_length and int(content_length) > MAX_HTML_BYTES:
+            content_length = response.headers.get("content-length")
+            if content_length and int(content_length) > MAX_HTML_BYTES:
+                return _failure(
+                    "too_large",
+                    "This source is too large to extract in-app.",
+                )
+
+            body = bytearray()
+            async for chunk in response.aiter_bytes():
+                body.extend(chunk)
+                if len(body) > MAX_HTML_BYTES:
                     return _failure(
                         "too_large",
                         "This source is too large to extract in-app.",
                     )
 
-                body = bytearray()
-                async for chunk in response.aiter_bytes():
-                    body.extend(chunk)
-                    if len(body) > MAX_HTML_BYTES:
-                        return _failure(
-                            "too_large",
-                            "This source is too large to extract in-app.",
-                        )
-
-                encoding = response.encoding or "utf-8"
+            encoding = response.encoding or "utf-8"
     except httpx.TimeoutException:
         return _failure(
             "timeout",

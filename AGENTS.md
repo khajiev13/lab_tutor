@@ -172,6 +172,8 @@ modules/<feature>/
 
 - Backend: run inside Docker by default, not on the host machine
 - Start containers if needed: `docker start lab_tutor_postgres lab_tutor_backend`
+- Backend default verification:
+  `docker exec lab_tutor_backend sh -lc 'cd /app && /app/.venv/bin/ruff check . && /app/.venv/bin/ruff format --check .'`
 - Backend full test command:
   `docker exec -e LAB_TUTOR_DATABASE_URL="postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test" lab_tutor_backend sh -lc 'cd /app && /app/.venv/bin/python -m pytest -v'`
 - Backend targeted test command:
@@ -183,6 +185,7 @@ modules/<feature>/
 - Frontend targeted Vitest command:
   `docker exec lab_tutor_frontend sh -lc 'cd /app && npm test -- --run src/features/example/example.test.tsx'`
 - Also run frontend tests in Docker when you change logic covered by Vitest or add/update frontend tests
+- Also run backend Ruff checks in Docker whenever you change backend Python files
 - Tests use the real test database — no mocked DB
 - Run the relevant backend/frontend checks for the area you changed before pushing any commit
 

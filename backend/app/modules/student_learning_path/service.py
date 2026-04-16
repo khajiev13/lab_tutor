@@ -17,9 +17,8 @@ from app.core.settings import settings
 from app.modules.courses.neo4j_repository import CourseGraphRepository
 from app.modules.courses.repository import CourseRepository
 
-from . import neo4j_repository
+from . import neo4j_repository, reader_extractor
 from .graph import learning_path_graph
-from . import reader_extractor
 from .schemas import (
     BuildSelectedSkillRequest,
     ChapterQuizResponse,
@@ -102,8 +101,7 @@ class StudentLearningPathService:
 
             normalized = value.casefold()
             if any(
-                normalized == existing.casefold()
-                or normalized in existing.casefold()
+                normalized == existing.casefold() or normalized in existing.casefold()
                 for existing in snippets
             ):
                 continue
@@ -190,10 +188,7 @@ class StudentLearningPathService:
                 error_message=None,
             )
 
-        if (
-            reader_status == "failed"
-            and extracted_at >= now - READING_CACHE_FAILED_TTL
-        ):
+        if reader_status == "failed" and extracted_at >= now - READING_CACHE_FAILED_TTL:
             return cls._build_reading_content_response(
                 resource,
                 status_name="failed",
@@ -372,7 +367,11 @@ class StudentLearningPathService:
         progress_map = {row["chapter_index"]: row for row in progress_rows}
         progress = progress_map.get(chapter_index)
         if progress is None:
-            return None, {"easy_question_count": 0, "answered_count": 0, "correct_count": 0}
+            return None, {
+                "easy_question_count": 0,
+                "answered_count": 0,
+                "correct_count": 0,
+            }
 
         return status_by_chapter.get(chapter_index), progress
 
@@ -447,9 +446,7 @@ class StudentLearningPathService:
                 course_id,
             )
             status_before = neo4j_repository.resolve_quiz_statuses(progress_before)
-            progress_before_map = {
-                row["chapter_index"]: row for row in progress_before
-            }
+            progress_before_map = {row["chapter_index"]: row for row in progress_before}
             progress_before_row = progress_before_map.get(chapter_index)
             if progress_before_row is None:
                 raise HTTPException(
@@ -523,9 +520,7 @@ class StudentLearningPathService:
                 chapter_index=chapter_index,
                 results=results,
                 skills_known=skills_known,
-                chapter_status_after_submit=status_after.get(
-                    chapter_index, "learning"
-                ),
+                chapter_status_after_submit=status_after.get(chapter_index, "learning"),
                 correct_count_after_submit=int(
                     chapter_progress_after.get("correct_count", 0) or 0
                 ),
