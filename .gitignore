@@ -75,6 +75,8 @@ public
 # Temporary folders
 tmp/
 temp/
+.playwright-mcp/
+test-artifacts/
 
 # Editor directories and files
 .vscode/

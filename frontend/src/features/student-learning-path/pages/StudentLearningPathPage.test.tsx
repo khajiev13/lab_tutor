@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { vi, type Mock } from 'vitest';
 import { toast } from 'sonner';
 
@@ -13,6 +13,7 @@ vi.mock('../api', () => ({
   submitChapterQuiz: vi.fn(),
   buildLearningPath: vi.fn(),
   streamBuildProgress: vi.fn(),
+  trackResourceOpen: vi.fn(),
   selectSkills: vi.fn(),
   deselectSkills: vi.fn(),
   selectJobPostings: vi.fn(),
@@ -26,6 +27,8 @@ vi.mock('sonner', () => ({
     success: vi.fn(),
   },
 }));
+
+const openWindowSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
 const unlockedSkillBanks = {
   book_skill_banks: [
@@ -124,6 +127,7 @@ const gatingLearningPathResponse = {
       quiz_status: 'quiz_required',
       easy_question_count: 1,
       answered_count: 0,
+      correct_count: 0,
       selected_skills: [
         {
           name: 'Batch Processing',
@@ -146,6 +150,7 @@ const gatingLearningPathResponse = {
       quiz_status: 'locked',
       easy_question_count: 1,
       answered_count: 0,
+      correct_count: 0,
       selected_skills: [
         {
           name: 'Kafka',
@@ -165,9 +170,10 @@ const gatingLearningPathResponse = {
       title: 'Batch Review',
       chapter_index: 3,
       description: null,
-      quiz_status: 'learning',
+      quiz_status: 'completed',
       easy_question_count: 1,
       answered_count: 1,
+      correct_count: 1,
       selected_skills: [
         {
           name: 'Batch Processing',
@@ -177,6 +183,7 @@ const gatingLearningPathResponse = {
           concepts: [],
           readings: [
             {
+              id: 'reading-3',
               title: 'Batch Systems Guide',
               url: 'https://example.com/reading',
               domain: 'example.com',
@@ -215,6 +222,7 @@ const learningPathResponse = {
       quiz_status: 'learning',
       easy_question_count: 2,
       answered_count: 1,
+      correct_count: 1,
       selected_skills: [
         {
           name: 'Batch Processing',
@@ -224,6 +232,7 @@ const learningPathResponse = {
           concepts: [],
           readings: [
             {
+              id: 'reading-1',
               title: 'Batch Systems Guide',
               url: 'https://example.com/reading',
               domain: 'example.com',
@@ -239,7 +248,25 @@ const learningPathResponse = {
               concepts_covered: [],
             },
           ],
-          videos: [],
+          videos: [
+            {
+              id: 'video-1',
+              title: 'Batch Systems Video',
+              url: 'https://www.youtube.com/watch?v=batch123',
+              domain: 'youtube.com',
+              snippet: '',
+              search_content: '',
+              video_id: 'batch123',
+              search_result_url: '',
+              search_result_domain: '',
+              source_engine: '',
+              source_engines: [],
+              search_metadata_json: '[]',
+              resource_type: 'video',
+              final_score: 0.85,
+              concepts_covered: [],
+            },
+          ],
           questions: [],
           is_known: true,
           resource_status: 'loaded',
@@ -252,6 +279,7 @@ const learningPathResponse = {
           concepts: [],
           readings: [
             {
+              id: 'reading-2',
               title: 'Streaming Primer',
               url: 'https://example.com/streaming',
               domain: 'example.com',
@@ -277,6 +305,126 @@ const learningPathResponse = {
   ],
 };
 
+const partialProgressLearningPathResponse = {
+  ...learningPathResponse,
+  total_selected_skills: 3,
+  chapters: [
+    ...learningPathResponse.chapters,
+    {
+      title: 'Streaming Systems',
+      chapter_index: 2,
+      description: null,
+      quiz_status: 'locked',
+      easy_question_count: 1,
+      answered_count: 0,
+      correct_count: 0,
+      selected_skills: [
+        {
+          name: 'Kafka',
+          source: 'market',
+          description: 'Stream events across services.',
+          skill_type: 'market',
+          concepts: [],
+          readings: [],
+          videos: [],
+          questions: [],
+          is_known: false,
+          resource_status: 'loaded',
+        },
+      ],
+    },
+  ],
+};
+
+const learningPathResponseWithEmptyChapter = {
+  ...learningPathResponse,
+  chapters: [
+    ...learningPathResponse.chapters,
+    {
+      title: 'Optimization',
+      chapter_index: 2,
+      description: null,
+      quiz_status: 'locked',
+      easy_question_count: 0,
+      answered_count: 0,
+      correct_count: 0,
+      selected_skills: [],
+    },
+  ],
+};
+
+const transparentChapterLearningPathResponse = {
+  course_id: 1,
+  course_title: 'Data Systems',
+  total_selected_skills: 1,
+  skills_with_resources: 1,
+  chapters: [
+    {
+      title: 'Foundations',
+      chapter_index: 1,
+      description: null,
+      quiz_status: 'completed',
+      easy_question_count: 1,
+      answered_count: 1,
+      correct_count: 1,
+      selected_skills: [
+        {
+          name: 'Batch Processing',
+          source: 'book',
+          description: 'Process large datasets reliably.',
+          skill_type: 'book',
+          concepts: [],
+          readings: [],
+          videos: [],
+          questions: [],
+          is_known: true,
+          resource_status: 'loaded',
+        },
+      ],
+    },
+    {
+      title: 'No Quiz Yet',
+      chapter_index: 2,
+      description: null,
+      quiz_status: 'learning',
+      easy_question_count: 0,
+      answered_count: 0,
+      correct_count: 0,
+      selected_skills: [
+        {
+          name: 'Fresh Skill',
+          source: 'book',
+          description: 'Waiting on generated questions.',
+          skill_type: 'book',
+          concepts: [],
+          readings: [
+            {
+              id: 'reading-4',
+              title: 'Fresh Skill Guide',
+              url: 'https://example.com/fresh-skill',
+              domain: 'example.com',
+              snippet: '',
+              search_content: '',
+              search_result_url: '',
+              search_result_domain: '',
+              source_engine: '',
+              source_engines: [],
+              search_metadata_json: '[]',
+              resource_type: 'article',
+              final_score: 0.7,
+              concepts_covered: [],
+            },
+          ],
+          videos: [],
+          questions: [],
+          is_known: false,
+          resource_status: 'loaded',
+        },
+      ],
+    },
+  ],
+};
+
 const emptyLearningPathResponse = {
   course_id: 1,
   course_title: 'Data Systems',
@@ -286,10 +434,20 @@ const emptyLearningPathResponse = {
 };
 
 function renderPage() {
+  function LocationDisplay() {
+    const location = useLocation();
+    return <div data-testid="pathname">{location.pathname}</div>;
+  }
+
   render(
     <MemoryRouter initialEntries={['/courses/1/learning-path']}>
+      <LocationDisplay />
       <Routes>
         <Route path="/courses/:id/learning-path" element={<StudentLearningPathPage />} />
+        <Route
+          path="/courses/:id/learning-path/study/:resourceKind/:resourceId"
+          element={<div>Study route destination</div>}
+        />
         <Route path="/courses/:id" element={<div>Course Page</div>} />
       </Routes>
     </MemoryRouter>,
@@ -299,7 +457,9 @@ function renderPage() {
 describe('StudentLearningPathPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    openWindowSpy.mockClear();
     (studentLearningPathApi.streamBuildProgress as Mock).mockReturnValue(() => {});
+    (studentLearningPathApi.trackResourceOpen as Mock).mockResolvedValue(undefined);
   });
 
   it('shows only selection UI for unlocked students and does not load the path', async () => {
@@ -496,6 +656,7 @@ describe('StudentLearningPathPage', () => {
       'href',
       '/courses/1/learning-path/chapters/1/quiz',
     );
+    expect(screen.getByText('1/1 correct')).toBeInTheDocument();
     expect(screen.queryByText('Batch Systems Guide')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Show Answer/i })).not.toBeInTheDocument();
 
@@ -506,6 +667,121 @@ describe('StudentLearningPathPage', () => {
       'href',
       '/courses/1/learning-path/chapters/3/quiz',
     );
+  });
+
+  it('clicking a video row navigates to the study route and calls trackResourceOpen once', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(learningPathResponse);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Batch Processing/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Open Batch Systems Video in viewer/i }));
+
+    await waitFor(() => {
+      expect(studentLearningPathApi.trackResourceOpen).toHaveBeenCalledTimes(1);
+      expect(studentLearningPathApi.trackResourceOpen).toHaveBeenCalledWith(1, {
+        resource_type: 'video',
+        url: 'https://www.youtube.com/watch?v=batch123',
+      });
+    });
+
+    expect(await screen.findByText('Study route destination')).toBeInTheDocument();
+    expect(screen.getByTestId('pathname')).toHaveTextContent(
+      '/courses/1/learning-path/study/video/video-1',
+    );
+    expect(screen.queryByText('Resource Agent')).not.toBeInTheDocument();
+  });
+
+  it('clicking a reading row navigates to the study route and calls trackResourceOpen once', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(learningPathResponse);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Open Streaming Primer in viewer/i }));
+
+    await waitFor(() => {
+      expect(studentLearningPathApi.trackResourceOpen).toHaveBeenCalledWith(1, {
+        resource_type: 'reading',
+        url: 'https://example.com/streaming',
+      });
+    });
+
+    expect(await screen.findByText('Study route destination')).toBeInTheDocument();
+    expect(screen.getByTestId('pathname')).toHaveTextContent(
+      '/courses/1/learning-path/study/reading/reading-2',
+    );
+    expect(screen.queryByText('Resource Agent')).not.toBeInTheDocument();
+  });
+
+  it('opens the secondary source link externally without opening the viewer', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(learningPathResponse);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('link', { name: /Open source for Streaming Primer/i }));
+
+    await waitFor(() => {
+      expect(studentLearningPathApi.trackResourceOpen).toHaveBeenCalledTimes(1);
+      expect(studentLearningPathApi.trackResourceOpen).toHaveBeenCalledWith(1, {
+        resource_type: 'reading',
+        url: 'https://example.com/streaming',
+      });
+    });
+
+    expect(openWindowSpy).toHaveBeenCalledWith(
+      'https://example.com/streaming',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(screen.getByTestId('pathname')).toHaveTextContent('/courses/1/learning-path');
+    expect(screen.queryByText('Resource Agent')).not.toBeInTheDocument();
+    expect(screen.getByText('Chapter 1: Foundations')).toBeInTheDocument();
+  });
+
+  it('shows partial current-chapter access while keeping the next chapter locked', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(
+      partialProgressLearningPathResponse,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('Chapter 1: Foundations')).toBeInTheDocument();
+    expect(screen.getByText('Learning')).toBeInTheDocument();
+    expect(screen.getByText('1/2 correct')).toBeInTheDocument();
+    expect(screen.getByText('Streaming Primer')).toBeInTheDocument();
+    expect(screen.getByText('Chapter 2: Streaming Systems')).toBeInTheDocument();
+    expect(screen.getByText('Chapter 2 stays locked until every question in the previous chapter is answered correctly.')).toBeInTheDocument();
+  });
+
+  it('renders chapters that currently have no selected skills', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(
+      learningPathResponseWithEmptyChapter,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('Chapter 2: Optimization')).toBeInTheDocument();
+    expect(screen.getByText('No selected skills in this chapter yet.')).toBeInTheDocument();
+    expect(screen.getByText('No selected skills')).toBeInTheDocument();
+  });
+
+  it('hides quiz actions and progress for transparent zero-question chapters', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(lockedSkillBanks);
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(
+      transparentChapterLearningPathResponse,
+    );
+
+    renderPage();
+
+    expect(await screen.findByText('Chapter 2: No Quiz Yet')).toBeInTheDocument();
+    expect(screen.getByText('Fresh Skill Guide')).toBeInTheDocument();
+    expect(screen.queryByText('0/0 correct')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Retake diagnostic/i })).toHaveLength(1);
   });
 
   it('redirects back to the course page when skill banks return 403', async () => {

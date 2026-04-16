@@ -1,11 +1,12 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException, status
 
-from app.modules.student_learning_path import neo4j_repository
+from app.modules.student_learning_path import neo4j_repository, reader_extractor
 from app.modules.student_learning_path.schemas import (
     BuildSelectedSkillRequest,
     QuizSubmitRequest,
@@ -268,6 +269,195 @@ def test_record_resource_open_raises_403_when_student_is_not_enrolled(monkeypatc
     driver.session.assert_not_called()
 
 
+def test_get_reading_content_raises_403_when_student_is_not_enrolled(monkeypatch):
+    service = StudentLearningPathService(MagicMock(), MagicMock())
+
+    monkeypatch.setattr(
+        service,
+        "_validate_enrollment",
+        MagicMock(side_effect=HTTPException(status.HTTP_403_FORBIDDEN, "nope")),
+    )
+    get_resource = MagicMock()
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_accessible_reading_resource",
+        get_resource,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(service.get_reading_content(11, 2, "reading-1"))
+
+    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+    get_resource.assert_not_called()
+
+
+def test_get_reading_content_raises_404_for_unknown_resource(monkeypatch):
+    service = _build_service(monkeypatch)
+
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_accessible_reading_resource",
+        MagicMock(return_value=None),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(service.get_reading_content(11, 2, "reading-1"))
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc_info.value.detail == "Reading resource not found"
+
+
+def test_get_reading_content_stores_successful_extraction_and_reuses_fresh_cache(
+    monkeypatch,
+):
+    service = _build_service(monkeypatch)
+    first_resource = {
+        "id": "reading-1",
+        "title": "Batch Systems Guide",
+        "url": "https://example.com/reading",
+        "domain": "example.com",
+        "snippet": "Learn batch processing.",
+        "search_content": "Learn batch processing.",
+        "reader_status": "",
+        "reader_content_markdown": "",
+        "reader_error": "",
+        "reader_extracted_at": None,
+    }
+    cached_resource = {
+        **first_resource,
+        "reader_status": "ready",
+        "reader_content_markdown": "# Batch Systems\n\n" + ("A" * 240),
+        "reader_extracted_at": datetime.now(UTC).isoformat(),
+    }
+    get_resource = MagicMock(side_effect=[first_resource, cached_resource])
+    persist_cache = MagicMock(return_value=True)
+    extract_reading = AsyncMock(
+        return_value=reader_extractor.ReaderExtractionSuccess(
+            content_markdown="# Batch Systems\n\n" + ("A" * 240)
+        )
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_accessible_reading_resource",
+        get_resource,
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "persist_reading_reader_cache",
+        persist_cache,
+    )
+    monkeypatch.setattr(
+        reader_extractor,
+        "extract_reading_markdown",
+        extract_reading,
+    )
+
+    first_response = asyncio.run(service.get_reading_content(11, 2, "reading-1"))
+    second_response = asyncio.run(service.get_reading_content(11, 2, "reading-1"))
+
+    assert first_response.status == "ready"
+    assert second_response.status == "ready"
+    assert first_response.content_markdown == second_response.content_markdown
+    assert first_response.fallback_summary == "Learn batch processing."
+    extract_reading.assert_awaited_once_with("https://example.com/reading")
+    persist_cache.assert_called_once()
+
+
+def test_get_reading_content_reextracts_stale_success_cache(monkeypatch):
+    service = _build_service(monkeypatch)
+    stale_resource = {
+        "id": "reading-1",
+        "title": "Batch Systems Guide",
+        "url": "https://example.com/reading",
+        "domain": "",
+        "snippet": "Learn batch processing.",
+        "search_content": "Detailed batch primer.",
+        "reader_status": "ready",
+        "reader_content_markdown": "stale markdown",
+        "reader_error": "",
+        "reader_extracted_at": (datetime.now(UTC) - timedelta(days=31)).isoformat(),
+    }
+    persist_cache = MagicMock(return_value=True)
+    extract_reading = AsyncMock(
+        return_value=reader_extractor.ReaderExtractionSuccess(
+            content_markdown="# Refreshed\n\n" + ("A" * 240)
+        )
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_accessible_reading_resource",
+        MagicMock(return_value=stale_resource),
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "persist_reading_reader_cache",
+        persist_cache,
+    )
+    monkeypatch.setattr(
+        reader_extractor,
+        "extract_reading_markdown",
+        extract_reading,
+    )
+
+    response = asyncio.run(service.get_reading_content(11, 2, "reading-1"))
+
+    assert response.status == "ready"
+    assert response.content_markdown.startswith("# Refreshed")
+    assert response.fallback_summary == "Learn batch processing.\n\nDetailed batch primer."
+    extract_reading.assert_awaited_once()
+    persist_cache.assert_called_once()
+
+
+def test_get_reading_content_retries_stale_failed_cache_after_24_hours(monkeypatch):
+    service = _build_service(monkeypatch)
+    stale_failed_resource = {
+        "id": "reading-1",
+        "title": "Batch Systems Guide",
+        "url": "https://example.com/reading",
+        "domain": "example.com",
+        "snippet": "",
+        "search_content": "",
+        "reader_status": "failed",
+        "reader_content_markdown": "",
+        "reader_error": "This source timed out.",
+        "reader_extracted_at": (datetime.now(UTC) - timedelta(hours=25)).isoformat(),
+    }
+    persist_cache = MagicMock(return_value=True)
+    extract_reading = AsyncMock(
+        return_value=reader_extractor.ReaderExtractionFailure(
+            error_code="timeout",
+            error_message="This source took too long to respond.",
+        )
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_accessible_reading_resource",
+        MagicMock(return_value=stale_failed_resource),
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "persist_reading_reader_cache",
+        persist_cache,
+    )
+    monkeypatch.setattr(
+        reader_extractor,
+        "extract_reading_markdown",
+        extract_reading,
+    )
+
+    response = asyncio.run(service.get_reading_content(11, 2, "reading-1"))
+
+    assert response.status == "failed"
+    assert response.content_markdown == ""
+    assert response.error_message == "This source took too long to respond."
+    assert (
+        response.fallback_summary
+        == "We could not generate an in-app preview for this resource. Open the original source to keep studying."
+    )
+    extract_reading.assert_awaited_once()
+    persist_cache.assert_called_once()
+
+
 def test_get_chapter_quiz_enforces_enrollment(monkeypatch):
     service = StudentLearningPathService(MagicMock(), MagicMock())
 
@@ -290,7 +480,12 @@ def test_submit_chapter_quiz_requires_full_chapter_submission(monkeypatch):
         neo4j_repository,
         "get_chapter_quiz_progress",
         lambda _session, _student_id, _course_id: [
-            {"chapter_index": 1, "easy_question_count": 2, "answered_count": 0}
+            {
+                "chapter_index": 1,
+                "easy_question_count": 2,
+                "answered_count": 0,
+                "correct_count": 0,
+            }
         ],
     )
     monkeypatch.setattr(
@@ -341,7 +536,18 @@ def test_get_chapter_quiz_rejects_locked_chapter(monkeypatch):
         neo4j_repository,
         "get_chapter_quiz_progress",
         lambda _session, _student_id, _course_id: [
-            {"chapter_index": 2, "easy_question_count": 1, "answered_count": 0}
+            {
+                "chapter_index": 1,
+                "easy_question_count": 2,
+                "answered_count": 1,
+                "correct_count": 1,
+            },
+            {
+                "chapter_index": 2,
+                "easy_question_count": 1,
+                "answered_count": 0,
+                "correct_count": 0,
+            },
         ],
     )
 
@@ -351,15 +557,80 @@ def test_get_chapter_quiz_rejects_locked_chapter(monkeypatch):
     assert str(exc_info.value) == "Chapter quiz is locked"
 
 
-def test_submit_chapter_quiz_returns_results_and_known_skills(monkeypatch):
+def test_submit_chapter_quiz_rejects_locked_future_chapter(monkeypatch):
     service = _build_service(monkeypatch)
 
     monkeypatch.setattr(
         neo4j_repository,
         "get_chapter_quiz_progress",
         lambda _session, _student_id, _course_id: [
-            {"chapter_index": 1, "easy_question_count": 1, "answered_count": 0}
+            {
+                "chapter_index": 1,
+                "easy_question_count": 2,
+                "answered_count": 1,
+                "correct_count": 1,
+            },
+            {
+                "chapter_index": 2,
+                "easy_question_count": 1,
+                "answered_count": 0,
+                "correct_count": 0,
+            },
         ],
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        service.submit_chapter_quiz(
+            11,
+            2,
+            2,
+            payload=QuizSubmitRequest(
+                answers=[{"question_id": "q-1", "selected_option": "A"}]
+            ),
+        )
+
+    assert str(exc_info.value) == "Chapter quiz is locked"
+
+
+def test_submit_chapter_quiz_returns_results_and_known_skills(monkeypatch):
+    service = _build_service(monkeypatch)
+
+    get_progress = MagicMock(
+        side_effect=[
+            [
+                {
+                    "chapter_index": 1,
+                    "easy_question_count": 1,
+                    "answered_count": 0,
+                    "correct_count": 0,
+                },
+                {
+                    "chapter_index": 2,
+                    "easy_question_count": 1,
+                    "answered_count": 0,
+                    "correct_count": 0,
+                },
+            ],
+            [
+                {
+                    "chapter_index": 1,
+                    "easy_question_count": 1,
+                    "answered_count": 1,
+                    "correct_count": 1,
+                },
+                {
+                    "chapter_index": 2,
+                    "easy_question_count": 1,
+                    "answered_count": 0,
+                    "correct_count": 0,
+                },
+            ],
+        ]
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_chapter_quiz_progress",
+        get_progress,
     )
     monkeypatch.setattr(
         neo4j_repository,
@@ -402,3 +673,44 @@ def test_submit_chapter_quiz_returns_results_and_known_skills(monkeypatch):
 
     assert result.chapter_index == 1
     assert result.skills_known == ["Batch Processing"]
+    assert result.chapter_status_after_submit == "completed"
+    assert result.correct_count_after_submit == 1
+    assert result.easy_question_count == 1
+    assert result.next_chapter_unlocked is True
+
+
+def test_get_chapter_quiz_allows_completed_chapter_retakes(monkeypatch):
+    service = _build_service(monkeypatch)
+
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_chapter_quiz_progress",
+        lambda _session, _student_id, _course_id: [
+            {
+                "chapter_index": 1,
+                "easy_question_count": 1,
+                "answered_count": 1,
+                "correct_count": 1,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        neo4j_repository,
+        "get_chapter_easy_questions",
+        lambda _session, _student_id, _course_id, _chapter_index: {
+            "chapter_title": "Foundations",
+            "questions": [
+                {
+                    "id": "q-1",
+                    "skill_name": "Batch Processing",
+                    "text": "Q1",
+                    "options": ["A", "B", "C", "D"],
+                }
+            ],
+            "previous_answers": {},
+        },
+    )
+
+    result = service.get_chapter_quiz(11, 2, 1)
+
+    assert result.chapter_index == 1

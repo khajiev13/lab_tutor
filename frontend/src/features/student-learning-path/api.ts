@@ -58,43 +58,49 @@ export interface SkillBanksResponse {
   prerequisite_edges: PrerequisiteEdge[];
 }
 
+export interface LearningPathReadingResource {
+  id: string;
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  search_content: string;
+  search_result_url: string;
+  search_result_domain: string;
+  source_engine: string;
+  source_engines: string[];
+  search_metadata_json: string;
+  resource_type: string;
+  final_score: number;
+  concepts_covered: string[];
+}
+
+export interface LearningPathVideoResource {
+  id: string;
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  search_content: string;
+  video_id: string;
+  search_result_url: string;
+  search_result_domain: string;
+  source_engine: string;
+  source_engines: string[];
+  search_metadata_json: string;
+  resource_type: string;
+  final_score: number;
+  concepts_covered: string[];
+}
+
 export interface LearningPathSkill {
   name: string;
   source: string;
   description: string | null;
   skill_type: string;
   concepts: { name: string; description: string }[];
-  readings: {
-    title: string;
-    url: string;
-    domain: string;
-    snippet: string;
-    search_content: string;
-    search_result_url: string;
-    search_result_domain: string;
-    source_engine: string;
-    source_engines: string[];
-    search_metadata_json: string;
-    resource_type: string;
-    final_score: number;
-    concepts_covered: string[];
-  }[];
-  videos: {
-    title: string;
-    url: string;
-    domain: string;
-    snippet: string;
-    search_content: string;
-    video_id: string;
-    search_result_url: string;
-    search_result_domain: string;
-    source_engine: string;
-    source_engines: string[];
-    search_metadata_json: string;
-    resource_type: string;
-    final_score: number;
-    concepts_covered: string[];
-  }[];
+  readings: LearningPathReadingResource[];
+  videos: LearningPathVideoResource[];
   questions: {
     id: string;
     text: string;
@@ -113,6 +119,7 @@ export interface LearningPathChapter {
   quiz_status: 'locked' | 'quiz_required' | 'learning' | 'completed';
   easy_question_count: number;
   answered_count: number;
+  correct_count: number;
 }
 
 export interface LearningPathResponse {
@@ -121,6 +128,17 @@ export interface LearningPathResponse {
   chapters: LearningPathChapter[];
   total_selected_skills: number;
   skills_with_resources: number;
+}
+
+export interface ReadingContentResponse {
+  id: string;
+  title: string;
+  url: string;
+  domain: string;
+  status: 'ready' | 'failed';
+  content_markdown: string;
+  fallback_summary: string;
+  error_message: string | null;
 }
 
 export interface BuildProgressEvent {
@@ -179,6 +197,10 @@ export interface QuizSubmitResponse {
   chapter_index: number;
   results: QuizAnswerResult[];
   skills_known: string[];
+  chapter_status_after_submit: 'locked' | 'quiz_required' | 'learning' | 'completed';
+  correct_count_after_submit: number;
+  easy_question_count: number;
+  next_chapter_unlocked: boolean;
 }
 
 export async function getSkillBanks(courseId: number): Promise<SkillBanksResponse> {
@@ -241,6 +263,14 @@ export async function getLearningPath(
   courseId: number,
 ): Promise<LearningPathResponse> {
   const { data } = await api.get(`${BASE}/${courseId}/path`);
+  return data;
+}
+
+export async function fetchReadingContent(
+  courseId: number,
+  resourceId: string,
+): Promise<ReadingContentResponse> {
+  const { data } = await api.get(`${BASE}/${courseId}/readings/${resourceId}/content`);
   return data;
 }
 

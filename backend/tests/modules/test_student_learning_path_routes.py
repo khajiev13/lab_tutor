@@ -278,6 +278,78 @@ def test_record_resource_open_route_returns_204_and_delegates(monkeypatch):
     assert str(called["args"][2].url) == "https://example.com/reading"
 
 
+def test_get_reading_content_route_returns_failed_payload_with_200(monkeypatch):
+    driver, _ = _mock_driver_with_session()
+
+    monkeypatch.setattr(
+        "app.modules.courses.repository.CourseRepository.get_enrollment",
+        lambda self, course_id, student_id: object(),
+    )
+
+    async def fake_get_reading_content(self, student_id, course_id, resource_id):
+        return {
+            "id": resource_id,
+            "title": "Batch Systems Guide",
+            "url": "https://example.com/reading",
+            "domain": "example.com",
+            "status": "failed",
+            "content_markdown": "",
+            "fallback_summary": "Use the original source to continue.",
+            "error_message": "This source took too long to respond.",
+        }
+
+    monkeypatch.setattr(
+        "app.modules.student_learning_path.service.StudentLearningPathService.get_reading_content",
+        fake_get_reading_content,
+    )
+
+    response = asyncio.run(
+        routes.get_reading_content(
+            course_id=1,
+            resource_id="reading-1",
+            student=SimpleNamespace(id=2),
+            db=MagicMock(),
+            driver=driver,
+        )
+    )
+
+    assert response["status"] == "failed"
+    assert response["id"] == "reading-1"
+
+
+def test_get_reading_content_route_returns_404_when_resource_missing(monkeypatch):
+    driver, _ = _mock_driver_with_session()
+
+    monkeypatch.setattr(
+        "app.modules.courses.repository.CourseRepository.get_enrollment",
+        lambda self, course_id, student_id: object(),
+    )
+
+    async def fake_get_reading_content(self, student_id, course_id, resource_id):
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail="Reading resource not found",
+        )
+
+    monkeypatch.setattr(
+        "app.modules.student_learning_path.service.StudentLearningPathService.get_reading_content",
+        fake_get_reading_content,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(
+            routes.get_reading_content(
+                course_id=1,
+                resource_id="reading-1",
+                student=SimpleNamespace(id=2),
+                db=MagicMock(),
+                driver=driver,
+            )
+        )
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_submit_chapter_quiz_route_returns_results(monkeypatch):
     driver, _ = _mock_driver_with_session()
 

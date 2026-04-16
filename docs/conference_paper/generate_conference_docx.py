@@ -37,7 +37,7 @@ FIGURES = {
         "width": 5.55,
     },
     2: {
-        "path": ROOT / "logic_architecture.png",
+        "path": ROOT.parent / "images" / "logic_architecture.png",
         "caption": "Detailed agent-level architecture showing the four specialized agents, their key workflow steps, and their data flows into and out of the shared Neo4j curriculum knowledge graph.",
         "width": 5.15,
     },

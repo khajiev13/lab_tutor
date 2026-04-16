@@ -4,6 +4,8 @@ An AI-powered platform that helps university teachers align their courses with i
 
 ![System Architecture](docs/images/system-architecture.png)
 
+![Logic Architecture](docs/images/logic_architecture.png)
+
 ## Tech Stack
 
 | Layer | Technology |
