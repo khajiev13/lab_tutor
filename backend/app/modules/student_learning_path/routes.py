@@ -26,6 +26,7 @@ from .schemas import (
     LearningPathResponse,
     QuizSubmitRequest,
     QuizSubmitResponse,
+    ReadingContentResponse,
     ResourceOpenRequest,
     SelectJobPostingsRequest,
     SelectSkillsRequest,
@@ -255,6 +256,22 @@ def get_learning_path(
     """Read the personalized learning path."""
     service = _get_service(db, driver)
     return service.get_learning_path(student.id, course_id)
+
+
+@router.get(
+    "/{course_id}/readings/{resource_id}/content",
+    response_model=ReadingContentResponse,
+)
+async def get_reading_content(
+    course_id: int,
+    resource_id: str,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> ReadingContentResponse:
+    """Read extracted markdown for a path reading resource."""
+    service = _get_service(db, driver)
+    return await service.get_reading_content(student.id, course_id, resource_id)
 
 
 @router.get(

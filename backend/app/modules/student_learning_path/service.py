@@ -6,6 +6,8 @@ import asyncio
 import logging
 import uuid
 from collections import defaultdict
+from datetime import UTC, datetime, timedelta
+from urllib.parse import urlparse
 
 from fastapi import HTTPException, status
 from neo4j import Driver as Neo4jDriver
@@ -17,11 +19,13 @@ from app.modules.courses.repository import CourseRepository
 
 from . import neo4j_repository
 from .graph import learning_path_graph
+from . import reader_extractor
 from .schemas import (
     BuildSelectedSkillRequest,
     ChapterQuizResponse,
     QuizSubmitRequest,
     QuizSubmitResponse,
+    ReadingContentResponse,
     ResourceOpenRequest,
     StudentSkillBankResponse,
 )
@@ -31,6 +35,12 @@ logger = logging.getLogger(__name__)
 # ── In-memory run tracking ────────────────────────────────────
 
 _active_runs: dict[str, asyncio.Queue] = {}
+READING_CACHE_READY_TTL = timedelta(days=30)
+READING_CACHE_FAILED_TTL = timedelta(hours=24)
+DEFAULT_READING_FALLBACK_SUMMARY = (
+    "We could not generate an in-app preview for this resource. Open the original "
+    "source to keep studying."
+)
 
 
 def get_queue(run_id: str) -> asyncio.Queue | None:
@@ -80,6 +90,122 @@ class StudentLearningPathService:
         for skill_name, source in selected_by_name.items():
             grouped[source].append(skill_name)
         return grouped
+
+    @staticmethod
+    def _build_fallback_summary(resource: dict) -> str:
+        snippets: list[str] = []
+
+        for field_name in ("snippet", "search_content"):
+            value = " ".join(str(resource.get(field_name, "") or "").split())
+            if not value:
+                continue
+
+            normalized = value.casefold()
+            if any(
+                normalized == existing.casefold()
+                or normalized in existing.casefold()
+                for existing in snippets
+            ):
+                continue
+
+            snippets = [
+                existing
+                for existing in snippets
+                if existing.casefold() not in normalized
+            ]
+            snippets.append(value)
+
+        return "\n\n".join(snippets) if snippets else DEFAULT_READING_FALLBACK_SUMMARY
+
+    @staticmethod
+    def _parse_reader_extracted_at(value: str | None) -> datetime | None:
+        if not value:
+            return None
+
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+
+    @staticmethod
+    def _resolve_resource_domain(resource: dict) -> str:
+        domain = str(resource.get("domain", "") or "").strip()
+        if domain:
+            return domain
+        return urlparse(str(resource.get("url", "") or "")).netloc
+
+    @classmethod
+    def _build_reading_content_response(
+        cls,
+        resource: dict,
+        *,
+        status_name: str,
+        content_markdown: str,
+        fallback_summary: str,
+        error_message: str | None,
+    ) -> ReadingContentResponse:
+        return ReadingContentResponse(
+            id=str(resource.get("id", "")),
+            title=str(resource.get("title", "") or "Untitled reading"),
+            url=str(resource.get("url", "")),
+            domain=cls._resolve_resource_domain(resource),
+            status=status_name,
+            content_markdown=content_markdown,
+            fallback_summary=fallback_summary,
+            error_message=error_message,
+        )
+
+    @classmethod
+    def _get_cached_reading_content_response(
+        cls,
+        resource: dict,
+        *,
+        fallback_summary: str,
+    ) -> ReadingContentResponse | None:
+        extracted_at = cls._parse_reader_extracted_at(
+            resource.get("reader_extracted_at")
+        )
+        if extracted_at is None:
+            return None
+
+        now = datetime.now(UTC)
+        reader_status = str(resource.get("reader_status", "") or "")
+        cached_markdown = str(resource.get("reader_content_markdown", "") or "")
+        cached_error = str(resource.get("reader_error", "") or "")
+
+        if (
+            reader_status == "ready"
+            and cached_markdown
+            and extracted_at >= now - READING_CACHE_READY_TTL
+        ):
+            return cls._build_reading_content_response(
+                resource,
+                status_name="ready",
+                content_markdown=cached_markdown,
+                fallback_summary=fallback_summary,
+                error_message=None,
+            )
+
+        if (
+            reader_status == "failed"
+            and extracted_at >= now - READING_CACHE_FAILED_TTL
+        ):
+            return cls._build_reading_content_response(
+                resource,
+                status_name="failed",
+                content_markdown="",
+                fallback_summary=fallback_summary,
+                error_message=(
+                    cached_error
+                    or "We could not extract readable article content from this source."
+                ),
+            )
+
+        return None
 
     def select_skills(
         self, student_id: int, course_id: int, skill_names: list[str], source: str
@@ -153,6 +279,83 @@ class StudentLearningPathService:
         with driver.session(database=settings.neo4j_database) as session:
             return neo4j_repository.get_learning_path(session, student_id, course_id)
 
+    async def get_reading_content(
+        self,
+        student_id: int,
+        course_id: int,
+        resource_id: str,
+    ) -> ReadingContentResponse:
+        self._validate_enrollment(student_id, course_id)
+        driver = self._require_neo4j()
+        with driver.session(database=settings.neo4j_database) as session:
+            resource = neo4j_repository.get_accessible_reading_resource(
+                session,
+                student_id=student_id,
+                course_id=course_id,
+                resource_id=resource_id,
+            )
+            if resource is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Reading resource not found",
+                )
+
+            fallback_summary = self._build_fallback_summary(resource)
+            cached_response = self._get_cached_reading_content_response(
+                resource,
+                fallback_summary=fallback_summary,
+            )
+            if cached_response is not None:
+                return cached_response
+
+            try:
+                extraction = await reader_extractor.extract_reading_markdown(
+                    str(resource.get("url", ""))
+                )
+            except Exception:
+                logger.exception(
+                    "Reading extraction failed unexpectedly for resource_id=%s",
+                    resource_id,
+                )
+                extraction = reader_extractor.ReaderExtractionFailure(
+                    error_code="unexpected_error",
+                    error_message="We could not extract this source right now.",
+                )
+
+            extracted_at = datetime.now(UTC).isoformat()
+            if extraction.status == "ready":
+                neo4j_repository.persist_reading_reader_cache(
+                    session,
+                    resource_id=resource_id,
+                    reader_status="ready",
+                    reader_content_markdown=extraction.content_markdown,
+                    reader_error="",
+                    reader_extracted_at=extracted_at,
+                )
+                return self._build_reading_content_response(
+                    resource,
+                    status_name="ready",
+                    content_markdown=extraction.content_markdown,
+                    fallback_summary=fallback_summary,
+                    error_message=None,
+                )
+
+            neo4j_repository.persist_reading_reader_cache(
+                session,
+                resource_id=resource_id,
+                reader_status="failed",
+                reader_content_markdown="",
+                reader_error=extraction.error_message,
+                reader_extracted_at=extracted_at,
+            )
+            return self._build_reading_content_response(
+                resource,
+                status_name="failed",
+                content_markdown="",
+                fallback_summary=fallback_summary,
+                error_message=extraction.error_message,
+            )
+
     def _get_chapter_quiz_status(
         self,
         session,
@@ -165,19 +368,25 @@ class StudentLearningPathService:
             student_id,
             course_id,
         )
+        status_by_chapter = neo4j_repository.resolve_quiz_statuses(progress_rows)
         progress_map = {row["chapter_index"]: row for row in progress_rows}
         progress = progress_map.get(chapter_index)
         if progress is None:
-            return None, {"easy_question_count": 0, "answered_count": 0}
+            return None, {"easy_question_count": 0, "answered_count": 0, "correct_count": 0}
 
-        status_name = (
-            "quiz_required"
-            if chapter_index == 1 and progress["answered_count"] == 0
-            else "learning"
-            if chapter_index == 1
-            else "locked"
-        )
-        return status_name, progress
+        return status_by_chapter.get(chapter_index), progress
+
+    @staticmethod
+    def _find_next_eligible_chapter_index(
+        progress_rows: list[dict],
+        chapter_index: int,
+    ) -> int | None:
+        for row in sorted(progress_rows, key=lambda item: item["chapter_index"]):
+            if row["chapter_index"] <= chapter_index:
+                continue
+            if int(row.get("easy_question_count", 0) or 0) > 0:
+                return row["chapter_index"]
+        return None
 
     def get_chapter_quiz(
         self,
@@ -232,12 +441,22 @@ class StudentLearningPathService:
         self._validate_enrollment(student_id, course_id)
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
-            quiz_status, _progress = self._get_chapter_quiz_status(
+            progress_before = neo4j_repository.get_chapter_quiz_progress(
                 session,
                 student_id,
                 course_id,
-                chapter_index,
             )
+            status_before = neo4j_repository.resolve_quiz_statuses(progress_before)
+            progress_before_map = {
+                row["chapter_index"]: row for row in progress_before
+            }
+            progress_before_row = progress_before_map.get(chapter_index)
+            if progress_before_row is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Chapter quiz not found",
+                )
+            quiz_status = status_before.get(chapter_index)
             if quiz_status is None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -282,6 +501,21 @@ class StudentLearningPathService:
                     for answer in payload.answers
                 ],
             )
+            progress_after = neo4j_repository.get_chapter_quiz_progress(
+                session,
+                student_id,
+                course_id,
+            )
+            status_after = neo4j_repository.resolve_quiz_statuses(progress_after)
+            progress_after_map = {row["chapter_index"]: row for row in progress_after}
+            chapter_progress_after = progress_after_map.get(
+                chapter_index,
+                {"easy_question_count": 0, "correct_count": 0},
+            )
+            next_eligible_chapter_index = self._find_next_eligible_chapter_index(
+                progress_after,
+                chapter_index,
+            )
             skills_known = [
                 result["skill_name"] for result in results if result["answered_right"]
             ]
@@ -289,6 +523,20 @@ class StudentLearningPathService:
                 chapter_index=chapter_index,
                 results=results,
                 skills_known=skills_known,
+                chapter_status_after_submit=status_after.get(
+                    chapter_index, "learning"
+                ),
+                correct_count_after_submit=int(
+                    chapter_progress_after.get("correct_count", 0) or 0
+                ),
+                easy_question_count=int(
+                    chapter_progress_after.get("easy_question_count", 0) or 0
+                ),
+                next_chapter_unlocked=(
+                    next_eligible_chapter_index is not None
+                    and status_before.get(next_eligible_chapter_index) == "locked"
+                    and status_after.get(next_eligible_chapter_index) != "locked"
+                ),
             )
 
     async def build_learning_path(

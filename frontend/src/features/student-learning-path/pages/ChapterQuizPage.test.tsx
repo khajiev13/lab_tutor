@@ -97,6 +97,10 @@ describe('ChapterQuizPage', () => {
         },
       ],
       skills_known: ['Batch Processing'],
+      chapter_status_after_submit: 'learning',
+      correct_count_after_submit: 1,
+      easy_question_count: 2,
+      next_chapter_unlocked: false,
     });
 
     renderPage();
@@ -117,6 +121,8 @@ describe('ChapterQuizPage', () => {
 
     expect(await screen.findByText('Quiz submitted')).toBeInTheDocument();
     expect(screen.getByText('Known skills')).toBeInTheDocument();
+    expect(screen.getByText('1/2 correct')).toBeInTheDocument();
+    expect(screen.getByText('Retake to unlock the next chapter.')).toBeInTheDocument();
     expect(screen.getAllByText('Batch Processing').length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: /Continue to learning/i }));
@@ -131,5 +137,44 @@ describe('ChapterQuizPage', () => {
     expect(await screen.findByText('Retake available')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /B\. Two/i })).toHaveAttribute('data-state', 'checked');
     expect(screen.getByText('1/2 answered')).toBeInTheDocument();
+  });
+
+  it('shows the unlock message when the chapter is completed and the next chapter opens', async () => {
+    (studentLearningPathApi.getChapterQuiz as Mock).mockResolvedValue(quizResponse);
+    (studentLearningPathApi.submitChapterQuiz as Mock).mockResolvedValue({
+      chapter_index: 1,
+      results: [
+        {
+          question_id: 'q-1',
+          skill_name: 'Batch Processing',
+          selected_option: 'A',
+          answered_right: true,
+          correct_option: 'A',
+        },
+        {
+          question_id: 'q-2',
+          skill_name: 'Streaming Basics',
+          selected_option: 'B',
+          answered_right: true,
+          correct_option: 'B',
+        },
+      ],
+      skills_known: ['Batch Processing', 'Streaming Basics'],
+      chapter_status_after_submit: 'completed',
+      correct_count_after_submit: 2,
+      easy_question_count: 2,
+      next_chapter_unlocked: true,
+    });
+
+    renderPage();
+
+    expect(await screen.findByText('Foundations')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: /A\. One/i }));
+    fireEvent.click(screen.getByRole('radio', { name: /B\. Beta/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Submit quiz/i }));
+
+    expect(await screen.findByText('2/2 correct')).toBeInTheDocument();
+    expect(screen.getByText('Chapter unlocked - next chapter now available.')).toBeInTheDocument();
   });
 });

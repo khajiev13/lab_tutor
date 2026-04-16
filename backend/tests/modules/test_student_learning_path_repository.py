@@ -283,6 +283,69 @@ def test_record_resource_open_logs_and_noops_when_student_or_resource_missing(ca
     assert "Skipping resource open tracking" in caplog.text
 
 
+def test_get_accessible_reading_resource_scopes_lookup_to_student_course_path():
+    session = MagicMock()
+    session.run.return_value.single.return_value = {
+        "resource": {
+            "id": "reading-1",
+            "title": "Batch Systems Guide",
+            "url": "https://example.com/reading",
+            "domain": "example.com",
+            "snippet": "A short snippet.",
+            "search_content": "A longer summary.",
+            "reader_status": "ready",
+            "reader_content_markdown": "# Batch Systems",
+            "reader_error": "",
+            "reader_extracted_at": "2026-04-15T00:00:00+00:00",
+        }
+    }
+
+    result = neo4j_repository.get_accessible_reading_resource(
+        session,
+        student_id=11,
+        course_id=2,
+        resource_id="reading-1",
+    )
+
+    query = session.run.call_args.args[0]
+    params = session.run.call_args.kwargs
+
+    assert result["id"] == "reading-1"
+    assert "SELECTED_SKILL" in query
+    assert "HAS_READING" in query
+    assert "READING_RESOURCE {id: $resource_id}" in query
+    assert "reader_content_markdown" in query
+    assert params["student_id"] == 11
+    assert params["course_id"] == 2
+    assert params["resource_id"] == "reading-1"
+
+
+def test_persist_reading_reader_cache_updates_reader_fields():
+    session = MagicMock()
+    session.run.return_value.single.return_value = {"resource_id": "reading-1"}
+
+    result = neo4j_repository.persist_reading_reader_cache(
+        session,
+        resource_id="reading-1",
+        reader_status="failed",
+        reader_content_markdown="",
+        reader_error="This source timed out.",
+        reader_extracted_at="2026-04-15T00:00:00+00:00",
+    )
+
+    query = session.run.call_args.args[0]
+    params = session.run.call_args.kwargs
+
+    assert result is True
+    assert "rr.reader_status = $reader_status" in query
+    assert "rr.reader_content_markdown = $reader_content_markdown" in query
+    assert "rr.reader_error = CASE" in query
+    assert "rr.reader_extracted_at = datetime($reader_extracted_at)" in query
+    assert params["resource_id"] == "reading-1"
+    assert params["reader_status"] == "failed"
+    assert params["reader_error"] == "This source timed out."
+
+
 def test_get_learning_path_marks_skills_pending_without_resources():
     session = MagicMock()
     course_result = MagicMock()
@@ -316,19 +379,38 @@ def test_get_learning_path_marks_skills_pending_without_resources():
                         }
                     ],
                 }
+            },
+            {
+                "chapter": {
+                    "title": "Streaming",
+                    "chapter_index": 2,
+                    "description": None,
+                    "selected_skills": [],
+                }
+            },
+        ],
+        [
+            {
+                "chapter_index": 1,
+                "easy_question_count": 1,
+                "answered_count": 0,
+                "correct_count": 0,
             }
         ],
-        [{"chapter_index": 1, "easy_question_count": 1, "answered_count": 0}],
     ]
 
     result = neo4j_repository.get_learning_path(session, student_id=11, course_id=2)
 
     assert result["course_title"] == "Data Systems"
+    assert len(result["chapters"]) == 2
     assert result["total_selected_skills"] == 1
     assert result["skills_with_resources"] == 0
     assert result["chapters"][0]["quiz_status"] == "quiz_required"
     assert result["chapters"][0]["easy_question_count"] == 1
     assert result["chapters"][0]["answered_count"] == 0
+    assert result["chapters"][0]["correct_count"] == 0
+    assert result["chapters"][1]["title"] == "Streaming"
+    assert result["chapters"][1]["selected_skills"] == []
     assert result["chapters"][0]["selected_skills"][0]["resource_status"] == "pending"
     assert result["chapters"][0]["selected_skills"][0]["is_known"] is False
     assert "answer" not in result["chapters"][0]["selected_skills"][0]["questions"][0]
@@ -336,6 +418,26 @@ def test_get_learning_path_marks_skills_pending_without_resources():
         "correct_option"
         not in result["chapters"][0]["selected_skills"][0]["questions"][0]
     )
+
+
+def test_get_learning_path_projects_resource_ids_and_filters_pdf_readings():
+    session = MagicMock()
+    course_result = MagicMock()
+    course_result.single.return_value = {"title": "Data Systems"}
+    session.run.side_effect = [
+        course_result,
+        [],
+        [],
+    ]
+
+    neo4j_repository.get_learning_path(session, student_id=11, course_id=2)
+
+    query = session.run.call_args_list[1].args[0]
+
+    assert "id: coalesce(rr.id, '')" in query
+    assert "id: coalesce(vr.id, '')" in query
+    assert "toLower(coalesce(rr.resource_type, '')) CONTAINS 'pdf'" in query
+    assert "toLower(coalesce(rr.url, '')) CONTAINS '.pdf'" in query
 
 
 def test_get_learning_path_applies_strict_sequence_quiz_status_math():
@@ -363,8 +465,67 @@ def test_get_learning_path_applies_strict_sequence_quiz_status_math():
             },
         ],
         [
-            {"chapter_index": 1, "easy_question_count": 2, "answered_count": 2},
-            {"chapter_index": 2, "easy_question_count": 3, "answered_count": 0},
+            {
+                "chapter_index": 1,
+                "easy_question_count": 2,
+                "answered_count": 2,
+                "correct_count": 2,
+            },
+            {
+                "chapter_index": 2,
+                "easy_question_count": 3,
+                "answered_count": 0,
+                "correct_count": 0,
+            },
+        ],
+    ]
+
+    result = neo4j_repository.get_learning_path(session, student_id=11, course_id=2)
+
+    assert result["chapters"][0]["quiz_status"] == "completed"
+    assert result["chapters"][1]["quiz_status"] == "quiz_required"
+    assert result["chapters"][0]["answered_count"] == 2
+    assert result["chapters"][0]["correct_count"] == 2
+    assert result["chapters"][1]["easy_question_count"] == 3
+
+
+def test_get_learning_path_keeps_next_chapter_locked_until_prior_is_fully_correct():
+    session = MagicMock()
+    course_result = MagicMock()
+    course_result.single.return_value = {"title": "Data Systems"}
+    session.run.side_effect = [
+        course_result,
+        [
+            {
+                "chapter": {
+                    "title": "Foundations",
+                    "chapter_index": 1,
+                    "description": None,
+                    "selected_skills": [],
+                }
+            },
+            {
+                "chapter": {
+                    "title": "Streaming",
+                    "chapter_index": 2,
+                    "description": None,
+                    "selected_skills": [],
+                }
+            },
+        ],
+        [
+            {
+                "chapter_index": 1,
+                "easy_question_count": 2,
+                "answered_count": 1,
+                "correct_count": 1,
+            },
+            {
+                "chapter_index": 2,
+                "easy_question_count": 3,
+                "answered_count": 0,
+                "correct_count": 0,
+            },
         ],
     ]
 
@@ -372,8 +533,6 @@ def test_get_learning_path_applies_strict_sequence_quiz_status_math():
 
     assert result["chapters"][0]["quiz_status"] == "learning"
     assert result["chapters"][1]["quiz_status"] == "locked"
-    assert result["chapters"][0]["answered_count"] == 2
-    assert result["chapters"][1]["easy_question_count"] == 3
 
 
 def test_get_chapter_easy_questions_omits_correct_answer_and_collects_previous_answers():
@@ -436,14 +595,25 @@ def test_submit_chapter_answers_merges_answered_relationship():
 
     assert result[0]["correct_option"] == "B"
     assert "MERGE (u)-[a:ANSWERED]->(q)" in query
-    assert "a.answered_right = correct" in query
+    assert "WHEN coalesce(a.answered_right, false) = true THEN true" in query
+    assert "WHEN coalesce(a.answered_right, false) = true AND correct = false" in query
 
 
 def test_get_chapter_quiz_progress_returns_counts_per_selected_chapter():
     session = MagicMock()
     session.run.return_value = [
-        {"chapter_index": 1, "easy_question_count": 2, "answered_count": 1},
-        {"chapter_index": 2, "easy_question_count": 3, "answered_count": 0},
+        {
+            "chapter_index": 1,
+            "easy_question_count": 2,
+            "answered_count": 1,
+            "correct_count": 1,
+        },
+        {
+            "chapter_index": 2,
+            "easy_question_count": 3,
+            "answered_count": 0,
+            "correct_count": 0,
+        },
     ]
 
     result = neo4j_repository.get_chapter_quiz_progress(
@@ -453,6 +623,47 @@ def test_get_chapter_quiz_progress_returns_counts_per_selected_chapter():
     )
 
     assert result == [
-        {"chapter_index": 1, "easy_question_count": 2, "answered_count": 1},
-        {"chapter_index": 2, "easy_question_count": 3, "answered_count": 0},
+        {
+            "chapter_index": 1,
+            "easy_question_count": 2,
+            "answered_count": 1,
+            "correct_count": 1,
+        },
+        {
+            "chapter_index": 2,
+            "easy_question_count": 3,
+            "answered_count": 0,
+            "correct_count": 0,
+        },
     ]
+
+
+def test_resolve_quiz_statuses_skips_zero_question_chapters():
+    statuses = neo4j_repository.resolve_quiz_statuses(
+        [
+            {
+                "chapter_index": 1,
+                "easy_question_count": 1,
+                "answered_count": 1,
+                "correct_count": 1,
+            },
+            {
+                "chapter_index": 2,
+                "easy_question_count": 0,
+                "answered_count": 0,
+                "correct_count": 0,
+            },
+            {
+                "chapter_index": 3,
+                "easy_question_count": 1,
+                "answered_count": 0,
+                "correct_count": 0,
+            },
+        ]
+    )
+
+    assert statuses == {
+        1: "completed",
+        2: "learning",
+        3: "quiz_required",
+    }

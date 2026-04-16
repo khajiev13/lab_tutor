@@ -95,11 +95,18 @@ class QuizSubmitResponse(BaseModel):
     chapter_index: int
     results: list[QuizAnswerResult] = []
     skills_known: list[str] = []
+    chapter_status_after_submit: Literal[
+        "locked", "quiz_required", "learning", "completed"
+    ]
+    correct_count_after_submit: int = 0
+    easy_question_count: int = 0
+    next_chapter_unlocked: bool = False
 
 
 class ReadingResourceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: str
     title: str
     url: str
     domain: str = ""
@@ -118,6 +125,7 @@ class ReadingResourceRead(BaseModel):
 class VideoResourceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    id: str
     title: str
     url: str
     domain: str = ""
@@ -160,6 +168,7 @@ class LearningPathChapter(BaseModel):
     quiz_status: Literal["locked", "quiz_required", "learning", "completed"]
     easy_question_count: int = 0
     answered_count: int = 0
+    correct_count: int = 0
 
 
 class LearningPathResponse(BaseModel):
@@ -168,6 +177,17 @@ class LearningPathResponse(BaseModel):
     chapters: list[LearningPathChapter] = []
     total_selected_skills: int = 0
     skills_with_resources: int = 0
+
+
+class ReadingContentResponse(BaseModel):
+    id: str
+    title: str
+    url: str
+    domain: str
+    status: Literal["ready", "failed"]
+    content_markdown: str
+    fallback_summary: str
+    error_message: str | None = None
 
 
 class StudentSkillBankSkill(BaseModel):

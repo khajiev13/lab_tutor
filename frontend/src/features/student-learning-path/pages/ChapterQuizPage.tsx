@@ -94,6 +94,16 @@ function formatResultBadge(result: QuizAnswerResult) {
   return result.answered_right ? 'Correct' : 'Incorrect';
 }
 
+function getSubmissionStatusMessage(submission: QuizSubmitResponse) {
+  if (submission.chapter_status_after_submit === 'completed') {
+    return submission.next_chapter_unlocked
+      ? 'Chapter unlocked - next chapter now available.'
+      : 'Chapter completed. You can continue learning or retake this diagnostic anytime.';
+  }
+
+  return 'Retake to unlock the next chapter.';
+}
+
 export default function ChapterQuizPage() {
   const { id: courseIdParam, chapterIndex: chapterIndexParam } = useParams<{
     id: string;
@@ -344,6 +354,20 @@ function ChapterQuizForm({
 
           {submission && (
             <div className="space-y-4">
+              <Card className="border-border/60">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Chapter progress</CardTitle>
+                  <CardDescription>
+                    {submission.correct_count_after_submit}/{submission.easy_question_count} correct
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    {getSubmissionStatusMessage(submission)}
+                  </p>
+                </CardContent>
+              </Card>
+
               <div className="grid gap-3 md:grid-cols-2">
                 <Card className="border-border/60">
                   <CardHeader className="pb-2">
