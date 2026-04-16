@@ -403,7 +403,9 @@ def test_get_reading_content_reextracts_stale_success_cache(monkeypatch):
 
     assert response.status == "ready"
     assert response.content_markdown.startswith("# Refreshed")
-    assert response.fallback_summary == "Learn batch processing.\n\nDetailed batch primer."
+    assert (
+        response.fallback_summary == "Learn batch processing.\n\nDetailed batch primer."
+    )
     extract_reading.assert_awaited_once()
     persist_cache.assert_called_once()
 

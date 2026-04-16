@@ -135,8 +135,7 @@ def resolve_quiz_statuses(progress_rows: list[dict]) -> dict[int, str]:
             statuses[chapter_index] = "quiz_required"
 
         prior_eligible_chapters_completed = (
-            prior_eligible_chapters_completed
-            and correct_count >= easy_question_count
+            prior_eligible_chapters_completed and correct_count >= easy_question_count
         )
 
     return statuses
