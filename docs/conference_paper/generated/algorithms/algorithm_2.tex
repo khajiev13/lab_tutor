@@ -1,0 +1,74 @@
+\documentclass[varwidth=8.25in,border=8pt]{standalone}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{caption}
+\usepackage[T1]{fontenc}
+\DeclareCaptionType{algorithm}[Algorithm][List of Algorithms]
+\captionsetup[algorithm]{font=small,labelfont=bf,textfont=bf}
+\begin{document}
+\setcounter{algorithm}{1}
+\small
+\captionof{algorithm}{\textbf{Market Demand Analyst: Market-Skill Bank Construction}}
+
+\begin{algorithmic}[1]
+\bfseries
+\Require Course context $\mathcal{D}$, approved search terms $\mathcal{T}$, curriculum graph $\mathcal{G}_{course}$
+\Ensure Cleaned market skill bank $\mathcal{S}_{M}$ linked to chapters, jobs, and concepts
+
+\State \textbf{// Stage 1: Job Collection and Teacher Scoping}
+\For{each search term $t \in \mathcal{T}$ and site $u \in \{\text{Indeed}, \text{LinkedIn}\}$ \textbf{in parallel}}
+    \State $\mathcal{J}_{t,u} \leftarrow \text{FetchJobs}(t,\ u)$
+\EndFor
+\State $\mathcal{J}_{raw} \leftarrow \text{DedupByTitleCompany}\Bigl(\bigcup_{t,u}\mathcal{J}_{t,u}\Bigr)$
+\State $\mathcal{G}_{job} \leftarrow \text{GroupByNormalizedTitle}(\mathcal{J}_{raw})$
+\State $\mathcal{J}_{sel} \leftarrow \text{TeacherSelectGroups}(\mathcal{G}_{job})$
+
+\State
+\State \textbf{// Stage 2: Parallel Skill Extraction and Canonicalization}
+\For{each job $j \in \mathcal{J}_{sel}$ \textbf{in parallel}}
+    \State $\mathcal{E}_j \leftarrow \text{LLM}_{extract}(j.\text{description})$
+    \Statex \hspace{\algorithmicindent} $\triangleright$ extract competency statements
+\EndFor
+\State $\mathcal{S}_{raw} \leftarrow \text{Aggregate}\Bigl(\bigcup_j \mathcal{E}_j\Bigr)$
+\For{each skill $s \in \mathcal{S}_{raw}$}
+    \State $f(s) \leftarrow \text{JobFrequency}(s)$
+    \State $p(s) \leftarrow 100 \cdot f(s) / |\mathcal{J}_{sel}|$
+\EndFor
+\If{$10 < |\mathcal{S}_{raw}| \leq 150$}
+    \State $\mathcal{S}_{llm} \leftarrow \text{LLM}_{merge}(\mathcal{S}_{raw})$
+\Else
+    \State $\mathcal{S}_{llm} \leftarrow \mathcal{S}_{raw}$
+\EndIf
+\State $\mathcal{S}_{ext} \leftarrow \text{EmbedDedup}(\mathcal{S}_{llm},\ \tau{=}0.92)$
+
+\State
+\State \textbf{// Stage 3: Teacher Curation and Curriculum Mapping}
+\State $\mathcal{S}_{cur} \leftarrow \text{TeacherCurateByNameCategoryTopN}(\mathcal{S}_{ext})$
+\For{each curated skill $s \in \mathcal{S}_{cur}$}
+    \State $\text{cov}(s) \leftarrow \text{CheckGraphCoverage}(s,\ \texttt{BOOK\_SKILL},\ \texttt{MARKET\_SKILL},\ \texttt{CONCEPT})$
+    \State $(\text{status}(s),\ ch^{*}(s),\ \rho(s)) \leftarrow \text{LLM}_{map}(s,\ \text{cov}(s),\ \mathcal{G}_{course})$
+    \Statex \hspace{\algorithmicindent} $\triangleright$ assign status and best-fit chapter
+\EndFor
+\State $\mathcal{M} \leftarrow \text{SaveCurriculumMapping}(\mathcal{S}_{cur})$
+\Statex \hspace{\algorithmicindent} $\triangleright$ keep one mapping row per skill
+
+\State
+\State \textbf{// Stage 4: Redundancy Cleaning and Concept Linking}
+\For{each course chapter $c$ with mapped skills}
+    \State $\mathcal{S}^{new}_c \leftarrow \text{MappedSkills}(\mathcal{M}, c)$
+    \State $\mathcal{S}^{exist}_c \leftarrow \text{LoadExistingChapterSkills}(c)$
+    \State $(\mathcal{K}_c,\ \mathcal{D}_c) \leftarrow \text{LLM}_{clean}(\mathcal{S}^{new}_c,\ \mathcal{S}^{exist}_c)$
+    \Statex \hspace{\algorithmicindent} $\triangleright$ keep additive skills only
+\EndFor
+\State $\mathcal{S}_{keep} \leftarrow \bigcup_c \mathcal{K}_c$
+\For{each $s \in \mathcal{S}_{keep}$}
+    \State $(\mathcal{C}^{exist}_s,\ \mathcal{C}^{new}_s) \leftarrow \text{LLM}_{concept}(s,\ ch^{*}(s),\ \text{JobEvidence}(s))$
+    \State $\text{UpdateKnowledgeGraph}(s,\ ch^{*}(s),\ \text{JobEvidence}(s))$
+    \Statex \hspace{\algorithmicindent} $\triangleright$ write skills and links to the knowledge graph
+\EndFor
+
+\State
+\State $\mathcal{S}_{M} \leftarrow \mathcal{S}_{keep}$
+\State \Return $\mathcal{S}_{M}$
+\end{algorithmic}
+\end{document}

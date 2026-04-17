@@ -1,0 +1,64 @@
+\documentclass[varwidth=8.25in,border=8pt]{standalone}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{caption}
+\usepackage[T1]{fontenc}
+\DeclareCaptionType{algorithm}[Algorithm][List of Algorithms]
+\captionsetup[algorithm]{font=small,labelfont=bf,textfont=bf}
+\begin{document}
+\setcounter{algorithm}{2}
+\small
+\captionof{algorithm}{\textbf{Skill-Conditioned Reading and Video Retrieval}}
+
+\begin{algorithmic}[1]
+\bfseries
+\Require Selected skills $\mathcal{S}_{sel}$, skill profiles $\mathcal{P}$, curriculum graph $\mathcal{G}$
+\Ensure Reading resources $\mathcal{R}$ and video resources $\mathcal{V}$ linked to skills
+
+\State \textbf{// Stage 1: Incremental Dispatch}
+\For{each selected skill $s \in \mathcal{S}_{sel}$}
+    \State $(h_R(s),\ h_V(s)) \leftarrow \text{CheckExistingResources}(s)$
+    \If{$\neg h_R(s)$ or $\neg h_V(s)$}
+        \State $\text{DispatchWorker}(s)$
+    \EndIf
+\EndFor
+
+\State
+\State \textbf{// Stage 2: Per-Skill Resource Worker}
+\For{each skill $s$ needing work \textbf{in parallel}}
+    \If{$\neg h_R(s)$}
+        \State $\{q^{R}_{1}, \dots, q^{R}_{m}\} \leftarrow \text{LLM}^{R}_{query}(\mathcal{P}(s))$
+\Statex \hspace*{2.0em}\parbox[t]{0.90\linewidth}{\raggedright\scriptsize\itshape $4 \leq m \leq 6$, text-oriented queries}
+        \State $\mathcal{U}^{R} \leftarrow \text{SearchTextWeb}(q^{R}_{1:m})$
+\Statex \hspace*{2.0em}\parbox[t]{0.90\linewidth}{\raggedright\scriptsize\itshape blacklist video/paywalled domains}
+        \State $\widehat{\mathcal{U}}^{R} \leftarrow \text{EmbeddingFilter}(\mathcal{P}(s),\ \mathcal{U}^{R},\ k{=}20)$
+        \For{each candidate reading $r \in \widehat{\mathcal{U}}^{R}$}
+            \State $(C_{rec}, C_{cov}, C_{ped}, C_{depth}, C_{src}) \leftarrow \text{LLM}^{R}_{score}(r,\ \mathcal{P}(s))$
+            \State $C_{emb}(r) \leftarrow \text{MeanCosine}(r,\ \mathcal{P}(s).\text{concept\_embeddings})$
+            \State $S^{R}(r) \leftarrow 0.15C_{rec} + 0.25C_{cov} + 0.15C_{emb} + 0.20C_{ped} + 0.15C_{depth} + 0.10C_{src}$
+        \EndFor
+        \State $\mathcal{R}_{s} \leftarrow \text{CoverageMaxTopK}(\widehat{\mathcal{U}}^{R},\ S^{R},\ k{=}3,\ \text{min\_types}{=}2)$
+        \State $\text{UpdateKnowledgeGraph}(s,\ \mathcal{R}_{s})$
+    \EndIf
+
+    \If{$\neg h_V(s)$}
+        \State $\{q^{V}_{1}, \dots, q^{V}_{n}\} \leftarrow \text{LLM}^{V}_{query}(\mathcal{P}(s))$
+\Statex \hspace*{2.0em}\parbox[t]{0.90\linewidth}{\raggedright\scriptsize\itshape $4 \leq n \leq 6$, YouTube-focused queries with recency signal}
+        \State $\mathcal{U}^{V} \leftarrow \text{SearchYouTube}(q^{V}_{1:n})$
+        \State $\widehat{\mathcal{U}}^{V} \leftarrow \text{EmbeddingFilter}(\mathcal{P}(s),\ \mathcal{U}^{V},\ k{=}20)$
+        \For{each candidate video $v \in \widehat{\mathcal{U}}^{V}$}
+            \State $(C_{rec}, C_{cov}, C_{ped}, C_{depth}, C_{prod}) \leftarrow \text{LLM}^{V}_{score}(v,\ \mathcal{P}(s))$
+            \State $C_{emb}(v) \leftarrow \text{MeanCosine}(v,\ \mathcal{P}(s).\text{concept\_embeddings})$
+            \State $S^{V}(v) \leftarrow 0.15C_{rec} + 0.25C_{cov} + 0.15C_{emb} + 0.20C_{ped} + 0.15C_{depth} + 0.10C_{prod}$
+        \EndFor
+        \State $\mathcal{V}_{s} \leftarrow \text{CoverageMaxTopK}(\widehat{\mathcal{U}}^{V},\ S^{V},\ k{=}3,\ \text{min\_types}{=}2)$
+        \State $\text{UpdateKnowledgeGraph}(s,\ \mathcal{V}_{s})$
+    \EndIf
+\EndFor
+
+\State
+\State $\mathcal{R} \leftarrow \bigcup_{s \in \mathcal{S}_{sel}} \mathcal{R}_{s}$
+\State $\mathcal{V} \leftarrow \bigcup_{s \in \mathcal{S}_{sel}} \mathcal{V}_{s}$
+\State \Return $\mathcal{R}, \mathcal{V}$
+\end{algorithmic}
+\end{document}

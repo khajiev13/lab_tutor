@@ -4,6 +4,8 @@ An AI-powered platform that helps university teachers align their courses with i
 
 ![System Architecture](docs/images/system-architecture.png)
 
+![Logic Architecture](docs/images/logic_architecture.png)
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -309,7 +311,12 @@ Full API docs at `http://localhost:8000/redoc`
 ## Testing
 
 ```bash
-# Backend (requires local PostgreSQL)
+# Backend lint
+cd backend
+uv run ruff check .
+uv run ruff format --check .
+
+# Backend tests (requires local PostgreSQL)
 cd backend
 LAB_TUTOR_DATABASE_URL="postgresql://user@localhost:5432/lab_tutor_test" uv run pytest -v
 

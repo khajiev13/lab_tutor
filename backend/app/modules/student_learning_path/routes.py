@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session
 
@@ -20,9 +20,14 @@ from app.modules.auth.models import User, UserRole
 
 from .schemas import (
     BuildLearningPathRequest,
+    ChapterQuizResponse,
     DeselectJobPostingRequest,
     DeselectSkillsRequest,
     LearningPathResponse,
+    QuizSubmitRequest,
+    QuizSubmitResponse,
+    ReadingContentResponse,
+    ResourceOpenRequest,
     SelectJobPostingsRequest,
     SelectSkillsRequest,
     StudentSkillBankResponse,
@@ -126,6 +131,20 @@ def deselect_job_posting(
     service = _get_service(db, driver)
     count = service.deselect_job_posting(student.id, course_id, body.posting_url)
     return {"orphans_deleted": count}
+
+
+@router.post("/{course_id}/resources/open", status_code=status.HTTP_204_NO_CONTENT)
+def record_resource_open(
+    course_id: int,
+    body: ResourceOpenRequest,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> Response:
+    """Track a resource open without blocking the user navigation."""
+    service = _get_service(db, driver)
+    service.record_resource_open(student.id, course_id, body)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── Build Learning Path ──────────────────────────────────────
@@ -237,3 +256,63 @@ def get_learning_path(
     """Read the personalized learning path."""
     service = _get_service(db, driver)
     return service.get_learning_path(student.id, course_id)
+
+
+@router.get(
+    "/{course_id}/readings/{resource_id}/content",
+    response_model=ReadingContentResponse,
+)
+async def get_reading_content(
+    course_id: int,
+    resource_id: str,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> ReadingContentResponse:
+    """Read extracted markdown for a path reading resource."""
+    service = _get_service(db, driver)
+    return await service.get_reading_content(student.id, course_id, resource_id)
+
+
+@router.get(
+    "/{course_id}/chapters/{chapter_index}/quiz",
+    response_model=ChapterQuizResponse,
+)
+def get_chapter_quiz(
+    course_id: int,
+    chapter_index: int,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> ChapterQuizResponse:
+    """Read the entry quiz for a chapter."""
+    service = _get_service(db, driver)
+    try:
+        return service.get_chapter_quiz(student.id, course_id, chapter_index)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{course_id}/chapters/{chapter_index}/quiz/submit",
+    response_model=QuizSubmitResponse,
+)
+def submit_chapter_quiz(
+    course_id: int,
+    chapter_index: int,
+    body: QuizSubmitRequest,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> QuizSubmitResponse:
+    """Submit the entry quiz for a chapter."""
+    service = _get_service(db, driver)
+    try:
+        return service.submit_chapter_quiz(
+            student.id,
+            course_id,
+            chapter_index,
+            body,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

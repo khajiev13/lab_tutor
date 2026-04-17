@@ -1,0 +1,130 @@
+digraph LabTutor {
+  graph [
+    rankdir=TB,
+    splines=ortho,
+    bgcolor="white",
+    pad=0.35,
+    nodesep=0.45,
+    ranksep=0.65,
+    fontname="Helvetica"
+  ];
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Helvetica",
+    fontsize=22,
+    margin="0.2,0.16",
+    penwidth=2.2
+  ];
+  edge [
+    color="#64748b",
+    penwidth=2.0,
+    arrowsize=0.8
+  ];
+
+  labtitle [
+    shape=plain,
+    label=<
+      <FONT FACE="Helvetica" POINT-SIZE="28"><B>Lab Tutor Task-Level Framework Overview</B></FONT>
+    >
+  ];
+
+  subgraph cluster_foundation {
+    label="Knowledge foundation";
+    style="rounded,filled";
+    color="#d4d4d8";
+    fillcolor="#f8fafc";
+    fontsize=20;
+    t1 [
+      fillcolor="#dbeafe",
+      color="#2563eb",
+      label=<
+        <B>Task 1</B><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="18">Document extraction</FONT><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="15">Teacher materials -&gt; chapters, concepts, embeddings</FONT>
+      >
+    ];
+  }
+
+  subgraph cluster_alignment {
+    label="Knowledge alignment";
+    style="rounded,filled";
+    color="#d4d4d8";
+    fillcolor="#f8fafc";
+    fontsize=20;
+    t2 [
+      fillcolor="#dcfce7",
+      color="#16a34a",
+      label=<
+        <B>Task 2</B><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="18">Textbook alignment</FONT><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="15">Curricular Alignment Architect</FONT><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="15">Books -&gt; book skills + prerequisites</FONT>
+      >
+    ];
+    t3 [
+      fillcolor="#ffedd5",
+      color="#ea580c",
+      label=<
+        <B>Task 3</B><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="18">Market alignment</FONT><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="15">Market Demand Analyst</FONT><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="15">Jobs -&gt; market skills</FONT>
+      >
+    ];
+    { rank=same; t2; t3; }
+  }
+
+  subgraph cluster_application {
+    label="Resource application";
+    style="rounded,filled";
+    color="#d4d4d8";
+    fillcolor="#f8fafc";
+    fontsize=20;
+    t4 [
+      fillcolor="#f3e8ff",
+      color="#9333ea",
+      label=<
+        <B>Task 4</B><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="18">Resource curation</FONT><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="15">Textual Resource Analyst + Video Agent</FONT><BR ALIGN="LEFT"/>
+        <FONT POINT-SIZE="15">Skills -&gt; readings + videos</FONT>
+      >
+    ];
+  }
+
+  graphdb [
+    fillcolor="#f8fafc",
+    color="#64748b",
+    label=<
+      <B>Shared Neo4j curriculum knowledge graph</B><BR ALIGN="LEFT"/>
+      <FONT POINT-SIZE="15">Unified coordination layer for chapters, concepts, book skills,</FONT><BR ALIGN="LEFT"/>
+      <FONT POINT-SIZE="15">market skills, and downstream resources</FONT>
+    >
+  ];
+
+  review [
+    shape=note,
+    style="filled",
+    fillcolor="#fef3c7",
+    color="#d97706",
+    fontsize=16,
+    label="Instructor review at textbook approval,\nskill curation, and concept review"
+  ];
+
+  labtitle -> t1 [style=invis];
+  t1 -> t2;
+  t1 -> t3;
+  t2 -> t4;
+  t3 -> t4;
+
+  t1 -> graphdb [style=dashed, color="#94a3b8", arrowhead=none];
+  t2 -> graphdb [style=dashed, color="#94a3b8", arrowhead=none];
+  t3 -> graphdb [style=dashed, color="#94a3b8", arrowhead=none];
+  t4 -> graphdb [style=dashed, color="#94a3b8", arrowhead=none];
+
+  review -> t2 [style=dotted, color="#d97706", arrowhead=none];
+  review -> t3 [style=dotted, color="#d97706", arrowhead=none];
+
+  { rank=same; review; }
+}

@@ -99,6 +99,48 @@ RETURN jp.url AS url
 """
 
 
+def _build_quiz_progress_map(progress_rows: list[dict]) -> dict[int, dict[str, int]]:
+    return {
+        row["chapter_index"]: {
+            "easy_question_count": row["easy_question_count"],
+            "answered_count": row["answered_count"],
+            "correct_count": row["correct_count"],
+        }
+        for row in progress_rows
+    }
+
+
+def resolve_quiz_statuses(progress_rows: list[dict]) -> dict[int, str]:
+    """Resolve sequential chapter quiz statuses for all selected-skill chapters."""
+    statuses: dict[int, str] = {}
+    prior_eligible_chapters_completed = True
+
+    for row in sorted(progress_rows, key=lambda item: item["chapter_index"]):
+        chapter_index = row["chapter_index"]
+        easy_question_count = int(row.get("easy_question_count", 0) or 0)
+        answered_count = int(row.get("answered_count", 0) or 0)
+        correct_count = int(row.get("correct_count", 0) or 0)
+
+        if easy_question_count <= 0:
+            statuses[chapter_index] = "learning"
+            continue
+
+        if not prior_eligible_chapters_completed:
+            statuses[chapter_index] = "locked"
+        elif correct_count >= easy_question_count:
+            statuses[chapter_index] = "completed"
+        elif answered_count > 0:
+            statuses[chapter_index] = "learning"
+        else:
+            statuses[chapter_index] = "quiz_required"
+
+        prior_eligible_chapters_completed = (
+            prior_eligible_chapters_completed and correct_count >= easy_question_count
+        )
+
+    return statuses
+
+
 def select_skills(
     session: Neo4jSession,
     student_id: int,
@@ -250,6 +292,127 @@ def deselect_job_posting(
     return record["orphans_deleted"] if record else 0
 
 
+def record_resource_open(
+    session: Neo4jSession,
+    *,
+    student_id: int,
+    resource_type: str,
+    url: str,
+) -> None:
+    """Track a student opening a reading or video resource."""
+
+    if resource_type == "reading":
+        resource_label = "READING_RESOURCE"
+        relationship_type = "OPENED_READING"
+    elif resource_type == "video":
+        resource_label = "VIDEO_RESOURCE"
+        relationship_type = "OPENED_VIDEO"
+    else:
+        raise ValueError(f"Unsupported resource type: {resource_type}")
+
+    result = session.run(
+        f"""
+        MATCH (u:USER:STUDENT {{id: $student_id}})
+        MATCH (r:{resource_label} {{url: $url}})
+        MERGE (u)-[rel:{relationship_type}]->(r)
+          ON CREATE SET
+            rel.first_opened_at = datetime(),
+            rel.last_opened_at = datetime(),
+            rel.open_count = 1,
+            rel.opened_at = [datetime()]
+          ON MATCH SET
+            rel.last_opened_at = datetime(),
+            rel.open_count = coalesce(rel.open_count, 0) + 1,
+            rel.opened_at = coalesce(rel.opened_at, []) + [datetime()]
+        RETURN rel.open_count AS open_count
+        """,
+        student_id=student_id,
+        url=url,
+    )
+    record = result.single()
+    if record is None:
+        logger.info(
+            "Skipping resource open tracking because the student or resource node was not found: student_id=%s resource_type=%s url=%s",
+            student_id,
+            resource_type,
+            url,
+        )
+
+
+def get_accessible_reading_resource(
+    session: Neo4jSession,
+    *,
+    student_id: int,
+    course_id: int,
+    resource_id: str,
+) -> dict | None:
+    """Return a reading resource only when it belongs to the student's path."""
+
+    result = session.run(
+        """
+        MATCH (:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
+        MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[:SELECTED_SKILL]-(:USER:STUDENT {id: $student_id})
+        MATCH (sk)-[:HAS_READING]->(rr:READING_RESOURCE {id: $resource_id})
+        WHERE NOT (
+            toLower(coalesce(rr.resource_type, '')) CONTAINS 'pdf'
+            OR toLower(coalesce(rr.url, '')) CONTAINS '.pdf'
+            OR toLower(coalesce(rr.search_result_url, '')) CONTAINS '.pdf'
+        )
+        WITH DISTINCT rr
+        RETURN rr {
+            id: coalesce(rr.id, ''),
+            title: coalesce(rr.title, 'Untitled reading'),
+            url: coalesce(rr.url, ''),
+            domain: coalesce(rr.domain, ''),
+            snippet: coalesce(rr.snippet, ''),
+            search_content: coalesce(rr.search_content, ''),
+            reader_status: coalesce(rr.reader_status, ''),
+            reader_content_markdown: coalesce(rr.reader_content_markdown, ''),
+            reader_error: coalesce(rr.reader_error, ''),
+            reader_extracted_at: toString(rr.reader_extracted_at)
+        } AS resource
+        LIMIT 1
+        """,
+        student_id=student_id,
+        course_id=course_id,
+        resource_id=resource_id,
+    )
+    record = result.single()
+    return record["resource"] if record else None
+
+
+def persist_reading_reader_cache(
+    session: Neo4jSession,
+    *,
+    resource_id: str,
+    reader_status: str,
+    reader_content_markdown: str,
+    reader_error: str,
+    reader_extracted_at: str,
+) -> bool:
+    """Persist in-app reader cache fields on the reading resource node."""
+
+    result = session.run(
+        """
+        MATCH (rr:READING_RESOURCE {id: $resource_id})
+        SET rr.reader_status = $reader_status,
+            rr.reader_content_markdown = $reader_content_markdown,
+            rr.reader_error = CASE
+                WHEN $reader_error = '' THEN NULL
+                ELSE $reader_error
+            END,
+            rr.reader_extracted_at = datetime($reader_extracted_at)
+        RETURN rr.id AS resource_id
+        """,
+        resource_id=resource_id,
+        reader_status=reader_status,
+        reader_content_markdown=reader_content_markdown,
+        reader_error=reader_error,
+        reader_extracted_at=reader_extracted_at,
+    )
+    return result.single() is not None
+
+
 def get_selected_skills(
     session: Neo4jSession,
     student_id: int,
@@ -342,6 +505,147 @@ def get_skill_resource_status(
     return status
 
 
+def get_chapter_easy_questions(
+    session: Neo4jSession,
+    student_id: int,
+    course_id: int,
+    chapter_index: int,
+) -> dict:
+    """Return easy quiz questions for the student's selected skills in a chapter."""
+    result = session.run(
+        """
+        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER {chapter_index: $chapter_index})
+        MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
+        MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION {difficulty: 'easy'})
+        OPTIONAL MATCH (u)-[a:ANSWERED]->(q)
+        RETURN ch.title AS chapter_title,
+               q.id AS id,
+               q.text AS text,
+               sk.name AS skill_name,
+               coalesce(q[$options_key], []) AS options,
+               CASE
+                   WHEN a IS NULL THEN NULL
+                   ELSE {
+                       selected_option: a.selected_option,
+                       answered_right: a.answered_right,
+                       answered_at: toString(a.answered_at)
+                   }
+               END AS previous_answer
+        ORDER BY sk.name
+        """,
+        student_id=student_id,
+        course_id=course_id,
+        chapter_index=chapter_index,
+        options_key=QUESTION_OPTIONS_KEY,
+    )
+
+    questions: list[dict] = []
+    previous_answers: dict[str, dict] = {}
+    chapter_title = ""
+
+    for record in result:
+        chapter_title = record["chapter_title"] or chapter_title
+        question = {
+            "id": record["id"],
+            "skill_name": record["skill_name"],
+            "text": record["text"],
+            "options": record["options"],
+        }
+        questions.append(question)
+
+        previous_answer = record["previous_answer"]
+        if previous_answer:
+            previous_answers[record["id"]] = previous_answer
+
+    return {
+        "chapter_title": chapter_title,
+        "questions": questions,
+        "previous_answers": previous_answers,
+    }
+
+
+def submit_chapter_answers(
+    session: Neo4jSession,
+    student_id: int,
+    course_id: int,
+    chapter_index: int,
+    submissions: list[dict[str, str]],
+) -> list[dict]:
+    """Persist entry-quiz answers for the student's selected skills in a chapter."""
+    result = session.run(
+        """
+        MATCH (u:USER:STUDENT {id: $student_id})
+        UNWIND $submissions AS sub
+        MATCH (q:QUESTION {id: sub.question_id, difficulty: 'easy'})
+        MATCH (sk:SKILL)-[:HAS_QUESTION]->(q)
+        MATCH (u)-[:SELECTED_SKILL]->(sk)
+        MATCH (sk)-[:MAPPED_TO]->(ch:COURSE_CHAPTER {chapter_index: $chapter_index})
+        MATCH (:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch)
+        WITH u, q, sk, sub,
+             (sub.selected_option = q[$correct_option_key]) AS correct
+        MERGE (u)-[a:ANSWERED]->(q)
+        ON CREATE SET
+            a.answered_at = datetime(),
+            a.answered_right = correct,
+            a.selected_option = sub.selected_option
+        ON MATCH SET
+            a.answered_at = CASE
+                WHEN coalesce(a.answered_right, false) = true AND correct = false
+                THEN a.answered_at
+                ELSE datetime()
+            END,
+            a.answered_right = CASE
+                WHEN coalesce(a.answered_right, false) = true THEN true
+                ELSE correct
+            END,
+            a.selected_option = CASE
+                WHEN coalesce(a.answered_right, false) = true AND correct = false
+                THEN a.selected_option
+                ELSE sub.selected_option
+            END
+        RETURN q.id AS question_id,
+               sk.name AS skill_name,
+               sub.selected_option AS selected_option,
+               correct AS answered_right,
+               q[$correct_option_key] AS correct_option
+        ORDER BY sk.name
+        """,
+        student_id=student_id,
+        course_id=course_id,
+        chapter_index=chapter_index,
+        submissions=submissions,
+        correct_option_key=QUESTION_CORRECT_OPTION_KEY,
+    )
+    return [record.data() if hasattr(record, "data") else record for record in result]
+
+
+def get_chapter_quiz_progress(
+    session: Neo4jSession,
+    student_id: int,
+    course_id: int,
+) -> list[dict]:
+    """Return easy-question counts and answer counts for selected-skill chapters."""
+    result = session.run(
+        """
+        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
+        WHERE EXISTS {
+            MATCH (ch)<-[:MAPPED_TO]-(:SKILL)<-[:SELECTED_SKILL]-(:USER:STUDENT {id: $student_id})
+        }
+        OPTIONAL MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
+        OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION {difficulty: 'easy'})
+        OPTIONAL MATCH (u)-[a:ANSWERED]->(q)
+        RETURN ch.chapter_index AS chapter_index,
+               count(DISTINCT q) AS easy_question_count,
+               count(DISTINCT CASE WHEN a IS NULL THEN NULL ELSE q END) AS answered_count,
+               count(DISTINCT CASE WHEN a.answered_right = true THEN q ELSE NULL END) AS correct_count
+        ORDER BY ch.chapter_index
+        """,
+        student_id=student_id,
+        course_id=course_id,
+    )
+    return [record.data() if hasattr(record, "data") else record for record in result]
+
+
 def get_learning_path(
     session: Neo4jSession,
     student_id: int,
@@ -355,11 +659,11 @@ def get_learning_path(
     ).single()
     course_title = course_row["title"] if course_row else ""
 
-    # Get chapters with selected skills and their resources using nested COLLECT
+    # Get every course chapter. Chapters without selected skills should still
+    # render in the UI with an empty selected_skills list.
     result = session.run(
         """
         MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
-        WHERE EXISTS { (ch)<-[:MAPPED_TO]-()<-[:SELECTED_SKILL]-(:USER:STUDENT {id: $student_id}) }
         WITH ch ORDER BY ch.chapter_index
         RETURN ch {
             .title,
@@ -372,8 +676,17 @@ def get_learning_path(
                     .description,
                     source: sel.source,
                     skill_type: CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
+                    is_known: EXISTS {
+                        MATCH (:USER:STUDENT {id: $student_id})-[a:ANSWERED {answered_right: true}]->(:QUESTION {difficulty: 'easy'})<-[:HAS_QUESTION]-(sk)
+                    },
                     concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c { .name, .description }],
-                    readings: [(sk)-[:HAS_READING]->(rr:READING_RESOURCE) | rr {
+                    readings: [(sk)-[:HAS_READING]->(rr:READING_RESOURCE)
+                        WHERE NOT (
+                            toLower(coalesce(rr.resource_type, '')) CONTAINS 'pdf'
+                            OR toLower(coalesce(rr.url, '')) CONTAINS '.pdf'
+                            OR toLower(coalesce(rr.search_result_url, '')) CONTAINS '.pdf'
+                        ) | rr {
+                        id: coalesce(rr.id, ''),
                         .title, .url,
                         domain: coalesce(rr.domain, ''),
                         snippet: coalesce(rr.snippet, ''),
@@ -387,6 +700,7 @@ def get_learning_path(
                         concepts_covered: coalesce(rr.concepts_covered, [])
                     }],
                     videos: [(sk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr {
+                        id: coalesce(vr.id, ''),
                         .title, .url,
                         domain: coalesce(vr.domain, ''),
                         snippet: coalesce(vr.snippet, ''),
@@ -406,8 +720,6 @@ def get_learning_path(
                             .id,
                             .text,
                             .difficulty,
-                            .answer,
-                            correct_option: q[$correct_option_key],
                             options: coalesce(q[$options_key], [])
                         } AS question
                         ORDER BY CASE q.difficulty
@@ -424,15 +736,25 @@ def get_learning_path(
         student_id=student_id,
         course_id=course_id,
         options_key=QUESTION_OPTIONS_KEY,
-        correct_option_key=QUESTION_CORRECT_OPTION_KEY,
     )
 
     chapters = []
     total_skills = 0
     skills_with_resources = 0
+    progress_rows = get_chapter_quiz_progress(session, student_id, course_id)
+    quiz_progress_by_chapter = _build_quiz_progress_map(progress_rows)
+    quiz_status_by_chapter = resolve_quiz_statuses(progress_rows)
 
     for r in result:
         ch = r["chapter"]
+        quiz_progress = quiz_progress_by_chapter.get(
+            ch["chapter_index"],
+            {"easy_question_count": 0, "answered_count": 0, "correct_count": 0},
+        )
+        ch["easy_question_count"] = quiz_progress["easy_question_count"]
+        ch["answered_count"] = quiz_progress["answered_count"]
+        ch["correct_count"] = quiz_progress["correct_count"]
+        ch["quiz_status"] = quiz_status_by_chapter.get(ch["chapter_index"], "locked")
         # Populate resource_status and counts
         for sk in ch["selected_skills"]:
             has_resources = (

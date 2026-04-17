@@ -7,14 +7,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import {
   Popover,
@@ -30,23 +29,28 @@ import {
   Briefcase,
   Building2,
   CheckCircle2,
+  ChevronRight,
   ExternalLink,
   Globe,
-  HelpCircle,
   Library,
   Loader2,
+  Lock,
   Search,
   Sparkles,
   Users,
+  PlayCircle,
   Video,
+  BadgeCheck,
 } from 'lucide-react';
 import {
   buildLearningPath,
+  type BuildProgressEvent,
+  type BuildSelectedSkillInput,
   getLearningPath,
   getSkillBanks,
   streamBuildProgress,
-  type BuildSelectedSkillInput,
-  type BuildProgressEvent,
+  trackResourceOpen,
+  type LearningPathChapter,
   type LearningPathResponse,
   type PrerequisiteEdge,
   type SkillBanksResponse,
@@ -58,6 +62,13 @@ import {
   PrerequisiteReviewDialog,
   type PrerequisiteReviewItem,
 } from '../components/PrerequisiteReviewDialog';
+import {
+  type ActiveLearningPathResource,
+  buildLearningPathStudyRoute,
+  getVisibleReadingResources,
+  toActiveReadingResource,
+  toActiveVideoResource,
+} from '../resource-utils';
 
 const DEFAULT_SELECTION_RANGE = {
   min_skills: 20,
@@ -188,7 +199,6 @@ export default function StudentLearningPathPage() {
       ),
     [activeAcknowledgedKnownSkills, directPrerequisiteIndex, selectedSkills],
   );
-
   const toggleSkill = useCallback(
     (skillName: string, source: 'book' | 'market') => {
       setDraftSelectedSkills((prev) => {
@@ -295,11 +305,11 @@ export default function StudentLearningPathPage() {
               toast.warning(
                 `Learning path built, but ${skillsMissingQuestions} skill${
                   skillsMissingQuestions === 1 ? '' : 's'
-                } still have no questions. If you recently changed the backend code, restart it and rebuild.`,
+                } still have no questions. If you recently changed the backend code, restart it and refresh this page.`,
               );
             } else if (buildHadQuestionErrorsRef.current) {
               toast.warning(
-                'Learning path built with some question-generation issues. Try rebuilding to backfill missing questions.',
+                'Learning path built with some question-generation issues. Some questions may take longer to appear.',
               );
             } else {
               toast.success('Learning path built successfully!');
@@ -439,6 +449,8 @@ export default function StudentLearningPathPage() {
     (total, posting) => total + posting.skills.length,
     0,
   );
+  const hasLearningPathChapters = (learningPath?.chapters.length ?? 0) > 0;
+  const showHeroBuildButton = !selectionLocked || !hasLearningPathChapters;
 
   const isSelectionCountInRange =
     selectedSkills.size >= selectionRange.min_skills &&
@@ -447,7 +459,9 @@ export default function StudentLearningPathPage() {
     ? 'Study mode'
     : `${selectedSkills.size} of ${selectionRange.min_skills}-${selectionRange.max_skills} skills selected`;
   const selectionHelperText = selectionLocked
-    ? 'Your saved learning path is ready to study and rebuild when needed.'
+    ? hasLearningPathChapters
+      ? 'Your saved learning path is ready to study.'
+      : 'Your skill choices are locked in. Build the learning path to finish loading your study surface.'
     : isSelectionCountInRange
       ? 'Your current draft is within the course range. Build after you review any prerequisite gaps.'
       : selectedSkills.size < selectionRange.min_skills
@@ -489,23 +503,25 @@ export default function StudentLearningPathPage() {
               >
                 {selectionStatusLabel}
               </Badge>
-              <Button
-                onClick={handleBuild}
-                disabled={isBuilding || (!selectionLocked && selectedSkills.size === 0)}
-                size="lg"
-                className="gap-2 shadow-sm"
-              >
-                {isBuilding ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {isBuilding
-                  ? 'Building...'
-                  : selectionLocked
-                    ? 'Rebuild Learning Path'
-                    : 'Build My Learning Path'}
-              </Button>
+              {showHeroBuildButton && (
+                <Button
+                  onClick={handleBuild}
+                  disabled={isBuilding || (!selectionLocked && selectedSkills.size === 0)}
+                  size="lg"
+                  className="gap-2 shadow-sm"
+                >
+                  {isBuilding ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {isBuilding
+                    ? 'Building...'
+                    : selectionLocked
+                      ? 'Build Learning Path'
+                      : 'Build My Learning Path'}
+                </Button>
+              )}
             </div>
           </div>
 
@@ -708,51 +724,55 @@ export default function StudentLearningPathPage() {
 
                       return (
                         <AccordionItem key={posting.url} value={`job-${posting.url}`}>
-                          <AccordionTrigger className="gap-3 hover:no-underline">
-                            <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                                <Briefcase className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0 space-y-1">
-                                <p className="truncate font-medium">{posting.title}</p>
-                                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                  {posting.company && (
-                                    <span className="inline-flex items-center gap-1">
-                                      <Building2 className="h-3 w-3" />
-                                      {posting.company}
-                                    </span>
-                                  )}
-                                  <span className="inline-flex items-center gap-1">
-                                    <Globe className="h-3 w-3" />
-                                    {posting.site || 'Job posting'}
-                                  </span>
+                          <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start">
+                            <div className="min-w-0 flex-1">
+                              <AccordionTrigger className="gap-3 py-0 hover:no-underline">
+                                <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                    <Briefcase className="h-4 w-4" />
+                                  </div>
+                                  <div className="min-w-0 space-y-1">
+                                    <p className="truncate font-medium">{posting.title}</p>
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                      {posting.company && (
+                                        <span className="inline-flex items-center gap-1">
+                                          <Building2 className="h-3 w-3" />
+                                          {posting.company}
+                                        </span>
+                                      )}
+                                      <span className="inline-flex items-center gap-1">
+                                        <Globe className="h-3 w-3" />
+                                        {posting.site || 'Job posting'}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
+
+                                <div className="flex flex-wrap items-center gap-2 pr-1">
+                                  <Badge
+                                    variant={isInterested ? 'default' : 'secondary'}
+                                    className="shrink-0"
+                                  >
+                                    {isInterested ? 'Interested' : 'Not interested'}
+                                  </Badge>
+                                  <Badge variant="outline" className="shrink-0">
+                                    {posting.skills.length} skills
+                                  </Badge>
+                                </div>
+                              </AccordionTrigger>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <Badge variant={isInterested ? 'default' : 'secondary'} className="shrink-0">
-                                {isInterested ? 'Interested' : 'Not interested'}
-                              </Badge>
-                              <Badge variant="outline" className="shrink-0">
-                                {posting.skills.length} skills
-                              </Badge>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={isInterested ? 'default' : 'outline'}
-                                className="gap-1.5"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  toggleJobPosting(posting);
-                                }}
-                              >
-                                <Sparkles className="h-3.5 w-3.5" />
-                                {isInterested ? 'Saved' : 'Save'}
-                              </Button>
-                            </div>
-                          </AccordionTrigger>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={isInterested ? 'default' : 'outline'}
+                              className="gap-1.5 self-start"
+                              onClick={() => toggleJobPosting(posting)}
+                            >
+                              <Sparkles className="h-3.5 w-3.5" />
+                              {isInterested ? 'Saved' : 'Save'}
+                            </Button>
+                          </div>
                           <AccordionContent>
                             <div className="space-y-3 pl-2 pt-1">
                               <a
@@ -806,124 +826,24 @@ export default function StudentLearningPathPage() {
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
                 <Sparkles className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-                <p>No learning path yet. Click &quot;Build My Learning Path&quot; to get started.</p>
+                <p>Your skills are already fixed. Build the learning path to finish loading your study surface.</p>
               </CardContent>
             </Card>
           ) : (
-            <Accordion
-              type="multiple"
-              defaultValue={learningPath.chapters.length > 0 ? ['ch-0'] : []}
-            >
-              {learningPath.chapters.map((chapter, chIdx) => (
-                <AccordionItem key={chIdx} value={`ch-${chIdx}`}>
-                  <AccordionTrigger className="text-lg font-semibold">
-                    Chapter {chapter.chapter_index}: {chapter.title}
-                    <Badge variant="outline" className="ml-2">
-                      {chapter.selected_skills.length} skills
-                    </Badge>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="flex flex-col gap-4 pl-4">
-                      {chapter.selected_skills.map((skill) => (
-                        <Card key={skill.name} className="overflow-hidden">
-                          <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-base">{skill.name}</CardTitle>
-                              <Badge variant={skill.resource_status === 'loaded' ? 'default' : 'secondary'}>
-                                {skill.resource_status === 'loaded' ? 'Ready' : 'Pending'}
-                              </Badge>
-                            </div>
-                            {skill.description && (
-                              <CardDescription>{skill.description}</CardDescription>
-                            )}
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            {skill.readings.length > 0 && (
-                              <div>
-                                <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                                  <BookOpen className="h-4 w-4 text-blue-500" />
-                                  Reading Resources
-                                </h4>
-                                <div className="grid gap-2">
-                                  {skill.readings.map((r, i) => (
-                                    <a
-                                      key={i}
-                                      href={r.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-start gap-2 rounded-md border p-2 text-sm transition-colors hover:bg-accent"
-                                    >
-                                      <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                      <div className="min-w-0">
-                                        <p className="truncate font-medium">{r.title}</p>
-                                        <p className="truncate text-xs text-muted-foreground">{r.domain}</p>
-                                      </div>
-                                    </a>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {skill.videos.length > 0 && (
-                              <div>
-                                <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                                  <Video className="h-4 w-4 text-red-500" />
-                                  Video Resources
-                                </h4>
-                                <div className="grid gap-2">
-                                  {skill.videos.map((v, i) => (
-                                    <a
-                                      key={i}
-                                      href={v.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-start gap-2 rounded-md border p-2 text-sm transition-colors hover:bg-accent"
-                                    >
-                                      <Video className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                                      <div className="min-w-0">
-                                        <p className="truncate font-medium">{v.title}</p>
-                                        <p className="truncate text-xs text-muted-foreground">{v.domain}</p>
-                                      </div>
-                                    </a>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {skill.questions.length > 0 && (
-                              <>
-                                <Separator />
-                                <div>
-                                  <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                                    <HelpCircle className="h-4 w-4 text-amber-500" />
-                                    Self-Assessment Questions
-                                  </h4>
-                                  <div className="flex flex-col gap-2">
-                                    {skill.questions.map((q, i) => (
-                                      <QuestionCard key={i} question={q} />
-                                    ))}
-                                  </div>
-                                </div>
-                              </>
-                            )}
-
-                            {skill.questions.length === 0 &&
-                              (skill.readings.length > 0 || skill.videos.length > 0) && (
-                                <>
-                                  <Separator />
-                                  <div className="rounded-md border border-amber-200/60 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
-                                    Questions are not available yet. Try rebuilding the learning path.
-                                  </div>
-                                </>
-                              )}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+            <div className="space-y-4">
+              {learningPath.chapters.map((chapter) => (
+                <LearningPathChapterCard
+                  key={chapter.chapter_index}
+                  chapter={chapter}
+                  courseId={numericCourseId}
+                  onOpenResource={(resource) =>
+                    navigate(buildLearningPathStudyRoute(numericCourseId, resource), {
+                      state: { fromLearningPath: true },
+                    })
+                  }
+                />
               ))}
-            </Accordion>
+            </div>
           )}
         </section>
       )}
@@ -1090,24 +1010,37 @@ function SkillChip({
         <Popover>
           <PopoverTrigger asChild>
             <Button type="button" size="sm" variant="outline" className="h-8 rounded-full px-2.5 text-[11px]">
-              Requires {directPrerequisites.length}
+              {directPrerequisites.length} prerequisite{directPrerequisites.length === 1 ? '' : 's'}
             </Button>
           </PopoverTrigger>
           <PopoverContent align="start" className="w-80">
             <PopoverHeader>
-              <PopoverTitle>Direct prerequisites</PopoverTitle>
+              <PopoverTitle>Prerequisite chain</PopoverTitle>
               <PopoverDescription>
-                These skills are linked as foundations for {skill.name}.
+                Learn these skills before {skill.name}.
               </PopoverDescription>
             </PopoverHeader>
             <div className="mt-3 space-y-3">
               {directPrerequisites.map((prerequisite) => (
-                <div key={`${skill.name}-${prerequisite.prerequisite_name}`} className="space-y-1">
+                <div key={`${skill.name}-${prerequisite.prerequisite_name}`} className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium">{prerequisite.prerequisite_name}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      Must learn first
+                    </p>
                     <Badge variant="outline" className="text-[10px]">
                       {formatPrerequisiteConfidence(prerequisite.confidence)}
                     </Badge>
+                  </div>
+                  <div className="grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{prerequisite.prerequisite_name}</p>
+                    </div>
+                    <div className="flex items-center justify-center text-muted-foreground">
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{skill.name}</p>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {prerequisite.reasoning || 'Marked as a prerequisite in the course graph.'}
@@ -1142,65 +1075,354 @@ function EmptySkillBank({
   );
 }
 
-function QuestionCard({ question }: { question: QuestionWithOptions }) {
-  const [showAnswer, setShowAnswer] = useState(false);
-  const difficultyColors: Record<string, string> = {
-    easy: 'bg-green-500/10 text-green-700 dark:text-green-400',
-    medium: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-    hard: 'bg-red-500/10 text-red-700 dark:text-red-400',
-  };
-  const optionLabels = ['A', 'B', 'C', 'D'];
-  const hasOptions = Array.isArray(question.options) && question.options.length === 4;
-  const options: string[] = hasOptions ? question.options ?? [] : [];
+function LearningPathChapterCard({
+  chapter,
+  courseId,
+  onOpenResource,
+}: {
+  chapter: LearningPathChapter;
+  courseId: number;
+  onOpenResource: (resource: ActiveLearningPathResource) => void;
+}) {
+  const hasSelectedSkills = chapter.selected_skills.length > 0;
+  const statusMeta = hasSelectedSkills
+    ? getChapterStatusMeta(chapter.quiz_status)
+    : {
+        label: 'No selected skills',
+        variant: 'secondary' as const,
+        icon: <Library className="h-4 w-4 text-muted-foreground" />,
+      };
+  const skillAccordionDefaultValue = chapter.selected_skills
+    .filter((skill) => !skill.is_known)
+    .map((skill) => skill.name);
 
   return (
-    <div className="space-y-2 rounded-md border p-3">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm">{question.text}</p>
-        <Badge className={`shrink-0 ${difficultyColors[question.difficulty] || ''}`}>
-          {question.difficulty}
-        </Badge>
-      </div>
-      {hasOptions && (
-        <div className="grid gap-2">
-          {options.map((option, index) => {
-            const label = optionLabels[index] || String(index + 1);
-            const isCorrect = label === question.correct_option;
+    <Card className="border-border/60 shadow-none">
+      <CardHeader className="space-y-3 border-b border-border/60">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              {statusMeta.icon}
+              Chapter {chapter.chapter_index}: {chapter.title}
+            </CardTitle>
+            {chapter.description && <CardDescription>{chapter.description}</CardDescription>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={statusMeta.variant} className="rounded-full">
+              {statusMeta.label}
+            </Badge>
+            {hasSelectedSkills &&
+              chapter.easy_question_count > 0 &&
+              (chapter.quiz_status === 'learning' || chapter.quiz_status === 'completed') && (
+              <Button asChild size="sm" variant="outline" className="gap-2 rounded-full">
+                <Link to={`/courses/${courseId}/learning-path/chapters/${chapter.chapter_index}/quiz`}>
+                  <PlayCircle className="h-4 w-4" />
+                  Retake diagnostic
+                </Link>
+              </Button>
+            )}
+            {hasSelectedSkills && chapter.easy_question_count > 0 && (
+              <Badge variant="outline" className="rounded-full">
+                {chapter.correct_count}/{chapter.easy_question_count} correct
+              </Badge>
+            )}
+            <Badge variant="secondary" className="rounded-full">
+              {chapter.selected_skills.length} skills
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-6">
+        {!hasSelectedSkills && <ChapterWithoutSelectedSkillsState />}
 
-            return (
-              <div
-                key={`${label}-${option}`}
-                className={`rounded-md border px-3 py-2 text-sm transition-colors ${
-                  showAnswer
-                    ? isCorrect
-                      ? 'border-green-500/40 bg-green-500/10 text-green-800 dark:text-green-300'
-                      : 'bg-background'
-                    : 'bg-background'
-                }`}
-              >
-                <span className="mr-2 font-medium">{label}.</span>
-                <span>{option}</span>
+        {hasSelectedSkills && chapter.quiz_status === 'locked' && (
+          <ChapterLockedState chapterIndex={chapter.chapter_index} />
+        )}
+
+        {hasSelectedSkills && chapter.easy_question_count > 0 && chapter.quiz_status === 'quiz_required' && (
+          <ChapterQuizRequiredState courseId={courseId} chapterIndex={chapter.chapter_index} />
+        )}
+
+        {hasSelectedSkills && (chapter.quiz_status === 'learning' || chapter.quiz_status === 'completed') && (
+          <div className="space-y-4">
+            {chapter.quiz_status === 'completed' && (
+              <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100">
+                <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0" />
+                <div>
+                  <p className="font-medium">Chapter completed</p>
+                  <p className="mt-1 text-sm opacity-90">
+                    This chapter is fully unlocked. Review any known skills whenever you need a refresh.
+                  </p>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      )}
-      <Button variant="ghost" size="sm" onClick={() => setShowAnswer(!showAnswer)}>
-        {showAnswer ? 'Hide Answer' : 'Show Answer'}
-      </Button>
-      {showAnswer && (
-        <div className="animate-in space-y-1 rounded-md bg-muted p-2 text-sm text-muted-foreground fade-in-0 slide-in-from-top-1">
-          {question.correct_option && (
-            <p>
-              <span className="font-medium text-foreground">Correct answer:</span>{' '}
-              {question.correct_option}
-            </p>
-          )}
-          <p>{question.answer}</p>
-        </div>
-      )}
+            )}
+
+            <Accordion type="multiple" defaultValue={skillAccordionDefaultValue}>
+              {chapter.selected_skills.map((skill) => {
+                const visibleReadings = getVisibleReadingResources(skill.readings);
+                const hasVisibleResources = visibleReadings.length > 0 || skill.videos.length > 0;
+                const effectiveResourceStatus = hasVisibleResources ? skill.resource_status : 'pending';
+
+                return (
+                  <AccordionItem
+                    key={skill.name}
+                    value={skill.name}
+                    className="rounded-2xl border border-border/60 px-0"
+                  >
+                    <AccordionTrigger className="px-4 py-4 hover:no-underline">
+                      <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-background text-muted-foreground">
+                          <BookOpen className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{skill.name}</p>
+                            {skill.is_known && (
+                              <Badge variant="secondary" className="rounded-full">
+                                Known · Review anyway
+                              </Badge>
+                            )}
+                            <Badge
+                              variant={effectiveResourceStatus === 'loaded' ? 'default' : 'secondary'}
+                              className="rounded-full"
+                            >
+                              {effectiveResourceStatus === 'loaded' ? 'Ready' : 'Pending'}
+                            </Badge>
+                          </div>
+                          {skill.description && (
+                            <p className="text-xs text-muted-foreground">{skill.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4 pl-4 pr-2">
+                        {visibleReadings.length > 0 && (
+                          <div>
+                            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                              <BookOpen className="h-4 w-4 text-blue-500" />
+                              Reading Resources
+                            </h4>
+                            <div className="grid gap-2">
+                              {visibleReadings.map((reading) => (
+                                <LearningPathResourceRow
+                                  key={reading.id}
+                                  domain={reading.domain}
+                                  icon={<BookOpen className="h-4 w-4 text-blue-500" />}
+                                  title={reading.title}
+                                  url={reading.url}
+                                  onOpenViewer={() => {
+                                    void trackResourceOpen(courseId, {
+                                      resource_type: 'reading',
+                                      url: reading.url,
+                                    });
+                                    onOpenResource(toActiveReadingResource(reading));
+                                  }}
+                                  onOpenSource={() => {
+                                    void trackResourceOpen(courseId, {
+                                      resource_type: 'reading',
+                                      url: reading.url,
+                                    });
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {skill.videos.length > 0 && (
+                          <div>
+                            <h4 className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                              <Video className="h-4 w-4 text-red-500" />
+                              Video Resources
+                            </h4>
+                            <div className="grid gap-2">
+                              {skill.videos.map((video) => (
+                                <LearningPathResourceRow
+                                  key={video.id}
+                                  domain={video.domain}
+                                  icon={<Video className="h-4 w-4 text-red-500" />}
+                                  title={video.title}
+                                  url={video.url}
+                                  onOpenViewer={() => {
+                                    void trackResourceOpen(courseId, {
+                                      resource_type: 'video',
+                                      url: video.url,
+                                    });
+                                    onOpenResource(toActiveVideoResource(video));
+                                  }}
+                                  onOpenSource={() => {
+                                    void trackResourceOpen(courseId, {
+                                      resource_type: 'video',
+                                      url: video.url,
+                                    });
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {visibleReadings.length === 0 && skill.videos.length === 0 && (
+                          <div className="rounded-md border border-amber-200/60 bg-amber-50/80 p-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
+                            No reading or video resources are available yet for this skill.
+                          </div>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChapterWithoutSelectedSkillsState() {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-background text-muted-foreground">
+        <Library className="h-4 w-4" />
+      </div>
+      <div className="space-y-1">
+        <p className="font-medium">No selected skills in this chapter yet.</p>
+        <p className="text-sm text-muted-foreground">
+          This chapter is still part of the course structure, but your current learning path does not map any selected skills into it.
+        </p>
+      </div>
     </div>
   );
+}
+
+function ChapterLockedState({ chapterIndex }: { chapterIndex: number }) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-background text-muted-foreground">
+        <Lock className="h-4 w-4" />
+      </div>
+      <div className="space-y-1">
+        <p className="font-medium">Complete the previous chapter to unlock.</p>
+        <p className="text-sm text-muted-foreground">
+          Chapter {chapterIndex} stays locked until every question in the previous chapter is answered correctly.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ChapterQuizRequiredState({
+  courseId,
+  chapterIndex,
+}: {
+  courseId: number;
+  chapterIndex: number;
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-muted/20 p-4 md:flex-row md:items-center md:justify-between">
+      <div className="space-y-1">
+        <p className="font-medium">Start chapter - take quiz</p>
+        <p className="text-sm text-muted-foreground">
+          Answer one easy question per selected skill before the learning surface opens.
+        </p>
+      </div>
+      <Button asChild className="gap-2">
+        <Link to={`/courses/${courseId}/learning-path/chapters/${chapterIndex}/quiz`}>
+          <PlayCircle className="h-4 w-4" />
+          Start chapter - take quiz
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
+function LearningPathResourceRow({
+  domain,
+  icon,
+  title,
+  url,
+  onOpenViewer,
+  onOpenSource,
+}: {
+  domain: string;
+  icon: ReactNode;
+  title: string;
+  url: string;
+  onOpenViewer: () => void;
+  onOpenSource: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpenViewer}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpenViewer();
+        }
+      }}
+      aria-label={`Open ${title} in viewer`}
+      className="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-border/60 p-3 text-sm transition-colors hover:bg-accent"
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="mt-0.5 shrink-0">{icon}</div>
+        <div className="min-w-0">
+          <p className="truncate font-medium">{title}</p>
+          <p className="truncate text-xs text-muted-foreground">{domain || 'External source'}</p>
+        </div>
+      </div>
+
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Open source for ${title}`}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onOpenSource();
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }}
+        className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+      >
+        Open source
+        <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+    </div>
+  );
+}
+
+function getChapterStatusMeta(status: LearningPathChapter['quiz_status']) {
+  switch (status) {
+    case 'locked':
+      return {
+        label: 'Locked',
+        variant: 'secondary' as const,
+        icon: <Lock className="h-4 w-4 text-muted-foreground" />,
+      };
+    case 'quiz_required':
+      return {
+        label: 'Quiz required',
+        variant: 'outline' as const,
+        icon: <PlayCircle className="h-4 w-4 text-blue-600" />,
+      };
+    case 'completed':
+      return {
+        label: 'Completed',
+        variant: 'default' as const,
+        icon: <BadgeCheck className="h-4 w-4 text-emerald-600" />,
+      };
+    case 'learning':
+    default:
+      return {
+        label: 'Learning',
+        variant: 'outline' as const,
+        icon: <BookOpen className="h-4 w-4 text-blue-600" />,
+      };
+  }
 }
 
 function formatPrerequisiteConfidence(confidence: 'high' | 'medium' | 'low') {
@@ -1291,14 +1513,6 @@ function inferPrerequisiteSource(
   );
   return isBookSkill ? 'book' : 'market';
 }
-
-type QuestionWithOptions = {
-  text: string;
-  difficulty: string;
-  answer: string;
-  options?: string[];
-  correct_option?: 'A' | 'B' | 'C' | 'D' | null;
-};
 
 function matchesSearch(query: string, ...values: Array<string | null | undefined>): boolean {
   if (!query) {

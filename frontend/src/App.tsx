@@ -13,7 +13,9 @@ import ArchitectAgentPage from '@/features/courses/pages/ArchitectAgentPage';
 import CurriculumPage from '@/features/curriculum/pages/CurriculumPage';
 import MergeReviewPage from '@/features/normalization/pages/MergeReviewPage';
 import MarketDemandPage from '@/features/market-demand/pages/MarketDemandPage';
+import ChapterQuizPage from '@/features/student-learning-path/pages/ChapterQuizPage';
 import StudentLearningPathPage from '@/features/student-learning-path/pages/StudentLearningPathPage';
+import StudentLearningPathStudyPage from '@/features/student-learning-path/pages/StudentLearningPathStudyPage';
 import Profile from '@/features/auth/pages/Profile';
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -34,7 +36,13 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
 }
 
 // Protected Route component
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({
+  children,
+  withDashboardLayout = true,
+}: {
+  children: React.ReactNode;
+  withDashboardLayout?: boolean;
+}) {
   const { isAuthenticated, isLoading, isServerWakingUp } = useAuth();
 
   if (isLoading) {
@@ -54,11 +62,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return (
-    <DashboardLayout>
-      {children}
-    </DashboardLayout>
-  );
+  if (!withDashboardLayout) {
+    return <>{children}</>;
+  }
+
+  return <DashboardLayout>{children}</DashboardLayout>;
 }
 
 // Public Route component (redirects to home if already authenticated)
@@ -150,6 +158,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <StudentLearningPathPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id/learning-path/study/:resourceKind/:resourceId"
+        element={
+          <ProtectedRoute withDashboardLayout={false}>
+            <StudentLearningPathStudyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/courses/:id/learning-path/chapters/:chapterIndex/quiz"
+        element={
+          <ProtectedRoute>
+            <ChapterQuizPage />
           </ProtectedRoute>
         }
       />
