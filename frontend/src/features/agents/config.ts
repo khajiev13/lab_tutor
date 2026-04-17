@@ -3,6 +3,7 @@ import {
   TrendingUp,
   BookOpenText,
   Video,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -57,6 +58,16 @@ export const AGENTS: AgentConfig[] = [
     route: "video-agent",
     enabled: true,
     color: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400",
+  },
+  {
+    id: "arcd",
+    name: "ARCD Agent",
+    description:
+      "Adaptive Review & Cognitive Diagnosis — student profiling, learning path, review sessions, and digital twin.",
+    icon: Sparkles,
+    route: "arcd",
+    enabled: true,
+    color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400",
   },
 ];
 

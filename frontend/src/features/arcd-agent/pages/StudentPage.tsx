@@ -36,8 +36,8 @@ export default function StudentPage() {
             </Badge>
           )}
           {!twinLoading && !twinMatched && (
-            <Badge variant="outline" className="text-xs text-muted-foreground">
-              Client-side mode · no twin match
+            <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400 border-amber-500/40">
+              Twin not yet available
             </Badge>
           )}
         </div>

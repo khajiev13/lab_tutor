@@ -17,6 +17,8 @@ import ChapterQuizPage from '@/features/student-learning-path/pages/ChapterQuizP
 import StudentLearningPathPage from '@/features/student-learning-path/pages/StudentLearningPathPage';
 import StudentLearningPathStudyPage from '@/features/student-learning-path/pages/StudentLearningPathStudyPage';
 import Profile from '@/features/auth/pages/Profile';
+import { lazy, Suspense } from 'react';
+const ArcdAgentShell = lazy(() => import('@/features/arcd-agent/ArcdAgentShell'));
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -198,6 +200,17 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      {/* ARCD Agent — nested sub-routes under each course */}
+      <Route
+        path="/courses/:id/arcd/*"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+              <ArcdAgentShell />
+            </Suspense>
           </ProtectedRoute>
         }
       />
