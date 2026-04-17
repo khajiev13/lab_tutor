@@ -19,7 +19,6 @@ export function ExercisePanel({ skillName, courseId, onAnswer }: ExercisePanelPr
   const [submitted, setSubmitted] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [hintIdx, setHintIdx] = useState(0);
-  const [startTime] = useState(Date.now());
 
   const loadExercise = async () => {
     setLoading(true);
@@ -41,13 +40,13 @@ export function ExercisePanel({ skillName, courseId, onAnswer }: ExercisePanelPr
     if (!exercise || !selectedOption) return;
     setSubmitted(true);
     const isCorrect = selectedOption === exercise.correct_answer;
-    const timeSpent = Math.round((Date.now() - startTime) / 1000);
 
     try {
       await diagnosisApi.logInteraction({
         question_id: exercise.exercise_id,
-        is_correct: isCorrect,
-        time_spent_sec: timeSpent,
+        answered_right: isCorrect,
+        selected_option: selectedOption ?? undefined,
+        answered_at: new Date().toISOString(),
         course_id: courseId,
       });
     } catch {

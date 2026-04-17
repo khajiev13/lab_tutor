@@ -219,7 +219,12 @@ def compute_mastery_ground_truth(
     for student in students:
         uid = student["student_id"]
         theta = student["theta"]
-        for skill_id in all_skills:
+        # Only compute mastery for the skills this student actually selected.
+        # Computing for all_skills would create MASTERED edges for skills the
+        # student never practised, inflating dashboard skill counts.
+        selected = student.get("selected_skills")
+        student_skills = [s for s in (selected if selected else all_skills) if s in skill_to_qs]
+        for skill_id in student_skills:
             raw_mastery = float(sigmoid(theta - skill_mean_b[skill_id]))
             key = (uid, skill_id)
             last_ts = last_ts_map.get(key, 0)

@@ -120,7 +120,6 @@ export function WhatIfPanel({ courseId }: { courseId: number }) {
         skills: manualPayload,
         top_k: topK,
         target_gain: targetGain,
-        delta: targetGain,
         enable_llm: enableLlm,
       });
       setResult(resp.data);

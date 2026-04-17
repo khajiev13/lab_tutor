@@ -291,6 +291,8 @@ function OverviewTab({ lastSimResult, lastWhatIfResult, onNavigate }: OverviewTa
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* ── Left column: Mastery Distribution + Skill Popularity ── */}
+        <div className="space-y-5">
         {/* ── Mastery Distribution ── */}
         <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900">
           <CardHeader className="pb-2">
@@ -348,6 +350,34 @@ function OverviewTab({ lastSimResult, lastWhatIfResult, onNavigate }: OverviewTa
             )}
           </CardContent>
         </Card>
+
+        {/* Skill Popularity */}
+        <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Star size={15} className="text-amber-500" />
+              Skill Popularity
+            </CardTitle>
+            <CardDescription className="text-xs">
+              How many students selected each skill
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={popularityData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                <Tooltip
+                  formatter={(v: number) => [v, "Students"]}
+                  contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                />
+                <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={28} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        </div>
 
         {/* ── Teacher Recommendations ── */}
         <Card className="border border-indigo-100 dark:border-indigo-900 bg-gradient-to-br from-indigo-50/60 to-white dark:from-indigo-950/20 dark:to-zinc-900 shadow-sm">
@@ -492,33 +522,6 @@ function OverviewTab({ lastSimResult, lastWhatIfResult, onNavigate }: OverviewTa
           </CardContent>
         </Card>
       </div>
-
-      {/* Skill Popularity */}
-      <Card className="border-0 shadow-sm bg-white dark:bg-zinc-900">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Star size={15} className="text-amber-500" />
-            Skill Popularity
-          </CardTitle>
-          <CardDescription className="text-xs">
-            How many students selected each skill
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={popularityData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-              <Tooltip
-                formatter={(v: number) => [v, "Students"]}
-                contentStyle={{ fontSize: 11, borderRadius: 8 }}
-              />
-              <Bar dataKey="count" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={28} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
     </div>
   );
 }
