@@ -11,10 +11,10 @@ Usage::
     from src.evaluation.adaex_eval import DifficultyCalculator, evaluate_difficulty_strategy
 """
 
-from src.evaluation.adaex_eval import (
+from arcd_agent.evaluation.adaex_eval import (
     DifficultyCalculator as AdaExDifficultyCalculator,
 )
-from src.evaluation.adaex_eval import (
+from arcd_agent.evaluation.adaex_eval import (
     adaex_difficulty,
     evaluate_difficulty_strategy,
     fixed_medium_difficulty,
@@ -23,7 +23,7 @@ from src.evaluation.adaex_eval import (
     random_difficulty,
     simulated_p_correct,
 )
-from src.evaluation.pathgen_eval import (
+from arcd_agent.evaluation.pathgen_eval import (
     evaluate_path,
     lowest_first_path,
     pathgen,

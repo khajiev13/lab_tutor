@@ -2,10 +2,18 @@
 
 All read queries for class-level analytics:
   - Skill difficulty aggregated from student mastery
-  - Skill popularity from SELECTED_SKILL counts
+  - Skill popularity from SELECTED_SKILL / MASTERED counts
   - Class mastery overview per student
   - Student group computation input
   - What-if simulation data
+
+Note on [:SELECTED_SKILL|MASTERED] pattern
+------------------------------------------
+Real students gain SELECTED_SKILL edges through the learning-path UI.
+Synthetic students only have MASTERED edges (no UI flow).
+Using the union relationship type makes both visible in all teacher views.
+DISTINCT on (u, s) prevents double-counting students who have both edges
+to the same skill node.
 """
 
 from __future__ import annotations
@@ -18,8 +26,9 @@ from neo4j import Session as Neo4jSession
 
 GET_SKILL_DIFFICULTY: LiteralString = """
 MATCH (u:USER:STUDENT)-[:ENROLLED_IN_CLASS]->(cl:CLASS {id: $course_id})
-MATCH (u)-[:SELECTED_SKILL]->(s)
+MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
 WHERE s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL
+WITH DISTINCT u, s
 WITH s, u,
      coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], 0.0) AS mastery_val
 WITH s,
@@ -37,7 +46,7 @@ ORDER BY perceived_difficulty DESC, s.name
 
 GET_SKILL_POPULARITY: LiteralString = """
 MATCH (u:USER:STUDENT)-[:ENROLLED_IN_CLASS]->(cl:CLASS {id: $course_id})
-MATCH (u)-[:SELECTED_SKILL]->(s)
+MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
 WHERE s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL
 RETURN s.name AS skill_name, count(DISTINCT u) AS selection_count
 ORDER BY selection_count DESC
@@ -53,8 +62,9 @@ RETURN count(u) AS total_students
 
 GET_CLASS_MASTERY: LiteralString = """
 MATCH (u:USER:STUDENT)-[:ENROLLED_IN_CLASS]->(cl:CLASS {id: $course_id})
-MATCH (u)-[:SELECTED_SKILL]->(s)
+MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
 WHERE s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL
+WITH DISTINCT u, s
 WITH u, s,
      coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], 0.0) AS mastery_val
 WITH u,
@@ -78,13 +88,21 @@ WHERE coalesce(r.mastery, 0.0) < 0.40 AND coalesce(r.decay, 1.0) < 0.60
 RETURN count(s) AS pco_count
 """
 
+GET_CLASS_PCO_COUNTS: LiteralString = """
+MATCH (u:USER:STUDENT)-[:ENROLLED_IN_CLASS]->(cl:CLASS {id: $course_id})
+MATCH (u)-[r:MASTERED]->(s)
+WHERE coalesce(r.mastery, 0.0) < 0.40 AND coalesce(r.decay, 1.0) < 0.60
+RETURN u.id AS user_id, count(s) AS pco_count
+"""
+
 
 # ── Feature 4: Student Groups ──────────────────────────────────────────────
 
 GET_STUDENT_SKILLS: LiteralString = """
 MATCH (u:USER:STUDENT)-[:ENROLLED_IN_CLASS]->(cl:CLASS {id: $course_id})
-MATCH (u)-[:SELECTED_SKILL]->(s)
+MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
 WHERE s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL
+WITH DISTINCT u, s
 WITH u, s,
      coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], 0.0) AS mastery_val
 ORDER BY u.id, s.name
@@ -103,8 +121,9 @@ ORDER BY u.id
 
 GET_CLASS_SKILL_MASTERY: LiteralString = """
 MATCH (u:USER:STUDENT)-[:ENROLLED_IN_CLASS]->(cl:CLASS {id: $course_id})
-MATCH (u)-[:SELECTED_SKILL]->(s)
+MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
 WHERE s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL
+WITH DISTINCT u, s
 WITH s, u,
      coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], 0.0) AS mastery_val
 ORDER BY s.name, u.id
@@ -120,8 +139,9 @@ ORDER BY skill_name
 
 GET_SKILL_CO_SELECTION: LiteralString = """
 MATCH (u:USER:STUDENT)-[:ENROLLED_IN_CLASS]->(cl:CLASS {id: $course_id})
-MATCH (u)-[:SELECTED_SKILL]->(s)
+MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
 WHERE s.name IN $skill_names
+WITH DISTINCT u, s
 WITH u, s,
      coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], -1.0) AS mastery_score
 RETURN u.id AS user_id,
@@ -171,6 +191,11 @@ class TeacherDigitalTwinRepository:
         result = self._session.run(GET_STUDENT_PCO_COUNT, user_id=user_id)
         record = result.single()
         return int(record["pco_count"]) if record else 0
+
+    def get_class_pco_counts(self, course_id: int) -> dict[int, int]:
+        """Return {user_id: pco_count} for all enrolled students in one query."""
+        result = self._session.run(GET_CLASS_PCO_COUNTS, course_id=course_id)
+        return {int(r["user_id"]): int(r["pco_count"]) for r in result}
 
     def get_student_skills_for_grouping(self, course_id: int) -> list[dict]:
         result = self._session.run(GET_STUDENT_SKILLS, course_id=course_id)

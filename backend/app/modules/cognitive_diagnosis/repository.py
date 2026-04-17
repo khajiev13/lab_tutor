@@ -1,9 +1,10 @@
 """Cognitive Diagnosis — Neo4j repository.
 
 All graph writes for ARCD-derived data:
-  (USER:STUDENT) -[:MASTERED]->    (SKILL)
-  (USER:STUDENT) -[:ATTEMPTED]->     (QUESTION)
-  (USER:STUDENT) -[:ENGAGES_WITH]->  (READING_RESOURCE | VIDEO_RESOURCE)
+  (USER:STUDENT) -[:MASTERED]->       (SKILL)
+  (USER:STUDENT) -[:ANSWERED]->       (QUESTION)
+  (USER:STUDENT) -[:OPENED_READING]-> (READING_RESOURCE)
+  (USER:STUDENT) -[:OPENED_VIDEO]->   (VIDEO_RESOURCE)
 
 Reads:
   - Student mastery snapshots
@@ -53,39 +54,44 @@ SET r.mastery          = row.mastery,
 """
 
 
-# ── Write: ATTEMPTED ──────────────────────────────────────────────────────
+# ── Write: ANSWERED ───────────────────────────────────────────────────────
 
-CREATE_ATTEMPTED: LiteralString = """
+CREATE_ANSWERED: LiteralString = """
 MATCH (u:USER:STUDENT {id: $user_id})
 MATCH (q:QUESTION {id: $question_id})
-CREATE (u)-[r:ATTEMPTED]->(q)
-SET r.is_correct       = $is_correct,
-    r.timestamp_sec    = $timestamp_sec,
-    r.attempt_number   = $attempt_number,
-    r.time_spent_sec   = $time_spent_sec
+CREATE (u)-[r:ANSWERED]->(q)
+SET r.answered_right   = $answered_right,
+    r.answered_at      = datetime($answered_at),
+    r.selected_option  = $selected_option
 """
 
 
-# ── Write: ENGAGES_WITH ───────────────────────────────────────────────────
+# ── Write: OPENED_READING / OPENED_VIDEO ─────────────────────────────────
 
-UPSERT_ENGAGES_WITH_READING: LiteralString = """
+UPSERT_OPENED_READING: LiteralString = """
 MATCH (u:USER:STUDENT {id: $user_id})
-MATCH (r:READING_RESOURCE {id: $resource_id})
-MERGE (u)-[e:ENGAGES_WITH]->(r)
-SET e.progress      = $progress,
-    e.duration_sec  = $duration_sec,
-    e.event_type    = 2,
-    e.started_at    = $started_at
+MATCH (res:READING_RESOURCE {id: $resource_id})
+MERGE (u)-[e:OPENED_READING]->(res)
+ON CREATE SET e.first_opened_at = datetime($opened_at),
+              e.last_opened_at  = datetime($opened_at),
+              e.open_count      = 1,
+              e.opened_at       = [$opened_at]
+ON MATCH  SET e.last_opened_at  = datetime($opened_at),
+              e.open_count      = e.open_count + 1,
+              e.opened_at       = e.opened_at + [$opened_at]
 """
 
-UPSERT_ENGAGES_WITH_VIDEO: LiteralString = """
+UPSERT_OPENED_VIDEO: LiteralString = """
 MATCH (u:USER:STUDENT {id: $user_id})
 MATCH (v:VIDEO_RESOURCE {id: $resource_id})
-MERGE (u)-[e:ENGAGES_WITH]->(v)
-SET e.progress      = $progress,
-    e.duration_sec  = $duration_sec,
-    e.event_type    = 1,
-    e.started_at    = $started_at
+MERGE (u)-[e:OPENED_VIDEO]->(v)
+ON CREATE SET e.first_opened_at = datetime($opened_at),
+              e.last_opened_at  = datetime($opened_at),
+              e.open_count      = 1,
+              e.opened_at       = [$opened_at]
+ON MATCH  SET e.last_opened_at  = datetime($opened_at),
+              e.open_count      = e.open_count + 1,
+              e.opened_at       = e.opened_at + [$opened_at]
 """
 
 
@@ -251,15 +257,15 @@ RETURN a.name AS from_skill, b.name AS to_skill,
 """
 
 GET_STUDENT_INTERACTION_TIMELINE: LiteralString = """
-MATCH (u:USER:STUDENT {id: $user_id})-[a:ATTEMPTED]->(q:QUESTION)
+MATCH (u:USER:STUDENT {id: $user_id})-[a:ANSWERED]->(q:QUESTION)
 MATCH (s)-[:HAS_QUESTION]->(q)
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
-RETURN s.name AS skill_name, a.is_correct AS response, a.timestamp_sec AS ts
-ORDER BY a.timestamp_sec
+RETURN s.name AS skill_name, a.answered_right AS response, a.answered_at.epochSeconds AS ts
+ORDER BY a.answered_at
 """
 
 GET_STUDENT_INTERACTION_TIMELINE_FOR_COURSE: LiteralString = """
-MATCH (u:USER:STUDENT {id: $user_id})-[a:ATTEMPTED]->(q:QUESTION)
+MATCH (u:USER:STUDENT {id: $user_id})-[a:ANSWERED]->(q:QUESTION)
 MATCH (s)-[:HAS_QUESTION]->(q)
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
   AND (
@@ -272,8 +278,8 @@ WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
             <-[:MAPPED_TO]-(s)
     }
   )
-RETURN s.name AS skill_name, a.is_correct AS response, a.timestamp_sec AS ts
-ORDER BY a.timestamp_sec
+RETURN s.name AS skill_name, a.answered_right AS response, a.answered_at.epochSeconds AS ts
+ORDER BY a.answered_at
 """
 
 GET_QUESTIONS_FOR_SKILL: LiteralString = """
@@ -362,48 +368,48 @@ class CognitiveDiagnosisRepository:
         ]
         self._session.run(UPSERT_MASTERY_BATCH, rows=rows).consume()
 
-    def create_attempted(
+    def create_answered(
         self,
         user_id: int,
         question_id: str,
-        is_correct: bool,
-        timestamp_sec: int | None = None,
-        attempt_number: int = 1,
-        time_spent_sec: int | None = None,
+        answered_right: bool,
+        answered_at: str | None = None,
+        selected_option: str | None = None,
     ) -> None:
-        """Create an ATTEMPTED relationship."""
+        """Create an ANSWERED relationship."""
+        from datetime import datetime, timezone
+
+        at_iso = answered_at or datetime.now(timezone.utc).isoformat()
         self._session.run(
-            CREATE_ATTEMPTED,
+            CREATE_ANSWERED,
             user_id=user_id,
             question_id=question_id,
-            is_correct=is_correct,
-            timestamp_sec=timestamp_sec or int(time.time()),
-            attempt_number=attempt_number,
-            time_spent_sec=time_spent_sec,
+            answered_right=answered_right,
+            answered_at=at_iso,
+            selected_option=selected_option,
         ).consume()
 
-    def upsert_engages_with(
+    def upsert_opened_resource(
         self,
         user_id: int,
         resource_id: str,
         resource_type: str,
-        progress: float = 0.0,
-        duration_sec: int | None = None,
-        timestamp_sec: int | None = None,
+        opened_at: str | None = None,
     ) -> None:
-        """Create/update ENGAGES_WITH relationship for reading or video."""
+        """Create/update OPENED_READING or OPENED_VIDEO relationship."""
+        from datetime import datetime, timezone
+
+        at_iso = opened_at or datetime.now(timezone.utc).isoformat()
         query = (
-            UPSERT_ENGAGES_WITH_VIDEO
+            UPSERT_OPENED_VIDEO
             if resource_type == "video"
-            else UPSERT_ENGAGES_WITH_READING
+            else UPSERT_OPENED_READING
         )
         self._session.run(
             query,
             user_id=user_id,
             resource_id=resource_id,
-            progress=progress,
-            duration_sec=duration_sec,
-            started_at=timestamp_sec or int(time.time()),
+            opened_at=at_iso,
         ).consume()
 
     # ── Reads ────────────────────────────────────────────────────

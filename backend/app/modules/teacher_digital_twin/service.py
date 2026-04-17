@@ -129,10 +129,7 @@ class TeacherDigitalTwinService:
         with self._driver.session(database=db) as session:
             repo = self._repo(session)
             rows = repo.get_class_mastery(course_id)
-            # Fetch PCO counts per student
-            pco_counts = {
-                r["user_id"]: repo.get_student_pco_count(r["user_id"]) for r in rows
-            }
+            pco_counts = repo.get_class_pco_counts(course_id)
 
         students = []
         for r in rows:

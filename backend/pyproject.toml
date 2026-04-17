@@ -39,6 +39,11 @@ dependencies = [
     "uvicorn[standard]>=0.38.0",
     "python-jobspy>=1.1.82",
     "langgraph-swarm>=0.1.0",
+    "flask>=3.0",
+    "torch",
+    "scikit-learn>=1.8.0",
+    "pandas>=2.3.3",
+    "pyarrow>=23.0.1",
 ]
 
 [build-system]

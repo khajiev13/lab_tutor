@@ -127,26 +127,36 @@ class TestStudentEventsMethods:
         assert result is True
 
 
-class TestCreateAttempted:
+class TestCreateAnswered:
     def test_calls_run(self):
         repo, session = _make_repo()
-        repo.create_attempted(user_id=1, question_id="q-abc", is_correct=True)
+        repo.create_answered(user_id=1, question_id="q-abc", answered_right=True)
         session.run.assert_called_once()
 
+    def test_passes_selected_option(self):
+        repo, session = _make_repo()
+        repo.create_answered(
+            user_id=1,
+            question_id="q-xyz",
+            answered_right=False,
+            selected_option="C",
+        )
+        kwargs = session.run.call_args[1]
+        assert kwargs["selected_option"] == "C"
+        assert kwargs["answered_right"] is False
 
-class TestUpsertEngagesWith:
+
+class TestUpsertOpenedResource:
     def test_video_resource(self):
         repo, session = _make_repo()
-        repo.upsert_engages_with(
-            user_id=1, resource_id="v1", resource_type="video", progress=0.5
-        )
+        repo.upsert_opened_resource(user_id=1, resource_id="v1", resource_type="video")
         session.run.assert_called_once()
         query_used = session.run.call_args[0][0]
         assert "VIDEO_RESOURCE" in query_used
 
     def test_reading_resource(self):
         repo, session = _make_repo()
-        repo.upsert_engages_with(user_id=1, resource_id="r1", resource_type="reading")
+        repo.upsert_opened_resource(user_id=1, resource_id="r1", resource_type="reading")
         session.run.assert_called_once()
         query_used = session.run.call_args[0][0]
         assert "READING_RESOURCE" in query_used

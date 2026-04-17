@@ -33,20 +33,17 @@ class LogInteractionRequest(BaseModel):
     """Log a student answering a question."""
 
     question_id: str
-    is_correct: bool
-    timestamp_sec: int | None = None
-    time_spent_sec: int | None = None
-    attempt_number: int = 1
+    answered_right: bool
+    selected_option: str | None = None
+    answered_at: str | None = None
 
 
 class LogEngagementRequest(BaseModel):
-    """Log a student engaging with a reading or video resource."""
+    """Log a student opening a reading or video resource."""
 
     resource_id: str
     resource_type: Literal["reading", "video"]
-    progress: float = Field(ge=0.0, le=1.0, default=0.0)
-    duration_sec: int | None = None
-    timestamp_sec: int | None = None
+    opened_at: str | None = None
 
 
 class ReviewRequest(BaseModel):

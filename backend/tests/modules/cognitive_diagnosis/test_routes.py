@@ -305,8 +305,8 @@ class TestInteractionEndpoints:
                 "/diagnosis/interactions",
                 json={
                     "question_id": "q-001",
-                    "is_correct": True,
-                    "timestamp_sec": 1000,
+                    "answered_right": True,
+                    "selected_option": "A",
                 },
                 headers=student_auth_headers,
             )

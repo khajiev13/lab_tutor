@@ -46,7 +46,7 @@ class ARCDTrainer:
         self.grad_clip = grad_clip
         self.patience = patience
         self.rdrop_alpha = rdrop_alpha
-        self.gcn_refresh_every = gcn_refresh_every
+        self.gat_refresh_every = gcn_refresh_every  # keep param name for back-compat
 
         self.use_amp = use_amp and self.device.type == "cuda"
         self.scaler = torch.amp.GradScaler("cuda") if self.use_amp else None
@@ -98,7 +98,7 @@ class ARCDTrainer:
             kwargs["mastery_prior"] = batch["mastery_prior"].to(self.device)
 
         if gcn_cache is not None:
-            kwargs["gcn_cache"] = gcn_cache
+            kwargs["gat_cache"] = gcn_cache
 
         out = self.model(
             gd["H_skill_raw"],
@@ -168,14 +168,14 @@ class ARCDTrainer:
         all_logits, all_targets = [], []
 
         gcn_cache = None
-        if self.gcn_refresh_every > 0:
+        if self.gat_refresh_every > 0:
             gcn_cache = self.model.run_gcn_cached(*self._build_gcn_args())
 
         for batch in train_loader:
             self.optimizer.zero_grad()
 
             refresh_gcn = (
-                self.gcn_refresh_every > 0 and n_batches % self.gcn_refresh_every == 0
+                self.gat_refresh_every > 0 and n_batches % self.gat_refresh_every == 0
             )
             active_cache = None if refresh_gcn else gcn_cache
 
@@ -192,7 +192,7 @@ class ARCDTrainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
                 self.optimizer.step()
 
-            if refresh_gcn and self.gcn_refresh_every > 0:
+            if refresh_gcn and self.gat_refresh_every > 0:
                 gcn_cache = self.model.run_gcn_cached(*self._build_gcn_args())
 
             total_loss += loss.item()
@@ -256,8 +256,8 @@ class ARCDTrainer:
     ) -> dict[str, list]:
         if verbose and self.use_amp:
             print("  [AMP] Mixed precision training enabled (CUDA)")
-        if verbose and self.gcn_refresh_every > 0:
-            print(f"  [GCN Cache] Refresh every {self.gcn_refresh_every} batches")
+        if verbose and self.gat_refresh_every > 0:
+            print(f"  [GAT Cache] Refresh every {self.gat_refresh_every} batches")
 
         for epoch in range(1, n_epochs + 1):
             t0 = time.time()

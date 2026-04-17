@@ -90,11 +90,10 @@ class TestLogInteraction:
     def test_calls_through(self):
         driver, session = _driver_with_session([])
         svc = CognitiveDiagnosisService(driver)
-        # Should not raise even with no matching Neo4j nodes
         svc.log_interaction(
             user_id=1,
             question_id="q1",
-            is_correct=True,
+            answered_right=True,
             recompute_mastery=False,
         )
 
@@ -104,7 +103,7 @@ class TestLogInteraction:
         svc.log_interaction(
             user_id=1,
             question_id="q2",
-            is_correct=False,
+            answered_right=False,
             recompute_mastery=True,
         )
 
@@ -113,22 +112,12 @@ class TestLogEngagement:
     def test_reading(self):
         driver, session = _driver_with_session([])
         svc = CognitiveDiagnosisService(driver)
-        svc.log_engagement(
-            user_id=1,
-            resource_id="r1",
-            resource_type="reading",
-            progress=0.5,
-        )
+        svc.log_engagement(user_id=1, resource_id="r1", resource_type="reading")
 
     def test_video(self):
         driver, session = _driver_with_session([])
         svc = CognitiveDiagnosisService(driver)
-        svc.log_engagement(
-            user_id=1,
-            resource_id="v1",
-            resource_type="video",
-            progress=1.0,
-        )
+        svc.log_engagement(user_id=1, resource_id="v1", resource_type="video")
 
 
 class TestStudentEvents:

@@ -7,8 +7,8 @@ New endpoints under /diagnosis/:
   POST /diagnosis/review/{user_id}/{course_id}— RevFell review session
   POST /diagnosis/exercise/{user_id}          — AdaEx adaptive exercise
   GET  /diagnosis/portfolio/{user_id}/{course_id} — full portfolio
-  POST /diagnosis/interactions                — log ATTEMPTED event
-  POST /diagnosis/engagements                 — log ENGAGES_WITH event
+  POST /diagnosis/interactions                — log ANSWERED event
+  POST /diagnosis/engagements                 — log OPENED_READING / OPENED_VIDEO event
 """
 
 from __future__ import annotations
@@ -268,7 +268,7 @@ def delete_student_event(
 @router.post(
     "/interactions",
     status_code=status.HTTP_201_CREATED,
-    summary="Log student answering a question (ATTEMPTED)",
+    summary="Log student answering a question (ANSWERED)",
 )
 def log_interaction(
     body: LogInteractionRequest,
@@ -277,17 +277,16 @@ def log_interaction(
     course_id: int | None = None,
 ) -> dict:
     """
-    Create an (USER:STUDENT)-[:ATTEMPTED]->(QUESTION) edge.
+    Create an (USER:STUDENT)-[:ANSWERED]->(QUESTION) edge.
     Automatically recomputes and stores mastery (closed feedback loop).
     """
     svc = _get_service(driver)
     svc.log_interaction(
         user_id=student.id,
         question_id=body.question_id,
-        is_correct=body.is_correct,
-        timestamp_sec=body.timestamp_sec,
-        time_spent_sec=body.time_spent_sec,
-        attempt_number=body.attempt_number,
+        answered_right=body.answered_right,
+        answered_at=body.answered_at,
+        selected_option=body.selected_option,
         course_id=course_id,
         recompute_mastery=True,
     )
@@ -297,7 +296,7 @@ def log_interaction(
 @router.post(
     "/engagements",
     status_code=status.HTTP_201_CREATED,
-    summary="Log student engaging with a reading/video resource (ENGAGES_WITH)",
+    summary="Log student opening a reading/video resource (OPENED_READING / OPENED_VIDEO)",
 )
 def log_engagement(
     body: LogEngagementRequest,
@@ -305,15 +304,14 @@ def log_engagement(
     driver: Neo4jDep,
 ) -> dict:
     """
-    Create/update an (USER:STUDENT)-[:ENGAGES_WITH]->(READING_RESOURCE|VIDEO_RESOURCE) edge.
+    Create/update an (USER:STUDENT)-[:OPENED_READING]->(READING_RESOURCE) or
+    (USER:STUDENT)-[:OPENED_VIDEO]->(VIDEO_RESOURCE) edge.
     """
     svc = _get_service(driver)
     svc.log_engagement(
         user_id=student.id,
         resource_id=body.resource_id,
         resource_type=body.resource_type,
-        progress=body.progress,
-        duration_sec=body.duration_sec,
-        timestamp_sec=body.timestamp_sec,
+        opened_at=body.opened_at,
     )
     return {"logged": True, "resource_id": body.resource_id}

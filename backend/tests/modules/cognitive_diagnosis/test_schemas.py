@@ -28,31 +28,32 @@ class TestSkillMastery:
 
 class TestLogInteractionRequest:
     def test_defaults(self):
-        req = LogInteractionRequest(question_id="q1", is_correct=True)
-        assert req.attempt_number == 1
-        assert req.timestamp_sec is None
+        req = LogInteractionRequest(question_id="q1", answered_right=True)
+        assert req.answered_right is True
+        assert req.answered_at is None
+        assert req.selected_option is None
 
     def test_full(self):
         req = LogInteractionRequest(
             question_id="q2",
-            is_correct=False,
-            timestamp_sec=1000,
-            time_spent_sec=30,
-            attempt_number=2,
+            answered_right=False,
+            answered_at="2026-04-14T16:58:25+00:00",
+            selected_option="B",
         )
-        assert req.attempt_number == 2
+        assert req.answered_right is False
+        assert req.selected_option == "B"
 
 
 class TestLogEngagementRequest:
     def test_reading(self):
         req = LogEngagementRequest(resource_id="r1", resource_type="reading")
-        assert req.progress == 0.0
+        assert req.opened_at is None
 
     def test_video(self):
         req = LogEngagementRequest(
-            resource_id="v1", resource_type="video", progress=0.5
+            resource_id="v1", resource_type="video", opened_at="2026-04-14T12:00:00+00:00"
         )
-        assert req.progress == 0.5
+        assert req.opened_at == "2026-04-14T12:00:00+00:00"
 
     def test_invalid_type(self):
         import pytest

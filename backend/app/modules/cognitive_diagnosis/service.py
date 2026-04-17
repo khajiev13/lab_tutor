@@ -18,6 +18,7 @@ import numpy as np
 from neo4j import Driver as Neo4jDriver
 
 from app.core.settings import settings
+from arcd_agent.model_registry import get_registry
 
 from .repository import CognitiveDiagnosisRepository
 from .schemas import (
@@ -359,6 +360,81 @@ def _compute_mastery_heuristic(
 # ── Main service ───────────────────────────────────────────────────────────
 
 
+def _compute_mastery_arcd_model(
+    registry,
+    timeline: list[dict],
+    skill_names: list[str],
+) -> list[dict]:
+    """Compute per-skill mastery using the trained ARCDModel checkpoint.
+
+    Converts the Neo4j timeline rows into the interaction format expected by
+    ``ModelRegistry.predict_mastery`` and falls back to ``mastery=0.0`` for
+    any skill the model does not know about.
+    """
+    # Build interaction list in the format the registry expects
+    interactions = [
+        {
+            "question_name": ev.get("question_id") or "",
+            "correct":       int(bool(ev.get("response"))),
+            "timestamp_sec": float(ev.get("ts") or 0.0),
+        }
+        for ev in timeline
+        if ev.get("question_id")
+    ]
+
+    # Predict mastery for the student's concept/skill names
+    mastery_map: dict[str, float] = registry.predict_mastery(interactions, skill_names)
+
+    now_ts = int(time.time())
+    results = []
+    for name in skill_names:
+        mastery = max(0.0, min(1.0, mastery_map.get(name, 0.0)))
+
+        # Reuse heuristic decay logic for temporal decay signal
+        last_ts: int | None = None
+        total_attempts = 0
+        correct_count  = 0
+        for ev in timeline:
+            if ev.get("skill_name") == name:
+                total_attempts += 1
+                if ev.get("response"):
+                    correct_count += 1
+                ts = ev.get("ts")
+                if ts and (last_ts is None or ts > last_ts):
+                    last_ts = ts
+
+        if last_ts:
+            hours_since = (now_ts - last_ts) / 3600.0
+            decay = float(np.exp(-0.01 * max(hours_since, 0.0)))
+        else:
+            decay = 1.0 if total_attempts == 0 else 0.8
+
+        if mastery == 0.0 and total_attempts == 0:
+            status = "not_started"
+        elif mastery < 0.4:
+            status = "below"
+        elif mastery <= 0.9:
+            status = "at"
+        else:
+            status = "above"
+
+        results.append(
+            {
+                "skill_name":         name,
+                "mastery":            round(mastery, 4),
+                "decay":              round(decay, 4),
+                "status":             status,
+                "attempt_count":      total_attempts,
+                "correct_count":      correct_count,
+                "last_practice_ts":   last_ts,
+            }
+        )
+    return results
+
+
+# ── Main service ───────────────────────────────────────────────────────────
+
+
 class CognitiveDiagnosisService:
     """ARCD-powered student modeling and adaptive learning service."""
 
@@ -411,22 +487,17 @@ class CognitiveDiagnosisService:
         """
         Compute per-skill mastery + decay for a student and persist to KG.
 
-        Currently uses the heuristic estimator; slot in the ARCD model here
-        once labtutor checkpoint is trained.
+        Uses the trained ARCD model when a checkpoint is available; falls
+        back to the lightweight heuristic estimator otherwise.
         """
         db = settings.neo4j_database
         with self._driver.session(database=db) as session:
             repo = self._repo(session)
 
-            # Load existing mastery (may be empty on first call)
             existing = {
                 r["skill_name"]: r for r in repo.get_student_mastery(user_id, course_id)
             }
-
-            # Load interaction timeline
             timeline = repo.get_student_timeline(user_id)
-
-            # Load skill names — scoped to this student's selected skills
             skill_rows = repo.get_student_selected_skills(user_id, course_id)
             skill_names = [r["skill_name"] for r in skill_rows if r["skill_name"]]
 
@@ -439,12 +510,27 @@ class CognitiveDiagnosisService:
                     computed_at=datetime.now(tz=UTC).isoformat(),
                 )
 
-            # Compute mastery
-            computed = _compute_mastery_heuristic(
-                list(existing.values()), timeline, skill_names
-            )
+            # ── Try trained ARCD model ─────────────────────────────────────────
+            computed: list[dict] | None = None
+            registry = get_registry()
+            if registry.is_available:
+                try:
+                    computed = _compute_mastery_arcd_model(
+                        registry, timeline, skill_names
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "ARCD model inference failed (user %d): %s — using heuristic",
+                        user_id,
+                        exc,
+                    )
 
-            # Persist back to KG
+            # ── Fall back to heuristic if model unavailable or failed ─────────
+            if computed is None:
+                computed = _compute_mastery_heuristic(
+                    list(existing.values()), timeline, skill_names
+                )
+
             repo.upsert_mastery_batch(
                 user_id, computed, model_version=self.MODEL_VERSION
             )
@@ -954,28 +1040,26 @@ class CognitiveDiagnosisService:
         self,
         user_id: int,
         question_id: str,
-        is_correct: bool,
-        timestamp_sec: int | None = None,
-        time_spent_sec: int | None = None,
-        attempt_number: int = 1,
+        answered_right: bool,
+        answered_at: str | None = None,
+        selected_option: str | None = None,
         course_id: int | None = None,
         recompute_mastery: bool = True,
     ) -> None:
         """
-        Log a student answering a question (creates ATTEMPTED edge).
+        Log a student answering a question (creates ANSWERED edge).
 
         Feedback loop: after logging, recomputes and stores mastery so
         the KG always reflects the latest interaction state.
         """
         db = settings.neo4j_database
         with self._driver.session(database=db) as session:
-            self._repo(session).create_attempted(
+            self._repo(session).create_answered(
                 user_id=user_id,
                 question_id=question_id,
-                is_correct=is_correct,
-                timestamp_sec=timestamp_sec,
-                attempt_number=attempt_number,
-                time_spent_sec=time_spent_sec,
+                answered_right=answered_right,
+                answered_at=answered_at,
+                selected_option=selected_option,
             )
 
         # Closed-loop recompute: update MASTERED immediately after each interaction.
@@ -993,20 +1077,16 @@ class CognitiveDiagnosisService:
         user_id: int,
         resource_id: str,
         resource_type: str,
-        progress: float = 0.0,
-        duration_sec: int | None = None,
-        timestamp_sec: int | None = None,
+        opened_at: str | None = None,
     ) -> None:
-        """Log a student engaging with a reading/video resource."""
+        """Log a student opening a reading/video resource."""
         db = settings.neo4j_database
         with self._driver.session(database=db) as session:
-            self._repo(session).upsert_engages_with(
+            self._repo(session).upsert_opened_resource(
                 user_id=user_id,
                 resource_id=resource_id,
                 resource_type=resource_type,
-                progress=progress,
-                duration_sec=duration_sec,
-                timestamp_sec=timestamp_sec,
+                opened_at=opened_at,
             )
 
     # ── ARCD Dashboard Portfolio ─────────────────────────────────

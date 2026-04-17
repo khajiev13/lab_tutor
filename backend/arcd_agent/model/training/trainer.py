@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.metrics import roc_auc_score
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, LinearLR, SequentialLR
 from torch.utils.data import DataLoader
 
 
@@ -34,6 +34,7 @@ class ARCDTrainer:
         grad_clip: float = 1.0,
         patience: int = 15,
         t0: int = 10,
+        warmup_epochs: int = 5,
         rdrop_alpha: float = 0.5,
         device: torch.device | None = None,
         use_amp: bool = True,
@@ -46,7 +47,7 @@ class ARCDTrainer:
         self.grad_clip = grad_clip
         self.patience = patience
         self.rdrop_alpha = rdrop_alpha
-        self.gcn_refresh_every = gcn_refresh_every
+        self.gat_refresh_every = gcn_refresh_every  # keep param name for back-compat
 
         self.use_amp = use_amp and self.device.type == "cuda"
         self.scaler = torch.amp.GradScaler("cuda") if self.use_amp else None
@@ -54,9 +55,26 @@ class ARCDTrainer:
         self.optimizer = torch.optim.AdamW(
             model.parameters(), lr=lr, weight_decay=weight_decay
         )
-        self.scheduler = CosineAnnealingWarmRestarts(
-            self.optimizer, T_0=t0, T_mult=1, eta_min=1e-6
+
+        # Linear warmup for `warmup_epochs` steps, then cosine annealing with restarts.
+        # Warmup avoids large early gradient updates that can destabilize embeddings.
+        cosine = CosineAnnealingWarmRestarts(
+            self.optimizer, T_0=max(1, t0 - warmup_epochs), T_mult=1, eta_min=1e-6
         )
+        if warmup_epochs > 0:
+            warmup = LinearLR(
+                self.optimizer,
+                start_factor=0.1,
+                end_factor=1.0,
+                total_iters=warmup_epochs,
+            )
+            self.scheduler = SequentialLR(
+                self.optimizer,
+                schedulers=[warmup, cosine],
+                milestones=[warmup_epochs],
+            )
+        else:
+            self.scheduler = cosine
 
         self.best_val_auc = 0.0
         self.epochs_no_improve = 0
@@ -98,7 +116,7 @@ class ARCDTrainer:
             kwargs["mastery_prior"] = batch["mastery_prior"].to(self.device)
 
         if gcn_cache is not None:
-            kwargs["gcn_cache"] = gcn_cache
+            kwargs["gat_cache"] = gcn_cache
 
         out = self.model(
             gd["H_skill_raw"],
@@ -168,14 +186,14 @@ class ARCDTrainer:
         all_logits, all_targets = [], []
 
         gcn_cache = None
-        if self.gcn_refresh_every > 0:
+        if self.gat_refresh_every > 0:
             gcn_cache = self.model.run_gcn_cached(*self._build_gcn_args())
 
         for batch in train_loader:
             self.optimizer.zero_grad()
 
             refresh_gcn = (
-                self.gcn_refresh_every > 0 and n_batches % self.gcn_refresh_every == 0
+                self.gat_refresh_every > 0 and n_batches % self.gat_refresh_every == 0
             )
             active_cache = None if refresh_gcn else gcn_cache
 
@@ -192,7 +210,7 @@ class ARCDTrainer:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
                 self.optimizer.step()
 
-            if refresh_gcn and self.gcn_refresh_every > 0:
+            if refresh_gcn and self.gat_refresh_every > 0:
                 gcn_cache = self.model.run_gcn_cached(*self._build_gcn_args())
 
             total_loss += loss.item()
@@ -256,8 +274,8 @@ class ARCDTrainer:
     ) -> dict[str, list]:
         if verbose and self.use_amp:
             print("  [AMP] Mixed precision training enabled (CUDA)")
-        if verbose and self.gcn_refresh_every > 0:
-            print(f"  [GCN Cache] Refresh every {self.gcn_refresh_every} batches")
+        if verbose and self.gat_refresh_every > 0:
+            print(f"  [GAT Cache] Refresh every {self.gat_refresh_every} batches")
 
         for epoch in range(1, n_epochs + 1):
             t0 = time.time()
