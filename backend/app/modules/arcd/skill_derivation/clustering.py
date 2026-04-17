@@ -52,7 +52,9 @@ def find_optimal_k(
 
     # Elbow via second derivative
     if len(wcss_values) > 2:
-        deltas = [wcss_values[i] - wcss_values[i + 1] for i in range(len(wcss_values) - 1)]
+        deltas = [
+            wcss_values[i] - wcss_values[i + 1] for i in range(len(wcss_values) - 1)
+        ]
         delta2 = [deltas[i] - deltas[i + 1] for i in range(len(deltas) - 1)]
         k_elbow = k_range[int(np.argmax(delta2)) + 1]
     else:

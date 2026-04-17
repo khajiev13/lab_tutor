@@ -62,4 +62,4 @@ class IndexMapper:
 
     def summary(self):
         for ns, m in self._maps.items():
-            print(f"  {ns:>10s}: {len(m):>8,} unique IDs → [0, {len(m)-1}]")
+            print(f"  {ns:>10s}: {len(m):>8,} unique IDs → [0, {len(m) - 1}]")

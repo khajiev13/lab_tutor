@@ -31,7 +31,7 @@ class XES3G5MLoader(BaseDatasetLoader):
     _SPLIT_FILES = {
         "train": "train_valid_sequences_quelevel.csv",
         "valid": "train_valid_sequences_quelevel.csv",
-        "test":  "test_sequences_quelevel.csv",
+        "test": "test_sequences_quelevel.csv",
     }
 
     @property

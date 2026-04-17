@@ -50,5 +50,7 @@ def embed_concepts(
         for c in concepts
     ]
     ids = [c["concept_id"] for c in concepts]
-    embeddings = model.encode(texts, batch_size=64, show_progress_bar=True, convert_to_numpy=True)
+    embeddings = model.encode(
+        texts, batch_size=64, show_progress_bar=True, convert_to_numpy=True
+    )
     return ids, embeddings.astype(np.float32)

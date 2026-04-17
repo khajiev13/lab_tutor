@@ -71,8 +71,14 @@ class ARCDTrainer:
 
     def _build_gcn_args(self):
         gd = self.graph_data
-        return (gd["H_skill_raw"], gd["A_pre"], gd["A_qs"],
-                gd["A_vs"], gd["A_rs"], gd["A_uq"])
+        return (
+            gd["H_skill_raw"],
+            gd["A_pre"],
+            gd["A_qs"],
+            gd["A_vs"],
+            gd["A_rs"],
+            gd["A_uq"],
+        )
 
     def _forward(
         self,
@@ -125,7 +131,9 @@ class ARCDTrainer:
 
     def _compute_loss(self, batch, gcn_cache=None):
         """Forward + loss with optional R-Drop and AMP."""
-        autocast_ctx = torch.amp.autocast("cuda") if self.use_amp else torch.inference_mode(False)
+        autocast_ctx = (
+            torch.amp.autocast("cuda") if self.use_amp else torch.inference_mode(False)
+        )
 
         with autocast_ctx:
             out1 = self._forward(batch, gcn_cache)
@@ -145,7 +153,9 @@ class ARCDTrainer:
                     batch["mastery_target"].to(self.device),
                 )
                 kl = self._kl_divergence(out1["response_logit"], out2["response_logit"])
-                loss = 0.5 * (losses1["total"] + losses2["total"]) + self.rdrop_alpha * kl
+                loss = (
+                    0.5 * (losses1["total"] + losses2["total"]) + self.rdrop_alpha * kl
+                )
             else:
                 loss = losses1["total"]
 
@@ -164,7 +174,9 @@ class ARCDTrainer:
         for batch in train_loader:
             self.optimizer.zero_grad()
 
-            refresh_gcn = (self.gcn_refresh_every > 0 and n_batches % self.gcn_refresh_every == 0)
+            refresh_gcn = (
+                self.gcn_refresh_every > 0 and n_batches % self.gcn_refresh_every == 0
+            )
             active_cache = None if refresh_gcn else gcn_cache
 
             loss, logits = self._compute_loss(batch, active_cache)

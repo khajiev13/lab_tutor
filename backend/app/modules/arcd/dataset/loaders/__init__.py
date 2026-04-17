@@ -25,10 +25,10 @@ from app.modules.arcd.dataset.loaders.ptadisc import PTADiscLoader
 from app.modules.arcd.dataset.loaders.xes3g5m import XES3G5MLoader
 
 _REGISTRY: dict[str, type[BaseDatasetLoader]] = {
-    "xes3g5m":  XES3G5MLoader,
-    "junyi":    JunyiLoader,
-    "ptadisc":  PTADiscLoader,
-    "ednet":    EdNetLoader,
+    "xes3g5m": XES3G5MLoader,
+    "junyi": JunyiLoader,
+    "ptadisc": PTADiscLoader,
+    "ednet": EdNetLoader,
 }
 
 

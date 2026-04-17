@@ -31,9 +31,13 @@ class PTADiscLoader(BaseDatasetLoader):
         test_file:  Filename for the test split CSV.
     """
 
-    def __init__(self, raw_dir, split: str = "all",
-                 train_file: str = "ptadisc_train.csv",
-                 test_file: str = "ptadisc_test.csv"):
+    def __init__(
+        self,
+        raw_dir,
+        split: str = "all",
+        train_file: str = "ptadisc_train.csv",
+        test_file: str = "ptadisc_test.csv",
+    ):
         super().__init__(raw_dir, split)
         self._train_file = train_file
         self._test_file = test_file
@@ -45,7 +49,7 @@ class PTADiscLoader(BaseDatasetLoader):
     def _csv_paths(self, for_all: bool = False):
         base = self.raw_dir
         train_path = base / self._train_file
-        test_path  = base / self._test_file
+        test_path = base / self._test_file
         paths = []
         if (for_all or self.split in ("all", "train")) and train_path.exists():
             paths.append(train_path)

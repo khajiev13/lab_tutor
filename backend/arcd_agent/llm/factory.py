@@ -20,9 +20,15 @@ def get_llm_provider(
     provider = provider.lower().strip()
     if provider == "openai":
         from src.llm.openai_provider import OpenAIProvider
+
         return OpenAIProvider(model=model or "gpt-4o", api_key=api_key)
     elif provider == "anthropic":
         from src.llm.anthropic_provider import AnthropicProvider
-        return AnthropicProvider(model=model or "claude-sonnet-4-20250514", api_key=api_key)
+
+        return AnthropicProvider(
+            model=model or "claude-sonnet-4-20250514", api_key=api_key
+        )
     else:
-        raise ValueError(f"Unknown LLM provider: {provider!r}. Use 'openai' or 'anthropic'.")
+        raise ValueError(
+            f"Unknown LLM provider: {provider!r}. Use 'openai' or 'anthropic'."
+        )

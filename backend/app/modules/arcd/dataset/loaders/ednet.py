@@ -33,9 +33,13 @@ class EdNetLoader(BaseDatasetLoader):
                       (None = all). Useful for quick experiments.
     """
 
-    def __init__(self, raw_dir, split: str = "all",
-                 merged_file: str = "ednet_merged.csv",
-                 max_students: int | None = None):
+    def __init__(
+        self,
+        raw_dir,
+        split: str = "all",
+        merged_file: str = "ednet_merged.csv",
+        max_students: int | None = None,
+    ):
         super().__init__(raw_dir, split)
         self._merged_file = merged_file
         self._max_students = max_students

@@ -5,7 +5,9 @@ from __future__ import annotations
 from app.modules.arcd.skill_derivation.models import SkillCluster, SkillPrerequisite
 
 
-def fetch_concept_prereqs(driver, course_id: str | None = None) -> list[tuple[str, str]]:
+def fetch_concept_prereqs(
+    driver, course_id: str | None = None
+) -> list[tuple[str, str]]:
     """Query PREREQ_OF edges between CONCEPT nodes."""
     with driver.session() as session:
         if course_id:
@@ -20,7 +22,9 @@ def fetch_concept_prereqs(driver, course_id: str | None = None) -> list[tuple[st
                 "MATCH (c1:CONCEPT)-[:PREREQ_OF]->(c2:CONCEPT) "
                 "RETURN c1.concept_id AS src, c2.concept_id AS dst"
             )
-        return [(r["src"] or "", r["dst"] or "") for r in result if r["src"] and r["dst"]]
+        return [
+            (r["src"] or "", r["dst"] or "") for r in result if r["src"] and r["dst"]
+        ]
 
 
 def derive_skill_prerequisites(
@@ -45,9 +49,11 @@ def derive_skill_prerequisites(
     for (a, b), count in cross_counts.items():
         strength = count / max(len(skills[b].concept_ids), 1)
         if strength >= tau:
-            prereqs.append(SkillPrerequisite(
-                from_skill=skills[a].skill_id,
-                to_skill=skills[b].skill_id,
-                strength=round(strength, 4),
-            ))
+            prereqs.append(
+                SkillPrerequisite(
+                    from_skill=skills[a].skill_id,
+                    to_skill=skills[b].skill_id,
+                    strength=round(strength, 4),
+                )
+            )
     return prereqs

@@ -33,7 +33,9 @@ class HomoGCNStack(nn.Module):
         for i in range(n_layers):
             if use_gat:
                 self.layers.append(
-                    AttentionGCNLayer(dims[i], dims[i + 1], n_heads=n_heads, dropout=dropout)
+                    AttentionGCNLayer(
+                        dims[i], dims[i + 1], n_heads=n_heads, dropout=dropout
+                    )
                 )
             else:
                 self.layers.append(BasicGCNLayer(dims[i], dims[i + 1]))
@@ -61,7 +63,9 @@ class SkillGCNStage(nn.Module):
         self, d_embed, d_hidden, d_out, n_layers=3, n_heads=4, dropout=0.1, use_gat=True
     ):
         super().__init__()
-        self.gcn = HomoGCNStack(d_embed, d_hidden, d_out, n_layers, n_heads, dropout, use_gat)
+        self.gcn = HomoGCNStack(
+            d_embed, d_hidden, d_out, n_layers, n_heads, dropout, use_gat
+        )
 
     def forward(self, H_raw, A_pre):
         return self.gcn(H_raw, A_pre)
@@ -90,7 +94,9 @@ class VideoGCNStage(nn.Module):
         self.v_embed = nn.Embedding(n_videos, d)
         nn.init.xavier_uniform_(self.v_embed.weight)
         self.embed_drop = nn.Dropout(dropout)
-        self.gcn = BipartiteGCNStack(d, d, d, d, n_layers, dropout) if n_videos > 1 else None
+        self.gcn = (
+            BipartiteGCNStack(d, d, d, d, n_layers, dropout) if n_videos > 1 else None
+        )
 
     def forward(self, h_s, A_vs):
         h = self.embed_drop(self.v_embed.weight)
@@ -108,7 +114,9 @@ class ReadingGCNStage(nn.Module):
         self.r_embed = nn.Embedding(n_readings, d)
         nn.init.xavier_uniform_(self.r_embed.weight)
         self.embed_drop = nn.Dropout(dropout)
-        self.gcn = BipartiteGCNStack(d, d, d, d, n_layers, dropout) if n_readings > 1 else None
+        self.gcn = (
+            BipartiteGCNStack(d, d, d, d, n_layers, dropout) if n_readings > 1 else None
+        )
 
     def forward(self, h_s, A_rs):
         h = self.embed_drop(self.r_embed.weight)
@@ -155,7 +163,9 @@ class MultiRelationalGCN(nn.Module):
         use_gat: bool = True,
     ):
         super().__init__()
-        self.stage1_skill = SkillGCNStage(d_skill_embed, d, d, n_layers, n_heads, dropout, use_gat)
+        self.stage1_skill = SkillGCNStage(
+            d_skill_embed, d, d, n_layers, n_heads, dropout, use_gat
+        )
         self.stage2_question = QuestionGCNStage(n_questions, d, n_layers, dropout)
         self.stage3_video = VideoGCNStage(n_videos, d, n_layers, dropout)
         self.stage4_reading = ReadingGCNStage(n_readings, d, n_layers, dropout)

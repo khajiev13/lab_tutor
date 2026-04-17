@@ -32,25 +32,31 @@ def validate_clusters(
         )
         try:
             result = llm_provider.complete_json(prompt, temperature=0.0)
-            validations.append(ClusterValidation(
-                cluster_idx=idx,
-                coherent=result.get("coherent", True),
-                skill_name=result.get("skill_name", f"skill_{idx + 1:02d}"),
-                description=result.get("description", ""),
-                action=result.get("action", "keep"),
-            ))
+            validations.append(
+                ClusterValidation(
+                    cluster_idx=idx,
+                    coherent=result.get("coherent", True),
+                    skill_name=result.get("skill_name", f"skill_{idx + 1:02d}"),
+                    description=result.get("description", ""),
+                    action=result.get("action", "keep"),
+                )
+            )
         except Exception:
-            validations.append(ClusterValidation(
-                cluster_idx=idx,
-                coherent=True,
-                skill_name=f"skill_{idx + 1:02d}",
-                description="Auto-generated cluster",
-                action="keep",
-            ))
+            validations.append(
+                ClusterValidation(
+                    cluster_idx=idx,
+                    coherent=True,
+                    skill_name=f"skill_{idx + 1:02d}",
+                    description="Auto-generated cluster",
+                    action="keep",
+                )
+            )
     return validations
 
 
-def should_recluster(validations: list[ClusterValidation], threshold: float = 0.2) -> bool:
+def should_recluster(
+    validations: list[ClusterValidation], threshold: float = 0.2
+) -> bool:
     """Return True if more than *threshold* fraction of clusters are incoherent."""
     if not validations:
         return False

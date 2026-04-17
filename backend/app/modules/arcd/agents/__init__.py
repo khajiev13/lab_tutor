@@ -7,6 +7,7 @@ Modules:
     pathgen       — Path Generator: PrerequisiteFilter, ZPDFilter, ScoringEngine
     orchestrator  — Multi-agent LangGraph cycle (assess → pathgen → review → exercises)
 """
+
 from .adaex import (
     DifficultyCalculator,
     DifficultyProfile,
@@ -28,12 +29,27 @@ from .revfell import EmotionalState, FastReviewMode, MasterySync, PCODetector, P
 
 __all__ = [
     # revfell
-    "PCOResult", "PCODetector", "FastReviewMode", "MasterySync", "EmotionalState",
+    "PCOResult",
+    "PCODetector",
+    "FastReviewMode",
+    "MasterySync",
+    "EmotionalState",
     # adaex
-    "DifficultyProfile", "Exercise", "EvalResult", "ExercisePackage",
-    "DifficultyCalculator", "ExerciseBank", "RefinementLoop",
+    "DifficultyProfile",
+    "Exercise",
+    "EvalResult",
+    "ExercisePackage",
+    "DifficultyCalculator",
+    "ExerciseBank",
+    "RefinementLoop",
     # pathgen
-    "PathGenConfig", "PrerequisiteFilter", "ZPDFilter", "ScoringEngine", "PathGenerator",
+    "PathGenConfig",
+    "PrerequisiteFilter",
+    "ZPDFilter",
+    "ScoringEngine",
+    "PathGenerator",
     # orchestrator
-    "OrchestratorState", "ARCDOrchestrator", "build_orchestrator",
+    "OrchestratorState",
+    "ARCDOrchestrator",
+    "build_orchestrator",
 ]

@@ -46,8 +46,9 @@ class DifficultyCalculator:
         (1.01, "challenge"),
     ]
 
-    def __init__(self, alpha: float = 0.55, beta: float = 0.20,
-                  gamma: float = 0.25, A_skill=None):
+    def __init__(
+        self, alpha: float = 0.55, beta: float = 0.20, gamma: float = 0.25, A_skill=None
+    ):
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
@@ -59,8 +60,9 @@ class DifficultyCalculator:
                 self._prereq_counts[s] = int(np.sum(A_skill[:, s] > 0))
             self._p_max = max(1, max(self._prereq_counts.values(), default=1))
 
-    def compute(self, skill_id: int, mastery: float,
-                n_concepts: int = 1, max_concepts: int = 20) -> float:
+    def compute(
+        self, skill_id: int, mastery: float, n_concepts: int = 1, max_concepts: int = 20
+    ) -> float:
         """Compute the target difficulty d*(u, s) ∈ [0, 1].
 
         Args:
@@ -76,7 +78,9 @@ class DifficultyCalculator:
         prereq_depth = self._prereq_counts.get(skill_id, 0)
         prereq_norm = prereq_depth / self._p_max
         complexity = min(1.0, n_concepts / max(1, max_concepts))
-        d_star = self.alpha * inv_mastery + self.beta * prereq_norm + self.gamma * complexity
+        d_star = (
+            self.alpha * inv_mastery + self.beta * prereq_norm + self.gamma * complexity
+        )
         return float(max(0.0, min(1.0, d_star)))
 
     @staticmethod
@@ -91,9 +95,12 @@ class DifficultyCalculator:
 # ── IRT-like simulation ───────────────────────────────────────────────
 
 
-def simulated_p_correct(mastery: float, difficulty: float,
-                          noise_std: float = 0.05,
-                          rng: np.random.Generator | None = None) -> float:
+def simulated_p_correct(
+    mastery: float,
+    difficulty: float,
+    noise_std: float = 0.05,
+    rng: np.random.Generator | None = None,
+) -> float:
     """Simulate P(correct) using an IRT-like sigmoid model.
 
     P(correct) = σ(a · (mastery − difficulty) + ε)
@@ -133,9 +140,13 @@ def ideal_zpd_range(mastery: float) -> tuple[float, float]:
 # ── Strategy functions ────────────────────────────────────────────────
 
 
-def adaex_difficulty(calc: DifficultyCalculator, skill_id: int,
-                      mastery: float, n_concepts: int = 1,
-                      max_concepts: int = 20) -> float:
+def adaex_difficulty(
+    calc: DifficultyCalculator,
+    skill_id: int,
+    mastery: float,
+    n_concepts: int = 1,
+    max_concepts: int = 20,
+) -> float:
     """AdaEx target difficulty — delegates to DifficultyCalculator.compute."""
     return calc.compute(skill_id, mastery, n_concepts, max_concepts)
 
@@ -150,8 +161,9 @@ def inverse_mastery_difficulty(skill_id: int, mastery: float, **kwargs) -> float
     return 1.0 - mastery
 
 
-def random_difficulty(skill_id: int, mastery: float,
-                       rng: np.random.Generator | None = None, **kwargs) -> float:
+def random_difficulty(
+    skill_id: int, mastery: float, rng: np.random.Generator | None = None, **kwargs
+) -> float:
     """Baseline: uniform random difficulty in [0, 1]."""
     if rng is None:
         rng = np.random.default_rng()
@@ -161,15 +173,17 @@ def random_difficulty(skill_id: int, mastery: float,
 # ── Aggregate evaluation ──────────────────────────────────────────────
 
 
-def evaluate_difficulty_strategy(strategy_fn: Callable,
-                                   mastery_arr: np.ndarray,
-                                   decay_arr: np.ndarray,
-                                   A: np.ndarray,
-                                   calc: DifficultyCalculator,
-                                   n_concepts_arr: np.ndarray,
-                                   max_concepts: int,
-                                   rng: np.random.Generator,
-                                   **kwargs) -> dict:
+def evaluate_difficulty_strategy(
+    strategy_fn: Callable,
+    mastery_arr: np.ndarray,
+    decay_arr: np.ndarray,
+    A: np.ndarray,
+    calc: DifficultyCalculator,
+    n_concepts_arr: np.ndarray,
+    max_concepts: int,
+    rng: np.random.Generator,
+    **kwargs,
+) -> dict:
     """Evaluate a difficulty assignment strategy across N students and S skills.
 
     Computes four metrics:
@@ -210,9 +224,15 @@ def evaluate_difficulty_strategy(strategy_fn: Callable,
 
         for s in range(S):
             if use_calc:
-                d = strategy_fn(calc, s, float(mastery[s]),
-                                int(n_concepts_arr[s]), max_concepts)
-            elif "rng" in getattr(strategy_fn, "__code__", type("", (), {"co_varnames": ()})()).co_varnames:
+                d = strategy_fn(
+                    calc, s, float(mastery[s]), int(n_concepts_arr[s]), max_concepts
+                )
+            elif (
+                "rng"
+                in getattr(
+                    strategy_fn, "__code__", type("", (), {"co_varnames": ()})()
+                ).co_varnames
+            ):
                 d = strategy_fn(s, float(mastery[s]), rng=rng)
             else:
                 d = strategy_fn(s, float(mastery[s]))
@@ -233,8 +253,10 @@ def evaluate_difficulty_strategy(strategy_fn: Callable,
         student_variances.append(float(np.std(d_arr)))
 
     return {
-        "zpd_alignment":         float(np.mean(zpd_aligned)),
-        "calibration_error":     float(np.mean(calibration_errors)),
-        "prereq_correlation":    float(np.mean(prereq_correlations)) if prereq_correlations else 0.0,
+        "zpd_alignment": float(np.mean(zpd_aligned)),
+        "calibration_error": float(np.mean(calibration_errors)),
+        "prereq_correlation": float(np.mean(prereq_correlations))
+        if prereq_correlations
+        else 0.0,
         "cross_student_variance": float(np.mean(student_variances)),
     }

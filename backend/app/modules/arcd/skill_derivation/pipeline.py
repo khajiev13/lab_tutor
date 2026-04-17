@@ -48,32 +48,41 @@ class SkillDerivationPipeline:
 
         # LLM validation loop
         for _ in range(MAX_RECLUSTER_ITERATIONS):
-            clusters_by_concepts = self._group_concepts(concept_ids, labels, result.k_optimal)
+            clusters_by_concepts = self._group_concepts(
+                concept_ids, labels, result.k_optimal
+            )
             if self.llm_provider is None:
                 break
             validations = validate_clusters(
-                [[concepts[concept_ids.index(cid)]["name"] for cid in cids]
-                 for cids in clusters_by_concepts],
+                [
+                    [concepts[concept_ids.index(cid)]["name"] for cid in cids]
+                    for cids in clusters_by_concepts
+                ],
                 self.llm_provider,
             )
             if not should_recluster(validations):
                 for _i, _v in enumerate(validations):
                     pass  # names applied below
                 break
-            k_adjust = sum(1 for v in validations if v.action == "split") - \
-                       sum(1 for v in validations if v.action == "merge")
+            k_adjust = sum(1 for v in validations if v.action == "split") - sum(
+                1 for v in validations if v.action == "merge"
+            )
             new_k = max(2, result.k_optimal + k_adjust)
             result = find_optimal_k(embeddings, k_min=new_k, k_max=new_k)
             labels = result.labels
         else:
-            clusters_by_concepts = self._group_concepts(concept_ids, labels, result.k_optimal)
+            clusters_by_concepts = self._group_concepts(
+                concept_ids, labels, result.k_optimal
+            )
 
         # Build skill clusters
         skills = []
         validations_map = {}
         if self.llm_provider is not None:
-            clusters_text = [[concepts[concept_ids.index(cid)]["name"] for cid in cids]
-                             for cids in clusters_by_concepts]
+            clusters_text = [
+                [concepts[concept_ids.index(cid)]["name"] for cid in cids]
+                for cids in clusters_by_concepts
+            ]
             validations = validate_clusters(clusters_text, self.llm_provider)
             validations_map = {v.cluster_idx: v for v in validations}
 
@@ -82,13 +91,17 @@ class SkillDerivationPipeline:
             v = validations_map.get(k_idx)
             name = v.skill_name if v else f"skill_{k_idx + 1:02d}"
             desc = v.description if v else ""
-            skills.append(SkillCluster(
-                skill_id=f"skill_{k_idx + 1:02d}",
-                skill_name=name,
-                description=desc,
-                concept_ids=[concept_ids[i] for i in range(len(concept_ids)) if mask[i]],
-                centroid=result.centroids[k_idx],
-            ))
+            skills.append(
+                SkillCluster(
+                    skill_id=f"skill_{k_idx + 1:02d}",
+                    skill_name=name,
+                    description=desc,
+                    concept_ids=[
+                        concept_ids[i] for i in range(len(concept_ids)) if mask[i]
+                    ],
+                    centroid=result.centroids[k_idx],
+                )
+            )
 
         concept_prereqs = fetch_concept_prereqs(self.driver, course_id)
         prereqs = derive_skill_prerequisites(skills, concept_prereqs, self.tau_prereq)
@@ -116,20 +129,25 @@ class SkillDerivationPipeline:
                 session.run(
                     "MERGE (s:SKILL {skill_id: $sid}) "
                     "SET s.name = $name, s.description = $desc, s.course_id = $cid",
-                    sid=sk.skill_id, name=sk.skill_name,
-                    desc=sk.description, cid=skill_map.course_id,
+                    sid=sk.skill_id,
+                    name=sk.skill_name,
+                    desc=sk.description,
+                    cid=skill_map.course_id,
                 )
                 for cid in sk.concept_ids:
                     session.run(
                         "MATCH (s:SKILL {skill_id: $sid}) "
                         "MATCH (c:CONCEPT) WHERE c.concept_id = $cid OR c.name = $cid "
                         "MERGE (s)-[:INCLUDES]->(c)",
-                        sid=sk.skill_id, cid=cid,
+                        sid=sk.skill_id,
+                        cid=cid,
                     )
             for p in skill_map.prerequisites:
                 session.run(
                     "MATCH (a:SKILL {skill_id: $a}) "
                     "MATCH (b:SKILL {skill_id: $b}) "
                     "MERGE (a)-[r:PREREQUISITE]->(b) SET r.strength = $s",
-                    a=p.from_skill, b=p.to_skill, s=p.strength,
+                    a=p.from_skill,
+                    b=p.to_skill,
+                    s=p.strength,
                 )

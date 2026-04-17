@@ -161,8 +161,15 @@ class ARCDModel(nn.Module):
         h_u = gcn_out["h_u"]
 
         h_u_t = self.temporal(
-            event_types, entity_indices, outcomes, timestamps,
-            decay_values, pad_mask, h_qa, h_v, h_r,
+            event_types,
+            entity_indices,
+            outcomes,
+            timestamps,
+            decay_values,
+            pad_mask,
+            h_qa,
+            h_v,
+            h_r,
         )
 
         # e_u: static student embedding from GCN (paper Eq. 12-13)
@@ -176,10 +183,14 @@ class ARCDModel(nn.Module):
 
         # Decay cascade (Eq. 6-11) — compute δ_{u,s} and δ̄_q
         if student_ids is not None and delta_t_skills is not None:
-            m_prior = mastery_prior if mastery_prior is not None else torch.full(
-                (B, S), 0.5, device=e_u.device
+            m_prior = (
+                mastery_prior
+                if mastery_prior is not None
+                else torch.full((B, S), 0.5, device=e_u.device)
             )
-            decay_us = self.compute_decay(student_ids, delta_t_skills, m_prior, review_count)
+            decay_us = self.compute_decay(
+                student_ids, delta_t_skills, m_prior, review_count
+            )
             qs_weights = A_qs[target_idx.clamp(max=A_qs.size(0) - 1)]
             qs_norm = qs_weights / qs_weights.sum(-1, keepdim=True).clamp(min=1e-8)
             decay_bar_q = (qs_norm * decay_us).sum(-1)
@@ -193,7 +204,12 @@ class ARCDModel(nn.Module):
         def _pad(h: torch.Tensor) -> torch.Tensor:
             if h.size(0) < max_entities:
                 return torch.cat(
-                    [h, torch.zeros(max_entities - h.size(0), h.size(1), device=h.device)]
+                    [
+                        h,
+                        torch.zeros(
+                            max_entities - h.size(0), h.size(1), device=h.device
+                        ),
+                    ]
                 )
             return h
 

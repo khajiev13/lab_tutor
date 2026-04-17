@@ -35,13 +35,17 @@ def _retry_api_call(fn, *args, retries: int = _DEFAULT_RETRIES, **kwargs):
 
 
 class AnthropicProvider(BaseLLMProvider):
-    def __init__(self, model: str = "claude-sonnet-4-20250514", api_key: str | None = None):
+    def __init__(
+        self, model: str = "claude-sonnet-4-20250514", api_key: str | None = None
+    ):
         try:
             import anthropic
         except ImportError as exc:
             raise ImportError("pip install anthropic") from exc
         self._model = model
-        self._client = anthropic.Anthropic(api_key=api_key or os.getenv("ANTHROPIC_API_KEY"))
+        self._client = anthropic.Anthropic(
+            api_key=api_key or os.getenv("ANTHROPIC_API_KEY")
+        )
 
     def complete(
         self,

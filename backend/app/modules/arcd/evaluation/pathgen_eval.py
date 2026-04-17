@@ -63,10 +63,16 @@ def _parents_of(A: np.ndarray) -> dict[int, set[int]]:
     return {s: set(np.where(A[:, s] > 0)[0]) for s in range(S)}
 
 
-def _score_skill(s: int, m: np.ndarray, decay: np.ndarray,
-                  parents: dict[int, set[int]],
-                  w_zpd: float = 0.4, w_pre: float = 0.2,
-                  w_dec: float = 0.3, w_base: float = 0.1) -> float:
+def _score_skill(
+    s: int,
+    m: np.ndarray,
+    decay: np.ndarray,
+    parents: dict[int, set[int]],
+    w_zpd: float = 0.4,
+    w_pre: float = 0.2,
+    w_dec: float = 0.3,
+    w_base: float = 0.1,
+) -> float:
     """Multi-component scoring for a single candidate skill."""
     z_s = 1.0 - abs(m[s] - 0.65) / 0.25
     p_s = np.mean([m[p] for p in parents[s]]) if parents[s] else 1.0
@@ -77,9 +83,15 @@ def _score_skill(s: int, m: np.ndarray, decay: np.ndarray,
 # ── PathGen v1 ────────────────────────────────────────────────────────
 
 
-def pathgen(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
-             K: int = 8, zpd_lo: float = 0.40, zpd_hi: float = 0.90,
-             tau_pre: float = 0.50) -> list[int]:
+def pathgen(
+    mastery: np.ndarray,
+    decay: np.ndarray,
+    A: np.ndarray,
+    K: int = 8,
+    zpd_lo: float = 0.40,
+    zpd_hi: float = 0.90,
+    tau_pre: float = 0.50,
+) -> list[int]:
     """Algorithm 2 from the ARCD paper: ZPD-based learning path generation.
 
     Args:
@@ -100,8 +112,11 @@ def pathgen(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
     path: list[int] = []
 
     for _ in range(K):
-        candidates = [s for s in range(S) if s not in path
-                       and all(m[p] >= tau_pre for p in parents[s])]
+        candidates = [
+            s
+            for s in range(S)
+            if s not in path and all(m[p] >= tau_pre for p in parents[s])
+        ]
         if not candidates:
             break
 
@@ -129,8 +144,9 @@ def pathgen(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
 # ── PathGen v2 ────────────────────────────────────────────────────────
 
 
-def _adaptive_weights(mastery: np.ndarray,
-                       decay: np.ndarray) -> tuple[float, float, float, float]:
+def _adaptive_weights(
+    mastery: np.ndarray, decay: np.ndarray
+) -> tuple[float, float, float, float]:
     """Compute per-student scoring weights from their mastery profile.
 
     Students with severe forgetting get higher decay weight;
@@ -146,9 +162,14 @@ def _adaptive_weights(mastery: np.ndarray,
     return w_zpd, w_pre, w_dec, w_base
 
 
-def _unlock_potential(s: int, m: np.ndarray, A: np.ndarray,
-                       children: dict[int, set[int]],
-                       tau_pre: float = 0.50, gain: float = 0.10) -> int:
+def _unlock_potential(
+    s: int,
+    m: np.ndarray,
+    A: np.ndarray,
+    children: dict[int, set[int]],
+    tau_pre: float = 0.50,
+    gain: float = 0.10,
+) -> int:
     """Count downstream skills that become prerequisite-ready if s is mastered."""
     parents = _parents_of(A)
     simulated = m.copy()
@@ -162,11 +183,18 @@ def _unlock_potential(s: int, m: np.ndarray, A: np.ndarray,
     return unlocked
 
 
-def pathgen_v2(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
-               K: int = 8, zpd_lo: float = 0.40, zpd_hi: float = 0.90,
-               tau_pre: float = 0.50, beam_width: int = 3,
-               time_per_skill: np.ndarray | None = None,
-               time_budget: float | None = None) -> list[int]:
+def pathgen_v2(
+    mastery: np.ndarray,
+    decay: np.ndarray,
+    A: np.ndarray,
+    K: int = 8,
+    zpd_lo: float = 0.40,
+    zpd_hi: float = 0.90,
+    tau_pre: float = 0.50,
+    beam_width: int = 3,
+    time_per_skill: np.ndarray | None = None,
+    time_budget: float | None = None,
+) -> list[int]:
     """Enhanced PathGen with beam search, adaptive weights, time budget, and unlock scoring.
 
     Args:
@@ -190,8 +218,11 @@ def pathgen_v2(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
         all_expansions = []
 
         for path, m, total_time, cum_score in beams:
-            candidates = [s for s in range(S) if s not in path
-                           and all(m[p] >= tau_pre for p in parents[s])]
+            candidates = [
+                s
+                for s in range(S)
+                if s not in path and all(m[p] >= tau_pre for p in parents[s])
+            ]
             if not candidates:
                 all_expansions.append((path, m, total_time, cum_score))
                 continue
@@ -204,11 +235,15 @@ def pathgen_v2(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
                 continue
 
             for s in zpd_cands:
-                skill_time = float(time_per_skill[s]) if time_per_skill is not None else 0.0
+                skill_time = (
+                    float(time_per_skill[s]) if time_per_skill is not None else 0.0
+                )
                 if time_budget is not None and (total_time + skill_time) > time_budget:
                     continue
 
-                base_score = _score_skill(s, m, decay, parents, w_zpd, w_pre, w_dec, w_base)
+                base_score = _score_skill(
+                    s, m, decay, parents, w_zpd, w_pre, w_dec, w_base
+                )
                 unlock_bonus = 0.1 * _unlock_potential(s, m, A, children, tau_pre)
                 step_score = base_score + unlock_bonus
 
@@ -227,13 +262,19 @@ def pathgen_v2(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
     return max(beams, key=lambda x: x[3])[0] if beams else []
 
 
-def pathgen_v2_with_explanations(mastery: np.ndarray, decay: np.ndarray,
-                                   A: np.ndarray, skill_names: list[str] | None = None,
-                                   K: int = 8, zpd_lo: float = 0.40, zpd_hi: float = 0.90,
-                                   tau_pre: float = 0.50, beam_width: int = 3,
-                                   time_per_skill: np.ndarray | None = None,
-                                   time_budget: float | None = None
-                                   ) -> tuple[list[int], list[dict]]:
+def pathgen_v2_with_explanations(
+    mastery: np.ndarray,
+    decay: np.ndarray,
+    A: np.ndarray,
+    skill_names: list[str] | None = None,
+    K: int = 8,
+    zpd_lo: float = 0.40,
+    zpd_hi: float = 0.90,
+    tau_pre: float = 0.50,
+    beam_width: int = 3,
+    time_per_skill: np.ndarray | None = None,
+    time_budget: float | None = None,
+) -> tuple[list[int], list[dict]]:
     """PathGen v2 that also returns per-step natural language explanations.
 
     Returns:
@@ -243,8 +284,18 @@ def pathgen_v2_with_explanations(mastery: np.ndarray, decay: np.ndarray,
     parents = _parents_of(A)
     children = _children_of(A)
 
-    path = pathgen_v2(mastery, decay, A, K, zpd_lo, zpd_hi, tau_pre,
-                      beam_width, time_per_skill, time_budget)
+    path = pathgen_v2(
+        mastery,
+        decay,
+        A,
+        K,
+        zpd_lo,
+        zpd_hi,
+        tau_pre,
+        beam_width,
+        time_per_skill,
+        time_budget,
+    )
 
     explanations: list[dict] = []
     m_sim = mastery.copy()
@@ -268,12 +319,14 @@ def pathgen_v2_with_explanations(mastery: np.ndarray, decay: np.ndarray,
         if n_unlock > 0:
             reasons.append(f"mastering this unlocks {n_unlock} downstream skill(s)")
 
-        explanations.append({
-            "skill_id": int(s),
-            "skill_name": name,
-            "mastery_before": round(float(m_sim[s]), 3),
-            "why": f"Recommended because: {'; '.join(reasons)}.",
-        })
+        explanations.append(
+            {
+                "skill_id": int(s),
+                "skill_name": name,
+                "mastery_before": round(float(m_sim[s]), 3),
+                "why": f"Recommended because: {'; '.join(reasons)}.",
+            }
+        )
         m_sim[s] = min(1.0, m_sim[s] + 0.10)
 
     return path, explanations
@@ -282,8 +335,13 @@ def pathgen_v2_with_explanations(mastery: np.ndarray, decay: np.ndarray,
 # ── Baselines ─────────────────────────────────────────────────────────
 
 
-def random_path(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
-                K: int = 8, rng: np.random.Generator | None = None) -> list[int]:
+def random_path(
+    mastery: np.ndarray,
+    decay: np.ndarray,
+    A: np.ndarray,
+    K: int = 8,
+    rng: np.random.Generator | None = None,
+) -> list[int]:
     """Baseline 1: uniform random skill selection."""
     S = len(mastery)
     if rng is None:
@@ -292,14 +350,16 @@ def random_path(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
     return list(chosen)
 
 
-def sequential_path(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
-                     K: int = 8) -> list[int]:
+def sequential_path(
+    mastery: np.ndarray, decay: np.ndarray, A: np.ndarray, K: int = 8
+) -> list[int]:
     """Baseline 2: curriculum order (topological sort)."""
     return topological_order(A)[:K]
 
 
-def lowest_first_path(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
-                       K: int = 8) -> list[int]:
+def lowest_first_path(
+    mastery: np.ndarray, decay: np.ndarray, A: np.ndarray, K: int = 8
+) -> list[int]:
     """Baseline 3: greedily pick the lowest-mastery skills."""
     return list(np.argsort(mastery)[:K])
 
@@ -307,10 +367,16 @@ def lowest_first_path(mastery: np.ndarray, decay: np.ndarray, A: np.ndarray,
 # ── Evaluation ────────────────────────────────────────────────────────
 
 
-def evaluate_path(path: list[int], mastery: np.ndarray, decay: np.ndarray,
-                   A: np.ndarray, zpd_lo: float = 0.40, zpd_hi: float = 0.90,
-                   tau_pre: float = 0.50,
-                   rng: np.random.Generator | None = None) -> dict:
+def evaluate_path(
+    path: list[int],
+    mastery: np.ndarray,
+    decay: np.ndarray,
+    A: np.ndarray,
+    zpd_lo: float = 0.40,
+    zpd_hi: float = 0.90,
+    tau_pre: float = 0.50,
+    rng: np.random.Generator | None = None,
+) -> dict:
     """Compute five evaluation metrics for a learning path.
 
     Metrics:
@@ -330,8 +396,13 @@ def evaluate_path(path: list[int], mastery: np.ndarray, decay: np.ndarray,
         ``decay_cov``, ``unlock_pot``.
     """
     if len(path) == 0:
-        return {"zpd_align": 0.0, "prereq_sat": 0.0, "proj_gain": 0.0,
-                "decay_cov": 0.0, "unlock_pot": 0}
+        return {
+            "zpd_align": 0.0,
+            "prereq_sat": 0.0,
+            "proj_gain": 0.0,
+            "decay_cov": 0.0,
+            "unlock_pot": 0,
+        }
 
     if rng is None:
         rng = np.random.default_rng()
@@ -355,13 +426,14 @@ def evaluate_path(path: list[int], mastery: np.ndarray, decay: np.ndarray,
         m_sim[s] = min(1.0, m_sim[s] + step_gain)
 
     high_decay = set(np.where(decay < 0.70)[0])
-    decay_cov = (len(set(path) & high_decay) / max(len(high_decay), 1)
-                 if high_decay else 1.0)
+    decay_cov = (
+        len(set(path) & high_decay) / max(len(high_decay), 1) if high_decay else 1.0
+    )
 
     return {
-        "zpd_align":  zpd_count / len(path),
+        "zpd_align": zpd_count / len(path),
         "prereq_sat": prereq_ok / len(path),
-        "proj_gain":  proj_gain,
-        "decay_cov":  decay_cov,
+        "proj_gain": proj_gain,
+        "decay_cov": decay_cov,
         "unlock_pot": total_unlocks,
     }

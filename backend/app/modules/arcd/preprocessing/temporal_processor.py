@@ -8,7 +8,9 @@ import pandas as pd
 
 from .index_mapper import IndexMapper
 
-_REQUIRED_CSV_COLUMNS = frozenset({"uid", "questions", "concepts", "responses", "timestamps"})
+_REQUIRED_CSV_COLUMNS = frozenset(
+    {"uid", "questions", "concepts", "responses", "timestamps"}
+)
 
 
 def _validate_csv_columns(reader: csv.DictReader, path: Path) -> None:
@@ -81,22 +83,36 @@ class TemporalProcessor:
                 reader = csv.DictReader(f)
                 _validate_csv_columns(reader, path)
                 raw_rows = [
-                    (row["uid"], row["questions"], row["concepts"],
-                     row["responses"], row["timestamps"])
+                    (
+                        row["uid"],
+                        row["questions"],
+                        row["concepts"],
+                        row["responses"],
+                        row["timestamps"],
+                    )
                     for row in reader
                 ]
-            _expand_rows(raw_rows, mapper,
-                         student_col, question_col, skill_col,
-                         all_skills_col, correct_col, tsec_col)
+            _expand_rows(
+                raw_rows,
+                mapper,
+                student_col,
+                question_col,
+                skill_col,
+                all_skills_col,
+                correct_col,
+                tsec_col,
+            )
 
-        df = pd.DataFrame({
-            "student_idx": np.array(student_col, dtype=np.int32),
-            "question_idx": np.array(question_col, dtype=np.int32),
-            "skill_idx": np.array(skill_col, dtype=np.int32),
-            "all_skill_indices": all_skills_col,
-            "correct": np.array(correct_col, dtype=np.int8),
-            "t_sec": np.array(tsec_col, dtype=np.float64),
-        })
+        df = pd.DataFrame(
+            {
+                "student_idx": np.array(student_col, dtype=np.int32),
+                "question_idx": np.array(question_col, dtype=np.int32),
+                "skill_idx": np.array(skill_col, dtype=np.int32),
+                "all_skill_indices": all_skills_col,
+                "correct": np.array(correct_col, dtype=np.int8),
+                "t_sec": np.array(tsec_col, dtype=np.float64),
+            }
+        )
 
         df.sort_values(["student_idx", "t_sec"], inplace=True, ignore_index=True)
         return df
@@ -123,7 +139,9 @@ def _expand_rows(
     for uid, qs_str, cs_str, rs_str, ts_str in raw_rows:
         sidx = user_map.get(uid)
         if sidx is None:
-            raise ValueError(f"Unknown uid {uid!r} not seen during fit_mapper; ensure extract_to_dataframe uses the same CSV set as fit_mapper.")
+            raise ValueError(
+                f"Unknown uid {uid!r} not seen during fit_mapper; ensure extract_to_dataframe uses the same CSV set as fit_mapper."
+            )
 
         qs = [x.strip() for x in qs_str.split(",")]
         cs = [x.strip() for x in cs_str.split(",")]
@@ -145,7 +163,9 @@ def _expand_rows(
 
             qidx = q_map.get(q)
             if qidx is None:
-                raise ValueError(f"Unknown question id {q!r} not seen during fit_mapper; ensure extract_to_dataframe uses the same CSV set as fit_mapper.")
+                raise ValueError(
+                    f"Unknown question id {q!r} not seen during fit_mapper; ensure extract_to_dataframe uses the same CSV set as fit_mapper."
+                )
 
             student_col.append(sidx)
             question_col.append(qidx)
