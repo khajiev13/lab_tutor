@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from datetime import UTC
 from typing import LiteralString
 
 from neo4j import Session as Neo4jSession
@@ -377,9 +378,9 @@ class CognitiveDiagnosisRepository:
         selected_option: str | None = None,
     ) -> None:
         """Create an ANSWERED relationship."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        at_iso = answered_at or datetime.now(timezone.utc).isoformat()
+        at_iso = answered_at or datetime.now(UTC).isoformat()
         self._session.run(
             CREATE_ANSWERED,
             user_id=user_id,
@@ -397,13 +398,11 @@ class CognitiveDiagnosisRepository:
         opened_at: str | None = None,
     ) -> None:
         """Create/update OPENED_READING or OPENED_VIDEO relationship."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        at_iso = opened_at or datetime.now(timezone.utc).isoformat()
+        at_iso = opened_at or datetime.now(UTC).isoformat()
         query = (
-            UPSERT_OPENED_VIDEO
-            if resource_type == "video"
-            else UPSERT_OPENED_READING
+            UPSERT_OPENED_VIDEO if resource_type == "video" else UPSERT_OPENED_READING
         )
         self._session.run(
             query,

@@ -375,7 +375,7 @@ def _compute_mastery_arcd_model(
     interactions = [
         {
             "question_name": ev.get("question_id") or "",
-            "correct":       int(bool(ev.get("response"))),
+            "correct": int(bool(ev.get("response"))),
             "timestamp_sec": float(ev.get("ts") or 0.0),
         }
         for ev in timeline
@@ -393,7 +393,7 @@ def _compute_mastery_arcd_model(
         # Reuse heuristic decay logic for temporal decay signal
         last_ts: int | None = None
         total_attempts = 0
-        correct_count  = 0
+        correct_count = 0
         for ev in timeline:
             if ev.get("skill_name") == name:
                 total_attempts += 1
@@ -420,13 +420,13 @@ def _compute_mastery_arcd_model(
 
         results.append(
             {
-                "skill_name":         name,
-                "mastery":            round(mastery, 4),
-                "decay":              round(decay, 4),
-                "status":             status,
-                "attempt_count":      total_attempts,
-                "correct_count":      correct_count,
-                "last_practice_ts":   last_ts,
+                "skill_name": name,
+                "mastery": round(mastery, 4),
+                "decay": round(decay, 4),
+                "status": status,
+                "attempt_count": total_attempts,
+                "correct_count": correct_count,
+                "last_practice_ts": last_ts,
             }
         )
     return results
