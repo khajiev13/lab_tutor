@@ -21,8 +21,12 @@ from app.modules.auth.models import User, UserRole
 
 from .schemas import (
     ClassMasteryResponse,
+    MultiSkillSimulationRequest,
+    MultiSkillSimulationResponse,
     SkillDifficultyResponse,
     SkillPopularityResponse,
+    SkillSimulationRequest,
+    SkillSimulationResponse,
     StudentGroupsResponse,
     WhatIfRequest,
     WhatIfResponse,
@@ -121,3 +125,63 @@ def run_what_if(
       ClassGain(s_k) = SUM_{i} (min(1, m_{i,s_k} + Delta) - m_{i,s_k})
     """
     return _get_service(driver).run_what_if(course_id, body)
+
+
+# ── Feature 6: Skill Simulation ────────────────────────────────────────────
+
+
+@router.post("/{course_id}/simulate-skill", response_model=SkillSimulationResponse)
+def simulate_skill(
+    course_id: int,
+    body: SkillSimulationRequest,
+    teacher: TeacherDep,
+    driver: Neo4jDep,
+) -> SkillSimulationResponse:
+    """Generate an adaptive exercise for a single skill at a given mastery level (backward compat)."""
+    return _get_service(driver).simulate_skill(
+        course_id, body.skill_name, body.simulated_mastery
+    )
+
+
+@router.post(
+    "/{course_id}/simulate-skills", response_model=MultiSkillSimulationResponse
+)
+def simulate_multiple_skills(
+    course_id: int,
+    body: MultiSkillSimulationRequest,
+    teacher: TeacherDep,
+    driver: Neo4jDep,
+) -> MultiSkillSimulationResponse:
+    """
+    Simulate multiple skills simultaneously.
+
+    Returns per-skill exercises + a coherence analysis showing how closely
+    the selected skills are co-selected by students and a recommended
+    teaching order.
+    """
+    return _get_service(driver).simulate_multiple_skills(course_id, body)
+
+
+# ── Student drilldown (teacher-scoped, read-only) ──────────────────────────
+
+
+@router.get("/{course_id}/student/{student_id}/portfolio")
+def get_student_portfolio(
+    course_id: int,
+    student_id: int,
+    teacher: TeacherDep,
+    driver: Neo4jDep,
+) -> dict:
+    """Return a student's ARCD portfolio (teacher read-only, requires TEACHES_CLASS)."""
+    return _get_service(driver).get_student_portfolio(teacher.id, student_id, course_id)
+
+
+@router.get("/{course_id}/student/{student_id}/twin")
+def get_student_twin(
+    course_id: int,
+    student_id: int,
+    teacher: TeacherDep,
+    driver: Neo4jDep,
+) -> dict:
+    """Return a student's digital twin data (teacher read-only, requires TEACHES_CLASS)."""
+    return _get_service(driver).get_student_twin(teacher.id, student_id, course_id)

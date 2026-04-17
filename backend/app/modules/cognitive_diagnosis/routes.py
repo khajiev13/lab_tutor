@@ -71,7 +71,7 @@ def compute_mastery(
     student: StudentDep,
     driver: Neo4jDep,
 ) -> MasteryResponse:
-    """Run ARCD inference for the current student, write MASTERY_OF edges to KG."""
+    """Run ARCD inference for the current student, write MASTERED edges to KG."""
     svc = _get_service(driver)
     return svc.compute_and_store_mastery(student.id, course_id)
 
@@ -86,7 +86,7 @@ def get_mastery(
     student: StudentDep,
     driver: Neo4jDep,
 ) -> MasteryResponse:
-    """Return the most recent MASTERY_OF snapshot stored in the KG."""
+    """Return the most recent MASTERED snapshot stored in the KG."""
     svc = _get_service(driver)
     return svc.get_mastery(student.id, course_id)
 
