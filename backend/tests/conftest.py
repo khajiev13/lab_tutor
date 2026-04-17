@@ -28,7 +28,8 @@ from app.core.database import (
     get_async_db,
     get_db,
 )
-from app.modules.auth.models import UserRole
+from app.core.neo4j import get_neo4j_driver
+from app.modules.auth.models import User, UserRole
 from app.providers.storage import BlobService
 from main import app
 
@@ -139,6 +140,13 @@ def teacher_auth_headers(client):
     return {"Authorization": f"Bearer {token}"}
 
 
+def get_teacher_id(db_session) -> int:
+    """Return the id of the teacher registered via teacher_auth_headers."""
+
+    user = db_session.query(User).filter(User.email == "teacher@example.com").first()
+    return user.id if user else 0
+
+
 @pytest.fixture
 def student_auth_headers(client):
     email = "student@example.com"
@@ -163,3 +171,17 @@ def student_auth_headers(client):
     )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def mock_neo4j():
+    """Override get_neo4j_driver with a MagicMock; yield the session mock.
+
+    Tests can configure ``session.run.return_value = [...]`` to shape responses.
+    """
+    driver = MagicMock()
+    session = driver.session.return_value.__enter__.return_value
+    session.run.return_value = []  # safe default: empty result set
+    app.dependency_overrides[get_neo4j_driver] = lambda: driver
+    yield session
+    app.dependency_overrides.pop(get_neo4j_driver, None)
