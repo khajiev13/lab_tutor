@@ -1,7 +1,7 @@
 """Cognitive Diagnosis — Neo4j repository.
 
 All graph writes for ARCD-derived data:
-  (USER:STUDENT) -[:MASTERY_OF]->    (SKILL)
+  (USER:STUDENT) -[:MASTERED]->    (SKILL)
   (USER:STUDENT) -[:ATTEMPTED]->     (QUESTION)
   (USER:STUDENT) -[:ENGAGES_WITH]->  (READING_RESOURCE | VIDEO_RESOURCE)
 
@@ -19,13 +19,13 @@ from typing import LiteralString
 
 from neo4j import Session as Neo4jSession
 
-# ── Write: MASTERY_OF ──────────────────────────────────────────────────────
+# ── Write: MASTERED ──────────────────────────────────────────────────────
 
-UPSERT_MASTERY_OF: LiteralString = """
+UPSERT_MASTERED: LiteralString = """
 MATCH (u:USER:STUDENT {id: $user_id})
 MATCH (s {name: $skill_name})
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
-MERGE (u)-[r:MASTERY_OF]->(s)
+MERGE (u)-[r:MASTERED]->(s)
 SET r.mastery          = $mastery,
     r.decay            = $decay,
     r.status           = $status,
@@ -41,7 +41,7 @@ UNWIND $rows AS row
 MATCH (u:USER:STUDENT {id: row.user_id})
 MATCH (s {name: row.skill_name})
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
-MERGE (u)-[r:MASTERY_OF]->(s)
+MERGE (u)-[r:MASTERED]->(s)
 SET r.mastery          = row.mastery,
     r.decay            = row.decay,
     r.status           = row.status,
@@ -92,7 +92,7 @@ SET e.progress      = $progress,
 # ── Read: mastery snapshot ─────────────────────────────────────────────────
 
 GET_STUDENT_MASTERY: LiteralString = """
-MATCH (u:USER:STUDENT {id: $user_id})-[r:MASTERY_OF]->(s)
+MATCH (u:USER:STUDENT {id: $user_id})-[r:MASTERED]->(s)
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
 RETURN s.name AS skill_name,
        r.mastery          AS mastery,
@@ -106,7 +106,7 @@ ORDER BY s.name
 """
 
 GET_STUDENT_MASTERY_FOR_COURSE: LiteralString = """
-MATCH (u:USER:STUDENT {id: $user_id})-[r:MASTERY_OF]->(s)
+MATCH (u:USER:STUDENT {id: $user_id})-[r:MASTERED]->(s)
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
   AND (
     EXISTS {
@@ -135,20 +135,21 @@ ORDER BY s.name
 GET_ALL_SKILLS_WITH_CONCEPTS: LiteralString = """
 MATCH (s)
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
-OPTIONAL MATCH (s)<-[:HAS_SKILL]-(bch:BOOK_CHAPTER)
-WITH s, head(collect(bch)) AS ch
 WITH s,
-     coalesce(
-         ch.title,
-         CASE WHEN ch.chapter_index IS NOT NULL
-              THEN 'Chapter ' + toString(ch.chapter_index)
-              ELSE null END
-     ) AS chapter_name,
+     head(COLLECT { MATCH (s)<-[:HAS_SKILL]-(bch:BOOK_CHAPTER) RETURN bch ORDER BY bch.chapter_index ASC }) AS ch,
+     [(s)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] AS concept_names
+WITH s, ch, concept_names,
+     CASE
+         WHEN ch IS NOT NULL AND ch.title IS NOT NULL AND trim(ch.title) <> ''
+             THEN trim(ch.title)
+         WHEN ch IS NOT NULL AND ch.chapter_index IS NOT NULL
+             THEN 'Chapter ' + toString(ch.chapter_index)
+         ELSE null
+     END AS chapter_name,
      coalesce(ch.chapter_index, 9999) AS chapter_order
-OPTIONAL MATCH (s)-[:REQUIRES_CONCEPT]->(c:CONCEPT)
 RETURN s.name AS skill_name,
-       collect(c.name) AS concept_names,
-       coalesce(chapter_name, '') AS chapter_name,
+       concept_names,
+       coalesce(chapter_name, 'Untitled Chapter') AS chapter_name,
        chapter_order
 ORDER BY chapter_order, chapter_name, s.name
 """
@@ -168,33 +169,35 @@ WITH s,
          )
      )) AS chapter_name,
      head(collect(ch.chapter_index)) AS chapter_idx
-OPTIONAL MATCH (s)-[:REQUIRES_CONCEPT]->(c:CONCEPT)
+WITH s, chapter_name, chapter_idx,
+     [(s)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] AS concept_names
 RETURN s.name AS skill_name,
-       collect(DISTINCT c.name) AS concept_names,
+       concept_names,
        coalesce(chapter_name, '') AS chapter_name,
        coalesce(chapter_idx, 9999) AS chapter_order
-ORDER BY chapter_idx, s.name
+ORDER BY chapter_order, skill_name
 """
 
 GET_STUDENT_SELECTED_SKILLS: LiteralString = """
 MATCH (u:USER:STUDENT {id: $user_id})-[:SELECTED_SKILL]->(s)
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
-OPTIONAL MATCH (s)<-[:HAS_SKILL]-(bch:BOOK_CHAPTER)
-WITH s, head(collect(bch)) AS ch
 WITH s,
-     coalesce(
-         ch.title,
-         CASE WHEN ch.chapter_index IS NOT NULL
-              THEN 'Chapter ' + toString(ch.chapter_index)
-              ELSE null END
-     ) AS chapter_name,
+     head(COLLECT { MATCH (s)<-[:HAS_SKILL]-(bch:BOOK_CHAPTER) RETURN bch ORDER BY bch.chapter_index ASC }) AS ch,
+     [(s)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] AS concept_names
+WITH s, ch, concept_names,
+     CASE
+         WHEN ch IS NOT NULL AND ch.title IS NOT NULL AND trim(ch.title) <> ''
+             THEN trim(ch.title)
+         WHEN ch IS NOT NULL AND ch.chapter_index IS NOT NULL
+             THEN 'Chapter ' + toString(ch.chapter_index)
+         ELSE null
+     END AS chapter_name,
      coalesce(ch.chapter_index, 9999) AS chapter_order
-OPTIONAL MATCH (s)-[:REQUIRES_CONCEPT]->(c:CONCEPT)
 RETURN s.name AS skill_name,
-       collect(DISTINCT c.name) AS concept_names,
-       coalesce(chapter_name, '') AS chapter_name,
+       concept_names,
+       coalesce(chapter_name, 'Untitled Chapter') AS chapter_name,
        chapter_order
-ORDER BY chapter_order, chapter_name, s.name
+ORDER BY chapter_order, chapter_name, skill_name
 """
 
 GET_STUDENT_SELECTED_SKILLS_FOR_COURSE: LiteralString = """
@@ -210,29 +213,28 @@ WHERE (s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL)
             <-[:MAPPED_TO]-(s)
     }
   )
-OPTIONAL MATCH (:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)
-      -[:HAS_CHAPTER]->(bch:BOOK_CHAPTER)-[:HAS_SKILL]->(s)
-OPTIONAL MATCH (:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(cch:COURSE_CHAPTER)
-      <-[:MAPPED_TO]-(s)
-WITH s, head(collect(bch)) AS bch, head(collect(cch)) AS cch
 WITH s,
-     coalesce(
-         bch.title,
-         CASE WHEN bch.chapter_index IS NOT NULL
-              THEN 'Chapter ' + toString(bch.chapter_index)
-              ELSE null END,
-         cch.title,
-         CASE WHEN cch.chapter_index IS NOT NULL
-              THEN 'Chapter ' + toString(cch.chapter_index)
-              ELSE null END
-     ) AS chapter_name,
+     head(COLLECT { MATCH (:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(bch:BOOK_CHAPTER)-[:HAS_SKILL]->(s) RETURN bch ORDER BY bch.chapter_index ASC }) AS bch,
+     head(COLLECT { MATCH (:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(cch:COURSE_CHAPTER)<-[:MAPPED_TO]-(s) RETURN cch ORDER BY cch.chapter_index ASC }) AS cch,
+     [(s)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] AS concept_names
+WITH s, bch, cch, concept_names,
+     CASE
+         WHEN bch IS NOT NULL AND bch.title IS NOT NULL AND trim(bch.title) <> ''
+             THEN trim(bch.title)
+         WHEN bch IS NOT NULL AND bch.chapter_index IS NOT NULL
+             THEN 'Chapter ' + toString(bch.chapter_index)
+         WHEN cch IS NOT NULL AND cch.title IS NOT NULL AND trim(cch.title) <> ''
+             THEN trim(cch.title)
+         WHEN cch IS NOT NULL AND cch.chapter_index IS NOT NULL
+             THEN 'Chapter ' + toString(cch.chapter_index)
+         ELSE null
+     END AS chapter_name,
      coalesce(bch.chapter_index, cch.chapter_index, 9999) AS chapter_order
-OPTIONAL MATCH (s)-[:REQUIRES_CONCEPT]->(c:CONCEPT)
 RETURN s.name AS skill_name,
-       collect(DISTINCT c.name) AS concept_names,
-       coalesce(chapter_name, '') AS chapter_name,
+       concept_names,
+       coalesce(chapter_name, 'Untitled Chapter') AS chapter_name,
        chapter_order
-ORDER BY chapter_order, chapter_name, s.name
+ORDER BY chapter_order, chapter_name, skill_name
 """
 
 GET_PREREQUISITE_MATRIX: LiteralString = """
@@ -252,6 +254,24 @@ GET_STUDENT_INTERACTION_TIMELINE: LiteralString = """
 MATCH (u:USER:STUDENT {id: $user_id})-[a:ATTEMPTED]->(q:QUESTION)
 MATCH (s)-[:HAS_QUESTION]->(q)
 WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
+RETURN s.name AS skill_name, a.is_correct AS response, a.timestamp_sec AS ts
+ORDER BY a.timestamp_sec
+"""
+
+GET_STUDENT_INTERACTION_TIMELINE_FOR_COURSE: LiteralString = """
+MATCH (u:USER:STUDENT {id: $user_id})-[a:ATTEMPTED]->(q:QUESTION)
+MATCH (s)-[:HAS_QUESTION]->(q)
+WHERE (s:SKILL OR s:BOOK_SKILL OR s:MARKET_SKILL)
+  AND (
+    EXISTS {
+      MATCH (:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)
+            -[:HAS_CHAPTER]->(:BOOK_CHAPTER)-[:HAS_SKILL]->(s)
+    }
+    OR EXISTS {
+      MATCH (:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
+            <-[:MAPPED_TO]-(s)
+    }
+  )
 RETURN s.name AS skill_name, a.is_correct AS response, a.timestamp_sec AS ts
 ORDER BY a.timestamp_sec
 """
@@ -323,7 +343,7 @@ class CognitiveDiagnosisRepository:
         mastery_items: list[dict],
         model_version: str = "arcd_v2",
     ) -> None:
-        """Write/update MASTERY_OF edges for all skills at once."""
+        """Write/update MASTERED edges for all skills at once."""
         now_ts = int(time.time())
         rows = [
             {
@@ -432,13 +452,22 @@ class CognitiveDiagnosisRepository:
         result = self._session.run(GET_PREREQUISITE_MATRIX)
         return [dict(r) for r in result]
 
-    def get_student_timeline(self, user_id: int) -> list[dict]:
-        result = self._session.run(GET_STUDENT_INTERACTION_TIMELINE, user_id=user_id)
+    def get_student_timeline(
+        self, user_id: int, course_id: int | None = None
+    ) -> list[dict]:
+        if course_id is not None:
+            result = self._session.run(
+                GET_STUDENT_INTERACTION_TIMELINE_FOR_COURSE,
+                user_id=user_id,
+                course_id=course_id,
+            )
+        else:
+            result = self._session.run(
+                GET_STUDENT_INTERACTION_TIMELINE, user_id=user_id
+            )
         return [dict(r) for r in result]
 
-    def get_questions_for_skill(
-        self, skill_name: str, limit: int = 10
-    ) -> list[dict]:
+    def get_questions_for_skill(self, skill_name: str, limit: int = 10) -> list[dict]:
         result = self._session.run(
             GET_QUESTIONS_FOR_SKILL, skill_name=skill_name, limit=limit
         )
