@@ -1,5 +1,5 @@
 """
-src/dataset/loaders — Per-dataset loader interfaces.
+app.modules.arcd.dataset.loaders — Per-dataset loader interfaces.
 
 Each loader knows how to:
     1. locate the raw dataset files
@@ -21,13 +21,11 @@ Usage::
 from app.modules.arcd.dataset.loaders.base import BaseDatasetLoader
 from app.modules.arcd.dataset.loaders.ednet import EdNetLoader
 from app.modules.arcd.dataset.loaders.junyi import JunyiLoader
-from app.modules.arcd.dataset.loaders.ptadisc import PTADiscLoader
 from app.modules.arcd.dataset.loaders.xes3g5m import XES3G5MLoader
 
 _REGISTRY: dict[str, type[BaseDatasetLoader]] = {
     "xes3g5m": XES3G5MLoader,
     "junyi": JunyiLoader,
-    "ptadisc": PTADiscLoader,
     "ednet": EdNetLoader,
 }
 
@@ -36,7 +34,7 @@ def get_loader(dataset: str, raw_dir, **kwargs) -> "BaseDatasetLoader":
     """Instantiate the appropriate dataset loader.
 
     Args:
-        dataset: Dataset name — one of ``xes3g5m``, ``junyi``, ``ptadisc``, ``ednet``.
+        dataset: Dataset name — one of ``xes3g5m``, ``junyi``, ``ednet``.
         raw_dir: Path to the raw dataset directory.
         **kwargs: Forwarded to the loader constructor.
 
@@ -56,7 +54,6 @@ __all__ = [
     "BaseDatasetLoader",
     "XES3G5MLoader",
     "JunyiLoader",
-    "PTADiscLoader",
     "EdNetLoader",
     "get_loader",
 ]

@@ -270,7 +270,9 @@ class ARCDModel(nn.Module):
                 ).float()
                 s_ability_bias = s_ability_bias * s_mask
         else:
-            s_ability_bias = torch.zeros(response_logit.size(0), device=response_logit.device)
+            s_ability_bias = torch.zeros(
+                response_logit.size(0), device=response_logit.device
+            )
         response_logit = response_logit + q_diff_bias + s_ability_bias
 
         # Mastery Head (Eq. 12)

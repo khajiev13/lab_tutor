@@ -32,10 +32,10 @@ class BaseDatasetLoader(ABC):
 
     @abstractmethod
     def fit_mapper(self):
-        """Scan raw files and return a fitted :class:`~src.preprocessing.IndexMapper`.
+        """Scan raw files and return a fitted :class:`~app.modules.arcd.dataset.IndexMapper`.
 
         Returns:
-            :class:`~src.preprocessing.IndexMapper` fitted on all unique IDs.
+            :class:`~app.modules.arcd.dataset.IndexMapper` fitted on all unique IDs.
         """
 
     @abstractmethod
@@ -43,7 +43,7 @@ class BaseDatasetLoader(ABC):
         """Build the processed interaction DataFrame.
 
         Args:
-            mapper: A fitted :class:`~src.preprocessing.IndexMapper`.
+            mapper: A fitted :class:`~app.modules.arcd.dataset.IndexMapper`.
 
         Returns:
             DataFrame with columns:

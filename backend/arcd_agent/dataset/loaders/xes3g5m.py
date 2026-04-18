@@ -8,9 +8,9 @@ CSV format expected by TemporalProcessor.
 from __future__ import annotations
 
 import pandas as pd
+from src.dataset.index_mapper import IndexMapper
 from src.dataset.loaders.base import BaseDatasetLoader
-from src.preprocessing.index_mapper import IndexMapper
-from src.preprocessing.temporal_processor import TemporalProcessor
+from src.dataset.temporal_processor import TemporalProcessor
 
 
 class XES3G5MLoader(BaseDatasetLoader):

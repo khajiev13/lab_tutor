@@ -1,7 +1,8 @@
 from .attention_gcn import AttentionGCNLayer
 from .basic_gcn import BasicGCNLayer
-from .bipartite_gcn import BipartiteGCNLayer, BipartiteGCNStack
 from .multi_relational import (
+    BipartiteGCNLayer,
+    BipartiteGCNStack,
     HomoGCNStack,
     MultiRelationalGAT,
     # back-compat aliases

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pandas as pd
 
+from app.modules.arcd.dataset.index_mapper import IndexMapper
 from app.modules.arcd.dataset.loaders.base import BaseDatasetLoader
-from app.modules.arcd.preprocessing.index_mapper import IndexMapper
-from app.modules.arcd.preprocessing.temporal_processor import TemporalProcessor
+from app.modules.arcd.dataset.temporal_processor import TemporalProcessor
 
 
 class JunyiLoader(BaseDatasetLoader):

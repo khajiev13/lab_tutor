@@ -19,6 +19,7 @@ If the checkpoint directory is missing, the model file is absent, or
 anything goes wrong during loading, ``is_available`` is ``False`` and
 :py:meth:`predict_mastery` raises ``RuntimeError``.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,7 +48,7 @@ class ModelRegistry:
     """
 
     def __init__(self) -> None:
-        self._model: Any = None        # ARCDModel
+        self._model: Any = None  # ARCDModel
         self._vocab: dict = {}
         self._config: dict = {}
         self._graph_data: dict = {}
@@ -82,7 +83,9 @@ class ModelRegistry:
         try:
             reg._load(ckpt_path)
         except Exception as exc:
-            logger.warning("ModelRegistry: failed to load checkpoint (%s) — fallback", exc)
+            logger.warning(
+                "ModelRegistry: failed to load checkpoint (%s) — fallback", exc
+            )
 
         return reg
 
@@ -96,13 +99,10 @@ class ModelRegistry:
 
         # Vocab path: try checkpoint dir first (extended vocab with question_skill),
         # then fall back to the original path stored in the checkpoint, then search.
-        vocab_path = (
-            self._find_vocab(ckpt_path)
-            or (
-                Path(ckpt.get("vocab_path", ""))
-                if ckpt.get("vocab_path") and Path(ckpt["vocab_path"]).exists()
-                else None
-            )
+        vocab_path = self._find_vocab(ckpt_path) or (
+            Path(ckpt.get("vocab_path", ""))
+            if ckpt.get("vocab_path") and Path(ckpt["vocab_path"]).exists()
+            else None
         )
         if vocab_path is None:
             raise FileNotFoundError(
@@ -111,9 +111,9 @@ class ModelRegistry:
         with open(vocab_path) as f:
             self._vocab = json.load(f)
 
-        n_skills    = cfg.get("n_skills",    len(self._vocab.get("concept", {})))
+        n_skills = cfg.get("n_skills", len(self._vocab.get("concept", {})))
         n_questions = cfg.get("n_questions", len(self._vocab.get("question", {})))
-        n_students  = cfg.get("n_students",  len(self._vocab.get("user", {})))
+        n_students = cfg.get("n_students", len(self._vocab.get("user", {})))
 
         model = ARCDModel(
             d_skill_embed=cfg.get("d_skill_embed", 32),
@@ -142,12 +142,15 @@ class ModelRegistry:
         self._graph_data = self._build_graph_tensors(vocab_path)
 
         self.model_version = ckpt.get("model_version", "arcd_v2_model")
-        self.best_val_auc  = float(ckpt.get("best_val_auc", 0.0))
-        self.is_available  = True
+        self.best_val_auc = float(ckpt.get("best_val_auc", 0.0))
+        self.is_available = True
         logger.info(
             "ModelRegistry: loaded checkpoint — n_skills=%d  n_questions=%d  "
             "n_students=%d  val_AUC=%.4f",
-            n_skills, n_questions, n_students, self.best_val_auc,
+            n_skills,
+            n_questions,
+            n_students,
+            self.best_val_auc,
         )
 
     @staticmethod
@@ -170,9 +173,9 @@ class ModelRegistry:
         A_uq is zeros (no student-question history available at inference time).
         """
         vocab = self._vocab
-        n_skills    = len(vocab.get("concept", {}))
+        n_skills = len(vocab.get("concept", {}))
         n_questions = len(vocab.get("question", {}))
-        n_students  = len(vocab.get("user", {}))
+        n_students = len(vocab.get("user", {}))
 
         H = torch.empty(n_skills, self._config.get("d_skill_embed", 32))
         nn.init.xavier_uniform_(H)
@@ -197,11 +200,11 @@ class ModelRegistry:
 
         return {
             "H_skill_raw": H,
-            "A_pre":       A_pre,
-            "A_qs":        A_qs,
-            "A_vs":        A_vs,
-            "A_rs":        A_rs,
-            "A_uq":        A_uq,
+            "A_pre": A_pre,
+            "A_qs": A_qs,
+            "A_vs": A_vs,
+            "A_rs": A_rs,
+            "A_uq": A_uq,
         }
 
     # ── Inference ─────────────────────────────────────────────────────────────
@@ -238,7 +241,7 @@ class ModelRegistry:
         q_to_idx: dict[str, int] = vocab.get("question", {})
 
         # Build the sequence tensors once.
-        recent = interactions[-(seq_len - 1):]
+        recent = interactions[-(seq_len - 1) :]
         hist = [
             (
                 q_to_idx.get(r.get("question_name", ""), 0),
@@ -251,12 +254,12 @@ class ModelRegistry:
 
         T = seq_len - 1
         pad_len = T - len(hist)
-        event_types    = [0] * len(hist) + [0] * pad_len
+        event_types = [0] * len(hist) + [0] * pad_len
         entity_indices = [e[0] for e in hist] + [0] * pad_len
-        outcomes       = [float(e[1]) for e in hist] + [0.0] * pad_len
-        timestamps     = [e[2] for e in hist] + [0.0] * pad_len
-        decay_values   = [0.0] * T
-        pad_mask       = [True] * len(hist) + [False] * pad_len
+        outcomes = [float(e[1]) for e in hist] + [0.0] * pad_len
+        timestamps = [e[2] for e in hist] + [0.0] * pad_len
+        decay_values = [0.0] * T
+        pad_mask = [True] * len(hist) + [False] * pad_len
 
         # Separate known vs unknown questions.
         known_names = [q for q in target_questions if q in q_to_idx]
@@ -272,29 +275,39 @@ class ModelRegistry:
         # Batch: repeat the same sequence N times, one target question per row.
         # GAT is called once via gat_cache to avoid redundant graph convolutions.
         gat_cache: dict[str, torch.Tensor] = self._model.gat(
-            gd["H_skill_raw"], gd["A_pre"], gd["A_qs"],
-            gd["A_vs"], gd["A_rs"], gd["A_uq"],
+            gd["H_skill_raw"],
+            gd["A_pre"],
+            gd["A_qs"],
+            gd["A_vs"],
+            gd["A_rs"],
+            gd["A_uq"],
         )
 
-        target_idxs = torch.tensor(
-            [q_to_idx[q] for q in known_names], dtype=torch.long
-        )
+        target_idxs = torch.tensor([q_to_idx[q] for q in known_names], dtype=torch.long)
 
         batch = {
-            "student_ids":    torch.zeros(N, dtype=torch.long),
-            "event_types":    torch.tensor([event_types],    dtype=torch.long).expand(N, -1),
-            "entity_indices": torch.tensor([entity_indices], dtype=torch.long).expand(N, -1),
-            "outcomes":       torch.tensor([outcomes],       dtype=torch.float32).expand(N, -1),
-            "timestamps":     torch.tensor([timestamps],     dtype=torch.float32).expand(N, -1),
-            "decay_values":   torch.tensor([decay_values],   dtype=torch.float32).expand(N, -1),
-            "pad_mask":       torch.tensor([pad_mask],       dtype=torch.bool).expand(N, -1),
-            "target_type":    torch.zeros(N, dtype=torch.long),
-            "target_idx":     target_idxs,
+            "student_ids": torch.zeros(N, dtype=torch.long),
+            "event_types": torch.tensor([event_types], dtype=torch.long).expand(N, -1),
+            "entity_indices": torch.tensor([entity_indices], dtype=torch.long).expand(
+                N, -1
+            ),
+            "outcomes": torch.tensor([outcomes], dtype=torch.float32).expand(N, -1),
+            "timestamps": torch.tensor([timestamps], dtype=torch.float32).expand(N, -1),
+            "decay_values": torch.tensor([decay_values], dtype=torch.float32).expand(
+                N, -1
+            ),
+            "pad_mask": torch.tensor([pad_mask], dtype=torch.bool).expand(N, -1),
+            "target_type": torch.zeros(N, dtype=torch.long),
+            "target_idx": target_idxs,
         }
 
         out = self._model(
-            gd["H_skill_raw"], gd["A_pre"], gd["A_qs"],
-            gd["A_vs"], gd["A_rs"], gd["A_uq"],
+            gd["H_skill_raw"],
+            gd["A_pre"],
+            gd["A_qs"],
+            gd["A_vs"],
+            gd["A_rs"],
+            gd["A_uq"],
             batch["event_types"],
             batch["entity_indices"],
             batch["outcomes"],
@@ -346,7 +359,7 @@ class ModelRegistry:
         c_to_idx: dict[str, int] = vocab.get("concept", {})
 
         # Build sequence tensor (right-padded, true events first)
-        recent = interactions[-(seq_len - 1):]
+        recent = interactions[-(seq_len - 1) :]
         hist = [
             (
                 q_to_idx.get(r.get("question_name", ""), 0),
@@ -361,23 +374,23 @@ class ModelRegistry:
         pad_len = T - len(hist)
 
         # event_types: 0=question (all synthgen events are questions)
-        event_types    = [0] * len(hist) + [0] * pad_len
+        event_types = [0] * len(hist) + [0] * pad_len
         entity_indices = [e[0] for e in hist] + [0] * pad_len
-        outcomes       = [float(e[1]) for e in hist] + [0.0] * pad_len
-        timestamps     = [e[2] for e in hist] + [0.0] * pad_len
-        decay_values   = [0.0] * T
-        pad_mask       = [True] * len(hist) + [False] * pad_len
+        outcomes = [float(e[1]) for e in hist] + [0.0] * pad_len
+        timestamps = [e[2] for e in hist] + [0.0] * pad_len
+        decay_values = [0.0] * T
+        pad_mask = [True] * len(hist) + [False] * pad_len
 
         batch = {
-            "student_ids":    torch.tensor([0], dtype=torch.long),
-            "event_types":    torch.tensor([event_types],    dtype=torch.long),
+            "student_ids": torch.tensor([0], dtype=torch.long),
+            "event_types": torch.tensor([event_types], dtype=torch.long),
             "entity_indices": torch.tensor([entity_indices], dtype=torch.long),
-            "outcomes":       torch.tensor([outcomes],        dtype=torch.float32),
-            "timestamps":     torch.tensor([timestamps],      dtype=torch.float32),
-            "decay_values":   torch.tensor([decay_values],    dtype=torch.float32),
-            "pad_mask":       torch.tensor([pad_mask],        dtype=torch.bool),
-            "target_type":    torch.tensor([0], dtype=torch.long),
-            "target_idx":     torch.tensor([0], dtype=torch.long),
+            "outcomes": torch.tensor([outcomes], dtype=torch.float32),
+            "timestamps": torch.tensor([timestamps], dtype=torch.float32),
+            "decay_values": torch.tensor([decay_values], dtype=torch.float32),
+            "pad_mask": torch.tensor([pad_mask], dtype=torch.bool),
+            "target_type": torch.tensor([0], dtype=torch.long),
+            "target_idx": torch.tensor([0], dtype=torch.long),
         }
 
         gd = self._graph_data

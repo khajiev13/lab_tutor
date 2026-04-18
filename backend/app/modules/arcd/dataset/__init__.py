@@ -1,24 +1,21 @@
 """
-src/dataset — Unified dataset module for ARCD.
+app.modules.arcd.dataset — Unified dataset module for ARCD.
 
 Provides:
     IndexMapper           — bidirectional ID ↔ index mapping
-    TemporalProcessor     — CSV → DataFrame preprocessor (XES3G5M format)
-    loaders               — per-dataset loader interfaces
-
-Re-exports everything from app.modules.arcd.preprocessing for backward compatibility.
+    TemporalProcessor     — CSV → DataFrame preprocessor
+    loaders               — per-dataset loader interfaces (XES3G5M, Junyi, EdNet)
 """
 
+from app.modules.arcd.dataset.index_mapper import IndexMapper
 from app.modules.arcd.dataset.loaders import (
     BaseDatasetLoader,
     EdNetLoader,
     JunyiLoader,
-    PTADiscLoader,
     XES3G5MLoader,
     get_loader,
 )
-from app.modules.arcd.preprocessing.index_mapper import IndexMapper
-from app.modules.arcd.preprocessing.temporal_processor import TemporalProcessor
+from app.modules.arcd.dataset.temporal_processor import TemporalProcessor
 
 __all__ = [
     "IndexMapper",
@@ -26,7 +23,6 @@ __all__ = [
     "BaseDatasetLoader",
     "XES3G5MLoader",
     "JunyiLoader",
-    "PTADiscLoader",
     "EdNetLoader",
     "get_loader",
 ]

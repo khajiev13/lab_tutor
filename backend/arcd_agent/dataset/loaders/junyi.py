@@ -7,9 +7,9 @@ Junyi uses a similar 5-column CSV format to XES3G5M.
 from __future__ import annotations
 
 import pandas as pd
+from src.dataset.index_mapper import IndexMapper
 from src.dataset.loaders.base import BaseDatasetLoader
-from src.preprocessing.index_mapper import IndexMapper
-from src.preprocessing.temporal_processor import TemporalProcessor
+from src.dataset.temporal_processor import TemporalProcessor
 
 
 class JunyiLoader(BaseDatasetLoader):
