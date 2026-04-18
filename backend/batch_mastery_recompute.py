@@ -9,7 +9,7 @@ Usage
     cd backend
     LAB_TUTOR_DATABASE_URL=... uv run python -m batch_mastery_recompute \
         --data-dir ../knowledge_graph_builder/data/synthgen/roma_synth_v1 \
-        --checkpoint-dir checkpoints/synthgen \
+        --checkpoint-dir checkpoints/roma_synth_v1_reg \
         [--run-id roma_synth_v1] [--limit 20]
 """
 from __future__ import annotations

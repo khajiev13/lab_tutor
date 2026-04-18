@@ -9,7 +9,7 @@ Usage
 -----
     from arcd_agent.model_registry import ModelRegistry
 
-    registry = ModelRegistry.from_dir(Path("checkpoints/synthgen"))
+    registry = ModelRegistry.from_dir(Path("checkpoints/roma_synth_v1_reg"))
     if registry.is_available:
         mastery = registry.predict_mastery(interactions, concept_names)
 
@@ -433,13 +433,13 @@ def get_registry(checkpoint_dir: Path | str | None = None) -> ModelRegistry:
     ----------
     checkpoint_dir:
         Path to the arcd_train output directory.  Defaults to
-        ``backend/checkpoints/synthgen`` relative to this file's package root.
+        ``backend/checkpoints/roma_synth_v1_reg`` relative to this file's package root.
     """
     global _registry
     if _registry is None:
         if checkpoint_dir is None:
             # Default: look two levels up from this module to backend/
             _pkg_root = Path(__file__).resolve().parent.parent
-            checkpoint_dir = _pkg_root / "checkpoints" / "synthgen"
+            checkpoint_dir = _pkg_root / "checkpoints" / "roma_synth_v1_reg"
         _registry = ModelRegistry.from_dir(Path(checkpoint_dir))
     return _registry
