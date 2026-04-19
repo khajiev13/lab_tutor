@@ -113,7 +113,7 @@ export const diagnosisApi = {
       params: { path_length: pathLength },
     }),
 
-  /** POST /diagnosis/review/{course_id} — RevFell review session */
+  /** POST /diagnosis/review/{course_id} — LearnFell review session */
   getReview: (courseId: number, topK = 5) =>
     api.post<ReviewResponse>(`/diagnosis/review/${courseId}`, { top_k: topK }),
 

@@ -130,7 +130,7 @@ ORDER BY s.name
 """
 
 
-# ── Read: KG structure for PathGen/RevFell ─────────────────────────────────
+# ── Read: KG structure for PathGen/LearnFell ───────────────────────────────
 
 GET_ALL_SKILLS_WITH_CONCEPTS: LiteralString = """
 MATCH (s)

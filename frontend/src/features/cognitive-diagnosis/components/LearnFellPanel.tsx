@@ -12,24 +12,24 @@ import {
 } from 'lucide-react';
 import type { ReviewResponse, PCOSkill } from '../api';
 
-interface RevFellPanelProps {
+interface LearnFellPanelProps {
   review: ReviewResponse | null;
   pcoSkillsFromPortfolio: PCOSkill[];
   loading?: boolean;
   onPracticeSkill?: (skillName: string) => void;
 }
 
-export function RevFellPanel({
+export function LearnFellPanel({
   review,
   pcoSkillsFromPortfolio,
   loading,
   onPracticeSkill,
-}: RevFellPanelProps) {
+}: LearnFellPanelProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-        <span className="text-sm text-muted-foreground">Running RevFell analysis…</span>
+        <span className="text-sm text-muted-foreground">Running LearnFell analysis…</span>
       </div>
     );
   }
@@ -171,7 +171,7 @@ export function RevFellPanel({
       {review?.review_queue && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
-          <span>RevFell analysis based on your current interaction history</span>
+          <span>LearnFell analysis based on your current interaction history</span>
         </div>
       )}
     </div>

@@ -3,7 +3,7 @@
 Orchestrates:
   - ARCD-based mastery/decay computation (lightweight heuristic when model unavailable)
   - PathGen: ZPD-calibrated learning path generation
-  - RevFell: PCO detection + urgency-based review scheduling
+  - LearnFell: PCO detection + urgency-based review scheduling
   - AdaEx: adaptive exercise generation via LLM
 """
 
@@ -419,7 +419,7 @@ class CognitiveDiagnosisService:
             learning_schedule=learning_schedule,
         )
 
-    # ── RevFell ──────────────────────────────────────────────────
+    # ── LearnFell ────────────────────────────────────────────────
 
     def review_session(
         self,
@@ -428,7 +428,7 @@ class CognitiveDiagnosisService:
         top_k: int = 5,
     ) -> ReviewResponse:
         """Run PCO detection and urgency-based review scheduling."""
-        from arcd_agent.agents.revfell import (
+        from arcd_agent.agents.learnfell import (
             EmotionalState,
             FastReviewMode,
             PCODetector,
@@ -893,7 +893,7 @@ class CognitiveDiagnosisService:
                     "deviations": [],
                 }
         except Exception as exc:
-            logger.warning("RevFell unavailable for ARCD portfolio (user %d): %s", user_id, exc)
+            logger.warning("LearnFell unavailable for ARCD portfolio (user %d): %s", user_id, exc)
 
         student_portfolio = ArcdStudentPortfolio(
             uid=str(user_id),

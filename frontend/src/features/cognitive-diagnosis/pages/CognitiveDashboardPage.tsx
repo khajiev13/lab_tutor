@@ -20,13 +20,13 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { MasteryBar } from '../components/MasteryBar';
 import { LearningPathPanel } from '../components/LearningPathPanel';
 import { ExercisePanel } from '../components/ExercisePanel';
-import { RevFellPanel } from '../components/RevFellPanel';
+import { LearnFellPanel } from '../components/LearnFellPanel';
 import { OrchestratorPanel } from '../components/OrchestratorPanel';
 import { DigitalTwinTab } from '../components/DigitalTwinTab';
 
-type AgentTab = 'assess' | 'pathgen' | 'revfell' | 'adaex' | 'orchestrator' | 'digital-twin';
+type AgentTab = 'assess' | 'pathgen' | 'learnfell' | 'adaex' | 'orchestrator' | 'digital-twin';
 
-const VALID_TABS: AgentTab[] = ['assess', 'pathgen', 'revfell', 'adaex', 'orchestrator', 'digital-twin'];
+const VALID_TABS: AgentTab[] = ['assess', 'pathgen', 'learnfell', 'adaex', 'orchestrator', 'digital-twin'];
 
 export default function CognitiveDashboardPage() {
   const { user } = useAuth();
@@ -48,7 +48,7 @@ export default function CognitiveDashboardPage() {
 
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
 
-  // RevFell lazy-load
+  // LearnFell lazy-load
   const [review, setReview] = useState<ReviewResponse | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
   const [reviewLoaded, setReviewLoaded] = useState(false);
@@ -70,13 +70,13 @@ export default function CognitiveDashboardPage() {
     loadPortfolio();
   }, [loadPortfolio]);
 
-  // Sync URL when tab changes + lazy-load RevFell review
+  // Sync URL when tab changes + lazy-load LearnFell review
   const handleTabChange = async (tab: string) => {
     const t = tab as AgentTab;
     if (!isTeacher) return;
     setActiveTab(t);
     setSearchParams({ tab }, { replace: true });
-    if (tab === 'revfell' && !reviewLoaded && portfolio) {
+    if (tab === 'learnfell' && !reviewLoaded && portfolio) {
       setLoadingReview(true);
       try {
         const resp = await diagnosisApi.getReview(courseId, 8);
@@ -174,7 +174,7 @@ export default function CognitiveDashboardPage() {
             ARCD Agent Dashboard
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Multi-agent adaptive learning — Assess → PathGen → RevFell → AdaEx
+            Multi-agent adaptive learning — Assess → PathGen → LearnFell → AdaEx
             {portfolio.mastery.length > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
@@ -213,9 +213,9 @@ export default function CognitiveDashboardPage() {
             <Map className="h-3 w-3" />
             <span>PathGen</span>
           </TabsTrigger>
-          <TabsTrigger value="revfell" className="flex items-center gap-1.5">
+          <TabsTrigger value="learnfell" className="flex items-center gap-1.5">
             <Repeat2 className="h-3 w-3" />
-            <span>RevFell</span>
+            <span>LearnFell</span>
             {portfolio.pco_skills.length > 0 && (
               <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
                 {portfolio.pco_skills.length}
@@ -252,9 +252,9 @@ export default function CognitiveDashboardPage() {
           />
         </TabsContent>
 
-        {/* ── Tab 3: RevFell ──────────────────────────────────────────── */}
-        <TabsContent value="revfell" className="mt-4">
-          <RevFellPanel
+        {/* ── Tab 3: LearnFell ────────────────────────────────────────── */}
+        <TabsContent value="learnfell" className="mt-4">
+          <LearnFellPanel
             review={review}
             pcoSkillsFromPortfolio={portfolio.pco_skills}
             loading={loadingReview}

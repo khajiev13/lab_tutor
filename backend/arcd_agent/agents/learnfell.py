@@ -1,5 +1,5 @@
 """
-Review Fellow — reusable domain logic.
+Learning Fellow — reusable domain logic.
 
 Classes:
     PCOResult        — dataclass for a single skill's PCO analysis

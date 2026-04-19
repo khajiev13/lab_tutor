@@ -3,7 +3,7 @@ ARCD — Adaptive Retention Cognitive Diagnosis.
 
 Package layout (app.modules.arcd.*):
     model/             ARCD model (GCN, Attention, Decay, Heads, Training)
-    agents/            Tutoring agents (PathGen, RevFell, AdaEx, Orchestrator)
+    agents/            Tutoring agents (PathGen, LearnFell, AdaEx, Orchestrator)
     dataset/           Dataset loaders and preprocessing utilities
     evaluation/        Evaluation metrics and controlled-simulation runners
     knowledge_graph/   Neo4j client and KG data loader

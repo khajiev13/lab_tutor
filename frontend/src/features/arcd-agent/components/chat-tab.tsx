@@ -767,7 +767,7 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            Review Fellow Chat
+            Learning Fellow Chat
             <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">Unavailable</Badge>
           </CardTitle>
           <CardDescription>The review service is not responding. Make sure the backend is running.</CardDescription>
@@ -925,9 +925,9 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
                 placeholder={
                   mode === "review" && currentQuestion
                     ? inputMode === "ask"
-                      ? "Ask the Review Fellow anything about this question..."
+                      ? "Ask the Learning Fellow anything about this question..."
                       : "Type your answer..."
-                    : "Ask the Review Fellow anything..."
+                    : "Ask the Learning Fellow anything..."
                 }
                 disabled={loading}
                 className={`flex-1 rounded-full border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 transition-colors ${
@@ -1281,7 +1281,7 @@ function SessionTypeChooser({ reviewOptions, onSelectAuto, onSelectManual, onJus
 
       <div className="text-center">
         <button onClick={onJustChat} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">
-          Just ask the Review Fellow a question instead
+          Just ask the Learning Fellow a question instead
         </button>
       </div>
     </div>
@@ -1676,7 +1676,7 @@ function WelcomeScreen({ avgMastery, reviewOptions }: {
         <span className="text-3xl">🎓</span>
       </div>
       <div className="space-y-1.5 max-w-sm">
-        <h3 className="font-semibold text-lg">Welcome to Review Fellow</h3>
+        <h3 className="font-semibold text-lg">Welcome to Learning Fellow</h3>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Your AI-powered review companion. Select skills and questions below, then start a session.
         </p>

@@ -4,7 +4,7 @@ New endpoints under /diagnosis/:
   POST /diagnosis/mastery/{user_id}           — compute + store mastery
   GET  /diagnosis/mastery/{user_id}           — read cached mastery
   GET  /diagnosis/path/{user_id}/{course_id}  — PathGen learning path
-  POST /diagnosis/review/{user_id}/{course_id}— RevFell review session
+  POST /diagnosis/review/{user_id}/{course_id}— LearnFell review session
   POST /diagnosis/exercise/{user_id}          — AdaEx adaptive exercise
   GET  /diagnosis/portfolio/{user_id}/{course_id} — full portfolio
   POST /diagnosis/interactions                — log ATTEMPTED event
@@ -116,7 +116,7 @@ def get_learning_path(
 @router.post(
     "/review/{course_id}",
     response_model=ReviewResponse,
-    summary="RevFell: PCO detection + urgency-based review",
+    summary="LearnFell: PCO detection + urgency-based review",
 )
 def review_session(
     course_id: int,

@@ -48,7 +48,7 @@ class LogEngagementRequest(BaseModel):
 
 
 class ReviewRequest(BaseModel):
-    """Trigger a RevFell review session."""
+    """Trigger a Learning Fellow review session."""
 
     top_k: int = Field(default=5, ge=1, le=20)
 

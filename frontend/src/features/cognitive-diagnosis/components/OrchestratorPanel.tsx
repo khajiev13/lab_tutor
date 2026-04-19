@@ -73,9 +73,9 @@ export function OrchestratorPanel({ portfolio }: OrchestratorPanelProps) {
       ],
     },
     {
-      id: 'revfell',
-      label: 'RevFell',
-      agent: 'Review Fellow',
+      id: 'learnfell',
+      label: 'LearnFell',
+      agent: 'Learning Fellow',
       icon: <Repeat2 className="h-4 w-4" />,
       color: 'text-orange-600 dark:text-orange-400',
       bg: 'bg-orange-50 dark:bg-orange-900/20',

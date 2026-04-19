@@ -1,6 +1,6 @@
 """Interactive Review Chat — FastAPI routes.
 
-Provides the same API surface as the original standalone RevFell chat server
+Provides the same API surface as the original standalone LearnFell chat server
 so that the existing chat-tab.tsx can connect without modification (except for
 the base URL and JWT auth headers).
 
@@ -518,7 +518,7 @@ def review_start(body: dict, student: StudentDep, driver: Neo4jDep) -> dict:
     return {
         "session_id": session_id,
         "greeting": (
-            f"👋 Welcome back! I'm your Review Fellow. {('Fast Review' if thinking_mode == 'fast' else 'Deep Review')} "
+            f"👋 Welcome back! I'm your Learning Fellow. {('Fast Review' if thinking_mode == 'fast' else 'Deep Review')} "
             f"mode is on, and we have {len(skill_names)} question(s). "
             f"{insight['text']} "
             f"{'We will move quickly with concise checks.' if thinking_mode == 'fast' else 'We will focus on reasoning and deeper understanding.'}"

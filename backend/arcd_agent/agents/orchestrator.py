@@ -34,8 +34,8 @@ except ImportError:
     from typing_extensions import TypedDict  # type: ignore[assignment]
 
 from src.agents.adaex import DifficultyCalculator
+from src.agents.learnfell import FastReviewMode, MasterySync, PCODetector
 from src.agents.pathgen import PathGenConfig, PathGenerator
-from src.agents.revfell import FastReviewMode, MasterySync, PCODetector
 
 # ── Orchestrator state ────────────────────────────────────────────────
 
@@ -268,7 +268,7 @@ def _build_exercise_node(A_skill):
             "orchestrator_log": state.get("orchestrator_log", []) + [{
                 "step": "exercises", "iter": it,
                 "n_ex": len(exercises),
-                "from_revfell": len(reqs),
+                "from_learnfell": len(reqs),
                 "ts": datetime.datetime.now().isoformat(),
             }],
         }
@@ -335,7 +335,7 @@ def build_orchestrator(A_skill, skill_names: dict | None = None, llm=None,
     Args:
         A_skill:        numpy prerequisite adjacency matrix (n_skills × n_skills).
         skill_names:    optional {skill_id: name} dict for human-readable logs.
-        llm:            optional LangChain LLM for RevFell LLM-assisted features.
+        llm:            optional LangChain LLM for Learning Fellow LLM-assisted features.
         max_iterations: maximum reassess-replan iterations (default 2).
 
     Returns:
