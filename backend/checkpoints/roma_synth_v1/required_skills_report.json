@@ -1,0 +1,67 @@
+{
+  "checkpoint": "checkpoints/roma_synth_v1",
+  "data_dir": "../knowledge_graph_builder/data/synthgen/roma_synth_v2_40pct",
+  "best_val_auc_at_train": 0.7038083849948386,
+  "metrics_suite": {
+    "AUC-ROC": 0.7037173645731658,
+    "PR-AUC": 0.7370087733978504,
+    "Accuracy": 0.6454901960784314,
+    "Balanced Acc": 0.64723856842831,
+    "F1": 0.6670962990241208,
+    "Precision": 0.7051381860646165,
+    "Recall": 0.6329489867225716,
+    "Specificity": 0.6615281501340483,
+    "RMSE": 0.4808693826198578,
+    "Log Loss": 0.655111381604108,
+    "Brier Score": 0.2312353551387787,
+    "ECE": 0.09079847276210785,
+    "MCC": 0.2922727413332862,
+    "Cohen Kappa": 0.2903334250740236,
+    "Calib Slope": 2.8752340035157653,
+    "Calib Intercept": 0.29858660731953657
+  },
+  "adaex": {
+    "adaex": {
+      "zpd_alignment": 0.08192139737991266,
+      "calibration_error": 0.4488482510601722,
+      "prereq_correlation": 0.39570001595853493,
+      "cross_student_variance": 0.10680297560828152
+    },
+    "baseline_fixed_medium": {
+      "zpd_alignment": 0.15377001455604075,
+      "calibration_error": 0.4228011484057243,
+      "prereq_correlation": 0.0,
+      "cross_student_variance": 0.0
+    },
+    "baseline_random": {
+      "zpd_alignment": 0.362037845705968,
+      "calibration_error": 0.40580076603185455,
+      "prereq_correlation": 0.003695416516085456,
+      "cross_student_variance": 0.28845036745898406
+    }
+  },
+  "pathgen": {
+    "pathgen_v2_mean": {
+      "zpd_align": 0.6733333333333333,
+      "prereq_sat": 0.74,
+      "proj_gain": 0.4809149568196606,
+      "decay_cov": 0.74,
+      "unlock_pot": 0.24
+    },
+    "random_mean": {
+      "zpd_align": 0.18333333333333332,
+      "prereq_sat": 0.8591666666666666,
+      "proj_gain": 0.3096161354391916,
+      "decay_cov": 1.0,
+      "unlock_pot": 0.06
+    }
+  },
+  "acceptance": {
+    "val_auc_ge_0.65": true,
+    "f1_nonzero": true,
+    "adaex_personalises_difficulty": true,
+    "pathgen_v2_beats_random_zpd": true,
+    "pathgen_v2_beats_random_gain": true
+  },
+  "all_passed": true
+}

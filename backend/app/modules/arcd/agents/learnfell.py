@@ -8,6 +8,7 @@ Classes:
     MasterySync      — decay-aware online mastery update (EMA)
     EmotionalState   — lightweight student emotional state tracker
 """
+
 from __future__ import annotations
 
 import math
@@ -17,13 +18,14 @@ from dataclasses import dataclass
 @dataclass
 class PCOResult:
     """Result of PCO (Prior Correct to Overclaim) detection for one skill."""
+
     skill_id: int
     is_pco: bool
     failure_streak: int
     mastery: float
     total_attempts: int
     recent_accuracy: float
-    decay_risk: float   # 0-1, 0 = fully retained
+    decay_risk: float  # 0-1, 0 = fully retained
     why: str
 
 
@@ -76,7 +78,7 @@ class PCODetector:
             streak = self._max_tail_streak(responses) if responses else 0
             m = mastery[sid] if sid < len(mastery) else 0.0
             total = len(responses)
-            recent = responses[-min(10, len(responses)):] if responses else []
+            recent = responses[-min(10, len(responses)) :] if responses else []
             acc = sum(recent) / len(recent) if recent else 0.0
             d_risk = (
                 float(1.0 - decay_vector[sid])
@@ -98,9 +100,13 @@ class PCODetector:
 
             if sid in skill_events or is_pco:
                 results[sid] = PCOResult(
-                    skill_id=sid, is_pco=is_pco, failure_streak=streak,
-                    mastery=round(m, 4), total_attempts=total,
-                    recent_accuracy=round(acc, 4), decay_risk=round(d_risk, 4),
+                    skill_id=sid,
+                    is_pco=is_pco,
+                    failure_streak=streak,
+                    mastery=round(m, 4),
+                    total_attempts=total,
+                    recent_accuracy=round(acc, 4),
+                    decay_risk=round(d_risk, 4),
                     why=why,
                 )
         return results
@@ -112,7 +118,11 @@ class PCODetector:
         decay_vector: list[float] | None = None,
     ) -> list[int]:
         """Return list of skill IDs flagged as PCO."""
-        return [sid for sid, r in self.detect(timeline, mastery, decay_vector).items() if r.is_pco]
+        return [
+            sid
+            for sid, r in self.detect(timeline, mastery, decay_vector).items()
+            if r.is_pco
+        ]
 
     @staticmethod
     def _max_tail_streak(responses: list[int]) -> int:
@@ -170,7 +180,8 @@ class FastReviewMode:
         """Return top-k (skill_id, urgency) tuples, excluding PCO and near-mastered skills."""
         urgency = self.compute_urgency(mastery, hours_since, n_skills)
         candidates = [
-            (s, u) for s, u in urgency.items()
+            (s, u)
+            for s, u in urgency.items()
             if s not in pco_set and (s >= len(mastery) or mastery[s] < 0.95)
         ]
         candidates.sort(key=lambda x: x[1], reverse=True)

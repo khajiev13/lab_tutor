@@ -3,6 +3,8 @@ import {
   TrendingUp,
   BookOpenText,
   Video,
+  Sparkles,
+  BrainCircuit,
   type LucideIcon,
 } from "lucide-react";
 
@@ -57,6 +59,26 @@ export const AGENTS: AgentConfig[] = [
     route: "video-agent",
     enabled: true,
     color: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400",
+  },
+  {
+    id: "arcd",
+    name: "ARCD Agent",
+    description:
+      "Adaptive Review & Cognitive Diagnosis — student profiling, learning path, review sessions, and digital twin.",
+    icon: Sparkles,
+    route: "arcd",
+    enabled: true,
+    color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400",
+  },
+  {
+    id: "teacher-twin",
+    name: "Teacher Digital Twin",
+    description:
+      "Class-wide analytics, skill difficulty heat-maps, student groups, and what-if curriculum simulations powered by ARCD.",
+    icon: BrainCircuit,
+    route: "teacher-twin",
+    enabled: true,
+    color: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400",
   },
 ];
 

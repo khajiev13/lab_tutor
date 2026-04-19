@@ -11,10 +11,10 @@ function NoData() {
 }
 
 export default function JourneyPage() {
-  const { student, skills } = useData();
+  const { student, skills, activeDatasetId } = useData();
   const { twinData } = useTwin();
 
   if (!student) return <NoData />;
 
-  return <JourneyMapTab student={student} skills={skills} twinData={twinData} />;
+  return <JourneyMapTab student={student} skills={skills} twinData={twinData} datasetId={activeDatasetId} />;
 }

@@ -5,12 +5,12 @@ import torch.nn as nn
 
 from ..attention import TemporalAttentionModel
 from ..decay import BaseDecay, DifficultyDecay, MasteryDecay, UnifiedDecayMLP
-from ..gcn import MultiRelationalGCN
+from ..gat import MultiRelationalGAT
 from ..heads import MasteryHead, PerformanceHead
 
 
 class ARCDModel(nn.Module):
-    """Full ARCD model: GCN -> Temporal Attention + Decay -> Prediction Heads.
+    """Full ARCD model: GAT -> Temporal Attention + Decay -> Prediction Heads.
 
     Architecture (paper Fig. 3):
         1. 5-stage GAT produces h_s, h_qa, h_v, h_r, h_u
@@ -20,7 +20,7 @@ class ARCDModel(nn.Module):
         5. Mastery Head (Eq. 12): m_{u,s}(t) = σ(MLP(e_u ∥ e_s ∥ δ_{u,s}))
 
     Optimizations:
-        - GCN caching: run_gcn_cached() + forward(gcn_cache=...) for 2-3x speedup
+        - GAT caching: run_gcn_cached() + forward(gat_cache=...) for 2-3x speedup
         - Decay cascade: learnable forgetting pipeline wired into prediction heads
     """
 
@@ -28,7 +28,7 @@ class ARCDModel(nn.Module):
         self,
         d_skill_embed: int,
         d: int,
-        n_gcn_layers: int,
+        n_gat_layers: int,
         n_questions: int,
         n_videos: int,
         n_readings: int,
@@ -45,10 +45,10 @@ class ARCDModel(nn.Module):
         super().__init__()
         self.n_skills = n_skills
 
-        self.gcn = MultiRelationalGCN(
+        self.gat = MultiRelationalGAT(
             d_skill_embed=d_skill_embed,
             d=d,
-            n_layers=n_gcn_layers,
+            n_layers=n_gat_layers,
             n_questions=n_questions,
             n_videos=n_videos,
             n_readings=n_readings,
@@ -109,8 +109,8 @@ class ARCDModel(nn.Module):
         A_rs: torch.Tensor,
         A_uq: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
-        """Run GCN stages with gradient tracking (for periodic refresh)."""
-        return self.gcn(H_skill_raw, A_pre, A_qs, A_vs, A_rs, A_uq)
+        """Run GAT stages with gradient tracking (for periodic refresh)."""
+        return self.gat(H_skill_raw, A_pre, A_qs, A_vs, A_rs, A_uq)
 
     @torch.no_grad()
     def run_gcn_cached(
@@ -122,8 +122,8 @@ class ARCDModel(nn.Module):
         A_rs: torch.Tensor,
         A_uq: torch.Tensor,
     ) -> dict[str, torch.Tensor]:
-        """Run GCN stages and detach outputs for caching."""
-        out = self.gcn(H_skill_raw, A_pre, A_qs, A_vs, A_rs, A_uq)
+        """Run GAT stages and detach outputs for caching."""
+        out = self.gat(H_skill_raw, A_pre, A_qs, A_vs, A_rs, A_uq)
         return {k: v.detach() for k, v in out.items()}
 
     def forward(
@@ -146,23 +146,30 @@ class ARCDModel(nn.Module):
         delta_t_skills: torch.Tensor | None = None,
         review_count: torch.Tensor | None = None,
         mastery_prior: torch.Tensor | None = None,
-        gcn_cache: dict[str, torch.Tensor] | None = None,
+        gat_cache: dict[str, torch.Tensor] | None = None,
     ) -> dict[str, torch.Tensor]:
-        # GCN with optional caching (2-3x speedup when cached)
-        if gcn_cache is not None:
-            gcn_out = gcn_cache
+        # GAT with optional caching (2-3x speedup when cached)
+        if gat_cache is not None:
+            gat_out = gat_cache
         else:
-            gcn_out = self.gcn(H_skill_raw, A_pre, A_qs, A_vs, A_rs, A_uq)
+            gat_out = self.gat(H_skill_raw, A_pre, A_qs, A_vs, A_rs, A_uq)
 
-        h_s = gcn_out["h_s"]
-        h_qa = gcn_out["h_qa"]
-        h_v = gcn_out["h_v"]
-        h_r = gcn_out["h_r"]
-        h_u = gcn_out["h_u"]
+        h_s = gat_out["h_s"]
+        h_qa = gat_out["h_qa"]
+        h_v = gat_out["h_v"]
+        h_r = gat_out["h_r"]
+        h_u = gat_out["h_u"]
 
         h_u_t = self.temporal(
-            event_types, entity_indices, outcomes, timestamps,
-            decay_values, pad_mask, h_qa, h_v, h_r,
+            event_types,
+            entity_indices,
+            outcomes,
+            timestamps,
+            decay_values,
+            pad_mask,
+            h_qa,
+            h_v,
+            h_r,
         )
 
         # e_u: static student embedding from GCN (paper Eq. 12-13)
@@ -176,10 +183,14 @@ class ARCDModel(nn.Module):
 
         # Decay cascade (Eq. 6-11) — compute δ_{u,s} and δ̄_q
         if student_ids is not None and delta_t_skills is not None:
-            m_prior = mastery_prior if mastery_prior is not None else torch.full(
-                (B, S), 0.5, device=e_u.device
+            m_prior = (
+                mastery_prior
+                if mastery_prior is not None
+                else torch.full((B, S), 0.5, device=e_u.device)
             )
-            decay_us = self.compute_decay(student_ids, delta_t_skills, m_prior, review_count)
+            decay_us = self.compute_decay(
+                student_ids, delta_t_skills, m_prior, review_count
+            )
             qs_weights = A_qs[target_idx.clamp(max=A_qs.size(0) - 1)]
             qs_norm = qs_weights / qs_weights.sum(-1, keepdim=True).clamp(min=1e-8)
             decay_bar_q = (qs_norm * decay_us).sum(-1)
@@ -193,7 +204,12 @@ class ARCDModel(nn.Module):
         def _pad(h: torch.Tensor) -> torch.Tensor:
             if h.size(0) < max_entities:
                 return torch.cat(
-                    [h, torch.zeros(max_entities - h.size(0), h.size(1), device=h.device)]
+                    [
+                        h,
+                        torch.zeros(
+                            max_entities - h.size(0), h.size(1), device=h.device
+                        ),
+                    ]
                 )
             return h
 

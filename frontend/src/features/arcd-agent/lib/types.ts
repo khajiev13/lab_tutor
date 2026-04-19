@@ -331,6 +331,9 @@ export interface TwinScenarioPath {
   skill_names: string[];
   avg_mastery_gain: number;
   final_avg_mastery: number;
+  trajectory: { step: number; avgMastery: number }[];
+  coherence_score: number;
+  justification: string[];
 }
 
 export interface TwinReviewDemo {
@@ -346,7 +349,8 @@ export interface TwinScenarioComparison {
   horizon_days: number;
   path_a: TwinScenarioPath;
   path_b: TwinScenarioPath;
-  best_path: "path_a" | "path_b";
+  path_c: TwinScenarioPath;
+  best_path: "path_a" | "path_b" | "path_c";
   review_schedule_demo?: TwinReviewDemo;
 }
 

@@ -43,7 +43,5 @@ class PerformanceHead(nn.Module):
         Returns:
             [B] performance probability in [0, 1]
         """
-        x = torch.cat(
-            [e_u, e_q, h_u_t, decay_bar_q.unsqueeze(-1)], dim=-1
-        )
+        x = torch.cat([e_u, e_q, h_u_t, decay_bar_q.unsqueeze(-1)], dim=-1)
         return torch.sigmoid(self.mlp(x)).squeeze(-1)

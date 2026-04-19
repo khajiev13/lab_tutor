@@ -132,10 +132,17 @@ def _parse_json(text: str) -> dict:
 
 
 def _generate_question(
-    skill_name: str, mastery: float, is_pco: bool, q_num: int, q_total: int, thinking_mode: str
+    skill_name: str,
+    mastery: float,
+    is_pco: bool,
+    q_num: int,
+    q_total: int,
+    thinking_mode: str,
 ) -> dict:
     difficulty = _mastery_difficulty(mastery)
-    pco = " This skill is challenging for the student — be encouraging." if is_pco else ""
+    pco = (
+        " This skill is challenging for the student — be encouraging." if is_pco else ""
+    )
     mode_instructions = (
         "FAST mode: Ask one concise question that can be answered in 2-4 sentences. "
         "Keep wording direct and practical."
@@ -158,8 +165,10 @@ def _generate_question(
             "skill_name": skill_name,
             "difficulty": difficulty,
             "is_pco": is_pco,
-            "question": data.get("question") or f"Explain the core concept of {skill_name}.",
-            "hint": data.get("hint") or "Think about the definition and key principles.",
+            "question": data.get("question")
+            or f"Explain the core concept of {skill_name}.",
+            "hint": data.get("hint")
+            or "Think about the definition and key principles.",
             "correct_answer": data.get("correct_answer") or "",
             "explanation": data.get("explanation") or "",
         }
@@ -178,7 +187,9 @@ def _generate_question(
         }
 
 
-def _evaluate_answer(question: str, correct_answer: str, student_answer: str, thinking_mode: str) -> dict:
+def _evaluate_answer(
+    question: str, correct_answer: str, student_answer: str, thinking_mode: str
+) -> dict:
     feedback_style = (
         "FAST mode: Keep feedback concise and actionable."
         if thinking_mode == "fast"
@@ -222,7 +233,10 @@ def _generate_hint(question: str, hint_num: int) -> tuple[str, bool]:
     suffix = "Be more direct now." if is_final else "Don't give away the answer."
     prompt = f'Question: "{question}"\nGenerate hint #{hint_num} of 3. {suffix}\nReply with just the hint.'
     try:
-        return (_call_llm(prompt, max_tokens=150, temperature=0.5).strip() or "Think about the core concept."), is_final
+        return (
+            _call_llm(prompt, max_tokens=150, temperature=0.5).strip()
+            or "Think about the core concept."
+        ), is_final
     except Exception:
         return "Consider the key principles involved.", is_final
 
@@ -346,8 +360,11 @@ def _summary(sess: ReviewSession) -> dict:
         sn = r["skill_name"]
         if sn not in skill_map:
             skill_map[sn] = {
-                "skill_name": sn, "total": 0, "correct": 0,
-                "mastery_start": r["mastery_before"], "mastery_end": r["mastery_after"],
+                "skill_name": sn,
+                "total": 0,
+                "correct": 0,
+                "mastery_start": r["mastery_before"],
+                "mastery_end": r["mastery_after"],
                 "is_pco": r["is_pco"],
             }
         skill_map[sn]["total"] += 1
@@ -357,7 +374,11 @@ def _summary(sess: ReviewSession) -> dict:
 
     strengths = [s for s, v in skill_map.items() if v["correct"] == v["total"] > 0]
     weak = [s for s, v in skill_map.items() if v["correct"] < v["total"] / 2]
-    advice = "Excellent!" if pct >= 80 else ("Keep practicing!" if pct >= 50 else "Consider revisiting these skills.")
+    advice = (
+        "Excellent!"
+        if pct >= 80
+        else ("Keep practicing!" if pct >= 50 else "Consider revisiting these skills.")
+    )
 
     return {
         "score": score,
@@ -380,7 +401,12 @@ def _mastery_portfolio_insight(skill_names: list[str], mastery: list[float]) -> 
         if name and name not in pairs:
             pairs[name] = float(m)
     if not pairs:
-        return {"avg": 0.0, "strengths": [], "weaknesses": [], "text": "No mastery signals available yet."}
+        return {
+            "avg": 0.0,
+            "strengths": [],
+            "weaknesses": [],
+            "text": "No mastery signals available yet.",
+        }
 
     ordered = sorted(pairs.items(), key=lambda x: x[1], reverse=True)
     avg = sum(pairs.values()) / max(len(pairs), 1)
@@ -439,28 +465,32 @@ def _record_result(
     q_idx = len(sess.results)
     m_before = sess.mastery[q_idx] if q_idx < len(sess.mastery) else 0.0
     m_after = max(0.0, min(1.0, m_before + mastery_delta))
-    sess.results.append({
-        "index": q["index"],
-        "skill_name": q["skill_name"],
-        "question": q["question"],
-        "correct_answer": q["correct_answer"],
-        "student_answer": answer_text,
-        "is_correct": is_correct,
-        "mastery_delta": mastery_delta,
-        "mastery_before": m_before,
-        "mastery_after": m_after,
-        "difficulty": q["difficulty"],
-        "is_pco": q["is_pco"],
-        "points": points,
-        "feedback_snippet": feedback_snippet[:80],
-    })
+    sess.results.append(
+        {
+            "index": q["index"],
+            "skill_name": q["skill_name"],
+            "question": q["question"],
+            "correct_answer": q["correct_answer"],
+            "student_answer": answer_text,
+            "is_correct": is_correct,
+            "mastery_delta": mastery_delta,
+            "mastery_before": m_before,
+            "mastery_after": m_after,
+            "difficulty": q["difficulty"],
+            "is_pco": q["is_pco"],
+            "points": points,
+            "feedback_snippet": feedback_snippet[:80],
+        }
+    )
     sess.progress["current"] += 1
     if is_correct:
         sess.progress["correct"] += 1
         sess.progress["score"] += 10
 
 
-def _finish_or_next(sess: ReviewSession) -> tuple[bool, dict | None, str | None, dict | None]:
+def _finish_or_next(
+    sess: ReviewSession,
+) -> tuple[bool, dict | None, str | None, dict | None]:
     """Returns (is_complete, next_q, completion_message, review_summary)."""
     next_idx = len(sess.results)
     if next_idx >= len(sess.skill_names):
@@ -497,20 +527,42 @@ def review_start(body: dict, student: StudentDep, driver: Neo4jDep) -> dict:
     neo = _require_neo4j(driver)
 
     selected_skills = body.get("selected_skills")
-    selected_skill_names = selected_skills if isinstance(selected_skills, list) else None
+    selected_skill_names = (
+        selected_skills if isinstance(selected_skills, list) else None
+    )
     skill_names, mastery, pco_names = _build_skill_queue(
-        student.id, course_id, neo, max_questions, selected_skill_names=selected_skill_names
+        student.id,
+        course_id,
+        neo,
+        max_questions,
+        selected_skill_names=selected_skill_names,
     )
     if not skill_names:
-        raise HTTPException(status_code=404, detail="No skills found for this student/course")
+        raise HTTPException(
+            status_code=404, detail="No skills found for this student/course"
+        )
 
     session_id = str(uuid.uuid4())
-    progress = {"current": 0, "total": len(skill_names), "correct": 0, "score": 0, "max_score": len(skill_names) * 10}
+    progress = {
+        "current": 0,
+        "total": len(skill_names),
+        "correct": 0,
+        "score": 0,
+        "max_score": len(skill_names) * 10,
+    }
     sess = ReviewSession(
-        session_id=session_id, user_id=student.id, course_id=course_id,
-        skill_names=skill_names, mastery=list(mastery), pco_skill_names=pco_names,
-        results=[], current_question=None, progress=progress, created_at=time.time(),
-        thinking_mode=thinking_mode, chat_history=[],
+        session_id=session_id,
+        user_id=student.id,
+        course_id=course_id,
+        skill_names=skill_names,
+        mastery=list(mastery),
+        pco_skill_names=pco_names,
+        results=[],
+        current_question=None,
+        progress=progress,
+        created_at=time.time(),
+        thinking_mode=thinking_mode,
+        chat_history=[],
     )
     _sessions[session_id] = sess
     q = _advance_question(sess, 0)
@@ -555,7 +607,11 @@ def review_options(body: dict, student: StudentDep, driver: Neo4jDep) -> dict:
         review = svc.review_session(student.id, course_id, top_k=6)
         # Only keep suggestions that are in the student's enrolled skill set
         enrolled_set = set(selected_names)
-        suggestions = [s.skill_name for s in review.pco_skills if s.skill_name and s.skill_name in enrolled_set]
+        suggestions = [
+            s.skill_name
+            for s in review.pco_skills
+            if s.skill_name and s.skill_name in enrolled_set
+        ]
     except Exception:
         suggestions = []
 
@@ -568,7 +624,12 @@ def review_options(body: dict, student: StudentDep, driver: Neo4jDep) -> dict:
         "selected_skills": selected_names,
         "all_skills": all_course_names,
         "mastery_map": mastery_map,
-        "question_count_bounds": {"min": 1, "max": 20, "default_fast": 5, "default_deep": 9},
+        "question_count_bounds": {
+            "min": 1,
+            "max": 20,
+            "default_fast": 5,
+            "default_deep": 9,
+        },
     }
 
 
@@ -577,7 +638,10 @@ def check_session(session_id: str, student: StudentDep) -> dict:
     sess = _sessions.get(session_id)
     if sess is None or sess.user_id != student.id:
         return {"alive": False, "is_complete": True}
-    return {"alive": (time.time() - sess.created_at) < SESSION_TTL, "is_complete": sess.is_complete}
+    return {
+        "alive": (time.time() - sess.created_at) < SESSION_TTL,
+        "is_complete": sess.is_complete,
+    }
 
 
 @router.post("/review/next-question")
@@ -599,16 +663,28 @@ def answer_question(body: dict, student: StudentDep) -> dict:
 
     answer_text = str(body.get("answer", ""))
     q = sess.current_question
-    feedback = _evaluate_answer(q["question"], q["correct_answer"], answer_text, sess.thinking_mode)
+    feedback = _evaluate_answer(
+        q["question"], q["correct_answer"], answer_text, sess.thinking_mode
+    )
     feedback["skill_name"] = q["skill_name"]
 
     _record_result(
-        sess, answer_text, feedback.get("suggested_mastery_delta", 0.0),
-        feedback["correct"], 10 if feedback["correct"] else 0, feedback.get("message", ""),
+        sess,
+        answer_text,
+        feedback.get("suggested_mastery_delta", 0.0),
+        feedback["correct"],
+        10 if feedback["correct"] else 0,
+        feedback.get("message", ""),
     )
     is_complete, next_q, msg, rev_summary = _finish_or_next(sess)
-    return {"progress": sess.progress, "feedback": feedback, "is_complete": is_complete,
-            "next_question": next_q, "completion_message": msg, "review_summary": rev_summary}
+    return {
+        "progress": sess.progress,
+        "feedback": feedback,
+        "is_complete": is_complete,
+        "next_question": next_q,
+        "completion_message": msg,
+        "review_summary": rev_summary,
+    }
 
 
 @router.post("/review/skip")
@@ -628,8 +704,14 @@ def skip_question(body: dict, student: StudentDep) -> dict:
     }
     _record_result(sess, "[skipped]", 0.0, False, 0, "Skipped")
     is_complete, next_q, msg, rev_summary = _finish_or_next(sess)
-    return {"progress": sess.progress, "feedback": feedback, "is_complete": is_complete,
-            "next_question": next_q, "completion_message": msg, "review_summary": rev_summary}
+    return {
+        "progress": sess.progress,
+        "feedback": feedback,
+        "is_complete": is_complete,
+        "next_question": next_q,
+        "completion_message": msg,
+        "review_summary": rev_summary,
+    }
 
 
 @router.post("/review/hint")
@@ -647,7 +729,9 @@ def explain_concept(body: dict, student: StudentDep) -> dict:
     sess = _get_session(str(body.get("session_id", "")), student.id)
     if sess.current_question is None:
         raise HTTPException(status_code=400, detail="No active question")
-    explanation = _explain_concept(sess.current_question["skill_name"], sess.current_question["question"])
+    explanation = _explain_concept(
+        sess.current_question["skill_name"], sess.current_question["question"]
+    )
     return {"explanation": explanation}
 
 
@@ -677,7 +761,11 @@ def review_chat_stream(body: dict, student: StudentDep) -> StreamingResponse:
     )
     history = sess.chat_history or []
     recent = history[-8:]
-    messages = [{"role": "system", "content": system}, *recent, {"role": "user", "content": message}]
+    messages = [
+        {"role": "system", "content": system},
+        *recent,
+        {"role": "user", "content": message},
+    ]
     sess.chat_history = [*recent, {"role": "user", "content": message}]
     return StreamingResponse(
         _stream_llm(messages),
@@ -699,17 +787,33 @@ def practice_skill(body: dict, student: StudentDep, driver: Neo4jDep) -> dict:
     course_id = _parse_course_id(dataset_id)
     neo = _require_neo4j(driver)
 
-    skill_names, mastery, pco_names = _build_skill_queue(student.id, course_id, neo, n_q, filter_skill_idx=skill_idx)
+    skill_names, mastery, pco_names = _build_skill_queue(
+        student.id, course_id, neo, n_q, filter_skill_idx=skill_idx
+    )
     if not skill_names:
         raise HTTPException(status_code=404, detail="Skill not found")
 
     session_id = str(uuid.uuid4())
-    progress = {"current": 0, "total": n_q, "correct": 0, "score": 0, "max_score": n_q * 10}
+    progress = {
+        "current": 0,
+        "total": n_q,
+        "correct": 0,
+        "score": 0,
+        "max_score": n_q * 10,
+    }
     sess = ReviewSession(
-        session_id=session_id, user_id=student.id, course_id=course_id,
-        skill_names=skill_names, mastery=list(mastery), pco_skill_names=pco_names,
-        results=[], current_question=None, progress=progress, created_at=time.time(),
-        thinking_mode=thinking_mode, chat_history=[],
+        session_id=session_id,
+        user_id=student.id,
+        course_id=course_id,
+        skill_names=skill_names,
+        mastery=list(mastery),
+        pco_skill_names=pco_names,
+        results=[],
+        current_question=None,
+        progress=progress,
+        created_at=time.time(),
+        thinking_mode=thinking_mode,
+        chat_history=[],
     )
     _sessions[session_id] = sess
     q = _advance_question(sess, 0)
@@ -753,7 +857,12 @@ def general_chat_stream(body: dict, student: StudentDep) -> StreamingResponse:
 
     def _with_sid():
         yield f"data: {json.dumps({'session_id': session_id})}\n\n"
-        yield from _stream_llm([{"role": "system", "content": system}, {"role": "user", "content": message}])
+        yield from _stream_llm(
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": message},
+            ]
+        )
 
     return StreamingResponse(
         _with_sid(),
@@ -793,4 +902,7 @@ def review_analysis(body: dict, student: StudentDep) -> dict:
         "Be specific and practical, avoid generic phrases."
     )
     text = _call_llm(prompt, max_tokens=500, temperature=0.5)
-    return {"analysis": text.strip() or "No analysis available yet. Complete one session first."}
+    return {
+        "analysis": text.strip()
+        or "No analysis available yet. Complete one session first."
+    }

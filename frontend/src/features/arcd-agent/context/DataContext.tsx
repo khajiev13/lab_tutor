@@ -14,23 +14,29 @@ import type {
   SkillInfo,
 } from "@/features/arcd-agent/lib/types";
 
+// ── API base URL ───────────────────────────────────────────────────────────
+
 const API_BASE =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD
     ? ""
     : `http://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:8000`);
 
+// ── Shape normalizer ───────────────────────────────────────────────────────
+// Handles both the legacy single-dataset response shape (pre-multi-dataset)
+// and the current multi-dataset shape returned by /diagnosis/arcd-portfolio.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeData(raw: any): PortfolioData {
   if (Array.isArray(raw.datasets)) {
     return raw as PortfolioData;
   }
+  // Legacy: single-dataset shape from older backend versions
   return {
     generated_at: raw.generated_at ?? new Date().toISOString(),
     datasets: [
       {
-        id: "xes3g5m",
-        name: "XES3G5M",
+        id: raw.id ?? "course",
+        name: raw.name ?? "Course",
         model_info: raw.model_info,
         skills: raw.skills,
         students: raw.students,
@@ -38,6 +44,8 @@ function normalizeData(raw: any): PortfolioData {
     ],
   };
 }
+
+// ── Context interface ──────────────────────────────────────────────────────
 
 interface DataContextValue {
   portfolioData: PortfolioData | null;
@@ -56,7 +64,6 @@ interface DataContextValue {
   setViewMode: (mode: "student" | "teacher") => void;
   refreshData: () => void;
   dataVersion: number;
-  dataSource: "api" | "static";
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -66,6 +73,8 @@ export function useData(): DataContextValue {
   if (!ctx) throw new Error("useData must be used within DataProvider");
   return ctx;
 }
+
+// ── Provider ───────────────────────────────────────────────────────────────
 
 interface DataProviderProps {
   children: ReactNode;
@@ -81,8 +90,8 @@ export function DataProvider({ children, courseId }: DataProviderProps) {
   const [practiceSkill, setPracticeSkill] = useState<{ id: number; name: string } | null>(null);
   const [viewMode, setViewMode] = useState<"student" | "teacher">("student");
   const [dataVersion, setDataVersion] = useState(0);
-  const [dataSource, setDataSource] = useState<"api" | "static">("static");
 
+  // Apply normalized portfolio and pick sensible defaults for dataset + student
   const applyPortfolio = useCallback(
     (data: PortfolioData, preserveSelection: boolean) => {
       setPortfolioData(data);
@@ -97,58 +106,69 @@ export function DataProvider({ children, courseId }: DataProviderProps) {
     [activeDatasetId],
   );
 
+  // Fetch portfolio from the KG-backed backend (JWT-authenticated)
   const fetchPortfolio = useCallback(
     async (preserveSelection: boolean) => {
-      // Try LAB_TUTOR backend with JWT auth
-      if (courseId) {
-        try {
-          const token = localStorage.getItem("access_token");
-          const headers: Record<string, string> = { "Content-Type": "application/json" };
-          if (token) headers.Authorization = `Bearer ${token}`;
-
-          const r = await fetch(`${API_BASE}/diagnosis/arcd-portfolio/${courseId}`, { headers });
-          if (r.ok) {
-            const raw = await r.json();
-            const data = normalizeData(raw);
-            applyPortfolio(data, preserveSelection);
-            setDataSource("api");
-            setDataVersion((v) => v + 1);
-            setError("");
-            return;
-          }
-          if (r.status === 401) {
-            setError("Authentication required. Please log in again.");
-            return;
-          }
-        } catch {
-          // API not reachable — fall through to static
-        }
+      if (!courseId) {
+        setError("No course selected. Please navigate to a course first.");
+        return;
       }
 
-      // Fallback: static file
+      const token = localStorage.getItem("access_token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       try {
-        const r = await fetch("/data/student_portfolio.json");
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const r = await fetch(`${API_BASE}/diagnosis/arcd-portfolio/${courseId}`, { headers });
+
+        if (r.status === 401) {
+          setError("SESSION_EXPIRED");
+          return;
+        }
+        if (r.status === 403) {
+          setError("ACCESS_DENIED");
+          return;
+        }
+        if (r.status === 503) {
+          setError("NEO4J_UNAVAILABLE");
+          return;
+        }
+        if (!r.ok) {
+          setError(`HTTP_${r.status}`);
+          return;
+        }
+
         const raw = await r.json();
         const data = normalizeData(raw);
         applyPortfolio(data, preserveSelection);
-        setDataSource("static");
+        setDataVersion((v) => v + 1);
         setError("");
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : String(e));
+      } catch {
+        setError("NETWORK_ERROR");
       }
     },
     [applyPortfolio, courseId],
   );
 
+  // Initial load + reload when courseId changes
   useEffect(() => {
-    fetchPortfolio(false).finally(() => setLoading(false));
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      await fetchPortfolio(false);
+      if (!cancelled) setLoading(false);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
   }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshData = useCallback(() => {
     fetchPortfolio(true);
   }, [fetchPortfolio]);
 
+  // Derived values
   const currentDataset =
     portfolioData?.datasets.find((d) => d.id === activeDatasetId) ??
     portfolioData?.datasets[0] ??
@@ -165,9 +185,7 @@ export function DataProvider({ children, courseId }: DataProviderProps) {
     (id: string) => {
       setActiveDatasetId(id);
       const ds = portfolioData?.datasets.find((d) => d.id === id);
-      if (ds) {
-        setSelectedUid(ds.students[0]?.uid ?? "");
-      }
+      if (ds) setSelectedUid(ds.students[0]?.uid ?? "");
     },
     [portfolioData],
   );
@@ -191,7 +209,6 @@ export function DataProvider({ children, courseId }: DataProviderProps) {
         setViewMode,
         refreshData,
         dataVersion,
-        dataSource,
       }}
     >
       {children}

@@ -188,3 +188,9 @@ skills-lock.json
 
 
 docs/.agents/skills/excalidraw-diagram
+
+# Local agent skills — not part of the project, never commit
+.claude/skills/
+
+# ML training artifacts — model checkpoints, weights, vocabs
+backend/checkpoints/

@@ -13,9 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TrendingUp, TrendingDown, ChevronDown, ChevronUp,
-  AlertTriangle, CheckCircle2, ArrowRight, Target, BookOpen, Users,
+  AlertTriangle, CheckCircle2, ArrowRight, Target, Users,
 } from "lucide-react";
-import type { StudentPortfolio, SkillInfo, ModelInfo, TwinViewerData } from "@/features/arcd-agent/lib/types";
+import { groupByChapter, type StudentPortfolio, type SkillInfo, type ModelInfo, type TwinViewerData } from "@/features/arcd-agent/lib/types";
 import { SKILL_HEX, OVERALL_HEX } from "@/features/arcd-agent/lib/colors";
 import {
   buildConceptStats,
@@ -23,7 +23,6 @@ import {
   computeWeightedFinalGrade, computeRetentionGap,
   buildAttemptedSkillIds, chapterMasteryFromFinal,
 } from "@/features/arcd-agent/lib/grading";
-import { InsightPanel } from "@/features/arcd-agent/components/insight-panel";
 
 interface UnifiedTabProps {
   student: StudentPortfolio;
@@ -79,106 +78,101 @@ function PulseCard({ label, value, sub, trend, accent = "default" }: PulseCardPr
   );
 }
 
-// ── Section 3: Chapter table row (expandable) ──────────────────────────────
+// ── Section 3: Chapter accordion row (collapsible) ─────────────────────────
 
 interface ChapterRowProps {
-  chapter: SkillInfo;
+  chapterName: string;
+  chapterSkills: SkillInfo[];
   initial: number;
   final: number;
   change: number;
   color: string;
-  finalMastery: number[];
-  attemptedSkillIds: Set<number>;
-  conceptStats: Map<number | string, { correct: number; total: number }>;
   modality?: { videoCov: number; readingCov: number } | null;
+  tierBadge?: string;
+  weightedFinal?: number;
 }
 
-function ChapterRow({ chapter, initial, final, change, color, modality }: ChapterRowProps) {
+function ChapterRow({ chapterName, chapterSkills, initial, final, change, color, modality, tierBadge, weightedFinal }: ChapterRowProps) {
   const [open, setOpen] = useState(false);
 
-  const quizGrade = final / 100;
-  const videoCov = modality?.videoCov ?? 0;
-  const readingCov = modality?.readingCov ?? 0;
   const hasModality = modality != null;
-  const weightedFinal = hasModality
-    ? computeWeightedFinalGrade(quizGrade, videoCov, readingCov) * 100
-    : final;
-  const lowVideo = hasModality && videoCov < 0.3;
-  const lowReading = hasModality && readingCov < 0.3;
+  const displayFinal = weightedFinal ?? final;
+  const lowVideo = hasModality && (modality?.videoCov ?? 0) < 0.3;
+  const lowReading = hasModality && (modality?.readingCov ?? 0) < 0.3;
 
   return (
-    <>
-      <tr
-        className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors"
+    <div className="rounded-lg border border-border/70 overflow-hidden">
+      {/* Chapter header — clickable */}
+      <button
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
         onClick={() => setOpen((v) => !v)}
       >
-        <td className="p-2">
-          <span className="flex items-center gap-2">
-            <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
-            <span className="font-medium text-sm">{chapter.name}</span>
-            {chapter.chapter_name && (
-              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded ml-1">
-                {chapter.chapter_name}
-              </span>
-            )}
-            <span className="ml-auto text-muted-foreground">
-              {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </span>
-          </span>
-        </td>
-        <td className="p-2 text-right text-muted-foreground text-sm">{chapter.n_concepts}</td>
-        <td className="p-2 text-right font-mono tabular-nums text-sm text-muted-foreground">{formatPct100(initial)}</td>
+        {/* color swatch */}
+        <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
+
+        {/* name + chapter badge */}
+        <span className="flex-1 min-w-0 flex items-center gap-2">
+          <span className="font-medium text-sm truncate">{chapterName || "Uncategorized"}</span>
+        </span>
+
+        {/* stats */}
+        <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
+          {chapterSkills.length} skill{chapterSkills.length !== 1 ? "s" : ""}
+        </span>
+        <span className="font-mono tabular-nums text-xs text-muted-foreground shrink-0">
+          Start {formatPct100(initial)}
+        </span>
         {hasModality ? (
           <>
-            <td className="p-2 text-right font-mono tabular-nums text-sm">
-              {formatPct100(final)}
-            </td>
-            <td className="p-2 text-right font-mono tabular-nums text-sm">
-              <span className="flex items-center justify-end gap-1">
-                {formatPct100(videoCov * 100)}
-                {lowVideo && <AlertTriangle className="h-3 w-3 text-amber-500" />}
-              </span>
-            </td>
-            <td className="p-2 text-right font-mono tabular-nums text-sm">
-              <span className="flex items-center justify-end gap-1">
-                {formatPct100(readingCov * 100)}
-                {lowReading && <AlertTriangle className="h-3 w-3 text-amber-500" />}
-              </span>
-            </td>
-            <td className="p-2 text-right font-mono tabular-nums text-sm font-semibold">
-              {formatPct100(weightedFinal)}
-            </td>
+            <span className="font-mono tabular-nums text-xs shrink-0 flex items-center gap-1">
+              {formatPct100(modality?.videoCov != null ? modality.videoCov * 100 : 0)}
+              {lowVideo && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+            </span>
+            <span className="font-mono tabular-nums text-xs shrink-0 flex items-center gap-1">
+              {formatPct100(modality?.readingCov != null ? modality.readingCov * 100 : 0)}
+              {lowReading && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+            </span>
           </>
         ) : (
-          <>
-            <td className="p-2 text-right font-mono tabular-nums text-sm font-medium">{formatPct100(final)}</td>
-            <td className={`p-2 text-right font-mono tabular-nums text-sm font-semibold ${change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-              {change >= 0 ? "+" : ""}{change.toFixed(1)}%
-            </td>
-            <td className="p-2 text-right text-sm">
-              <div className="flex items-center justify-end gap-1">
-                <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${Math.min(final, 100)}%`, backgroundColor: color }} />
-                </div>
-              </div>
-            </td>
-          </>
+          <span className={`font-mono tabular-nums text-xs font-semibold shrink-0 ${change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+            {change >= 0 ? "+" : ""}{change.toFixed(1)}%
+          </span>
         )}
-      </tr>
-      {open && chapter.concepts.map((concept, ci) => (
-        <tr key={`${chapter.id}-c${ci}`} className="border-b border-border/30 bg-muted/20">
-          <td className="p-2 pl-8 text-xs text-muted-foreground" colSpan={hasModality ? 4 : 2}>
-            <span className="flex items-center gap-1">
-              <ArrowRight className="h-3 w-3 shrink-0" />
-              {concept.name_en || String(concept.id)}
-            </span>
-          </td>
-          <td className="p-2 text-right font-mono tabular-nums text-xs" colSpan={3}>
-            <span className="text-muted-foreground/60 italic text-[10px]">Concept</span>
-          </td>
-        </tr>
-      ))}
-    </>
+        {tierBadge && (
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${tierBadge}`}>
+            {formatPct100(displayFinal)}
+          </span>
+        )}
+        {/* chevron */}
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+      </button>
+
+      {/* Expanded concepts */}
+      {open && (
+        <div className="border-t border-border/50 bg-muted/10 px-4 py-3">
+          {chapterSkills.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">No concepts available.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {chapterSkills.map((skill) => (
+                <div key={`${chapterName}-${skill.id}`} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <ArrowRight className="h-3 w-3 shrink-0 text-primary/50" />
+                  <span className="truncate">{skill.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {hasModality && (
+            <div className="mt-2 pt-2 border-t border-border/30 flex flex-wrap gap-4 text-xs text-muted-foreground">
+              <span>Quiz: <b className="text-foreground">{formatPct100(final)}</b></span>
+              <span>Video: <b className="text-foreground">{formatPct100((modality?.videoCov ?? 0) * 100)}</b></span>
+              <span>Reading: <b className="text-foreground">{formatPct100((modality?.readingCov ?? 0) * 100)}</b></span>
+              <span>Weighted Final: <b className="text-foreground">{formatPct100(displayFinal)}</b></span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -276,15 +270,16 @@ function ClassHeatmap({ students, skills, currentUid }: ClassHeatmapProps) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, viewMode = "student", allStudents = [] }: UnifiedTabProps) {
+export function UnifiedTab({ student, skills, twinData, viewMode = "student", allStudents = [] }: Omit<UnifiedTabProps, 'modelInfo' | 'datasetId'> & { modelInfo?: ModelInfo; datasetId?: string }) {
   const [deepOpen, setDeepOpen] = useState(false);
   const s = student.summary;
 
   const conceptStats = useMemo(() => buildConceptStats(student.timeline), [student.timeline]);
-  // skillIds[i] = skill index for skills[i]; mastery[skillId] gives that skill's mastery.
-  const chapterSubIds = useMemo(
-    () => skills.map((s) => [s.id]),
-    [skills]
+  // Actual chapter groups from selected course skills.
+  const chapterGroups = useMemo(() => groupByChapter(skills), [skills]);
+  const chapterSkillIds = useMemo(
+    () => chapterGroups.map((chapter) => chapter.skills.map((skill) => skill.id)),
+    [chapterGroups]
   );
 
   // Set of sub-skill IDs the student has actually interacted with
@@ -306,8 +301,8 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
   // Coverage × mastery formula: unstarted sub-skills contribute 0 so
   // chapters with low coverage correctly show lower scores.
   const chapterDeltas = useMemo(() => {
-    return skills.map((chapter, i) => {
-      const ids = chapterSubIds[i];
+    return chapterGroups.map((chapter, i) => {
+      const ids = chapterSkillIds[i];
       // Initial: neural prior from first timeline step (before any learning)
       const firstMastery =
         student.timeline.length > 0
@@ -316,13 +311,15 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
       // Final: coverage × mastery — unstarted sub-skills treated as 0
       const finalChapterMastery = chapterMasteryFromFinal(ids, finalMasteryVec, attemptedSkillIds);
       return {
-        chapter: chapter.name,
+        chapterId: chapter.chapter_id,
+        chapterName: chapter.chapter_name,
+        chapterSkills: chapter.skills,
         initial: firstMastery * 100,
         final:   finalChapterMastery * 100,
         change:  (finalChapterMastery - firstMastery) * 100,
       };
     });
-  }, [skills, chapterSubIds, student.timeline, finalMasteryVec, attemptedSkillIds]);
+  }, [chapterGroups, chapterSkillIds, student.timeline, finalMasteryVec, attemptedSkillIds]);
 
   const overallFinal = chapterDeltas.length > 0
     ? chapterDeltas.reduce((a, d) => a + d.final, 0) / chapterDeltas.length
@@ -392,18 +389,28 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
   const pcoAlertCount = pcoSkills.length;
 
   // ── radar data ──────────────────────────────────────────────────────────
+  // Each axis = one CHAPTER (group of skills). Value = avg mastery of all skills in the chapter.
   const radarData = useMemo(() => {
-    return skills.map((chapter, i) => {
-      const ids = chapterSubIds[i];
+    const truncate = (s: string, max: number) =>
+      s.length > max ? s.slice(0, max - 1) + "…" : s;
+    const nCh = chapterGroups.length;
+    return chapterGroups.map((chapter) => {
+      const ids = chapter.skills.map((s) => s.id);
       const initialMastery =
-        student.timeline.length > 0 ? avgMastery(student.timeline[0].mastery, ids) * 100 : 0;
+        student.timeline.length > 0 && ids.length > 0
+          ? (ids.reduce((sum, id) => sum + (student.timeline[0].mastery[id] ?? 0), 0) / ids.length) * 100
+          : 0;
+      const chapterFinalMastery =
+        ids.length > 0
+          ? (ids.reduce((sum, id) => sum + (finalMasteryVec[id] ?? 0), 0) / ids.length) * 100
+          : 0;
       return {
-        skill: chapter.name,
-        mastery: Number(chapterDeltas[i].final.toFixed(1)),
+        skill: truncate(chapter.chapter_name, nCh > 8 ? 12 : 18),
+        mastery: Number(chapterFinalMastery.toFixed(1)),
         initial: Number(initialMastery.toFixed(1)),
       };
     });
-  }, [skills, chapterSubIds, student.timeline, chapterDeltas]);
+  }, [chapterGroups, student.timeline, finalMasteryVec]);
 
   // ── overall mastery timeline with retention gap ──────────────────────────
   const masteryTimeline = useMemo(() => {
@@ -415,15 +422,15 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
       .map((e) => {
         let sum = 0;
         let baseSum = 0;
-        for (let d = 0; d < skills.length; d++) {
-          sum += avgMastery(e.mastery, chapterSubIds[d]);
+        for (let d = 0; d < chapterSkillIds.length; d++) {
+          sum += avgMastery(e.mastery, chapterSkillIds[d]);
           if (baseMasteryVec) {
-            baseSum += avgMastery(baseMasteryVec, chapterSubIds[d]);
+            baseSum += avgMastery(baseMasteryVec, chapterSkillIds[d]);
           }
         }
-        const overall = Number(((sum / (skills.length || 1)) * 100).toFixed(1));
+        const overall = Number(((sum / (chapterSkillIds.length || 1)) * 100).toFixed(1));
         const baseOverall = baseMasteryVec
-          ? Number(((baseSum / (skills.length || 1)) * 100).toFixed(1))
+          ? Number(((baseSum / (chapterSkillIds.length || 1)) * 100).toFixed(1))
           : undefined;
         const retentionGap = baseOverall !== undefined
           ? Number(computeRetentionGap(baseOverall / 100, overall / 100) * 100).toFixed(1)
@@ -435,7 +442,7 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
           ...(retentionGap !== undefined && { gap: Number(retentionGap) }),
         };
       });
-  }, [student.timeline, skills, chapterSubIds, student.base_mastery, twinData]);
+  }, [student.timeline, chapterSkillIds, student.base_mastery, twinData]);
 
   const hasRetentionGap = student.base_mastery != null && student.base_mastery.length > 0;
 
@@ -485,16 +492,16 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
       .filter((_, i) => i % stepSize === 0 || i === student.timeline.length - 1)
       .map((e) => {
         const row: Record<string, number | string> = { step: e.step };
-        for (let d = 0; d < skills.length; d++) {
-          row[`chapter_${d}`] = +(avgMastery(e.mastery, chapterSubIds[d]) * 100).toFixed(2);
+        for (let d = 0; d < chapterSkillIds.length; d++) {
+          row[`chapter_${d}`] = +(avgMastery(e.mastery, chapterSkillIds[d]) * 100).toFixed(2);
         }
         row.overall = +(
-          skills.reduce((sum, _, d) => sum + avgMastery(e.mastery, chapterSubIds[d]), 0) /
-          (skills.length || 1) * 100
+          chapterSkillIds.reduce((sum, ids) => sum + avgMastery(e.mastery, ids), 0) /
+          (chapterSkillIds.length || 1) * 100
         ).toFixed(2);
         return row;
       });
-  }, [student.timeline, skills, chapterSubIds]);
+  }, [student.timeline, chapterSkillIds]);
 
   // ── learning path next steps ─────────────────────────────────────────────
   const nextSteps = student.learning_path?.steps?.slice(0, 3) ?? [];
@@ -581,7 +588,10 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="72%" data={radarData}>
                   <PolarGrid strokeOpacity={0.3} />
-                  <PolarAngleAxis dataKey="skill" tick={{ fontSize: 10 }} />
+                  <PolarAngleAxis
+                    dataKey="skill"
+                    tick={{ fontSize: chapterGroups.length > 8 ? 8 : chapterGroups.length > 6 ? 9 : 10 }}
+                  />
                   <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} tickCount={5} />
                   <Tooltip
                     formatter={(v: number, name: string) => [`${v}%`, name === "mastery" ? "Current" : "Initial"]}
@@ -701,102 +711,67 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
         </div>
       </section>
 
-      {/* ── Section 3: Chapter Detail Table ──────────────────────────────── */}
+      {/* ── Section 3: Skill Performance (collapsible chapter accordions) ── */}
       <section>
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Skill Performance</CardTitle>
-                <CardDescription>Click a skill to expand its concepts</CardDescription>
-              </div>
-              {!hasModality && (
-                <Badge variant="outline" className="text-xs text-muted-foreground">
-                  Quiz-only dataset
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/30 text-left">
-                  <th className="p-3 font-medium">Chapter</th>
-                  <th className="p-3 font-medium text-right">Sub-skills</th>
-                  <th className="p-3 font-medium text-right">Initial</th>
-                  {hasModality ? (
-                    <>
-                      <th className="p-3 font-medium text-right">Quiz (60%)</th>
-                      <th className="p-3 font-medium text-right">Video (20%)</th>
-                      <th className="p-3 font-medium text-right">Reading (20%)</th>
-                      <th className="p-3 font-medium text-right">Final</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="p-3 font-medium text-right">Final</th>
-                      <th className="p-3 font-medium text-right">Change</th>
-                      <th className="p-3 font-medium text-right">Progress</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {chapterDeltas.map((d, i) => (
-                  <ChapterRow
-                    key={i}
-                    chapter={skills[i]}
-                    initial={d.initial}
-                    final={d.final}
-                    change={d.change}
-                    color={SKILL_HEX[i % SKILL_HEX.length]}
-                    finalMastery={finalMasteryVec}
-                    attemptedSkillIds={attemptedSkillIds}
-                    conceptStats={conceptStats}
-                    modality={hasModality ? { videoCov, readingCov } : null}
-                  />
-                ))}
-                <tr className="border-t-2 border-border font-semibold bg-muted/10">
-                  <td className="p-3 flex items-center gap-2">
-                    <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: OVERALL_HEX }} />
-                    Overall Mastery
-                  </td>
-                  <td className="p-3 text-right text-muted-foreground">
-                    {skills.reduce((s, sk) => s + sk.n_concepts, 0)}
-                  </td>
-                  <td className="p-3 text-right font-mono tabular-nums text-muted-foreground">{formatPct100(overallInitial)}</td>
-                  {hasModality ? (
-                    <>
-                      <td className="p-3 text-right font-mono tabular-nums">{formatPct100(overallFinal)}</td>
-                      <td className="p-3 text-right font-mono tabular-nums">{formatPct100(videoCov * 100)}</td>
-                      <td className="p-3 text-right font-mono tabular-nums">{formatPct100(readingCov * 100)}</td>
-                      <td className="p-3 text-right font-mono tabular-nums">{formatPct100(weightedFinalGrade)}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="p-3 text-right font-mono tabular-nums">{formatPct100(overallFinal)}</td>
-                      <td className={`p-3 text-right font-mono tabular-nums ${overallDelta >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                        {overallDelta >= 0 ? "+" : ""}{overallDelta.toFixed(1)}%
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end">
-                          <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${Math.min(overallFinal, 100)}%`, backgroundColor: OVERALL_HEX }} />
-                          </div>
-                        </div>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-lg font-semibold">Skill Performance</h2>
+            <p className="text-sm text-muted-foreground">Click a chapter to expand its skills</p>
+          </div>
+          {!hasModality && (
+            <Badge variant="outline" className="text-xs text-muted-foreground">Quiz-only dataset</Badge>
+          )}
+        </div>
+        <div className="space-y-2">
+          {chapterDeltas.map((d, i) => {
+            const color = SKILL_HEX[i % SKILL_HEX.length];
+            const quizGrade = d.final / 100;
+            const chapterWeightedFinal = hasModality
+              ? computeWeightedFinalGrade(quizGrade, videoCov, readingCov) * 100
+              : d.final;
+            const tier =
+              chapterWeightedFinal >= 75 ? "success" :
+              chapterWeightedFinal >= 50 ? "info" :
+              chapterWeightedFinal >= 30 ? "warning" : "danger";
+            const tierBadge: Record<string, string> = {
+              success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+              info:    "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+              warning: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+              danger:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+            };
+            return (
+              <ChapterRow
+                key={i}
+                chapterName={d.chapterName}
+                chapterSkills={d.chapterSkills}
+                initial={d.initial}
+                final={d.final}
+                change={d.change}
+                color={color}
+                modality={hasModality ? { videoCov, readingCov } : null}
+                tierBadge={tierBadge[tier]}
+                weightedFinal={chapterWeightedFinal}
+              />
+            );
+          })}
+          {/* Overall summary row */}
+          <div className="flex items-center gap-3 rounded-lg border border-border/80 bg-muted/20 px-4 py-3 mt-2">
+            <span className="inline-block h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: OVERALL_HEX }} />
+            <span className="font-semibold text-sm flex-1">Overall Mastery</span>
+            <span className="text-xs text-muted-foreground">{skills.reduce((s, sk) => s + sk.n_concepts, 0)} sub-skills</span>
+            <span className="font-mono tabular-nums text-xs text-muted-foreground">Start {formatPct100(overallInitial)}</span>
+            <span className={`font-mono tabular-nums text-sm font-semibold ${overallDelta >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+              {overallDelta >= 0 ? "+" : ""}{overallDelta.toFixed(1)}%
+            </span>
+            <span className="font-mono tabular-nums text-sm font-bold">{formatPct100(overallFinal)}</span>
+          </div>
+        </div>
       </section>
 
       {/* ── Section 4: Actionable Insights ───────────────────────────────── */}
       <section>
         <h2 className="text-lg font-semibold mb-3">Actionable Insights</h2>
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-2">
           {/* Next Steps */}
           <Card>
             <CardHeader>
@@ -857,8 +832,8 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
                           {formatPct100(alert.current_mastery * 100)}
                         </span>
                         <Badge
-                          variant={alert.priority === "HIGH" ? "destructive" : "warning"}
-                          className="text-[10px] px-1.5 py-0"
+                          variant={alert.priority === "HIGH" ? "destructive" : "outline"}
+                          className={`text-[10px] px-1.5 py-0 ${alert.priority !== "HIGH" ? "border-amber-400 text-amber-700 dark:text-amber-400" : ""}`}
                         >
                           {alert.priority}
                         </Badge>
@@ -874,48 +849,6 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
               )}
             </CardContent>
           </Card>
-
-          {/* AI Insight card placeholder — full InsightPanel below */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-violet-500" />
-                <CardTitle className="text-base">Learning Snapshot</CardTitle>
-              </div>
-              <CardDescription>Quick stats for your session</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Active days</span>
-                  <span className="font-medium">{s.active_days}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total interactions</span>
-                  <span className="font-medium">{s.total_interactions.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Overall accuracy</span>
-                  <span className="font-medium">{formatPct100(s.accuracy * 100)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Val AUC</span>
-                  <span className="font-medium font-mono">{modelInfo.best_val_auc.toFixed(4)}</span>
-                </div>
-                {twinData?.twin_confidence != null && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Twin RMSE</span>
-                    <span className="font-medium font-mono">{twinData.twin_confidence.rmse.toFixed(4)}</span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Full ARCD Insight Engine */}
-        <div className="mt-6">
-          <InsightPanel student={student} skills={skills} datasetId={datasetId} />
         </div>
       </section>
 
@@ -1031,18 +964,18 @@ export function UnifiedTab({ student, modelInfo, skills, datasetId, twinData, vi
                           formatter={(v: number, name: string) => {
                             if (name === "overall") return [`${v}%`, "Overall"];
                             const idx = parseInt(name.split("_")[1]);
-                            return [`${v}%`, skills[idx]?.name ?? name];
+                            return [`${v}%`, chapterGroups[idx]?.chapter_name ?? name];
                           }}
                         />
                         <Legend
                           formatter={(v: string) => {
                             if (v === "overall") return "Overall";
                             const idx = parseInt(v.split("_")[1]);
-                            return skills[idx]?.name ?? v;
+                            return chapterGroups[idx]?.chapter_name ?? v;
                           }}
                           wrapperStyle={{ fontSize: "10px" }}
                         />
-                        {skills.map((_, i) => (
+                        {chapterGroups.map((_, i) => (
                           <Line
                             key={i}
                             type="monotone"

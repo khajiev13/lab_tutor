@@ -47,8 +47,8 @@ class OrchestratorState(TypedDict, total=False):
     student: dict
     skills: list
     dataset_id: str
-    A_skill: Any                    # np.ndarray prerequisite adjacency
-    skill_names: dict               # {skill_id: str}
+    A_skill: Any  # np.ndarray prerequisite adjacency
+    skill_names: dict  # {skill_id: str}
 
     # Computed by assess_node
     mastery: list
@@ -101,11 +101,14 @@ def assess_node(state: OrchestratorState) -> dict:
     s = state["student"]
     m = list(s.get("final_mastery", []))
     it = state.get("iteration", 0) + 1
-    log = state.get("orchestrator_log", []) + [{
-        "step": "assess", "iter": it,
-        "avg_mastery": round(float(np.mean(m)), 4) if m else 0.0,
-        "ts": datetime.datetime.now().isoformat(),
-    }]
+    log = state.get("orchestrator_log", []) + [
+        {
+            "step": "assess",
+            "iter": it,
+            "avg_mastery": round(float(np.mean(m)), 4) if m else 0.0,
+            "ts": datetime.datetime.now().isoformat(),
+        }
+    ]
     return {
         "mastery": m,
         "timeline": s.get("timeline", []),
@@ -120,6 +123,7 @@ def _build_pathgen_node(A_skill, skill_names: dict, llm=None):
 
     def pathgen_node(state: OrchestratorState) -> dict:
         from src.agents.pathgen import PathGenConfig, PathGenerator
+
         cfg = PathGenConfig(path_length=5)
         gen = PathGenerator(A_pre=A_skill, skill_names=skill_names, config=cfg)
 
@@ -129,12 +133,16 @@ def _build_pathgen_node(A_skill, skill_names: dict, llm=None):
         it = state.get("iteration", 1)
         return {
             "learning_path": path,
-            "orchestrator_log": state.get("orchestrator_log", []) + [{
-                "step": "pathgen", "iter": it,
-                "path_len": path.get("path_length", 0),
-                "gain": path.get("total_predicted_gain", 0.0),
-                "ts": datetime.datetime.now().isoformat(),
-            }],
+            "orchestrator_log": state.get("orchestrator_log", [])
+            + [
+                {
+                    "step": "pathgen",
+                    "iter": it,
+                    "path_len": path.get("path_length", 0),
+                    "gain": path.get("total_predicted_gain", 0.0),
+                    "ts": datetime.datetime.now().isoformat(),
+                }
+            ],
         }
 
     return pathgen_node
@@ -163,7 +171,9 @@ def _build_review_node(A_skill, skills_list: list, llm=None):
             ts_str = e.get("timestamp", "")
             if 0 <= sid < n and ts_str:
                 try:
-                    ts = datetime.datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+                    ts = datetime.datetime.fromisoformat(
+                        ts_str.replace("Z", "+00:00")
+                    ).timestamp()
                     if sid not in last_ts or ts > last_ts[sid]:
                         last_ts[sid] = ts
                 except (ValueError, TypeError):
@@ -172,15 +182,21 @@ def _build_review_node(A_skill, skills_list: list, llm=None):
 
         # Fast review ranking
         fast_reviews = []
-        fast_candidates = fast_rev.rank_for_review(mastery, hours, n, set(pco_ids), top_k=3)
+        fast_candidates = fast_rev.rank_for_review(
+            mastery, hours, n, set(pco_ids), top_k=3
+        )
         for sid, urgency in fast_candidates:
             if 0 <= sid < len(skills_list):
-                fast_reviews.append({
-                    "skill_id": sid,
-                    "skill_name": _skill_name(skills_list, sid),
-                    "urgency": round(urgency, 4),
-                    "mastery": round(mastery[sid] if sid < len(mastery) else 0.5, 4),
-                })
+                fast_reviews.append(
+                    {
+                        "skill_id": sid,
+                        "skill_name": _skill_name(skills_list, sid),
+                        "urgency": round(urgency, 4),
+                        "mastery": round(
+                            mastery[sid] if sid < len(mastery) else 0.5, 4
+                        ),
+                    }
+                )
 
         # Apply MasterySync for PCO skills (small penalty for forgetting)
         updated = list(mastery)
@@ -188,14 +204,26 @@ def _build_review_node(A_skill, skills_list: list, llm=None):
             sync.update(updated, sid, 0)
 
         pco_count = len(pco_ids)
-        slow_plans = [{"skill_id": sid, "skill_name": _skill_name(skills_list, sid),
-                        "mode": "slow_thinking"} for sid in pco_ids[:2]]
+        slow_plans = [
+            {
+                "skill_id": sid,
+                "skill_name": _skill_name(skills_list, sid),
+                "mode": "slow_thinking",
+            }
+            for sid in pco_ids[:2]
+        ]
 
         # Replan if PCO detected or mastery changed significantly
         needs_replan = pco_count > 0
 
-        exegen_requests = [{"skill_id": fr["skill_id"], "skill_name": fr["skill_name"],
-                             "student_mastery": fr["mastery"]} for fr in fast_reviews[:2]]
+        exegen_requests = [
+            {
+                "skill_id": fr["skill_id"],
+                "skill_name": fr["skill_name"],
+                "student_mastery": fr["mastery"],
+            }
+            for fr in fast_reviews[:2]
+        ]
 
         rv = {
             "updated_mastery": updated,
@@ -203,7 +231,9 @@ def _build_review_node(A_skill, skills_list: list, llm=None):
             "pco_count": pco_count,
             "fast_reviews": fast_reviews,
             "slow_thinking_plans": slow_plans,
-            "mastery_delta": round(float(np.mean(np.abs(np.array(updated[:n]) - np.array(mastery[:n])))), 4),
+            "mastery_delta": round(
+                float(np.mean(np.abs(np.array(updated[:n]) - np.array(mastery[:n])))), 4
+            ),
             "needs_replan": needs_replan,
             "exegen_requests": exegen_requests,
         }
@@ -211,14 +241,18 @@ def _build_review_node(A_skill, skills_list: list, llm=None):
         return {
             "review_result": rv,
             "post_review_mastery": updated,
-            "orchestrator_log": state.get("orchestrator_log", []) + [{
-                "step": "review", "iter": it,
-                "pco": pco_count,
-                "fast": len(fast_reviews),
-                "slow": len(slow_plans),
-                "replan": needs_replan,
-                "ts": datetime.datetime.now().isoformat(),
-            }],
+            "orchestrator_log": state.get("orchestrator_log", [])
+            + [
+                {
+                    "step": "review",
+                    "iter": it,
+                    "pco": pco_count,
+                    "fast": len(fast_reviews),
+                    "slow": len(slow_plans),
+                    "replan": needs_replan,
+                    "ts": datetime.datetime.now().isoformat(),
+                }
+            ],
         }
 
     return review_node
@@ -237,40 +271,62 @@ def _build_exercise_node(A_skill):
 
         exercises = []
         if reqs:
-            targets = [(r.get("skill_id", 0), r.get("skill_name", ""),
-                        r.get("student_mastery", 0.5)) for r in reqs]
+            targets = [
+                (
+                    r.get("skill_id", 0),
+                    r.get("skill_name", ""),
+                    r.get("student_mastery", 0.5),
+                )
+                for r in reqs
+            ]
         else:
             n = len(mastery)
-            ranked = sorted(range(min(n, len(skills_list))), key=lambda s: mastery[s] if s < n else 1.0)
-            targets = [(s, _skill_name(skills_list, s), mastery[s] if s < n else 0.5)
-                       for s in ranked[:2]]
+            ranked = sorted(
+                range(min(n, len(skills_list))),
+                key=lambda s: mastery[s] if s < n else 1.0,
+            )
+            targets = [
+                (s, _skill_name(skills_list, s), mastery[s] if s < n else 0.5)
+                for s in ranked[:2]
+            ]
 
         for sid, sname, m in targets:
             profile = diff_calc.compute(sid, sname, float(m))
-            exercises.append({
-                "skill_id": sid,
-                "skill_name": sname,
-                "target_difficulty": profile.target_d,
-                "difficulty_band": profile.band,
-                "zpd_position": profile.zpd_position,
-                "why": (f"Target difficulty {profile.target_d:.2f} ({profile.band}) "
-                        f"for mastery {m:.0%} — generated without LLM in orchestrator baseline."),
-            })
+            exercises.append(
+                {
+                    "skill_id": sid,
+                    "skill_name": sname,
+                    "target_difficulty": profile.target_d,
+                    "difficulty_band": profile.band,
+                    "zpd_position": profile.zpd_position,
+                    "why": (
+                        f"Target difficulty {profile.target_d:.2f} ({profile.band}) "
+                        f"for mastery {m:.0%} — generated without LLM in orchestrator baseline."
+                    ),
+                }
+            )
 
         ex_out = {
             "exercises": exercises,
-            "stats": {"total_generated": len(exercises), "total_accepted": len(exercises)},
+            "stats": {
+                "total_generated": len(exercises),
+                "total_accepted": len(exercises),
+            },
             "generated_at": datetime.datetime.now().isoformat(),
         }
 
         return {
             "exercises": ex_out,
-            "orchestrator_log": state.get("orchestrator_log", []) + [{
-                "step": "exercises", "iter": it,
-                "n_ex": len(exercises),
-                "from_learnfell": len(reqs),
-                "ts": datetime.datetime.now().isoformat(),
-            }],
+            "orchestrator_log": state.get("orchestrator_log", [])
+            + [
+                {
+                    "step": "exercises",
+                    "iter": it,
+                    "n_ex": len(exercises),
+                    "from_learnfell": len(reqs),
+                    "ts": datetime.datetime.now().isoformat(),
+                }
+            ],
         }
 
     return exercise_node
@@ -293,12 +349,18 @@ def _reassess_node(state: OrchestratorState) -> dict:
     return {
         "deviation_detected": dev and can_iterate,
         "mastery": post,
-        "orchestrator_log": state.get("orchestrator_log", []) + [{
-            "step": "reassess", "iter": it,
-            "max_delta": round(mx, 4), "mean_delta": round(mn, 4),
-            "deviation": dev, "will_replan": dev and can_iterate,
-            "ts": datetime.datetime.now().isoformat(),
-        }],
+        "orchestrator_log": state.get("orchestrator_log", [])
+        + [
+            {
+                "step": "reassess",
+                "iter": it,
+                "max_delta": round(mx, 4),
+                "mean_delta": round(mn, 4),
+                "deviation": dev,
+                "will_replan": dev and can_iterate,
+                "ts": datetime.datetime.now().isoformat(),
+            }
+        ],
     }
 
 
@@ -314,10 +376,14 @@ def _finalize_node(state: OrchestratorState) -> dict:
     return {
         "student": s,
         "completed_at": datetime.datetime.now().isoformat(),
-        "orchestrator_log": state.get("orchestrator_log", []) + [{
-            "step": "finalize", "iter": it,
-            "ts": datetime.datetime.now().isoformat(),
-        }],
+        "orchestrator_log": state.get("orchestrator_log", [])
+        + [
+            {
+                "step": "finalize",
+                "iter": it,
+                "ts": datetime.datetime.now().isoformat(),
+            }
+        ],
     }
 
 
@@ -328,8 +394,9 @@ def _route_reassess(state: OrchestratorState) -> Literal["pathgen", "finalize"]:
 # ── Public factory ────────────────────────────────────────────────────
 
 
-def build_orchestrator(A_skill, skill_names: dict | None = None, llm=None,
-                        max_iterations: int = 2):
+def build_orchestrator(
+    A_skill, skill_names: dict | None = None, llm=None, max_iterations: int = 2
+):
     """Build and return a compiled LangGraph StateGraph for the ARCD orchestrator.
 
     Args:
@@ -349,27 +416,30 @@ def build_orchestrator(A_skill, skill_names: dict | None = None, llm=None,
         ) from exc
 
     names = skill_names or {}
-    skills_list = [{"name": names.get(i, f"Skill {i}")} for i in range(A_skill.shape[0])]
+    skills_list = [
+        {"name": names.get(i, f"Skill {i}")} for i in range(A_skill.shape[0])
+    ]
 
     pathgen_node = _build_pathgen_node(A_skill, names, llm)
-    review_node  = _build_review_node(A_skill, skills_list, llm)
+    review_node = _build_review_node(A_skill, skills_list, llm)
     exercise_node = _build_exercise_node(A_skill)
 
     wf = StateGraph(OrchestratorState)
-    wf.add_node("assess",    assess_node)
-    wf.add_node("pathgen",   pathgen_node)
-    wf.add_node("review",    review_node)
+    wf.add_node("assess", assess_node)
+    wf.add_node("pathgen", pathgen_node)
+    wf.add_node("review", review_node)
     wf.add_node("exercises", exercise_node)
-    wf.add_node("reassess",  _reassess_node)
-    wf.add_node("finalize",  _finalize_node)
+    wf.add_node("reassess", _reassess_node)
+    wf.add_node("finalize", _finalize_node)
 
-    wf.add_edge(START,       "assess")
-    wf.add_edge("assess",    "pathgen")
-    wf.add_edge("pathgen",   "review")
-    wf.add_edge("review",    "exercises")
+    wf.add_edge(START, "assess")
+    wf.add_edge("assess", "pathgen")
+    wf.add_edge("pathgen", "review")
+    wf.add_edge("review", "exercises")
     wf.add_edge("exercises", "reassess")
-    wf.add_conditional_edges("reassess", _route_reassess,
-                              {"pathgen": "pathgen", "finalize": "finalize"})
+    wf.add_conditional_edges(
+        "reassess", _route_reassess, {"pathgen": "pathgen", "finalize": "finalize"}
+    )
     wf.add_edge("finalize", END)
 
     return wf.compile()
@@ -387,15 +457,19 @@ class ARCDOrchestrator:
         updated_student = orch.run(student_dict, skills_list)
     """
 
-    def __init__(self, A_skill, skill_names: dict | None = None,
-                 llm=None, max_iterations: int = 2):
+    def __init__(
+        self,
+        A_skill,
+        skill_names: dict | None = None,
+        llm=None,
+        max_iterations: int = 2,
+    ):
         self._app = build_orchestrator(A_skill, skill_names, llm, max_iterations)
         self._A = A_skill
         self._names = skill_names or {}
         self._max_iter = max_iterations
 
-    def run(self, student: dict, skills: list,
-            dataset_id: str = "default") -> dict:
+    def run(self, student: dict, skills: list, dataset_id: str = "default") -> dict:
         """Run the full orchestration cycle for one student.
 
         Args:
@@ -408,15 +482,15 @@ class ARCDOrchestrator:
             ``adaex_session``, and ``orchestrator_log`` attached.
         """
         initial: OrchestratorState = {
-            "student":        student,
-            "skills":         skills,
-            "dataset_id":     dataset_id,
-            "A_skill":        self._A,
-            "skill_names":    self._names,
-            "iteration":      0,
+            "student": student,
+            "skills": skills,
+            "dataset_id": dataset_id,
+            "A_skill": self._A,
+            "skill_names": self._names,
+            "iteration": 0,
             "max_iterations": self._max_iter,
             "orchestrator_log": [],
-            "started_at":     datetime.datetime.now().isoformat(),
+            "started_at": datetime.datetime.now().isoformat(),
         }
         final = self._app.invoke(initial)
         return final.get("student", student)

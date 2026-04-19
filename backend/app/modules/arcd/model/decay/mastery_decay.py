@@ -16,9 +16,7 @@ class MasteryDecay(nn.Module):
         super().__init__()
         self.epsilon = epsilon
 
-    def forward(
-        self, delta_rel: torch.Tensor, mastery: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, delta_rel: torch.Tensor, mastery: torch.Tensor) -> torch.Tensor:
         """
         Args:
             delta_rel: [B, S] relationally-adjusted retention

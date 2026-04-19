@@ -24,25 +24,30 @@ export function SkillPopularityPanel({ courseId }: { courseId: number }) {
     }
   };
 
-  const SkillRow = ({ skill, rank }: { skill: SkillPopularityItem; rank: number }) => (
-    <div className="flex items-center justify-between py-2 border-b last:border-0">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-mono text-muted-foreground w-5">{rank}.</span>
-        <span className="text-sm">{skill.skill_name}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary rounded-full"
-            style={{ width: `${skill.popularity_ratio * 100}%` }}
-          />
+  const SkillRow = ({ skill }: { skill: SkillPopularityItem }) => {
+    const popularityRatio =
+      data && data.total_students > 0 ? skill.selection_count / data.total_students : 0;
+
+    return (
+      <div className="flex items-center justify-between py-2 border-b last:border-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-muted-foreground w-5">{skill.rank}.</span>
+          <span className="text-sm">{skill.skill_name}</span>
         </div>
-        <span className="text-xs text-muted-foreground w-10 text-right">
-          {skill.student_count} / {data?.total_students}
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full"
+              style={{ width: `${popularityRatio * 100}%` }}
+            />
+          </div>
+          <span className="text-xs text-muted-foreground w-10 text-right">
+            {skill.selection_count} / {data?.total_students}
+          </span>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <Card>
@@ -73,20 +78,24 @@ export function SkillPopularityPanel({ courseId }: { courseId: number }) {
               <div className="flex items-center gap-1 mb-2">
                 <TrendingUp className="h-3.5 w-3.5 text-green-600" />
                 <span className="text-xs font-semibold text-green-700">Most Studied</span>
-                <Badge variant="outline" className="ml-auto text-xs">{data.most_popular.length}</Badge>
+                <Badge variant="outline" className="ml-auto text-xs">
+                  {data.most_popular.length}
+                </Badge>
               </div>
-              {data.most_popular.map((s, i) => (
-                <SkillRow key={s.skill_name} skill={s} rank={i + 1} />
+              {data.most_popular.map((s) => (
+                <SkillRow key={s.skill_name} skill={s} />
               ))}
             </div>
             <div>
               <div className="flex items-center gap-1 mb-2">
                 <TrendingDown className="h-3.5 w-3.5 text-orange-500" />
                 <span className="text-xs font-semibold text-orange-600">Least Studied</span>
-                <Badge variant="outline" className="ml-auto text-xs">{data.least_popular.length}</Badge>
+                <Badge variant="outline" className="ml-auto text-xs">
+                  {data.least_popular.length}
+                </Badge>
               </div>
-              {data.least_popular.map((s, i) => (
-                <SkillRow key={s.skill_name} skill={s} rank={i + 1} />
+              {data.least_popular.map((s) => (
+                <SkillRow key={s.skill_name} skill={s} />
               ))}
             </div>
           </div>

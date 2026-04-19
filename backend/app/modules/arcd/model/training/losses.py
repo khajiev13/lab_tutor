@@ -35,7 +35,9 @@ class FocalLoss(nn.Module):
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         # Apply label smoothing: 0 → ε/2,  1 → 1 − ε/2
         if self.label_smoothing > 0:
-            targets = targets * (1.0 - self.label_smoothing) + 0.5 * self.label_smoothing
+            targets = (
+                targets * (1.0 - self.label_smoothing) + 0.5 * self.label_smoothing
+            )
 
         p = torch.sigmoid(logits)
         ce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
@@ -97,7 +99,9 @@ class ARCDLoss(nn.Module):
         mastery_weight: float = 0.05,
     ):
         super().__init__()
-        self.focal = FocalLoss(gamma=gamma, alpha=alpha, label_smoothing=label_smoothing)
+        self.focal = FocalLoss(
+            gamma=gamma, alpha=alpha, label_smoothing=label_smoothing
+        )
         self.mastery = MasteryLoss()
         self.mastery_weight = mastery_weight
 

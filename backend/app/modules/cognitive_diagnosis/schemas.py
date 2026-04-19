@@ -16,7 +16,9 @@ class SkillMastery(BaseModel):
 
     skill_name: str
     mastery: float = Field(ge=0.0, le=1.0)
-    decay: float = Field(ge=0.0, le=1.0, description="1.0 = fully retained, 0.0 = forgotten")
+    decay: float = Field(
+        ge=0.0, le=1.0, description="1.0 = fully retained, 0.0 = forgotten"
+    )
     status: Literal["not_started", "below", "at", "above"] = "not_started"
     attempt_count: int = 0
     correct_count: int = 0
@@ -31,20 +33,17 @@ class LogInteractionRequest(BaseModel):
     """Log a student answering a question."""
 
     question_id: str
-    is_correct: bool
-    timestamp_sec: int | None = None
-    time_spent_sec: int | None = None
-    attempt_number: int = 1
+    answered_right: bool
+    selected_option: str | None = None
+    answered_at: str | None = None
 
 
 class LogEngagementRequest(BaseModel):
-    """Log a student engaging with a reading or video resource."""
+    """Log a student opening a reading or video resource."""
 
     resource_id: str
     resource_type: Literal["reading", "video"]
-    progress: float = Field(ge=0.0, le=1.0, default=0.0)
-    duration_sec: int | None = None
-    timestamp_sec: int | None = None
+    opened_at: str | None = None
 
 
 class ReviewRequest(BaseModel):
@@ -215,8 +214,12 @@ class ArcdSkillInfo(BaseModel):
     id: int
     chapter_id: int = 0
     domain_id: int = 0  # backward-compat alias for chapter_id
-    chapter_order: int = 9999  # numeric order (e.g., chapter_index) for chronological sorting
-    chapter_name: str = ""  # human-readable name of the BOOK_CHAPTER this skill belongs to
+    chapter_order: int = (
+        9999  # numeric order (e.g., chapter_index) for chronological sorting
+    )
+    chapter_name: str = (
+        ""  # human-readable name of the BOOK_CHAPTER this skill belongs to
+    )
     name: str
     concepts: list[ArcdConceptInfo] = []
     n_concepts: int = 0
@@ -352,6 +355,12 @@ class ArcdTwinScenarioPath(BaseModel):
     skill_names: list[str] = []
     avg_mastery_gain: float = 0.0
     final_avg_mastery: float = 0.0
+    trajectory: list[dict] = Field(
+        default_factory=list,
+        description="Day-by-day projected average mastery [{step, avgMastery}]",
+    )
+    coherence_score: float = 0.0
+    justification: list[str] = []
 
 
 class ArcdTwinScenarioComparison(BaseModel):
@@ -361,6 +370,9 @@ class ArcdTwinScenarioComparison(BaseModel):
     )
     path_b: ArcdTwinScenarioPath = Field(
         default_factory=lambda: ArcdTwinScenarioPath(name="recommended")
+    )
+    path_c: ArcdTwinScenarioPath = Field(
+        default_factory=lambda: ArcdTwinScenarioPath(name="reinforce")
     )
     best_path: str = "path_a"
 
