@@ -1,6 +1,5 @@
 """Tests for teacher_digital_twin Pydantic schemas."""
 
-
 from app.modules.teacher_digital_twin.schemas import (
     ClassMasteryResponse,
     MultiSkillSimulationRequest,

@@ -6,6 +6,7 @@ Usage
     ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v1 \\
         uv run python -m arcd_serving.run --host 0.0.0.0 --port 8000
 """
+
 from __future__ import annotations
 
 import argparse

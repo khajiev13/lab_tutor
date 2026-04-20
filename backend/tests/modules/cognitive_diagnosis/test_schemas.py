@@ -51,7 +51,9 @@ class TestLogEngagementRequest:
 
     def test_video(self):
         req = LogEngagementRequest(
-            resource_id="v1", resource_type="video", opened_at="2026-04-14T12:00:00+00:00"
+            resource_id="v1",
+            resource_type="video",
+            opened_at="2026-04-14T12:00:00+00:00",
         )
         assert req.opened_at == "2026-04-14T12:00:00+00:00"
 

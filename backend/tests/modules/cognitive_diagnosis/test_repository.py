@@ -156,7 +156,9 @@ class TestUpsertOpenedResource:
 
     def test_reading_resource(self):
         repo, session = _make_repo()
-        repo.upsert_opened_resource(user_id=1, resource_id="r1", resource_type="reading")
+        repo.upsert_opened_resource(
+            user_id=1, resource_id="r1", resource_type="reading"
+        )
         session.run.assert_called_once()
         query_used = session.run.call_args[0][0]
         assert "READING_RESOURCE" in query_used

@@ -98,6 +98,9 @@ def _ensure_sql_schema_upgrades() -> None:
         return
 
     with engine.connect() as conn:
+        # Fail fast when another session holds conflicting locks (e.g. during
+        # tests where previous TestClient instances leave zombie connections).
+        conn.execute(text("SET lock_timeout = '30s'"))
         # Idempotent ALTER: add `level` column if missing.
         col_exists = conn.execute(
             text(
@@ -385,6 +388,9 @@ def _backfill_course_selected_books() -> None:
     )
 
     with SessionLocal() as db:
+        # Fail fast when another session holds conflicting locks (e.g. zombie
+        # test connections) — backfill is idempotent and non-critical.
+        db.execute(text("SET lock_timeout = '30s'"))
         # Find all selected course_books that don't yet have a course_selected_books entry
         existing_source_ids_subq = select(CourseSelectedBook.source_book_id).where(
             CourseSelectedBook.source_book_id.isnot(None)
@@ -521,6 +527,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
             def _recover() -> int:
                 with SessionLocal() as db:
+                    # Fail fast on lock contention (e.g. zombie test connections).
+                    db.execute(text("SET lock_timeout = '30s'"))
                     return recover_orphaned_runs(db)
 
             recovered = await asyncio.to_thread(_recover)

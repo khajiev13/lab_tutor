@@ -19,6 +19,7 @@ Usage
         --checkpoint checkpoints/synthgen_v2 \\
         --data-dir   ../knowledge_graph_builder/data/synthgen/roma_synth_v2_20pct
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,6 +52,7 @@ from arcd_agent.evaluation.pathgen_eval import (  # noqa: E402
     pathgen_v2,
     random_path,
 )
+
 from arcd_agent.model.training import ARCDModel, MetricsSuite  # noqa: E402
 
 logger = logging.getLogger("eval_required_skills")
@@ -79,7 +81,9 @@ def _load_prereq_adjacency(
                 logger.info("A_pre: loaded %d prereq edges from %s", len(df), p)
                 return (A / row_sum).to(device)
             except Exception as exc:
-                logger.warning("Failed to load prereq_edges.parquet (%s) — using identity", exc)
+                logger.warning(
+                    "Failed to load prereq_edges.parquet (%s) — using identity", exc
+                )
     return torch.eye(n_skills, device=device)
 
 
@@ -106,7 +110,9 @@ def _load_video_adjacency(
                 row_sum = A.sum(dim=1, keepdim=True).clamp(min=1.0)
                 return (A / row_sum).to(device)
             except Exception as exc:
-                logger.warning("Failed to load skill_videos.parquet (%s) — using dummy", exc)
+                logger.warning(
+                    "Failed to load skill_videos.parquet (%s) — using dummy", exc
+                )
     return torch.zeros(1, n_skills, device=device)
 
 
@@ -133,7 +139,9 @@ def _load_reading_adjacency(
                 row_sum = A.sum(dim=1, keepdim=True).clamp(min=1.0)
                 return (A / row_sum).to(device)
             except Exception as exc:
-                logger.warning("Failed to load skill_readings.parquet (%s) — using dummy", exc)
+                logger.warning(
+                    "Failed to load skill_readings.parquet (%s) — using dummy", exc
+                )
     return torch.zeros(1, n_skills, device=device)
 
 
@@ -336,8 +344,12 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--seq-len", type=int, default=100)
     parser.add_argument("--stride", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--n-eval-students", type=int, default=50,
-                        help="Max students to use for AdaEx / PathGen eval")
+    parser.add_argument(
+        "--n-eval-students",
+        type=int,
+        default=50,
+        help="Max students to use for AdaEx / PathGen eval",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
@@ -383,8 +395,12 @@ def main(argv: list[str] | None = None) -> None:
 
     n_skills = len(vocab["concept"])
     concept_to_idx: dict[str, int] = vocab["concept"]
-    logger.info("n_skills=%d  n_questions=%d  n_students=%d",
-                n_skills, len(vocab["question"]), len(vocab["user"]))
+    logger.info(
+        "n_skills=%d  n_questions=%d  n_students=%d",
+        n_skills,
+        len(vocab["question"]),
+        len(vocab["user"]),
+    )
 
     mastery_lookup = build_mastery_lookup(mastery_df, concept_to_idx)
 
@@ -416,12 +432,17 @@ def main(argv: list[str] | None = None) -> None:
     state_key = "model_state_dict" if "model_state_dict" in ckpt else "state_dict"
     model.load_state_dict(ckpt[state_key])
     model.eval()
-    logger.info("Model loaded — params: %s", f"{sum(p.numel() for p in model.parameters()):,}")
+    logger.info(
+        "Model loaded — params: %s", f"{sum(p.numel() for p in model.parameters()):,}"
+    )
 
     # ── Build test DataLoader ─────────────────────────────────────────────
     test_ds = TestDataset(
-        test_df, mastery_lookup, n_skills,
-        seq_len=args.seq_len, stride=args.stride,
+        test_df,
+        mastery_lookup,
+        n_skills,
+        seq_len=args.seq_len,
+        stride=args.stride,
     )
     test_loader = DataLoader(
         test_ds, batch_size=args.batch_size, shuffle=False, num_workers=0
@@ -430,11 +451,17 @@ def main(argv: list[str] | None = None) -> None:
 
     # ── 1. MetricsSuite ───────────────────────────────────────────────────
     logger.info("Running inference for MetricsSuite …")
-    y_true, y_prob, mastery_preds = run_inference(model, test_loader, graph_data, device)
+    y_true, y_prob, mastery_preds = run_inference(
+        model, test_loader, graph_data, device
+    )
     suite = MetricsSuite()
     metrics = suite.report(y_true, y_prob, title="Required Skills — Test Set")
-    logger.info("AUC-ROC=%.4f  PR-AUC=%.4f  F1=%.4f",
-                metrics["AUC-ROC"], metrics["PR-AUC"], metrics["F1"])
+    logger.info(
+        "AUC-ROC=%.4f  PR-AUC=%.4f  F1=%.4f",
+        metrics["AUC-ROC"],
+        metrics["PR-AUC"],
+        metrics["F1"],
+    )
 
     # ── 2. AdaEx eval ─────────────────────────────────────────────────────
     logger.info("Running AdaEx evaluation …")
@@ -464,10 +491,15 @@ def main(argv: list[str] | None = None) -> None:
     # Fall back to ground truth for students with no predicted mastery
     for sid in student_ids_ordered:
         if np.all(predicted_mastery.get(sid, np.zeros(n_skills)) == 0):
-            predicted_mastery[sid] = mastery_lookup.get(sid, np.zeros(n_skills, dtype=np.float32))
+            predicted_mastery[sid] = mastery_lookup.get(
+                sid, np.zeros(n_skills, dtype=np.float32)
+            )
 
     mastery_arr = np.stack(
-        [predicted_mastery.get(s, np.zeros(n_skills, dtype=np.float32)) for s in student_ids_ordered],
+        [
+            predicted_mastery.get(s, np.zeros(n_skills, dtype=np.float32))
+            for s in student_ids_ordered
+        ],
         axis=0,
     )  # (N, S)
     decay_arr = np.ones_like(mastery_arr) * 0.85  # default retention
@@ -478,30 +510,49 @@ def main(argv: list[str] | None = None) -> None:
 
     adaex_results = evaluate_difficulty_strategy(
         adaex_difficulty,
-        mastery_arr, decay_arr, A_pre_np,
-        calc, n_concepts_arr, max_concepts, rng,
+        mastery_arr,
+        decay_arr,
+        A_pre_np,
+        calc,
+        n_concepts_arr,
+        max_concepts,
+        rng,
         use_calc=True,
     )
     baseline_fixed = evaluate_difficulty_strategy(
         fixed_medium_difficulty,
-        mastery_arr, decay_arr, A_pre_np,
-        calc, n_concepts_arr, max_concepts, rng,
+        mastery_arr,
+        decay_arr,
+        A_pre_np,
+        calc,
+        n_concepts_arr,
+        max_concepts,
+        rng,
     )
     baseline_random = evaluate_difficulty_strategy(
         random_difficulty,
-        mastery_arr, decay_arr, A_pre_np,
-        calc, n_concepts_arr, max_concepts, rng,
+        mastery_arr,
+        decay_arr,
+        A_pre_np,
+        calc,
+        n_concepts_arr,
+        max_concepts,
+        rng,
     )
 
     logger.info(
         "AdaEx  zpd_alignment=%.3f  calib_error=%.3f  prereq_corr=%.3f  variance=%.3f",
-        adaex_results["zpd_alignment"], adaex_results["calibration_error"],
-        adaex_results.get("prereq_correlation", 0.0), adaex_results.get("cross_student_variance", 0.0),
+        adaex_results["zpd_alignment"],
+        adaex_results["calibration_error"],
+        adaex_results.get("prereq_correlation", 0.0),
+        adaex_results.get("cross_student_variance", 0.0),
     )
     logger.info(
         "Fixed  zpd_alignment=%.3f  calib_error=%.3f | Random zpd_alignment=%.3f  calib_error=%.3f",
-        baseline_fixed["zpd_alignment"], baseline_fixed["calibration_error"],
-        baseline_random["zpd_alignment"], baseline_random["calibration_error"],
+        baseline_fixed["zpd_alignment"],
+        baseline_fixed["calibration_error"],
+        baseline_random["zpd_alignment"],
+        baseline_random["calibration_error"],
     )
 
     # ── 3. PathGen eval ───────────────────────────────────────────────────
@@ -510,14 +561,20 @@ def main(argv: list[str] | None = None) -> None:
     random_results: list[dict] = []
 
     for s_idx in student_ids_ordered:
-        mastery_vec = predicted_mastery.get(s_idx, mastery_lookup.get(s_idx, np.zeros(n_skills, dtype=np.float32))).copy()
+        mastery_vec = predicted_mastery.get(
+            s_idx, mastery_lookup.get(s_idx, np.zeros(n_skills, dtype=np.float32))
+        ).copy()
         decay_vec = np.ones(n_skills, dtype=np.float32) * 0.85
 
         pg_path = pathgen_v2(mastery_vec, decay_vec, A_pre_np, K=8)
         rnd_path = random_path(mastery_vec, decay_vec, A_pre_np, K=8, rng=rng)
 
-        pathgen_results.append(evaluate_path(pg_path, mastery_vec, decay_vec, A_pre_np, rng=rng))
-        random_results.append(evaluate_path(rnd_path, mastery_vec, decay_vec, A_pre_np, rng=rng))
+        pathgen_results.append(
+            evaluate_path(pg_path, mastery_vec, decay_vec, A_pre_np, rng=rng)
+        )
+        random_results.append(
+            evaluate_path(rnd_path, mastery_vec, decay_vec, A_pre_np, rng=rng)
+        )
 
     def _mean_dict(dicts: list[dict]) -> dict:
         if not dicts:
@@ -530,11 +587,17 @@ def main(argv: list[str] | None = None) -> None:
 
     logger.info(
         "PathGen v2  zpd_align=%.3f  prereq_sat=%.3f  proj_gain=%.3f  unlock_pot=%.1f",
-        pg_mean["zpd_align"], pg_mean["prereq_sat"], pg_mean["proj_gain"], pg_mean["unlock_pot"],
+        pg_mean["zpd_align"],
+        pg_mean["prereq_sat"],
+        pg_mean["proj_gain"],
+        pg_mean["unlock_pot"],
     )
     logger.info(
         "Random      zpd_align=%.3f  prereq_sat=%.3f  proj_gain=%.3f  unlock_pot=%.1f",
-        rnd_mean["zpd_align"], rnd_mean["prereq_sat"], rnd_mean["proj_gain"], rnd_mean["unlock_pot"],
+        rnd_mean["zpd_align"],
+        rnd_mean["prereq_sat"],
+        rnd_mean["proj_gain"],
+        rnd_mean["unlock_pot"],
     )
 
     # ── Acceptance thresholds ──────────────────────────────────────────────

@@ -4,7 +4,13 @@ import torch
 import torch.nn as nn
 
 from ..attention import TemporalAttentionModel
-from ..decay import BaseDecay, DifficultyDecay, MasteryDecay, UnifiedDecayMLP
+from ..decay import (
+    BaseDecay,
+    DifficultyDecay,
+    MasteryDecay,
+    RelationalDecay,
+    UnifiedDecayMLP,
+)
 from ..gat import MultiRelationalGAT
 from ..heads import MasteryHead, PerformanceHead
 
@@ -42,9 +48,18 @@ class ARCDModel(nn.Module):
         dropout: float = 0.1,
         use_gat: bool = True,
         student_emb_drop_p: float = 0.0,
+        unk_student_idx: int | None = None,
     ):
         super().__init__()
         self.n_skills = n_skills
+        # Reserved slot in the student embedding tables for cold-start /
+        # out-of-vocabulary students.  Convention: last row of the table
+        # (i.e. n_students - 1).  See arcd_train.py where n_students is set to
+        # num_real_students + 1 so the UNK row is genuinely a fresh slot, not
+        # piggy-backed on real student 0 (which was the v3 contamination bug).
+        self.unk_student_idx = (
+            unk_student_idx if unk_student_idx is not None else n_students - 1
+        )
 
         self.gat = MultiRelationalGAT(
             d_skill_embed=d_skill_embed,
@@ -74,6 +89,10 @@ class ARCDModel(nn.Module):
         # Decay cascade (paper Eq. 6-11)
         self.base_decay = BaseDecay(n_students, n_skills)
         self.diff_decay = DifficultyDecay(n_skills)
+        # RelationalDecay is installed lazily via set_prerequisite_graph() so that
+        # model construction does not require A_pre (which is only available after
+        # the graph tensors are built).  Until wired, d_rel = d_diff (pass-through).
+        self.rel_decay: RelationalDecay | None = None
         self.mast_decay = MasteryDecay()
         self.unified_decay = UnifiedDecayMLP(d=d, dropout=dropout)
 
@@ -89,9 +108,36 @@ class ARCDModel(nn.Module):
         nn.init.zeros_(self.student_ability.weight)
 
         # Student embedding cold-start dropout (applied during training only).
-        # With p>0 the model learns to predict from h_u_t alone when e_u is masked,
-        # which is exactly the scenario for test/unseen students at inference time.
+        # With p>0 the model swaps the student id for the reserved UNK slot so
+        # the UNK row learns a generic prior — used at inference for unseen
+        # students.  v3 zeroed e_u directly which collapsed the mastery head;
+        # routing through UNK keeps the embedding distribution intact.
         self.student_emb_drop_p = student_emb_drop_p
+
+        # Cache of the post-cold-start student id tensor — populated by
+        # forward() so the decay cascade and ability bias use the same
+        # (potentially UNK-swapped) ids as e_u.  Defined here so the attribute
+        # exists even when forward() has not yet been called.
+        self._effective_student_ids: torch.Tensor | None = None
+
+    def set_prerequisite_graph(self, A_pre: torch.Tensor) -> None:
+        """Install (or replace) RelationalDecay from the prerequisite adjacency matrix.
+
+        Must be called BEFORE the optimizer is created so that rel_decay.w_p_logit
+        is included in model.parameters() and receives gradient updates.
+
+        Args:
+            A_pre: [S, S] prerequisite edge matrix (1 where s' → s, else 0).
+                   Will be moved to the same device as the rest of the model.
+        """
+        device = next(self.parameters()).device
+        # Preserve trained w_p_logit across re-installations (e.g. device moves)
+        saved_w: torch.Tensor | None = None
+        if self.rel_decay is not None:
+            saved_w = self.rel_decay.w_p_logit.data.clone()
+        self.rel_decay = RelationalDecay(A_pre).to(device)
+        if saved_w is not None:
+            self.rel_decay.w_p_logit.data.copy_(saved_w)
 
     def compute_decay(
         self,
@@ -112,7 +158,7 @@ class ARCDModel(nn.Module):
         """
         d_base = self.base_decay(student_ids, delta_t, review_count)
         d_diff = self.diff_decay(d_base)
-        d_rel = d_diff
+        d_rel = self.rel_decay(d_diff) if self.rel_decay is not None else d_diff
         mastery_scaled = 1.0 + 4.0 * mastery_prior.clamp(0.0, 1.0)
         d_mast = self.mast_decay(d_rel, mastery_scaled)
         return self.unified_decay(d_base, d_diff, d_rel, d_mast)
@@ -189,20 +235,29 @@ class ARCDModel(nn.Module):
             h_r,
         )
 
-        # e_u: static student embedding from GCN (paper Eq. 12-13)
+        # e_u: static student embedding from GCN (paper Eq. 12-13).
+        #
+        # Cold-start handling: instead of zeroing e_u (which destroys signal
+        # and biases the network toward predicting zero mastery), we *swap* the
+        # student id for the reserved UNK slot during training with probability
+        # `student_emb_drop_p`.  The UNK row in h_u thus learns a generic
+        # cold-start prior, which is exactly what gets used at inference time
+        # for unseen students (model_registry routes OOV students to UNK).
         if student_ids is not None:
-            e_u = h_u[student_ids.clamp(max=h_u.size(0) - 1)]
-            # Cold-start dropout: randomly zero entire student embedding during
-            # training so the model learns to predict from h_u_t alone.
-            # This prevents over-reliance on ID-specific embeddings that are
-            # uninitialised for unseen (test) students at inference time.
+            sid = student_ids.clamp(max=h_u.size(0) - 1)
             if self.training and self.student_emb_drop_p > 0.0:
-                mask = (
-                    torch.rand(e_u.size(0), 1, device=e_u.device)
-                    > self.student_emb_drop_p
-                ).float()
-                e_u = e_u * mask
+                drop = (
+                    torch.rand(sid.size(0), device=sid.device) < self.student_emb_drop_p
+                )
+                sid = torch.where(
+                    drop,
+                    torch.full_like(sid, self.unk_student_idx),
+                    sid,
+                )
+            self._effective_student_ids = sid  # cached for ability bias below
+            e_u = h_u[sid]
         else:
+            self._effective_student_ids = None
             e_u = h_u_t
 
         B = e_u.size(0)
@@ -215,8 +270,15 @@ class ARCDModel(nn.Module):
                 if mastery_prior is not None
                 else torch.full((B, S), 0.5, device=e_u.device)
             )
+            # Use the effective (post-cold-start-dropout) student id so the
+            # base-decay table sees the UNK row when e_u was UNK-swapped.
+            decay_sid = (
+                self._effective_student_ids
+                if self._effective_student_ids is not None
+                else student_ids
+            )
             decay_us = self.compute_decay(
-                student_ids, delta_t_skills, m_prior, review_count
+                decay_sid, delta_t_skills, m_prior, review_count
             )
             qs_weights = A_qs[target_idx.clamp(max=A_qs.size(0) - 1)]
             qs_norm = qs_weights / qs_weights.sum(-1, keepdim=True).clamp(min=1e-8)
@@ -256,19 +318,16 @@ class ARCDModel(nn.Module):
             target_idx.clamp(max=self.question_difficulty.num_embeddings - 1)
         ).squeeze(-1)
         # Add per-student ability bias (IRT θ_u).  Also zero-initialised.
-        # For unseen (cold-start) students the bias remains near zero, which is
-        # equivalent to predicting the population-average ability.
-        if student_ids is not None:
-            s_ability_bias = self.student_ability(
-                student_ids.clamp(max=self.student_ability.num_embeddings - 1)
-            ).squeeze(-1)
-            if self.training and self.student_emb_drop_p > 0.0:
-                # Apply the same mask as e_u dropout for consistency
-                s_mask = (
-                    torch.rand(s_ability_bias.size(0), device=s_ability_bias.device)
-                    > self.student_emb_drop_p
-                ).float()
-                s_ability_bias = s_ability_bias * s_mask
+        # We use the SAME effective-student-id tensor as e_u so cold-start
+        # dropout consistently routes both the embedding and the bias through
+        # the UNK slot — preventing the train/inference distribution skew that
+        # plagued v3 (where cold-start zeroed e_u but kept the real student's
+        # ability bias active).
+        if self._effective_student_ids is not None:
+            ability_sid = self._effective_student_ids.clamp(
+                max=self.student_ability.num_embeddings - 1
+            )
+            s_ability_bias = self.student_ability(ability_sid).squeeze(-1)
         else:
             s_ability_bias = torch.zeros(
                 response_logit.size(0), device=response_logit.device

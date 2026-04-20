@@ -32,6 +32,7 @@ from synthgen.exporter import (
     save_parquet_artifacts,
     write_answered_edges,
     write_mastery_to_neo4j,
+    write_resource_edges,
     write_selected_skill_edges,
     write_student_nodes_to_neo4j,
     write_students_to_postgres,
@@ -39,6 +40,7 @@ from synthgen.exporter import (
 from synthgen.interaction_simulator import (
     compute_mastery_ground_truth,
     simulate_interactions,
+    simulate_resource_interactions,
 )
 from synthgen.kg_extraction import (
     fetch_existing_questions,
@@ -85,6 +87,26 @@ def main(argv: list[str] | None = None) -> None:
                         help="Skip question generation; use existing questions")
     parser.add_argument("--skip-neo4j-students", action="store_true")
     parser.add_argument("--skip-neo4j-interactions", action="store_true")
+    parser.add_argument(
+        "--skip-neo4j-resources", action="store_true",
+        help="Skip writing OPENED_VIDEO / OPENED_READING edges",
+    )
+    parser.add_argument(
+        "--all-skills", action="store_true",
+        help=(
+            "Use ALL skills in the knowledge graph (SKILL + BOOK_SKILL + MARKET_SKILL) "
+            "instead of only the skills from the teacher's class. "
+            "Required to capture the full 423-skill Neo4j graph."
+        ),
+    )
+    parser.add_argument(
+        "--video-open-prob", type=float, default=None,
+        help="Override base probability a student opens a video (default from config)",
+    )
+    parser.add_argument(
+        "--reading-open-prob", type=float, default=None,
+        help="Override base probability a student opens a reading (default from config)",
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args(argv)
 
@@ -101,6 +123,10 @@ def main(argv: list[str] | None = None) -> None:
     )
     if args.run_id:
         cfg.run_id = args.run_id
+    if args.video_open_prob is not None:
+        cfg.video_open_prob = args.video_open_prob
+    if args.reading_open_prob is not None:
+        cfg.reading_open_prob = args.reading_open_prob
 
     t0 = time.time()
     logger.info("=" * 60)
@@ -154,10 +180,16 @@ def main(argv: list[str] | None = None) -> None:
         class_ids = [int(c["id"]) for c in classes]
 
         # ── 3. Fetch skills ──────────────────────────────────────────────
-        if classes:
+        if args.all_skills:
+            logger.info("--all-skills: fetching ALL skills from Neo4j graph …")
+            skills = fetch_skills(neo4j_session)
+        elif classes:
             # Prefer skills from the first class for consistency
             skills = lookup_skills_for_class(neo4j_session, class_ids[0])
-        if not classes or not skills:
+        else:
+            skills = []
+
+        if not args.all_skills and (not classes or not skills):
             logger.info("Falling back to all skills in graph …")
             skills = fetch_skills(neo4j_session)
 
@@ -241,6 +273,18 @@ def main(argv: list[str] | None = None) -> None:
             for s in students
         }
 
+        # ── 8b. Simulate resource interactions ───────────────────────────
+        logger.info(
+            "Simulating resource opens "
+            "(video_prob=%.2f, reading_prob=%.2f) …",
+            cfg.video_open_prob,
+            cfg.reading_open_prob,
+        )
+        resource_df = simulate_resource_interactions(
+            students, skill_videos, skill_readings, interactions_df, cfg
+        )
+        logger.info("Total resource interaction rows: %d", len(resource_df))
+
         # ── 9. Compute mastery ground truth ──────────────────────────────
         logger.info("Computing mastery ground truth …")
         mastery_df = compute_mastery_ground_truth(
@@ -255,6 +299,7 @@ def main(argv: list[str] | None = None) -> None:
             prereq_edges=prereq_edges,
             skill_videos=skill_videos,
             skill_readings=skill_readings,
+            resource_df=resource_df,
         )
         logger.info("Artifacts saved to: %s", out_dir)
 
@@ -271,6 +316,17 @@ def main(argv: list[str] | None = None) -> None:
                 mastery_df, pg_id_map, neo4j_session, cfg,
                 student_skills_map=student_skills_map,
             )
+
+        # ── 12. Write resource edges to Neo4j ────────────────────────────
+        if not args.dry_run and not args.skip_neo4j_resources:
+            if not resource_df.empty:
+                logger.info("Writing OPENED_VIDEO / OPENED_READING edges to Neo4j …")
+                write_resource_edges(resource_df, pg_id_map, neo4j_session, cfg)
+            else:
+                logger.info(
+                    "No resource interactions generated; "
+                    "skipping OPENED_VIDEO / OPENED_READING writes."
+                )
 
     driver.close()
 

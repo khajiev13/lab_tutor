@@ -9,7 +9,7 @@ Usage
 -----
     from arcd_agent.model_registry import ModelRegistry
 
-    registry = ModelRegistry.from_dir(Path("checkpoints/roma_synth_v1_reg"))
+    registry = ModelRegistry.from_dir(Path("checkpoints/roma_synth_v2_2048"))
     if registry.is_available:
         mastery = registry.predict_mastery(interactions, concept_names)
 
@@ -29,7 +29,6 @@ from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +51,10 @@ class ModelRegistry:
         self._vocab: dict = {}
         self._config: dict = {}
         self._graph_data: dict = {}
+        # The reserved <UNK_STUDENT> slot.  Set by _load() from the v4
+        # checkpoint config; defaults to 0 (effectively "no UNK") when the
+        # registry has not been loaded yet.
+        self._unk_student_idx: int = 0
         self.is_available: bool = False
         self.model_version: str = "unknown"
         self.best_val_auc: float = 0.0
@@ -114,10 +117,14 @@ class ModelRegistry:
         n_skills = cfg.get("n_skills", len(self._vocab.get("concept", {})))
         n_questions = cfg.get("n_questions", len(self._vocab.get("question", {})))
         n_students = cfg.get("n_students", len(self._vocab.get("user", {})))
+        # v4 checkpoints reserve the LAST student row as the <UNK_STUDENT>
+        # slot.  Older v3 checkpoints have no such slot — fall back to
+        # n_students - 1 (still safe; just means UNK == last real student).
+        self._unk_student_idx = cfg.get("unk_student_idx", n_students - 1)
 
         model = ARCDModel(
-            d_skill_embed=cfg.get("d_skill_embed", 32),
-            d=cfg.get("d", 64),
+            d_skill_embed=cfg.get("d_skill_embed", 2048),
+            d=cfg.get("d", 2048),
             n_gat_layers=cfg.get("n_gat_layers", cfg.get("n_gcn_layers", 2)),
             n_questions=n_questions,
             n_videos=cfg.get("n_videos", 1),
@@ -127,30 +134,83 @@ class ModelRegistry:
             n_heads_gat=cfg.get("n_heads_gat", 2),
             d_type=cfg.get("d_type", 16),
             n_heads=cfg.get("n_heads", 2),
-            d_ff=cfg.get("d_ff", cfg.get("d", 64) * 4),
+            d_ff=cfg.get("d_ff", cfg.get("d", 2048) * 4),
             n_attn_layers=cfg.get("n_attn_layers", 2),
             dropout=0.0,
             use_gat=cfg.get("use_gat", True),
             student_emb_drop_p=0.0,  # disabled at inference time
+            unk_student_idx=self._unk_student_idx,
         )
         state_key = "model_state_dict" if "model_state_dict" in ckpt else "state_dict"
-        model.load_state_dict(ckpt[state_key])
+        # Extract rel_decay weights before load_state_dict.  The module is installed
+        # lazily via set_prerequisite_graph() (needs A_pre from graph tensors), so
+        # its keys must be stripped from the state dict to allow strict loading.
+        # For old checkpoints (pre-RelationalDecay) there are no rel_decay keys.
+        raw_state = ckpt[state_key]
+        rel_decay_state = {
+            k: v for k, v in raw_state.items() if k.startswith("rel_decay.")
+        }
+        clean_state = {
+            k: v for k, v in raw_state.items() if not k.startswith("rel_decay.")
+        }
+        model.load_state_dict(clean_state)
         model.eval()
         self._model = model
 
+        # H_skill_raw: restore from checkpoint (saved by arcd_train.py).
+        # This avoids re-randomisation at inference time and ensures the GAT
+        # starts from the same 2048-dim name_embedding that was used at training.
+        H_skill_raw = ckpt.get("H_skill_raw")
+        if H_skill_raw is None:
+            raise KeyError(
+                "Checkpoint does not contain 'H_skill_raw'. "
+                "Re-train with the updated arcd_train.py which persists H_skill_raw, "
+                "or run arcd_train.py --neo4j-uri ... to generate a new checkpoint."
+            )
+
         # Build minimal graph tensors (identity A_pre, question-skill from vocab)
-        self._graph_data = self._build_graph_tensors(vocab_path)
+        self._graph_data = self._build_graph_tensors(vocab_path, H_skill_raw)
+
+        # Install RelationalDecay from the real prerequisite graph now that A_pre
+        # is available.  Restore the trained w_p_logit if the checkpoint had one.
+        model.set_prerequisite_graph(self._graph_data["A_pre"])
+        if "rel_decay.w_p_logit" in rel_decay_state:
+            model.rel_decay.w_p_logit.data.copy_(rel_decay_state["rel_decay.w_p_logit"])  # type: ignore[union-attr]
 
         self.model_version = ckpt.get("model_version", "arcd_v2_model")
         self.best_val_auc = float(ckpt.get("best_val_auc", 0.0))
+        self._model_config = cfg
+
+        # Load calibration temperature from metrics_report.json if present.
+        # Temperature T = Calib_Slope from logistic calibration regression.
+        # sigmoid(logit / T) produces well-spread probabilities at inference time.
+        self._calibration_temperature: float = 1.0  # default: no scaling
+        metrics_path = ckpt_path.parent / "metrics_report.json"
+        if metrics_path.exists():
+            try:
+                with open(metrics_path) as _mf:
+                    _metrics = json.load(_mf)
+                slope = float(_metrics.get("Calib Slope", 1.0))
+                if slope > 1.2:  # only apply if model is meaningfully uncalibrated
+                    self._calibration_temperature = slope
+                    logger.info(
+                        "ModelRegistry: temperature scaling T=%.3f loaded from metrics_report.json",
+                        self._calibration_temperature,
+                    )
+            except Exception as _e:
+                logger.debug(
+                    "ModelRegistry: could not load calibration temperature: %s", _e
+                )
+
         self.is_available = True
         logger.info(
             "ModelRegistry: loaded checkpoint — n_skills=%d  n_questions=%d  "
-            "n_students=%d  val_AUC=%.4f",
+            "n_students=%d  val_AUC=%.4f  calib_T=%.3f",
             n_skills,
             n_questions,
             n_students,
             self.best_val_auc,
+            self._calibration_temperature,
         )
 
     @staticmethod
@@ -165,41 +225,111 @@ class ModelRegistry:
             return candidate
         return None
 
-    def _build_graph_tensors(self, vocab_path: Path) -> dict[str, torch.Tensor]:
-        """Build minimal graph tensors from vocab alone.
+    def _build_graph_tensors(
+        self, vocab_path: Path, H_skill_raw: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
+        """Build graph tensors from vocab, parquet files, and the checkpoint's H_skill_raw.
 
-        Used during inference where we don't have the full Parquet files.
-        A_qs is built from the question→skill mapping stored in the vocab.
-        A_uq is zeros (no student-question history available at inference time).
+        Reads skill_videos.parquet, skill_readings.parquet, and prereq_edges.parquet
+        from the same directory as vocab.json when available, matching what arcd_train.py
+        uses during training.  Falls back to identity / zeros when files are absent.
+
+        H_skill_raw is restored directly from the checkpoint (set by arcd_train.py
+        from Neo4j name_embedding). No Xavier init fallback — checkpoints that
+        pre-date this change must be retrained.
         """
+        import pandas as pd
+
+        data_dir = vocab_path.parent
         vocab = self._vocab
         n_skills = len(vocab.get("concept", {}))
         n_questions = len(vocab.get("question", {}))
+        n_videos = max(len(vocab.get("video", {})), 1)
+        n_readings = max(len(vocab.get("reading", {})), 1)
         n_students = len(vocab.get("user", {}))
+        concept_idx: dict[str, int] = vocab.get("concept", {})
 
-        H = torch.empty(n_skills, self._config.get("d_skill_embed", 32))
-        nn.init.xavier_uniform_(H)
+        # A_pre: prerequisite adjacency (row-normalised)
+        prereq_path = data_dir / "prereq_edges.parquet"
+        if prereq_path.exists():
+            df_pre = pd.read_parquet(prereq_path)
+            A_pre_raw = torch.zeros(n_skills, n_skills)
+            for _, row in df_pre.iterrows():
+                si, di = int(row["src_skill_idx"]), int(row["dst_skill_idx"])
+                if 0 <= si < n_skills and 0 <= di < n_skills:
+                    A_pre_raw[di, si] = 1.0  # si is prereq of di
+            row_sum = A_pre_raw.sum(dim=1, keepdim=True).clamp(min=1.0)
+            A_pre = A_pre_raw / row_sum
+        else:
+            A_pre = torch.eye(n_skills)
 
-        A_pre = torch.eye(n_skills)
-
-        # Rebuild A_qs from vocab — vocab stores question-id → question-idx mapping;
-        # question_skill stored separately only if the vocab was extended.
+        # A_qs: question-skill adjacency
+        # Primary: use vocab["question_skill"] name->name mapping (written by arcd_train
+        # for new checkpoints).  Fallback: read directly from train/test parquet files
+        # using integer indices — handles older checkpoints where question_skill was not
+        # written into vocab.json.
         A_qs_raw = torch.zeros(n_questions, n_skills)
         qs_map: dict = vocab.get("question_skill", {})
-        for q_name, skill_name in qs_map.items():
-            qi = vocab["question"].get(q_name)
-            si = vocab["concept"].get(skill_name)
-            if qi is not None and si is not None:
-                A_qs_raw[qi, si] = 1.0
+        if qs_map:
+            for q_name, skill_name in qs_map.items():
+                qi = vocab["question"].get(q_name)
+                si = concept_idx.get(skill_name)
+                if qi is not None and si is not None:
+                    A_qs_raw[qi, si] = 1.0
+        else:
+            # Fallback: build from train.parquet + test.parquet integer indices
+            for fname in ("train.parquet", "test.parquet"):
+                fp = data_dir / fname
+                if not fp.exists():
+                    continue
+                df_all = pd.read_parquet(fp)
+                if "event_type" in df_all.columns and "entity_idx" in df_all.columns:
+                    df_qs = df_all[df_all["event_type"] == 0][
+                        ["entity_idx", "skill_idx"]
+                    ].drop_duplicates()
+                    pairs = df_qs.values.tolist()
+                else:
+                    df_qs = df_all[["question_idx", "skill_idx"]].drop_duplicates()
+                    pairs = df_qs.values.tolist()
+                for qi, si in pairs:
+                    qi, si = int(qi), int(si)
+                    if 0 <= qi < n_questions and 0 <= si < n_skills:
+                        A_qs_raw[qi, si] = 1.0
         row_sum = A_qs_raw.sum(dim=1, keepdim=True).clamp(min=1.0)
         A_qs = A_qs_raw / row_sum
 
-        A_vs = torch.zeros(1, n_skills)
-        A_rs = torch.zeros(1, n_skills)
+        # A_vs: video-skill adjacency — integer index columns (video_idx, skill_idx)
+        vs_path = data_dir / "skill_videos.parquet"
+        if vs_path.exists():
+            df_vs = pd.read_parquet(vs_path)
+            A_vs_raw = torch.zeros(n_videos, n_skills)
+            for _, row in df_vs.iterrows():
+                vi, si = int(row["video_idx"]), int(row["skill_idx"])
+                if 0 <= vi < n_videos and 0 <= si < n_skills:
+                    A_vs_raw[vi, si] = 1.0
+            row_sum = A_vs_raw.sum(dim=1, keepdim=True).clamp(min=1.0)
+            A_vs = A_vs_raw / row_sum
+        else:
+            A_vs = torch.zeros(1, n_skills)
+
+        # A_rs: reading-skill adjacency — integer index columns (reading_idx, skill_idx)
+        rs_path = data_dir / "skill_readings.parquet"
+        if rs_path.exists():
+            df_rs = pd.read_parquet(rs_path)
+            A_rs_raw = torch.zeros(n_readings, n_skills)
+            for _, row in df_rs.iterrows():
+                ri, si = int(row["reading_idx"]), int(row["skill_idx"])
+                if 0 <= ri < n_readings and 0 <= si < n_skills:
+                    A_rs_raw[ri, si] = 1.0
+            row_sum = A_rs_raw.sum(dim=1, keepdim=True).clamp(min=1.0)
+            A_rs = A_rs_raw / row_sum
+        else:
+            A_rs = torch.zeros(1, n_skills)
+
         A_uq = torch.zeros(n_students, n_questions)
 
         return {
-            "H_skill_raw": H,
+            "H_skill_raw": H_skill_raw.float(),
             "A_pre": A_pre,
             "A_qs": A_qs,
             "A_vs": A_vs,
@@ -285,8 +415,10 @@ class ModelRegistry:
 
         target_idxs = torch.tensor([q_to_idx[q] for q in known_names], dtype=torch.long)
 
+        # OOV students at inference are routed through the reserved UNK slot
+        # (v3 had a contamination bug that used real student 0's embedding).
         batch = {
-            "student_ids": torch.zeros(N, dtype=torch.long),
+            "student_ids": torch.full((N,), self._unk_student_idx, dtype=torch.long),
             "event_types": torch.tensor([event_types], dtype=torch.long).expand(N, -1),
             "entity_indices": torch.tensor([entity_indices], dtype=torch.long).expand(
                 N, -1
@@ -320,7 +452,13 @@ class ModelRegistry:
             gat_cache=gat_cache,
         )
 
-        p_correct = torch.sigmoid(out["response_logit"]).numpy()  # [N]
+        # Apply temperature scaling calibration when T > 1 (uncalibrated checkpoint).
+        # sigmoid(logit / T) spreads probabilities so threshold=0.5 discriminates properly.
+        T = self._calibration_temperature
+        if T != 1.0:
+            p_correct = torch.sigmoid(out["response_logit"] / T).numpy()
+        else:
+            p_correct = torch.sigmoid(out["response_logit"]).numpy()  # [N]
         for name, p in zip(known_names, p_correct, strict=False):
             result[name] = float(p)
 
@@ -381,8 +519,10 @@ class ModelRegistry:
         decay_values = [0.0] * T
         pad_mask = [True] * len(hist) + [False] * pad_len
 
+        # OOV student → route to the reserved UNK slot rather than hijacking
+        # real student 0's trained embedding (the v3 contamination bug).
         batch = {
-            "student_ids": torch.tensor([0], dtype=torch.long),
+            "student_ids": torch.tensor([self._unk_student_idx], dtype=torch.long),
             "event_types": torch.tensor([event_types], dtype=torch.long),
             "entity_indices": torch.tensor([entity_indices], dtype=torch.long),
             "outcomes": torch.tensor([outcomes], dtype=torch.float32),
@@ -433,13 +573,14 @@ def get_registry(checkpoint_dir: Path | str | None = None) -> ModelRegistry:
     ----------
     checkpoint_dir:
         Path to the arcd_train output directory.  Defaults to
-        ``backend/checkpoints/roma_synth_v1_reg`` relative to this file's package root.
+        ``backend/checkpoints/roma_synth_v4_2048`` relative to this file's
+        package root — the first checkpoint with masked MasteryLoss and the
+        reserved UNK student slot.
     """
     global _registry
     if _registry is None:
         if checkpoint_dir is None:
-            # Default: look two levels up from this module to backend/
             _pkg_root = Path(__file__).resolve().parent.parent
-            checkpoint_dir = _pkg_root / "checkpoints" / "roma_synth_v1_reg"
+            checkpoint_dir = _pkg_root / "checkpoints" / "roma_synth_v4_2048"
         _registry = ModelRegistry.from_dir(Path(checkpoint_dir))
     return _registry

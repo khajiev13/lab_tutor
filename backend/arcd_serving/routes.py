@@ -8,6 +8,7 @@ POST /mastery         — per-skill mastery for one student
 POST /predict         — P(correct) for target questions
 POST /next-question   — recommend the next question to present
 """
+
 from __future__ import annotations
 
 from flask import Blueprint, Response, jsonify, request
@@ -36,6 +37,7 @@ def _validation_error(exc: ValidationError) -> tuple[Response, int]:
 
 # ── GET /health ───────────────────────────────────────────────────────────────
 
+
 @bp.get("/health")
 def health() -> tuple[Response, int]:
     """Liveness probe — always 200, payload reflects model readiness."""
@@ -54,6 +56,7 @@ def health() -> tuple[Response, int]:
 
 
 # ── GET /info ─────────────────────────────────────────────────────────────────
+
 
 @bp.get("/info")
 def info() -> tuple[Response, int]:
@@ -79,6 +82,7 @@ def info() -> tuple[Response, int]:
 
 
 # ── POST /mastery ─────────────────────────────────────────────────────────────
+
 
 @bp.post("/mastery")
 def mastery() -> tuple[Response, int]:
@@ -111,6 +115,7 @@ def mastery() -> tuple[Response, int]:
 
 # ── POST /predict ─────────────────────────────────────────────────────────────
 
+
 @bp.post("/predict")
 def predict() -> tuple[Response, int]:
     """Return P(correct) for each target question.
@@ -136,13 +141,13 @@ def predict() -> tuple[Response, int]:
     )
 
     predictions = [
-        {"question_name": q, "p_correct": round(float(p), 6)}
-        for q, p in p_map.items()
+        {"question_name": q, "p_correct": round(float(p), 6)} for q, p in p_map.items()
     ]
     return jsonify(PredictResponse(predictions=predictions).model_dump()), 200
 
 
 # ── POST /next-question ───────────────────────────────────────────────────────
+
 
 @bp.post("/next-question")
 def next_question() -> tuple[Response, int]:

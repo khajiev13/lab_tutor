@@ -171,6 +171,147 @@ def simulate_interactions(
     return df
 
 
+def simulate_resource_interactions(
+    students: list[dict],
+    skill_videos: list[dict],
+    skill_readings: list[dict],
+    interactions_df: pd.DataFrame,
+    cfg: SynthGenConfig,
+) -> pd.DataFrame:
+    """Simulate OPENED_VIDEO and OPENED_READING events for synthetic students.
+
+    For each student, iterates over their selected skills and probabilistically
+    assigns video/reading opens to resources linked to those skills.
+
+    Each student draws a personal engagement multiplier from Beta(2, 5), which
+    is right-skewed — most students have low engagement but a few are active
+    learners who open many resources.
+
+    The number of opens per resource follows Poisson(1.5), capped at
+    ``cfg.max_opens_per_resource``.  Open timestamps are drawn uniformly
+    within the student's own interaction window (derived from interactions_df).
+
+    Returns a DataFrame with columns:
+        student_id       – synthetic student UUID (not the pg id yet)
+        resource_id      – video_id or reading_id
+        resource_type    – 'video' or 'reading'
+        opened_at_sec    – list[int] of Unix timestamps, one per open event
+    """
+    rng = np.random.default_rng(cfg.random_seed + 99)
+
+    # ── Build skill → resources maps ──────────────────────────────────────
+    skill_to_videos: dict[str, list[str]] = {}
+    for e in skill_videos:
+        vid = e.get("video_id")
+        sn = e.get("skill_name")
+        if vid and sn:
+            skill_to_videos.setdefault(sn, []).append(vid)
+
+    skill_to_readings: dict[str, list[str]] = {}
+    for e in skill_readings:
+        rid = e.get("reading_id")
+        sn = e.get("skill_name")
+        if rid and sn:
+            skill_to_readings.setdefault(sn, []).append(rid)
+
+    if not skill_to_videos and not skill_to_readings:
+        logger.warning(
+            "No skill-video or skill-reading edges found; "
+            "resource interaction simulation will produce no rows."
+        )
+        return pd.DataFrame(
+            columns=["student_id", "resource_id", "resource_type", "opened_at_sec"]
+        )
+
+    # ── Per-student timestamp bounds ──────────────────────────────────────
+    ts_min_map: dict[str, int] = {}
+    ts_max_map: dict[str, int] = {}
+    for _, row in interactions_df.iterrows():
+        sid = row["student_id"]
+        ts = int(row["timestamp_sec"])
+        if sid not in ts_min_map or ts < ts_min_map[sid]:
+            ts_min_map[sid] = ts
+        if sid not in ts_max_map or ts > ts_max_map[sid]:
+            ts_max_map[sid] = ts
+
+    global_min = int(interactions_df["timestamp_sec"].min())
+    global_max = int(interactions_df["timestamp_sec"].max())
+
+    rows: list[dict] = []
+
+    for student in students:
+        uid = student["student_id"]
+        selected: list[str] = student.get("selected_skills", [])
+        if not selected:
+            continue
+
+        # Personal engagement multiplier: Beta(2, 5) → mean ≈ 0.29
+        engagement = float(rng.beta(2, 5))
+
+        t_lo = ts_min_map.get(uid, global_min)
+        t_hi = ts_max_map.get(uid, global_max)
+        if t_lo >= t_hi:
+            t_hi = t_lo + 3600  # guard: give at least 1-hour window
+
+        # Accumulate opens per (resource_id, resource_type)
+        resource_opens: dict[tuple[str, str], list[int]] = {}
+
+        for skill_name in selected:
+            # ── Videos ─────────────────────────────────────────────────
+            for vid in skill_to_videos.get(skill_name, []):
+                if rng.random() < cfg.video_open_prob * engagement:
+                    n_opens = min(
+                        int(rng.poisson(1.5)) + 1,
+                        cfg.max_opens_per_resource,
+                    )
+                    timestamps = sorted(
+                        int(rng.integers(t_lo, t_hi)) for _ in range(n_opens)
+                    )
+                    key = (vid, "video")
+                    resource_opens.setdefault(key, []).extend(timestamps)
+
+            # ── Readings ────────────────────────────────────────────────
+            for rid in skill_to_readings.get(skill_name, []):
+                if rng.random() < cfg.reading_open_prob * engagement:
+                    n_opens = min(
+                        int(rng.poisson(1.5)) + 1,
+                        cfg.max_opens_per_resource,
+                    )
+                    timestamps = sorted(
+                        int(rng.integers(t_lo, t_hi)) for _ in range(n_opens)
+                    )
+                    key = (rid, "reading")
+                    resource_opens.setdefault(key, []).extend(timestamps)
+
+        for (resource_id, resource_type), ts_list in resource_opens.items():
+            # Deduplicate and cap total opens per resource
+            ts_list = sorted(set(ts_list))[: cfg.max_opens_per_resource]
+            rows.append(
+                {
+                    "student_id": uid,
+                    "resource_id": resource_id,
+                    "resource_type": resource_type,
+                    "opened_at_sec": ts_list,
+                }
+            )
+
+    df = pd.DataFrame(
+        rows,
+        columns=["student_id", "resource_id", "resource_type", "opened_at_sec"],
+    )
+    n_video = int((df["resource_type"] == "video").sum())
+    n_reading = int((df["resource_type"] == "reading").sum())
+    logger.info(
+        "Simulated %d resource interaction rows (%d video, %d reading) "
+        "across %d students",
+        len(df),
+        n_video,
+        n_reading,
+        df["student_id"].nunique() if len(df) else 0,
+    )
+    return df
+
+
 def compute_mastery_ground_truth(
     students: list[dict],
     questions: list[dict],

@@ -7,6 +7,7 @@ ARCD_CHECKPOINT_DIR
     and ``vocab.json``.
     Default: ``<repo-root>/backend/checkpoints/roma_synth_v1``
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,7 +46,9 @@ def get_registry() -> ModelRegistry:
                 _registry.model_version,
             )
         else:
-            logger.warning("ARCD serving: model NOT available — check ARCD_CHECKPOINT_DIR")
+            logger.warning(
+                "ARCD serving: model NOT available — check ARCD_CHECKPOINT_DIR"
+            )
     return _registry
 
 

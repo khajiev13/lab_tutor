@@ -378,6 +378,99 @@ def write_selected_skill_edges(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Neo4j: write OPENED_VIDEO / OPENED_READING edges
+# ─────────────────────────────────────────────────────────────────────────────
+
+def write_resource_edges(
+    resource_df: pd.DataFrame,
+    pg_id_map: dict[str, int],
+    neo4j_session,
+    cfg: SynthGenConfig,
+) -> None:
+    """Write OPENED_VIDEO and OPENED_READING edges for synthetic students.
+
+    ``resource_df`` must have columns:
+        student_id    – synthetic UUID
+        resource_id   – video_id or reading_id
+        resource_type – 'video' or 'reading'
+        opened_at_sec – list of Unix timestamps (ints)
+
+    Each (student, resource) pair becomes one relationship whose ``opened_at``
+    property holds a list of Neo4j datetime values, one per open event.
+    Using MERGE + SET makes the write idempotent for re-runs.
+    """
+    if resource_df is None or resource_df.empty:
+        logger.info("No resource interactions to write.")
+        return
+
+    batch_size = cfg.batch_size
+
+    def _to_iso(ts_sec: int) -> str:
+        return datetime.fromtimestamp(ts_sec, tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def _write_video(tx, batch):
+        tx.run(
+            """
+            UNWIND $rows AS row
+            MATCH (u:USER:STUDENT {id: row.pg_id})
+            MATCH (v:VIDEO_RESOURCE {id: row.resource_id})
+            MERGE (u)-[e:OPENED_VIDEO]->(v)
+            SET e.opened_at = [ts IN row.opened_at | datetime(ts)],
+                e.synthetic  = true,
+                e.run_id     = row.run_id
+            """,
+            rows=batch,
+        )
+
+    def _write_reading(tx, batch):
+        tx.run(
+            """
+            UNWIND $rows AS row
+            MATCH (u:USER:STUDENT {id: row.pg_id})
+            MATCH (r:READING_RESOURCE {id: row.resource_id})
+            MERGE (u)-[e:OPENED_READING]->(r)
+            SET e.opened_at = [ts IN row.opened_at | datetime(ts)],
+                e.synthetic  = true,
+                e.run_id     = row.run_id
+            """,
+            rows=batch,
+        )
+
+    video_rows: list[dict] = []
+    reading_rows: list[dict] = []
+
+    for _, row in resource_df.iterrows():
+        pg_id = pg_id_map.get(row["student_id"])
+        if pg_id is None:
+            continue
+        ts_list = row["opened_at_sec"]
+        if not ts_list:
+            continue
+        record = {
+            "pg_id": pg_id,
+            "resource_id": row["resource_id"],
+            "opened_at": [_to_iso(int(t)) for t in ts_list],
+            "run_id": cfg.run_id,
+        }
+        if row["resource_type"] == "video":
+            video_rows.append(record)
+        else:
+            reading_rows.append(record)
+
+    for label, rows_all, writer in [
+        ("OPENED_VIDEO", video_rows, _write_video),
+        ("OPENED_READING", reading_rows, _write_reading),
+    ]:
+        total = len(rows_all)
+        for start in range(0, total, batch_size):
+            batch = rows_all[start : start + batch_size]
+            neo4j_session.execute_write(writer, batch)
+            if (start // batch_size) % 10 == 0:
+                logger.info("%s edges: %d/%d", label, min(start + batch_size, total), total)
+        logger.info("Wrote %d %s edges to Neo4j", total, label)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Parquet / JSON output
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -392,6 +485,7 @@ def save_parquet_artifacts(
     prereq_edges: list[dict] | None = None,
     skill_videos: list[dict] | None = None,
     skill_readings: list[dict] | None = None,
+    resource_df: pd.DataFrame | None = None,
 ) -> Path:
     """Save training artefacts to data/synthgen/<run_id>/."""
     out = cfg.out_dir / cfg.run_id
@@ -484,28 +578,116 @@ def save_parquet_artifacts(
     user_enc = vocab["user"]
     q_enc = vocab["question"]
     s_enc = vocab["concept"]
+    v_enc = vocab.get("video", {})
+    r_enc = vocab.get("reading", {})
 
-    df = interactions_df.copy()
-    df["pg_id"] = df["student_id"].map(pg_id_map)
-    df["student_idx"] = df["pg_id"].map(lambda x: user_enc.get(str(x), -1))
-    df["question_idx"] = df["question_id"].map(lambda x: q_enc.get(x, -1))
-    df["skill_idx"] = df["skill_id"].map(lambda x: s_enc.get(x, -1))
+    # ── Question events (event_type=0) ────────────────────────────────────
+    q_df = interactions_df.copy()
+    q_df["pg_id"] = q_df["student_id"].map(pg_id_map)
+    q_df["student_idx"] = q_df["pg_id"].map(lambda x: user_enc.get(str(x), -1))
+    q_df["entity_idx"] = q_df["question_id"].map(lambda x: q_enc.get(x, -1))
+    q_df["skill_idx"] = q_df["skill_id"].map(lambda x: s_enc.get(x, -1))
+    q_df["event_type"] = 0
+    q_df["correct"] = q_df["correct"].astype(float)
+    q_df["score"] = q_df["score"].astype(float)
+    q_df["attempt_num"] = q_df["attempt_num"].astype(int)
+    q_df["is_repeat"] = q_df["is_repeat"].astype(bool)
 
-    # Drop rows with unmapped IDs (shouldn't happen but guard anyway)
-    before = len(df)
-    df = df[(df["student_idx"] >= 0) & (df["question_idx"] >= 0) & (df["skill_idx"] >= 0)]
-    if len(df) < before:
-        logger.warning("Dropped %d rows with unmapped IDs", before - len(df))
+    before = len(q_df)
+    q_df = q_df[
+        (q_df["student_idx"] >= 0)
+        & (q_df["entity_idx"] >= 0)
+        & (q_df["skill_idx"] >= 0)
+    ]
+    if len(q_df) < before:
+        logger.warning("Dropped %d question rows with unmapped IDs", before - len(q_df))
 
     parquet_cols = [
-        "student_idx", "question_idx", "skill_idx",
+        "student_idx", "event_type", "entity_idx", "skill_idx",
         "correct", "score", "timestamp_sec", "attempt_num", "is_repeat",
     ]
+    q_events = q_df[parquet_cols].copy()
 
-    df_sorted = df.sort_values("timestamp_sec").reset_index(drop=True)
+    # ── Resource events (event_type=1 video, =2 reading) ──────────────────
+    # Build resource_id → first skill_name lookup so each resource event has
+    # a skill_idx for KG attribution.
+    resource_to_skill: dict[str, str] = {}
+    if skill_videos:
+        for e in skill_videos:
+            vid = e.get("video_id")
+            sk = e.get("skill_name")
+            if vid and sk and vid not in resource_to_skill:
+                resource_to_skill[vid] = sk
+    if skill_readings:
+        for e in skill_readings:
+            rid = e.get("reading_id")
+            sk = e.get("skill_name")
+            if rid and sk and rid not in resource_to_skill:
+                resource_to_skill[rid] = sk
+
+    resource_events_rows: list[dict] = []
+    if resource_df is not None and len(resource_df) > 0:
+        for row in resource_df.itertuples(index=False):
+            sid = row.student_id
+            pg_id = pg_id_map.get(sid)
+            if pg_id is None:
+                continue
+            student_idx = user_enc.get(str(pg_id), -1)
+            if student_idx < 0:
+                continue
+
+            rtype = row.resource_type
+            rid = row.resource_id
+            if rtype == "video":
+                event_type = 1
+                entity_idx = v_enc.get(rid, -1)
+            elif rtype == "reading":
+                event_type = 2
+                entity_idx = r_enc.get(rid, -1)
+            else:
+                continue
+            if entity_idx < 0:
+                continue
+
+            skill_name = resource_to_skill.get(rid)
+            skill_idx = s_enc.get(skill_name, -1) if skill_name else -1
+            if skill_idx < 0:
+                continue
+
+            for ts in row.opened_at_sec:
+                resource_events_rows.append(
+                    {
+                        "student_idx": int(student_idx),
+                        "event_type": int(event_type),
+                        "entity_idx": int(entity_idx),
+                        "skill_idx": int(skill_idx),
+                        # Engagement signal: opened = 1 (no correctness label)
+                        "correct": 1.0,
+                        "score": 1.0,
+                        "timestamp_sec": int(ts),
+                        "attempt_num": 1,
+                        "is_repeat": False,
+                    }
+                )
+
+    if resource_events_rows:
+        r_events = pd.DataFrame(resource_events_rows, columns=parquet_cols)
+        all_events = pd.concat([q_events, r_events], ignore_index=True)
+    else:
+        all_events = q_events
+
+    n_q = int((all_events["event_type"] == 0).sum())
+    n_v = int((all_events["event_type"] == 1).sum())
+    n_r = int((all_events["event_type"] == 2).sum())
+    logger.info(
+        "Unified events: %d total (%d question / %d video / %d reading)",
+        len(all_events), n_q, n_v, n_r,
+    )
+
+    df_sorted = all_events.sort_values("timestamp_sec").reset_index(drop=True)
     split_idx = int(len(df_sorted) * cfg.train_ratio)
-    train_df = df_sorted.iloc[:split_idx][parquet_cols].copy()
-    test_df = df_sorted.iloc[split_idx:][parquet_cols].copy()
+    train_df = df_sorted.iloc[:split_idx].copy()
+    test_df = df_sorted.iloc[split_idx:].copy()
 
     train_df.to_parquet(out / "train.parquet", index=False)
     test_df.to_parquet(out / "test.parquet", index=False)
@@ -519,7 +701,10 @@ def save_parquet_artifacts(
         "n_skills": len(skills),
         "n_videos": len(video_ids_ordered),
         "n_readings": len(reading_ids_ordered),
-        "total_interactions": len(df),
+        "total_interactions": len(all_events),
+        "n_question_events": n_q,
+        "n_video_events": n_v,
+        "n_reading_events": n_r,
         "train_interactions": len(train_df),
         "test_interactions": len(test_df),
         "train_ratio": cfg.train_ratio,

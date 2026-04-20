@@ -39,7 +39,7 @@ const mockStudent: StudentPortfolio = {
       sub_skills: [],
       session_type: 'guided_learning',
       rationale: '',
-    } as StudentPortfolio['skills'][0],
+    },
   ],
   schedule: [],
   timeline: [],

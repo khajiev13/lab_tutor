@@ -1785,11 +1785,14 @@ def _build_llm_chain():
 
     def chain(inputs: dict) -> dict:
         try:
+            import httpx
             from openai import OpenAI
 
             client = OpenAI(
                 api_key=settings.llm_api_key or "no-key",
                 base_url=settings.llm_base_url,
+                # Fail fast when the endpoint is unreachable (e.g., in tests/CI).
+                timeout=httpx.Timeout(8.0, connect=3.0),
             )
             prompt = inputs.get("request", "")
             response = client.chat.completions.create(
@@ -1824,11 +1827,14 @@ def _build_eval_chain():
 
     def chain(inputs: dict) -> dict:
         try:
+            import httpx
             from openai import OpenAI
 
             client = OpenAI(
                 api_key=settings.llm_api_key or "no-key",
                 base_url=settings.llm_base_url,
+                # Fail fast when the endpoint is unreachable (e.g., in tests/CI).
+                timeout=httpx.Timeout(8.0, connect=3.0),
             )
             prompt = inputs.get("request", "")
             response = client.chat.completions.create(

@@ -31,7 +31,9 @@ import {
 import { mockFetch, mockFetchError, mockFetchHttpError } from '../../../test/fetchMock';
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  // clearAllMocks resets call history but does NOT remove the localStorage
+  // stub installed by setup.ts — unlike unstubAllGlobals which would.
+  vi.clearAllMocks();
 });
 
 // ── fetchSkillDifficulty ────────────────────────────────────────────────────

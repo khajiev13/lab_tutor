@@ -7,7 +7,6 @@
  *  - Assert the context values/state transitions.
  */
 
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -124,7 +123,7 @@ describe('TeacherDataContext', () => {
 // ── DataContext ────────────────────────────────────────────────────────────
 
 vi.mock('@/features/arcd-agent/context/DataContext', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('../DataContext')>();
+  const mod = await importOriginal<typeof import('./DataContext')>();
   return mod;
 });
 
@@ -146,7 +145,8 @@ function DataConsumer() {
 
 describe('DataContext', () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    // clearAllMocks resets call history but does NOT remove the localStorage
+    // stub installed by setup.ts — unlike unstubAllGlobals which would.
     vi.clearAllMocks();
   });
 
@@ -159,7 +159,7 @@ describe('DataContext', () => {
     };
     mockFetch({ json: payload });
     render(
-      <DataProvider courseId="1" selectedUid="">
+      <DataProvider courseId="1">
         <DataConsumer />
       </DataProvider>,
     );
@@ -174,7 +174,7 @@ describe('DataContext', () => {
       vi.fn().mockRejectedValue(new Error('Network error')),
     );
     render(
-      <DataProvider courseId="1" selectedUid="">
+      <DataProvider courseId="1">
         <DataConsumer />
       </DataProvider>,
     );
@@ -202,7 +202,9 @@ function TwinConsumer() {
 
 describe('TwinContext', () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    // clearAllMocks resets call history but does NOT remove the localStorage
+    // stub installed by setup.ts — unlike unstubAllGlobals which would.
+    vi.clearAllMocks();
   });
 
   it('provides default null state when no uid given', async () => {

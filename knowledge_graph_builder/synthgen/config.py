@@ -56,6 +56,15 @@ class SynthGenConfig:
     min_student_skills: int = 15
     max_student_skills: int = 25
 
+    # ── Resource engagement (video / reading opens) ────────────────────────
+    # Base probability that a student opens a video / reading linked to one of
+    # their selected skills.  Each student also draws a personal engagement
+    # multiplier from Beta(2, 5), so actual probabilities vary across students.
+    video_open_prob: float = 0.35
+    reading_open_prob: float = 0.25
+    # Maximum number of times a student can open the same resource.
+    max_opens_per_resource: int = 4
+
     # ── Train/test split ──────────────────────────────────────────────────
     train_ratio: float = 0.8
 

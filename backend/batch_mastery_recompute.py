@@ -12,6 +12,7 @@ Usage
         --checkpoint-dir checkpoints/roma_synth_v1_reg \
         [--run-id roma_synth_v1] [--limit 20]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,13 +33,15 @@ logger = logging.getLogger("batch_mastery")
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 
-def _build_graph(vocab: dict, cfg: dict, device: torch.device) -> dict[str, torch.Tensor]:
+def _build_graph(
+    vocab: dict, cfg: dict, device: torch.device
+) -> dict[str, torch.Tensor]:
     """Reconstruct normalised graph tensors from vocab (no Parquet needed)."""
     import torch.nn as nn
 
-    n_skills    = cfg["n_skills"]
+    n_skills = cfg["n_skills"]
     n_questions = cfg["n_questions"]
-    n_students  = cfg["n_students"]
+    n_students = cfg["n_students"]
 
     H = torch.empty(n_skills, cfg["d_skill_embed"], device=device)
     nn.init.xavier_uniform_(H)
@@ -56,11 +59,11 @@ def _build_graph(vocab: dict, cfg: dict, device: torch.device) -> dict[str, torc
 
     return {
         "H_skill_raw": H,
-        "A_pre":       A_pre,
-        "A_qs":        A_qs,
-        "A_vs":        torch.zeros(1, n_skills, device=device),
-        "A_rs":        torch.zeros(1, n_skills, device=device),
-        "A_uq":        torch.zeros(n_students, n_questions, device=device),
+        "A_pre": A_pre,
+        "A_qs": A_qs,
+        "A_vs": torch.zeros(1, n_skills, device=device),
+        "A_rs": torch.zeros(1, n_skills, device=device),
+        "A_uq": torch.zeros(n_students, n_questions, device=device),
     }
 
 
@@ -70,28 +73,32 @@ def _build_sequence(
     device: torch.device,
 ) -> dict[str, torch.Tensor]:
     """Right-pad a single student sequence into a batch-of-1 dict."""
-    recent  = interactions[-(seq_len - 1):]
-    T       = seq_len - 1
+    recent = interactions[-(seq_len - 1) :]
+    T = seq_len - 1
     pad_len = T - len(recent)
 
     # event_types: 0=question, 1=video, 2=reading — all synthgen events are questions
-    event_types    = [0] * len(recent) + [0] * pad_len
+    event_types = [0] * len(recent) + [0] * pad_len
     entity_indices = [e[0] for e in recent] + [0] * pad_len
-    outcomes       = [float(e[1]) for e in recent] + [0.0] * pad_len
-    timestamps     = [float(e[2]) for e in recent] + [0.0] * pad_len
-    decay_values   = [0.0] * T
-    pad_mask       = [True] * len(recent) + [False] * pad_len
+    outcomes = [float(e[1]) for e in recent] + [0.0] * pad_len
+    timestamps = [float(e[2]) for e in recent] + [0.0] * pad_len
+    decay_values = [0.0] * T
+    pad_mask = [True] * len(recent) + [False] * pad_len
 
     return {
-        "student_ids":    torch.tensor([0], dtype=torch.long, device=device),
-        "event_types":    torch.tensor([event_types],    dtype=torch.long, device=device),
-        "entity_indices": torch.tensor([entity_indices], dtype=torch.long, device=device),
-        "outcomes":       torch.tensor([outcomes],       dtype=torch.float32, device=device),
-        "timestamps":     torch.tensor([timestamps],     dtype=torch.float32, device=device),
-        "decay_values":   torch.tensor([decay_values],   dtype=torch.float32, device=device),
-        "pad_mask":       torch.tensor([pad_mask],       dtype=torch.bool,    device=device),
-        "target_type":    torch.tensor([0], dtype=torch.long, device=device),
-        "target_idx":     torch.tensor([0], dtype=torch.long, device=device),
+        "student_ids": torch.tensor([0], dtype=torch.long, device=device),
+        "event_types": torch.tensor([event_types], dtype=torch.long, device=device),
+        "entity_indices": torch.tensor(
+            [entity_indices], dtype=torch.long, device=device
+        ),
+        "outcomes": torch.tensor([outcomes], dtype=torch.float32, device=device),
+        "timestamps": torch.tensor([timestamps], dtype=torch.float32, device=device),
+        "decay_values": torch.tensor(
+            [decay_values], dtype=torch.float32, device=device
+        ),
+        "pad_mask": torch.tensor([pad_mask], dtype=torch.bool, device=device),
+        "target_type": torch.tensor([0], dtype=torch.long, device=device),
+        "target_idx": torch.tensor([0], dtype=torch.long, device=device),
     }
 
 
@@ -135,9 +142,9 @@ def _smoke_test_api(base_url: str, token: str, user_id: int, course_id: int) -> 
     conn = http.client.HTTPConnection(u.netloc)
 
     endpoints = {
-        "GET /mastery":   f"/api/cognitive-diagnosis/mastery/{user_id}?course_id={course_id}",
-        "POST /mastery":  None,  # skip write endpoint
-        "GET /path":      f"/api/cognitive-diagnosis/path/{user_id}/{course_id}",
+        "GET /mastery": f"/api/cognitive-diagnosis/mastery/{user_id}?course_id={course_id}",
+        "POST /mastery": None,  # skip write endpoint
+        "GET /path": f"/api/cognitive-diagnosis/path/{user_id}/{course_id}",
         "GET /portfolio": f"/api/cognitive-diagnosis/portfolio/{user_id}/{course_id}",
     }
 
@@ -160,14 +167,27 @@ def _smoke_test_api(base_url: str, token: str, user_id: int, course_id: int) -> 
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="Batch mastery recompute for synthetic students")
-    parser.add_argument("--data-dir",       required=True,            help="Path to synthgen data directory")
-    parser.add_argument("--checkpoint-dir", required=True,            help="Path to arcd_train checkpoint directory")
-    parser.add_argument("--run-id",         default="roma_synth_v1",  help="Synthgen run_id tag")
-    parser.add_argument("--limit",          type=int, default=None,   help="Process only first N students (for quick test)")
-    parser.add_argument("--seq-len",        type=int, default=50)
-    parser.add_argument("--dry-run",        action="store_true",       help="Skip Neo4j writes")
-    parser.add_argument("--api-url",        default="http://localhost:8000")
+    parser = argparse.ArgumentParser(
+        description="Batch mastery recompute for synthetic students"
+    )
+    parser.add_argument(
+        "--data-dir", required=True, help="Path to synthgen data directory"
+    )
+    parser.add_argument(
+        "--checkpoint-dir",
+        required=True,
+        help="Path to arcd_train checkpoint directory",
+    )
+    parser.add_argument("--run-id", default="roma_synth_v1", help="Synthgen run_id tag")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Process only first N students (for quick test)",
+    )
+    parser.add_argument("--seq-len", type=int, default=50)
+    parser.add_argument("--dry-run", action="store_true", help="Skip Neo4j writes")
+    parser.add_argument("--api-url", default="http://localhost:8000")
     args = parser.parse_args(argv)
 
     data_dir = Path(args.data_dir)
@@ -179,14 +199,21 @@ def main(argv: list[str] | None = None) -> None:
         vocab_path = data_dir / "vocab.json"
     vocab = json.loads(vocab_path.read_text())
 
-    ckpt = torch.load(ckpt_dir / "best_model.pt", map_location="cpu", weights_only=False)
-    cfg  = ckpt["model_config"]
-    logger.info("Checkpoint: n_skills=%d  n_questions=%d  val_AUC=%.4f",
-                cfg["n_skills"], cfg["n_questions"], ckpt["best_val_auc"])
+    ckpt = torch.load(
+        ckpt_dir / "best_model.pt", map_location="cpu", weights_only=False
+    )
+    cfg = ckpt["model_config"]
+    logger.info(
+        "Checkpoint: n_skills=%d  n_questions=%d  val_AUC=%.4f",
+        cfg["n_skills"],
+        cfg["n_questions"],
+        ckpt["best_val_auc"],
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     from arcd_agent.model.training import ARCDModel
+
     model = ARCDModel(**cfg).to(device)
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
@@ -194,14 +221,17 @@ def main(argv: list[str] | None = None) -> None:
     gd = _build_graph(vocab, cfg, device)
 
     idx_to_concept: dict[int, str] = {v: k for k, v in vocab["concept"].items()}
-    idx_to_user:    dict[int, str] = {v: k for k, v in vocab["user"].items()}
+    idx_to_user: dict[int, str] = {v: k for k, v in vocab["user"].items()}
     n_concepts = len(vocab["concept"])
 
     # ── Load interaction data ─────────────────────────────────────────────────
-    df = pd.concat([
-        pd.read_parquet(data_dir / "train.parquet"),
-        pd.read_parquet(data_dir / "test.parquet"),
-    ], ignore_index=True).sort_values(["student_idx", "timestamp_sec"])
+    df = pd.concat(
+        [
+            pd.read_parquet(data_dir / "train.parquet"),
+            pd.read_parquet(data_dir / "test.parquet"),
+        ],
+        ignore_index=True,
+    ).sort_values(["student_idx", "timestamp_sec"])
 
     mastery_gt_df = pd.read_parquet(data_dir / "mastery_ground_truth.parquet")
     # Ground truth: one row per (student_id, skill_id).
@@ -228,44 +258,57 @@ def main(argv: list[str] | None = None) -> None:
     # ── Neo4j driver (optional) ──────────────────────────────────────────────
     neo4j_driver = None
     if not args.dry_run:
-        neo4j_uri      = os.environ.get("LAB_TUTOR_NEO4J_URI", "")
-        neo4j_user     = os.environ.get("LAB_TUTOR_NEO4J_USERNAME", "neo4j")
-        neo4j_pass     = os.environ.get("LAB_TUTOR_NEO4J_PASSWORD", "")
+        neo4j_uri = os.environ.get("LAB_TUTOR_NEO4J_URI", "")
+        neo4j_user = os.environ.get("LAB_TUTOR_NEO4J_USERNAME", "neo4j")
+        neo4j_pass = os.environ.get("LAB_TUTOR_NEO4J_PASSWORD", "")
         neo4j_database = os.environ.get("LAB_TUTOR_NEO4J_DATABASE", "neo4j")
         if neo4j_uri:
             from neo4j import GraphDatabase
-            neo4j_driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_pass))
+
+            neo4j_driver = GraphDatabase.driver(
+                neo4j_uri, auth=(neo4j_user, neo4j_pass)
+            )
             logger.info("Neo4j connected: %s / db=%s", neo4j_uri, neo4j_database)
         else:
             logger.warning("LAB_TUTOR_NEO4J_URI not set — skipping Neo4j writes")
 
     # ── Batch inference ───────────────────────────────────────────────────────
     model_masteries: list[np.ndarray] = []
-    gt_masteries:    list[np.ndarray] = []
-    neo4j_batch: list[dict] = []   # collected for batched write after loop
+    gt_masteries: list[np.ndarray] = []
+    neo4j_batch: list[dict] = []  # collected for batched write after loop
     t0 = time.time()
 
     for sidx in student_indices:
         group = df[df["student_idx"] == sidx]
         interactions = list(
-            zip(group["question_idx"].tolist(),
+            zip(
+                group["question_idx"].tolist(),
                 group["correct"].tolist(),
                 group["timestamp_sec"].tolist(),
-                strict=False)
+                strict=False,
+            )
         )
         batch = _build_sequence(interactions, args.seq_len, device)
 
         with torch.no_grad():
             out = model(
-                gd["H_skill_raw"], gd["A_pre"], gd["A_qs"],
-                gd["A_vs"],        gd["A_rs"],  gd["A_uq"],
-                batch["event_types"],    batch["entity_indices"],
-                batch["outcomes"],       batch["timestamps"],
-                batch["decay_values"],   batch["pad_mask"],
-                batch["target_type"],    batch["target_idx"],
+                gd["H_skill_raw"],
+                gd["A_pre"],
+                gd["A_qs"],
+                gd["A_vs"],
+                gd["A_rs"],
+                gd["A_uq"],
+                batch["event_types"],
+                batch["entity_indices"],
+                batch["outcomes"],
+                batch["timestamps"],
+                batch["decay_values"],
+                batch["pad_mask"],
+                batch["target_type"],
+                batch["target_idx"],
                 student_ids=batch["student_ids"],
             )
-        mastery_pred = out["mastery"][0].cpu().numpy()   # [n_skills]
+        mastery_pred = out["mastery"][0].cpu().numpy()  # [n_skills]
         model_masteries.append(mastery_pred)
 
         gt = mastery_gt.get(sidx)
@@ -279,31 +322,44 @@ def main(argv: list[str] | None = None) -> None:
             try:
                 pg_id = int(user_name)
             except (ValueError, TypeError):
-                logger.warning("Cannot resolve pg_id for student_idx %d (user_name=%s) — skipping", sidx, user_name)
+                logger.warning(
+                    "Cannot resolve pg_id for student_idx %d (user_name=%s) — skipping",
+                    sidx,
+                    user_name,
+                )
                 continue
             for ci, m in enumerate(mastery_pred):
                 cname = idx_to_concept.get(ci)
                 if not cname:
                     continue
                 m_float = float(np.clip(m, 0.0, 1.0))
-                status  = (
-                    "not_started" if m_float == 0.0
-                    else "below" if m_float < 0.4
-                    else "at" if m_float <= 0.9
+                status = (
+                    "not_started"
+                    if m_float == 0.0
+                    else "below"
+                    if m_float < 0.4
+                    else "at"
+                    if m_float <= 0.9
                     else "above"
                 )
-                neo4j_batch.append({
-                    "pg_id":         pg_id,
-                    "skill_name":    cname,
-                    "mastery":       round(m_float, 4),
-                    "decay":         0.8,
-                    "status":        status,
-                    "attempt_count": len(interactions),
-                    "model_version": "arcd_v2_model",
-                })
+                neo4j_batch.append(
+                    {
+                        "pg_id": pg_id,
+                        "skill_name": cname,
+                        "mastery": round(m_float, 4),
+                        "decay": 0.8,
+                        "status": status,
+                        "attempt_count": len(interactions),
+                        "model_version": "arcd_v2_model",
+                    }
+                )
 
     elapsed = time.time() - t0
-    logger.info("Inference done: %.1f s (%.1f students/s)", elapsed, len(student_indices) / max(elapsed, 0.001))
+    logger.info(
+        "Inference done: %.1f s (%.1f students/s)",
+        elapsed,
+        len(student_indices) / max(elapsed, 0.001),
+    )
 
     # ── Batched Neo4j write ───────────────────────────────────────────────────
     students_written = 0
@@ -324,12 +380,16 @@ def main(argv: list[str] | None = None) -> None:
         """
         chunk_size = 5000
         n_chunks = (len(neo4j_batch) + chunk_size - 1) // chunk_size
-        logger.info("Writing %d mastery rows to Neo4j in %d chunks of %d …",
-                    len(neo4j_batch), n_chunks, chunk_size)
+        logger.info(
+            "Writing %d mastery rows to Neo4j in %d chunks of %d …",
+            len(neo4j_batch),
+            n_chunks,
+            chunk_size,
+        )
         try:
             with neo4j_driver.session(database=neo4j_database) as session:
                 for i in range(0, len(neo4j_batch), chunk_size):
-                    chunk = neo4j_batch[i:i + chunk_size]
+                    chunk = neo4j_batch[i : i + chunk_size]
                     session.run(cypher, rows=chunk)
                     logger.info("  … wrote chunk %d/%d", i // chunk_size + 1, n_chunks)
             # estimate written students from unique pg_ids
@@ -340,15 +400,14 @@ def main(argv: list[str] | None = None) -> None:
 
     # ── Aggregate metrics ─────────────────────────────────────────────────────
     if model_masteries:
-        all_pred  = np.concatenate([m.flatten() for m in model_masteries])
-        avg_pred  = float(np.mean(all_pred))
-        std_pred  = float(np.std(all_pred))
+        all_pred = np.concatenate([m.flatten() for m in model_masteries])
+        avg_pred = float(np.mean(all_pred))
+        std_pred = float(np.std(all_pred))
         logger.info("Predicted mastery — mean=%.4f  std=%.4f", avg_pred, std_pred)
 
     if gt_masteries:
         rmse_vals = [
-            float(np.sqrt(np.mean((pred - gt_) ** 2)))
-            for pred, gt_ in gt_masteries
+            float(np.sqrt(np.mean((pred - gt_) ** 2))) for pred, gt_ in gt_masteries
         ]
         corr_vals = [
             float(np.corrcoef(pred, gt_)[0, 1]) if len(pred) > 1 else 0.0
@@ -356,12 +415,15 @@ def main(argv: list[str] | None = None) -> None:
         ]
         logger.info(
             "vs ground truth — RMSE mean=%.4f  Pearson-r mean=%.4f",
-            np.mean(rmse_vals), np.nanmean(corr_vals),
+            np.mean(rmse_vals),
+            np.nanmean(corr_vals),
         )
 
     if neo4j_driver:
         neo4j_driver.close()
-        logger.info("Neo4j writes: %d / %d students", students_written, len(student_indices))
+        logger.info(
+            "Neo4j writes: %d / %d students", students_written, len(student_indices)
+        )
 
     # ── Dashboard smoke tests ─────────────────────────────────────────────────
     logger.info("\n── Dashboard API smoke tests ──")
@@ -372,15 +434,25 @@ def main(argv: list[str] | None = None) -> None:
     print("\n╔══════════════════════════════════════════════════════════════╗")
     print("║            PHASE 4  —  MASTERY RECOMPUTE SUMMARY           ║")
     print("╠══════════════════════════════════════════════════════════════╣")
-    print(f"║  Students processed    : {len(student_indices):>6}                          ║")
-    print(f"║  Students written (KG) : {students_written:>6}                          ║")
+    print(
+        f"║  Students processed    : {len(student_indices):>6}                          ║"
+    )
+    print(
+        f"║  Students written (KG) : {students_written:>6}                          ║"
+    )
     if model_masteries:
         print(f"║  Avg predicted mastery : {avg_pred:>6.4f}                          ║")
         print(f"║  Std predicted mastery : {std_pred:>6.4f}                          ║")
     if gt_masteries:
-        print(f"║  RMSE vs IRT ground-t  : {np.mean(rmse_vals):>6.4f}                          ║")
-        print(f"║  Pearson-r vs IRT GT   : {np.nanmean(corr_vals):>6.4f}                          ║")
-    print(f"║  Best-model val AUC    : {ckpt['best_val_auc']:>6.4f}                          ║")
+        print(
+            f"║  RMSE vs IRT ground-t  : {np.mean(rmse_vals):>6.4f}                          ║"
+        )
+        print(
+            f"║  Pearson-r vs IRT GT   : {np.nanmean(corr_vals):>6.4f}                          ║"
+        )
+    print(
+        f"║  Best-model val AUC    : {ckpt['best_val_auc']:>6.4f}                          ║"
+    )
     print(f"║  Inference time        : {elapsed:>6.1f}s                          ║")
     print("╠══════════════════════════════════════════════════════════════╣")
     print("║  Dashboard endpoints to validate manually:                  ║")

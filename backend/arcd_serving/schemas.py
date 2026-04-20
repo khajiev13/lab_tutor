@@ -1,4 +1,5 @@
 """Pydantic v2 request and response schemas for the ARCD serving API."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field
 
 # ── Shared sub-models ─────────────────────────────────────────────────────────
 
+
 class Interaction(BaseModel):
     question_name: str
     correct: int = Field(..., ge=0, le=1)
@@ -14,6 +16,7 @@ class Interaction(BaseModel):
 
 
 # ── Request bodies ────────────────────────────────────────────────────────────
+
 
 class MasteryRequest(BaseModel):
     interactions: list[Interaction] = Field(
@@ -48,6 +51,7 @@ class NextQuestionRequest(BaseModel):
 
 
 # ── Response bodies ───────────────────────────────────────────────────────────
+
 
 class HealthResponse(BaseModel):
     status: str

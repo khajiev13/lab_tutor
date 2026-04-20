@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
+import app.modules.cognitive_diagnosis.service as _cd_service_module
 from app.core.database import (
     ASYNC_CONNECT_ARGS,
     ASYNC_DATABASE_URL,
@@ -28,10 +29,52 @@ from app.core.database import (
     get_async_db,
     get_db,
 )
+from app.core.database import (
+    async_engine as app_async_engine,
+)
+from app.core.database import (
+    engine as app_engine,
+)
 from app.core.neo4j import get_neo4j_driver
 from app.modules.auth.models import User, UserRole
 from app.providers.storage import BlobService
 from main import app
+
+# ---------------------------------------------------------------------------
+# Stub LLM chains for ALL tests so exercise-generation endpoints return fast.
+# Without this, every test that hits /exercise or /simulate-skill waits for
+# an 8-second network timeout per LLM call, making the full suite very slow.
+# ---------------------------------------------------------------------------
+_STUB_EXERCISE = {
+    "problem": "What is 2 + 2?",
+    "format": "multiple_choice",
+    "options": ["1", "2", "3", "4"],
+    "correct_answer": "4",
+    "solution_steps": ["Add 2 and 2"],
+    "hints": ["Think about counting"],
+    "concepts_tested": ["arithmetic"],
+    "estimated_time_seconds": 30,
+    "difficulty_generated": 0.1,
+}
+_STUB_EVAL = {"score": 0.9, "feedback": "Good exercise."}
+
+
+def _stub_llm_chain():
+    def chain(_inputs: dict) -> dict:
+        return _STUB_EXERCISE.copy()
+
+    return chain
+
+
+def _stub_eval_chain():
+    def chain(_inputs: dict) -> dict:
+        return _STUB_EVAL.copy()
+
+    return chain
+
+
+_cd_service_module._build_llm_chain = _stub_llm_chain  # type: ignore[attr-defined]
+_cd_service_module._build_eval_chain = _stub_eval_chain  # type: ignore[attr-defined]
 
 # Re-use the URLs the app already derived from LAB_TUTOR_DATABASE_URL so
 # the test engines connect with the same credentials (works on CI with
@@ -41,6 +84,7 @@ ASYNC_SQLALCHEMY_DATABASE_URL = ASYNC_DATABASE_URL
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
+    poolclass=NullPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -84,6 +128,12 @@ def client(db_session):
         yield c
 
     app.dependency_overrides.clear()
+    # Dispose all pooled connections so the next test's drop_all() is not
+    # blocked by connections the lifespan left open in the app engine pools.
+    app_engine.dispose()
+    # Also dispose the async engine's underlying pool (sync call on the
+    # wrapped sync_engine is sufficient; no await needed here).
+    app_async_engine.sync_engine.dispose()
 
 
 @pytest.fixture
