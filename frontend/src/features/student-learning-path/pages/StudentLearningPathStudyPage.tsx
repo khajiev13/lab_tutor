@@ -160,7 +160,7 @@ export default function StudentLearningPathStudyPage() {
           data-testid="study-page-layout"
           className="grid min-h-0 flex-1 gap-3 md:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]"
         >
-          <ResourceViewerPane resource={resolvedResource} onClose={handleClose} />
+          <ResourceViewerPane courseId={numericCourseId} resource={resolvedResource} onClose={handleClose} />
           <ResourceAgentPane resource={resolvedResource} />
         </div>
       ) : (

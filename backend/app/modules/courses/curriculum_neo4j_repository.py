@@ -108,20 +108,6 @@ RETURN
 ORDER BY ch.chapter_index
 """
 
-# ── Changelog: market-skill insertions ordered by time ──────────
-_CHANGELOG_QUERY = """
-MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(ms:MARKET_SKILL)
-WHERE ms.created_at IS NOT NULL
-RETURN
-    toString(ms.created_at) AS timestamp,
-    ms.source AS agent,
-    ms.name AS skill_name,
-    ms.status AS skill_status,
-    ms.category AS category,
-    ch.title AS chapter
-ORDER BY ms.created_at DESC
-"""
-
 # ── Teacher transcripts (course chapters with included documents) ──
 _TEACHER_TRANSCRIPTS_QUERY = """
 MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)
@@ -147,6 +133,7 @@ WITH b,
      COLLECT(ch {
          .chapter_index,
          chapter_id: ch.id,
+         .title,
          skills: [(ch)-[:HAS_SKILL]->(sk:BOOK_SKILL) | sk { .name, .description }]
      }) AS chapters
 RETURN b {
@@ -160,17 +147,34 @@ ORDER BY b.title
 
 # ── Market skill bank (job postings → skills) ──
 _MARKET_SKILL_BANK_QUERY = """
-MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)-[:HAS_SKILL]->(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp:JOB_POSTING)
-WITH jp, COLLECT(DISTINCT ms { .name, .category, .status, .priority, .demand_pct }) AS skills
+MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
+      <-[:MAPPED_TO]-(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp:JOB_POSTING)
+WHERE ms.course_id = $course_id OR ms.course_id IS NULL
+WITH DISTINCT jp
 RETURN jp {
     .title,
     .company,
     .site,
     .url,
     .search_term,
-    skills: skills
+    skills: COLLECT {
+        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
+              <-[:MAPPED_TO]-(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp)
+        WHERE ms.course_id = $course_id OR ms.course_id IS NULL
+        WITH ms
+        ORDER BY ms.name, CASE WHEN ms.course_id = $course_id THEN 0 ELSE 1 END
+        WITH ms.name AS skill_name, collect(ms {
+            .name,
+            .category,
+            .status,
+            .priority,
+            .demand_pct
+        }) AS candidates
+        RETURN head(candidates) AS skill
+        ORDER BY skill.name
+    }
 } AS job_posting
-ORDER BY jp.title
+ORDER BY jp.title, jp.company, jp.url
 """
 
 
@@ -191,11 +195,6 @@ class CurriculumNeo4jRepository:
             "book_authors": first.get("book_authors"),
             "chapters": records,
         }
-
-    def get_changelog(self, course_id: int) -> list[dict]:
-        """Return market-skill changelog entries ordered by time desc."""
-        result = self._session.run(_CHANGELOG_QUERY, course_id=course_id)
-        return [r.data() for r in result]
 
     def get_teacher_transcripts(self, course_id: int) -> list[dict]:
         """Return course chapters with their included teacher documents."""

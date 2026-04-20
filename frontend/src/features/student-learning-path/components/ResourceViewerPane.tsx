@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookOpen, ExternalLink, Globe, Loader2, PlayCircle, TriangleAlert, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { fetchReadingEmbeddability } from '../api';
 import type { ActiveLearningPathResource } from '../resource-utils';
 
 export function ResourceViewerPane({
+  courseId,
   resource,
   onClose,
 }: {
+  courseId: number;
   resource: ActiveLearningPathResource;
   onClose: () => void;
 }) {
@@ -48,7 +51,7 @@ export function ResourceViewerPane({
         {resource.kind === 'video' ? (
           <VideoResourceBody resource={resource} />
         ) : (
-          <ReadingResourceBody key={resource.id} resource={resource} />
+          <ReadingResourceBody key={resource.id} courseId={courseId} resource={resource} />
         )}
       </div>
     </Card>
@@ -86,12 +89,61 @@ function VideoResourceBody({
   );
 }
 
+type ProbePhase = 'probing' | 'embeddable' | 'blocked';
+
 function ReadingResourceBody({
+  courseId,
   resource,
 }: {
+  courseId: number;
   resource: Extract<ActiveLearningPathResource, { kind: 'reading' }>;
 }) {
+  const [phase, setPhase] = useState<ProbePhase>('probing');
   const [iframeLoaded, setIframeLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchReadingEmbeddability(courseId, resource.id)
+      .then((result) => {
+        if (!cancelled) {
+          setPhase(result.embeddable ? 'embeddable' : 'blocked');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPhase('blocked');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, resource.id]);
+
+  if (phase === 'probing') {
+    return (
+      <div
+        role="status"
+        aria-label="Checking resource"
+        className="flex h-full items-center justify-center"
+      >
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="sr-only">Checking resource</span>
+      </div>
+    );
+  }
+
+  if (phase === 'blocked') {
+    return (
+      <FallbackCard
+        title="This site can't be embedded"
+        description={`${resource.domain || 'This site'} blocks in-app preview. Open it in a new tab to keep reading.`}
+        summary=""
+        url={resource.url}
+      />
+    );
+  }
 
   return (
     <div className="relative h-full min-h-0 bg-background">

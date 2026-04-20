@@ -14,6 +14,7 @@ interface AgentHubGridProps {
   courseId: number;
   isLoading: boolean;
   statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }>;
+  cardClickOverrides?: Partial<Record<string, () => void>>;
 }
 
 function AgentCardSkeleton() {
@@ -32,7 +33,7 @@ function AgentCardSkeleton() {
   );
 }
 
-export function AgentHubGrid({ courseId, isLoading, statuses }: AgentHubGridProps) {
+export function AgentHubGrid({ courseId, isLoading, statuses, cardClickOverrides }: AgentHubGridProps) {
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2">
@@ -70,6 +71,7 @@ export function AgentHubGrid({ courseId, isLoading, statuses }: AgentHubGridProp
             status={info?.status}
             progress={info?.progress}
             lastActivity={info?.lastActivity}
+            onCardClick={cardClickOverrides?.[agent.id]}
           />
         );
       })}
