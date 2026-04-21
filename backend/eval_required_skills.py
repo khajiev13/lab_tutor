@@ -16,8 +16,8 @@ Usage
 -----
     cd backend
     uv run python eval_required_skills.py \\
-        --checkpoint checkpoints/synthgen_v2 \\
-        --data-dir   ../knowledge_graph_builder/data/synthgen/roma_synth_v2_20pct
+        --checkpoint checkpoints/roma_synth_v6_2048 \\
+        --data-dir   ../knowledge_graph_builder/data/synthgen/<run_id>
 """
 
 from __future__ import annotations

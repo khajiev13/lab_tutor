@@ -4,8 +4,8 @@ Usage
 -----
     cd backend
     uv run python arcd_train.py \
-        --data-dir ../knowledge_graph_builder/data/synthgen/roma_synth_v1 \
-        --out-dir  checkpoints/roma_synth_v1 \
+        --data-dir ../knowledge_graph_builder/data/synthgen/<run_id> \
+        --out-dir  checkpoints/<run_id> \
         --epochs   50 \
         --batch-size 256 \
         --seq-len  50 \

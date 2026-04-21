@@ -7,13 +7,13 @@ Usage
 -----
     cd backend
     # Start the service first:
-    #   ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v1 \\
+    #   ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v6_2048 \\
     #       uv run python -m arcd_serving.run --port 8000
 
     uv run python -m arcd_serving.test_client \\
         --base-url http://localhost:8000 \\
         --n-students 20 \\
-        --data-dir ../knowledge_graph_builder/data/synthgen/roma_synth_v2_80pct
+        --data-dir ../knowledge_graph_builder/data/synthgen/<run_id>
 """
 
 from __future__ import annotations
@@ -248,7 +248,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--data-dir",
-        default="../knowledge_graph_builder/data/synthgen/roma_synth_v2_80pct",
+        default="../knowledge_graph_builder/data/synthgen/roma_synth_v6_2048",
         help="Directory containing test.parquet and vocab.json",
     )
     parser.add_argument(

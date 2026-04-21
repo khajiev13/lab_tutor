@@ -9,7 +9,7 @@ Usage
 -----
     from arcd_agent.model_registry import ModelRegistry
 
-    registry = ModelRegistry.from_dir(Path("checkpoints/roma_synth_v2_2048"))
+    registry = ModelRegistry.from_dir(Path("checkpoints/roma_synth_v6_2048"))
     if registry.is_available:
         mastery = registry.predict_mastery(interactions, concept_names)
 

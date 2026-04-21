@@ -8,9 +8,9 @@ Usage
 -----
     cd backend
     LAB_TUTOR_DATABASE_URL=... uv run python -m batch_mastery_recompute \
-        --data-dir ../knowledge_graph_builder/data/synthgen/roma_synth_v1 \
-        --checkpoint-dir checkpoints/roma_synth_v1_reg \
-        [--run-id roma_synth_v1] [--limit 20]
+        --data-dir ../knowledge_graph_builder/data/synthgen/<run_id> \
+        --checkpoint-dir checkpoints/roma_synth_v6_2048 \
+        [--run-id <run_id>] [--limit 20]
 """
 
 from __future__ import annotations
@@ -178,7 +178,9 @@ def main(argv: list[str] | None = None) -> None:
         required=True,
         help="Path to arcd_train checkpoint directory",
     )
-    parser.add_argument("--run-id", default="roma_synth_v1", help="Synthgen run_id tag")
+    parser.add_argument(
+        "--run-id", default="roma_synth_v6_2048", help="Synthgen run_id tag"
+    )
     parser.add_argument(
         "--limit",
         type=int,

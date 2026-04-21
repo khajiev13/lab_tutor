@@ -8,15 +8,15 @@ student knowledge tracing inference.
 ```bash
 cd backend
 
-# 1 – Start the service (defaults to port 8000, reads roma_synth_v1 checkpoint)
-ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v1 \
+# 1 – Start the service (defaults to port 8000, reads roma_synth_v6_2048 checkpoint)
+ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v6_2048 \
     uv run python -m arcd_serving.run --port 8000
 
 # 2 – Run the test client (separate terminal)
 uv run python -m arcd_serving.test_client \
     --base-url http://localhost:8000 \
     --n-students 20 \
-    --data-dir ../knowledge_graph_builder/data/synthgen/roma_synth_v2_80pct
+    --data-dir ../knowledge_graph_builder/data/synthgen/<run_id>
 ```
 
 ---
@@ -25,7 +25,7 @@ uv run python -m arcd_serving.test_client \
 
 | Variable | Default | Description |
 |---|---|---|
-| `ARCD_CHECKPOINT_DIR` | `backend/checkpoints/roma_synth_v1` | Directory with `best_model.pt` and `vocab.json` |
+| `ARCD_CHECKPOINT_DIR` | `backend/checkpoints/roma_synth_v6_2048` | Directory with `best_model.pt` and `vocab.json` |
 
 ---
 
@@ -225,7 +225,7 @@ For production, use **Gunicorn** instead of the built-in Flask server:
 
 ```bash
 pip install gunicorn
-ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v1 \
+ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v6_2048 \
     gunicorn "arcd_serving:create_app()" \
     --workers 1 --threads 4 \
     --bind 0.0.0.0:8000
@@ -238,38 +238,18 @@ concurrent requests. The model is CPU-only at inference time (uses `map_location
 
 ## Model performance
 
-| Checkpoint | Dataset | Test AUC-ROC | Notes |
+| Checkpoint | Val AUC | Mean mastery | Notes |
 |---|---|---|---|
-| `roma_synth_v1` | 80% synth (4 k students, 400 k interactions) | **0.7183** | Current default |
-| `roma_synth_v1_reg` | Same + higher regularisation | TBD — training in background | Dropout 0.25, RDrop α=1.0, WD 2e-3, label-smoothing 0.05 |
+| `roma_synth_v6_2048` | **0.6420** | 0.49 (0.29–0.69) | Current default — 423 skills, 2048-dim, focal-alpha=0.25 |
 
-## Swapping to the regularised checkpoint (after training completes)
-
-Once `checkpoints/roma_synth_v1_reg/metrics_report.json` exists, compare val AUC:
+## Swapping to a new checkpoint (after training completes)
 
 ```bash
-python - <<'EOF'
-import json, pathlib
-for d in ["checkpoints/roma_synth_v1", "checkpoints/roma_synth_v1_reg"]:
-    p = pathlib.Path(d) / "metrics_report.json"
-    if p.exists():
-        m = json.load(open(p))
-        print(f"{d:35s}  test_auc={m.get('auc_roc', m.get('val_auc', '?')):.4f}")
-EOF
-```
-
-If `roma_synth_v1_reg` beats 0.7183:
-
-```bash
-# Point the service at the improved checkpoint and re-run the smoke test
-ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v1_reg \
+ARCD_CHECKPOINT_DIR=checkpoints/<new_run_id> \
     uv run python -m arcd_serving.run --port 9001 &
 
 uv run python -m arcd_serving.test_client \
     --base-url http://127.0.0.1:9001 \
     --n-students 20 \
-    --data-dir ../knowledge_graph_builder/data/synthgen/roma_synth_v2_80pct
+    --data-dir ../knowledge_graph_builder/data/synthgen/<new_run_id>
 ```
-
-Otherwise keep `roma_synth_v1` and document the remaining gap in this table.
-
