@@ -7,6 +7,7 @@ import * as studentLearningPathApi from '../api';
 
 vi.mock('../api', () => ({
   getLearningPath: vi.fn(),
+  fetchReadingEmbeddability: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
@@ -179,6 +180,12 @@ describe('StudentLearningPathStudyPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(learningPathResponse);
+    (studentLearningPathApi.fetchReadingEmbeddability as Mock).mockResolvedValue({
+      id: 'reading-1',
+      url: 'https://example.com/streaming',
+      embeddable: true,
+      reason: null,
+    });
   });
 
   it('renders the reading iframe and hides the loader after the iframe loads', async () => {
