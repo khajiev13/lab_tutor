@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { useMemo } from "react";
 
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
 import { CourseHeader } from "../components/CourseHeader";
 import { AgentHubGrid } from "@/features/agents/components/AgentHubGrid";
 import type { AgentStatus } from "@/features/agents/components/AgentCard";
+import { TeacherAgentTimingDialog } from "@/features/agents/components/TeacherAgentTimingDialog";
 
 /* ── Derive architect status from context ──────────────────── */
 
@@ -75,18 +77,41 @@ function HubContent() {
   const { isLoading } = useCourseDetail();
   const { courseId } = useCourseDetail();
   const architectInfo = useArchitectStatus();
+  const [insightAgentId, setInsightAgentId] = useState<"architect" | "market-analyst" | null>(null);
 
   const statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }> = {
     architect: architectInfo,
   };
+  const cardClickOverrides = useMemo(
+    () => ({
+      architect: () => setInsightAgentId("architect"),
+      "market-analyst": () => setInsightAgentId("market-analyst"),
+    }),
+    []
+  );
 
   return (
     <>
       <CourseHeader />
       <div className="mt-6">
         <h2 className="text-lg font-semibold mb-4">AI Agents</h2>
-        <AgentHubGrid courseId={courseId} isLoading={isLoading} statuses={statuses} />
+        <AgentHubGrid
+          courseId={courseId}
+          isLoading={isLoading}
+          statuses={statuses}
+          cardClickOverrides={cardClickOverrides}
+        />
       </div>
+      <TeacherAgentTimingDialog
+        courseId={courseId}
+        agentId={insightAgentId}
+        open={insightAgentId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setInsightAgentId(null);
+          }
+        }}
+      />
     </>
   );
 }

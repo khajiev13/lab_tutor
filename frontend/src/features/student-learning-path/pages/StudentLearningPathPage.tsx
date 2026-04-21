@@ -96,6 +96,7 @@ export default function StudentLearningPathPage() {
     new Map(),
   );
   const [interestedPostings, setInterestedPostings] = useState<Set<string>>(new Set());
+  const [excludedPostingSkills, setExcludedPostingSkills] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
@@ -109,13 +110,17 @@ export default function StudentLearningPathPage() {
 
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
 
-  const loadSkillBanks = useCallback(async () => {
+  const loadSkillBanks = useCallback(async (options?: { preserveDraftInterestedPostings?: boolean }) => {
+    const preserveDraftInterestedPostings = options?.preserveDraftInterestedPostings ?? false;
+
     try {
       const data = await getSkillBanks(numericCourseId);
       const nextInterestedPostings = new Set(data.interested_posting_urls);
 
       setSkillBanks(data);
-      setInterestedPostings(nextInterestedPostings);
+      if (!preserveDraftInterestedPostings || data.selected_skill_names.length > 0) {
+        setInterestedPostings(nextInterestedPostings);
+      }
       return data;
     } catch (err) {
       if (getErrorStatus(err) === 403) {
@@ -163,12 +168,22 @@ export default function StudentLearningPathPage() {
     [skillBanks?.selected_skill_names],
   );
   const selectionLocked = persistedSelectedSkills.size > 0;
+  const postingSelectedSkills = useMemo(
+    () => buildInterestedPostingSkillMap(skillBanks?.market_skill_bank ?? [], interestedPostings),
+    [interestedPostings, skillBanks?.market_skill_bank],
+  );
+  const draftSelectedSkillSources = useMemo(
+    () => mergeDraftSelectedSkills(draftSelectedSkills, postingSelectedSkills, excludedPostingSkills),
+    [draftSelectedSkills, excludedPostingSkills, postingSelectedSkills],
+  );
   const selectedSkills = useMemo(
     () =>
       new Set(
-        selectionLocked ? Array.from(persistedSelectedSkills) : Array.from(draftSelectedSkills.keys()),
+        selectionLocked
+          ? Array.from(persistedSelectedSkills)
+          : Array.from(draftSelectedSkillSources.keys()),
       ),
-    [draftSelectedSkills, persistedSelectedSkills, selectionLocked],
+    [draftSelectedSkillSources, persistedSelectedSkills, selectionLocked],
   );
   const selectionRange = skillBanks?.selection_range ?? DEFAULT_SELECTION_RANGE;
   const directPrerequisiteIndex = useMemo(
@@ -201,6 +216,39 @@ export default function StudentLearningPathPage() {
   );
   const toggleSkill = useCallback(
     (skillName: string, source: 'book' | 'market') => {
+      const selectedViaPosting = postingSelectedSkills.has(skillName);
+      const isSelected = selectedSkills.has(skillName);
+
+      if (selectedViaPosting) {
+        setDraftSelectedSkills((prev) => {
+          if (!prev.has(skillName)) {
+            return prev;
+          }
+          const next = new Map(prev);
+          next.delete(skillName);
+          return next;
+        });
+
+        setExcludedPostingSkills((prev) => {
+          const next = new Set(prev);
+          if (isSelected) {
+            next.add(skillName);
+          } else if (source === 'market') {
+            next.delete(skillName);
+          }
+          return next;
+        });
+
+        if (!isSelected && source === 'book') {
+          setDraftSelectedSkills((prev) => {
+            const next = new Map(prev);
+            next.set(skillName, source);
+            return next;
+          });
+        }
+        return;
+      }
+
       setDraftSelectedSkills((prev) => {
         const next = new Map(prev);
         if (next.has(skillName)) {
@@ -211,31 +259,61 @@ export default function StudentLearningPathPage() {
         return next;
       });
     },
-    [],
+    [postingSelectedSkills, selectedSkills],
   );
 
   const toggleJobPosting = useCallback(
     (posting: StudentSkillBankJobPosting) => {
+      const isInterested = interestedPostings.has(posting.url);
+
+      setDraftSelectedSkills((prev) => {
+        if (posting.skills.length === 0) {
+          return prev;
+        }
+
+        let changed = false;
+        const next = new Map(prev);
+        for (const skill of posting.skills) {
+          if (next.delete(skill.name)) {
+            changed = true;
+          }
+        }
+
+        return changed ? next : prev;
+      });
+
       setInterestedPostings((prev) => {
         const next = new Set(prev);
-        if (next.has(posting.url)) {
+        if (isInterested) {
           next.delete(posting.url);
         } else {
           next.add(posting.url);
         }
         return next;
       });
+
+      setExcludedPostingSkills((prev) => {
+        if (posting.skills.length === 0) {
+          return prev;
+        }
+
+        const next = new Set(prev);
+        for (const skill of posting.skills) {
+          next.delete(skill.name);
+        }
+        return next;
+      });
     },
-    [],
+    [interestedPostings],
   );
 
   const buildDraftSelection = useCallback(
     (): BuildSelectedSkillInput[] =>
-      Array.from(draftSelectedSkills, ([name, source]) => ({
+      Array.from(draftSelectedSkillSources, ([name, source]) => ({
         name,
         source,
       })),
-    [draftSelectedSkills],
+    [draftSelectedSkillSources],
   );
 
   const validateSelectionCount = useCallback(
@@ -289,6 +367,10 @@ export default function StudentLearningPathPage() {
             setAcknowledgedKnownSkills(new Set());
             setPrerequisiteReviewOpen(false);
             const updatedSkillBanks = await loadSkillBanks();
+            if ((updatedSkillBanks?.selected_skill_names.length ?? 0) > 0) {
+              setDraftSelectedSkills(new Map());
+              setExcludedPostingSkills(new Set());
+            }
             const updatedLearningPath =
               (updatedSkillBanks?.selected_skill_names.length ?? 0) > 0
                 ? await loadLearningPath()
@@ -317,7 +399,9 @@ export default function StudentLearningPathPage() {
           },
           async (err) => {
             setIsBuilding(false);
-            const updatedSkillBanks = await loadSkillBanks();
+            const updatedSkillBanks = await loadSkillBanks({
+              preserveDraftInterestedPostings: true,
+            });
             if ((updatedSkillBanks?.selected_skill_names.length ?? 0) > 0) {
               await loadLearningPath();
             } else {
@@ -655,8 +739,8 @@ export default function StudentLearningPathPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-            <Card className="border-border/60 shadow-none">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Card className="min-w-0 border-border/60 shadow-none">
               <CardHeader className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1">
@@ -695,7 +779,7 @@ export default function StudentLearningPathPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-border/60 shadow-none">
+            <Card className="min-w-0 border-border/60 shadow-none">
               <CardHeader className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1">
@@ -704,7 +788,8 @@ export default function StudentLearningPathPage() {
                       Job-Posting Skill Bank
                     </CardTitle>
                     <CardDescription>
-                      Keep market demand in context by reviewing skills inside the postings that surfaced them.
+                      Stage a posting locally to pull in its skills, then write the final selection only
+                      when you build your learning path.
                     </CardDescription>
                   </div>
                   <Badge variant="secondary">
@@ -723,41 +808,47 @@ export default function StudentLearningPathPage() {
                       const isInterested = interestedPostings.has(posting.url);
 
                       return (
-                        <AccordionItem key={posting.url} value={`job-${posting.url}`}>
-                          <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start">
+                        <AccordionItem
+                          key={posting.url}
+                          value={`job-${posting.url}`}
+                          className="overflow-hidden rounded-2xl border border-border/60 bg-muted/20"
+                        >
+                          <div className="flex min-w-0 flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start">
                             <div className="min-w-0 flex-1">
-                              <AccordionTrigger className="gap-3 py-0 hover:no-underline">
-                                <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                              <AccordionTrigger className="min-w-0 gap-3 py-0 hover:no-underline [&>svg]:mt-1 [&>svg]:shrink-0">
+                                <div className="flex min-w-0 flex-1 items-start gap-3 text-left">
                                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                                     <Briefcase className="h-4 w-4" />
                                   </div>
-                                  <div className="min-w-0 space-y-1">
-                                    <p className="truncate font-medium">{posting.title}</p>
-                                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                      {posting.company && (
+                                  <div className="min-w-0 space-y-2">
+                                    <div className="space-y-1">
+                                      <p className="truncate font-medium">{posting.title}</p>
+                                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                        {posting.company && (
+                                          <span className="inline-flex items-center gap-1">
+                                            <Building2 className="h-3 w-3" />
+                                            {posting.company}
+                                          </span>
+                                        )}
                                         <span className="inline-flex items-center gap-1">
-                                          <Building2 className="h-3 w-3" />
-                                          {posting.company}
+                                          <Globe className="h-3 w-3" />
+                                          {posting.site || 'Job posting'}
                                         </span>
-                                      )}
-                                      <span className="inline-flex items-center gap-1">
-                                        <Globe className="h-3 w-3" />
-                                        {posting.site || 'Job posting'}
-                                      </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge
+                                        variant={isInterested ? 'default' : 'secondary'}
+                                        className="shrink-0"
+                                      >
+                                        {isInterested ? 'Selected in draft' : 'Not selected'}
+                                      </Badge>
+                                      <Badge variant="outline" className="shrink-0">
+                                        {posting.skills.length} skills
+                                      </Badge>
                                     </div>
                                   </div>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-2 pr-1">
-                                  <Badge
-                                    variant={isInterested ? 'default' : 'secondary'}
-                                    className="shrink-0"
-                                  >
-                                    {isInterested ? 'Interested' : 'Not interested'}
-                                  </Badge>
-                                  <Badge variant="outline" className="shrink-0">
-                                    {posting.skills.length} skills
-                                  </Badge>
                                 </div>
                               </AccordionTrigger>
                             </div>
@@ -766,15 +857,19 @@ export default function StudentLearningPathPage() {
                               type="button"
                               size="sm"
                               variant={isInterested ? 'default' : 'outline'}
-                              className="gap-1.5 self-start"
-                              onClick={() => toggleJobPosting(posting)}
+                              className="gap-1.5 self-start lg:shrink-0"
+                              onClick={() => void toggleJobPosting(posting)}
                             >
                               <Sparkles className="h-3.5 w-3.5" />
-                              {isInterested ? 'Saved' : 'Save'}
+                              {isInterested ? 'Remove draft selection' : 'Select all skills'}
                             </Button>
                           </div>
-                          <AccordionContent>
-                            <div className="space-y-3 pl-2 pt-1">
+                          <AccordionContent className="px-4 pb-4 pt-0">
+                            <div className="space-y-3 border-t border-border/60 pt-4">
+                              <p className="text-xs text-muted-foreground">
+                                Selecting this posting stays local until you click Build My Learning Path.
+                                You can still fine-tune individual skills below.
+                              </p>
                               <a
                                 href={posting.url}
                                 target="_blank"
@@ -1512,6 +1607,45 @@ function inferPrerequisiteSource(
     book.chapters.some((chapter) => chapter.skills.some((skill) => skill.name === skillName)),
   );
   return isBookSkill ? 'book' : 'market';
+}
+
+function buildInterestedPostingSkillMap(
+  postings: StudentSkillBankJobPosting[],
+  interestedPostings: Set<string>,
+): Map<string, 'market'> {
+  const selectedSkills = new Map<string, 'market'>();
+
+  for (const posting of postings) {
+    if (!interestedPostings.has(posting.url)) {
+      continue;
+    }
+
+    for (const skill of posting.skills) {
+      if (selectedSkills.has(skill.name)) {
+        continue;
+      }
+      selectedSkills.set(skill.name, 'market');
+    }
+  }
+
+  return selectedSkills;
+}
+
+function mergeDraftSelectedSkills(
+  explicitSelections: Map<string, 'book' | 'market'>,
+  postingSelections: Map<string, 'market'>,
+  excludedPostingSkills: Set<string>,
+): Map<string, 'book' | 'market'> {
+  const mergedSelections = new Map(explicitSelections);
+
+  for (const [skillName, source] of postingSelections) {
+    if (excludedPostingSkills.has(skillName) || mergedSelections.has(skillName)) {
+      continue;
+    }
+    mergedSelections.set(skillName, source);
+  }
+
+  return mergedSelections;
 }
 
 function matchesSearch(query: string, ...values: Array<string | null | undefined>): boolean {

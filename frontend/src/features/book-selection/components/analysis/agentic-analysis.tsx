@@ -481,7 +481,7 @@ export function AgenticAnalysis({
     );
 
     onStatusChangeRef.current?.('agentic_extracting');
-  }, [courseId, runId, handleEvent]);
+  }, [courseId, runId, handleEvent, resetAgents]);
 
   // Cleanup SSE + timers on unmount
   useEffect(

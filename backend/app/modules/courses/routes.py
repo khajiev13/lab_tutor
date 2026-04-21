@@ -9,10 +9,12 @@ from app.modules.auth.models import User, UserRole
 from app.modules.embeddings.schemas import CourseEmbeddingStatusResponse
 
 from .curriculum_schemas import (
-    CurriculumWithChangelog,
+    CurriculumResponse,
     SkillBanksResponse,
     SkillSelectionRange,
     SkillSelectionRangeUpdate,
+    StudentInsightDetailResponse,
+    StudentInsightsOverviewResponse,
 )
 from .curriculum_service import CurriculumService, get_curriculum_service
 from .schemas import (
@@ -300,7 +302,7 @@ async def stream_extraction_progress(
     )
 
 
-@router.get("/{course_id}/curriculum", response_model=CurriculumWithChangelog)
+@router.get("/{course_id}/curriculum", response_model=CurriculumResponse)
 def get_course_curriculum(
     course_id: int,
     service: CurriculumService = Depends(get_curriculum_service),
@@ -316,6 +318,35 @@ def get_course_skill_banks(
     teacher: User = Depends(require_role(UserRole.TEACHER)),
 ):
     return service.get_skill_banks(course_id=course_id, teacher=teacher)
+
+
+@router.get(
+    "/{course_id}/student-insights",
+    response_model=StudentInsightsOverviewResponse,
+)
+def get_course_student_insights(
+    course_id: int,
+    service: CurriculumService = Depends(get_curriculum_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.get_student_insights(course_id=course_id, teacher=teacher)
+
+
+@router.get(
+    "/{course_id}/student-insights/{student_id}",
+    response_model=StudentInsightDetailResponse,
+)
+def get_course_student_insight_detail(
+    course_id: int,
+    student_id: int,
+    service: CurriculumService = Depends(get_curriculum_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.get_student_insight_detail(
+        course_id=course_id,
+        teacher=teacher,
+        student_id=student_id,
+    )
 
 
 @router.patch(

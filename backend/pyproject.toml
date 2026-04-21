@@ -97,3 +97,7 @@ quote-style = "double"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore:`retry` is deprecated and will be removed\\. Please use `retry_policy` instead\\.:DeprecationWarning",
+    "ignore:coroutine 'Connection\\._cancel' was never awaited:RuntimeWarning",
+]

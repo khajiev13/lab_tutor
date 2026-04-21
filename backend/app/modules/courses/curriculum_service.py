@@ -7,19 +7,20 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.neo4j import require_neo4j_session
 from app.modules.auth.models import User
+from app.modules.student_learning_path import neo4j_repository as student_path_neo4j
 
 from .curriculum_neo4j_repository import CurriculumNeo4jRepository
 from .curriculum_schemas import (
     BookSkillBankBook,
     BookSkillBankChapter,
     BookSkillBankSkill,
-    ChangelogEntry,
     ChapterRead,
     ConceptRead,
     CourseChapterRead,
     CurriculumResponse,
-    CurriculumWithChangelog,
     JobPostingRead,
+    LearningPathChapterStatusCounts,
+    LearningPathSummary,
     MarketSkillBankJobPosting,
     MarketSkillBankSkill,
     SectionRead,
@@ -27,6 +28,13 @@ from .curriculum_schemas import (
     SkillRead,
     SkillSelectionRange,
     SkillSource,
+    StudentInsightDetailResponse,
+    StudentInsightProfile,
+    StudentInsightsOverviewResponse,
+    StudentInsightsSummary,
+    StudentInsightStudent,
+    StudentInsightTopPosting,
+    StudentInsightTopSkill,
     TranscriptDocumentRead,
 )
 from .neo4j_repository import CourseGraphRepository
@@ -52,6 +60,11 @@ def _first_str(val: object) -> str | None:
     if isinstance(val, list):
         return val[0] if val else None
     return val if isinstance(val, str) else None
+
+
+def _safe_text(val: object, *, fallback: str = "") -> str:
+    text = _first_str(val)
+    return text if text else fallback
 
 
 def _parse_concepts(raw: list[dict] | None) -> list[ConceptRead]:
@@ -136,6 +149,7 @@ def _parse_sections(raw: list[dict] | None) -> list[SectionRead]:
 class CurriculumService:
     def __init__(self, repo: CourseRepository, neo4j_session: Neo4jSession) -> None:
         self._repo = repo
+        self._neo4j_session = neo4j_session
         self._graph_repo = CurriculumNeo4jRepository(neo4j_session)
         self._course_graph_repo = CourseGraphRepository(neo4j_session)
 
@@ -152,23 +166,72 @@ class CurriculumService:
                 detail="Not authorized to view this course curriculum",
             )
 
-    def get_curriculum(
-        self, *, course_id: int, teacher: User
-    ) -> CurriculumWithChangelog:
+    @staticmethod
+    def _format_student_name(student: object) -> str:
+        first_name = getattr(student, "first_name", "") or ""
+        last_name = getattr(student, "last_name", "") or ""
+        full_name = f"{first_name} {last_name}".strip()
+        return full_name or getattr(student, "email", "Student")
+
+    def _build_student_summary(
+        self,
+        *,
+        student: User,
+        selected_skill_count: int,
+        interested_posting_count: int,
+    ) -> StudentInsightStudent:
+        return StudentInsightStudent(
+            id=student.id,
+            full_name=self._format_student_name(student),
+            email=student.email,
+            selected_skill_count=selected_skill_count,
+            interested_posting_count=interested_posting_count,
+            has_learning_path=selected_skill_count > 0,
+        )
+
+    @staticmethod
+    def _summarize_learning_path(learning_path: dict) -> LearningPathSummary:
+        chapter_status_counts = LearningPathChapterStatusCounts()
+        for chapter in learning_path.get("chapters", []):
+            status_name = chapter.get("quiz_status")
+            if status_name == "quiz_required":
+                chapter_status_counts.quiz_required += 1
+            elif status_name == "learning":
+                chapter_status_counts.learning += 1
+            elif status_name == "completed":
+                chapter_status_counts.completed += 1
+            else:
+                chapter_status_counts.locked += 1
+
+        total_selected_skills = int(learning_path.get("total_selected_skills", 0) or 0)
+        skills_with_resources = int(learning_path.get("skills_with_resources", 0) or 0)
+
+        return LearningPathSummary(
+            has_learning_path=total_selected_skills > 0,
+            total_selected_skills=total_selected_skills,
+            skills_with_resources=skills_with_resources,
+            chapter_status_counts=chapter_status_counts,
+        )
+
+    def get_curriculum(self, *, course_id: int, teacher: User) -> CurriculumResponse:
         self._require_teacher_owns_course(course_id=course_id, teacher=teacher)
 
         raw = self._graph_repo.get_curriculum_tree(course_id)
         if raw is None:
-            return CurriculumWithChangelog(
-                curriculum=CurriculumResponse(course_id=course_id)
-            )
+            return CurriculumResponse(course_id=course_id)
 
         chapters: list[ChapterRead] = []
         for rec in raw["chapters"]:
+            chapter_index = _safe_int(rec.get("chapter_index"))
             chapters.append(
                 ChapterRead(
-                    chapter_index=_safe_int(rec.get("chapter_index")),
-                    title=rec.get("chapter_title", ""),
+                    chapter_index=chapter_index,
+                    title=_safe_text(
+                        rec.get("chapter_title"),
+                        fallback=f"Chapter {chapter_index}"
+                        if chapter_index > 0
+                        else "Untitled chapter",
+                    ),
                     summary=rec.get("chapter_summary"),
                     sections=_parse_sections(rec.get("sections")),
                     skills=_parse_skills(
@@ -178,36 +241,12 @@ class CurriculumService:
                 )
             )
 
-        curriculum = CurriculumResponse(
+        return CurriculumResponse(
             course_id=course_id,
             book_title=raw.get("book_title"),
             book_authors=raw.get("book_authors"),
             chapters=sorted(chapters, key=lambda c: c.chapter_index),
         )
-
-        # Build changelog from market-skill insertions
-        raw_log = self._graph_repo.get_changelog(course_id)
-        changelog: list[ChangelogEntry] = []
-        for entry in raw_log:
-            skill_status = entry.get("skill_status", "")
-            action = {
-                "gap": "Added skill to fill gap",
-                "new_topic_needed": "Added new topic skill",
-                "covered": "Confirmed skill coverage",
-            }.get(skill_status, "Inserted skill")
-
-            changelog.append(
-                ChangelogEntry(
-                    timestamp=entry.get("timestamp", ""),
-                    agent="Market Demand Analyst",
-                    action=action,
-                    details=f"{entry.get('skill_name', '')} ({entry.get('category', '')})",
-                    chapter=entry.get("chapter"),
-                    skill_name=entry.get("skill_name"),
-                )
-            )
-
-        return CurriculumWithChangelog(curriculum=curriculum, changelog=changelog)
 
     def get_skill_banks(self, *, course_id: int, teacher: User) -> SkillBanksResponse:
         self._require_teacher_owns_course(course_id=course_id, teacher=teacher)
@@ -244,6 +283,7 @@ class CurriculumService:
                     BookSkillBankChapter(
                         chapter_index=_safe_int(ch.get("chapter_index")),
                         chapter_id=ch.get("chapter_id", ""),
+                        title=ch.get("title"),
                         skills=[
                             BookSkillBankSkill(
                                 name=sk.get("name", ""),
@@ -294,6 +334,163 @@ class CurriculumService:
             book_skill_bank=book_skill_bank,
             market_skill_bank=market_skill_bank,
             selection_range=selection_range,
+        )
+
+    def get_student_insights(
+        self,
+        *,
+        course_id: int,
+        teacher: User,
+    ) -> StudentInsightsOverviewResponse:
+        self._require_teacher_owns_course(course_id=course_id, teacher=teacher)
+
+        enrolled_students = list(self._repo.list_course_students(course_id))
+        if not enrolled_students:
+            return StudentInsightsOverviewResponse(
+                summary=StudentInsightsSummary(),
+                students=[],
+            )
+
+        selected_skill_counter: dict[str, int] = {}
+        interested_posting_counter: dict[str, int] = {}
+        selected_skill_counts_by_student: dict[int, int] = {}
+        interested_posting_counts_by_student: dict[int, int] = {}
+
+        student_ids = [student.id for student in enrolled_students]
+        posting_metadata: dict[str, dict[str, str | None]] = {}
+
+        for student in enrolled_students:
+            selected_map = student_path_neo4j.get_selected_skill_sources(
+                self._neo4j_session,
+                student.id,
+                course_id,
+            )
+            interested_urls = student_path_neo4j.get_interested_posting_urls(
+                self._neo4j_session,
+                student.id,
+                course_id,
+                include_inferred_selected_postings=True,
+            )
+
+            selected_skill_counts_by_student[student.id] = len(selected_map)
+            interested_posting_counts_by_student[student.id] = len(interested_urls)
+
+            for skill_name in selected_map:
+                selected_skill_counter[skill_name] = (
+                    selected_skill_counter.get(skill_name, 0) + 1
+                )
+
+            if interested_urls:
+                posting_metadata = {
+                    **posting_metadata,
+                    **student_path_neo4j.get_job_posting_metadata_by_urls(
+                        self._neo4j_session,
+                        interested_urls,
+                    ),
+                }
+
+            for posting_url in interested_urls:
+                interested_posting_counter[posting_url] = (
+                    interested_posting_counter.get(posting_url, 0) + 1
+                )
+
+        students = [
+            self._build_student_summary(
+                student=student,
+                selected_skill_count=selected_skill_counts_by_student.get(
+                    student.id, 0
+                ),
+                interested_posting_count=interested_posting_counts_by_student.get(
+                    student.id, 0
+                ),
+            )
+            for student in enrolled_students
+        ]
+
+        top_selected_skills = [
+            StudentInsightTopSkill(name=name, student_count=count)
+            for name, count in sorted(
+                selected_skill_counter.items(),
+                key=lambda item: (-item[1], item[0].casefold()),
+            )[:5]
+        ]
+        top_interested_postings = [
+            StudentInsightTopPosting(
+                url=url,
+                title=posting_metadata.get(url, {}).get("title"),
+                company=posting_metadata.get(url, {}).get("company"),
+                student_count=count,
+            )
+            for url, count in sorted(
+                interested_posting_counter.items(),
+                key=lambda item: (
+                    -item[1],
+                    (
+                        posting_metadata.get(item[0], {}).get("title") or item[0]
+                    ).casefold(),
+                ),
+            )[:5]
+        ]
+
+        total_selected_skills = sum(selected_skill_counts_by_student.values())
+        summary = StudentInsightsSummary(
+            students_with_selections=sum(
+                1
+                for student_id in student_ids
+                if selected_skill_counts_by_student.get(student_id, 0) > 0
+            ),
+            students_with_learning_paths=sum(
+                1
+                for student_id in student_ids
+                if selected_skill_counts_by_student.get(student_id, 0) > 0
+            ),
+            avg_selected_skill_count=(
+                round(total_selected_skills / len(enrolled_students), 1)
+                if enrolled_students
+                else 0.0
+            ),
+            top_selected_skills=top_selected_skills,
+            top_interested_postings=top_interested_postings,
+        )
+
+        return StudentInsightsOverviewResponse(summary=summary, students=students)
+
+    def get_student_insight_detail(
+        self,
+        *,
+        course_id: int,
+        teacher: User,
+        student_id: int,
+    ) -> StudentInsightDetailResponse:
+        self._require_teacher_owns_course(course_id=course_id, teacher=teacher)
+
+        student = self._repo.get_enrolled_student(course_id, student_id)
+        if student is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student is not enrolled in this course",
+            )
+
+        skill_banks = student_path_neo4j.get_student_skill_banks(
+            self._neo4j_session,
+            student.id,
+            course_id,
+            include_inferred_selected_postings=True,
+        )
+        learning_path = student_path_neo4j.get_learning_path(
+            self._neo4j_session,
+            student.id,
+            course_id,
+        )
+
+        return StudentInsightDetailResponse(
+            student=StudentInsightProfile(
+                id=student.id,
+                full_name=self._format_student_name(student),
+                email=student.email,
+            ),
+            skill_banks=skill_banks,
+            learning_path_summary=self._summarize_learning_path(learning_path),
         )
 
     def update_skill_selection_range(

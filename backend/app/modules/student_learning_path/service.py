@@ -17,7 +17,7 @@ from app.core.settings import settings
 from app.modules.courses.neo4j_repository import CourseGraphRepository
 from app.modules.courses.repository import CourseRepository
 
-from . import neo4j_repository, reader_extractor
+from . import embeddability_probe, neo4j_repository, reader_extractor
 from .graph import learning_path_graph
 from .schemas import (
     BuildSelectedSkillRequest,
@@ -25,6 +25,7 @@ from .schemas import (
     QuizSubmitRequest,
     QuizSubmitResponse,
     ReadingContentResponse,
+    ReadingEmbeddabilityResponse,
     ResourceOpenRequest,
     StudentSkillBankResponse,
 )
@@ -36,6 +37,8 @@ logger = logging.getLogger(__name__)
 _active_runs: dict[str, asyncio.Queue] = {}
 READING_CACHE_READY_TTL = timedelta(days=30)
 READING_CACHE_FAILED_TTL = timedelta(hours=24)
+EMBEDDABILITY_CACHE_EMBEDDABLE_TTL = timedelta(days=7)
+EMBEDDABILITY_CACHE_BLOCKED_TTL = timedelta(hours=24)
 DEFAULT_READING_FALLBACK_SUMMARY = (
     "We could not generate an in-app preview for this resource. Open the original "
     "source to keep studying."
@@ -350,6 +353,101 @@ class StudentLearningPathService:
                 fallback_summary=fallback_summary,
                 error_message=extraction.error_message,
             )
+
+    async def get_reading_embeddability(
+        self,
+        student_id: int,
+        course_id: int,
+        resource_id: str,
+    ) -> ReadingEmbeddabilityResponse:
+        self._validate_enrollment(student_id, course_id)
+        driver = self._require_neo4j()
+        with driver.session(database=settings.neo4j_database) as session:
+            resource = neo4j_repository.get_accessible_reading_resource(
+                session,
+                student_id=student_id,
+                course_id=course_id,
+                resource_id=resource_id,
+            )
+            if resource is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Reading resource not found",
+                )
+
+            cached = self._get_cached_embeddability(resource)
+            if cached is not None:
+                return cached
+
+            try:
+                result = await embeddability_probe.probe_iframe_embeddability(
+                    str(resource.get("url", ""))
+                )
+            except Exception:
+                logger.exception(
+                    "Embeddability probe failed unexpectedly for resource_id=%s",
+                    resource_id,
+                )
+                result = embeddability_probe.EmbeddabilityResult(
+                    embeddable=False,
+                    reason="probe_network_error",
+                )
+
+            probed_at = datetime.now(UTC).isoformat()
+            neo4j_repository.persist_reading_embeddability_cache(
+                session,
+                resource_id=resource_id,
+                embeddable=result.embeddable,
+                reason=result.reason or "",
+                probed_at=probed_at,
+            )
+            return ReadingEmbeddabilityResponse(
+                id=str(resource.get("id", "")),
+                url=str(resource.get("url", "")),
+                embeddable=result.embeddable,
+                reason=result.reason,
+            )
+
+    @staticmethod
+    def _get_cached_embeddability(
+        resource: dict,
+    ) -> ReadingEmbeddabilityResponse | None:
+        probed_at_raw = resource.get("iframe_probed_at")
+        if not probed_at_raw:
+            return None
+
+        try:
+            probed_at = datetime.fromisoformat(
+                str(probed_at_raw).replace("Z", "+00:00")
+            )
+        except ValueError:
+            return None
+
+        if probed_at.tzinfo is None:
+            probed_at = probed_at.replace(tzinfo=UTC)
+        else:
+            probed_at = probed_at.astimezone(UTC)
+
+        embeddable = resource.get("iframe_embeddable")
+        if embeddable is None:
+            return None
+
+        now = datetime.now(UTC)
+        ttl = (
+            EMBEDDABILITY_CACHE_EMBEDDABLE_TTL
+            if embeddable
+            else EMBEDDABILITY_CACHE_BLOCKED_TTL
+        )
+        if probed_at < now - ttl:
+            return None
+
+        reason_raw = resource.get("iframe_probe_reason") or None
+        return ReadingEmbeddabilityResponse(
+            id=str(resource.get("id", "")),
+            url=str(resource.get("url", "")),
+            embeddable=bool(embeddable),
+            reason=str(reason_raw) if reason_raw else None,
+        )
 
     def _get_chapter_quiz_status(
         self,

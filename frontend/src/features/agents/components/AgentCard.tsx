@@ -41,6 +41,7 @@ interface AgentCardProps {
   progress?: number;
   lastActivity?: string;
   hideStatus?: boolean;
+  onCardClick?: () => void;
 }
 
 const STATUS_CONFIG: Record<
@@ -71,6 +72,7 @@ export function AgentCard({
   progress,
   lastActivity,
   hideStatus = false,
+  onCardClick,
 }: AgentCardProps) {
   const navigate = useNavigate();
   const Icon = agent.icon;
@@ -96,13 +98,20 @@ export function AgentCard({
 
   const statusCfg = status ? STATUS_CONFIG[status] : null;
   const showStatus = !hideStatus && statusCfg;
+  const handleClick = () => {
+    if (onCardClick) {
+      onCardClick();
+      return;
+    }
+    navigate(`/courses/${courseId}/${agent.route}`);
+  };
 
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
         <Card
           className="cursor-pointer transition-shadow hover:shadow-md"
-          onClick={() => navigate(`/courses/${courseId}/${agent.route}`)}
+          onClick={handleClick}
         >
           <CardHeader className="flex flex-row items-start gap-4 space-y-0">
             <Avatar className={cn("size-10 rounded-lg", agent.color)}>
