@@ -105,3 +105,7 @@ quote-style = "double"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "unit: fast test with no database or network dependency",
+    "integration: test that requires a live PostgreSQL database",
+]
