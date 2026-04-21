@@ -6,6 +6,7 @@ import { vi } from "vitest";
 import { AGENTS, getAgentById } from "../features/agents/config";
 import { AgentCard } from "../features/agents/components/AgentCard";
 import { AgentPageHeader } from "../features/agents/components/AgentPageHeader";
+import { TeacherAgentTimingDialog } from "../features/agents/components/TeacherAgentTimingDialog";
 
 // Mock sonner
 vi.mock("sonner", () => ({
@@ -134,6 +135,70 @@ describe("AgentCard", () => {
       await user.click(card);
       expect(mockNavigate).toHaveBeenCalledWith("/courses/1/market-analyst");
     }
+  });
+
+  it("uses a custom click handler when one is provided", async () => {
+    const user = userEvent.setup();
+    const onCardClick = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <AgentCard agent={architect} courseId={42} onCardClick={onCardClick} />
+      </MemoryRouter>
+    );
+
+    const card =
+      screen.getByText("Curricular Alignment Architect").closest("[data-slot='card']") ||
+      screen.getByText("Curricular Alignment Architect").closest(".cursor-pointer");
+
+    if (card) {
+      await user.click(card);
+      expect(onCardClick).toHaveBeenCalledTimes(1);
+      expect(mockNavigate).not.toHaveBeenCalled();
+    }
+  });
+});
+
+describe("TeacherAgentTimingDialog", () => {
+  it("renders the architect research summary for teachers", () => {
+    render(
+      <MemoryRouter>
+        <TeacherAgentTimingDialog
+          courseId={9}
+          agentId="architect"
+          open
+          onOpenChange={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Feeds student skill selection")).toBeInTheDocument();
+    expect(screen.getByText("When it runs")).toBeInTheDocument();
+    expect(screen.getByText(/Book Skill Banks/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open architect workspace/i })).toHaveAttribute(
+      "href",
+      "/courses/9/architect"
+    );
+  });
+
+  it("renders the market analyst research summary for teachers", () => {
+    render(
+      <MemoryRouter>
+        <TeacherAgentTimingDialog
+          courseId={9}
+          agentId="market-analyst"
+          open
+          onOpenChange={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/confirm search queries, choose job groups/i)).toBeInTheDocument();
+    expect(screen.getByText(/Job-Posting Skill Bank/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open market analyst/i })).toHaveAttribute(
+      "href",
+      "/courses/9/market-analyst"
+    );
   });
 });
 

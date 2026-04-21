@@ -27,6 +27,7 @@ from .schemas import (
     QuizSubmitRequest,
     QuizSubmitResponse,
     ReadingContentResponse,
+    ReadingEmbeddabilityResponse,
     ResourceOpenRequest,
     SelectJobPostingsRequest,
     SelectSkillsRequest,
@@ -272,6 +273,22 @@ async def get_reading_content(
     """Read extracted markdown for a path reading resource."""
     service = _get_service(db, driver)
     return await service.get_reading_content(student.id, course_id, resource_id)
+
+
+@router.get(
+    "/{course_id}/readings/{resource_id}/embeddable",
+    response_model=ReadingEmbeddabilityResponse,
+)
+async def get_reading_embeddability(
+    course_id: int,
+    resource_id: str,
+    student: StudentDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> ReadingEmbeddabilityResponse:
+    """Check whether a reading resource can be embedded in an iframe."""
+    service = _get_service(db, driver)
+    return await service.get_reading_embeddability(student.id, course_id, resource_id)
 
 
 @router.get(

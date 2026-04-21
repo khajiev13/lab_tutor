@@ -5,6 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.modules.auth.models import User
+
 from .models import Course, CourseEnrollment, CourseFile, FileProcessingStatus
 
 
@@ -112,6 +114,24 @@ class CourseRepository:
     ) -> CourseEnrollment | None:
         return self.db.scalar(
             select(CourseEnrollment).where(
+                CourseEnrollment.course_id == course_id,
+                CourseEnrollment.student_id == student_id,
+            )
+        )
+
+    def list_course_students(self, course_id: int) -> Sequence[User]:
+        return self.db.scalars(
+            select(User)
+            .join(CourseEnrollment, CourseEnrollment.student_id == User.id)
+            .where(CourseEnrollment.course_id == course_id)
+            .order_by(User.first_name.asc(), User.last_name.asc(), User.email.asc())
+        ).all()
+
+    def get_enrolled_student(self, course_id: int, student_id: int) -> User | None:
+        return self.db.scalar(
+            select(User)
+            .join(CourseEnrollment, CourseEnrollment.student_id == User.id)
+            .where(
                 CourseEnrollment.course_id == course_id,
                 CourseEnrollment.student_id == student_id,
             )

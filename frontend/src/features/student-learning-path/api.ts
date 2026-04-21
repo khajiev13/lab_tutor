@@ -274,6 +274,21 @@ export async function fetchReadingContent(
   return data;
 }
 
+export interface ReadingEmbeddabilityResponse {
+  id: string;
+  url: string;
+  embeddable: boolean;
+  reason: string | null;
+}
+
+export async function fetchReadingEmbeddability(
+  courseId: number,
+  resourceId: string,
+): Promise<ReadingEmbeddabilityResponse> {
+  const { data } = await api.get(`${BASE}/${courseId}/readings/${resourceId}/embeddable`);
+  return data;
+}
+
 export async function getChapterQuiz(
   courseId: number,
   chapterIndex: number,

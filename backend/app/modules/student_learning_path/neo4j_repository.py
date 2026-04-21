@@ -7,6 +7,7 @@ selection overlay, peer counts, and full learning path reads.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from neo4j import Session as Neo4jSession
@@ -96,6 +97,25 @@ _INTERESTED_JOB_POSTING_URLS_QUERY = """
 MATCH (u:USER:STUDENT {id: $student_id})-[r]->(jp:JOB_POSTING)
 WHERE type(r) = $relationship_type
 RETURN jp.url AS url
+"""
+
+_INFERRED_INTERESTED_JOB_POSTING_URLS_QUERY = """
+MATCH (u:USER:STUDENT {id: $student_id})-[:SELECTED_SKILL]->(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp:JOB_POSTING)
+WHERE EXISTS {
+    MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
+          <-[:MAPPED_TO]-(ms)
+    WHERE ms.course_id = $course_id OR ms.course_id IS NULL
+}
+RETURN DISTINCT jp.url AS url
+"""
+
+_JOB_POSTING_METADATA_BY_URLS_QUERY = """
+UNWIND $urls AS url
+MATCH (jp:JOB_POSTING {url: url})
+RETURN
+    jp.url AS url,
+    jp.title AS title,
+    jp.company AS company
 """
 
 
@@ -369,7 +389,10 @@ def get_accessible_reading_resource(
             reader_status: coalesce(rr.reader_status, ''),
             reader_content_markdown: coalesce(rr.reader_content_markdown, ''),
             reader_error: coalesce(rr.reader_error, ''),
-            reader_extracted_at: toString(rr.reader_extracted_at)
+            reader_extracted_at: toString(rr.reader_extracted_at),
+            iframe_embeddable: rr.iframe_embeddable,
+            iframe_probe_reason: coalesce(rr.iframe_probe_reason, ''),
+            iframe_probed_at: toString(rr.iframe_probed_at)
         } AS resource
         LIMIT 1
         """,
@@ -409,6 +432,31 @@ def persist_reading_reader_cache(
         reader_content_markdown=reader_content_markdown,
         reader_error=reader_error,
         reader_extracted_at=reader_extracted_at,
+    )
+    return result.single() is not None
+
+
+def persist_reading_embeddability_cache(
+    session: Neo4jSession,
+    *,
+    resource_id: str,
+    embeddable: bool,
+    reason: str,
+    probed_at: str,
+) -> bool:
+    """Persist iframe embeddability probe result on the reading resource node."""
+    result = session.run(
+        """
+        MATCH (rr:READING_RESOURCE {id: $resource_id})
+        SET rr.iframe_embeddable = $embeddable,
+            rr.iframe_probe_reason = CASE WHEN $reason = '' THEN NULL ELSE $reason END,
+            rr.iframe_probed_at = datetime($probed_at)
+        RETURN rr.id AS resource_id
+        """,
+        resource_id=resource_id,
+        embeddable=embeddable,
+        reason=reason,
+        probed_at=probed_at,
     )
     return result.single() is not None
 
@@ -617,6 +665,79 @@ def submit_chapter_answers(
         correct_option_key=QUESTION_CORRECT_OPTION_KEY,
     )
     return [record.data() if hasattr(record, "data") else record for record in result]
+
+
+def get_selected_skill_sources(
+    session: Neo4jSession,
+    student_id: int,
+    course_id: int,
+) -> dict[str, str]:
+    result = session.run(
+        """
+        MATCH (u:USER:STUDENT {id: $student_id})-[r:SELECTED_SKILL]->(sk:SKILL)
+        WHERE EXISTS {
+            MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)
+                  -[:HAS_CHAPTER]->(:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)
+        } OR EXISTS {
+            MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
+                  <-[:MAPPED_TO]-(sk)
+        }
+        RETURN sk.name AS name, r.source AS source
+        """,
+        student_id=student_id,
+        course_id=course_id,
+    )
+    return {record["name"]: record["source"] for record in result}
+
+
+def get_interested_posting_urls(
+    session: Neo4jSession,
+    student_id: int,
+    course_id: int,
+    *,
+    include_inferred_selected_postings: bool = False,
+) -> list[str]:
+    interested_result = session.run(
+        _INTERESTED_JOB_POSTING_URLS_QUERY,
+        student_id=student_id,
+        relationship_type=INTERESTED_IN_REL_TYPE,
+    )
+    explicit_urls = [record["url"] for record in interested_result]
+    if not include_inferred_selected_postings:
+        return explicit_urls
+
+    inferred_result = session.run(
+        _INFERRED_INTERESTED_JOB_POSTING_URLS_QUERY,
+        student_id=student_id,
+        course_id=course_id,
+    )
+    inferred_urls = [record["url"] for record in inferred_result]
+    merged_urls = list(explicit_urls)
+    for url in inferred_urls:
+        if url not in merged_urls:
+            merged_urls.append(url)
+    return merged_urls
+
+
+def get_job_posting_metadata_by_urls(
+    session: Neo4jSession,
+    urls: Iterable[str],
+) -> dict[str, dict[str, str | None]]:
+    url_list = [url for url in urls if url]
+    if not url_list:
+        return {}
+
+    result = session.run(
+        _JOB_POSTING_METADATA_BY_URLS_QUERY,
+        urls=url_list,
+    )
+    return {
+        record["url"]: {
+            "title": record.get("title"),
+            "company": record.get("company"),
+        }
+        for record in result
+    }
 
 
 def get_chapter_quiz_progress(
@@ -834,37 +955,21 @@ def get_student_skill_banks(
     session: Neo4jSession,
     student_id: int,
     course_id: int,
+    *,
+    include_inferred_selected_postings: bool = False,
 ) -> StudentSkillBankResponse:
     """Skill banks with selection overlay + peer counts.
 
     Returns the same structure as teacher skill banks but augmented with
     is_selected, source, and peer_count per skill.
     """
-    # Selected skills for this student
-    selected_result = session.run(
-        """
-        MATCH (u:USER:STUDENT {id: $student_id})-[r:SELECTED_SKILL]->(sk:SKILL)
-        WHERE EXISTS {
-            MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(:BOOK)
-                  -[:HAS_CHAPTER]->(:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)
-        } OR EXISTS {
-            MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
-                  <-[:MAPPED_TO]-(sk)
-        }
-        RETURN sk.name AS name, r.source AS source
-        """,
-        student_id=student_id,
-        course_id=course_id,
+    selected_map = get_selected_skill_sources(session, student_id, course_id)
+    interested_urls = get_interested_posting_urls(
+        session,
+        student_id,
+        course_id,
+        include_inferred_selected_postings=include_inferred_selected_postings,
     )
-    selected_map = {r["name"]: r["source"] for r in selected_result}
-
-    # Interested postings
-    interested_result = session.run(
-        _INTERESTED_JOB_POSTING_URLS_QUERY,
-        student_id=student_id,
-        relationship_type=INTERESTED_IN_REL_TYPE,
-    )
-    interested_urls = [r["url"] for r in interested_result]
     interested_url_set = set(interested_urls)
 
     # Peer counts

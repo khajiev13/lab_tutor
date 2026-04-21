@@ -6,7 +6,11 @@ import type {
   CourseFileRead,
   ExtractionStatus,
 } from './types';
-import type { CurriculumWithChangelog, SkillBanksResponse } from '@/features/curriculum/types';
+import type {
+  SkillBanksResponse,
+  StudentInsightsOverview,
+  TeacherStudentInsightDetail,
+} from '@/features/curriculum/types';
 import {
   CourseFileDuplicateError,
   tryExtractContentHashFromDetail,
@@ -188,12 +192,21 @@ export const coursesApi = {
     const response = await api.get<{ id: number } | null>(`/courses/${id}/enrollment`);
     return response.data;
   },
-  getCurriculum: async (id: number): Promise<CurriculumWithChangelog> => {
-    const response = await api.get<CurriculumWithChangelog>(`/courses/${id}/curriculum`);
-    return response.data;
-  },
   getSkillBanks: async (id: number): Promise<SkillBanksResponse> => {
     const response = await api.get<SkillBanksResponse>(`/courses/${id}/skill-banks`);
+    return response.data;
+  },
+  getStudentInsights: async (id: number): Promise<StudentInsightsOverview> => {
+    const response = await api.get<StudentInsightsOverview>(`/courses/${id}/student-insights`);
+    return response.data;
+  },
+  getStudentInsightDetail: async (
+    courseId: number,
+    studentId: number,
+  ): Promise<TeacherStudentInsightDetail> => {
+    const response = await api.get<TeacherStudentInsightDetail>(
+      `/courses/${courseId}/student-insights/${studentId}`,
+    );
     return response.data;
   },
   updateSkillSelectionRange: async (
