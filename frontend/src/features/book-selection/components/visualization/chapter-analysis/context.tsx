@@ -58,7 +58,7 @@ interface ChapterAnalysisMeta {
   hasData: boolean;
 }
 
-interface ChapterAnalysisContextValue {
+export interface ChapterAnalysisContextValue {
   state: ChapterAnalysisState;
   actions: ChapterAnalysisActions;
   meta: ChapterAnalysisMeta;

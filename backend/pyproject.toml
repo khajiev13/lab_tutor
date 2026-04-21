@@ -39,6 +39,12 @@ dependencies = [
     "uvicorn[standard]>=0.38.0",
     "python-jobspy>=1.1.82",
     "langgraph-swarm>=0.1.0",
+    "flask>=3.0",
+    "torch",
+    "scikit-learn>=1.8.0",
+    "pandas>=2.3.3",
+    "pyarrow>=23.0.1",
+    "matplotlib>=3.10.8",
 ]
 
 [build-system]
@@ -52,6 +58,8 @@ packages = ["app"]
 dev = [
     "fpdf2>=2.8.6",
     "httpx>=0.28.1",
+    "ipykernel>=7.1.0",
+    "jupyter>=1.1.1",
     "langchain-neo4j>=0.8.0",
     "nbformat>=5.10.4",
     "pytest>=9.0.1",
@@ -98,6 +106,10 @@ quote-style = "double"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = [
-    "ignore:`retry` is deprecated and will be removed\\. Please use `retry_policy` instead\\.:DeprecationWarning",
+    'ignore:`retry` is deprecated and will be removed\. Please use `retry_policy` instead\.:DeprecationWarning',
     "ignore:coroutine 'Connection\\._cancel' was never awaited:RuntimeWarning",
+]
+markers = [
+    "unit: fast test with no database or network dependency",
+    "integration: test that requires a live PostgreSQL database",
 ]
