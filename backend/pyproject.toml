@@ -109,3 +109,7 @@ filterwarnings = [
     'ignore:`retry` is deprecated and will be removed\. Please use `retry_policy` instead\.:DeprecationWarning',
     "ignore:coroutine 'Connection\\._cancel' was never awaited:RuntimeWarning",
 ]
+markers = [
+    "unit: fast test with no database or network dependency",
+    "integration: test that requires a live PostgreSQL database",
+]

@@ -240,6 +240,24 @@ def student_auth_headers(client):
     return {"Authorization": f"Bearer {token}"}
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Auto-mark tests as 'integration' when they use DB-backed fixtures.
+
+    Integration tests (those that need a live PostgreSQL database) use the
+    ``db_session`` or ``client`` fixtures.  All other tests are effectively
+    unit tests and can run without any database connection.
+
+    Usage:
+        pytest -m "not integration"   # fast unit-only pass (local pre-push)
+        pytest                         # full suite (CI)
+    """
+    for item in items:
+        if "db_session" in item.fixturenames or "client" in item.fixturenames:
+            item.add_marker(pytest.mark.integration)
+        else:
+            item.add_marker(pytest.mark.unit)
+
+
 @pytest.fixture
 def mock_neo4j():
     """Override get_neo4j_driver with a MagicMock; yield the session mock.
