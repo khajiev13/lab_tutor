@@ -573,14 +573,14 @@ def get_registry(checkpoint_dir: Path | str | None = None) -> ModelRegistry:
     ----------
     checkpoint_dir:
         Path to the arcd_train output directory.  Defaults to
-        ``backend/checkpoints/roma_synth_v4_2048`` relative to this file's
-        package root — the first checkpoint with masked MasteryLoss and the
-        reserved UNK student slot.
+        ``backend/checkpoints/roma_synth_v6_2048`` relative to this file's
+        package root — trained with corrected focal-alpha=0.25, masked
+        MasteryLoss, and the reserved UNK student slot.
     """
     global _registry
     if _registry is None:
         if checkpoint_dir is None:
             _pkg_root = Path(__file__).resolve().parent.parent
-            checkpoint_dir = _pkg_root / "checkpoints" / "roma_synth_v4_2048"
+            checkpoint_dir = _pkg_root / "checkpoints" / "roma_synth_v6_2048"
         _registry = ModelRegistry.from_dir(Path(checkpoint_dir))
     return _registry

@@ -242,8 +242,8 @@ Defaults changed in v6:
 - `--student-emb-dropout 0.3` (unchanged)
 
 After training:
-1. `model_registry.get_registry()` already points to `roma_synth_v4_2048` — no edit needed unless using a custom run id.
-2. Re-run `backend/notebooks/arcd_inference_walkthrough.ipynb` and confirm:
+1. `model_registry.get_registry()` already points to `roma_synth_v4_2048` — update `DEFAULT_CHECKPOINT_DIR` to `roma_synth_v6_2048` after v6 training completes.
+2. Re-run `backend/notebooks/arcd_inference_walkthrough.ipynb` (v6) and confirm:
    - `mastery_before` has non-trivial mean (≥ 0.3, ideally close to global synthgen mean).
    - `decay_us` has real spread for practiced skills.
    - OOV student print line shows `OOV → UNK slot (idx=N)` instead of falling back to `0`.
