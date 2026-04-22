@@ -98,18 +98,90 @@ async_engine = create_async_engine(
 AsyncTestingSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 
 
-@pytest.fixture(scope="function")
-def db_session():
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _terminate_test_db_connections() -> None:
+    """Kill stuck connections on the test DB so DDL/TRUNCATE never blocks.
+
+    Only targets connections that have been ``idle in transaction`` for more
+    than 2 seconds.  This avoids killing brand-new connections (e.g. a
+    concurrent ``create_all`` that briefly pauses between DDL statements)
+    while still cleaning up leftover connections from aborted test runs.
+    """
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                "WHERE datname = current_database() "
+                "AND pid != pg_backend_pid() "
+                "AND state IN ('idle in transaction', 'idle in transaction (aborted)') "
+                "AND now() - state_change > interval '2 seconds'"
+            )
+        )
+        conn.commit()
+
+
+def _truncate_all_tables() -> None:
+    """Erase all rows and reset sequences — ~10× faster than drop+create.
+
+    Tables are truncated in reverse dependency order so FK constraints pass.
+    ``_terminate_test_db_connections`` is called first so no lingering
+    connection holds a share-lock that would block the TRUNCATE.
+    """
+    _terminate_test_db_connections()
+    tables = [t.name for t in reversed(Base.metadata.sorted_tables)]
+    if not tables:
+        return
+    table_list = ", ".join(tables)
+    with engine.connect() as conn:
+        conn.execute(text(f"TRUNCATE {table_list} RESTART IDENTITY CASCADE"))
+        conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Session-scoped schema setup — tables are created once for the whole run
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _db_schema():
+    """Create all tables once at the start; drop them all at the end.
+
+    Each test then gets a clean slate via TRUNCATE (see ``db_session``),
+    which is ~10× faster than dropping and recreating every table per test.
+    """
+    _terminate_test_db_connections()
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         conn.commit()
     Base.metadata.create_all(bind=engine)
+    yield
+    _terminate_test_db_connections()
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+    async_engine.sync_engine.dispose()
+
+
+# ---------------------------------------------------------------------------
+# Function-scoped fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="function")
+def db_session(_db_schema):
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
-        Base.metadata.drop_all(bind=engine)
+        # Dispose app-engine pools so async sessions created during the test
+        # are closed before we TRUNCATE (otherwise TRUNCATE would block).
+        app_engine.dispose()
+        app_async_engine.sync_engine.dispose()
+        _truncate_all_tables()
 
 
 @pytest.fixture(scope="function")
@@ -128,12 +200,6 @@ def client(db_session):
         yield c
 
     app.dependency_overrides.clear()
-    # Dispose all pooled connections so the next test's drop_all() is not
-    # blocked by connections the lifespan left open in the app engine pools.
-    app_engine.dispose()
-    # Also dispose the async engine's underlying pool (sync call on the
-    # wrapped sync_engine is sufficient; no await needed here).
-    app_async_engine.sync_engine.dispose()
 
 
 @pytest.fixture
@@ -231,8 +297,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     unit tests and can run without any database connection.
 
     Usage:
-        pytest -m "not integration"   # fast unit-only pass (local pre-push)
-        pytest                         # full suite (CI)
+        pytest -m "not integration"   # fast unit-only pass (no DB needed)
+        pytest                         # full suite (CI and pre-push)
     """
     for item in items:
         if "db_session" in item.fixturenames or "client" in item.fixturenames:

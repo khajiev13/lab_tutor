@@ -30,14 +30,26 @@ MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
 WHERE s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL
 WITH DISTINCT u, s
 WITH s, u,
-     coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], 0.0) AS mastery_val
+     coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], 0.0) AS mastery_val,
+     coalesce([(u)-[r:MASTERED]->(s) | r.decay][0], 1.0) AS decay_val
 WITH s,
      count(DISTINCT u) AS student_count,
-     avg(mastery_val) AS avg_mastery
+     avg(mastery_val) AS avg_mastery,
+     sum(CASE WHEN mastery_val < 0.40 AND decay_val < 0.60 THEN 1 ELSE 0 END) AS pco_student_count
 RETURN s.name AS skill_name,
        student_count,
        avg_mastery,
-       1.0 - avg_mastery AS perceived_difficulty
+       1.0 - avg_mastery AS perceived_difficulty,
+       CASE
+         WHEN student_count = 0 THEN 0.0
+         ELSE toFloat(pco_student_count) / toFloat(student_count)
+       END AS pco_risk_ratio,
+       size([(:SKILL)-[:PREREQUISITE_OF]->(s) | 1]) +
+       size([(:BOOK_SKILL)-[:PREREQUISITE_OF]->(s) | 1]) +
+       size([(:MARKET_SKILL)-[:PREREQUISITE_OF]->(s) | 1]) AS prereq_count,
+       size([(s)-[:PREREQUISITE_OF]->(:SKILL) | 1]) +
+       size([(s)-[:PREREQUISITE_OF]->(:BOOK_SKILL) | 1]) +
+       size([(s)-[:PREREQUISITE_OF]->(:MARKET_SKILL) | 1]) AS downstream_count
 ORDER BY perceived_difficulty DESC, s.name
 """
 
@@ -135,6 +147,43 @@ ORDER BY skill_name
 """
 
 
+# ── Automatic planning context ──────────────────────────────────────────────
+
+GET_SKILL_PLANNING_CONTEXT: LiteralString = """
+MATCH (u:USER:STUDENT)-[:ENROLLED_IN_CLASS]->(:CLASS {id: $course_id})
+MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
+WHERE (s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL) AND s.name IN $skill_names
+WITH DISTINCT u, s
+WITH
+  s,
+  u,
+  coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], 0.0) AS mastery_val,
+  coalesce([(u)-[r:MASTERED]->(s) | r.decay][0], 1.0) AS decay_val
+WITH
+  s,
+  count(DISTINCT u) AS student_count,
+  avg(mastery_val) AS avg_mastery,
+  sum(CASE WHEN mastery_val < 0.40 AND decay_val < 0.60 THEN 1 ELSE 0 END) AS pco_student_count
+RETURN
+  s.name AS skill_name,
+  student_count,
+  avg_mastery,
+  1.0 - avg_mastery AS perceived_difficulty,
+  pco_student_count,
+  CASE
+    WHEN student_count = 0 THEN 0.0
+    ELSE toFloat(pco_student_count) / toFloat(student_count)
+  END AS pco_risk_ratio,
+  size([(:SKILL)-[:PREREQUISITE_OF]->(s) | 1]) +
+  size([(:BOOK_SKILL)-[:PREREQUISITE_OF]->(s) | 1]) +
+  size([(:MARKET_SKILL)-[:PREREQUISITE_OF]->(s) | 1]) AS prereq_count,
+  size([(s)-[:PREREQUISITE_OF]->(:SKILL) | 1]) +
+  size([(s)-[:PREREQUISITE_OF]->(:BOOK_SKILL) | 1]) +
+  size([(s)-[:PREREQUISITE_OF]->(:MARKET_SKILL) | 1]) AS downstream_count
+ORDER BY avg_mastery ASC, pco_risk_ratio DESC, downstream_count DESC, skill_name
+"""
+
+
 # ── Feature 6b: Skill Co-Selection (for coherence analysis) ───────────────
 
 GET_SKILL_CO_SELECTION: LiteralString = """
@@ -203,6 +252,16 @@ class TeacherDigitalTwinRepository:
 
     def get_class_skill_mastery(self, course_id: int) -> list[dict]:
         result = self._session.run(GET_CLASS_SKILL_MASTERY, course_id=course_id)
+        return [dict(r) for r in result]
+
+    def get_skill_planning_context(
+        self, course_id: int, skill_names: list[str]
+    ) -> list[dict]:
+        result = self._session.run(
+            GET_SKILL_PLANNING_CONTEXT,
+            course_id=course_id,
+            skill_names=skill_names,
+        )
         return [dict(r) for r in result]
 
     def get_skill_co_selection(

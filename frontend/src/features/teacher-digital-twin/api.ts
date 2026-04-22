@@ -12,6 +12,9 @@ export interface SkillDifficultyItem {
   student_count: number;
   avg_mastery: number;
   perceived_difficulty: number;
+  prereq_count: number;
+  downstream_count: number;
+  pco_risk_ratio: number;
 }
 
 export interface SkillDifficultyResponse {
