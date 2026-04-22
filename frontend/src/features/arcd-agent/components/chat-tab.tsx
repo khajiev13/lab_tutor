@@ -213,23 +213,13 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
           setInputMode(saved.inputMode ?? "answer");
           restored = true;
 
-          // Verify server session in background; if expired, notify but don't flash reset
+          // Verify server session in background; if expired, reset to welcome screen
           fetch(`${API_BASE}/api/review/session/${saved.sessionId}`, { headers: authHeaders() })
             .then((r) => r.ok ? r.json() : null)
             .then((data) => {
               if (!data?.alive || data.is_complete) {
                 localStorage.removeItem(key);
-                setEntries((prev) => [
-                  ...prev,
-                  {
-                    type: "system",
-                    content:
-                      "Your previous review session is no longer active. You can start a new review anytime, and your saved conversation history is still available.",
-                  },
-                ]);
-                setCurrentQuestion(null);
-                setMode("review");
-                setReviewComplete(true);
+                resetState();
               } else if (!saved.currentQuestion && !saved.reviewComplete) {
                 // Session alive but we lost the question (e.g. navigated during generation) — re-fetch it
                 fetchNextQuestion(saved.sessionId);
@@ -242,6 +232,11 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
       }
     } catch { /* ignore corrupt localStorage */ }
     if (!restored) resetState();
+
+    // Clear saved state when the student leaves the page so re-entering always starts fresh.
+    return () => {
+      localStorage.removeItem(key);
+    };
   }, [student.uid, datasetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function resetState() {
@@ -380,7 +375,7 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
         const data = await res.json();
         setSessionId(data.session_id);
         setProgress(data.progress);
-        setEntries([{ type: "greeting", content: data.greeting }]);
+        setEntries([]);
         fetchNextQuestion(data.session_id);
       } catch (e) {
         setEntries([{
@@ -442,16 +437,10 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setSessionId(data.session_id);
-      setProgress(data.progress);
-      setEntries([{ type: "greeting", content: data.greeting }]);
-
-      if (data.current_question) {
-        setCurrentQuestion(data.current_question);
-        setLoading(false);
-      } else {
+        setSessionId(data.session_id);
+        setProgress(data.progress);
+        setEntries([]);
         fetchNextQuestion(data.session_id);
-      }
     } catch (e) {
       setEntries([{ type: "system", content: `Could not connect to server. Error: ${e instanceof Error ? e.message : String(e)}` }]);
       setMode("idle");
@@ -767,7 +756,7 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            Review Fellow Chat
+            Learning Fellow Chat
             <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">Unavailable</Badge>
           </CardTitle>
           <CardDescription>The review service is not responding. Make sure the backend is running.</CardDescription>
@@ -786,11 +775,6 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
 
   return (
     <div className="space-y-3">
-      {/* Score bar */}
-      {progress && progress.total > 0 && (
-        <ScoreBar progress={progress} thinkingMode={thinkingMode} />
-      )}
-
       {/* Chat card */}
       <Card className="overflow-hidden border-border/60">
         <div className="flex" style={{ height: "calc(100vh - 320px)", minHeight: "480px", maxHeight: "720px" }}>
@@ -798,7 +782,7 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
           <div className="flex flex-col flex-1 min-w-0">
           {/* Messages area */}
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {entries.length === 0 && !loading && (
+            {entries.length === 0 && !loading && mode !== "idle" && (
               <WelcomeScreen
                 avgMastery={avgMastery}
                 reviewOptions={reviewOptions}
@@ -846,6 +830,9 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
           {/* Quick actions */}
           {mode === "review" && currentQuestion && !loading && (
             <div className="px-5 py-2.5 border-t border-border/60 flex gap-2 overflow-x-auto bg-muted/30">
+              {inputMode === "ask" && (
+                <QuickBtn onClick={() => setInputMode("answer")} label="← Back to Answering" />
+              )}
               {!hintsFinal && (
                 <QuickBtn onClick={fetchHint} label={hints.length === 0 ? "Show Hint" : "Next Hint"} disabled={hintLoading} />
               )}
@@ -892,7 +879,7 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
                     onClick={() => setInputMode("ask")}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       inputMode === "ask"
-                        ? "bg-blue-500 text-white"
+                        ? "bg-secondary text-secondary-foreground border border-primary/30"
                         : "bg-muted/60 text-muted-foreground hover:bg-muted"
                     }`}
                   >
@@ -902,15 +889,23 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
               ) : <div />}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setHistoryPanelOpen((p) => !p)}
-                  title="Conversation History"
+                  onClick={() => {
+                    if (activeHistoryTabId) {
+                      // If a conversation is loaded, close it and reopen the list
+                      setActiveHistoryTabId(null);
+                      setHistoryPanelOpen(true);
+                    } else {
+                      setHistoryPanelOpen((p) => !p);
+                    }
+                  }}
+                  title={activeHistoryTabId ? "Close parallel view" : historyPanelOpen ? "Hide sidebar" : "Show history & analytics"}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    historyPanelOpen
+                    historyPanelOpen || activeHistoryTabId
                       ? "bg-muted border-border/80 text-foreground"
                       : "border-border/60 text-muted-foreground hover:bg-muted/60"
                   }`}
                 >
-                  📋 History
+                  {activeHistoryTabId ? "⊟ Close Past" : historyPanelOpen ? "⊟ Hide" : "⊞ History"}
                 </button>
                 <ThinkingModeToggle mode={thinkingMode} onChange={setThinkingMode} />
               </div>
@@ -925,14 +920,14 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
                 placeholder={
                   mode === "review" && currentQuestion
                     ? inputMode === "ask"
-                      ? "Ask the Review Fellow anything about this question..."
+                      ? "Ask the Learning Fellow anything about this question..."
                       : "Type your answer..."
-                    : "Ask the Review Fellow anything..."
+                    : "Ask the Learning Fellow anything..."
                 }
                 disabled={loading}
                 className={`flex-1 rounded-full border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 transition-colors ${
                   inputMode === "ask" && mode === "review" && currentQuestion
-                    ? "border-blue-500/40 bg-blue-500/5 focus:bg-blue-500/10 focus:ring-blue-500/40"
+                    ? "border-primary/30 bg-muted/30 focus:bg-muted/50 focus:ring-primary/30"
                     : "border-border/80 bg-muted/40 focus:bg-muted/60 focus:ring-primary/40"
                 }`}
               />
@@ -941,7 +936,7 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
                 disabled={!input.trim() || loading}
                 className={`px-6 py-2.5 rounded-full text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors ${
                   inputMode === "ask" && mode === "review" && currentQuestion
-                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                    ? "bg-primary/85 text-primary-foreground hover:bg-primary/95"
                     : "bg-primary text-primary-foreground hover:bg-primary/90"
                 }`}
               >
@@ -953,8 +948,8 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
           </div>
           </div>{/* end main chat column */}
 
-          {/* ── History sidebar ── */}
-          {historyPanelOpen && (
+          {/* ── History sidebar (conversation list) ── */}
+          {historyPanelOpen && !activeHistoryTabId && (
             <div className="w-72 border-l border-border/60 flex flex-col overflow-hidden shrink-0">
               <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/40 bg-muted/20">
                 <span className="text-sm font-medium">Conversation History</span>
@@ -1018,53 +1013,49 @@ export function ReviewChatTab({ student, datasetId, practiceSkill, onPracticeCon
             </div>
           )}
 
-        </div>
-      </Card>
-
-      {openHistoryTabs.length > 0 && (
-        <Card className="border-border/60">
-          <CardHeader>
-            <CardTitle className="text-base">Saved Conversation Tabs</CardTitle>
-            <CardDescription>
-              Open snapshots next to your current chat. Closing a tab does not remove it from history.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {openHistoryTabs.map((tab) => {
-                const isActive = tab.id === activeHistoryTabId;
-                return (
-                  <div
-                    key={tab.id}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
-                      isActive ? "border-primary bg-primary/10 text-primary" : "border-border/70"
-                    }`}
-                  >
-                    <button onClick={() => setActiveHistoryTabId(tab.id)} className="text-left">
-                      {tab.label}
-                    </button>
-                    <button
-                      onClick={() => closeHistoryTab(tab.id)}
-                      className="text-muted-foreground hover:text-foreground"
-                      title="Close tab"
+          {/* ── Active history conversation panel (parallel to current chat) ── */}
+          {activeHistoryTabId && (
+            <div className="w-[360px] shrink-0 border-l border-border/60 flex flex-col overflow-hidden">
+              {/* Tab bar */}
+              <div className="flex items-center px-2 py-1.5 border-b border-border/40 bg-muted/20 gap-1 overflow-x-auto shrink-0">
+                <span className="text-[11px] text-muted-foreground font-medium shrink-0 mr-0.5">Past:</span>
+                {openHistoryTabs.map((tab) => {
+                  const isActive = tab.id === activeHistoryTabId;
+                  return (
+                    <div
+                      key={tab.id}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap shrink-0 ${
+                        isActive ? "border-primary bg-primary/10 text-primary" : "border-border/70 text-muted-foreground"
+                      }`}
                     >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {activeHistoryTabId && (
-              <div className="rounded-lg border border-border/60 bg-muted/20 p-3 max-h-80 overflow-y-auto space-y-3">
+                      <button onClick={() => setActiveHistoryTabId(tab.id)} className="max-w-[100px] truncate">
+                        {tab.label}
+                      </button>
+                      <button
+                        onClick={() => closeHistoryTab(tab.id)}
+                        className="hover:text-foreground leading-none"
+                        title="Close"
+                      >×</button>
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => { setActiveHistoryTabId(null); setHistoryPanelOpen(true); }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground ml-auto shrink-0 px-1"
+                  title="Back to history list"
+                >List</button>
+              </div>
+              {/* Conversation messages */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {(openHistoryTabs.find((tab) => tab.id === activeHistoryTabId)?.entries ?? []).map((entry, i) => (
                   <EntryBubble key={`${activeHistoryTabId}-${i}`} entry={entry} />
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </div>
+          )}
+
+        </div>
+      </Card>
 
       {/* Student notebook */}
       <StudentNotebook key={`${datasetId}-${student.uid}`} datasetId={datasetId} studentUid={student.uid} />
@@ -1186,6 +1177,46 @@ function SessionTypeChooser({ reviewOptions, onSelectAuto, onSelectManual, onJus
 
   return (
     <div className="space-y-5 py-2">
+      {/* ── Welcome banner ── */}
+      <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-muted/30 to-muted/10 px-5 py-5 flex flex-col items-center text-center gap-3">
+        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-3xl select-none">
+          🎓
+        </div>
+        <div className="space-y-1">
+          <h2 className="font-semibold text-lg leading-snug">
+            {(() => {
+              const h = new Date().getHours();
+              return h < 12 ? "Good morning!" : h < 17 ? "Good afternoon!" : "Good evening!";
+            })()}
+          </h2>
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-sm">
+            Welcome to your Review Session. Pick a mode below to get started — the AI can guide you
+            to the skills you need most, or you can build your own focused session.
+          </p>
+        </div>
+        {/* Quick mastery snapshot */}
+        {Object.keys(masteryMap).length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            {(() => {
+              const vals = Object.values(masteryMap);
+              const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
+              const pct = (avg * 100).toFixed(0);
+              const color = avg >= 0.65 ? "text-emerald-500" : avg >= 0.40 ? "text-amber-500" : "text-red-400";
+              const bar = avg >= 0.65 ? "bg-emerald-500" : avg >= 0.40 ? "bg-amber-500" : "bg-red-400";
+              return (
+                <div className="flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-4 py-1.5">
+                  <span className="text-xs text-muted-foreground">Overall mastery</span>
+                  <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className={`text-xs font-bold ${color}`}>{pct}%</span>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
       <div className="text-center space-y-1">
         <h3 className="font-semibold text-base">Choose Your Review Mode</h3>
         <p className="text-xs text-muted-foreground">
@@ -1281,7 +1312,7 @@ function SessionTypeChooser({ reviewOptions, onSelectAuto, onSelectManual, onJus
 
       <div className="text-center">
         <button onClick={onJustChat} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors">
-          Just ask the Review Fellow a question instead
+          Just ask the Learning Fellow a question instead
         </button>
       </div>
     </div>
@@ -1589,62 +1620,6 @@ function ManualSessionSetup({ reviewOptions, selectedSkills, setSelectedSkills, 
 
 /* ═══════════════════════════ Sub-components ═══════════════════════════ */
 
-function ScoreBar({ progress, thinkingMode }: { progress: Progress; thinkingMode: "fast" | "deep" }) {
-  const pct = progress.max_score > 0 ? (progress.score / progress.max_score) * 100 : 0;
-  const fillColor = pct >= 80 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-blue-500";
-
-  return (
-    <Card className="border-border/60">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold">Review Progress</span>
-            <Badge variant="outline" className="text-xs border-border/60">
-              Question {Math.min(progress.current, progress.total)} of {progress.total}
-            </Badge>
-            <Badge
-              variant="outline"
-              className={`text-xs ${
-                thinkingMode === "deep"
-                  ? "border-purple-500/40 text-purple-300"
-                  : "border-amber-500/40 text-amber-300"
-              }`}
-            >
-              {thinkingMode === "deep" ? "Deep Review" : "Fast Review"}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-green-400 font-semibold">{progress.correct} correct</span>
-            <span className="text-muted-foreground">
-              Score: {progress.score}/{progress.max_score}
-            </span>
-          </div>
-        </div>
-        <div className="w-full bg-muted/60 rounded-full h-2.5 overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ease-out ${fillColor}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        {progress.total > 0 && (
-          <div className="flex justify-between mt-2 px-1">
-            {Array.from({ length: progress.total }, (_, i) => (
-              <div key={i} className="flex flex-col items-center">
-                <div className={`w-2.5 h-2.5 rounded-full border-2 transition-colors ${
-                  i < progress.current - 1
-                    ? (i < progress.correct ? "bg-green-500 border-green-500" : "bg-red-400 border-red-400")
-                    : i === progress.current - 1
-                    ? "bg-primary border-primary animate-pulse"
-                    : "bg-muted border-muted-foreground/20"
-                }`} />
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 
 function WelcomeScreen({ avgMastery, reviewOptions }: {
@@ -1676,7 +1651,7 @@ function WelcomeScreen({ avgMastery, reviewOptions }: {
         <span className="text-3xl">🎓</span>
       </div>
       <div className="space-y-1.5 max-w-sm">
-        <h3 className="font-semibold text-lg">Welcome to Review Fellow</h3>
+        <h3 className="font-semibold text-lg">Welcome to Learning Fellow</h3>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Your AI-powered review companion. Select skills and questions below, then start a session.
         </p>

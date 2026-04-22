@@ -1,73 +1,93 @@
 /**
  * Teacher Digital Twin API — wraps all /teacher-twin/{course_id}/* endpoints.
+ * Types mirror backend Pydantic schemas exactly (backend/app/modules/teacher_digital_twin/schemas.py).
  */
 
 import api from '@/services/api';
 
-// ── Types ─────────────────────────────────────────────────────────────────
+// ── Feature 1: Skill Difficulty ────────────────────────────────────────────
 
 export interface SkillDifficultyItem {
   skill_name: string;
   student_count: number;
   avg_mastery: number;
   perceived_difficulty: number;
+  prereq_count: number;
+  downstream_count: number;
+  pco_risk_ratio: number;
 }
 
 export interface SkillDifficultyResponse {
   course_id: number;
   skills: SkillDifficultyItem[];
-  computed_at: string;
+  total_skills: number;
 }
+
+// ── Feature 2: Skill Popularity ───────────────────────────────────────────
 
 export interface SkillPopularityItem {
   skill_name: string;
-  student_count: number;
-  popularity_ratio: number;
+  selection_count: number;
+  rank: number;
 }
 
 export interface SkillPopularityResponse {
   course_id: number;
-  total_students: number;
+  all_skills: SkillPopularityItem[];
   most_popular: SkillPopularityItem[];
   least_popular: SkillPopularityItem[];
-  computed_at: string;
+  total_students: number;
 }
+
+// ── Feature 3: Class Mastery ───────────────────────────────────────────────
 
 export interface StudentMasterySummary {
   user_id: number;
-  username: string;
-  skill_count: number;
+  full_name: string;
+  email: string;
+  selected_skill_count: number;
   avg_mastery: number;
   mastered_count: number;
-  below_threshold_count: number;
-  mastery_tier: 'high' | 'medium' | 'low';
+  struggling_count: number;
+  pco_count: number;
+  at_risk: boolean;
 }
 
 export interface ClassMasteryResponse {
   course_id: number;
-  total_students: number;
-  class_avg_mastery: number;
-  mastery_std_dev: number;
   students: StudentMasterySummary[];
-  computed_at: string;
+  class_avg_mastery: number;
+  at_risk_count: number;
+  total_students: number;
 }
 
-export interface StudentGroupSummary {
+// ── Feature 4: Student Groups ──────────────────────────────────────────────
+
+export interface StudentGroupMember {
+  user_id: number;
+  full_name: string;
+  avg_mastery: number;
+}
+
+export interface StudentGroup {
   group_id: string;
+  group_name: string;
+  performance_tier: string;
   skill_set: string[];
-  student_count: number;
-  student_names: string[];
-  avg_group_mastery: number;
-  suggested_next_skills: string[];
-  group_readiness: number;
+  member_count: number;
+  members: StudentGroupMember[];
+  group_avg_mastery: number;
+  suggested_path: string[];
 }
 
 export interface StudentGroupsResponse {
   course_id: number;
+  groups: StudentGroup[];
+  ungrouped_students: StudentGroupMember[];
   total_groups: number;
-  groups: StudentGroupSummary[];
-  computed_at: string;
 }
+
+// ── Feature 5: What-If Simulation ─────────────────────────────────────────
 
 export interface WhatIfSkillInput {
   skill_name: string;
@@ -94,11 +114,11 @@ export interface WhatIfSkillResult {
 
 export interface WhatIfResponse {
   course_id: number;
-  mode: 'manual' | 'automatic';
-  skill_impacts: WhatIfSkillResult[];
+  mode: string;
   simulated_path: string[];
   pco_analysis: string[];
   recommendations: string[];
+  skill_impacts: WhatIfSkillResult[];
   summary: string;
   llm_recommendation?: string | null;
 }

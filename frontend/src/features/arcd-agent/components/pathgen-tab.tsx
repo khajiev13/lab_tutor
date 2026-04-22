@@ -44,15 +44,11 @@ export function PathGenTab({ student, skills, onStartPractice }: PathGenTabProps
   if (!path || !path.steps || path.steps.length === 0) {
     return (
       <div className="text-center py-16 text-muted-foreground max-w-md mx-auto">
-        <p className="text-lg font-medium">No learning path generated yet</p>
+        <p className="text-lg font-medium">No learning path available</p>
         <p className="text-sm mt-2">
-          Run <code className="bg-muted px-1.5 py-0.5 rounded text-xs">PathGen.ipynb</code> (sections
-          <strong> 7 · Generate Paths</strong> and <strong>9 · Export</strong>) to generate
-          personalised learning paths for all datasets, including this one.
-        </p>
-        <p className="text-xs mt-3 opacity-80">
-          PathGen reads <code className="bg-muted/70 px-1 rounded">student_portfolio.json</code> and
-          writes <code className="bg-muted/70 px-1 rounded">learning_path</code> for each student.
+          The personalised learning path for this student has not been generated yet.
+          Make sure the course has skills in the Knowledge Graph and the ARCD backend
+          is running, then refresh this page.
         </p>
       </div>
     );

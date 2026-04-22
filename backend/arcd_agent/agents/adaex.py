@@ -12,6 +12,7 @@ Classes:
     ExerciseEvaluator    — LLM-backed 3-axis quality gate
     RefinementLoop       — generate → evaluate → refine loop
 """
+
 from __future__ import annotations
 
 import uuid
@@ -24,9 +25,11 @@ import numpy as np
 # Data classes
 # ─────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class DifficultyProfile:
     """Target difficulty profile for a specific (student, skill) pair."""
+
     skill_id: int
     skill_name: str
     mastery: float
@@ -34,17 +37,18 @@ class DifficultyProfile:
     band: str
     prereq_depth: int
     complexity: float
-    zpd_position: str   # 'below', 'in', or 'above'
+    zpd_position: str  # 'below', 'in', or 'above'
 
 
 @dataclass
 class Exercise:
     """A fully-specified adaptive exercise."""
+
     exercise_id: str
     skill_id: int
     skill_name: str
     problem: str
-    format: str                     # 'multiple_choice' | 'open_ended' | 'fill_blank'
+    format: str  # 'multiple_choice' | 'open_ended' | 'fill_blank'
     options: list[str]
     correct_answer: str
     solution_steps: list[str]
@@ -61,11 +65,12 @@ class Exercise:
 @dataclass
 class EvalResult:
     """3-axis quality evaluation of an exercise."""
+
     exercise_id: str
-    e_corr: float                   # correctness score [0, 1]
-    e_diff: float                   # difficulty alignment [0, 1]
-    e_ped: float                    # pedagogical value [0, 1]
-    q_score: float                  # weighted composite
+    e_corr: float  # correctness score [0, 1]
+    e_diff: float  # difficulty alignment [0, 1]
+    e_ped: float  # pedagogical value [0, 1]
+    q_score: float  # weighted composite
     accepted: bool
     correctness_feedback: str
     pedagogical_feedback: str
@@ -76,6 +81,7 @@ class EvalResult:
 @dataclass
 class ExercisePackage:
     """Final product: exercise + quality result + refinement history."""
+
     exercise: Exercise
     eval_result: EvalResult
     refinement_rounds: int
@@ -86,6 +92,7 @@ class ExercisePackage:
 # ─────────────────────────────────────────────────────────────────────
 # DifficultyCalculator
 # ─────────────────────────────────────────────────────────────────────
+
 
 class DifficultyCalculator:
     """Compute target exercise difficulty from student mastery and skill structure.
@@ -160,16 +167,21 @@ class DifficultyCalculator:
             zpd = "in"
 
         return DifficultyProfile(
-            skill_id=skill_id, skill_name=skill_name,
-            mastery=round(mastery, 4), target_d=round(d_star, 4),
-            band=band, prereq_depth=prereq_depth,
-            complexity=round(complexity, 4), zpd_position=zpd,
+            skill_id=skill_id,
+            skill_name=skill_name,
+            mastery=round(mastery, 4),
+            target_d=round(d_star, 4),
+            band=band,
+            prereq_depth=prereq_depth,
+            complexity=round(complexity, 4),
+            zpd_position=zpd,
         )
 
 
 # ─────────────────────────────────────────────────────────────────────
 # ExerciseBank
 # ─────────────────────────────────────────────────────────────────────
+
 
 class ExerciseBank:
     """In-memory exercise cache indexed by (skill_id, difficulty_band).
@@ -233,6 +245,7 @@ class ExerciseBank:
 # ExerciseGenerator
 # ─────────────────────────────────────────────────────────────────────
 
+
 class ExerciseGenerator:
     """Generate adaptive exercises using an injected LLM chain.
 
@@ -262,24 +275,26 @@ class ExerciseGenerator:
         self._counter += 1
         eid = f"ex_{profile.skill_id}_{self._counter:04d}_{uuid.uuid4().hex[:6]}"
 
-        request = json.dumps({
-            "skill_name": profile.skill_name,
-            "difficulty_band": profile.band,
-            "target_difficulty": profile.target_d,
-            "student_mastery": profile.mastery,
-            "zpd_position": profile.zpd_position,
-            "concepts": (concepts or [])[:8],
-            "additional_context": context,
-            "refinement_feedback": feedback,
-            "round": generation_round,
-            "instructions": (
-                f"Create a {profile.band}-level exercise for '{profile.skill_name}'. "
-                f"Target difficulty: {profile.target_d:.2f}. "
-                f"Student mastery: {profile.mastery:.2f}, ZPD: {profile.zpd_position}. "
-                + (f"Address this feedback: {feedback}. " if feedback else "")
-                + "Include a step-by-step solution."
-            ),
-        })
+        request = json.dumps(
+            {
+                "skill_name": profile.skill_name,
+                "difficulty_band": profile.band,
+                "target_difficulty": profile.target_d,
+                "student_mastery": profile.mastery,
+                "zpd_position": profile.zpd_position,
+                "concepts": (concepts or [])[:8],
+                "additional_context": context,
+                "refinement_feedback": feedback,
+                "round": generation_round,
+                "instructions": (
+                    f"Create a {profile.band}-level exercise for '{profile.skill_name}'. "
+                    f"Target difficulty: {profile.target_d:.2f}. "
+                    f"Student mastery: {profile.mastery:.2f}, ZPD: {profile.zpd_position}. "
+                    + (f"Address this feedback: {feedback}. " if feedback else "")
+                    + "Include a step-by-step solution."
+                ),
+            }
+        )
 
         try:
             data = self._chain({"request": request})
@@ -293,7 +308,8 @@ class ExerciseGenerator:
         )
 
         return Exercise(
-            exercise_id=eid, skill_id=profile.skill_id,
+            exercise_id=eid,
+            skill_id=profile.skill_id,
             skill_name=profile.skill_name,
             problem=data.get("problem", f"Practice problem for {profile.skill_name}"),
             format=data.get("format", "open_ended"),
@@ -314,7 +330,8 @@ class ExerciseGenerator:
     def _fallback(profile: DifficultyProfile) -> dict:
         return {
             "problem": f"Solve a problem related to {profile.skill_name} ({profile.band} difficulty).",
-            "format": "open_ended", "options": [],
+            "format": "open_ended",
+            "options": [],
             "correct_answer": f"See solution for {profile.skill_name}.",
             "solution_steps": [
                 "Identify the core concept.",
@@ -331,6 +348,7 @@ class ExerciseGenerator:
 # ─────────────────────────────────────────────────────────────────────
 # ExerciseEvaluator
 # ─────────────────────────────────────────────────────────────────────
+
 
 class ExerciseEvaluator:
     """3-axis quality gate: correctness × difficulty-fit × pedagogical value.
@@ -367,18 +385,20 @@ class ExerciseEvaluator:
         """Run 3-axis quality evaluation on the exercise."""
         import json
 
-        request = json.dumps({
-            "skill_name": exercise.skill_name,
-            "target_difficulty": exercise.difficulty_target,
-            "difficulty_band": exercise.difficulty_band,
-            "problem": exercise.problem,
-            "format": exercise.format,
-            "options": exercise.options,
-            "correct_answer": exercise.correct_answer,
-            "solution_steps": exercise.solution_steps,
-            "hints": exercise.hints,
-            "concepts_tested": exercise.concepts_tested,
-        })
+        request = json.dumps(
+            {
+                "skill_name": exercise.skill_name,
+                "target_difficulty": exercise.difficulty_target,
+                "difficulty_band": exercise.difficulty_band,
+                "problem": exercise.problem,
+                "format": exercise.format,
+                "options": exercise.options,
+                "correct_answer": exercise.correct_answer,
+                "solution_steps": exercise.solution_steps,
+                "hints": exercise.hints,
+                "concepts_tested": exercise.concepts_tested,
+            }
+        )
 
         try:
             data = self._chain({"request": request})
@@ -394,15 +414,19 @@ class ExerciseEvaluator:
             }
 
         e_corr = float(data.get("correctness_score", 0.75))
-        d_assessed = float(data.get("difficulty_assessment", exercise.difficulty_target))
+        d_assessed = float(
+            data.get("difficulty_assessment", exercise.difficulty_target)
+        )
         e_diff = 1.0 - abs(exercise.difficulty_target - d_assessed)
         e_ped = float(data.get("pedagogical_score", 0.70))
         q_score = self.w_corr * e_corr + self.w_diff * e_diff + self.w_ped * e_ped
 
         return EvalResult(
             exercise_id=exercise.exercise_id,
-            e_corr=round(e_corr, 4), e_diff=round(e_diff, 4),
-            e_ped=round(e_ped, 4), q_score=round(q_score, 4),
+            e_corr=round(e_corr, 4),
+            e_diff=round(e_diff, 4),
+            e_ped=round(e_ped, 4),
+            q_score=round(q_score, 4),
             accepted=q_score >= self.tau_q,
             correctness_feedback=data.get("correctness_feedback", ""),
             pedagogical_feedback=data.get("pedagogical_feedback", ""),
@@ -414,6 +438,7 @@ class ExerciseEvaluator:
 # ─────────────────────────────────────────────────────────────────────
 # RefinementLoop
 # ─────────────────────────────────────────────────────────────────────
+
 
 class RefinementLoop:
     """Generate → evaluate → refine iteratively until accepted or max_rounds.
@@ -451,12 +476,17 @@ class RefinementLoop:
         exclude_ids: set[str] | None = None,
     ) -> ExercisePackage:
         """Run the generate-evaluate-refine loop for one exercise."""
-        cached = self.bank.retrieve(profile.skill_id, profile.band, exclude_ids or set())
+        cached = self.bank.retrieve(
+            profile.skill_id, profile.band, exclude_ids or set()
+        )
         if cached is not None:
             ev = self.evaluator.evaluate(cached)
             return ExercisePackage(
-                exercise=cached, eval_result=ev,
-                refinement_rounds=0, final_accepted=True, quality_warning=False,
+                exercise=cached,
+                eval_result=ev,
+                refinement_rounds=0,
+                final_accepted=True,
+                quality_warning=False,
             )
 
         ex = self.generator.generate(profile, concepts, context, generation_round=0)
@@ -475,11 +505,13 @@ class RefinementLoop:
             feedback = " | ".join(feedback_parts) or ev.overall_feedback
 
             ex = self.generator.generate(
-                profile, concepts, context, generation_round=rounds, feedback=feedback)
+                profile, concepts, context, generation_round=rounds, feedback=feedback
+            )
             ev = self.evaluator.evaluate(ex)
 
         pkg = ExercisePackage(
-            exercise=ex, eval_result=ev,
+            exercise=ex,
+            eval_result=ev,
             refinement_rounds=rounds,
             final_accepted=ev.accepted,
             quality_warning=not ev.accepted,

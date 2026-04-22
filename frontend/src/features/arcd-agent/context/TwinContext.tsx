@@ -1,8 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 /**
- * TwinContext provides TwinViewerData to the dashboard.
- * Re-fetches automatically when `selectedUid` or `dataVersion` changes
- * so twin data stays in sync with mastery updates from review sessions.
+ * TwinContext — provides TwinViewerData from the KG-backed backend.
+ *
+ * Re-fetches when `selectedUid` or `dataVersion` changes so twin data stays
+ * in sync with mastery updates from review sessions.
+ *
+ * Production mode: API-only. No static file fallback.
+ * If the backend is unreachable, twinData is null and twinError describes why.
  */
 import {
   createContext,
@@ -13,18 +17,24 @@ import {
 } from "react";
 import type { TwinViewerData } from "@/features/arcd-agent/lib/types";
 
+// ── API base URL (mirrors DataContext) ────────────────────────────────────
+
 const API_BASE =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD
     ? ""
     : `http://${typeof window !== "undefined" ? window.location.hostname : "localhost"}:8000`);
 
+// ── Context interface ──────────────────────────────────────────────────────
+
 interface TwinContextValue {
   twinData: TwinViewerData | null;
   twinLoading: boolean;
   twinError: string | null;
+  /** Always true when twinData is populated (API-only mode). */
   twinMatched: boolean;
-  twinSource: "api" | "static" | null;
+  /** "api" when data is from the backend, null when unavailable. */
+  twinSource: "api" | null;
   checkReplan: (deviations: Array<{ delta: number }>) => boolean;
 }
 
@@ -41,6 +51,8 @@ export function useTwin(): TwinContextValue {
   return useContext(TwinContext);
 }
 
+// ── Provider ───────────────────────────────────────────────────────────────
+
 interface TwinProviderProps {
   children: ReactNode;
   selectedUid: string;
@@ -48,65 +60,55 @@ interface TwinProviderProps {
   courseId?: string;
 }
 
-export function TwinProvider({ children, selectedUid, dataVersion, courseId }: TwinProviderProps) {
+export function TwinProvider({
+  children,
+  selectedUid,
+  dataVersion,
+  courseId,
+}: TwinProviderProps) {
   const [twinData, setTwinData] = useState<TwinViewerData | null>(null);
   const [twinLoading, setTwinLoading] = useState(true);
   const [twinError, setTwinError] = useState<string | null>(null);
-  const [twinMatched, setTwinMatched] = useState(false);
-  const [twinSource, setTwinSource] = useState<"api" | "static" | null>(null);
 
   useEffect(() => {
-    if (!selectedUid) {
+    if (!selectedUid || !courseId) {
+      setTwinData(null);
       setTwinLoading(false);
       return;
     }
 
     let cancelled = false;
     setTwinLoading(true);
+    setTwinError(null);
 
     async function load() {
-      // 1. Try LAB_TUTOR backend with JWT auth
-      if (courseId) {
-        try {
-          const token = localStorage.getItem("access_token");
-          const headers: Record<string, string> = { "Content-Type": "application/json" };
-          if (token) headers.Authorization = `Bearer ${token}`;
+      const token = localStorage.getItem("access_token");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
 
-          const resp = await fetch(`${API_BASE}/diagnosis/arcd-twin/${courseId}`, { headers });
-          if (!cancelled && resp.ok) {
-            const data = (await resp.json()) as TwinViewerData;
-            if (data.current_twin) {
-              setTwinData(data);
-              setTwinMatched(true);
-              setTwinSource("api");
-              setTwinError(null);
-              setTwinLoading(false);
-              return;
-            }
-          }
-        } catch {
-          /* fall through to static */
-        }
-      }
-
-      // 2. Fall back to static twin_viewer.json
       try {
-        const r = await fetch("/data/twin_viewer.json");
+        const resp = await fetch(`${API_BASE}/diagnosis/arcd-twin/${courseId}`, { headers });
+
         if (!cancelled) {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const data = (await r.json()) as TwinViewerData;
-          const matched = String(data.student_id) === String(selectedUid);
-          setTwinData(matched ? data : null);
-          setTwinMatched(matched);
-          setTwinSource(matched ? "static" : null);
-          setTwinError(null);
+          if (resp.status === 401) {
+            setTwinError("Session expired. Please log in again.");
+            setTwinData(null);
+          } else if (resp.status === 503) {
+            setTwinError("Knowledge Graph is not reachable.");
+            setTwinData(null);
+          } else if (!resp.ok) {
+            setTwinError(`Failed to load twin data (HTTP ${resp.status}).`);
+            setTwinData(null);
+          } else {
+            const data = (await resp.json()) as TwinViewerData;
+            setTwinData(data.current_twin ? data : null);
+            setTwinError(data.current_twin ? null : "Twin not yet computed for this student.");
+          }
         }
-      } catch (e: unknown) {
+      } catch {
         if (!cancelled) {
+          setTwinError("Cannot reach the Lab Tutor backend.");
           setTwinData(null);
-          setTwinMatched(false);
-          setTwinSource(null);
-          setTwinError(e instanceof Error ? e.message : "Unknown error");
         }
       } finally {
         if (!cancelled) setTwinLoading(false);
@@ -116,6 +118,7 @@ export function TwinProvider({ children, selectedUid, dataVersion, courseId }: T
     load();
     return () => {
       cancelled = true;
+      setTwinLoading(false);
     };
   }, [selectedUid, dataVersion, courseId]);
 
@@ -125,8 +128,8 @@ export function TwinProvider({ children, selectedUid, dataVersion, courseId }: T
         twinData,
         twinLoading,
         twinError,
-        twinMatched,
-        twinSource,
+        twinMatched: twinData !== null,
+        twinSource: twinData !== null ? "api" : null,
         checkReplan: (deviations) => deviations.some((d) => Math.abs(d.delta) >= 0.1),
       }}
     >

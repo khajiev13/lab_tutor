@@ -154,10 +154,11 @@ knowledge_graph_builder/iteration_logs/*
 !frontend/src/lib
 !frontend/src/features/**/lib
 
-#Don't push the knowledge graph builder 
-knowledge_graph_builder/
-#Don't push the neo4j_database
-neo4j_database/
+# knowledge_graph_builder generated outputs (keep source code, ignore pipeline dumps)
+knowledge_graph_builder/output/
+knowledge_graph_builder/batch_output/
+knowledge_graph_builder/data/
+knowledge_graph_builder/production_output/
 
 # Cursor IDE – may contain secrets (MCP credentials, etc.)
 .cursor/mcp.json
@@ -188,3 +189,27 @@ skills-lock.json
 
 
 docs/.agents/skills/excalidraw-diagram
+
+# Local agent skills — not part of the project, never commit
+.claude/skills/
+.agents/
+.agent/
+
+# Python tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Office editor temp/lock files
+**/~$*
+
+# Backend notebook output images and experiment artifacts
+backend/notebooks/*.png
+backend/notebooks/*.jpg
+backend/**/notebooks/artifacts/
+
+# ML training artifacts — model checkpoints, weights, vocabs
+backend/checkpoints/

@@ -30,6 +30,8 @@ The backend follows **modular onion architecture** — each feature is a self-co
 | **Curricular Alignment Architect** | ✅ | Book discovery, PDF extraction, chapter-level curriculum alignment |
 | **Market Demand Analyst** | ✅ | 3-agent LangGraph swarm for job market analysis |
 | **Document Extraction** | ✅ | LLM-based PDF section extraction (internal service) |
+| **Cognitive Diagnosis** | ✅ | Per-student ARCD twin, skill diagnostics, learning events, adaptive exercises |
+| **Teacher Digital Twin** | ✅ | Class-level mastery analytics, what-if simulation, skill-difficulty/popularity |
 | **Reading Agent** | 🔲 | Planned |
 | **Video Agent** | 🔲 | Planned |
 
@@ -303,6 +305,8 @@ Create a `.env` file in the project root. All backend variables use the `LAB_TUT
 | `/normalization` | Concepts | `GET /stream`, `POST /reviews/{id}/decisions` |
 | `/book-selection` | Architect | `POST /sessions/start`, `POST /{book_id}/select`, `POST /courses/{id}/analysis` |
 | `/market-demand` | MDA | `POST /chat` (SSE), `GET /state`, `GET /history` |
+| `/diagnosis` | Cognitive Diagnosis | `GET /arcd-twin/{course_id}`, `GET /student-events/{course_id}`, `POST /student-events/{course_id}`, `POST /adaptive-exercise/{course_id}`, `GET /interaction-stats/{course_id}`, `POST /engagement-signal/{course_id}` |
+| `/teacher-twin` | Teacher Digital Twin | `GET /{course_id}/skill-difficulty`, `GET /{course_id}/skill-popularity`, `GET /{course_id}/class-mastery`, `GET /{course_id}/student-groups`, `POST /{course_id}/what-if`, `POST /{course_id}/simulate-skill`, `POST /{course_id}/simulate-skills`, `GET /{course_id}/student/{student_id}/portfolio`, `GET /{course_id}/student/{student_id}/twin` |
 | `/health` | Health | Full dependency check |
 | `/healthz` | Liveness | Lightweight probe |
 
@@ -311,19 +315,38 @@ Full API docs at `http://localhost:8000/redoc`
 ## Testing
 
 ```bash
-# Backend lint
+# Backend — format and lint
 cd backend
-uv run ruff check .
-uv run ruff format --check .
+uv run ruff format .
+uv run ruff check . --fix
 
-# Backend tests (requires local PostgreSQL)
-cd backend
-LAB_TUTOR_DATABASE_URL="postgresql://user@localhost:5432/lab_tutor_test" uv run pytest -v
+# Backend tests (requires PostgreSQL test database)
+# Docker setup (recommended):
+#   docker exec lab_tutor_postgres psql -U labtutor -c 'CREATE DATABASE lab_tutor_test;'
+LAB_TUTOR_DATABASE_URL="postgresql://labtutor:labtutor@localhost:5433/lab_tutor_test" \
+  uv run pytest -v
 
-# Frontend lint
+# Run a specific module's tests:
+LAB_TUTOR_DATABASE_URL="postgresql://labtutor:labtutor@localhost:5433/lab_tutor_test" \
+  uv run pytest -v tests/modules/cognitive_diagnosis tests/modules/teacher_digital_twin
+
+# Frontend — lint, type-check, and test
 cd frontend
 npm run lint
+npx tsc --noEmit
+npx vitest run
 ```
+
+### Test Matrix
+
+| Area | Test Files | What's Covered |
+|------|-----------|---------------|
+| Backend – Cognitive Diagnosis | `tests/modules/cognitive_diagnosis/` | Pydantic schemas, Cypher repository, service business logic, FastAPI routes (JWT + mock Neo4j) |
+| Backend – Teacher Digital Twin | `tests/modules/teacher_digital_twin/` | Pydantic schemas, Cypher repository, service business logic, FastAPI routes (JWT + mock Neo4j) |
+| Frontend – Teacher Twin API | `src/features/arcd-agent/api/teacher-twin.test.ts` | All `apiFetch` wrappers, auth headers, error paths |
+| Frontend – Contexts | `src/features/arcd-agent/context/context.test.tsx` | `TeacherDataContext`, `DataContext`, `TwinContext` state transitions |
+| Frontend – Pages | `src/features/arcd-agent/pages/pages.test.tsx` | Smoke tests for `ClassOverviewPage`, `ClassRosterPage`, `StudentDrilldownPage`, `TeacherTwinPage`, `StudentPage`, `JourneyPage` |
+| Frontend – Tabs | `src/features/arcd-agent/components/tabs.test.tsx` | Smoke tests for `ReviewChatTab`, `PathGenTab`, `JourneyMapTab`, `TwinViewerTab`, `ScheduleTab`, `UnifiedTab` |
 
 ## Project Structure
 
@@ -356,6 +379,7 @@ lab_tutor/
 | [CONCEPT_NORMALIZATION.md](docs/CONCEPT_NORMALIZATION.md) | Iterative merge workflow, APOC operations, review pipeline |
 | [DOCUMENT_EXTRACTION_AND_EMBEDDINGS.md](docs/DOCUMENT_EXTRACTION_AND_EMBEDDINGS.md) | PDF parsing, LLM extraction, vector embedding pipeline |
 | [POSTGRES_SCHEMA.md](docs/POSTGRES_SCHEMA.md) | Full PostgreSQL schema documentation |
+| [COGNITIVE_DIAGNOSIS_AND_TEACHER_TWIN.md](docs/COGNITIVE_DIAGNOSIS_AND_TEACHER_TWIN.md) | ARCD twin, cognitive diagnosis, teacher digital twin endpoints & Neo4j schema |
 
 ## Contributing
 

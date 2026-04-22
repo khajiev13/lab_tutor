@@ -113,7 +113,7 @@ export const diagnosisApi = {
       params: { path_length: pathLength },
     }),
 
-  /** POST /diagnosis/review/{course_id} — RevFell review session */
+  /** POST /diagnosis/review/{course_id} — LearnFell review session */
   getReview: (courseId: number, topK = 5) =>
     api.post<ReviewResponse>(`/diagnosis/review/${courseId}`, { top_k: topK }),
 
@@ -131,22 +131,21 @@ export const diagnosisApi = {
   /** POST /diagnosis/interactions — log ATTEMPTED */
   logInteraction: (data: {
     question_id: string;
-    is_correct: boolean;
-    timestamp_sec?: number;
-    time_spent_sec?: number;
-    attempt_number?: number;
+    answered_right: boolean;
+    selected_option?: string;
+    answered_at?: string;
     course_id?: number;
-  }) =>
-    api.post('/diagnosis/interactions', data, {
-      params: data.course_id ? { course_id: data.course_id } : undefined,
-    }),
+  }) => {
+    const { course_id, ...body } = data;
+    return api.post('/diagnosis/interactions', body, {
+      params: course_id ? { course_id } : undefined,
+    });
+  },
 
   /** POST /diagnosis/engagements — log ENGAGES_WITH */
   logEngagement: (data: {
     resource_id: string;
     resource_type: 'reading' | 'video';
-    progress?: number;
-    duration_sec?: number;
-    timestamp_sec?: number;
+    opened_at?: string;
   }) => api.post('/diagnosis/engagements', data),
 };

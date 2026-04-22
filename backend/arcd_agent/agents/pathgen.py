@@ -8,6 +8,7 @@ Classes:
     ScoringEngine        — multi-component skill scoring
     PathGenerator        — end-to-end greedy path construction pipeline
 """
+
 from __future__ import annotations
 
 import math
@@ -32,6 +33,7 @@ class PathGenConfig:
         path_length: maximum number of steps in the generated path.
         zpd_relax_band: how much to relax ZPD bounds if no skills are in-band.
     """
+
     zpd_lo: float = 0.40
     zpd_hi: float = 0.90
     prereq_threshold: float = 0.60
@@ -108,8 +110,7 @@ class ZPDFilter:
 
     def filter(self, candidates: list[int], mastery: list[float]) -> list[int]:
         """Filter candidates to those in ZPD; relax bounds if band is empty."""
-        in_zpd = [s for s in candidates
-                  if self.zpd_lo <= mastery[s] <= self.zpd_hi]
+        in_zpd = [s for s in candidates if self.zpd_lo <= mastery[s] <= self.zpd_hi]
         if in_zpd:
             return in_zpd
         # Relax and retry
@@ -176,7 +177,11 @@ class ScoringEngine:
         prereq_str = self._prereq_strength(skill_id, mastery)
 
         # Decay urgency
-        d_val = decay_vector[skill_id] if (decay_vector and skill_id < len(decay_vector)) else None
+        d_val = (
+            decay_vector[skill_id]
+            if (decay_vector and skill_id < len(decay_vector))
+            else None
+        )
         if d_val is not None:
             decay_urg = 1.0 - float(d_val)
         else:
@@ -209,7 +214,8 @@ class ScoringEngine:
         if len(prereqs) == 0:
             return 1.0
         satisfied = sum(
-            1 for p in prereqs
+            1
+            for p in prereqs
             if p < len(mastery) and mastery[p] >= self.prereq_threshold
         )
         return satisfied / len(prereqs)
@@ -243,14 +249,21 @@ class PathGenerator:
         self.decay_vector = decay_vector
 
         self._prereq_filter = PrerequisiteFilter(
-            A_pre=A_pre, prereq_threshold=self.config.prereq_threshold)
+            A_pre=A_pre, prereq_threshold=self.config.prereq_threshold
+        )
         self._zpd_filter = ZPDFilter(
-            zpd_lo=self.config.zpd_lo, zpd_hi=self.config.zpd_hi,
-            zpd_relax_band=self.config.zpd_relax_band)
+            zpd_lo=self.config.zpd_lo,
+            zpd_hi=self.config.zpd_hi,
+            zpd_relax_band=self.config.zpd_relax_band,
+        )
         self._scoring = ScoringEngine(
-            w_zpd=self.config.w_zpd, w_prereq=self.config.w_prereq,
-            w_decay=self.config.w_decay, w_momentum=self.config.w_momentum,
-            A_pre=A_pre, prereq_threshold=self.config.prereq_threshold)
+            w_zpd=self.config.w_zpd,
+            w_prereq=self.config.w_prereq,
+            w_decay=self.config.w_decay,
+            w_momentum=self.config.w_momentum,
+            A_pre=A_pre,
+            prereq_threshold=self.config.prereq_threshold,
+        )
 
     def generate(
         self,
@@ -274,7 +287,9 @@ class PathGenerator:
         excluded: set[int] = exclude_skills or set()
         mastery_copy = list(mastery)
 
-        eligible = [s for s in self._prereq_filter.eligible(mastery_copy) if s not in excluded]
+        eligible = [
+            s for s in self._prereq_filter.eligible(mastery_copy) if s not in excluded
+        ]
         eligible = self._zpd_filter.filter(eligible, mastery_copy)
 
         steps = []
@@ -298,25 +313,27 @@ class PathGenerator:
             projected = round(min(1.0, cur + gain), 4)
             name = self.skill_names.get(best_sid, f"Skill {best_sid}")
 
-            steps.append({
-                "rank": rank + 1,
-                "skill_id": best_sid,
-                "skill_name": name,
-                "score": best_sc["total"],
-                "zpd_score": best_sc["zpd_proximity"],
-                "prereq_score": best_sc["prereq_strength"],
-                "decay_score": best_sc["decay_urgency"],
-                "momentum_score": best_sc["momentum"],
-                "current_mastery": round(cur, 4),
-                "predicted_mastery_gain": gain,
-                "projected_mastery": projected,
-                "rationale": (
-                    f"Mastery {cur:.0%} → targeting improvement. "
-                    f"ZPD={best_sc['zpd_proximity']:.2f}, "
-                    f"prereq={best_sc['prereq_strength']:.2f}, "
-                    f"decay={best_sc['decay_urgency']:.2f}."
-                ),
-            })
+            steps.append(
+                {
+                    "rank": rank + 1,
+                    "skill_id": best_sid,
+                    "skill_name": name,
+                    "score": best_sc["total"],
+                    "zpd_score": best_sc["zpd_proximity"],
+                    "prereq_score": best_sc["prereq_strength"],
+                    "decay_score": best_sc["decay_urgency"],
+                    "momentum_score": best_sc["momentum"],
+                    "current_mastery": round(cur, 4),
+                    "predicted_mastery_gain": gain,
+                    "projected_mastery": projected,
+                    "rationale": (
+                        f"Mastery {cur:.0%} → targeting improvement. "
+                        f"ZPD={best_sc['zpd_proximity']:.2f}, "
+                        f"prereq={best_sc['prereq_strength']:.2f}, "
+                        f"decay={best_sc['decay_urgency']:.2f}."
+                    ),
+                }
+            )
 
             selected.add(best_sid)
             mastery_copy[best_sid] = projected
@@ -324,7 +341,9 @@ class PathGenerator:
         return {
             "generated_at": datetime.now(tz=UTC).isoformat(),
             "path_length": len(steps),
-            "total_predicted_gain": round(sum(s["predicted_mastery_gain"] for s in steps), 4),
+            "total_predicted_gain": round(
+                sum(s["predicted_mastery_gain"] for s in steps), 4
+            ),
             "steps": steps,
             "zpd_range": [self.config.zpd_lo, self.config.zpd_hi],
             "strategy": "zpd_prereq_decay_momentum",

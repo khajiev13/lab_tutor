@@ -10,11 +10,13 @@ import {
   AlertTriangle, Target, BookOpen, Zap, Star, Info, ChevronDown, ChevronRight, Layers, FolderOpen,
 } from "lucide-react";
 import { formatPct100, buildConceptStats, getConceptLookupKey, buildAttemptedSkillIds } from "@/features/arcd-agent/lib/grading";
+import { InsightPanel } from "@/features/arcd-agent/components/insight-panel";
 
 interface JourneyMapTabProps {
   student: StudentPortfolio;
   skills: SkillInfo[];
   twinData?: TwinViewerData | null;
+  datasetId?: string;
 }
 
 // ── Skill card ────────────────────────────────────────────────────────────────
@@ -368,8 +370,8 @@ function DetailPanel({
                       <span className="flex-1 min-w-0 truncate">{conceptDisplayName(concept)}</span>
                       {stat ? (
                         <Badge
-                          variant={stat.correct / stat.total >= 0.5 ? "success" : "destructive"}
-                          className="text-[9px] px-1.5 shrink-0"
+                          variant={stat.correct / stat.total >= 0.5 ? "default" : "destructive"}
+                          className={`text-[9px] px-1.5 shrink-0 ${stat.correct / stat.total >= 0.5 ? "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30" : ""}`}
                         >
                           {stat.correct === stat.total
                             ? "correct"
@@ -405,7 +407,7 @@ function DetailPanel({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function JourneyMapTab({ student, skills, twinData }: JourneyMapTabProps) {
+export function JourneyMapTab({ student, skills, twinData, datasetId = "" }: JourneyMapTabProps) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   // Build concept-level stats (reuses same logic as the old Skill Map)
@@ -512,6 +514,9 @@ export function JourneyMapTab({ student, skills, twinData }: JourneyMapTabProps)
 
   return (
     <div className="space-y-5">
+
+      {/* ── ARCD Insight Engine ───────────────────────────────────────────── */}
+      <InsightPanel student={student} skills={skills} datasetId={datasetId} />
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">

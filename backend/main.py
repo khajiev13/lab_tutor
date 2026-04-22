@@ -51,6 +51,9 @@ from app.core.neo4j import (  # noqa: E402
 from app.core.request_timing_middleware import RequestTimingMiddleware  # noqa: E402
 from app.core.settings import settings  # noqa: E402
 from app.modules.auth import routes as auth_routes  # noqa: E402
+from app.modules.cognitive_diagnosis import (  # noqa: E402
+    routes as cognitive_diagnosis_routes,
+)
 from app.modules.concept_normalization import (  # noqa: E402
     routes as concept_normalization_routes,
 )
@@ -64,8 +67,12 @@ from app.modules.curricularalignmentarchitect.curriculum_planning import (  # no
 from app.modules.marketdemandanalyst.routes import (  # noqa: E402
     router as market_demand_router,
 )
+from app.modules.review_chat import routes as review_chat_routes  # noqa: E402
 from app.modules.student_learning_path.routes import (  # noqa: E402
     router as student_learning_path_router,
+)
+from app.modules.teacher_digital_twin.routes import (  # noqa: E402
+    router as teacher_twin_router,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,6 +98,9 @@ def _ensure_sql_schema_upgrades() -> None:
         return
 
     with engine.connect() as conn:
+        # Fail fast when another session holds conflicting locks (e.g. during
+        # tests where previous TestClient instances leave zombie connections).
+        conn.execute(text("SET lock_timeout = '30s'"))
         # Idempotent ALTER: add `level` column if missing.
         col_exists = conn.execute(
             text(
@@ -378,6 +388,9 @@ def _backfill_course_selected_books() -> None:
     )
 
     with SessionLocal() as db:
+        # Fail fast when another session holds conflicting locks (e.g. zombie
+        # test connections) — backfill is idempotent and non-critical.
+        db.execute(text("SET lock_timeout = '30s'"))
         # Find all selected course_books that don't yet have a course_selected_books entry
         existing_source_ids_subq = select(CourseSelectedBook.source_book_id).where(
             CourseSelectedBook.source_book_id.isnot(None)
@@ -514,6 +527,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
             def _recover() -> int:
                 with SessionLocal() as db:
+                    # Fail fast on lock contention (e.g. zombie test connections).
+                    db.execute(text("SET lock_timeout = '30s'"))
                     return recover_orphaned_runs(db)
 
             recovered = await asyncio.to_thread(_recover)
@@ -609,6 +624,9 @@ app.include_router(book_selection_router)
 app.include_router(market_demand_router)
 app.include_router(student_learning_path_router)
 app.include_router(chapter_plan_router)
+app.include_router(cognitive_diagnosis_routes.router)
+app.include_router(review_chat_routes.router)
+app.include_router(teacher_twin_router)
 
 
 @app.get("/docs", include_in_schema=False)

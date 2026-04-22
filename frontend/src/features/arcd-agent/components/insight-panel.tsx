@@ -3,8 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { StudentPortfolio, SkillInfo, InsightResponse } from "@/features/arcd-agent/lib/types";
 import { generateInsight } from "@/features/arcd-agent/lib/insight-engine";
 
-const REVFELL_API =
-  import.meta.env.VITE_REVFELL_API ?? "http://localhost:8100";
+const LEARNFELL_API =
+  import.meta.env.VITE_LEARNFELL_API ?? "http://localhost:8100";
 
 interface InsightPanelProps {
   student: StudentPortfolio;
@@ -126,7 +126,7 @@ export function InsightPanel({
   const fetchLlmInsight = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await fetch(`${REVFELL_API}/api/insight`, {
+      const resp = await fetch(`${LEARNFELL_API}/api/insight`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

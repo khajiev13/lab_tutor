@@ -7,7 +7,7 @@ __all__ = [
     "FocalLoss",
     "MasteryLoss",
     "ARCDLoss",
-    "ARCDTrainer",
     "ARCDModel",
+    "ARCDTrainer",
     "MetricsSuite",
 ]

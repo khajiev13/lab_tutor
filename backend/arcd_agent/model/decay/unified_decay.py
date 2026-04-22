@@ -43,7 +43,5 @@ class UnifiedDecayMLP(nn.Module):
         Returns:
             [B, S] unified decay value in [0, 1]
         """
-        x = torch.stack(
-            [delta_base, delta_diff, delta_rel, delta_mast], dim=-1
-        )
+        x = torch.stack([delta_base, delta_diff, delta_rel, delta_mast], dim=-1)
         return torch.sigmoid(self.mlp(x)).squeeze(-1)
