@@ -39,7 +39,9 @@ def _prereq_strength(
     return float(satisfied / len(prereqs))
 
 
-def _unlock_potential(skill_id: int, mastery_vec: np.ndarray, A_pre: np.ndarray) -> float:
+def _unlock_potential(
+    skill_id: int, mastery_vec: np.ndarray, A_pre: np.ndarray
+) -> float:
     downstream = np.where(A_pre[skill_id, : mastery_vec.shape[0]] > 0)[0]
     if len(downstream) == 0:
         return 0.0
@@ -111,8 +113,14 @@ def evaluate_path(
     for skill_id in skill_path:
         zpd = _zpd_score(float(mastery[skill_id]))
         prereq_strength = _prereq_strength(skill_id, mastery, prereq)
-        decay_urgency = float(1.0 - decay[skill_id]) if skill_id < decay.shape[0] else 0.0
-        gain = zpd * (0.5 + 0.5 * prereq_strength) * (0.25 + 0.75 * (1.0 - mastery[skill_id]))
+        decay_urgency = (
+            float(1.0 - decay[skill_id]) if skill_id < decay.shape[0] else 0.0
+        )
+        gain = (
+            zpd
+            * (0.5 + 0.5 * prereq_strength)
+            * (0.25 + 0.75 * (1.0 - mastery[skill_id]))
+        )
 
         zpd_scores.append(zpd)
         prereq_scores.append(prereq_strength)

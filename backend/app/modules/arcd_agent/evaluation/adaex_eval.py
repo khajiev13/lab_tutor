@@ -141,7 +141,9 @@ def evaluate_difficulty_strategy(
             raise ValueError("strategy_fn returned a vector with the wrong shape")
         assigned.append(assigned_vec)
         expected.append(
-            _expected_difficulty(mastery_vec, np.asarray(A_pre), calc, n_concepts_arr, max_concepts)
+            _expected_difficulty(
+                mastery_vec, np.asarray(A_pre), calc, n_concepts_arr, max_concepts
+            )
         )
 
     assigned_arr = np.stack(assigned, axis=0)
@@ -150,9 +152,7 @@ def evaluate_difficulty_strategy(
 
     prereq_depth = _prereq_profile(np.asarray(A_pre), mastery.shape[1])
     skill_mean_difficulty = assigned_arr.mean(axis=0)
-    zpd_target_gap = np.abs(
-        np.clip(assigned_arr + mastery - 1.0, -1.0, 1.0)
-    )
+    zpd_target_gap = np.abs(np.clip(assigned_arr + mastery - 1.0, -1.0, 1.0))
 
     return {
         "zpd_alignment": float(1.0 - np.mean(zpd_target_gap)),

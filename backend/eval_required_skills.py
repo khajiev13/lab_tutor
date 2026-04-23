@@ -52,7 +52,6 @@ from app.modules.arcd_agent.evaluation.pathgen_eval import (  # noqa: E402
     pathgen_v2,
     random_path,
 )
-
 from app.modules.arcd_agent.model.training import ARCDModel, MetricsSuite  # noqa: E402
 
 logger = logging.getLogger("eval_required_skills")
