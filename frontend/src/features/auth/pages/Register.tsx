@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -78,11 +79,15 @@ export default function Register() {
       });
       navigate('/login');
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-            'Registration failed. Please try again.';
+      let errorMessage = 'Registration failed. Please try again.';
+
+      if (axios.isAxiosError(error) && error.response?.data?.detail) {
+        const detail = error.response.data.detail;
+        errorMessage = Array.isArray(detail) ? detail.map(String).join(', ') : String(detail);
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
       toast.error('Registration failed', {
         description: errorMessage,
       });

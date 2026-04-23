@@ -300,7 +300,7 @@ Create a `.env` file in the project root. All backend variables use the `LAB_TUT
 
 | Prefix | Module | Key Endpoints |
 |--------|--------|--------------|
-| `/auth` | Auth | `POST /jwt/login`, `POST /jwt/refresh`, `POST /register` |
+| `/auth` | Auth | `POST /auth/jwt/login` (form: username+password), `POST /auth/jwt/refresh` (JSON: refresh_token), `POST /auth/register` (JSON, creates Neo4j USER node on success) |
 | `/courses` | Courses | `GET /`, `POST /`, `GET /{id}/graph`, `POST /{id}/upload-presentations` |
 | `/normalization` | Concepts | `GET /stream`, `POST /reviews/{id}/decisions` |
 | `/book-selection` | Architect | `POST /sessions/start`, `POST /{book_id}/select`, `POST /courses/{id}/analysis` |
