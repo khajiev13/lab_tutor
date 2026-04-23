@@ -28,11 +28,7 @@ _registry: ModelRegistry | None = None
 def _default_checkpoint_dir() -> Path:
     """Resolve the default checkpoint directory relative to this file."""
     # backend/app/modules/arcd_serving/app.py  →  backend/checkpoints/roma_synth_v6_2048
-    return (
-        Path(__file__).resolve().parents[3]
-        / "checkpoints"
-        / "roma_synth_v6_2048"
-    )
+    return Path(__file__).resolve().parents[3] / "checkpoints" / "roma_synth_v6_2048"
 
 
 def get_registry() -> ModelRegistry:
