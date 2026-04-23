@@ -1,37 +1,35 @@
-import { useState } from "react";
-import {
-  BookOpen,
-  ChevronDown,
-  Lightbulb,
-  Library,
-  Hash,
-} from "lucide-react";
+import { useState } from 'react';
+import { BookOpen, ChevronDown, Library, Lightbulb, Users } from 'lucide-react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
+} from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import type { BookSkillBankBook } from "../types";
+} from '@/components/ui/collapsible';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import type { SkillBankDisplayBook } from '@/features/curriculum/types';
 
-export function BookSkillBank({ books }: { books: BookSkillBankBook[] }) {
+export function BookSkillBank({
+  books,
+  selectedStudentName,
+}: {
+  books: SkillBankDisplayBook[];
+  selectedStudentName?: string | null;
+}) {
   if (books.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <Library className="size-10 text-muted-foreground/40 mb-3" />
-        <p className="text-sm font-medium text-muted-foreground">
-          No books analyzed yet
-        </p>
-        <p className="text-xs text-muted-foreground/60 mt-1">
+        <Library className="mb-3 size-10 text-muted-foreground/40" />
+        <p className="text-sm font-medium text-muted-foreground">No books analyzed yet</p>
+        <p className="mt-1 text-xs text-muted-foreground/60">
           Use the Curricular Alignment Architect to select and analyze textbooks
         </p>
       </div>
@@ -39,68 +37,62 @@ export function BookSkillBank({ books }: { books: BookSkillBankBook[] }) {
   }
 
   const totalSkills = books.reduce(
-    (sum, b) =>
-      sum + b.chapters.reduce((cSum, ch) => cSum + ch.skills.length, 0),
-    0
+    (sum, book) => sum + book.chapters.reduce((chapterTotal, chapter) => chapterTotal + chapter.skills.length, 0),
+    0,
   );
-  const totalChapters = books.reduce(
-    (sum, b) => sum + b.chapters.length,
-    0
-  );
+  const totalChapters = books.reduce((sum, book) => sum + book.chapters.length, 0);
 
   return (
     <div className="space-y-4">
-      {/* Summary strip */}
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <Badge variant="outline" className="gap-1">
           <Library className="size-3" />
-          {books.length} {books.length === 1 ? "book" : "books"}
+          {books.length} {books.length === 1 ? 'book' : 'books'}
         </Badge>
         <Badge variant="outline" className="gap-1">
-          <Hash className="size-3" />
+          <BookOpen className="size-3" />
           {totalChapters} chapters
         </Badge>
         <Badge variant="outline" className="gap-1">
           <Lightbulb className="size-3" />
           {totalSkills} skills
         </Badge>
+        {selectedStudentName && (
+          <Badge variant="secondary">Overlaying {selectedStudentName}&apos;s saved selections</Badge>
+        )}
       </div>
 
-      {/* Book cards */}
       {books.map((book) => (
-        <BookCard key={book.book_id} book={book} />
+        <BookCard key={book.book_id} book={book} selectedStudentName={selectedStudentName} />
       ))}
     </div>
   );
 }
 
-function BookCard({ book }: { book: BookSkillBankBook }) {
-  const totalSkills = book.chapters.reduce(
-    (sum, ch) => sum + ch.skills.length,
-    0
-  );
+function BookCard({
+  book,
+  selectedStudentName,
+}: {
+  book: SkillBankDisplayBook;
+  selectedStudentName?: string | null;
+}) {
+  const totalSkills = book.chapters.reduce((sum, chapter) => sum + chapter.skills.length, 0);
 
   return (
     <Card className="shadow-none">
       <CardHeader className="pb-2">
         <div className="flex items-start gap-3">
-          <div className="rounded-md bg-violet-100 dark:bg-violet-950 p-2 shrink-0">
+          <div className="rounded-md bg-violet-100 p-2 shrink-0 dark:bg-violet-950">
             <BookOpen className="size-4 text-violet-600 dark:text-violet-400" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold leading-tight">
-              {book.title}
-            </h3>
-            {book.authors && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {book.authors}
-              </p>
-            )}
-            <div className="flex items-center gap-2 mt-1.5">
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            <h3 className="text-sm font-semibold leading-tight">{book.title}</h3>
+            {book.authors && <p className="mt-0.5 text-xs text-muted-foreground">{book.authors}</p>}
+            <div className="mt-1.5 flex items-center gap-2">
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                 {book.chapters.length} chapters
               </Badge>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                 {totalSkills} skills
               </Badge>
             </div>
@@ -109,38 +101,35 @@ function BookCard({ book }: { book: BookSkillBankBook }) {
       </CardHeader>
       <CardContent className="pt-0">
         <Accordion type="multiple" className="w-full">
-          {book.chapters.map((ch) => (
+          {book.chapters.map((chapter) => (
             <AccordionItem
-              key={ch.chapter_id}
-              value={ch.chapter_id}
+              key={chapter.chapter_id}
+              value={chapter.chapter_id}
               className="border-b-0 last:border-b-0"
             >
-              <AccordionTrigger className="hover:no-underline py-2 gap-2">
-                <div className="flex flex-1 items-center gap-2 min-w-0">
-                  <span className="flex items-center justify-center size-5 rounded bg-muted text-[10px] font-bold shrink-0">
-                    {ch.chapter_index}
+              <AccordionTrigger className="gap-2 py-2 hover:no-underline">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-bold">
+                    {chapter.chapter_index}
                   </span>
-                  <span className="text-xs truncate">
-                    Chapter {ch.chapter_index}
-                  </span>
+                  <span className="truncate text-xs">Chapter {chapter.chapter_index}: {chapter.title}</span>
                 </div>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] px-1.5 py-0 gap-0.5 shrink-0 mr-2"
-                >
+                <Badge variant="outline" className="mr-2 shrink-0 gap-0.5 px-1.5 py-0 text-[10px]">
                   <Lightbulb className="size-2.5" />
-                  {ch.skills.length}
+                  {chapter.skills.length}
                 </Badge>
               </AccordionTrigger>
               <AccordionContent>
-                {ch.skills.length === 0 ? (
-                  <p className="text-xs text-muted-foreground pl-7">
-                    No skills extracted
-                  </p>
+                {chapter.skills.length === 0 ? (
+                  <p className="pl-7 text-xs text-muted-foreground">No skills extracted</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5 pl-7">
-                    {ch.skills.map((skill) => (
-                      <SkillChip key={skill.name} skill={skill} />
+                    {chapter.skills.map((skill) => (
+                      <ReadOnlySkillChip
+                        key={`${chapter.chapter_id}-${skill.name}`}
+                        skill={skill}
+                        selectedStudentName={selectedStudentName}
+                      />
                     ))}
                   </div>
                 )}
@@ -153,42 +142,54 @@ function BookCard({ book }: { book: BookSkillBankBook }) {
   );
 }
 
-function SkillChip({
+function ReadOnlySkillChip({
   skill,
+  selectedStudentName,
 }: {
-  skill: { name: string; description: string | null };
+  skill: SkillBankDisplayBook['chapters'][number]['skills'][number];
+  selectedStudentName?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-
-  if (!skill.description) {
-    return (
-      <Badge variant="secondary" className="text-[11px] px-2 py-0.5">
-        {skill.name}
-      </Badge>
-    );
-  }
+  const hasDescription = Boolean(skill.description);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger asChild>
-        <Badge
-          variant="secondary"
-          className="text-[11px] px-2 py-0.5 cursor-pointer hover:bg-secondary/80 transition-colors gap-1"
-        >
-          {skill.name}
-          <ChevronDown
-            className={cn(
-              "size-2.5 transition-transform",
-              open && "rotate-180"
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <Badge
+            variant={skill.overlay?.isSelected ? 'default' : 'secondary'}
+            className="cursor-pointer gap-1 px-2 py-0.5 text-[11px] transition-colors hover:bg-secondary/80"
+            title={skill.description ?? ''}
+          >
+            <span>{skill.name}</span>
+            {hasDescription && (
+              <ChevronDown
+                className={cn('size-2.5 transition-transform', open && 'rotate-180')}
+              />
             )}
-          />
+          </Badge>
+        </CollapsibleTrigger>
+        {hasDescription && (
+          <CollapsibleContent className="mt-1 mb-1 w-full basis-full">
+            <p className="rounded bg-muted/50 px-2 py-1 text-[10px] text-muted-foreground">
+              {skill.description}
+            </p>
+          </CollapsibleContent>
+        )}
+      </Collapsible>
+
+      {skill.overlay?.isSelected && selectedStudentName && (
+        <Badge variant="outline" className="text-[10px]">
+          Selected by {selectedStudentName}
         </Badge>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="w-full basis-full mt-1 mb-1">
-        <p className="text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1">
-          {skill.description}
-        </p>
-      </CollapsibleContent>
-    </Collapsible>
+      )}
+
+      {(skill.overlay?.peerCount ?? 0) > 0 && (
+        <Badge variant="outline" className="gap-1 text-[10px]">
+          <Users className="size-3" />
+          {skill.overlay?.peerCount}
+        </Badge>
+      )}
+    </div>
   );
 }

@@ -186,6 +186,53 @@ def test_get_student_skill_banks_keeps_legacy_market_skills_visible():
     assert result.market_skill_bank[0].skills[0].name == "Kafka"
 
 
+def test_get_student_skill_banks_can_infer_interested_postings_from_selected_market_skills():
+    session = MagicMock()
+    neo4j_repository.CourseGraphRepository.get_skill_selection_range = (  # type: ignore[method-assign]
+        lambda self, *, course_id: {
+            "min_skills": 20,
+            "max_skills": 35,
+            "is_default": True,
+        }
+    )
+    session.run.side_effect = [
+        [{"name": "Kafka", "source": "market"}],
+        [],
+        [{"url": "https://jobs.example/backend"}],
+        [],
+        [],
+        [],
+        [
+            {
+                "job_posting": {
+                    "url": "https://jobs.example/backend",
+                    "title": "Backend Engineer",
+                    "company": "Acme",
+                    "site": "LinkedIn",
+                    "search_term": "backend engineer",
+                    "skills": [
+                        {
+                            "name": "Kafka",
+                            "description": "Stream events across services.",
+                            "category": "data_processing",
+                        }
+                    ],
+                }
+            }
+        ],
+    ]
+
+    result = neo4j_repository.get_student_skill_banks(
+        session,
+        student_id=11,
+        course_id=2,
+        include_inferred_selected_postings=True,
+    )
+
+    assert result.interested_posting_urls == ["https://jobs.example/backend"]
+    assert result.market_skill_bank[0].is_interested is True
+
+
 def test_select_skills_scopes_book_selection_to_course():
     session = MagicMock()
     session.run.return_value.single.return_value = {"written": 1}

@@ -4,6 +4,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.modules.student_learning_path.schemas import StudentSkillBankResponse
+
 
 class SkillSource(StrEnum):
     BOOK = "book"
@@ -98,20 +100,6 @@ class CurriculumResponse(BaseModel):
     chapters: list[ChapterRead] = []
 
 
-class ChangelogEntry(BaseModel):
-    timestamp: str
-    agent: str
-    action: str
-    details: str
-    chapter: str | None = None
-    skill_name: str | None = None
-
-
-class CurriculumWithChangelog(BaseModel):
-    curriculum: CurriculumResponse
-    changelog: list[ChangelogEntry] = []
-
-
 # ── Skill Banks schemas ──────────────────────────────────────────
 
 
@@ -136,6 +124,7 @@ class BookSkillBankSkill(BaseModel):
 class BookSkillBankChapter(BaseModel):
     chapter_index: int
     chapter_id: str
+    title: str | None = None
     skills: list[BookSkillBankSkill] = []
 
 
@@ -185,3 +174,65 @@ class SkillBanksResponse(BaseModel):
     book_skill_bank: list[BookSkillBankBook] = []
     market_skill_bank: list[MarketSkillBankJobPosting] = []
     selection_range: SkillSelectionRange
+
+
+class StudentInsightTopSkill(BaseModel):
+    name: str
+    student_count: int = 0
+
+
+class StudentInsightTopPosting(BaseModel):
+    url: str
+    title: str | None = None
+    company: str | None = None
+    student_count: int = 0
+
+
+class StudentInsightStudent(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    selected_skill_count: int = 0
+    interested_posting_count: int = 0
+    has_learning_path: bool = False
+
+
+class StudentInsightsSummary(BaseModel):
+    students_with_selections: int = 0
+    students_with_learning_paths: int = 0
+    avg_selected_skill_count: float = 0.0
+    top_selected_skills: list[StudentInsightTopSkill] = []
+    top_interested_postings: list[StudentInsightTopPosting] = []
+
+
+class StudentInsightsOverviewResponse(BaseModel):
+    summary: StudentInsightsSummary
+    students: list[StudentInsightStudent] = []
+
+
+class StudentInsightProfile(BaseModel):
+    id: int
+    full_name: str
+    email: str
+
+
+class LearningPathChapterStatusCounts(BaseModel):
+    locked: int = 0
+    quiz_required: int = 0
+    learning: int = 0
+    completed: int = 0
+
+
+class LearningPathSummary(BaseModel):
+    has_learning_path: bool = False
+    total_selected_skills: int = 0
+    skills_with_resources: int = 0
+    chapter_status_counts: LearningPathChapterStatusCounts = Field(
+        default_factory=LearningPathChapterStatusCounts
+    )
+
+
+class StudentInsightDetailResponse(BaseModel):
+    student: StudentInsightProfile
+    skill_banks: StudentSkillBankResponse
+    learning_path_summary: LearningPathSummary

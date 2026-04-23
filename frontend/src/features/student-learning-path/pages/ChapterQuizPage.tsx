@@ -476,10 +476,11 @@ function QuestionPrompt({
                     const optionId = `${question.id}-${optionValue}`;
 
                     return (
-                      <div
+                      <Label
                         key={optionValue}
+                        htmlFor={optionId}
                         className={cn(
-                          'flex items-start gap-3 rounded-xl border p-3 transition-colors',
+                          'flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors',
                           field.value === optionValue
                             ? 'border-primary/40 bg-primary/5'
                             : 'border-border/60 bg-background hover:bg-accent/50',
@@ -487,11 +488,11 @@ function QuestionPrompt({
                       >
                         <RadioGroupItem id={optionId} value={optionValue} className="mt-0.5" />
                         <div className="grid gap-1">
-                          <Label htmlFor={optionId} className="cursor-pointer text-sm font-medium">
+                          <span className="text-sm font-medium">
                             {optionValue}. {option}
-                          </Label>
+                          </span>
                         </div>
-                      </div>
+                      </Label>
                     );
                   })}
                 </RadioGroup>
