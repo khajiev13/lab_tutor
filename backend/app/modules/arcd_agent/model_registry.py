@@ -7,7 +7,7 @@ scores.
 
 Usage
 -----
-    from arcd_agent.model_registry import ModelRegistry
+    from app.modules.arcd_agent.model_registry import ModelRegistry
 
     registry = ModelRegistry.from_dir(Path("checkpoints/roma_synth_v6_2048"))
     if registry.is_available:
@@ -93,7 +93,7 @@ class ModelRegistry:
         return reg
 
     def _load(self, ckpt_path: Path) -> None:
-        from arcd_agent.model.training import ARCDModel
+        from app.modules.arcd_agent.model.training import ARCDModel
 
         ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
         # Support both key naming conventions (old: config/state_dict, new: model_config/model_state_dict)

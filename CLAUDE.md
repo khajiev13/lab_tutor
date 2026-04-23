@@ -263,7 +263,7 @@ After training:
    uv run python arcd_train.py \
        --data-dir ../knowledge_graph_builder/data/synthgen/<new_run_id> \
        --out-dir checkpoints/roma_synth_v4_2048
-6. Update DEFAULT_CHECKPOINT_DIR in backend/arcd_agent/model_registry.py
+6. Update DEFAULT_CHECKPOINT_DIR in backend/app/modules/arcd_agent/model_registry.py
    (already set to roma_synth_v4_2048)
 7. Write all 5 GAT stage outputs (arcd_h_skill, arcd_h_question, arcd_h_video,
    arcd_h_reading, arcd_h_student) back to Neo4j at 2048-dim

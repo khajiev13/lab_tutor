@@ -1,21 +1,21 @@
 """
-src/agents/orchestrator.py — Multi-Agent ARCD Orchestrator.
+ARCD Orchestrator — Multi-Agent ARCD Orchestrator.
 
 Implements a LangGraph closed-loop cycle:
     assess → pathgen → review → exercises → reassess ⟲ (or finalize)
 
 The orchestrator composes PathGenerator, PCODetector, FastReviewMode, and
-DifficultyCalculator from the rest of src/agents/, providing a single entry
+DifficultyCalculator from the rest of the ARCD agent package, providing a single entry
 point to drive the full adaptive tutoring loop.
 
 Usage (standalone):
-    from src.agents.orchestrator import ARCDOrchestrator
+    from app.modules.arcd_agent.agents.orchestrator import ARCDOrchestrator
 
     orch = ARCDOrchestrator(A_skill=A, skill_names=names, llm=llm)
     result = orch.run(student_dict, skills_list)
 
 Usage (LangGraph graph only):
-    from src.agents.orchestrator import build_orchestrator
+    from app.modules.arcd_agent.agents.orchestrator import build_orchestrator
     graph = build_orchestrator(A_skill=A, skill_names=names, llm=llm)
     state = graph.invoke(initial_state)
 """
@@ -33,9 +33,13 @@ try:
 except ImportError:
     from typing_extensions import TypedDict  # type: ignore[assignment]
 
-from src.agents.adaex import DifficultyCalculator
-from src.agents.learnfell import FastReviewMode, MasterySync, PCODetector
-from src.agents.pathgen import PathGenConfig, PathGenerator
+from app.modules.arcd_agent.agents.adaex import DifficultyCalculator
+from app.modules.arcd_agent.agents.learnfell import (
+    FastReviewMode,
+    MasterySync,
+    PCODetector,
+)
+from app.modules.arcd_agent.agents.pathgen import PathGenConfig, PathGenerator
 
 # ── Orchestrator state ────────────────────────────────────────────────
 
@@ -122,7 +126,7 @@ def _build_pathgen_node(A_skill, skill_names: dict, llm=None):
     """Return a pathgen_node closure bound to the given graph and LLM."""
 
     def pathgen_node(state: OrchestratorState) -> dict:
-        from src.agents.pathgen import PathGenConfig, PathGenerator
+        from app.modules.arcd_agent.agents.pathgen import PathGenConfig, PathGenerator
 
         cfg = PathGenConfig(path_length=5)
         gen = PathGenerator(A_pre=A_skill, skill_names=skill_names, config=cfg)

@@ -10,10 +10,10 @@ cd backend
 
 # 1 – Start the service (defaults to port 8000, reads roma_synth_v6_2048 checkpoint)
 ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v6_2048 \
-    uv run python -m arcd_serving.run --port 8000
+    uv run python -m app.modules.arcd_serving.run --port 8000
 
 # 2 – Run the test client (separate terminal)
-uv run python -m arcd_serving.test_client \
+uv run python -m app.modules.arcd_serving.test_client \
     --base-url http://localhost:8000 \
     --n-students 20 \
     --data-dir ../knowledge_graph_builder/data/synthgen/<run_id>
@@ -33,7 +33,7 @@ uv run python -m arcd_serving.test_client \
 
 ```python
 from pathlib import Path
-from arcd_agent.model_registry import ModelRegistry
+from app.modules.arcd_agent.model_registry import ModelRegistry
 
 registry = ModelRegistry.from_dir(Path("checkpoints/roma_synth_v1"))
 
@@ -210,7 +210,7 @@ Set the environment variable before starting the service:
 ```bash
 # After a new training run
 ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v1_reg \
-    uv run python -m arcd_serving.run --port 8000
+    uv run python -m app.modules.arcd_serving.run --port 8000
 ```
 
 The checkpoint directory must contain:
@@ -226,7 +226,7 @@ For production, use **Gunicorn** instead of the built-in Flask server:
 ```bash
 pip install gunicorn
 ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v6_2048 \
-    gunicorn "arcd_serving:create_app()" \
+    gunicorn "app.modules.arcd_serving:create_app()" \
     --workers 1 --threads 4 \
     --bind 0.0.0.0:8000
 ```
@@ -246,9 +246,9 @@ concurrent requests. The model is CPU-only at inference time (uses `map_location
 
 ```bash
 ARCD_CHECKPOINT_DIR=checkpoints/<new_run_id> \
-    uv run python -m arcd_serving.run --port 9001 &
+    uv run python -m app.modules.arcd_serving.run --port 9001 &
 
-uv run python -m arcd_serving.test_client \
+uv run python -m app.modules.arcd_serving.test_client \
     --base-url http://127.0.0.1:9001 \
     --n-students 20 \
     --data-dir ../knowledge_graph_builder/data/synthgen/<new_run_id>

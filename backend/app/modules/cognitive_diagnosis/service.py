@@ -18,7 +18,7 @@ import numpy as np
 from neo4j import Driver as Neo4jDriver
 
 from app.core.settings import settings
-from arcd_agent.model_registry import get_registry
+from app.modules.arcd_agent.model_registry import get_registry
 
 from .repository import CognitiveDiagnosisRepository
 from .schemas import (
@@ -583,7 +583,7 @@ class CognitiveDiagnosisService:
         path_length: int = 8,
     ) -> LearningPathDiagnosisResponse:
         """Generate a ZPD-calibrated learning path using PathGen."""
-        from arcd_agent.agents.pathgen import PathGenConfig, PathGenerator
+        from app.modules.arcd_agent.agents.pathgen import PathGenConfig, PathGenerator
 
         db = settings.neo4j_database
         with self._driver.session(database=db) as session:
@@ -776,7 +776,7 @@ class CognitiveDiagnosisService:
         top_k: int = 5,
     ) -> ReviewResponse:
         """Run PCO detection and urgency-based review scheduling."""
-        from arcd_agent.agents.learnfell import (
+        from app.modules.arcd_agent.agents.learnfell import (
             EmotionalState,
             FastReviewMode,
             PCODetector,
@@ -793,6 +793,18 @@ class CognitiveDiagnosisService:
                 user_id=user_id,
                 from_date=_today_utc_date().isoformat(),
                 to_date=event_end,
+            )
+
+        if not skill_rows:
+            return ReviewResponse(
+                user_id=user_id,
+                pco_skills=[],
+                review_queue=[],
+                emotional_state="engaged",
+                teaching_strategy={
+                    "summary": "Select skills in your learning path to activate review recommendations."
+                },
+                agenda_context=[],
             )
 
         skill_names = [r["skill_name"] for r in skill_rows]
@@ -929,7 +941,7 @@ class CognitiveDiagnosisService:
         context: str = "",
     ) -> ExerciseResponse:
         """Generate an adaptive exercise for a skill using AdaEx."""
-        from arcd_agent.agents.adaex import (
+        from app.modules.arcd_agent.agents.adaex import (
             DifficultyCalculator,
             ExerciseBank,
             ExerciseEvaluator,
@@ -1114,11 +1126,8 @@ class CognitiveDiagnosisService:
         with self._driver.session(database=db) as session:
             repo = self._repo(session)
             # Use the student's selected skills as the canonical skill list so every
-            # ARCD tab (journey map, radar, pathgen, twin) reflects only what the
-            # student enrolled in.  The repository falls back to all course skills
-            # automatically when the student has made no selection yet, so this
-            # behaves identically to the old behaviour for students who haven't
-            # selected any skills.
+            # ARCD tab (journey map, radar, pathgen, twin) stays inactive until the
+            # student explicitly chooses the skills they want to study.
             skill_rows = repo.get_student_selected_skills(user_id, course_id)
             mastery_rows = repo.get_student_mastery(user_id, course_id)
             timeline_rows = repo.get_student_timeline(user_id, course_id)

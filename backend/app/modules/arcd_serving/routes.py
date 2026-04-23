@@ -14,8 +14,8 @@ from __future__ import annotations
 from flask import Blueprint, Response, jsonify, request
 from pydantic import ValidationError
 
-from arcd_serving.app import get_registry
-from arcd_serving.schemas import (
+from app.modules.arcd_serving.app import get_registry
+from app.modules.arcd_serving.schemas import (
     MasteryRequest,
     MasteryResponse,
     NextQuestionRequest,

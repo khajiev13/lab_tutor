@@ -334,10 +334,6 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("=" * 60)
     logger.info("synthgen COMPLETE in %.1fs — run_id: %s", elapsed, cfg.run_id)
     logger.info("  Parquet artifacts : %s", out_dir)
-    logger.info(
-        "  Cleanup command   : uv run python -m synthgen.cleanup --run-id %s",
-        cfg.run_id,
-    )
     logger.info("=" * 60)
 
 
