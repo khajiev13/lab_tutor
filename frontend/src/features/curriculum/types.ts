@@ -1,109 +1,3 @@
-export type SkillSource = "book" | "market_demand";
-
-export interface JobPostingRead {
-  url: string;
-  title: string | null;
-  company: string | null;
-  site: string | null;
-}
-
-export interface ConceptRead {
-  name: string;
-  description: string | null;
-}
-
-export interface ReadingResourceRead {
-  title: string;
-  url: string;
-  domain: string;
-  snippet: string;
-  search_content: string;
-  search_result_url: string;
-  search_result_domain: string;
-  source_engine: string;
-  source_engines: string[];
-  search_metadata_json: string;
-  final_score: number;
-  resource_type: string;
-  concepts_covered: string[];
-}
-
-export interface VideoResourceRead {
-  title: string;
-  url: string;
-  video_id: string;
-  domain: string;
-  snippet: string;
-  search_content: string;
-  search_result_url: string;
-  search_result_domain: string;
-  source_engine: string;
-  source_engines: string[];
-  search_metadata_json: string;
-  final_score: number;
-  resource_type: string;
-  concepts_covered: string[];
-}
-
-export interface SkillRead {
-  name: string;
-  source: SkillSource;
-  description: string | null;
-  concepts: ConceptRead[];
-
-  // Market-demand-only fields
-  category: string | null;
-  frequency: number | null;
-  demand_pct: number | null;
-  priority: string | null;
-  status: string | null;
-  reasoning: string | null;
-  rationale: string | null;
-  created_at: string | null;
-  job_postings: JobPostingRead[];
-
-  // Resource discovery fields
-  readings: ReadingResourceRead[];
-  videos: VideoResourceRead[];
-}
-
-export interface SectionRead {
-  section_index: number;
-  title: string;
-  concepts: ConceptRead[];
-}
-
-export interface ChapterRead {
-  chapter_index: number;
-  title: string;
-  summary: string | null;
-  sections: SectionRead[];
-  skills: SkillRead[];
-}
-
-export interface CurriculumResponse {
-  course_id: number;
-  book_title: string | null;
-  book_authors: string | null;
-  chapters: ChapterRead[];
-}
-
-export interface ChangelogEntry {
-  timestamp: string;
-  agent: string;
-  action: string;
-  details: string;
-  chapter: string | null;
-  skill_name: string | null;
-}
-
-export interface CurriculumWithChangelog {
-  curriculum: CurriculumResponse;
-  changelog: ChangelogEntry[];
-}
-
-// ── Skill Banks types ──────────────────────────────────────────
-
 export interface TranscriptDocument {
   topic: string;
   source_filename: string | null;
@@ -125,6 +19,7 @@ export interface BookSkillBankSkill {
 export interface BookSkillBankChapter {
   chapter_index: number;
   chapter_id: string;
+  title: string | null;
   skills: BookSkillBankSkill[];
 }
 
@@ -163,4 +58,144 @@ export interface SkillBanksResponse {
   book_skill_bank: BookSkillBankBook[];
   market_skill_bank: MarketSkillBankJobPosting[];
   selection_range: SkillSelectionRange;
+}
+
+export interface TeacherInsightTopSkill {
+  name: string;
+  student_count: number;
+}
+
+export interface TeacherInsightTopPosting {
+  url: string;
+  title: string | null;
+  company: string | null;
+  student_count: number;
+}
+
+export interface StudentInsightStudent {
+  id: number;
+  full_name: string;
+  email: string;
+  selected_skill_count: number;
+  interested_posting_count: number;
+  has_learning_path: boolean;
+}
+
+export interface StudentInsightsSummary {
+  students_with_selections: number;
+  students_with_learning_paths: number;
+  avg_selected_skill_count: number;
+  top_selected_skills: TeacherInsightTopSkill[];
+  top_interested_postings: TeacherInsightTopPosting[];
+}
+
+export interface StudentInsightsOverview {
+  summary: StudentInsightsSummary;
+  students: StudentInsightStudent[];
+}
+
+export interface TeacherStudentSkillBankSkill {
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  is_selected?: boolean;
+  source?: string | null;
+  peer_count?: number;
+}
+
+export interface TeacherStudentSkillBankChapter {
+  chapter_id: string;
+  title: string;
+  chapter_index: number;
+  skills: TeacherStudentSkillBankSkill[];
+}
+
+export interface TeacherStudentSkillBankBook {
+  book_id: string;
+  title: string;
+  authors?: string | null;
+  chapters: TeacherStudentSkillBankChapter[];
+}
+
+export interface TeacherStudentSkillBankJobPosting {
+  url: string;
+  title: string;
+  company: string | null;
+  site?: string | null;
+  search_term?: string | null;
+  is_interested: boolean;
+  skills: TeacherStudentSkillBankSkill[];
+}
+
+export interface TeacherSkillBanksOverlay {
+  book_skill_banks: TeacherStudentSkillBankBook[];
+  market_skill_bank: TeacherStudentSkillBankJobPosting[];
+  selected_skill_names: string[];
+  interested_posting_urls: string[];
+  peer_selection_counts: Record<string, number>;
+  selection_range: SkillSelectionRange;
+  prerequisite_edges: Array<{
+    prerequisite_name: string;
+    dependent_name: string;
+    confidence: 'high' | 'medium' | 'low';
+    reasoning: string;
+  }>;
+}
+
+export interface LearningPathChapterStatusCounts {
+  locked: number;
+  quiz_required: number;
+  learning: number;
+  completed: number;
+}
+
+export interface LearningPathSummary {
+  has_learning_path: boolean;
+  total_selected_skills: number;
+  skills_with_resources: number;
+  chapter_status_counts: LearningPathChapterStatusCounts;
+}
+
+export interface TeacherStudentInsightDetail {
+  student: Pick<StudentInsightStudent, 'id' | 'full_name' | 'email'>;
+  skill_banks: TeacherSkillBanksOverlay;
+  learning_path_summary: LearningPathSummary;
+}
+
+export interface SkillBankDisplaySkill {
+  name: string;
+  description: string | null;
+  category?: string | null;
+  priority?: string | null;
+  demand_pct?: number | null;
+  overlay?: {
+    isSelected: boolean;
+    peerCount: number;
+  };
+}
+
+export interface SkillBankDisplayBookChapter {
+  chapter_id: string;
+  title: string;
+  chapter_index: number;
+  skills: SkillBankDisplaySkill[];
+}
+
+export interface SkillBankDisplayBook {
+  book_id: string;
+  title: string;
+  authors: string | null;
+  chapters: SkillBankDisplayBookChapter[];
+}
+
+export interface SkillBankDisplayJobPosting {
+  url: string;
+  title: string;
+  company: string | null;
+  site: string | null;
+  search_term: string | null;
+  skills: SkillBankDisplaySkill[];
+  overlay?: {
+    isInterested: boolean;
+  };
 }

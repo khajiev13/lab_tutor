@@ -1,77 +1,64 @@
 import {
   BookOpen,
-  TrendingUp,
+  Briefcase,
   Layers,
-  Lightbulb,
-  AlertTriangle,
+  FileText,
+  TrendingUp,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
-import type { CurriculumResponse } from "../types";
 
 interface StatItem {
   label: string;
   value: number;
-  icon: React.ReactNode;
-  className?: string;
+  icon: LucideIcon;
+  iconClassName: string;
 }
 
 export function CurriculumStats({
-  curriculum,
+  courseChapterCount,
+  transcriptFileCount,
+  bookSkillCount,
+  marketSkillCount,
+  jobPostingCount,
 }: {
-  curriculum: CurriculumResponse;
+  courseChapterCount: number;
+  transcriptFileCount: number;
+  bookSkillCount: number;
+  marketSkillCount: number;
+  jobPostingCount: number;
 }) {
-  const chapters = curriculum.chapters;
-
-  const totalBookSkills = chapters.reduce(
-    (sum, ch) => sum + ch.skills.filter((s) => s.source === "book").length,
-    0
-  );
-  const totalMarketSkills = chapters.reduce(
-    (sum, ch) =>
-      sum + ch.skills.filter((s) => s.source === "market_demand").length,
-    0
-  );
-  const uniqueConcepts = new Set(
-    chapters.flatMap((ch) => [
-      ...ch.sections.flatMap((s) => s.concepts.map((c) => c.name)),
-      ...ch.skills.flatMap((sk) => sk.concepts.map((c) => c.name)),
-    ])
-  ).size;
-  const gaps = chapters.reduce(
-    (sum, ch) =>
-      sum +
-      ch.skills.filter(
-        (s) => s.source === "market_demand" && s.status === "gap"
-      ).length,
-    0
-  );
-
   const stats: StatItem[] = [
     {
-      label: "Chapters",
-      value: chapters.length,
-      icon: <Layers className="size-4 text-blue-500" />,
+      label: "Course Chapters",
+      value: courseChapterCount,
+      icon: Layers,
+      iconClassName: "text-blue-500",
+    },
+    {
+      label: "Transcript Files",
+      value: transcriptFileCount,
+      icon: FileText,
+      iconClassName: "text-sky-500",
     },
     {
       label: "Book Skills",
-      value: totalBookSkills,
-      icon: <BookOpen className="size-4 text-violet-500" />,
+      value: bookSkillCount,
+      icon: BookOpen,
+      iconClassName: "text-violet-500",
     },
     {
       label: "Market Skills",
-      value: totalMarketSkills,
-      icon: <TrendingUp className="size-4 text-emerald-500" />,
+      value: marketSkillCount,
+      icon: TrendingUp,
+      iconClassName: "text-emerald-500",
     },
     {
-      label: "Concepts",
-      value: uniqueConcepts,
-      icon: <Lightbulb className="size-4 text-amber-500" />,
-    },
-    {
-      label: "Gaps",
-      value: gaps,
-      icon: <AlertTriangle className="size-4 text-red-500" />,
+      label: "Job Postings",
+      value: jobPostingCount,
+      icon: Briefcase,
+      iconClassName: "text-amber-500",
     },
   ];
 
@@ -80,7 +67,9 @@ export function CurriculumStats({
       {stats.map((stat) => (
         <Card key={stat.label} className="shadow-none py-0">
           <CardContent className="px-4 py-3 flex items-center gap-3">
-            <div className="rounded-md bg-muted p-2">{stat.icon}</div>
+            <div className="rounded-md bg-muted p-2">
+              <stat.icon className={`size-4 ${stat.iconClassName}`} />
+            </div>
             <div>
               <p className="text-lg font-bold leading-none">{stat.value}</p>
               <p className="text-xs text-muted-foreground mt-0.5">

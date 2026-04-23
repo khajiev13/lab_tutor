@@ -105,6 +105,45 @@ const permissiveUnlockedSkillBanks = {
   },
 };
 
+const permissiveUnlockedSkillBanksWithoutPrerequisites = {
+  ...permissiveUnlockedSkillBanks,
+  prerequisite_edges: [],
+};
+
+const permissiveUnlockedSkillBanksWithPostingOwnedDrafts = {
+  ...permissiveUnlockedSkillBanksWithoutPrerequisites,
+  market_skill_bank: [
+    {
+      ...permissiveUnlockedSkillBanksWithoutPrerequisites.market_skill_bank[0],
+      skills: [
+        {
+          name: 'Build microservices using Spring Boot',
+          description: 'Build resilient backend services.',
+          category: 'backend',
+          peer_count: 73,
+        },
+        {
+          name: 'Design and optimize caching solutions',
+          description: 'Tune application caching layers.',
+          category: 'backend',
+          peer_count: 73,
+        },
+        {
+          name: 'Develop and deploy cloud-based solutions',
+          description: 'Ship services to cloud infrastructure.',
+          category: 'cloud',
+          peer_count: 67,
+        },
+      ],
+    },
+  ],
+  peer_selection_counts: {
+    'Build microservices using Spring Boot': 73,
+    'Design and optimize caching solutions': 73,
+    'Develop and deploy cloud-based solutions': 67,
+  },
+};
+
 const permissiveLockedSkillBanks = {
   ...lockedSkillBanks,
   selection_range: {
@@ -487,6 +526,53 @@ describe('StudentLearningPathPage', () => {
     expect(studentLearningPathApi.selectJobPostings).not.toHaveBeenCalled();
   });
 
+  it('stages job posting skills locally and only sends them during build', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(
+      permissiveUnlockedSkillBanksWithoutPrerequisites,
+    );
+    (studentLearningPathApi.buildLearningPath as Mock).mockResolvedValue({
+      run_id: 'run-1',
+      status: 'started',
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Select all skills/i }));
+
+    expect(await screen.findByText('1 of 1-35 skills selected')).toBeInTheDocument();
+    expect(await screen.findByText('Selected in draft')).toBeInTheDocument();
+    expect(studentLearningPathApi.selectJobPostings).not.toHaveBeenCalled();
+    expect(studentLearningPathApi.deselectJobPosting).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Build My Learning Path/i }));
+
+    await waitFor(() => {
+      expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledWith(1, [
+        { name: 'Kafka', source: 'market' },
+      ]);
+    });
+  });
+
+  it('clears every staged posting skill when a draft posting selection is removed', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(
+      permissiveUnlockedSkillBanksWithPostingOwnedDrafts,
+    );
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /Design and optimize caching solutions/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Develop and deploy cloud-based solutions/i }));
+    expect(await screen.findByText('2 of 1-35 skills selected')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Select all skills/i }));
+    expect(await screen.findByText('3 of 1-35 skills selected')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Remove draft selection/i }));
+
+    expect(await screen.findByText('0 of 1-35 skills selected')).toBeInTheDocument();
+    expect(screen.getByText('Not selected')).toBeInTheDocument();
+  });
+
   it('sends staged selections only when build is clicked', async () => {
     (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(permissiveUnlockedSkillBanks);
     (studentLearningPathApi.buildLearningPath as Mock).mockResolvedValue({
@@ -540,9 +626,10 @@ describe('StudentLearningPathPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Build My Learning Path/i }));
 
     expect(await screen.findByText('Review prerequisites')).toBeInTheDocument();
-    expect(screen.getByText('Add this prerequisite')).toBeInTheDocument();
-    expect(screen.getByText('Unlocks these selected skills')).toBeInTheDocument();
-    expect(screen.getByText('Why it shows up')).toBeInTheDocument();
+    expect(screen.queryByText('Why this popped up')).not.toBeInTheDocument();
+    expect(screen.getByText('Skill connection')).toBeInTheDocument();
+    expect(screen.getByText('Recommended first')).toBeInTheDocument();
+    expect(screen.getByText('It supports these selected skills')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continue build/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: /I already know this/i }));

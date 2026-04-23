@@ -32,6 +32,33 @@ def test_register_and_login(client, db_session):
     assert data["token_type"] == "bearer"
 
 
+def test_register_teacher_and_login(client, db_session):
+    email = f"teacher_{uuid.uuid4()}@example.com"
+    password = "teacherpass123"
+
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "first_name": "Teacher",
+            "last_name": "User",
+            "role": UserRole.TEACHER.value,
+        },
+    )
+    assert response.status_code == 201
+
+    response = client.post(
+        "/auth/jwt/login",
+        data={"username": email, "password": password},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert "refresh_token" in data
+    assert data["token_type"] == "bearer"
+
+
 def test_refresh_token_success(client, db_session):
     email = f"test_{uuid.uuid4()}@example.com"
     password = "testpassword"

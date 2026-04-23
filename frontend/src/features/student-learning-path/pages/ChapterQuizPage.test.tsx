@@ -76,6 +76,21 @@ describe('ChapterQuizPage', () => {
     expect(screen.getByRole('button', { name: /Submit quiz/i })).toBeDisabled();
   });
 
+  it('selects an answer when the whole option card is clicked', async () => {
+    (studentLearningPathApi.getChapterQuiz as Mock).mockResolvedValue(quizResponse);
+
+    renderPage();
+
+    expect(await screen.findByText('Foundations')).toBeInTheDocument();
+
+    const optionCard = screen.getByText(/B\. Two/i).closest('label');
+    expect(optionCard).not.toBeNull();
+
+    fireEvent.click(optionCard!);
+
+    expect(screen.getByRole('radio', { name: /B\. Two/i })).toHaveAttribute('data-state', 'checked');
+  });
+
   it('submits answers and shows the summary dialog', async () => {
     (studentLearningPathApi.getChapterQuiz as Mock).mockResolvedValue(quizResponse);
     (studentLearningPathApi.submitChapterQuiz as Mock).mockResolvedValue({

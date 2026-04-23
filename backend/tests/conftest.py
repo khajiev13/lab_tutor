@@ -1,10 +1,26 @@
+# ruff: noqa: E402
+
+import asyncio
+import getpass
 import os
+
+
+def _default_test_database_url() -> str:
+    configured_url = os.getenv("LAB_TUTOR_TEST_DATABASE_URL")
+    if configured_url:
+        return configured_url
+
+    if os.getenv("CI") or os.getenv("GITHUB_ACTIONS"):
+        return "postgresql://postgres:postgres@localhost:5432/lab_tutor_test"
+
+    return f"postgresql://{getpass.getuser()}@localhost:5432/lab_tutor_test"
+
 
 # Point tests at a local/CI PostgreSQL instance BEFORE importing app modules.
 # CI provides this via a PostgreSQL service container; locally you can override it.
 os.environ.setdefault(
     "LAB_TUTOR_DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/lab_tutor_test",
+    _default_test_database_url(),
 )
 # Ensure optional external services don't run in tests.
 os.environ.setdefault("LAB_TUTOR_NEO4J_URI", "")
@@ -200,6 +216,13 @@ def client(db_session):
         yield c
 
     app.dependency_overrides.clear()
+    asyncio.run(async_engine.dispose())
+    # Dispose all pooled connections so the next test's drop_all() is not
+    # blocked by connections the lifespan left open in the app engine pools.
+    app_engine.dispose()
+    # Also dispose the async engine's underlying pool (sync call on the
+    # wrapped sync_engine is sufficient; no await needed here).
+    app_async_engine.sync_engine.dispose()
 
 
 @pytest.fixture

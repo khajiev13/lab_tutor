@@ -263,3 +263,10 @@ class BuildResult(BaseModel):
     readings_added: int = 0
     videos_added: int = 0
     questions_added: int = 0
+
+
+class ReadingEmbeddabilityResponse(BaseModel):
+    id: str
+    url: str
+    embeddable: bool
+    reason: str | None = None
