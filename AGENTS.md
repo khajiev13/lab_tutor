@@ -200,6 +200,8 @@ modules/<feature>/
 
 | Variable | Required | Purpose |
 |---|---|---|
+| `LAB_TUTOR_SECRET_KEY` | Yes | JWT signing and refresh-token secret (change in production) |
+| `LAB_TUTOR_LLM_API_KEY` | Yes (for LLM features) | API key for the OpenAI-compatible LLM provider |
 | `LAB_TUTOR_DATABASE_URL` | Yes | PostgreSQL connection |
 | `LAB_TUTOR_NEO4J_URI` | No | Neo4j connection |
 | `LAB_TUTOR_NEO4J_USERNAME` | No | Neo4j auth |

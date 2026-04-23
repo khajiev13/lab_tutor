@@ -6,9 +6,10 @@ FastAPI backend service for Lab Tutor application.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `LAB_TUTOR_SECRET_KEY` | `change-this-secret` | JWT signing secret. Override in production. |
-| `LAB_TUTOR_DATABASE_URL` | required | SQLAlchemy connection string (PostgreSQL). |
-| `LAB_TUTOR_ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Access token lifetime in minutes. |
+| `LAB_TUTOR_SECRET_KEY` | `change-this-secret` | JWT signing and refresh-token secret. **Override in production.** |
+| `LAB_TUTOR_DATABASE_URL` | required | SQLAlchemy async connection string (`postgresql+asyncpg://…`). |
+| `LAB_TUTOR_ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Short-lived access token lifetime in minutes. |
+| `LAB_TUTOR_REFRESH_TOKEN_EXPIRE_DAYS` | `7` | Long-lived refresh token lifetime in days. |
 
 Create a `.env` file if you prefer storing these values locally.
 
@@ -92,7 +93,8 @@ The backend is configured with **hot reload enabled by default** when running vi
 ## Key API Endpoints
 
 - `POST /auth/register` – Register a student or teacher.
-- `POST /auth/login` – Obtain a JWT access token.
+- `POST /auth/jwt/login` – Obtain a JWT access token and a refresh token (form-encoded: `username` + `password`).
+- `POST /auth/jwt/refresh` – Exchange a refresh token for a new access token.
 - `POST /courses` – Teacher-only course creation.
 - `GET /courses` – List available courses.
 - `POST /courses/{course_id}/join` – Student enrollment.

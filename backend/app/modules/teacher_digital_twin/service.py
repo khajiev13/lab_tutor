@@ -20,6 +20,8 @@ from app.core.settings import settings
 
 from .repository import TeacherDigitalTwinRepository
 from .schemas import (
+    AutomaticWhatIfCriteria,
+    AutomaticWhatIfPreferences,
     ClassMasteryResponse,
     MultiSkillSimulationRequest,
     MultiSkillSimulationResponse,
@@ -73,6 +75,9 @@ class TeacherDigitalTwinService:
                 student_count=int(r["student_count"] or 0),
                 avg_mastery=round(float(r["avg_mastery"] or 0.0), 4),
                 perceived_difficulty=round(float(r["perceived_difficulty"] or 1.0), 4),
+                prereq_count=int(r.get("prereq_count") or 0),
+                downstream_count=int(r.get("downstream_count") or 0),
+                pco_risk_ratio=round(float(r.get("pco_risk_ratio") or 0.0), 4),
             )
             for r in rows
             if r["skill_name"]
@@ -304,6 +309,10 @@ class TeacherDigitalTwinService:
         simulated_path: list[str] = []
         pco_analysis: list[str] = []
         llm_recommendation: str | None = None
+        automatic_criteria: AutomaticWhatIfCriteria | None = None
+        max_results = (
+            max(1, min(len(req.skills or []), 10)) if req.mode == "manual" else None
+        )
 
         if req.mode == "manual" and req.skills:
             # Manual: use the teacher's specified hypothetical mastery
@@ -330,9 +339,7 @@ class TeacherDigitalTwinService:
                 )
 
             skill_impacts.sort(key=lambda x: x.recommendation_score, reverse=True)
-            simulated_path = [
-                imp.skill_name for imp in skill_impacts[: max(1, req.top_k)]
-            ]
+            simulated_path = [imp.skill_name for imp in skill_impacts[:max_results]]
 
             struggling_manual = [
                 imp for imp in skill_impacts if imp.current_avg_mastery < 0.50
@@ -347,66 +354,60 @@ class TeacherDigitalTwinService:
                 ]
 
         else:
-            # Automatic: simulate delta boost on each skill
-            delta = float(req.delta or req.target_gain or 0.20)
-            for name, current_vals in class_mastery.items():
-                if not current_vals:
-                    continue
-                current_avg = sum(current_vals) / len(current_vals)
-                simulated_vals = [min(1.0, v + delta) for v in current_vals]
-                simulated_avg = sum(simulated_vals) / len(simulated_vals)
-                class_gain = sum(
-                    sv - cv for sv, cv in zip(simulated_vals, current_vals, strict=True)
+            preferences = req.preferences or AutomaticWhatIfPreferences()
+            plan = self._plan_automatic_skill_targets(
+                course_id=course_id,
+                skill_summaries=self._build_automatic_skill_summaries(course_id),
+                preferences=preferences,
+            )
+
+            for item in plan:
+                name = item["skill_name"]
+                target_mastery = float(item["target_mastery"])
+                reason = item.get("reason") or "Course-wide intervention target."
+                current_vals = class_mastery.get(name, [0.0])
+                current_avg = sum(current_vals) / max(len(current_vals), 1)
+                gain = (target_mastery - current_avg) * len(current_vals)
+                students_helped = sum(
+                    1 for value in current_vals if value < target_mastery
                 )
-                students_helped = sum(1 for cv in current_vals if cv < 0.90)
                 recommendation_score = (
-                    (0.5 - current_avg if current_avg < 0.5 else 0.0) * 0.5
-                    + (class_gain / max(len(current_vals), 1)) * 0.3
-                    + (students_helped / max(len(current_vals), 1)) * 0.2
+                    max(0.0, target_mastery - current_avg) * 0.6
+                    + (students_helped / max(len(current_vals), 1)) * 0.4
                 )
                 skill_impacts.append(
                     SkillInterventionImpact(
                         skill_name=name,
                         current_avg_mastery=round(current_avg, 4),
-                        simulated_avg_mastery=round(simulated_avg, 4),
-                        class_gain=round(class_gain, 4),
+                        simulated_avg_mastery=round(target_mastery, 4),
+                        class_gain=round(gain, 4),
                         students_helped=students_helped,
                         recommendation_score=round(recommendation_score, 4),
                     )
                 )
+                recommendations.append(
+                    f"Teach '{name}' toward {target_mastery:.0%} mastery - {reason}"
+                )
 
-            # Dynamic best strategy score instead of only class_gain
-            skill_impacts.sort(key=lambda x: x.recommendation_score, reverse=True)
-
-            # Identify struggling skills for recommendations
-            struggling = [
-                imp for imp in skill_impacts if imp.current_avg_mastery < 0.50
-            ]
-            recommendations = [
-                f"Teach '{imp.skill_name}' — class avg {imp.current_avg_mastery:.0%}, "
-                f"estimated gain: {imp.class_gain:.1f} mastery points across {imp.students_helped} students"
-                for imp in struggling[:5]
-            ]
-
-            # Simulated path = top-impact skills in ZPD order
-            zpd_skills = [
-                imp for imp in skill_impacts if 0.40 <= imp.current_avg_mastery <= 0.90
-            ]
-            simulated_path = [imp.skill_name for imp in zpd_skills[: max(1, req.top_k)]]
-            if not simulated_path:
-                simulated_path = [
-                    imp.skill_name for imp in skill_impacts[: max(1, req.top_k)]
-                ]
-
-            # PCO analysis: skills with low mastery and high difficulty
-            pco_candidates = [
-                imp for imp in skill_impacts if imp.current_avg_mastery < 0.40
-            ]
+            simulated_path = [item["skill_name"] for item in plan]
             pco_analysis = [
-                f"'{imp.skill_name}' — only {imp.current_avg_mastery:.0%} class mastery, "
+                f"'{imp.skill_name}' - only {imp.current_avg_mastery:.0%} class mastery, "
                 f"high risk of concept overclaiming"
-                for imp in pco_candidates[:3]
-            ]
+                for imp in skill_impacts
+                if imp.current_avg_mastery < 0.40
+            ][:3]
+            automatic_criteria = AutomaticWhatIfCriteria(
+                intervention_intensity=round(
+                    float(preferences.intervention_intensity or 0.6), 4
+                ),
+                focus=preferences.focus,
+                max_skills=max(1, int(preferences.max_skills or 5)),
+                llm_decision_summary=(
+                    "The LLM used the teacher's automatic-mode preferences as guidance and "
+                    "made the final decision by balancing prerequisite leverage, downstream "
+                    "impact, affected student count, and PCO risk."
+                ),
+            )
 
         summary = (
             f"Simulated {len(skill_impacts)} skills. "
@@ -417,7 +418,9 @@ class TeacherDigitalTwinService:
             llm_recommendation = self._build_llm_recommendation(
                 course_id=course_id,
                 mode=req.mode,
-                skill_impacts=skill_impacts[: max(1, req.top_k)],
+                skill_impacts=skill_impacts[:max_results]
+                if max_results
+                else skill_impacts,
                 recommendations=recommendations[:3],
                 summary=summary,
             )
@@ -431,6 +434,7 @@ class TeacherDigitalTwinService:
             skill_impacts=skill_impacts[:20],  # cap response size
             summary=summary,
             llm_recommendation=llm_recommendation,
+            automatic_criteria=automatic_criteria,
         )
 
     # ── Feature 6b: Multi-Skill Simulation with Coherence ─────────────────────
@@ -459,17 +463,35 @@ class TeacherDigitalTwinService:
         auto_selected_skills: list[str] = []
 
         # ── 0. Automatic mode: pick top-K most difficult skills if none provided ──
-        if req.mode == "automatic" or not req.skills:
+        if req.mode == "automatic":
+            plan = self._plan_automatic_skill_targets(
+                course_id=course_id,
+                skill_summaries=self._build_automatic_skill_summaries(course_id),
+                preferences=AutomaticWhatIfPreferences(max_skills=req.top_k),
+            )
+            auto_selected_skills = [item["skill_name"] for item in plan]
+            req = MultiSkillSimulationRequest(
+                mode=req.mode,
+                skills=[
+                    SkillTarget(
+                        skill_name=item["skill_name"],
+                        simulated_mastery=float(item["target_mastery"]),
+                    )
+                    for item in plan
+                ],
+                top_k=req.top_k,
+                default_mastery=req.default_mastery,
+            )
+            skill_names = [target.skill_name for target in req.skills]
+        elif not req.skills:
             with self._driver.session(database=db) as session:
                 all_difficulty = self._repo(session).get_skill_difficulty(course_id)
-            # Sort by perceived difficulty (highest first = lowest mastery)
             sorted_diff = sorted(
                 all_difficulty, key=lambda r: float(r.get("avg_mastery") or 1.0)
             )
             top_k = max(1, min(req.top_k, 10, len(sorted_diff)))
             skill_names = [r["skill_name"] for r in sorted_diff[:top_k]]
             auto_selected_skills = list(skill_names)
-            # Build SkillTarget list for uniform downstream handling
             req = MultiSkillSimulationRequest(
                 mode=req.mode,
                 skills=[SkillTarget(skill_name=sn) for sn in skill_names],
@@ -619,6 +641,220 @@ class TeacherDigitalTwinService:
             coherence=coherence,
             llm_insights=llm_insights,
         )
+
+    def _plan_automatic_skill_targets(
+        self,
+        course_id: int,
+        skill_summaries: list[dict],
+        preferences: AutomaticWhatIfPreferences | None,
+    ) -> list[dict]:
+        """Ask the LLM to choose the highest-impact skills and target masteries."""
+        if not skill_summaries:
+            return []
+
+        resolved_preferences = preferences or AutomaticWhatIfPreferences()
+        limit = max(
+            1,
+            min(int(resolved_preferences.max_skills or 5), 10, len(skill_summaries)),
+        )
+        fallback = self._fallback_automatic_skill_targets(skill_summaries, limit)
+
+        try:
+            import json as _json
+
+            import httpx
+            from openai import OpenAI
+
+            client = OpenAI(
+                api_key=settings.llm_api_key or "no-key",
+                base_url=settings.llm_base_url,
+                timeout=httpx.Timeout(12.0, connect=4.0),
+            )
+            summary_lines = "\n".join(
+                (
+                    f"- {row['skill_name']}: avg_mastery={float(row.get('avg_mastery') or 0.0):.2f}, "
+                    f"perceived_difficulty={float(row.get('perceived_difficulty') or 0.0):.2f}, "
+                    f"student_count={int(row.get('student_count') or 0)}, "
+                    f"prereq_count={int(row.get('prereq_count') or 0)}, "
+                    f"downstream_count={int(row.get('downstream_count') or 0)}, "
+                    f"pco_student_count={int(row.get('pco_student_count') or 0)}, "
+                    f"pco_risk_ratio={float(row.get('pco_risk_ratio') or 0.0):.2f}"
+                )
+                for row in sorted(
+                    skill_summaries,
+                    key=lambda item: (
+                        float(item.get("avg_mastery") or 1.0),
+                        -float(item.get("pco_risk_ratio") or 0.0),
+                        -int(item.get("downstream_count") or 0),
+                    ),
+                )[: min(len(skill_summaries), 25)]
+            )
+            response = client.chat.completions.create(
+                model=settings.llm_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a teacher digital twin planner. "
+                            "Choose the highest-impact course skills for intervention. "
+                            "Treat teacher hints as non-binding preferences, not commands. "
+                            "You must explicitly weigh prerequisite centrality, downstream dependency impact, "
+                            "student_count impact, and PCO risk. "
+                            "Do not select a skill based only on low mastery. "
+                            "Prefer skills that are foundational bottlenecks for many students or show clear "
+                            "concept-overclaiming / forgetting risk. "
+                            "Return JSON only with this shape: "
+                            '{"skills":[{"skill_name":"...", "target_mastery":0.78, "reason":"..."}]}. '
+                            "target_mastery must be between 0.55 and 0.95 and should represent "
+                            "a realistic post-intervention class-average mastery target. "
+                            "Each reason must mention at least one explicit factor among prerequisites, "
+                            "downstream impact, student_count, or PCO risk."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Course ID: {course_id}\n"
+                            "Teacher preferences (the LLM makes the final decision):\n"
+                            f"- intervention_intensity={float(resolved_preferences.intervention_intensity or 0.6):.2f}\n"
+                            f"- focus={resolved_preferences.focus}\n"
+                            f"- max_skills={limit}\n\n"
+                            f"Select exactly {limit} skills for automatic teacher intervention.\n"
+                            "Base the decision on overall course evaluation.\n"
+                            "Decision rubric, in order:\n"
+                            "1. prerequisite bottlenecks and downstream dependency impact\n"
+                            "2. how many students are affected\n"
+                            "3. PCO risk (low mastery + low decay retention)\n"
+                            "4. low mastery and high perceived difficulty\n"
+                            "If two skills are similarly weak, prefer the one with stronger prerequisite or downstream leverage.\n"
+                            "Avoid niche low-enrollment skills unless their PCO risk is clearly extreme.\n\n"
+                            f"Course skill summary:\n{summary_lines}"
+                        ),
+                    },
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.2,
+            )
+            raw = response.choices[0].message.content or "{}"
+            parsed = _json.loads(raw)
+            planned_skills = parsed.get("skills") or []
+            by_name = {
+                row["skill_name"]: {
+                    "avg_mastery": float(row.get("avg_mastery") or 0.0),
+                    "student_count": int(row.get("student_count") or 0),
+                    "prereq_count": int(row.get("prereq_count") or 0),
+                    "downstream_count": int(row.get("downstream_count") or 0),
+                    "pco_student_count": int(row.get("pco_student_count") or 0),
+                    "pco_risk_ratio": float(row.get("pco_risk_ratio") or 0.0),
+                }
+                for row in skill_summaries
+            }
+
+            cleaned: list[dict] = []
+            used_names: set[str] = set()
+            for item in planned_skills:
+                name = item.get("skill_name")
+                if not name or name in used_names or name not in by_name:
+                    continue
+                current_avg = by_name[name]["avg_mastery"]
+                raw_target = float(item.get("target_mastery") or 0.0)
+                target_mastery = max(current_avg + 0.05, raw_target)
+                target_mastery = min(0.95, max(0.55, target_mastery))
+                cleaned.append(
+                    {
+                        "skill_name": name,
+                        "target_mastery": round(target_mastery, 4),
+                        "reason": (
+                            item.get("reason") or "LLM-selected intervention target."
+                        ).strip(),
+                    }
+                )
+                used_names.add(name)
+
+            if len(cleaned) < limit:
+                for item in fallback:
+                    if item["skill_name"] not in used_names:
+                        cleaned.append(item)
+                        used_names.add(item["skill_name"])
+                    if len(cleaned) >= limit:
+                        break
+
+            return cleaned[:limit]
+        except Exception as exc:
+            logger.warning("Automatic teacher twin planning failed: %s", exc)
+            return fallback
+
+    def _fallback_automatic_skill_targets(
+        self,
+        skill_summaries: list[dict],
+        top_k: int,
+    ) -> list[dict]:
+        """Deterministic fallback when the LLM is unavailable."""
+        ranked = sorted(
+            skill_summaries,
+            key=lambda item: (
+                float(item.get("avg_mastery") or 1.0),
+                -float(item.get("pco_risk_ratio") or 0.0),
+                -int(item.get("downstream_count") or 0),
+                -int(item.get("prereq_count") or 0),
+                -float(item.get("perceived_difficulty") or 0.0),
+                -int(item.get("student_count") or 0),
+            ),
+        )
+        planned: list[dict] = []
+        for row in ranked[:top_k]:
+            current_avg = float(row.get("avg_mastery") or 0.0)
+            target_mastery = min(0.9, max(0.65, current_avg + 0.2))
+            planned.append(
+                {
+                    "skill_name": row["skill_name"],
+                    "target_mastery": round(target_mastery, 4),
+                    "reason": (
+                        "Rule-based fallback selected this skill because it combines "
+                        f"student impact ({int(row.get('student_count') or 0)} students), "
+                        f"prerequisite/downstream leverage ({int(row.get('prereq_count') or 0)} prereqs, "
+                        f"{int(row.get('downstream_count') or 0)} downstream skills), and "
+                        f"PCO risk ({float(row.get('pco_risk_ratio') or 0.0):.0%})."
+                    ),
+                }
+            )
+        return planned
+
+    def _build_automatic_skill_summaries(self, course_id: int) -> list[dict]:
+        """Build skill summaries used by automatic planning."""
+        db = settings.neo4j_database
+        with self._driver.session(database=db) as session:
+            repo = self._repo(session)
+            difficulty_rows = repo.get_skill_difficulty(course_id)
+            skill_names = [
+                row["skill_name"] for row in difficulty_rows if row.get("skill_name")
+            ]
+            planning_rows = repo.get_skill_planning_context(course_id, skill_names)
+
+        planning_map = {row["skill_name"]: row for row in planning_rows}
+        summaries: list[dict] = []
+        for row in difficulty_rows:
+            skill_name = row.get("skill_name")
+            if not skill_name:
+                continue
+            planning = planning_map.get(skill_name, {})
+            summaries.append(
+                {
+                    "skill_name": skill_name,
+                    "avg_mastery": round(float(row.get("avg_mastery") or 0.0), 4),
+                    "student_count": int(row.get("student_count") or 0),
+                    "perceived_difficulty": round(
+                        float(row.get("perceived_difficulty") or 1.0), 4
+                    ),
+                    "prereq_count": int(planning.get("prereq_count") or 0),
+                    "downstream_count": int(planning.get("downstream_count") or 0),
+                    "pco_student_count": int(planning.get("pco_student_count") or 0),
+                    "pco_risk_ratio": round(
+                        float(planning.get("pco_risk_ratio") or 0.0), 4
+                    ),
+                }
+            )
+        return summaries
 
     def simulate_skill(
         self, course_id: int, skill_name: str, simulated_mastery: float

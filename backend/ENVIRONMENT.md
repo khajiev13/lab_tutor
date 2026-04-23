@@ -1,3 +1,17 @@
+### Authentication & JWT
+
+- **Secret key (required)**
+  - `LAB_TUTOR_SECRET_KEY` — used to sign both access tokens and refresh tokens.
+    **Change this in production.** Default: `change-this-secret`
+- **Token lifetimes (optional)**
+  - `LAB_TUTOR_ACCESS_TOKEN_EXPIRE_MINUTES` — access token lifetime. Default: `60`
+  - `LAB_TUTOR_REFRESH_TOKEN_EXPIRE_DAYS` — refresh token lifetime. Default: `7`
+
+> Login endpoint: `POST /auth/jwt/login` (form-encoded `username` + `password`)
+> Refresh endpoint: `POST /auth/jwt/refresh` (JSON `{"refresh_token": "..."}`)
+> Register endpoint: `POST /auth/register` (JSON, returns 201 on success)
+> **Note:** Every successful registration also creates or updates a `USER` node in Neo4j via the `on_after_register` hook. If Neo4j is unavailable at registration time, the error is logged but registration still succeeds.
+
 ### Backend environment variables (docker-compose `.env`)
 
 `docker-compose.yml` loads a repo-root `.env` into the `backend` service via `env_file: .env`.

@@ -16,6 +16,9 @@ class SkillDifficultyItem(BaseModel):
     student_count: int
     avg_mastery: float
     perceived_difficulty: float  # 1 - avg_mastery
+    prereq_count: int = 0
+    downstream_count: int = 0
+    pco_risk_ratio: float = 0.0
 
 
 class SkillDifficultyResponse(BaseModel):
@@ -99,12 +102,37 @@ class WhatIfSkill(BaseModel):
     hypothetical_mastery: float  # 0.0 to 1.0
 
 
+class AutomaticWhatIfPreferences(BaseModel):
+    """Teacher-provided hints for automatic LLM planning."""
+
+    intervention_intensity: float = 0.6
+    focus: Literal[
+        "balanced",
+        "broad_support",
+        "prerequisite_bottlenecks",
+        "high_risk_recovery",
+    ] = "balanced"
+    max_skills: int = 5
+
+
+class AutomaticWhatIfCriteria(BaseModel):
+    """Resolved automatic criteria after the LLM planner makes the final choice."""
+
+    intervention_intensity: float
+    focus: Literal[
+        "balanced",
+        "broad_support",
+        "prerequisite_bottlenecks",
+        "high_risk_recovery",
+    ]
+    max_skills: int
+    llm_decision_summary: str
+
+
 class WhatIfRequest(BaseModel):
     mode: Literal["manual", "automatic"] = "automatic"
     skills: list[WhatIfSkill] | None = None  # manual mode
-    delta: float = 0.20  # automatic mode: estimated lecture impact
-    top_k: int = 5
-    target_gain: float = 0.10
+    preferences: AutomaticWhatIfPreferences = AutomaticWhatIfPreferences()
     enable_llm: bool = False
 
 
@@ -126,6 +154,7 @@ class WhatIfResponse(BaseModel):
     skill_impacts: list[SkillInterventionImpact]
     summary: str
     llm_recommendation: str | None = None
+    automatic_criteria: AutomaticWhatIfCriteria | None = None
 
 
 # ── Feature 6: Skill Simulation (single-skill — kept for backward compat) ──

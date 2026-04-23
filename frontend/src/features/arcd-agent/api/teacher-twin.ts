@@ -38,6 +38,9 @@ export interface SkillDifficultyItem {
   student_count: number;
   avg_mastery: number;
   perceived_difficulty: number;
+  prereq_count: number;
+  downstream_count: number;
+  pco_risk_ratio: number;
 }
 
 export interface SkillDifficultyResponse {
@@ -109,12 +112,29 @@ export interface WhatIfSkill {
   hypothetical_mastery: number;
 }
 
+export type AutomaticWhatIfFocus =
+  | "balanced"
+  | "broad_support"
+  | "prerequisite_bottlenecks"
+  | "high_risk_recovery";
+
+export interface AutomaticWhatIfPreferences {
+  intervention_intensity?: number;
+  focus?: AutomaticWhatIfFocus;
+  max_skills?: number;
+}
+
+export interface AutomaticWhatIfCriteria {
+  intervention_intensity: number;
+  focus: AutomaticWhatIfFocus;
+  max_skills: number;
+  llm_decision_summary: string;
+}
+
 export interface WhatIfRequest {
   mode?: "manual" | "automatic";
   skills?: WhatIfSkill[];
-  delta?: number;
-  top_k?: number;
-  target_gain?: number;
+  preferences?: AutomaticWhatIfPreferences;
   enable_llm?: boolean;
 }
 
@@ -136,6 +156,7 @@ export interface WhatIfResponse {
   skill_impacts: SkillInterventionImpact[];
   summary: string;
   llm_recommendation: string | null;
+  automatic_criteria?: AutomaticWhatIfCriteria | null;
 }
 
 export interface SkillSimulationRequest {
