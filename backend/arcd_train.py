@@ -41,7 +41,7 @@ _here = Path(__file__).resolve().parent
 if str(_here) not in sys.path:
     sys.path.insert(0, str(_here))
 
-from arcd_agent.model.training import (  # noqa: E402
+from app.modules.arcd_agent.model.training import (  # noqa: E402
     ARCDLoss,
     ARCDModel,
     ARCDTrainer,

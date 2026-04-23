@@ -95,6 +95,10 @@ function masteryLevel(avg: number): string {
 }
 
 function buildGreetingSummary(student: StudentPortfolio): string {
+  if (student.final_mastery.length === 0) {
+    return "You have not activated any study skills yet. Select skills in your learning path to unlock ARCD guidance.";
+  }
+
   const avg = student.summary.avg_mastery;
   const level = masteryLevel(avg);
   const { trend, recentAccuracy } = computeRecentMomentum(student.timeline);
@@ -119,6 +123,10 @@ function buildKnowledgeTracingInsight(
   student: StudentPortfolio,
   nameMap: Record<number, string>
 ): string {
+  if (student.final_mastery.length === 0) {
+    return "No skills are being tracked yet. Select skills in your learning path first, then ARCD will analyze your progress.";
+  }
+
   const trajectories = computeSkillTrajectories(student, nameMap);
   if (trajectories.length === 0) {
     return "Not enough interaction history to identify a specific skill trajectory yet — keep practicing!";
@@ -166,6 +174,10 @@ function buildRecommendedNextStep(
   student: StudentPortfolio,
   nameMap: Record<number, string>
 ): string {
+  if (student.final_mastery.length === 0) {
+    return "Select your course and job-posting skills first. Once you do, ARCD will recommend the best next step.";
+  }
+
   if (student.learning_path && student.learning_path.steps.length > 0) {
     const step = student.learning_path.steps[0];
     const gain = step.predicted_mastery_gain;

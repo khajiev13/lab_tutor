@@ -214,7 +214,7 @@ def main(argv: list[str] | None = None) -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    from arcd_agent.model.training import ARCDModel
+    from app.modules.arcd_agent.model.training import ARCDModel
 
     model = ARCDModel(**cfg).to(device)
     model.load_state_dict(ckpt["model_state_dict"])

@@ -44,12 +44,12 @@ RETURN s.name AS skill_name,
          WHEN student_count = 0 THEN 0.0
          ELSE toFloat(pco_student_count) / toFloat(student_count)
        END AS pco_risk_ratio,
-       size([(:SKILL)-[:PREREQUISITE_OF]->(s) | 1]) +
-       size([(:BOOK_SKILL)-[:PREREQUISITE_OF]->(s) | 1]) +
-       size([(:MARKET_SKILL)-[:PREREQUISITE_OF]->(s) | 1]) AS prereq_count,
-       size([(s)-[:PREREQUISITE_OF]->(:SKILL) | 1]) +
-       size([(s)-[:PREREQUISITE_OF]->(:BOOK_SKILL) | 1]) +
-       size([(s)-[:PREREQUISITE_OF]->(:MARKET_SKILL) | 1]) AS downstream_count
+       size([(:SKILL)-[:PREREQUISITE]->(s) | 1]) +
+       size([(:BOOK_SKILL)-[:PREREQUISITE]->(s) | 1]) +
+       size([(:MARKET_SKILL)-[:PREREQUISITE]->(s) | 1]) AS prereq_count,
+       size([(s)-[:PREREQUISITE]->(:SKILL) | 1]) +
+       size([(s)-[:PREREQUISITE]->(:BOOK_SKILL) | 1]) +
+       size([(s)-[:PREREQUISITE]->(:MARKET_SKILL) | 1]) AS downstream_count
 ORDER BY perceived_difficulty DESC, s.name
 """
 
@@ -174,12 +174,12 @@ RETURN
     WHEN student_count = 0 THEN 0.0
     ELSE toFloat(pco_student_count) / toFloat(student_count)
   END AS pco_risk_ratio,
-  size([(:SKILL)-[:PREREQUISITE_OF]->(s) | 1]) +
-  size([(:BOOK_SKILL)-[:PREREQUISITE_OF]->(s) | 1]) +
-  size([(:MARKET_SKILL)-[:PREREQUISITE_OF]->(s) | 1]) AS prereq_count,
-  size([(s)-[:PREREQUISITE_OF]->(:SKILL) | 1]) +
-  size([(s)-[:PREREQUISITE_OF]->(:BOOK_SKILL) | 1]) +
-  size([(s)-[:PREREQUISITE_OF]->(:MARKET_SKILL) | 1]) AS downstream_count
+  size([(:SKILL)-[:PREREQUISITE]->(s) | 1]) +
+  size([(:BOOK_SKILL)-[:PREREQUISITE]->(s) | 1]) +
+  size([(:MARKET_SKILL)-[:PREREQUISITE]->(s) | 1]) AS prereq_count,
+  size([(s)-[:PREREQUISITE]->(:SKILL) | 1]) +
+  size([(s)-[:PREREQUISITE]->(:BOOK_SKILL) | 1]) +
+  size([(s)-[:PREREQUISITE]->(:MARKET_SKILL) | 1]) AS downstream_count
 ORDER BY avg_mastery ASC, pco_risk_ratio DESC, downstream_count DESC, skill_name
 """
 

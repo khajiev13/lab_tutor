@@ -213,3 +213,6 @@ backend/**/notebooks/artifacts/
 
 # ML training artifacts — model checkpoints, weights, vocabs
 backend/checkpoints/
+
+# ignore uploading the diagrams
+diagrams/

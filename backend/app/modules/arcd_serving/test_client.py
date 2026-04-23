@@ -8,9 +8,9 @@ Usage
     cd backend
     # Start the service first:
     #   ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v6_2048 \\
-    #       uv run python -m arcd_serving.run --port 8000
+    #       uv run python -m app.modules.arcd_serving.run --port 8000
 
-    uv run python -m arcd_serving.test_client \\
+    uv run python -m app.modules.arcd_serving.test_client \\
         --base-url http://localhost:8000 \\
         --n-students 20 \\
         --data-dir ../knowledge_graph_builder/data/synthgen/<run_id>

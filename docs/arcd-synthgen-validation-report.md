@@ -39,9 +39,7 @@ server rejected further writes.  All 164 k interaction records, the mastery
 ground truth, and the vocabulary were persisted to **Parquet files**,
 which were used for training without loss of data.
 
-Every synthetic node/edge carries `{synthetic: true, run_id: "roma_synth_v1"}`.  
-Use `knowledge_graph_builder/synthgen/cleanup.py --run-id roma_synth_v1` to
-remove them.
+Every synthetic node/edge carries `{synthetic: true, run_id: "roma_synth_v1"}`.
 
 ---
 
@@ -230,21 +228,11 @@ interactions (50 % correct rate) that better challenge the model.
 | `backend/checkpoints/synthgen/best_model.pt` | Best model checkpoint |
 | `backend/checkpoints/synthgen/metrics_report.json` | MetricsSuite evaluation |
 | `backend/checkpoints/synthgen/training_history.json` | Per-epoch loss/AUC |
-| `backend/arcd_agent/model_registry.py` | Model loading & inference singleton |
+| `backend/app/modules/arcd_agent/model_registry.py` | Model loading & inference singleton |
 | `backend/batch_mastery_recompute.py` | Phase 4 batch inference script |
 
 ---
 
 ## 8. Cleanup
 
-To remove all synthetic data from the databases:
-
-```bash
-cd knowledge_graph_builder
-uv run python -m synthgen.cleanup \
-  --run-id roma_synth_v1 \
-  --postgres-url "$LAB_TUTOR_DATABASE_URL" \
-  --neo4j-uri "$LAB_TUTOR_NEO4J_URI" \
-  --neo4j-user "$LAB_TUTOR_NEO4J_USERNAME" \
-  --neo4j-pass "$LAB_TUTOR_NEO4J_PASSWORD"
-```
+No dedicated synthgen cleanup command is maintained in the repository.
