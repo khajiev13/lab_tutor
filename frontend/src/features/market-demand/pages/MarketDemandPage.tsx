@@ -205,8 +205,9 @@ function MarketDemandContent() {
   const [panelOpen, setPanelOpen] = useState(true);
   const selectedCountry =
     selectedCountryOverride ??
-    agentState.job_search_country ??
-    DEFAULT_MARKET_DEMAND_COUNTRY;
+    (agentState.job_search_country_confirmed
+      ? agentState.job_search_country ?? DEFAULT_MARKET_DEMAND_COUNTRY
+      : "");
 
   // Track confirmed selections so the card flips to a summary
   const [confirmedSelection, setConfirmedSelection] = useState<{
@@ -326,7 +327,7 @@ function MarketDemandContent() {
               aria-label="Market country"
             >
               <Globe2 className="size-3.5" />
-              <SelectValue />
+              <SelectValue placeholder="Choose country" />
             </SelectTrigger>
             <SelectContent align="end">
               {MARKET_DEMAND_COUNTRIES.map((country) => (

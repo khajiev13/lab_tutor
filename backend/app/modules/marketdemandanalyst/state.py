@@ -11,6 +11,7 @@ STATE_KEYS: list[str] = [
     "course_title",
     "course_description",
     "job_search_country",
+    "job_search_country_confirmed",
     "job_search_location",
     "fetched_jobs",
     "job_groups",
@@ -116,6 +117,8 @@ def pipeline_summary() -> str:
 
     course_id = tool_store.get("course_id")
     course_title = tool_store.get("course_title")
+    job_search_country = tool_store.get("job_search_country")
+    job_search_country_confirmed = bool(tool_store.get("job_search_country_confirmed"))
     fetched = tool_store.get("fetched_jobs")
     groups = tool_store.get("job_groups")
     selected = tool_store.get("selected_jobs")
@@ -134,6 +137,12 @@ def pipeline_summary() -> str:
             parts.append(f"Course {course_id}: {course_title}")
         else:
             parts.append(f"Course {course_id}")
+
+    if job_search_country:
+        country_status = (
+            "confirmed" if job_search_country_confirmed else "not confirmed"
+        )
+        parts.append(f"Job market country: {job_search_country} ({country_status})")
 
     if inserted:
         parts.append(f"Pipeline COMPLETE. Insertion results: {inserted}")
@@ -200,6 +209,7 @@ class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
     course_id: int
     job_search_country: str
+    job_search_country_confirmed: bool
     job_search_location: str
     fetched_jobs: list[dict]
     selected_jobs: list[dict]

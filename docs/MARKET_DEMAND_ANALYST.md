@@ -224,7 +224,8 @@ All agents share a **module-level dictionary** (`tool_store`) that accumulates d
 
 | Key | Set By | Read By | Type | Description |
 |-----|--------|---------|------|-------------|
-| `job_search_country` | route / `fetch_jobs` | `fetch_jobs`, UI state | `str` | Country-level job market, e.g. `USA` or `China` |
+| `job_search_country` | route / `set_job_search_country` / `fetch_jobs` | `fetch_jobs`, UI state | `str` | Country-level job market, e.g. `USA` or `China` |
+| `job_search_country_confirmed` | route / `set_job_search_country` / `fetch_jobs` | Supervisor, `fetch_jobs`, UI state | `bool` | Whether the teacher explicitly confirmed the target country before crawling |
 | `job_search_location` | route / `fetch_jobs` | legacy state | `str` | Deprecated compatibility field derived from country |
 | `fetched_jobs` | `fetch_jobs` | Supervisor, extraction | `list[dict]` | Raw job postings (title, company, description, url, site, country, location) |
 | `job_groups` | `fetch_jobs` | `select_jobs_by_group` | `dict[str, list[int]]` | Normalized title → job indices mapping, sorted by count desc |
@@ -421,7 +422,8 @@ Each user gets a **deterministic thread**: `f"mda-{user.id}"`.
 
 | Tool | Parameters | Returns |
 |------|-----------|---------|
-| `fetch_jobs` | `search_terms: str` (comma-separated), `country: str`, `results_per_site: int` | Grouped summary (top 10 groups) |
+| `set_job_search_country` | `country: str` | Stores the teacher-confirmed country-level job market |
+| `fetch_jobs` | `search_terms: str` (comma-separated), `country: str`, `results_per_site: int` | Grouped summary (top 10 groups); refuses to crawl until a country is confirmed or passed explicitly |
 | `select_jobs_by_group` | `group_names: str` (numbers or names) | Selection confirmation |
 | `start_analysis_pipeline` | _(none — reads from tool_store)_ | Runs extraction programmatically, then `Command(goto="curriculum_mapper")` |
 | `save_skills_for_insertion` | `skills_json: str` (JSON array) | Save confirmation |
@@ -468,6 +470,7 @@ Each user gets a **deterministic thread**: `f"mda-{user.id}"`.
 - **Library**: `jobspy`
 - **Sites**: Indeed, LinkedIn
 - **Country selection**: country-only; backend passes the selected country to JobSpy as `country_indeed` and uses the matching country-level `location`
+- **Country confirmation**: the Supervisor must ask the teacher to confirm a country and call `set_job_search_country` before handing off for crawling
 - **Scraper**: Parallel `ThreadPoolExecutor` (`max_workers=8`)
 - **Dedup**: by (title, company) case-insensitive
 

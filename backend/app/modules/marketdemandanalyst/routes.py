@@ -132,6 +132,8 @@ def _seed_course_context(
         tool_store["job_search_country"] = selected_country.jobspy_country
     if "job_search_location" not in tool_store:
         tool_store["job_search_location"] = selected_country.location
+    if "job_search_country_confirmed" not in tool_store:
+        tool_store["job_search_country_confirmed"] = False
 
 
 def _restore_thread_state(
@@ -143,22 +145,29 @@ def _restore_thread_state(
     restore_state(persisted or {})
     has_fetched_jobs = bool(tool_store.get("fetched_jobs"))
     requested_country = country.strip() if isinstance(country, str) else None
-    if not has_fetched_jobs:
+    if requested_country and not has_fetched_jobs:
+        selected_country = normalize_job_search_country(requested_country)
+        tool_store["job_search_country"] = selected_country.jobspy_country
+        tool_store["job_search_location"] = selected_country.location
+        tool_store["job_search_country_confirmed"] = True
+    elif not has_fetched_jobs:
         raw_country = (
-            requested_country
-            or str(tool_store.get("job_search_country", "")).strip()
+            str(tool_store.get("job_search_country", "")).strip()
             or str(tool_store.get("job_search_location", "")).strip()
             or DEFAULT_JOB_SEARCH_COUNTRY
         )
         selected_country = normalize_job_search_country(raw_country)
         tool_store["job_search_country"] = selected_country.jobspy_country
         tool_store["job_search_location"] = selected_country.location
+        tool_store.setdefault("job_search_country_confirmed", False)
     elif "job_search_country" not in tool_store and "job_search_location" in tool_store:
         with contextlib.suppress(ValueError):
             legacy_country = normalize_job_search_country(
                 str(tool_store["job_search_location"])
             )
             tool_store["job_search_country"] = legacy_country.jobspy_country
+    if has_fetched_jobs and "job_search_country_confirmed" not in tool_store:
+        tool_store["job_search_country_confirmed"] = True
     _seed_course_context(
         course,
         str(
@@ -582,6 +591,8 @@ async def market_demand_chat(
     logger.info("[PERF] Parallel state+graph load took %.1fms", parallel_ms)
 
     _restore_thread_state(persisted, course, requested_country)
+    if requested_country:
+        _persist_state(thread_id)
 
     config = {"configurable": {"thread_id": thread_id}}
     input_data = {
