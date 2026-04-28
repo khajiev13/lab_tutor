@@ -29,6 +29,7 @@ from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
 from app.modules.courses.models import Course
 
+from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .graph import get_graph
 from .models import MDAThreadState
 from .state import STATE_KEYS, restore_state, snapshot_state, tool_store
@@ -119,21 +120,53 @@ def _get_thread_id(user_id: int, course_id: int) -> str:
     return f"mda-{user_id}-course-{course_id}"
 
 
-def _seed_course_context(course: Course, location: str = "United States") -> None:
+def _seed_course_context(
+    course: Course, country: str | None = DEFAULT_JOB_SEARCH_COUNTRY
+) -> None:
+    selected_country = normalize_job_search_country(country)
     tool_store["course_id"] = course.id
     tool_store["course_title"] = course.title
     tool_store["course_description"] = course.description or ""
-    # Preserve existing location if already set (don't overwrite mid-session)
+    # Preserve existing search settings if already set (don't overwrite mid-session).
+    if "job_search_country" not in tool_store:
+        tool_store["job_search_country"] = selected_country.jobspy_country
     if "job_search_location" not in tool_store:
-        tool_store["job_search_location"] = location
+        tool_store["job_search_location"] = selected_country.location
 
 
 def _restore_thread_state(
-    persisted: dict[str, Any] | None, course: Course, location: str = "United States"
+    persisted: dict[str, Any] | None,
+    course: Course,
+    country: str | None = None,
 ) -> None:
     # When a thread has no persisted snapshot yet, clear any prior thread's state.
     restore_state(persisted or {})
-    _seed_course_context(course, location)
+    has_fetched_jobs = bool(tool_store.get("fetched_jobs"))
+    requested_country = country.strip() if isinstance(country, str) else None
+    if not has_fetched_jobs:
+        raw_country = (
+            requested_country
+            or str(tool_store.get("job_search_country", "")).strip()
+            or str(tool_store.get("job_search_location", "")).strip()
+            or DEFAULT_JOB_SEARCH_COUNTRY
+        )
+        selected_country = normalize_job_search_country(raw_country)
+        tool_store["job_search_country"] = selected_country.jobspy_country
+        tool_store["job_search_location"] = selected_country.location
+    elif "job_search_country" not in tool_store and "job_search_location" in tool_store:
+        with contextlib.suppress(ValueError):
+            legacy_country = normalize_job_search_country(
+                str(tool_store["job_search_location"])
+            )
+            tool_store["job_search_country"] = legacy_country.jobspy_country
+    _seed_course_context(
+        course,
+        str(
+            tool_store.get("job_search_country")
+            or requested_country
+            or DEFAULT_JOB_SEARCH_COUNTRY
+        ),
+    )
 
 
 async def _persist_state_to_db(thread_id: str, state: dict[str, Any]) -> None:
@@ -503,7 +536,8 @@ async def _sse_stream(
 
 class ChatRequest(BaseModel):
     message: str = ""
-    location: str = "United States"  # job search location passed to fetch_jobs
+    country: str | None = None
+    location: str | None = None  # Deprecated; old clients sent this as country.
 
 
 @router.post("/{course_id}/market-demand/chat")
@@ -528,6 +562,16 @@ async def market_demand_chat(
         len(body.message),
     )
 
+    requested_country = body.country or body.location
+    if requested_country:
+        try:
+            normalize_job_search_country(requested_country)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
     # Load persisted state and graph concurrently (both hit PostgreSQL)
     t0 = time.perf_counter()
     persisted, (graph, _llm) = await asyncio.gather(
@@ -537,7 +581,7 @@ async def market_demand_chat(
     parallel_ms = (time.perf_counter() - t0) * 1000
     logger.info("[PERF] Parallel state+graph load took %.1fms", parallel_ms)
 
-    _restore_thread_state(persisted, course, body.location)
+    _restore_thread_state(persisted, course, requested_country)
 
     config = {"configurable": {"thread_id": thread_id}}
     input_data = {
