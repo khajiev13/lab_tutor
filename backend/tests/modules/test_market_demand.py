@@ -134,6 +134,29 @@ class TestJobSearchCountries:
         with pytest.raises(ValueError, match="Unsupported job search country"):
             normalize_job_search_country("Atlantis")
 
+    def test_set_job_search_country_marks_country_confirmed(self):
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import set_job_search_country
+
+        result = set_job_search_country.invoke({"country": "China"})
+
+        assert "China" in result
+        assert state_mod.tool_store["job_search_country"] == "China"
+        assert state_mod.tool_store["job_search_location"] == "China"
+        assert state_mod.tool_store["job_search_country_confirmed"] is True
+
+
+class TestMarketDemandPrompts:
+    def test_supervisor_requires_country_confirmation_before_handoff(self):
+        from app.modules.marketdemandanalyst.prompts import SUPERVISOR_PROMPT
+        from app.modules.marketdemandanalyst.tools import SUPERVISOR_TOOLS
+
+        supervisor_tool_names = {tool.name for tool in SUPERVISOR_TOOLS}
+
+        assert "country" in SUPERVISOR_PROMPT.lower()
+        assert "set_job_search_country" in SUPERVISOR_PROMPT
+        assert "set_job_search_country" in supervisor_tool_names
+
 
 # ── Fixtures ─────────────────────────────────────────────────
 
@@ -512,6 +535,7 @@ class TestGetState:
             "course_title",
             "course_description",
             "job_search_country",
+            "job_search_country_confirmed",
             "job_search_location",
             "fetched_jobs",
             "job_groups",
@@ -539,7 +563,11 @@ class TestGetState:
         assert data["course_title"] == "Market Demand Test Course"
         assert data["course_description"] == "Course used by market demand tests"
         # Keys with non-null defaults should be skipped
-        keys_with_defaults = {"job_search_country", "job_search_location"}
+        keys_with_defaults = {
+            "job_search_country",
+            "job_search_country_confirmed",
+            "job_search_location",
+        }
         for key, value in data.items():
             if key.startswith("course_") or key in keys_with_defaults:
                 continue
@@ -554,6 +582,7 @@ class TestGetState:
 
         assert resp.status_code == 200
         assert resp.json()["job_search_country"] == "USA"
+        assert resp.json()["job_search_country_confirmed"] is False
 
     def test_state_is_isolated_per_course(
         self, client, teacher_auth_headers, db_session
@@ -873,6 +902,32 @@ class TestSelectJobsByGroup:
 
 
 class TestFetchJobsCountry:
+    def test_fetch_jobs_requires_confirmed_country_before_default_fetch(
+        self, monkeypatch
+    ):
+        import jobspy
+
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import fetch_jobs
+
+        calls = []
+
+        def fake_scrape_jobs(**kwargs):
+            calls.append(kwargs)
+            raise AssertionError(
+                "fetch_jobs should not crawl without a confirmed country"
+            )
+
+        monkeypatch.setattr(jobspy, "scrape_jobs", fake_scrape_jobs)
+        state_mod.tool_store.clear()
+        state_mod.tool_store["job_search_country"] = "USA"
+
+        result = fetch_jobs.invoke({"search_terms": "big data engineer"})
+
+        assert calls == []
+        assert "Select a job market country" in result
+        assert state_mod.tool_store.get("job_search_country_confirmed") is not True
+
     def test_fetch_jobs_passes_configured_country_to_jobspy(self, monkeypatch):
         import jobspy
         import pandas as pd
@@ -903,6 +958,7 @@ class TestFetchJobsCountry:
         monkeypatch.setattr(jobspy, "scrape_jobs", fake_scrape_jobs)
         state_mod.tool_store.clear()
         state_mod.tool_store["job_search_country"] = "China"
+        state_mod.tool_store["job_search_country_confirmed"] = True
 
         result = fetch_jobs.invoke(
             {"search_terms": "big data engineer", "results_per_site": 2}
@@ -955,6 +1011,7 @@ class TestFetchJobsCountry:
 
         assert {call["country_indeed"] for call in calls} == {"China"}
         assert state_mod.tool_store["job_search_country"] == "China"
+        assert state_mod.tool_store["job_search_country_confirmed"] is True
 
     def test_fetch_jobs_legacy_location_argument_overrides_state(self, monkeypatch):
         import jobspy
@@ -996,6 +1053,7 @@ class TestFetchJobsCountry:
 
         assert {call["country_indeed"] for call in calls} == {"China"}
         assert state_mod.tool_store["job_search_country"] == "China"
+        assert state_mod.tool_store["job_search_country_confirmed"] is True
 
 
 class TestCourseScopedContext:
@@ -1040,6 +1098,7 @@ class TestCourseScopedContext:
 
         assert state_mod.tool_store["job_search_country"] == "China"
         assert state_mod.tool_store["job_search_location"] == "China"
+        assert state_mod.tool_store["job_search_country_confirmed"] is True
 
     def test_restore_preserves_prefetch_country_when_request_omits_country(self):
         import app.modules.marketdemandanalyst.routes as routes_mod
@@ -1058,6 +1117,7 @@ class TestCourseScopedContext:
 
         assert state_mod.tool_store["job_search_country"] == "China"
         assert state_mod.tool_store["job_search_location"] == "China"
+        assert state_mod.tool_store["job_search_country_confirmed"] is False
 
     def test_restore_preserves_country_after_jobs_are_fetched(self):
         import app.modules.marketdemandanalyst.routes as routes_mod
@@ -1077,6 +1137,7 @@ class TestCourseScopedContext:
 
         assert state_mod.tool_store["job_search_country"] == "USA"
         assert state_mod.tool_store["job_search_location"] == "United States"
+        assert state_mod.tool_store["job_search_country_confirmed"] is True
 
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_chat_rejects_unsupported_country(
@@ -1114,6 +1175,7 @@ class TestCourseScopedContext:
         assert resp.status_code == 200
         assert state_mod.tool_store["job_search_country"] == "China"
         assert state_mod.tool_store["job_search_location"] == "China"
+        assert state_mod.tool_store["job_search_country_confirmed"] is True
 
     def test_other_teacher_cannot_access_course(self, client, teacher_auth_headers):
         course_id = _create_course(client, teacher_auth_headers)

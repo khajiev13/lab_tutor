@@ -15,7 +15,7 @@ function getAccessToken(): string | null {
 interface StreamChatArgs {
   courseId: number;
   message: string;
-  country: string;
+  country: string | null;
   onEvent: (event: StreamEvent) => void;
   onThreadId?: (threadId: string) => void;
   onError?: (err: unknown) => void;
@@ -89,7 +89,7 @@ export async function streamMarketDemandChat({
   }
 
   const url = `${API_URL}/courses/${courseId}/market-demand/chat`;
-  const body = JSON.stringify({ message, country });
+  const body = JSON.stringify(country ? { message, country } : { message });
   const res = await fetchWithAuth(url, body, token, signal);
 
   if (!res.ok) {

@@ -191,6 +191,26 @@ def _fetch_existing_chapter_skill_rows(
 
 
 @tool
+def set_job_search_country(country: str) -> str:
+    """Set the teacher-confirmed country for job crawling before fetching jobs."""
+    selected_country = normalize_job_search_country(country)
+    existing_jobs = tool_store.get("fetched_jobs")
+    existing_country = str(tool_store.get("job_search_country", "")).strip()
+
+    if existing_jobs and existing_country != selected_country.jobspy_country:
+        return (
+            "Jobs have already been fetched for "
+            f"{existing_country or 'the current country'}. "
+            "Clear the conversation before changing the job market country."
+        )
+
+    tool_store["job_search_country"] = selected_country.jobspy_country
+    tool_store["job_search_location"] = selected_country.location
+    tool_store["job_search_country_confirmed"] = True
+    return f"Job search country set to {selected_country.label}."
+
+
+@tool
 def fetch_jobs(
     search_terms: str,
     country: str = "",
@@ -203,11 +223,18 @@ def fetch_jobs(
     country: target market country; if blank, uses the country configured for this course.
     location: deprecated fallback interpreted as country for old clients/agent calls.
     IMPORTANT: Always use ONE call with all search terms. Never call this tool multiple times."""
+
+    explicit_country = country.strip() or location.strip()
+    if not explicit_country and not tool_store.get("job_search_country_confirmed"):
+        return (
+            "Select a job market country before fetching jobs. "
+            "Ask the teacher to choose a country, then call set_job_search_country."
+        )
+
     from jobspy import scrape_jobs
 
     raw_country = (
-        country.strip()
-        or location.strip()
+        explicit_country
         or str(tool_store.get("job_search_country", "")).strip()
         or str(tool_store.get("job_search_location", "")).strip()
         or DEFAULT_JOB_SEARCH_COUNTRY
@@ -216,6 +243,8 @@ def fetch_jobs(
     effective_location = selected_country.location
     tool_store["job_search_country"] = selected_country.jobspy_country
     tool_store["job_search_location"] = effective_location
+    if explicit_country:
+        tool_store["job_search_country_confirmed"] = True
 
     terms = [t.strip() for t in search_terms.split(",") if t.strip()]
     sites = ["indeed", "linkedin"]
@@ -2041,12 +2070,14 @@ def finalize_cleaned_skills() -> str:
 # ═══════════════════════════════════════════════════════════════════
 
 SUPERVISOR_TOOLS = [
+    set_job_search_country,
     save_skills_for_insertion,
     delete_market_skills,
     show_current_state,
 ]
 
 SKILL_FINDER_TOOLS = [
+    set_job_search_country,
     fetch_jobs,
     select_jobs_by_group,
     start_extraction,

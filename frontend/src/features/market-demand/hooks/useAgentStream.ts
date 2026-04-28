@@ -16,6 +16,7 @@ const EMPTY_STATE: AgentState = {
   course_title: null,
   course_description: null,
   job_search_country: DEFAULT_MARKET_DEMAND_COUNTRY,
+  job_search_country_confirmed: false,
   job_search_location: "United States",
   fetched_jobs: null,
   job_groups: null,
@@ -284,8 +285,9 @@ export function useAgentStream(
       try {
         const country =
           countryOverride ??
-          agentStateRef.current.job_search_country ??
-          DEFAULT_MARKET_DEMAND_COUNTRY;
+          (agentStateRef.current.job_search_country_confirmed
+            ? agentStateRef.current.job_search_country
+            : null);
         await streamMarketDemandChat({
           courseId,
           message: text,
