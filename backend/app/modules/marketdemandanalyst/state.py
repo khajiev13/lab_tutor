@@ -10,6 +10,7 @@ STATE_KEYS: list[str] = [
     "course_id",
     "course_title",
     "course_description",
+    "job_search_country",
     "job_search_location",
     "fetched_jobs",
     "job_groups",
@@ -198,6 +199,8 @@ class AgentState(TypedDict):
 
     messages: Annotated[list, add_messages]
     course_id: int
+    job_search_country: str
+    job_search_location: str
     fetched_jobs: list[dict]
     selected_jobs: list[dict]
     extracted_skills: list[dict]

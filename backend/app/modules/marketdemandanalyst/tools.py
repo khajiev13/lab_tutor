@@ -10,6 +10,7 @@ import pandas as pd
 from langchain.tools import tool
 from langgraph.types import Command
 
+from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .extractor import _get_extraction_llm
 from .state import mapping_breakdown, tool_store
 
@@ -192,22 +193,29 @@ def _fetch_existing_chapter_skill_rows(
 @tool
 def fetch_jobs(
     search_terms: str,
-    location: str = "",
+    country: str = "",
     results_per_site: int = 15,
+    location: str = "",
 ) -> str:
     """Fetch real job postings from Indeed and LinkedIn.
     search_terms: comma-separated queries (e.g. "Bioinformatics Researcher, Lab Technician").
     Scrapes all terms, deduplicates by title+company.
-    location: optional override — if blank, uses the location configured for this course.
+    country: target market country; if blank, uses the country configured for this course.
+    location: deprecated fallback interpreted as country for old clients/agent calls.
     IMPORTANT: Always use ONE call with all search terms. Never call this tool multiple times."""
     from jobspy import scrape_jobs
 
-    # Prefer explicit arg → tool_store (seeded from route) → fallback
-    effective_location = (
-        location.strip()
+    raw_country = (
+        country.strip()
+        or location.strip()
+        or str(tool_store.get("job_search_country", "")).strip()
         or str(tool_store.get("job_search_location", "")).strip()
-        or "United States"
+        or DEFAULT_JOB_SEARCH_COUNTRY
     )
+    selected_country = normalize_job_search_country(raw_country)
+    effective_location = selected_country.location
+    tool_store["job_search_country"] = selected_country.jobspy_country
+    tool_store["job_search_location"] = effective_location
 
     terms = [t.strip() for t in search_terms.split(",") if t.strip()]
     sites = ["indeed", "linkedin"]
@@ -221,7 +229,7 @@ def fetch_jobs(
             location=effective_location,
             results_wanted=results_per_site,
             hours_old=72,
-            country_indeed="USA",
+            country_indeed=selected_country.jobspy_country,
             description_format="markdown",
             linkedin_fetch_description=(site == "linkedin"),
             verbose=0,
@@ -283,6 +291,8 @@ def fetch_jobs(
                 "url": str(row.get("job_url", "")),
                 "site": str(row.get("site", "")),
                 "search_term": str(row["_search_term"]),
+                "country": selected_country.jobspy_country,
+                "location": str(row.get("location", "")),
             }
         )
 
@@ -1371,6 +1381,7 @@ def insert_market_skills_to_neo4j() -> str:
                     "MERGE (j:JOB_POSTING {url: $url}) "
                     "SET j.title = $title, j.company = $company, "
                     "    j.site = $site, j.search_term = $search_term, "
+                    "    j.country = $country, j.location = $location, "
                     "    j.description = $description",
                     {
                         "url": job["url"],
@@ -1378,6 +1389,8 @@ def insert_market_skills_to_neo4j() -> str:
                         "company": job.get("company", ""),
                         "site": job.get("site", ""),
                         "search_term": job.get("search_term", ""),
+                        "country": job.get("country", ""),
+                        "location": job.get("location", ""),
                         "description": job.get("description", ""),
                     },
                 )

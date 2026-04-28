@@ -1,8 +1,15 @@
 import { useParams, Link } from "react-router-dom";
-import { BrainCircuit, Loader2, PanelRightClose, PanelRightOpen, Trash2 } from "lucide-react";
+import { BrainCircuit, Globe2, Loader2, PanelRightClose, PanelRightOpen, Trash2 } from "lucide-react";
 import { useState, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +41,7 @@ import {
   useCourseDetail,
 } from "@/features/courses/context/CourseDetailContext";
 import { getAgentById } from "@/features/agents/config";
+import { DEFAULT_MARKET_DEMAND_COUNTRY, MARKET_DEMAND_COUNTRIES } from "../countries";
 import { useAgentStream } from "../hooks/useAgentStream";
 import { AgentMessage } from "../components/AgentMessage";
 import { UserMessage } from "../components/UserMessage";
@@ -181,6 +189,7 @@ export default function MarketDemandPage() {
 function MarketDemandContent() {
   const { course, courseId } = useCourseDetail();
   const agent = getAgentById("market-analyst");
+  const [selectedCountryOverride, setSelectedCountryOverride] = useState<string | null>(null);
   const {
     messages,
     isStreaming,
@@ -191,9 +200,13 @@ function MarketDemandContent() {
     stop,
     clearConversation,
     error,
-  } = useAgentStream(courseId);
+  } = useAgentStream(courseId, selectedCountryOverride);
 
   const [panelOpen, setPanelOpen] = useState(true);
+  const selectedCountry =
+    selectedCountryOverride ??
+    agentState.job_search_country ??
+    DEFAULT_MARKET_DEMAND_COUNTRY;
 
   // Track confirmed selections so the card flips to a summary
   const [confirmedSelection, setConfirmedSelection] = useState<{
@@ -204,6 +217,10 @@ function MarketDemandContent() {
   const handleSend = (text: string) => {
     send(text);
   };
+
+  const handleCountryChange = useCallback((country: string) => {
+    setSelectedCountryOverride(country);
+  }, []);
 
   const handleClear = useCallback(async () => {
     await clearConversation();
@@ -239,6 +256,8 @@ function MarketDemandContent() {
   );
 
   const isEmpty = messages.length === 0 && !isLoadingHistory;
+  const hasFetchedJobs = hasItems(agentState.fetched_jobs);
+  const countrySelectorDisabled = isLoadingHistory || isStreaming || hasFetchedJobs;
 
   // Derive pending selection from state + messages
   const pending = detectPendingSelection(agentState, messages);
@@ -296,6 +315,27 @@ function MarketDemandContent() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Select
+            value={selectedCountry}
+            onValueChange={handleCountryChange}
+            disabled={countrySelectorDisabled}
+          >
+            <SelectTrigger
+              size="sm"
+              className="h-8 w-[150px] text-xs"
+              aria-label="Market country"
+            >
+              <Globe2 className="size-3.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {MARKET_DEMAND_COUNTRIES.map((country) => (
+                <SelectItem key={country.value} value={country.value}>
+                  {country.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <ConnectionStatus isStreaming={isStreaming} hasError={!!error} />
           {messages.length > 0 && (
             <AlertDialog>
@@ -398,7 +438,12 @@ function MarketDemandContent() {
           {/* Input */}
           <div className="px-4 py-3 shrink-0 sticky bottom-0 bg-background">
             <div className="mx-auto max-w-3xl">
-              <ChatInput onSend={handleSend} onStop={stop} isStreaming={isStreaming} />
+              <ChatInput
+                onSend={handleSend}
+                onStop={stop}
+                isStreaming={isStreaming}
+                disabled={isLoadingHistory}
+              />
             </div>
           </div>
         </ChatContainerRoot>

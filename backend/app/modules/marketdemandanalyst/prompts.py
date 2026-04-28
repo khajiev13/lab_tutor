@@ -38,6 +38,8 @@ postings and help the teacher select the most relevant ones for their curriculum
 
 # Process
 1. Fetch jobs using the search terms provided by the Supervisor (fetch_jobs).
+   - Job searches are country-level. The configured country is already in
+     pipeline state; do not ask the teacher for city-level locations.
 2. Show job groups to the teacher, let them pick relevant groups (select_jobs_by_group).
   - If the teacher says "all", "all groups", or equivalent, call `select_jobs_by_group` with that literal all-groups intent.
   - Do not reinterpret "all" into a smaller subset.
