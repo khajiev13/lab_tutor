@@ -53,6 +53,8 @@ const EMPTY_STATE: AgentState = {
   course_id: null,
   course_title: null,
   course_description: null,
+  job_search_country: "USA",
+  job_search_location: "United States",
   fetched_jobs: null,
   job_groups: null,
   selected_jobs: null,
@@ -209,7 +211,82 @@ describe("MarketDemandPage", () => {
       </MemoryRouter>
     );
 
-    expect(useAgentStream).toHaveBeenCalledWith(1);
+    expect(useAgentStream).toHaveBeenCalledWith(1, null);
+  });
+
+  it("renders the default market country selector", async () => {
+    const { default: MarketDemandPage } = await import(
+      "../pages/MarketDemandPage"
+    );
+    render(
+      <MemoryRouter>
+        <MarketDemandPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("combobox", { name: /market country/i })).toHaveTextContent(
+      "United States"
+    );
+  });
+
+  it("passes the selected market country into the market-demand hook", async () => {
+    const { default: MarketDemandPage } = await import(
+      "../pages/MarketDemandPage"
+    );
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <MarketDemandPage />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByRole("combobox", { name: /market country/i }));
+    await user.click(await screen.findByRole("option", { name: "China" }));
+
+    expect(useAgentStream).toHaveBeenLastCalledWith(1, "China");
+  });
+
+  it("disables input while restoring conversation state", async () => {
+    vi.mocked(useAgentStream).mockReturnValue(
+      mockStreamReturn({ isLoadingHistory: true })
+    );
+    const { default: MarketDemandPage } = await import(
+      "../pages/MarketDemandPage"
+    );
+    render(
+      <MemoryRouter>
+        <MarketDemandPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByPlaceholderText("Type your response...")).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: /market country/i })).toHaveAttribute(
+      "data-disabled"
+    );
+  });
+
+  it("syncs the selector from restored agent state", async () => {
+    vi.mocked(useAgentStream).mockReturnValue(
+      mockStreamReturn({
+        agentState: {
+          ...EMPTY_STATE,
+          job_search_country: "China",
+          job_search_location: "China",
+        },
+      })
+    );
+    const { default: MarketDemandPage } = await import(
+      "../pages/MarketDemandPage"
+    );
+    render(
+      <MemoryRouter>
+        <MarketDemandPage />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByRole("combobox", { name: /market country/i })
+    ).toHaveTextContent("China");
   });
 
   it("renders without crashing", async () => {
@@ -294,5 +371,28 @@ describe("MarketDemandPage", () => {
 
     expect(screen.getByText("Hello agent")).toBeInTheDocument();
     expect(screen.getByText("I found some jobs")).toBeInTheDocument();
+  });
+
+  it("shows the selected job market country in the state panel", async () => {
+    vi.mocked(useAgentStream).mockReturnValue(
+      mockStreamReturn({
+        agentState: {
+          ...EMPTY_STATE,
+          job_search_country: "China",
+          fetched_jobs: [{ title: "Frontend Engineer", company: "Acme" }],
+        },
+      })
+    );
+
+    const { default: MarketDemandPage } = await import(
+      "../pages/MarketDemandPage"
+    );
+    render(
+      <MemoryRouter>
+        <MarketDemandPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/market: China/i)).toBeInTheDocument();
   });
 });

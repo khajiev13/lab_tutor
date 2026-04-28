@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteConversation, fetchAgentState, fetchConversationHistory, streamMarketDemandChat } from "../api";
+import { DEFAULT_MARKET_DEMAND_COUNTRY } from "../countries";
 import type {
   AgentName,
   AgentState,
@@ -14,6 +15,8 @@ const EMPTY_STATE: AgentState = {
   course_id: null,
   course_title: null,
   course_description: null,
+  job_search_country: DEFAULT_MARKET_DEMAND_COUNTRY,
+  job_search_location: "United States",
   fetched_jobs: null,
   job_groups: null,
   selected_jobs: null,
@@ -73,7 +76,10 @@ export interface UseAgentStreamReturn {
   error: string | null;
 }
 
-export function useAgentStream(courseId: number): UseAgentStreamReturn {
+export function useAgentStream(
+  courseId: number,
+  countryOverride: string | null = null
+): UseAgentStreamReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<AgentName | null>(null);
@@ -276,9 +282,14 @@ export function useAgentStream(courseId: number): UseAgentStreamReturn {
       abortRef.current = abort;
 
       try {
+        const country =
+          countryOverride ??
+          agentStateRef.current.job_search_country ??
+          DEFAULT_MARKET_DEMAND_COUNTRY;
         await streamMarketDemandChat({
           courseId,
           message: text,
+          country,
           signal: abort.signal,
           onThreadId: (id) => setThreadId(id),
           onEvent: handleEvent,
@@ -302,7 +313,7 @@ export function useAgentStream(courseId: number): UseAgentStreamReturn {
         setCurrentAgent(null);
       }
     },
-    [courseId, handleEvent]
+    [courseId, countryOverride, handleEvent]
   );
 
   const stop = useCallback(() => {

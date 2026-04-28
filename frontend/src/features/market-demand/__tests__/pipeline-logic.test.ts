@@ -39,6 +39,8 @@ const EMPTY_STATE: AgentState = {
   course_id: null,
   course_title: null,
   course_description: null,
+  job_search_country: "USA",
+  job_search_location: "United States",
   fetched_jobs: null,
   job_groups: null,
   selected_jobs: null,
@@ -147,9 +149,11 @@ describe("StreamEvent type contracts", () => {
 
   it("AgentState has all course-scoped state keys", () => {
     const keys = Object.keys(EMPTY_STATE);
-    expect(keys).toHaveLength(15);
+    expect(keys).toHaveLength(17);
     expect(keys).toContain("course_id");
     expect(keys).toContain("course_title");
+    expect(keys).toContain("job_search_country");
+    expect(keys).toContain("job_search_location");
     expect(keys).toContain("fetched_jobs");
     expect(keys).toContain("insertion_results");
     expect(keys).toContain("skill_job_urls");

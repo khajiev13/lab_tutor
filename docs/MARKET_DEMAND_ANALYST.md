@@ -224,7 +224,9 @@ All agents share a **module-level dictionary** (`tool_store`) that accumulates d
 
 | Key | Set By | Read By | Type | Description |
 |-----|--------|---------|------|-------------|
-| `fetched_jobs` | `fetch_jobs` | Supervisor, extraction | `list[dict]` | Raw job postings (title, company, description, url, site) |
+| `job_search_country` | route / `fetch_jobs` | `fetch_jobs`, UI state | `str` | Country-level job market, e.g. `USA` or `China` |
+| `job_search_location` | route / `fetch_jobs` | legacy state | `str` | Deprecated compatibility field derived from country |
+| `fetched_jobs` | `fetch_jobs` | Supervisor, extraction | `list[dict]` | Raw job postings (title, company, description, url, site, country, location) |
 | `job_groups` | `fetch_jobs` | `select_jobs_by_group` | `dict[str, list[int]]` | Normalized title → job indices mapping, sorted by count desc |
 | `selected_jobs` | `select_jobs_by_group` | `_run_skill_extraction`, Concept Linker | `list[dict]` | Teacher-chosen job subset |
 | `extracted_skills` | `_run_skill_extraction` | Curriculum Mapper, Concept Linker | `list[dict]` | `{name, category, frequency, pct}` |
@@ -304,7 +306,9 @@ LLM sees:                           tool_store holds:
     title:         String,
     company:       String,
     site:          String,      -- "indeed" | "linkedin"
-    search_term:   String       -- original query that found this posting
+    search_term:   String,      -- original query that found this posting
+    country:       String,      -- selected country-level job market
+    location:      String       -- provider-returned posting location
 })
 
 (:CONCEPT {
@@ -417,7 +421,7 @@ Each user gets a **deterministic thread**: `f"mda-{user.id}"`.
 
 | Tool | Parameters | Returns |
 |------|-----------|---------|
-| `fetch_jobs` | `search_terms: str` (comma-separated), `location: str`, `results_per_site: int` | Grouped summary (top 10 groups) |
+| `fetch_jobs` | `search_terms: str` (comma-separated), `country: str`, `results_per_site: int` | Grouped summary (top 10 groups) |
 | `select_jobs_by_group` | `group_names: str` (numbers or names) | Selection confirmation |
 | `start_analysis_pipeline` | _(none — reads from tool_store)_ | Runs extraction programmatically, then `Command(goto="curriculum_mapper")` |
 | `save_skills_for_insertion` | `skills_json: str` (JSON array) | Save confirmation |
@@ -463,6 +467,7 @@ Each user gets a **deterministic thread**: `f"mda-{user.id}"`.
 ### Job Scraping
 - **Library**: `jobspy`
 - **Sites**: Indeed, LinkedIn
+- **Country selection**: country-only; backend passes the selected country to JobSpy as `country_indeed` and uses the matching country-level `location`
 - **Scraper**: Parallel `ThreadPoolExecutor` (`max_workers=8`)
 - **Dedup**: by (title, company) case-insensitive
 

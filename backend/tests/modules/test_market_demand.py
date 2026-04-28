@@ -104,6 +104,37 @@ def _get_user_id(db_session, email: str) -> int:
     return db_session.execute(select(User.id).where(User.email == email)).scalar_one()
 
 
+# ── Tests: Job Search Countries ──────────────────────────────
+
+
+class TestJobSearchCountries:
+    def test_normalize_job_search_country_accepts_supported_values(self):
+        from app.modules.marketdemandanalyst.countries import (
+            normalize_job_search_country,
+        )
+
+        assert normalize_job_search_country("China").jobspy_country == "China"
+        assert normalize_job_search_country("USA").jobspy_country == "USA"
+        assert normalize_job_search_country("United States").jobspy_country == "USA"
+
+    def test_normalize_job_search_country_defaults_blank_to_usa(self):
+        from app.modules.marketdemandanalyst.countries import (
+            normalize_job_search_country,
+        )
+
+        country = normalize_job_search_country("")
+        assert country.jobspy_country == "USA"
+        assert country.location == "United States"
+
+    def test_normalize_job_search_country_rejects_unknown_country(self):
+        from app.modules.marketdemandanalyst.countries import (
+            normalize_job_search_country,
+        )
+
+        with pytest.raises(ValueError, match="Unsupported job search country"):
+            normalize_job_search_country("Atlantis")
+
+
 # ── Fixtures ─────────────────────────────────────────────────
 
 
@@ -480,6 +511,8 @@ class TestGetState:
             "course_id",
             "course_title",
             "course_description",
+            "job_search_country",
+            "job_search_location",
             "fetched_jobs",
             "job_groups",
             "selected_jobs",
@@ -506,11 +539,21 @@ class TestGetState:
         assert data["course_title"] == "Market Demand Test Course"
         assert data["course_description"] == "Course used by market demand tests"
         # Keys with non-null defaults should be skipped
-        keys_with_defaults = {"job_search_location"}
+        keys_with_defaults = {"job_search_country", "job_search_location"}
         for key, value in data.items():
             if key.startswith("course_") or key in keys_with_defaults:
                 continue
             assert value is None, f"Expected None for key '{key}', got {value!r}"
+
+    def test_state_includes_job_search_country(self, client, teacher_auth_headers):
+        course_id = _create_course(client, teacher_auth_headers)
+        resp = client.get(
+            f"/courses/{course_id}/market-demand/state",
+            headers=teacher_auth_headers,
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["job_search_country"] == "USA"
 
     def test_state_is_isolated_per_course(
         self, client, teacher_auth_headers, db_session
@@ -829,6 +872,132 @@ class TestSelectJobsByGroup:
         assert len(state_mod.tool_store["selected_jobs"]) == 2
 
 
+class TestFetchJobsCountry:
+    def test_fetch_jobs_passes_configured_country_to_jobspy(self, monkeypatch):
+        import jobspy
+        import pandas as pd
+
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import fetch_jobs
+
+        calls = []
+
+        def fake_scrape_jobs(**kwargs):
+            calls.append(kwargs)
+            site = kwargs["site_name"][0]
+            return pd.DataFrame(
+                [
+                    {
+                        "title": f"{site} Big Data Engineer",
+                        "company": "Example Co",
+                        "description": (
+                            "Build and maintain big data platforms with Spark, Kafka, "
+                            "orchestration, and warehouse pipelines."
+                        ),
+                        "job_url": f"https://example.com/{site}",
+                        "site": site,
+                    }
+                ]
+            )
+
+        monkeypatch.setattr(jobspy, "scrape_jobs", fake_scrape_jobs)
+        state_mod.tool_store.clear()
+        state_mod.tool_store["job_search_country"] = "China"
+
+        result = fetch_jobs.invoke(
+            {"search_terms": "big data engineer", "results_per_site": 2}
+        )
+
+        assert "Fetched 2 unique jobs" in result
+        assert {call["country_indeed"] for call in calls} == {"China"}
+        assert {call["location"] for call in calls} == {"China"}
+        assert {job["country"] for job in state_mod.tool_store["fetched_jobs"]} == {
+            "China"
+        }
+
+    def test_fetch_jobs_country_argument_overrides_state(self, monkeypatch):
+        import jobspy
+        import pandas as pd
+
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import fetch_jobs
+
+        calls = []
+
+        def fake_scrape_jobs(**kwargs):
+            calls.append(kwargs)
+            return pd.DataFrame(
+                [
+                    {
+                        "title": "Data Engineer",
+                        "company": "Example Co",
+                        "description": (
+                            "Build analytical data systems with SQL, Spark, "
+                            "orchestration, quality checks, and production monitoring."
+                        ),
+                        "job_url": "https://example.com/job",
+                        "site": kwargs["site_name"][0],
+                    }
+                ]
+            )
+
+        monkeypatch.setattr(jobspy, "scrape_jobs", fake_scrape_jobs)
+        state_mod.tool_store.clear()
+        state_mod.tool_store["job_search_country"] = "USA"
+
+        fetch_jobs.invoke(
+            {
+                "search_terms": "data engineer",
+                "country": "China",
+                "results_per_site": 1,
+            }
+        )
+
+        assert {call["country_indeed"] for call in calls} == {"China"}
+        assert state_mod.tool_store["job_search_country"] == "China"
+
+    def test_fetch_jobs_legacy_location_argument_overrides_state(self, monkeypatch):
+        import jobspy
+        import pandas as pd
+
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import fetch_jobs
+
+        calls = []
+
+        def fake_scrape_jobs(**kwargs):
+            calls.append(kwargs)
+            return pd.DataFrame(
+                [
+                    {
+                        "title": "Data Engineer",
+                        "company": "Example Co",
+                        "description": (
+                            "Build analytical data systems with SQL, Spark, "
+                            "orchestration, quality checks, and production monitoring."
+                        ),
+                        "job_url": "https://example.com/job",
+                        "site": kwargs["site_name"][0],
+                    }
+                ]
+            )
+
+        monkeypatch.setattr(jobspy, "scrape_jobs", fake_scrape_jobs)
+        state_mod.tool_store.clear()
+        state_mod.tool_store["job_search_country"] = "USA"
+
+        fetch_jobs.invoke(
+            {
+                "search_terms": "data engineer",
+                "location": "China",
+                "results_per_site": 1,
+            }
+        )
+
+        assert {call["country_indeed"] for call in calls} == {"China"}
+        assert state_mod.tool_store["job_search_country"] == "China"
+
+
 class TestCourseScopedContext:
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_chat_seeds_course_context(
@@ -853,6 +1022,98 @@ class TestCourseScopedContext:
         assert state_mod.tool_store["course_description"] == (
             "Course used by market demand tests"
         )
+
+    def test_restore_allows_country_change_before_jobs_are_fetched(self):
+        import app.modules.marketdemandanalyst.routes as routes_mod
+        import app.modules.marketdemandanalyst.state as state_mod
+
+        course = SimpleNamespace(id=1, title="Big Data", description="")
+
+        routes_mod._restore_thread_state(
+            {
+                "job_search_country": "USA",
+                "job_search_location": "United States",
+            },
+            course,
+            "China",
+        )
+
+        assert state_mod.tool_store["job_search_country"] == "China"
+        assert state_mod.tool_store["job_search_location"] == "China"
+
+    def test_restore_preserves_prefetch_country_when_request_omits_country(self):
+        import app.modules.marketdemandanalyst.routes as routes_mod
+        import app.modules.marketdemandanalyst.state as state_mod
+
+        course = SimpleNamespace(id=1, title="Big Data", description="")
+
+        routes_mod._restore_thread_state(
+            {
+                "job_search_country": "China",
+                "job_search_location": "China",
+            },
+            course,
+            None,
+        )
+
+        assert state_mod.tool_store["job_search_country"] == "China"
+        assert state_mod.tool_store["job_search_location"] == "China"
+
+    def test_restore_preserves_country_after_jobs_are_fetched(self):
+        import app.modules.marketdemandanalyst.routes as routes_mod
+        import app.modules.marketdemandanalyst.state as state_mod
+
+        course = SimpleNamespace(id=1, title="Big Data", description="")
+
+        routes_mod._restore_thread_state(
+            {
+                "job_search_country": "USA",
+                "job_search_location": "United States",
+                "fetched_jobs": [{"title": "Data Engineer"}],
+            },
+            course,
+            "China",
+        )
+
+        assert state_mod.tool_store["job_search_country"] == "USA"
+        assert state_mod.tool_store["job_search_location"] == "United States"
+
+    @patch("app.modules.marketdemandanalyst.routes.get_graph")
+    def test_chat_rejects_unsupported_country(
+        self, mock_get_graph, client, teacher_auth_headers
+    ):
+        course_id = _create_course(client, teacher_auth_headers, title="Big Data")
+
+        resp = client.post(
+            f"/courses/{course_id}/market-demand/chat",
+            json={"message": "hello", "country": "Atlantis"},
+            headers=teacher_auth_headers,
+        )
+
+        assert resp.status_code == 400
+        assert "Unsupported job search country" in resp.json()["detail"]
+        mock_get_graph.assert_not_called()
+
+    @patch("app.modules.marketdemandanalyst.routes.get_graph")
+    def test_chat_seeds_job_search_country_from_request(
+        self, mock_get_graph, client, teacher_auth_headers
+    ):
+        import app.modules.marketdemandanalyst.state as state_mod
+
+        course_id = _create_course(client, teacher_auth_headers)
+        mock_g = MagicMock()
+        mock_g.astream = _mock_astream([])
+        mock_get_graph.return_value = (mock_g, MagicMock())
+
+        resp = client.post(
+            f"/courses/{course_id}/market-demand/chat",
+            json={"message": "hello", "country": "China"},
+            headers=teacher_auth_headers,
+        )
+
+        assert resp.status_code == 200
+        assert state_mod.tool_store["job_search_country"] == "China"
+        assert state_mod.tool_store["job_search_location"] == "China"
 
     def test_other_teacher_cannot_access_course(self, client, teacher_auth_headers):
         course_id = _create_course(client, teacher_auth_headers)

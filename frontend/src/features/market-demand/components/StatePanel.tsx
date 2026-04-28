@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { PipelineStepper } from "./PipelineStepper";
+import { getMarketDemandCountryLabel } from "../countries";
 import type { AgentState, PipelineStageId, StageStatus } from "../types";
 
 interface StatePanelProps {
@@ -80,6 +81,7 @@ function JobsTab({ agentState }: { agentState: AgentState }) {
   const groups = agentState.job_groups;
   const jobs = agentState.fetched_jobs;
   const selected = agentState.selected_jobs;
+  const countryLabel = getMarketDemandCountryLabel(agentState.job_search_country);
 
   if (!jobs || jobs.length === 0) {
     return <EmptyTab message="No jobs fetched yet" />;
@@ -88,7 +90,7 @@ function JobsTab({ agentState }: { agentState: AgentState }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        {jobs.length} jobs fetched
+        Market: {countryLabel} · {jobs.length} jobs fetched
         {selected ? ` · ${selected.length} selected` : ""}
       </p>
       {groups &&
