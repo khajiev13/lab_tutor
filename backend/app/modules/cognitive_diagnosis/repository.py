@@ -434,11 +434,7 @@ class CognitiveDiagnosisRepository:
     def get_student_selected_skills(
         self, user_id: int, course_id: int | None = None
     ) -> list[dict]:
-        """Return only the skills this student has explicitly selected.
-
-        Falls back to get_all_skills_with_concepts when no selected skills found,
-        so the system still works before skill selection is completed.
-        """
+        """Return only the skills this student has explicitly selected."""
         if course_id is not None:
             result = self._session.run(
                 GET_STUDENT_SELECTED_SKILLS_FOR_COURSE,
@@ -447,11 +443,7 @@ class CognitiveDiagnosisRepository:
             )
         else:
             result = self._session.run(GET_STUDENT_SELECTED_SKILLS, user_id=user_id)
-        rows = [dict(r) for r in result]
-        # Fall back to all course skills if student hasn't selected any yet
-        if not rows:
-            return self.get_all_skills_with_concepts(course_id)
-        return rows
+        return [dict(r) for r in result]
 
     def get_prerequisite_edges(self) -> list[dict]:
         result = self._session.run(GET_PREREQUISITE_MATRIX)

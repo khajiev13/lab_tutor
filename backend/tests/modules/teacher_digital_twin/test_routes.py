@@ -110,6 +110,9 @@ class TestSkillDifficulty:
                 "student_count": 5,
                 "avg_mastery": 0.6,
                 "perceived_difficulty": 0.4,
+                "prereq_count": 2,
+                "downstream_count": 3,
+                "pco_risk_ratio": 0.2,
             }
         ]
         factory, _ = _neo4j_override(rows)
@@ -122,6 +125,7 @@ class TestSkillDifficulty:
             data = r.json()
             assert len(data["skills"]) == 1
             assert data["skills"][0]["skill_name"] == "calculus"
+            assert data["skills"][0]["prereq_count"] == 2
         finally:
             app.dependency_overrides.pop(get_neo4j_driver, None)
 
@@ -179,7 +183,14 @@ class TestWhatIf:
         try:
             r = client.post(
                 "/teacher-twin/1/what-if",
-                json={"mode": "automatic", "delta": 0.2, "top_k": 3},
+                json={
+                    "mode": "automatic",
+                    "preferences": {
+                        "intervention_intensity": 0.75,
+                        "focus": "broad_support",
+                        "max_skills": 3,
+                    },
+                },
                 headers=teacher_auth_headers,
             )
             assert r.status_code == 200

@@ -54,6 +54,7 @@ const EMPTY_STATE: AgentState = {
   course_title: null,
   course_description: null,
   job_search_country: "USA",
+  job_search_country_confirmed: false,
   job_search_location: "United States",
   fetched_jobs: null,
   job_groups: null,
@@ -214,7 +215,7 @@ describe("MarketDemandPage", () => {
     expect(useAgentStream).toHaveBeenCalledWith(1, null);
   });
 
-  it("renders the default market country selector", async () => {
+  it("renders an unconfirmed market country placeholder", async () => {
     const { default: MarketDemandPage } = await import(
       "../pages/MarketDemandPage"
     );
@@ -225,7 +226,7 @@ describe("MarketDemandPage", () => {
     );
 
     expect(screen.getByRole("combobox", { name: /market country/i })).toHaveTextContent(
-      "United States"
+      "Choose country"
     );
   });
 
@@ -271,6 +272,7 @@ describe("MarketDemandPage", () => {
         agentState: {
           ...EMPTY_STATE,
           job_search_country: "China",
+          job_search_country_confirmed: true,
           job_search_location: "China",
         },
       })
@@ -379,6 +381,7 @@ describe("MarketDemandPage", () => {
         agentState: {
           ...EMPTY_STATE,
           job_search_country: "China",
+          job_search_country_confirmed: true,
           fetched_jobs: [{ title: "Frontend Engineer", company: "Acme" }],
         },
       })

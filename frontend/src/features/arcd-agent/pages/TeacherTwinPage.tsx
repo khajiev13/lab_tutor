@@ -28,6 +28,13 @@ import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTeacherData } from "@/features/arcd-agent/context/TeacherDataContext";
 import {
@@ -35,12 +42,21 @@ import {
   runWhatIf,
   fetchStudentPortfolioForTeacher,
   fetchStudentTwinForTeacher,
+  type AutomaticWhatIfFocus,
+  type MultiSkillSimulationRequest,
   type MultiSkillSimulationResponse,
   type SkillSimResult,
+  type WhatIfRequest,
   type WhatIfResponse,
   type SkillDifficultyItem,
   type StudentMasterySummary,
 } from "@/features/arcd-agent/api/teacher-twin";
+import {
+  startTeacherTwinSkillSimulationTask,
+  startTeacherTwinWhatIfTask,
+  useTeacherTwinSkillSimulationTask,
+  useTeacherTwinWhatIfTask,
+} from "@/features/arcd-agent/state/teacherTwinSimulationStore";
 import { TwinViewerTab } from "@/features/arcd-agent/components/twin-viewer-tab";
 import type { StudentPortfolio, SkillInfo, TwinViewerData } from "@/features/arcd-agent/lib/types";
 import {
@@ -78,9 +94,24 @@ const TIER_COLORS = {
 };
 
 const TIER_META = {
-  advanced: { label: "Advanced", color: TIER_COLORS.advanced, threshold: [0.8, 1.0] },
-  developing: { label: "Developing", color: TIER_COLORS.developing, threshold: [0.5, 0.8] },
-  foundational: { label: "Foundational", color: TIER_COLORS.foundational, threshold: [0.0, 0.5] },
+  advanced: {
+    label: "Advanced",
+    color: TIER_COLORS.advanced,
+    threshold: [0.8, 1.0],
+    description: "Students already showing strong mastery who are ready for extension and transfer.",
+  },
+  developing: {
+    label: "Developing",
+    color: TIER_COLORS.developing,
+    threshold: [0.5, 0.8],
+    description: "Students building consistency who benefit from guided practice on near-next concepts.",
+  },
+  foundational: {
+    label: "Foundational",
+    color: TIER_COLORS.foundational,
+    threshold: [0.0, 0.5],
+    description: "Students still needing core-skill support before moving on to more dependent topics.",
+  },
 };
 
 const TIER_BG: Record<string, string> = {
@@ -111,6 +142,59 @@ function projectMastery(m0: number, alpha: number, step: number, lambda: number 
 
 function projectDecay(m0: number, lambda: number, step: number): number {
   return Math.max(0.05, m0 * Math.pow(1 - lambda, step));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+interface SkillCurveProfile {
+  alpha: number;
+  lambda: number;
+  difficultyPenalty: number;
+  prerequisiteLoad: number;
+  downstreamSupport: number;
+  pcoRisk: number;
+}
+
+function deriveSkillCurveProfile(
+  skill: SkillDifficultyItem,
+  alpha: number,
+  lambda: number,
+  limits: {
+    maxPrereqCount: number;
+    maxDownstreamCount: number;
+  },
+): SkillCurveProfile {
+  const prerequisiteLoad =
+    limits.maxPrereqCount > 0 ? skill.prereq_count / limits.maxPrereqCount : 0;
+  const downstreamSupport =
+    limits.maxDownstreamCount > 0 ? skill.downstream_count / limits.maxDownstreamCount : 0;
+  const difficultyPenalty = clamp(skill.perceived_difficulty, 0, 1);
+  const pcoRisk = clamp(skill.pco_risk_ratio, 0, 1);
+
+  const adjustedAlpha = clamp(
+    alpha *
+      (1 - difficultyPenalty * 0.45 - prerequisiteLoad * 0.22 - pcoRisk * 0.18 + downstreamSupport * 0.14),
+    0.02,
+    0.4,
+  );
+
+  const adjustedLambda = clamp(
+    lambda *
+      (1 + difficultyPenalty * 0.35 + prerequisiteLoad * 0.2 + pcoRisk * 1.05 - downstreamSupport * 0.18),
+    0.005,
+    0.25,
+  );
+
+  return {
+    alpha: adjustedAlpha,
+    lambda: adjustedLambda,
+    difficultyPenalty,
+    prerequisiteLoad,
+    downstreamSupport,
+    pcoRisk,
+  };
 }
 
 function tierOf(m: number): "advanced" | "developing" | "foundational" {
@@ -569,6 +653,33 @@ function CohortTab() {
   const classAvgM0 = students.length
     ? students.reduce((a, s) => a + s.avg_mastery, 0) / students.length
     : 0;
+  const classProjectedAvg = useCallback(
+    (step: number, baseline = false) => {
+      if (!students.length) return 0;
+      const total = students.reduce((sum, student) => {
+        const projected = baseline
+          ? projectDecay(student.avg_mastery, cfg.lambda, step)
+          : projectMastery(student.avg_mastery, cfg.alpha, step, cfg.lambda);
+        return sum + projected;
+      }, 0);
+      return total / students.length;
+    },
+    [cfg.alpha, cfg.lambda, students],
+  );
+
+  const averageProjectedMastery = useCallback(
+    (group: StudentMasterySummary[], step: number, baseline = false) => {
+      if (!group.length) return null;
+      const total = group.reduce((sum, student) => {
+        const projected = baseline
+          ? projectDecay(student.avg_mastery, cfg.lambda, step)
+          : projectMastery(student.avg_mastery, cfg.alpha, step, cfg.lambda);
+        return sum + projected;
+      }, 0);
+      return total / group.length;
+    },
+    [cfg.alpha, cfg.lambda],
+  );
 
   // ── Learning Curves chart data ────────────────────────────────────────────
   const groupChartData = useMemo(() => {
@@ -576,16 +687,16 @@ function CohortTab() {
     for (let t = 0; t <= cfg.steps; t++) {
       const row: Record<string, number | null> = { step: t };
       for (const [tid, group] of Object.entries(groupedStudents)) {
-        const m0 = groupAvg(group);
+        const m0 = averageProjectedMastery(group, t, false);
         if (m0 !== null) {
-          row[tid] = +(projectMastery(m0, cfg.alpha, t, cfg.lambda) * 100).toFixed(1);
+          row[tid] = +(m0 * 100).toFixed(1);
           if (cfg.showBaseline)
-            row[`${tid}_base`] = +(projectDecay(m0, cfg.lambda, t) * 100).toFixed(1);
+            row[`${tid}_base`] = +((averageProjectedMastery(group, t, true) ?? 0) * 100).toFixed(1);
         }
       }
-      row["class_avg"] = +(projectMastery(classAvgM0, cfg.alpha, t, cfg.lambda) * 100).toFixed(1);
+      row["class_avg"] = +(classProjectedAvg(t, false) * 100).toFixed(1);
       if (cfg.showBaseline)
-        row["class_avg_base"] = +(projectDecay(classAvgM0, cfg.lambda, t) * 100).toFixed(1);
+        row["class_avg_base"] = +(classProjectedAvg(t, true) * 100).toFixed(1);
       if (cfg.showIndividuals) {
         students.forEach((s) => {
           row[`stu_${s.user_id}`] = +(projectMastery(s.avg_mastery, cfg.alpha, t, cfg.lambda) * 100).toFixed(1);
@@ -594,27 +705,42 @@ function CohortTab() {
       rows.push(row);
     }
     return rows;
-  }, [cfg, groupedStudents, students, classAvgM0]);
+  }, [cfg, groupedStudents, students, averageProjectedMastery, classProjectedAvg]);
 
   const skillChartData = useMemo(() => {
     const selectedSkills = cfg.selectedSkills.length
       ? skills.filter((s) => cfg.selectedSkills.includes(s.skill_name))
       : skills.slice(0, 5);
+    const maxPrereqCount = selectedSkills.reduce((max, skill) => Math.max(max, skill.prereq_count ?? 0), 0);
+    const maxDownstreamCount = selectedSkills.reduce(
+      (max, skill) => Math.max(max, skill.downstream_count ?? 0),
+      0,
+    );
+    const curveProfiles = new Map(
+      selectedSkills.map((skill) => [
+        skill.skill_name,
+        deriveSkillCurveProfile(skill, cfg.alpha, cfg.lambda, {
+          maxPrereqCount,
+          maxDownstreamCount,
+        }),
+      ]),
+    );
     const rows = [];
     for (let t = 0; t <= cfg.steps; t++) {
       const row: Record<string, number | null | string> = { step: t };
       selectedSkills.forEach((s) => {
         const key = s.skill_name.slice(0, 20);
-        row[key] = +(projectMastery(s.avg_mastery, cfg.alpha, t, cfg.lambda) * 100).toFixed(1);
+        const profile = curveProfiles.get(s.skill_name)!;
+        row[key] = +(projectMastery(s.avg_mastery, profile.alpha, t, profile.lambda) * 100).toFixed(1);
         if (cfg.showBaseline)
-          row[`${key}_base`] = +(projectDecay(s.avg_mastery, cfg.lambda, t) * 100).toFixed(1);
+          row[`${key}_base`] = +(projectDecay(s.avg_mastery, profile.lambda, t) * 100).toFixed(1);
       });
       rows.push(row);
     }
-    return { data: rows, skills: selectedSkills };
+    return { data: rows, skills: selectedSkills, curveProfiles };
   }, [cfg, skills]);
 
-  const endClassMastery = +(projectMastery(classAvgM0, cfg.alpha, cfg.steps, cfg.lambda) * 100).toFixed(1);
+  const endClassMastery = +(classProjectedAvg(cfg.steps, false) * 100).toFixed(1);
   const studentsAt80 = students.filter(
     (s) => projectMastery(s.avg_mastery, cfg.alpha, cfg.steps, cfg.lambda) >= 0.8,
   ).length;
@@ -662,6 +788,7 @@ function CohortTab() {
               ) : (
                 <p className="text-xs text-zinc-400 italic">No students</p>
               )}
+              <p className="text-xs text-zinc-400 mt-1">{TIER_META[tier].description}</p>
             </div>
           );
         })}
@@ -1019,7 +1146,7 @@ function CohortTab() {
                   Performance Group Learning Curves
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Projected mastery over {cfg.steps} weeks · Dashed = without intervention (decay)
+                  Each group line is the average of student-specific projected curves over {cfg.steps} weeks. Dashed = without intervention (decay)
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1125,7 +1252,7 @@ function CohortTab() {
                     const group = groupedStudents[tid];
                     if (!group.length) return null;
                     const m0 = groupAvg(group)!;
-                    const mEnd = projectMastery(m0, cfg.alpha, cfg.steps, cfg.lambda);
+                    const mEnd = averageProjectedMastery(group, cfg.steps, false)!;
                     return (
                       <div
                         key={tid}
@@ -1149,6 +1276,7 @@ function CohortTab() {
                         <p className="text-xs text-zinc-400 mt-0.5">
                           +{((mEnd - m0) * 100).toFixed(1)} pts gain
                         </p>
+                        <p className="text-xs text-zinc-400 mt-1">{TIER_META[tid].description}</p>
                       </div>
                     );
                   })}
@@ -1163,7 +1291,8 @@ function CohortTab() {
                   Skill Learning Curves Comparison
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Projected class mastery per skill over {cfg.steps} weeks
+                  Projected class mastery per skill over {cfg.steps} weeks, weighted by graph difficulty,
+                  prerequisite load, downstream leverage, and PCO risk
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1278,7 +1407,8 @@ function CohortTab() {
                     </thead>
                     <tbody>
                       {skillChartData.skills.map((s, i) => {
-                        const mEnd = projectMastery(s.avg_mastery, cfg.alpha, cfg.steps, cfg.lambda);
+                        const profile = skillChartData.curveProfiles.get(s.skill_name)!;
+                        const mEnd = projectMastery(s.avg_mastery, profile.alpha, cfg.steps, profile.lambda);
                         const gain = ((mEnd - s.avg_mastery) * 100).toFixed(1);
                         return (
                           <tr
@@ -1310,6 +1440,27 @@ function CohortTab() {
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {skillChartData.skills.map((s) => {
+                    const profile = skillChartData.curveProfiles.get(s.skill_name)!;
+                    return (
+                      <div
+                        key={`${s.skill_name}-curve-meta`}
+                        className="rounded-lg border border-zinc-100 dark:border-zinc-800 p-2 text-[11px] text-zinc-500"
+                      >
+                        <div className="font-medium text-zinc-700 dark:text-zinc-300 truncate">{s.skill_name}</div>
+                        <div className="mt-1">
+                          difficulty {Math.round(profile.difficultyPenalty * 100)}%, prereqs {s.prereq_count},
+                          downstream {s.downstream_count}, PCO risk {Math.round(profile.pcoRisk * 100)}%
+                        </div>
+                        <div>
+                          curve alpha {profile.alpha.toFixed(2)}, decay {profile.lambda.toFixed(2)}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -1409,22 +1560,31 @@ function SkillExerciseCard({ result }: { result: SkillSimResult }) {
   );
 }
 
-interface SimTabProps {
-  onResult: (r: MultiSkillSimulationResponse) => void;
+function buildInitialSelectedSkills(request: MultiSkillSimulationRequest | null) {
+  if (request?.mode !== "manual" || !request.skills?.length) return {};
+  return Object.fromEntries(
+    request.skills.map((skill) => [skill.skill_name, skill.simulated_mastery ?? null]),
+  ) as Record<string, number | null>;
 }
 
-function SkillSimulationTab({ onResult }: SimTabProps) {
+function SkillSimulationTab() {
   const { skillDifficulty, courseId } = useTeacherData();
   const allSkills: SkillDifficultyItem[] = skillDifficulty?.skills ?? [];
+  const taskState = useTeacherTwinSkillSimulationTask(courseId);
 
-  const [simMode, setSimMode] = useState<"automatic" | "manual">("automatic");
-  const [topK, setTopK] = useState(5);
-  const [selected, setSelected] = useState<Record<string, number | null>>({});
-  const [defaultMastery, setDefaultMastery] = useState(0.5);
+  const [simMode, setSimMode] = useState<"automatic" | "manual">(
+    taskState.request?.mode === "manual" ? "manual" : "automatic",
+  );
+  const [topK, setTopK] = useState(taskState.request?.top_k ?? 5);
+  const [selected, setSelected] = useState<Record<string, number | null>>(
+    buildInitialSelectedSkills(taskState.request),
+  );
+  const [defaultMastery, setDefaultMastery] = useState(taskState.request?.default_mastery ?? 0.5);
   const [filter, setFilter] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<MultiSkillSimulationResponse | null>(null);
   const [showPairs, setShowPairs] = useState(false);
+
+  const loading = taskState.status === "running";
+  const result = taskState.result;
 
   const filteredSkills = allSkills.filter((s) =>
     s.skill_name.toLowerCase().includes(filter.toLowerCase()),
@@ -1433,25 +1593,21 @@ function SkillSimulationTab({ onResult }: SimTabProps) {
 
   async function runSim() {
     if (simMode === "manual" && !selectedCount) return;
-    setLoading(true);
-    setResult(null);
+    const body: MultiSkillSimulationRequest =
+      simMode === "automatic"
+        ? { mode: "automatic" as const, top_k: topK, default_mastery: defaultMastery }
+        : {
+            mode: "manual" as const,
+            skills: Object.entries(selected).map(([skill_name, sm]) => ({
+              skill_name,
+              simulated_mastery: sm,
+            })),
+            default_mastery: defaultMastery,
+          };
     try {
-      const body =
-        simMode === "automatic"
-          ? { mode: "automatic" as const, top_k: topK, default_mastery: defaultMastery }
-          : {
-              mode: "manual" as const,
-              skills: Object.entries(selected).map(([skill_name, sm]) => ({
-                skill_name,
-                simulated_mastery: sm,
-              })),
-              default_mastery: defaultMastery,
-            };
-      const res = await simulateSkills(courseId, body);
-      setResult(res);
-      onResult(res);
-    } finally {
-      setLoading(false);
+      await startTeacherTwinSkillSimulationTask(courseId, body, () => simulateSkills(courseId, body));
+    } catch {
+      // The task store captures the error; the page can safely recover on remount.
     }
   }
 
@@ -1980,10 +2136,6 @@ function SkillSimulationTab({ onResult }: SimTabProps) {
 
 // ── What-If Tab ────────────────────────────────────────────────────────────
 
-interface WhatIfTabProps {
-  onClassResult: (r: WhatIfResponse) => void;
-}
-
 interface ManualSkillEntry {
   skill_name: string;
   current_avg_mastery: number;
@@ -1998,17 +2150,25 @@ interface StudentWhatIfResult {
   gain: number;
 }
 
-function WhatIfTab({ onClassResult }: WhatIfTabProps) {
+function WhatIfTab() {
   const { courseId, skillDifficulty, classMastery } = useTeacherData();
+  const taskState = useTeacherTwinWhatIfTask(courseId);
   const [analysisMode, setAnalysisMode] = useState<"class" | "student">("class");
 
   // ── Class analysis state ──────────────────────────────────────────────────
-  const [mode, setMode] = useState<"automatic" | "manual">("automatic");
-  const [delta, setDelta] = useState(0.2);
-  const [topK, setTopK] = useState(5);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<WhatIfResponse | null>(null);
-  const [runError, setRunError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"automatic" | "manual">(
+    taskState.request?.mode === "manual" ? "manual" : "automatic",
+  );
+  const [automaticIntensity, setAutomaticIntensity] = useState(
+    taskState.request?.preferences?.intervention_intensity ?? 0.6,
+  );
+  const [automaticTopKHint, setAutomaticTopKHint] = useState(
+    taskState.request?.preferences?.max_skills ?? 5,
+  );
+  const [automaticFocus, setAutomaticFocus] = useState<AutomaticWhatIfFocus>(
+    taskState.request?.preferences?.focus ?? "balanced",
+  );
+  const [topK, setTopK] = useState(taskState.request?.preferences?.max_skills ?? 5);
 
   // Manual mode — per-skill targets
   const [manualSkills, setManualSkills] = useState<ManualSkillEntry[]>([]);
@@ -2029,23 +2189,54 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
   const [studentDelta, setStudentDelta] = useState(0.2);
   const [studentTopK, setStudentTopK] = useState(5);
 
-  const skills = skillDifficulty?.skills ?? [];
-  const students = classMastery?.students ?? [];
+  const skills = useMemo(() => skillDifficulty?.skills ?? [], [skillDifficulty]);
+  const students = useMemo(() => classMastery?.students ?? [], [classMastery]);
+  const remainingManualSkills = useMemo(
+    () =>
+      skills.filter(
+        (skill) => !manualSkills.find((manualSkill) => manualSkill.skill_name === skill.skill_name),
+      ),
+    [skills, manualSkills],
+  );
   const selectedStudent = students.find((s) => s.user_id === selectedStudentId) ?? null;
+  const loading = taskState.status === "running";
+  const result = taskState.result;
+  const runError = taskState.error;
 
   // ── Class manual skills: initialise when switching to manual mode ─────────
   useEffect(() => {
+    const requestedSkills =
+      taskState.request?.mode === "manual" ? taskState.request.skills ?? [] : [];
+
+    if (
+      mode === "manual" &&
+      manualSkills.length === 0 &&
+      requestedSkills.length > 0
+    ) {
+      setManualSkills(
+        requestedSkills.map((requestedSkill) => {
+          const matchingSkill = skills.find((skill) => skill.skill_name === requestedSkill.skill_name);
+          const currentMastery = matchingSkill?.avg_mastery ?? 0;
+          return {
+            skill_name: requestedSkill.skill_name,
+            current_avg_mastery: currentMastery,
+            hypothetical_mastery: requestedSkill.hypothetical_mastery,
+          };
+        }),
+      );
+      return;
+    }
     if (mode === "manual" && skills.length > 0 && manualSkills.length === 0) {
       const initial = skills
         .slice(0, Math.min(topK, skills.length))
         .map((s) => ({
           skill_name: s.skill_name,
           current_avg_mastery: s.avg_mastery,
-          hypothetical_mastery: Math.min(1.0, s.avg_mastery + delta),
+          hypothetical_mastery: Math.min(1.0, s.avg_mastery + automaticIntensity),
         }));
       setManualSkills(initial);
     }
-  }, [mode, skills, manualSkills.length, topK, delta]);
+  }, [mode, skills, manualSkills.length, topK, automaticIntensity, taskState.request]);
 
   function addManualSkill(skillName: string) {
     if (manualSkills.find((ms) => ms.skill_name === skillName)) return;
@@ -2056,7 +2247,7 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
       {
         skill_name: skillName,
         current_avg_mastery: current,
-        hypothetical_mastery: Math.min(1.0, current + delta),
+        hypothetical_mastery: Math.min(1.0, current + automaticIntensity),
       },
     ]);
   }
@@ -2073,35 +2264,29 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
 
   // ── Class analysis run ────────────────────────────────────────────────────
   async function run() {
-    setLoading(true);
-    setResult(null);
-    setRunError(null);
+    const body: WhatIfRequest =
+      mode === "manual"
+        ? {
+            mode: "manual" as const,
+            skills: manualSkills.map((ms) => ({
+              skill_name: ms.skill_name,
+              hypothetical_mastery: ms.hypothetical_mastery,
+            })),
+            enable_llm: false,
+          }
+        : {
+            mode: "automatic" as const,
+            preferences: {
+              intervention_intensity: automaticIntensity,
+              focus: automaticFocus,
+              max_skills: automaticTopKHint,
+            },
+            enable_llm: false,
+          };
     try {
-      const body =
-        mode === "manual"
-          ? {
-              mode: "manual" as const,
-              skills: manualSkills.map((ms) => ({
-                skill_name: ms.skill_name,
-                hypothetical_mastery: ms.hypothetical_mastery,
-              })),
-              top_k: topK,
-              enable_llm: false,
-            }
-          : {
-              mode: "automatic" as const,
-              delta,
-              top_k: topK,
-              target_gain: 0.1,
-              enable_llm: false,
-            };
-      const res = await runWhatIf(courseId, body);
-      setResult(res);
-      onClassResult(res);
-    } catch (e: unknown) {
-      setRunError(e instanceof Error ? e.message : "Failed to run simulation");
-    } finally {
-      setLoading(false);
+      await startTeacherTwinWhatIfTask(courseId, body, () => runWhatIf(courseId, body));
+    } catch {
+      // The task store captures the error; the page can safely recover on remount.
     }
   }
 
@@ -2146,7 +2331,6 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
         setStudentLoading(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [courseId, studentDelta, studentTopK],
   );
 
@@ -2184,7 +2368,10 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
     }
   }, [analysisMode, selectedStudentId, loadStudentData]);
 
-  const impactData = (result?.skill_impacts ?? []).map((si) => ({
+  const visibleSkillImpacts =
+    mode === "manual" ? (result?.skill_impacts ?? []).slice(0, topK) : (result?.skill_impacts ?? []);
+
+  const impactData = visibleSkillImpacts.map((si) => ({
     name: si.skill_name.length > 18 ? si.skill_name.slice(0, 16) + "…" : si.skill_name,
     full: si.skill_name,
     before: +(si.current_avg_mastery * 100).toFixed(1),
@@ -2249,7 +2436,6 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
                   className="text-xs h-7"
                   onClick={() => {
                     setMode("automatic");
-                    setResult(null);
                   }}
                 >
                   Automatic
@@ -2260,7 +2446,6 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
                   className="text-xs h-7"
                   onClick={() => {
                     setMode("manual");
-                    setResult(null);
                     setManualSkills([]);
                   }}
                 >
@@ -2268,69 +2453,77 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
                 </Button>
               </div>
 
-              {/* ── Automatic mode: formula + Δ sliders ── */}
+              {/* ── Automatic mode: teacher hints, LLM decides final criteria ── */}
               {mode === "automatic" && (
                 <>
-                  {/* Formula card */}
                   <div className="rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 p-3 space-y-1.5">
                     <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                      Simulation Formula
-                    </p>
-                    <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200">
-                      Sim(s) = min(1.0, Avg(s) + Δ)
-                    </p>
-                    <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200">
-                      ClassGain(s) = Σᵢ [min(1, mᵢ + Δ) − mᵢ]
-                    </p>
-                    <p className="text-xs font-mono text-zinc-800 dark:text-zinc-200">
-                      Score(s) = 0.5×max(0, 0.5−Avg) + 0.3×(Gain/N) + 0.2×(Helped/N)
+                      LLM-Led Automatic Planning
                     </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-1">
-                      Skills are ranked by <span className="font-medium">Score</span> — combining mastery gap, total gain, and breadth of students helped.
+                      These controls are teacher hints only. The LLM decides the final skills, targets, and scope by weighing
+                      prerequisites, downstream leverage, affected student count, and PCO risk across the course.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                        Lecture Impact (Δ):{" "}
+                        Intervention intensity hint:{" "}
                         <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                          +{pct(delta)}
+                          {(automaticIntensity * 100).toFixed(0)}%
                         </span>
                       </Label>
                       <Slider
-                        value={[Math.round(delta * 100)]}
-                        onValueChange={([v]) => setDelta(v / 100)}
-                        min={5}
-                        max={50}
+                        value={[Math.round(automaticIntensity * 100)]}
+                        onValueChange={([v]) => setAutomaticIntensity(v / 100)}
+                        min={30}
+                        max={90}
                         step={5}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                        Top skills to rank:{" "}
-                        <span className="font-semibold text-zinc-900 dark:text-zinc-100">{topK}</span>
+                        Max skills hint:{" "}
+                        <span className="font-semibold text-zinc-900 dark:text-zinc-100">{automaticTopKHint}</span>
                       </Label>
                       <Slider
-                        value={[topK]}
-                        onValueChange={([v]) => setTopK(v)}
+                        value={[automaticTopKHint]}
+                        onValueChange={([v]) => {
+                          setAutomaticTopKHint(v);
+                          setTopK(v);
+                        }}
                         min={1}
                         max={Math.min(10, skills.length || 10)}
                         step={1}
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                        Planning focus hint
+                      </Label>
+                      <select
+                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100"
+                        value={automaticFocus}
+                        onChange={(e) => setAutomaticFocus(e.target.value as AutomaticWhatIfFocus)}
+                      >
+                        <option value="balanced">Balanced</option>
+                        <option value="broad_support">Broad support</option>
+                        <option value="prerequisite_bottlenecks">Prerequisite bottlenecks</option>
+                        <option value="high_risk_recovery">High-risk recovery</option>
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Live skill preview */}
                   {skills.length > 0 && (
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                        Skills in scope — ZPD candidates (40–90% mastery) highlighted:
+                        Likely candidates in scope. The LLM may override this preview after considering the whole course:
                       </p>
                       <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
-                        {skills.slice(0, Math.min(topK * 2, skills.length)).map((s) => {
+                        {skills.slice(0, Math.min(automaticTopKHint * 2, skills.length)).map((s) => {
                           const isZpd = s.avg_mastery >= 0.4 && s.avg_mastery <= 0.9;
-                          const simulated = Math.min(1.0, s.avg_mastery + delta);
+                          const simulated = Math.min(1.0, s.avg_mastery + automaticIntensity * 0.35);
                           return (
                             <div
                               key={s.skill_name}
@@ -2381,29 +2574,28 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
                   </div>
 
                   {/* Skill picker */}
-                  <div className="relative">
-                    <select
-                      className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 pr-8 text-zinc-900 dark:text-zinc-100 appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) addManualSkill(e.target.value);
-                        e.target.value = "";
-                      }}
-                    >
-                      <option value="">+ Add skill to simulate…</option>
-                      {skills
-                        .filter((s) => !manualSkills.find((ms) => ms.skill_name === s.skill_name))
-                        .map((s) => (
-                          <option key={s.skill_name} value={s.skill_name}>
-                            {s.skill_name} — class avg {pct(s.avg_mastery)}
-                          </option>
-                        ))}
-                    </select>
-                    <ChevronDown
-                      size={13}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
-                    />
-                  </div>
+                  <Select
+                    key={remainingManualSkills.map((skill) => skill.skill_name).join("|")}
+                    onValueChange={(value) => addManualSkill(value)}
+                    disabled={remainingManualSkills.length === 0}
+                  >
+                    <SelectTrigger className="w-full text-xs h-9 rounded-lg">
+                      <SelectValue
+                        placeholder={
+                          remainingManualSkills.length > 0
+                            ? "+ Add skill to simulate..."
+                            : "All available skills already added"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {remainingManualSkills.map((skill) => (
+                        <SelectItem key={skill.skill_name} value={skill.skill_name} className="text-xs">
+                          {skill.skill_name} - class avg {pct(skill.avg_mastery)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
                   {/* Selected skills with live mastery */}
                   {manualSkills.length === 0 && (
@@ -2502,6 +2694,17 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
               <Card className="border-0 shadow-sm bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800">
                 <CardContent className="p-4">
                   <p className="text-sm text-indigo-800 dark:text-indigo-300">{result.summary}</p>
+                      {mode === "automatic" && result.automatic_criteria && (
+                        <div className="mt-3 text-xs text-indigo-800 dark:text-indigo-300 space-y-1">
+                          <p className="font-medium">LLM decided the final automatic criteria.</p>
+                          <p>
+                            Focus: <strong>{result.automatic_criteria.focus.replaceAll("_", " ")}</strong>, scope:{" "}
+                            <strong>{result.automatic_criteria.max_skills}</strong> skills, intensity hint:{" "}
+                            <strong>{Math.round(result.automatic_criteria.intervention_intensity * 100)}%</strong>
+                          </p>
+                          <p>{result.automatic_criteria.llm_decision_summary}</p>
+                        </div>
+                      )}
                 </CardContent>
               </Card>
 
@@ -2915,12 +3118,12 @@ function WhatIfTab({ onClassResult }: WhatIfTabProps) {
 // ── Main Teacher Twin Page ─────────────────────────────────────────────────
 
 export default function TeacherTwinPage() {
-  const { loading, error, classMastery, skillDifficulty, skillPopularity, refresh } =
+  const { loading, error, classMastery, skillDifficulty, skillPopularity, refresh, courseId } =
     useTeacherData();
 
   const [activeTab, setActiveTab] = useState("overview");
-  const [lastSimResult, setLastSimResult] = useState<MultiSkillSimulationResponse | null>(null);
-  const [lastWhatIfResult, setLastWhatIfResult] = useState<WhatIfResponse | null>(null);
+  const lastSimResult = useTeacherTwinSkillSimulationTask(courseId).result;
+  const lastWhatIfResult = useTeacherTwinWhatIfTask(courseId).result;
 
   if (loading) {
     return (
@@ -3050,10 +3253,10 @@ export default function TeacherTwinPage() {
             <CohortTab />
           </TabsContent>
           <TabsContent value="simulator" className="mt-0">
-            <SkillSimulationTab onResult={setLastSimResult} />
+            <SkillSimulationTab />
           </TabsContent>
           <TabsContent value="whatif" className="mt-0">
-            <WhatIfTab onClassResult={setLastWhatIfResult} />
+            <WhatIfTab />
           </TabsContent>
         </div>
       </Tabs>

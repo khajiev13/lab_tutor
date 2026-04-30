@@ -1,10 +1,10 @@
-"""CLI entry-point: ``python -m arcd_serving.run``
+"""CLI entry-point: ``python -m app.modules.arcd_serving.run``
 
 Usage
 -----
     cd backend
     ARCD_CHECKPOINT_DIR=checkpoints/roma_synth_v6_2048 \\
-        uv run python -m arcd_serving.run --host 0.0.0.0 --port 8000
+        uv run python -m app.modules.arcd_serving.run --host 0.0.0.0 --port 8000
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from arcd_serving.app import create_app
+from app.modules.arcd_serving.app import create_app
 
 
 def _parse_args() -> argparse.Namespace:

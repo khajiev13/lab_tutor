@@ -143,7 +143,10 @@ describe('runWhatIf', () => {
       llm_recommendation: null,
     };
     mockFetch({ json: payload });
-    const result = await runWhatIf(1, { mode: 'automatic', delta: 0.2 });
+    const result = await runWhatIf(1, {
+      mode: 'automatic',
+      preferences: { intervention_intensity: 0.7, focus: 'balanced', max_skills: 3 },
+    });
     expect(result.mode).toBe('automatic');
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
     expect(fetchMock.mock.calls[0][1]?.method).toBe('POST');

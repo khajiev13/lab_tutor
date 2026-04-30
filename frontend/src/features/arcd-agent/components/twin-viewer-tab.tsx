@@ -101,7 +101,25 @@ interface SimPath {
   justification: string[];
 }
 
+interface ManualImpactPreview {
+  count: number;
+  avgBefore: number;
+  projectedGain: number;
+  avgAfter: number;
+  topContributors: Array<{ id: number; name: string; current: number; projectedGain: number }>;
+  coherenceScore: number;
+}
+
+interface ManualSelectionPreview {
+  path: SimPath;
+  impact: ManualImpactPreview;
+}
+
 const DAY_OPTIONS = [7, 14, 21, 30] as const;
+const ARCD_LAMBDA_BASE = 0.02;
+const ARCD_ALPHA = 1.05;
+const ARCD_GAMMA = 1.55;
+const ARCD_EPSILON = 1e-8;
 
 function getActionableSkillCap(days: number, totalSkills: number): number {
   const cap = days <= 7 ? 5 : days <= 14 ? 10 : days <= 21 ? 15 : 20;
@@ -109,39 +127,223 @@ function getActionableSkillCap(days: number, totalSkills: number): number {
 }
 
 /**
- * Lightweight coherence preview for manual skill selection UI only.
- * Full scoring runs on the backend; this is used purely for the live badge.
+ * Keep manual-selection coherence aligned with the backend strategy scorer so
+ * the custom card compares cleanly with the generated options.
  */
 function computeCoherencePreview(skillIds: number[], mastery: number[]): number {
   const n = skillIds.length;
   if (n < 2) return 0.5;
   let connected = 0;
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      if (Math.abs(skillIds[i] - skillIds[j]) <= 2) connected++;
+  for (let i = 0; i < n; i += 1) {
+    for (let j = i + 1; j < n; j += 1) {
+      if (Math.abs(skillIds[i] - skillIds[j]) <= 2) connected += 1;
     }
   }
   const proximity = connected / Math.max((n * (n - 1)) / 2, 1);
-  const zpd = skillIds.filter((id) => {
-    const m = mastery[id] ?? 0;
-    return m >= 0.30 && m <= 0.70;
+
+  const sortedMastery = skillIds
+    .map((id) => mastery[id] ?? 0)
+    .sort((a, b) => a - b);
+  let smoothGaps = 0;
+  for (let i = 1; i < sortedMastery.length; i += 1) {
+    const gap = sortedMastery[i] - sortedMastery[i - 1];
+    if (gap >= 0.05 && gap <= 0.30) smoothGaps += 1;
+  }
+  const gradient = smoothGaps / Math.max(sortedMastery.length - 1, 1);
+
+  const zpdCluster = skillIds.filter((id) => {
+    const current = mastery[id] ?? 0;
+    return current >= 0.30 && current <= 0.70;
   }).length / n;
-  return 0.6 * proximity + 0.4 * zpd;
+
+  return Number((0.4 * proximity + 0.3 * gradient + 0.3 * zpdCluster).toFixed(4));
 }
 
-/**
- * Learning-efficiency weight by current mastery for what-if gain estimates.
- * Peaks at 1.0 in the ZPD band [0.3, 0.7]. Stays > 0 below 30% so novices
- * (mastery 0%) still show non-zero projected gain — the old triangle kernel
- * `1 - |m - 0.65| / 0.55` evaluated to 0 at m=0 and broke the manual preview.
- */
-function zpdLearningWeight(m: number): number {
-  const x = Math.max(0, Math.min(1, m));
-  if (x >= 0.3 && x <= 0.7) return 1;
-  if (x < 0.3) {
-    return 0.42 + (x / 0.3) * 0.58;
+function arcdDecayCascade(
+  mastery: number,
+  reviewCount: number,
+  proficiency: number,
+  difficulty: number,
+  deltaDays: number,
+): number {
+  const stability = (1 + ARCD_ALPHA * Math.log1p(Math.max(reviewCount, 0)))
+    * (1 + ARCD_GAMMA * Math.max(proficiency, 0));
+  const lambdaEff = ARCD_LAMBDA_BASE / Math.max(stability, 1e-9);
+  const deltaBase = Math.exp(-lambdaEff * Math.max(deltaDays, 0));
+
+  const beta = Math.max(0.5, Math.min(2.0, 0.5 + difficulty));
+  const deltaDiff = deltaBase ** beta;
+
+  const masteryScale = Math.max(1.0, Math.min(5.0, 1.0 + 4.0 * mastery));
+  return (deltaDiff + ARCD_EPSILON) ** (1.0 / masteryScale);
+}
+
+function simulateArcdStrategy(
+  masteryVec: number[],
+  decayVec: number[],
+  targetIndices: number[],
+  days: number,
+  mode: "focus" | "spaced" | "reinforce" = "focus",
+): Array<{ step: number; avgMastery: number }> {
+  let eta = 0.18;
+  let interval = 1;
+  let floorFracPrac = 0.10;
+  let floorFracIdle = 0.10;
+  let spacingCoeff = 0.0;
+
+  if (mode === "spaced") {
+    eta = 0.22;
+    interval = 3;
+    floorFracPrac = 0.10;
+    floorFracIdle = 0.08;
+    spacingCoeff = 0.14;
+  } else if (mode === "reinforce") {
+    eta = 0.05;
+    interval = 1;
+    floorFracPrac = 0.10;
+    floorFracIdle = 0.05;
+    spacingCoeff = 0.0;
   }
-  return Math.max(0.22, 1 - ((x - 0.7) / 0.3) * 0.78);
+
+  const mastery = [...masteryVec];
+  const nSkills = mastery.length;
+  const reviewCount = Array.from({ length: nSkills }, () => 0);
+  const difficulty = mastery.map((_, index) => {
+    const raw = 1 - (decayVec[index] ?? 0.5);
+    return Math.max(0, Math.min(1, raw));
+  });
+  const floorPrac = mastery.map((value) => Math.max(0.03, value * floorFracPrac));
+  const floorIdle = mastery.map((value) => Math.max(0.03, value * floorFracIdle));
+  const lastPracticed = new Map<number, number>(targetIndices.map((id) => [id, -interval]));
+
+  const trajectory = [{
+    step: 0,
+    avgMastery: Number(((mastery.reduce((sum, value) => sum + value, 0) / Math.max(nSkills, 1)) * 100).toFixed(2)),
+  }];
+
+  for (let day = 1; day <= days; day += 1) {
+    const proficiency = mastery.reduce((sum, value) => sum + value, 0) / Math.max(nSkills, 1);
+
+    let todayTargets = targetIndices;
+    if (mode === "spaced") {
+      todayTargets = targetIndices.filter((id) => (day - (lastPracticed.get(id) ?? -interval)) >= interval);
+      if (todayTargets.length === 0) {
+        const k = Math.max(1, Math.floor(targetIndices.length / 3));
+        const offset = (day - 1) % Math.max(1, targetIndices.length);
+        todayTargets = targetIndices.slice(offset, offset + k);
+        if (todayTargets.length === 0) {
+          todayTargets = targetIndices.slice(0, k);
+        }
+      }
+    }
+
+    const practicedSet = new Set(todayTargets);
+
+    for (let skillIndex = 0; skillIndex < nSkills; skillIndex += 1) {
+      const delta = arcdDecayCascade(
+        mastery[skillIndex],
+        reviewCount[skillIndex],
+        proficiency,
+        difficulty[skillIndex],
+        1,
+      );
+      const floor = practicedSet.has(skillIndex) ? floorPrac[skillIndex] : floorIdle[skillIndex];
+      mastery[skillIndex] = Math.max(floor, delta * mastery[skillIndex]);
+    }
+
+    for (const skillIndex of todayTargets) {
+      reviewCount[skillIndex] += 1;
+      const gap = day - (lastPracticed.get(skillIndex) ?? -interval);
+      const spacingMultiplier = 1 + spacingCoeff * Math.min(gap - 1, 7);
+      const deltaPost = arcdDecayCascade(
+        mastery[skillIndex],
+        reviewCount[skillIndex],
+        proficiency,
+        difficulty[skillIndex],
+        interval,
+      );
+      const gain = eta * (1 - mastery[skillIndex]) * deltaPost * spacingMultiplier;
+      mastery[skillIndex] = Math.min(1, mastery[skillIndex] + gain);
+      lastPracticed.set(skillIndex, day);
+    }
+
+    trajectory.push({
+      step: day,
+      avgMastery: Number(((mastery.reduce((sum, value) => sum + value, 0) / Math.max(nSkills, 1)) * 100).toFixed(2)),
+    });
+  }
+
+  return trajectory;
+}
+
+function buildManualSelectionPreview({
+  mastery,
+  decay,
+  selectedIds,
+  totalSkills,
+  skillNameMap,
+  days,
+}: {
+  mastery: number[];
+  decay: number[];
+  selectedIds: number[];
+  totalSkills: number;
+  skillNameMap: Record<number, string>;
+  days: number;
+}): ManualSelectionPreview | null {
+  if (totalSkills === 0 || selectedIds.length === 0) return null;
+
+  const trajectory = simulateArcdStrategy(mastery, decay, selectedIds, days, "focus");
+  const startAvg = (trajectory[0]?.avgMastery ?? 0) / 100;
+  const finalAvg = (trajectory[trajectory.length - 1]?.avgMastery ?? trajectory[0]?.avgMastery ?? 0) / 100;
+  const totalGain = finalAvg - startAvg;
+  const coherenceScore = computeCoherencePreview(selectedIds, mastery);
+
+  const topContributors = selectedIds
+    .map((id) => {
+      const singleTrajectory = simulateArcdStrategy(mastery, decay, [id], days, "focus");
+      const singleStart = (singleTrajectory[0]?.avgMastery ?? 0) / 100;
+      const singleFinal = (singleTrajectory[singleTrajectory.length - 1]?.avgMastery ?? singleTrajectory[0]?.avgMastery ?? 0) / 100;
+      return {
+        id,
+        name: skillNameMap[id] ?? `Skill ${id}`,
+        current: mastery[id] ?? 0,
+        projectedGain: singleFinal - singleStart,
+      };
+    })
+    .sort((a, b) => b.projectedGain - a.projectedGain)
+    .slice(0, 5);
+
+  return {
+    path: {
+      name: "Custom Selection",
+      description: "Your manual skill selection projected with the same ARCD strategy engine as the generated options.",
+      skills: selectedIds.map((id) => ({
+        id,
+        name: skillNameMap[id] ?? `Skill ${id}`,
+        currentMastery: mastery[id] ?? 0,
+      })),
+      trajectory,
+      totalGain,
+      finalAvg,
+      coherenceScore,
+      justification: [
+        `${selectedIds.length} of ${totalSkills} skills targeted over ${days} days.`,
+        `Projected with the same ARCD focus simulation used for the system-generated strategy cards.`,
+        `Coherence score: ${Math.round(coherenceScore * 100)}% — ${
+          coherenceScore >= 0.72 ? "strong chain" : coherenceScore >= 0.50 ? "connected" : "loosely linked"
+        }.`,
+      ],
+    },
+    impact: {
+      count: selectedIds.length,
+      avgBefore: startAvg,
+      projectedGain: totalGain,
+      avgAfter: finalAvg,
+      topContributors,
+      coherenceScore,
+    },
+  };
 }
 
 /** Label and colour for a coherence score. */
@@ -199,6 +401,12 @@ export function TwinViewerTab({ student, skills, datasetId, twinData, viewMode =
     // mastery[i] = mastery for skills[i]. The mastery vector is already indexed by skill position.
     return skills.length === 0 ? raw : skills.map((_, idx) => raw[idx] ?? 0);
   }, [student.final_mastery, skills]);
+  const decay = useMemo(() => {
+    const predictedBySkill = new Map(
+      (twinData?.risk_forecast.at_risk_skills ?? []).map((item) => [item.skill_id, item.predicted_decay]),
+    );
+    return mastery.map((_, idx) => predictedBySkill.get(idx) ?? 0.5);
+  }, [mastery, twinData?.risk_forecast.at_risk_skills]);
 
   const skillNameMap = useMemo(
     () =>
@@ -304,6 +512,23 @@ export function TwinViewerTab({ student, skills, datasetId, twinData, viewMode =
     return [sc.path_a, sc.path_b, sc.path_c] as const;
   }, [twinData, nSkills]);
 
+  const manualSelectionPreview = useMemo(() => {
+    if (mode !== "manual" || nSkills === 0 || manualSkillIds.length === 0) return null;
+
+    const selectedIds = manualSkillIds
+      .slice(0, actionableSkillCap)
+      .filter((id) => id >= 0 && id < nSkills);
+
+    return buildManualSelectionPreview({
+      mastery,
+      decay,
+      selectedIds,
+      totalSkills: nSkills,
+      skillNameMap,
+      days: simStepCount,
+    });
+  }, [mode, nSkills, manualSkillIds, actionableSkillCap, mastery, decay, skillNameMap, simStepCount]);
+
   const simulation = useMemo(() => {
     const sc = twinData?.scenario_comparison;
     if (!sc || nSkills === 0) return null;
@@ -333,104 +558,12 @@ export function TwinViewerTab({ student, skills, datasetId, twinData, viewMode =
     const pathA = toSimPath(sc.path_a);
     const pathB = toSimPath(sc.path_b);
     const pathC = toSimPath(sc.path_c);
-
-    // Manual path D: lightweight ZPD-based preview — anchored to the same
-    // starting point as the backend paths so it sits correctly on the chart.
-    let pathD: SimPath | null = null;
-    if (mode === "manual" && manualSkillIds.length > 0) {
-      const ids = manualSkillIds.filter((id) => id >= 0 && id < nSkills).slice(0, actionableSkillCap);
-      if (ids.length > 0) {
-        const coherenceScore = computeCoherencePreview(ids, mastery);
-
-        // Use the step-0 value from any backend path as the shared anchor so
-        // all four lines start at exactly the same point on the chart.
-        const anchorPct = pathA.trajectory[0]?.avgMastery
-          ?? (nSkills > 0 ? (mastery.reduce((a, b) => a + b, 0) / nSkills) * 100 : 0);
-        const startAvg = anchorPct / 100;
-
-        // ZPD-weighted gain per selected skill, spread across total skills.
-        // Use exponential saturation (τ≈3.5d) so that a 7-day plan captures ~86%
-        // of the 30-day gain, matching the rapid-plateau shape the backend produces.
-        const timeScale = 1 - Math.exp(-simStepCount / 3.5);
-        const gainPerSkill = ids.reduce((sum, id) => {
-          const m = mastery[id] ?? 0;
-          const w = zpdLearningWeight(m);
-          return sum + (1 - m) * 0.11 * w * (1 + coherenceScore * 0.25) * timeScale;
-        }, 0);
-        const totalGain = gainPerSkill / nSkills;
-        const finalAvg = Math.min(1, startAvg + totalGain);
-
-        // Build trajectory: slight S-curve so it doesn't look like a ruler line
-        const trajectory = Array.from({ length: simStepCount + 1 }, (_, i) => {
-          const t = i / Math.max(simStepCount, 1);
-          // ease-in-out cubic
-          const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-          return {
-            step: i,
-            avgMastery: +((startAvg + (finalAvg - startAvg) * eased) * 100).toFixed(2),
-          };
-        });
-
-        pathD = {
-          name: "Custom Selection",
-          description: "Your manual skill selection — preview trajectory (full simulation on the backend)",
-          skills: ids.map((id) => ({
-            id,
-            name: skillNameMap[id] ?? `Skill ${id}`,
-            currentMastery: mastery[id] ?? 0,
-          })),
-          trajectory,
-          totalGain,
-          finalAvg,
-          coherenceScore,
-          justification: [
-            `${ids.length} of ${nSkills} skills targeted over ${simStepCount} days.`,
-            `Coherence score: ${Math.round(coherenceScore * 100)}% — ${
-              coherenceScore >= 0.72 ? "strong chain" : coherenceScore >= 0.50 ? "connected" : "loosely linked"
-            }.`,
-          ],
-        };
-      }
-    }
+    const pathD = manualSelectionPreview?.path ?? null;
 
     return { pathA, pathB, pathC, pathD };
-  }, [twinData, nSkills, mastery, skillNameMap, simStepCount, mode, manualSkillIds, actionableSkillCap]);
+  }, [twinData, nSkills, mastery, skillNameMap, simStepCount, manualSelectionPreview]);
 
-  const manualImpactPreview = useMemo(() => {
-    if (mode !== "manual" || nSkills === 0 || manualSkillIds.length === 0) return null;
-
-    const selectedIds = manualSkillIds
-      .slice(0, nSkills)
-      .filter((id) => id >= 0 && id < nSkills);
-
-    if (selectedIds.length === 0) return null;
-
-    const coherenceScore = computeCoherencePreview(selectedIds, mastery);
-    const avgBefore = mastery.reduce((a, b) => a + b, 0) / Math.max(nSkills, 1);
-    // Exponential saturation: most mastery gain plateaus within a few days,
-    // so 7d ≈ 86% of 30d gain (not 23% as linear 7/30 would give).
-    const timeScale = 1 - Math.exp(-simStepCount / 3.5);
-
-    const perSkill = selectedIds
-      .map((id) => {
-        const m = mastery[id] ?? 0;
-        const w = zpdLearningWeight(m);
-        const gain = (1 - m) * 0.13 * w * (1 + coherenceScore * 0.2) * timeScale;
-        return { id, name: skillNameMap[id] ?? `Skill ${id}`, current: m, projectedGain: gain };
-      })
-      .sort((a, b) => b.projectedGain - a.projectedGain);
-
-    const totalGain = perSkill.reduce((sum, x) => sum + x.projectedGain, 0) / Math.max(nSkills, 1);
-
-    return {
-      count: perSkill.length,
-      avgBefore,
-      projectedGain: totalGain,
-      avgAfter: avgBefore + totalGain,
-      topContributors: perSkill.slice(0, 5),
-      coherenceScore,
-    };
-  }, [mode, nSkills, manualSkillIds, mastery, skillNameMap, simStepCount]);
+  const manualImpactPreview = manualSelectionPreview?.impact ?? null;
 
   // ── twin confidence (RMSE of predicted_prob vs actual response) ───────────
   const confidence = useMemo(() => {

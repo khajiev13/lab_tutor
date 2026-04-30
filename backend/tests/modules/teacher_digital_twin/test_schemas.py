@@ -1,6 +1,8 @@
 """Tests for teacher_digital_twin Pydantic schemas."""
 
 from app.modules.teacher_digital_twin.schemas import (
+    AutomaticWhatIfCriteria,
+    AutomaticWhatIfPreferences,
     ClassMasteryResponse,
     MultiSkillSimulationRequest,
     SkillDifficultyItem,
@@ -102,7 +104,7 @@ class TestWhatIfSchemas:
     def test_request_defaults(self):
         r = WhatIfRequest()
         assert r.mode == "automatic"
-        assert r.delta == 0.20
+        assert r.preferences == AutomaticWhatIfPreferences()
 
     def test_response(self):
         r = WhatIfResponse(
@@ -113,8 +115,15 @@ class TestWhatIfSchemas:
             recommendations=[],
             skill_impacts=[],
             summary="ok",
+            automatic_criteria=AutomaticWhatIfCriteria(
+                intervention_intensity=0.7,
+                focus="broad_support",
+                max_skills=4,
+                llm_decision_summary="LLM selected broad-support targets.",
+            ),
         )
         assert r.llm_recommendation is None
+        assert r.automatic_criteria.focus == "broad_support"
 
 
 class TestSkillSimulationSchemas:

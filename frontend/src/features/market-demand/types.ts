@@ -56,6 +56,7 @@ export interface AgentState {
   course_title: string | null;
   course_description: string | null;
   job_search_country: string | null;
+  job_search_country_confirmed: boolean | null;
   job_search_location: string | null;
   fetched_jobs: Record<string, unknown>[] | null;
   job_groups: Record<string, number[]> | null;

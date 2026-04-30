@@ -16,7 +16,7 @@ from pathlib import Path
 
 from flask import Flask
 
-from arcd_agent.model_registry import ModelRegistry
+from app.modules.arcd_agent.model_registry import ModelRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,8 @@ _registry: ModelRegistry | None = None
 
 def _default_checkpoint_dir() -> Path:
     """Resolve the default checkpoint directory relative to this file."""
-    # backend/arcd_serving/app.py  →  backend/checkpoints/roma_synth_v6_2048
-    return Path(__file__).resolve().parent.parent / "checkpoints" / "roma_synth_v6_2048"
+    # backend/app/modules/arcd_serving/app.py  →  backend/checkpoints/roma_synth_v6_2048
+    return Path(__file__).resolve().parents[3] / "checkpoints" / "roma_synth_v6_2048"
 
 
 def get_registry() -> ModelRegistry:
@@ -62,7 +62,7 @@ def create_app() -> Flask:
     with app.app_context():
         get_registry()
 
-    from arcd_serving.routes import bp
+    from app.modules.arcd_serving.routes import bp
 
     app.register_blueprint(bp)
     return app

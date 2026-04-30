@@ -121,8 +121,9 @@ def run_what_if(
     Run a what-if forward simulation.
 
     Manual mode: teacher specifies skill names + hypothetical mastery values.
-    Automatic mode: system identifies struggling skills and ranks interventions
-      ClassGain(s_k) = SUM_{i} (min(1, m_{i,s_k} + Delta) - m_{i,s_k})
+    Automatic mode: teacher may provide non-binding planning preferences, but
+    the LLM makes the final decision about which skills to target and what
+    mastery goals to simulate.
     """
     return _get_service(driver).run_what_if(course_id, body)
 

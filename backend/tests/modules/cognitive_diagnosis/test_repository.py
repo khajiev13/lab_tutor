@@ -63,13 +63,11 @@ class TestGetAllSkillsWithConcepts:
 
 
 class TestGetStudentSelectedSkills:
-    def test_fallback_when_empty(self):
-        """When no selected skills, falls back to all course skills."""
+    def test_returns_empty_when_student_has_no_selected_skills(self):
         repo, session = _make_repo()
-        # First call (selected skills) → empty, second call (all skills) → empty too
         session.run.return_value.__iter__ = MagicMock(return_value=iter([]))
         result = repo.get_student_selected_skills(user_id=1, course_id=5)
-        assert isinstance(result, list)
+        assert result == []
 
     def test_returns_selected_skills(self):
         repo, session = _make_repo()

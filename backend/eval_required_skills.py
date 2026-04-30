@@ -40,20 +40,19 @@ _here = Path(__file__).resolve().parent
 if str(_here) not in sys.path:
     sys.path.insert(0, str(_here))
 
-from arcd_agent.evaluation.adaex_eval import (  # noqa: E402
+from app.modules.arcd_agent.evaluation.adaex_eval import (  # noqa: E402
     DifficultyCalculator,
     adaex_difficulty,
     evaluate_difficulty_strategy,
     fixed_medium_difficulty,
     random_difficulty,
 )
-from arcd_agent.evaluation.pathgen_eval import (  # noqa: E402
+from app.modules.arcd_agent.evaluation.pathgen_eval import (  # noqa: E402
     evaluate_path,
     pathgen_v2,
     random_path,
 )
-
-from arcd_agent.model.training import ARCDModel, MetricsSuite  # noqa: E402
+from app.modules.arcd_agent.model.training import ARCDModel, MetricsSuite  # noqa: E402
 
 logger = logging.getLogger("eval_required_skills")
 
