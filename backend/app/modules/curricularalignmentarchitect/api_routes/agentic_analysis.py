@@ -38,6 +38,7 @@ from ..models import (
     CourseSelectedBook,
     ExtractionRunStatus,
 )
+from ..skill_prerequisites.service import schedule_skill_prerequisite_rebuild
 
 logger = logging.getLogger(__name__)
 
@@ -358,6 +359,7 @@ async def _run_extraction_background(
 
         # Auto-trigger book skill mapping now that skills are extracted
         await queue.put(_sse("skill_mapping_started", {"course_id": course_id}))
+        mapping_completed = False
         try:
             from ..book_skill_mapping.graph import build_book_skill_mapping_graph
 
@@ -371,11 +373,25 @@ async def _run_extraction_background(
                     event_type = chunk.get("type", "skill_mapping_progress")
                     chunk["auto_triggered"] = True
                     await queue.put(_sse(event_type, chunk))
+            mapping_completed = True
         except Exception as e:
             logger.warning(
                 "Auto book skill mapping failed for course %d: %s", course_id, e
             )
             # Don't fail the whole extraction — mapping is best-effort
+
+        if mapping_completed:
+            schedule_skill_prerequisite_rebuild(course_id, "book_skill_mapping")
+            await queue.put(
+                _sse(
+                    "prerequisite_scheduled",
+                    {
+                        "course_id": course_id,
+                        "auto_triggered": True,
+                        "trigger_reason": "book_skill_mapping",
+                    },
+                )
+            )
 
         await queue.put(
             _sse(
