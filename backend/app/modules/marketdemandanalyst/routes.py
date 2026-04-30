@@ -28,6 +28,9 @@ from app.core.database import AsyncSessionLocal, SessionLocal, get_db
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
 from app.modules.courses.models import Course
+from app.modules.curricularalignmentarchitect.skill_prerequisites.service import (
+    schedule_skill_prerequisite_rebuild as schedule_prerequisite_rebuild,
+)
 
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .graph import get_graph
@@ -62,6 +65,18 @@ def _resolve_agent(ns: tuple) -> str:
     if ns:
         return ns[0].split(":")[0]
     return "unknown"
+
+
+def _schedule_skill_prerequisite_rebuild(
+    course_id: int,
+    trigger_reason: str,
+) -> None:
+    try:
+        schedule_prerequisite_rebuild(course_id, trigger_reason)
+    except Exception:
+        logger.exception(
+            "Failed to schedule prerequisite rebuild for course %s", course_id
+        )
 
 
 # In-memory cache for persisted state (avoids 2-3s Azure PG round-trips on
@@ -510,6 +525,7 @@ async def _sse_stream(
 
                 # Check for state changes after tool execution
                 new_state = snapshot_state()
+                should_rebuild_prerequisites = False
                 for key in STATE_KEYS:
                     if new_state[key] != prev_state.get(key):
                         yield _sse(
@@ -518,6 +534,15 @@ async def _sse_stream(
                                 "stateKey": key,
                                 "value": new_state[key],
                             },
+                        )
+                        if key == "insertion_results" and new_state[key]:
+                            should_rebuild_prerequisites = True
+                if should_rebuild_prerequisites:
+                    course_id = input_data.get("course_id")
+                    if course_id is not None:
+                        _schedule_skill_prerequisite_rebuild(
+                            int(course_id),
+                            "market_demand_insertion",
                         )
                 if new_state != prev_state and thread_id:
                     _persist_state(thread_id)

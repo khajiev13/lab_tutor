@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 
 from fastapi import Depends
 from fastapi.responses import StreamingResponse
@@ -17,12 +16,8 @@ from app.core.neo4j import create_neo4j_driver
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
 
-from ..skill_prerequisites.graph import build_skill_prerequisite_graph
 from ..skill_prerequisites.repository import get_skill_prerequisites
-
-logger = logging.getLogger(__name__)
-
-MAX_CONCURRENCY = 10
+from ..skill_prerequisites.service import run_skill_prerequisites
 
 
 def register_routes(router):
@@ -64,28 +59,11 @@ def register_routes(router):
 
 
 async def _run_background(course_id: int, queue: asyncio.Queue[str | None]):
-    await queue.put(_sse("prerequisite_started", {"course_id": course_id}))
-    try:
-        graph = build_skill_prerequisite_graph()
-        async for mode, chunk in graph.astream(
-            {
-                "course_id": course_id,
-                "merged_skill_names": [],
-                "prereq_edges": [],
-                "final_edges": [],
-                "_clusterable_skills": [],
-            },
-            stream_mode=["custom", "updates"],
-            config={"max_concurrency": MAX_CONCURRENCY},
-        ):
-            if mode == "custom":
-                event_type = chunk.get("type", "prerequisite_progress")
-                await queue.put(_sse(event_type, chunk))
-    except Exception as e:
-        logger.exception("Skill prerequisite pipeline failed for course %d", course_id)
-        await queue.put(_sse("error", {"message": str(e)[:500]}))
-    finally:
-        await queue.put(None)
+    async def emit_event(event_type: str, payload: dict) -> None:
+        await queue.put(_sse(event_type, payload))
+
+    await run_skill_prerequisites(course_id, emit_event=emit_event)
+    await queue.put(None)
 
 
 def _sse(event: str, data: dict) -> str:
