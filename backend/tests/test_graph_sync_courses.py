@@ -3,11 +3,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core.neo4j import get_neo4j_session
+from app.modules.courses.models import (
+    Course,
+    CourseMarketGateStatus,
+    CoursePublicationStatus,
+)
 from app.modules.courses.neo4j_repository import (
     LINK_STUDENT_ENROLLED,
     LINK_TEACHER_TEACHES_CLASS,
     UNLINK_STUDENT_ENROLLED,
     UPSERT_CLASS,
+)
+from app.modules.curricularalignmentarchitect.models import (
+    BookSelectionSession,
+    SessionStatus,
+)
+from app.modules.curricularalignmentarchitect.skill_prerequisites.review_models import (
+    PrerequisiteReview,
+)
+from app.modules.curricularalignmentarchitect.skill_prerequisites.schemas import (
+    PrerequisiteReviewStatus,
 )
 from app.modules.document_extraction.neo4j_repository import (
     DELETE_DOCUMENTS_BY_COURSE_AND_ORPHAN_CONCEPTS,
@@ -58,8 +73,33 @@ class FakeNeo4jSession:
         return fn(tx)
 
 
+def _make_course_available_for_enrollment(db_session, course_id: int) -> None:
+    db_session.add(
+        BookSelectionSession(
+            course_id=course_id,
+            thread_id=f"graph-sync-book-session-{course_id}",
+            status=SessionStatus.COMPLETED,
+        )
+    )
+    db_session.add(
+        PrerequisiteReview(
+            course_id=course_id,
+            review_status=PrerequisiteReviewStatus.APPROVED,
+            draft_edges=[],
+            isolated_skills_viewed=True,
+        )
+    )
+    course = db_session.get(Course, course_id)
+    assert course is not None
+    course.market_gate_status = CourseMarketGateStatus.COMPLETED
+    course.publication_status = CoursePublicationStatus.PUBLISHED
+    db_session.add(course)
+    db_session.commit()
+
+
 def test_course_create_and_enrollment_sync_to_neo4j(
     client,
+    db_session,
     teacher_auth_headers,
     student_auth_headers,
 ):
@@ -78,6 +118,7 @@ def test_course_create_and_enrollment_sync_to_neo4j(
         )
         assert resp.status_code == 201
         course_id = resp.json()["id"]
+        _make_course_available_for_enrollment(db_session, course_id)
 
         # Join course (student)
         resp = client.post(
