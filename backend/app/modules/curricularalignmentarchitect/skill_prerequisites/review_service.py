@@ -7,7 +7,11 @@ from neo4j import Driver
 
 from app.modules.courses.repository import CourseRepository
 
-from .repository import load_review_skills_for_course, replace_skill_prerequisites
+from .repository import (
+    get_skill_prerequisites,
+    load_review_skills_for_course,
+    replace_skill_prerequisites,
+)
 from .review_repository import (
     PrerequisiteReviewRepository,
     draft_edges_from_review,
@@ -26,6 +30,8 @@ from .validation import compute_isolated_skills, validate_prerequisite_edges
 class PrerequisiteReviewGraphRepository(Protocol):
     def load_skills(self, course_id: int) -> list[dict]: ...
 
+    def load_prerequisites(self, course_id: int) -> list[dict]: ...
+
     def replace_approved_edges(self, course_id: int, edges: list[dict]) -> int: ...
 
 
@@ -35,6 +41,9 @@ class Neo4jPrerequisiteReviewRepository:
 
     def load_skills(self, course_id: int) -> list[dict]:
         return load_review_skills_for_course(self._driver, course_id)
+
+    def load_prerequisites(self, course_id: int) -> list[dict]:
+        return get_skill_prerequisites(self._driver, course_id)
 
     def replace_approved_edges(self, course_id: int, edges: list[dict]) -> int:
         return replace_skill_prerequisites(self._driver, course_id, edges)
@@ -76,6 +85,22 @@ class PrerequisiteReviewService:
         skills = self._graph_repo.load_skills(course_id)
         skill_names = skill_names_from_rows(skills)
         draft_edges = draft_edges_from_review(review)
+        if self._should_seed_existing_graph_edges(review, draft_edges):
+            existing_edges = self._draft_edges_from_existing_graph(
+                course_id,
+                set(skill_names),
+            )
+            if existing_edges:
+                isolated_skills = compute_isolated_skills(skill_names, existing_edges)
+                review = self._review_repo.save_draft(
+                    course_id=course_id,
+                    edges=existing_edges,
+                    status=PrerequisiteReviewStatus.NEEDS_REVIEW,
+                    isolated_skill_count=len(isolated_skills),
+                    generated_edge_count=len(existing_edges),
+                    isolated_skills_viewed=False,
+                )
+                draft_edges = draft_edges_from_review(review)
         isolated_skills = compute_isolated_skills(skill_names, draft_edges)
         validation = validate_prerequisite_edges(
             skill_names=skill_names,
@@ -113,6 +138,61 @@ class PrerequisiteReviewService:
                 approved_at=review.approved_at if review is not None else None,
             ),
         )
+
+    def _should_seed_existing_graph_edges(
+        self,
+        review,
+        draft_edges: list[PrerequisiteDraftEdge],
+    ) -> bool:
+        if draft_edges:
+            return False
+        if review is None:
+            return True
+        return (
+            review.review_status == PrerequisiteReviewStatus.NOT_STARTED
+            and not review.is_rebuilding
+        )
+
+    def _draft_edges_from_existing_graph(
+        self,
+        course_id: int,
+        skill_names: set[str],
+    ) -> list[PrerequisiteDraftEdge]:
+        edges: list[PrerequisiteDraftEdge] = []
+        seen: set[tuple[str, str]] = set()
+        for row in self._graph_repo.load_prerequisites(course_id):
+            prereq_name = str(row.get("from_skill") or "").strip()
+            dependent_name = str(row.get("to_skill") or "").strip()
+            if (
+                not prereq_name
+                or not dependent_name
+                or prereq_name not in skill_names
+                or dependent_name not in skill_names
+            ):
+                continue
+
+            key = (prereq_name, dependent_name)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            confidence = row.get("confidence")
+            if confidence not in {"high", "medium", "low"}:
+                confidence = "medium"
+            reasoning = str(
+                row.get("reasoning")
+                or "Imported from the existing course prerequisite graph."
+            )
+            edges.append(
+                PrerequisiteDraftEdge(
+                    prerequisite_name=prereq_name,
+                    dependent_name=dependent_name,
+                    confidence=confidence,
+                    reasoning=reasoning,
+                    source="ai",
+                )
+            )
+        return edges
 
     def save_generated_draft(
         self, course_id: int, edges: list[PrerequisiteDraftEdge]

@@ -126,6 +126,7 @@ class FakeReviewRepository:
 class FakeNeo4jRepository:
     def __init__(self) -> None:
         self.written_edges: list[dict] | None = None
+        self.prerequisite_edges: list[dict] = []
 
     def load_skills(self, course_id: int) -> list[dict]:
         assert course_id == 42
@@ -134,6 +135,10 @@ class FakeNeo4jRepository:
             {"name": "SQL joins", "source": "book", "chapter_title": "Queries"},
             {"name": "Indexes", "source": "market", "chapter_title": "Performance"},
         ]
+
+    def load_prerequisites(self, course_id: int) -> list[dict]:
+        assert course_id == 42
+        return self.prerequisite_edges
 
     def replace_approved_edges(self, course_id: int, edges: list[dict]) -> int:
         assert course_id == 42
@@ -355,6 +360,41 @@ def test_review_service_saves_generated_draft_not_live_graph():
     assert graph_repo.written_edges is None
     assert review.draft_edges[0].prerequisite_name == "SQL basics"
     assert review.isolated_skills == ["Indexes"]
+
+
+def test_review_service_seeds_first_draft_from_existing_graph_prerequisites():
+    graph_repo = FakeNeo4jRepository()
+    graph_repo.prerequisite_edges = [
+        {
+            "from_skill": "SQL basics",
+            "to_skill": "SQL joins",
+            "confidence": "medium",
+            "reasoning": "Legacy graph prerequisite",
+        }
+    ]
+    review_repo = FakeReviewRepository()
+    service = PrerequisiteReviewService(
+        FakeCourseRepository(),  # type: ignore[arg-type]
+        review_repo,  # type: ignore[arg-type]
+        graph_repo,
+    )
+
+    review = service.get_review(course_id=42)
+
+    assert review.status == PrerequisiteReviewStatus.NEEDS_REVIEW
+    assert [edge.model_dump() for edge in review.draft_edges] == [
+        {
+            "prerequisite_name": "SQL basics",
+            "dependent_name": "SQL joins",
+            "confidence": "medium",
+            "reasoning": "Legacy graph prerequisite",
+            "source": "ai",
+        }
+    ]
+    assert review.metadata.generated_edge_count == 1
+    assert review.isolated_skills == ["Indexes"]
+    assert review_repo.review is not None
+    assert review_repo.review.review_status == PrerequisiteReviewStatus.NEEDS_REVIEW
 
 
 def test_review_service_approval_validates_and_writes_live_graph():

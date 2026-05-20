@@ -13,6 +13,7 @@ from app.modules.curricularalignmentarchitect.skill_prerequisites.review_models 
 from app.modules.curricularalignmentarchitect.skill_prerequisites.schemas import (
     PrerequisiteReviewStatus,
 )
+from app.modules.marketdemandanalyst.models import MDAThreadState
 
 
 def _create_course(client, teacher_auth_headers, title="Readiness Course") -> int:
@@ -49,6 +50,23 @@ def _mark_market_gate_complete(db_session, course_id: int) -> None:
     assert course is not None
     course.market_gate_status = CourseMarketGateStatus.COMPLETED
     db_session.add(course)
+    db_session.commit()
+
+
+def _save_legacy_market_insertion_state(db_session, course_id: int) -> None:
+    course = db_session.get(Course, course_id)
+    assert course is not None
+    db_session.add(
+        MDAThreadState(
+            thread_id=f"mda-{course.teacher_id}-course-{course_id}",
+            state_json={
+                "insertion_results": {
+                    "skills_inserted": 146,
+                    "job_postings_linked": 25,
+                }
+            },
+        )
+    )
     db_session.commit()
 
 
@@ -199,6 +217,33 @@ def test_readiness_unlocks_prerequisites_after_book_and_market_gates_pass(
     gates = {gate["id"]: gate for gate in payload["gates"]}
     assert gates["prerequisites"]["status"] == "ready"
     assert gates["publish"]["status"] == "locked"
+    assert payload["next_action"]["id"] == "prerequisites"
+
+
+def test_readiness_treats_legacy_market_insertion_state_as_complete(
+    client,
+    db_session,
+    teacher_auth_headers,
+):
+    course_id = _create_course(
+        client,
+        teacher_auth_headers,
+        title="Legacy Market Complete",
+    )
+    _mark_book_gate_complete(db_session, course_id)
+    _save_legacy_market_insertion_state(db_session, course_id)
+
+    response = client.get(
+        f"/courses/{course_id}/readiness",
+        headers=teacher_auth_headers,
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    gates = {gate["id"]: gate for gate in payload["gates"]}
+    assert "Complete the market skill bank." not in payload["blockers"]
+    assert gates["market"]["status"] == "complete"
+    assert gates["prerequisites"]["status"] == "ready"
     assert payload["next_action"]["id"] == "prerequisites"
 
 

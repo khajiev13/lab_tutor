@@ -111,7 +111,9 @@ def register_routes(router):
         service = _review_service(db)
         try:
             service.require_teacher(course_id, teacher.id)
-            return service.get_review(course_id)
+            review = service.get_review(course_id)
+            db.commit()
+            return review
         finally:
             service.close()
 
