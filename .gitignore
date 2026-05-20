@@ -212,7 +212,16 @@ backend/notebooks/*.jpg
 backend/**/notebooks/artifacts/
 
 # ML training artifacts — model checkpoints, weights, vocabs
-backend/checkpoints/
+backend/checkpoints/**
+# Exception: track the canonical ICCSE2026 paper results manifest (cited in CHANGELOG)
+!backend/checkpoints/iccse2026_paper_results.json
+
+# Backend run artifacts (LLM-judge calibrations, smoke runs, etc.)
+backend/runs/**
+# Exception: track the LF-PCO LLM-judge calibration as paper-cited evidence
+!backend/runs/lf_llm_calibration_v2/
+!backend/runs/lf_llm_calibration_v2/lf_llm_judge_summary.json
+!backend/runs/lf_llm_calibration_v2/lf_llm_judge_results.json
 
 # ignore uploading the diagrams
 diagrams/
