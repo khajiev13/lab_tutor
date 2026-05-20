@@ -127,6 +127,13 @@ class AutomaticWhatIfCriteria(BaseModel):
     ]
     max_skills: int
     llm_decision_summary: str
+    # Where the per-skill targets actually came from. The frontend uses this to
+    # avoid claiming "LLM decided" when the rule-based fallback ran (e.g. when
+    # the LLM provider is unreachable or returns invalid JSON).
+    #   "llm"        — LLM produced exactly `max_skills` valid recommendations
+    #   "rule_based" — LLM call failed; deterministic signal-weighted fallback
+    #   "mixed"      — LLM produced some skills, fallback padded the rest
+    planning_source: Literal["llm", "rule_based", "mixed"] = "llm"
 
 
 class WhatIfRequest(BaseModel):

@@ -203,6 +203,7 @@ describe('StudentDrilldownPage', () => {
 import TeacherTwinPage from './TeacherTwinPage';
 import { runWhatIf, simulateSkills } from '@/features/arcd-agent/api/teacher-twin';
 import { resetTeacherTwinSimulationTasks } from '@/features/arcd-agent/state/teacherTwinSimulationStore';
+import { resetTeacherTwinUiState } from '@/features/arcd-agent/state/teacherTwinUiStore';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -226,6 +227,7 @@ function renderTeacherTwinPage() {
 
 beforeEach(() => {
   resetTeacherTwinSimulationTasks();
+  resetTeacherTwinUiState();
   vi.clearAllMocks();
   vi.mocked(simulateSkills).mockResolvedValue({} as never);
   vi.mocked(runWhatIf).mockResolvedValue({} as never);
@@ -233,6 +235,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetTeacherTwinSimulationTasks();
+  resetTeacherTwinUiState();
 });
 
 describe('TeacherTwinPage', () => {

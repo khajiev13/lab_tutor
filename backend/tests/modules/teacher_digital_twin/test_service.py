@@ -195,18 +195,21 @@ class TestRunWhatIf:
                 "algebra",
                 "calculus",
             }
-            return [
-                {
-                    "skill_name": "calculus",
-                    "target_mastery": 0.82,
-                    "reason": "largest class-wide weakness",
-                },
-                {
-                    "skill_name": "algebra",
-                    "target_mastery": 0.74,
-                    "reason": "important prerequisite gap",
-                },
-            ]
+            return (
+                [
+                    {
+                        "skill_name": "calculus",
+                        "target_mastery": 0.82,
+                        "reason": "largest class-wide weakness",
+                    },
+                    {
+                        "skill_name": "algebra",
+                        "target_mastery": 0.74,
+                        "reason": "important prerequisite gap",
+                    },
+                ],
+                "llm",
+            )
 
         monkeypatch.setattr(
             TeacherDigitalTwinService,
@@ -282,13 +285,16 @@ class TestRunWhatIf:
 
         def fake_plan(self, course_id, skill_summaries, preferences):
             captured["preferences"] = preferences
-            return [
-                {
-                    "skill_name": "algebra",
-                    "target_mastery": 0.78,
-                    "reason": "highest leverage skill for broad support",
-                }
-            ]
+            return (
+                [
+                    {
+                        "skill_name": "algebra",
+                        "target_mastery": 0.78,
+                        "reason": "highest leverage skill for broad support",
+                    }
+                ],
+                "llm",
+            )
 
         monkeypatch.setattr(
             TeacherDigitalTwinService,
@@ -375,18 +381,21 @@ class TestSimulateMultipleSkillsAutomatic:
             called["value"] = True
             assert course_id == 1
             assert preferences.max_skills == 2
-            return [
-                {
-                    "skill_name": "calculus",
-                    "target_mastery": 0.81,
-                    "reason": "highest impact concept",
-                },
-                {
-                    "skill_name": "algebra",
-                    "target_mastery": 0.69,
-                    "reason": "supports downstream skills",
-                },
-            ]
+            return (
+                [
+                    {
+                        "skill_name": "calculus",
+                        "target_mastery": 0.81,
+                        "reason": "highest impact concept",
+                    },
+                    {
+                        "skill_name": "algebra",
+                        "target_mastery": 0.69,
+                        "reason": "supports downstream skills",
+                    },
+                ],
+                "llm",
+            )
 
         monkeypatch.setattr(
             TeacherDigitalTwinService,
@@ -454,7 +463,7 @@ class TestAutomaticPlanningPrompt:
         )
 
         svc = TeacherDigitalTwinService(MagicMock())
-        result = svc._plan_automatic_skill_targets(
+        plan, planning_source = svc._plan_automatic_skill_targets(
             course_id=7,
             skill_summaries=[
                 {
@@ -475,7 +484,8 @@ class TestAutomaticPlanningPrompt:
             ),
         )
 
-        assert result[0]["skill_name"] == "algebra"
+        assert plan[0]["skill_name"] == "algebra"
+        assert planning_source == "llm"
         system_prompt = captured["messages"][0]["content"]
         user_prompt = captured["messages"][1]["content"]
         assert "teacher hints" in system_prompt.lower()
@@ -489,6 +499,126 @@ class TestAutomaticPlanningPrompt:
         assert "downstream_count=5" in user_prompt
         assert "pco_student_count=9" in user_prompt
         assert "pco_risk_ratio=0.38" in user_prompt
+
+
+class TestFallbackAutomaticSkillTargets:
+    """Regression tests for the signal-weighted fallback rewrite (PR #78).
+
+    The previous fallback returned a uniform target (max(0.65, avg + 0.20)) for
+    every skill, which made every What-If recommendation identical when the
+    class had no MASTERED.mastery data. These tests lock down the new
+    per-skill differentiation behavior.
+    """
+
+    def test_targets_differ_when_signals_differ(self):
+        """Skills with stronger PCO/prereq signal get higher target masteries."""
+        from app.modules.teacher_digital_twin.schemas import (
+            AutomaticWhatIfPreferences,
+        )
+
+        svc = TeacherDigitalTwinService(MagicMock())
+        plan = svc._fallback_automatic_skill_targets(
+            skill_summaries=[
+                {
+                    "skill_name": "high_signal",
+                    "avg_mastery": 0.30,
+                    "student_count": 40,
+                    "prereq_count": 5,
+                    "downstream_count": 8,
+                    "pco_risk_ratio": 0.60,
+                },
+                {
+                    "skill_name": "low_signal",
+                    "avg_mastery": 0.30,
+                    "student_count": 5,
+                    "prereq_count": 0,
+                    "downstream_count": 0,
+                    "pco_risk_ratio": 0.0,
+                },
+            ],
+            top_k=2,
+            preferences=AutomaticWhatIfPreferences(intervention_intensity=0.6),
+        )
+
+        targets = {item["skill_name"]: item["target_mastery"] for item in plan}
+        assert targets["high_signal"] > targets["low_signal"], (
+            "High-signal skills must get higher targets than low-signal ones"
+        )
+        # Reason text must mention the actual factors that drove the decision.
+        high_reason = next(
+            item for item in plan if item["skill_name"] == "high_signal"
+        )["reason"]
+        assert "PCO risk" in high_reason
+        assert "prerequisite" in high_reason
+
+    def test_targets_differ_by_rank_when_all_signals_zero(self):
+        """When the graph has no signal yet, targets fall back to a rank-based
+        delta so adjacent skills are still distinguishable instead of all
+        collapsing to the same number (the original bug)."""
+        svc = TeacherDigitalTwinService(MagicMock())
+        plan = svc._fallback_automatic_skill_targets(
+            skill_summaries=[
+                {
+                    "skill_name": f"skill_{i}",
+                    "avg_mastery": 0.0,
+                    "student_count": 0,
+                    "prereq_count": 0,
+                    "downstream_count": 0,
+                    "pco_risk_ratio": 0.0,
+                }
+                for i in range(5)
+            ],
+            top_k=5,
+        )
+
+        targets = [item["target_mastery"] for item in plan]
+        # All five targets must be distinct, not collapse to a single value.
+        assert len(set(targets)) == len(targets), (
+            f"Expected 5 distinct targets, got duplicates: {targets}"
+        )
+        # Targets must be monotonically non-increasing (most urgent first).
+        assert targets == sorted(targets, reverse=True)
+
+    def test_planning_source_rule_based_when_llm_fails(self, monkeypatch):
+        """When the LLM call raises, planning_source must be 'rule_based' so
+        the frontend can avoid the misleading 'LLM decided' label."""
+        # Make the OpenAI import succeed but the create() call raise.
+        from types import SimpleNamespace as _NS
+
+        class FakeOpenAI:
+            def __init__(self, *_a, **_kw):
+                self.chat = _NS(
+                    completions=_NS(
+                        create=lambda **_kw: (_ for _ in ()).throw(
+                            RuntimeError("LLM provider unreachable")
+                        )
+                    )
+                )
+
+        monkeypatch.setitem(sys.modules, "openai", _NS(OpenAI=FakeOpenAI))
+        monkeypatch.setitem(sys.modules, "httpx", _NS(Timeout=lambda *_a, **_kw: None))
+
+        svc = TeacherDigitalTwinService(MagicMock())
+        plan, source = svc._plan_automatic_skill_targets(
+            course_id=1,
+            skill_summaries=[
+                {
+                    "skill_name": "algebra",
+                    "avg_mastery": 0.20,
+                    "student_count": 10,
+                    "perceived_difficulty": 0.80,
+                    "prereq_count": 1,
+                    "downstream_count": 2,
+                    "pco_student_count": 3,
+                    "pco_risk_ratio": 0.30,
+                }
+            ],
+            preferences=SimpleNamespace(
+                intervention_intensity=0.6, focus="balanced", max_skills=1
+            ),
+        )
+        assert source == "rule_based"
+        assert plan and plan[0]["skill_name"] == "algebra"
 
 
 class TestGetStudentPortfolio:
