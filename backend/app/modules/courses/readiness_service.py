@@ -60,6 +60,7 @@ class CourseReadinessService:
         prerequisite_complete = (
             review is not None
             and review.review_status == PrerequisiteReviewStatus.APPROVED
+            and not review.is_rebuilding
         )
 
         blockers: list[str] = []

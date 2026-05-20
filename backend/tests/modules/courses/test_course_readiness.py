@@ -52,13 +52,16 @@ def _mark_market_gate_complete(db_session, course_id: int) -> None:
     db_session.commit()
 
 
-def _mark_prerequisites_approved(db_session, course_id: int) -> None:
+def _mark_prerequisites_approved(
+    db_session, course_id: int, *, is_rebuilding: bool = False
+) -> None:
     db_session.add(
         PrerequisiteReview(
             course_id=course_id,
             review_status=PrerequisiteReviewStatus.APPROVED,
             draft_edges=[],
             isolated_skills_viewed=True,
+            is_rebuilding=is_rebuilding,
         )
     )
     db_session.commit()
@@ -248,6 +251,46 @@ def test_publish_succeeds_when_all_required_gates_pass(
     gates = {gate["id"]: gate for gate in readiness["gates"]}
     assert readiness["next_action"]["id"] == "none"
     assert gates["publish"]["status"] == "complete"
+
+
+def test_rebuilding_approved_prerequisites_pause_publish_and_student_availability(
+    client,
+    db_session,
+    teacher_auth_headers,
+    student_auth_headers,
+):
+    course_id = _create_course(client, teacher_auth_headers, title="Rebuilding Course")
+    _mark_book_gate_complete(db_session, course_id)
+    _mark_market_gate_complete(db_session, course_id)
+    _mark_prerequisites_approved(db_session, course_id, is_rebuilding=True)
+
+    readiness_response = client.get(
+        f"/courses/{course_id}/readiness",
+        headers=teacher_auth_headers,
+    )
+    assert readiness_response.status_code == 200
+    readiness = readiness_response.json()
+    assert readiness["can_publish"] is False
+    assert "Review prerequisites." in readiness["blockers"]
+    gates = {gate["id"]: gate for gate in readiness["gates"]}
+    assert gates["prerequisites"]["status"] == "ready"
+
+    publish_response = client.post(
+        f"/courses/{course_id}/publish",
+        headers=teacher_auth_headers,
+    )
+    assert publish_response.status_code == 400
+
+    _publish_course_directly(db_session, course_id)
+    public_response = client.get("/courses")
+    assert public_response.status_code == 200
+    assert all(c["id"] != course_id for c in public_response.json())
+
+    join_response = client.post(
+        f"/courses/{course_id}/join",
+        headers=student_auth_headers,
+    )
+    assert join_response.status_code == 403
 
 
 def test_stale_prerequisites_pause_new_enrollment_without_removing_existing_student(

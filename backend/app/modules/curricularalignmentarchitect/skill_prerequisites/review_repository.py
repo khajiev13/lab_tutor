@@ -82,6 +82,9 @@ class PrerequisiteReviewRepository:
 
     def mark_rebuilding(self, course_id: int) -> PrerequisiteReview:
         review = self.get_or_create(course_id)
+        if review.review_status == PrerequisiteReviewStatus.APPROVED:
+            review.review_status = PrerequisiteReviewStatus.STALE
+            review.last_invalidated_at = datetime.now(UTC)
         review.is_rebuilding = True
         review.updated_at = datetime.now(UTC)
 

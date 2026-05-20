@@ -224,6 +224,78 @@ def test_list_courses(client, teacher_auth_headers):
     assert all(c["id"] not in created_ids for c in data)
 
 
+def test_student_get_course_rejects_unavailable_direct_url(
+    client,
+    teacher_auth_headers,
+    student_auth_headers,
+):
+    create_res = client.post(
+        "/courses",
+        json={"title": "Private Draft", "description": "Desc"},
+        headers=teacher_auth_headers,
+    )
+    course_id = create_res.json()["id"]
+
+    response = client.get(f"/courses/{course_id}", headers=student_auth_headers)
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Course is not available"
+
+
+def test_student_get_course_allows_available_course(
+    client,
+    db_session,
+    teacher_auth_headers,
+    student_auth_headers,
+):
+    create_res = client.post(
+        "/courses",
+        json={"title": "Available Course", "description": "Desc"},
+        headers=teacher_auth_headers,
+    )
+    course_id = create_res.json()["id"]
+    _mark_readiness_gates_complete(db_session, course_id)
+    _publish_course_directly(db_session, course_id)
+
+    response = client.get(f"/courses/{course_id}", headers=student_auth_headers)
+
+    assert response.status_code == 200
+    assert response.json()["id"] == course_id
+
+
+def test_enrolled_student_get_course_allows_paused_existing_course(
+    client,
+    db_session,
+    teacher_auth_headers,
+    student_auth_headers,
+):
+    create_res = client.post(
+        "/courses",
+        json={"title": "Paused Existing Course", "description": "Desc"},
+        headers=teacher_auth_headers,
+    )
+    course_id = create_res.json()["id"]
+    _mark_readiness_gates_complete(db_session, course_id)
+    _publish_course_directly(db_session, course_id)
+
+    join_response = client.post(
+        f"/courses/{course_id}/join",
+        headers=student_auth_headers,
+    )
+    assert join_response.status_code == 201
+
+    review = db_session.get(PrerequisiteReview, course_id)
+    assert review is not None
+    review.review_status = PrerequisiteReviewStatus.STALE
+    db_session.add(review)
+    db_session.commit()
+
+    response = client.get(f"/courses/{course_id}", headers=student_auth_headers)
+
+    assert response.status_code == 200
+    assert response.json()["id"] == course_id
+
+
 def test_update_course(client, teacher_auth_headers):
     # Create course
     create_res = client.post(

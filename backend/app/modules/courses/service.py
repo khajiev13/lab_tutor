@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.neo4j import get_neo4j_session
 from app.core.settings import settings
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserRole
 from app.modules.document_extraction.neo4j_repository import (
     DocumentExtractionGraphRepository,
 )
@@ -198,6 +198,29 @@ class CourseService:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Course not found"
             )
         return course
+
+    def get_course_for_user(self, course_id: int, user: User) -> Course:
+        course = self.get_course(course_id)
+        if user.role == UserRole.TEACHER:
+            if course.teacher_id == user.id:
+                return course
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this course",
+            )
+
+        enrollment = self._repo.get_enrollment(course_id, user.id)
+        if enrollment is not None:
+            return course
+
+        readiness_service = CourseReadinessService(self._repo.db)
+        if readiness_service.is_effectively_available(course.id):
+            return course
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Course is not available",
+        )
 
     def join_course(self, course_id: int, student: User) -> CourseEnrollment:
         course = self.get_course(course_id)  # Re-use logic

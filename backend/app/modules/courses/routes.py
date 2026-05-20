@@ -108,7 +108,7 @@ def get_course(
     service: CourseService = Depends(get_course_service),
     current_user: User = Depends(current_active_user),
 ):
-    return service.get_course(course_id)
+    return service.get_course_for_user(course_id, current_user)
 
 
 @router.post(
