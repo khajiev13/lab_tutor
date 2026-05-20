@@ -14,8 +14,13 @@ class SkillDifficultyItem(BaseModel):
 
     skill_name: str
     student_count: int
+    """Total students who have selected or attempted the skill (SELECTED_SKILL ∪ MASTERED)."""
+    attempted_count: int = 0
+    """Subset of `student_count` who have a `MASTERED` edge (real practice signal)."""
     avg_mastery: float
-    perceived_difficulty: float  # 1 - avg_mastery
+    """Average mastery across `student_count`, with 0.0 fill for unattempted (legacy)."""
+    perceived_difficulty: float
+    """1 − avg mastery computed only over `attempted_count`. 0.0 when no one attempted."""
     prereq_count: int = 0
     downstream_count: int = 0
     pco_risk_ratio: float = 0.0

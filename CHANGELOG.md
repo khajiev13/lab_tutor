@@ -5,6 +5,45 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-05-21 — Top Difficult Skills: attempted-only filtering
+
+### Fixed
+
+- **Class Overview "Top Difficult Skills" chart**: previously surfaced
+  selected-but-never-attempted skills as "100% difficult / 0% mastery" because
+  `avg_mastery` was averaged with a `0.0` fill for unattempted students,
+  producing eight identical full-red bars regardless of real engagement. The
+  chart now ranks only skills with a real practice signal (a `MASTERED` edge
+  with a recorded mastery value) and surfaces unstarted skills in a "N more
+  skills selected by students but not yet practiced" footnote.
+- The same `attempted_count > 0` guard is now applied to the "highest
+  perceived difficulty" insight and the `hardestSkill` summary on Class
+  Overview, so unstarted skills no longer drive teacher recommendations.
+
+### Backend
+
+- ``GET_SKILL_DIFFICULTY`` Cypher: emits a new ``attempted_count`` column,
+  derives ``perceived_difficulty`` only from students who attempted the skill
+  (``1.0 - attempted_avg_mastery``), and orders unattempted skills last so
+  truly-struggled skills always appear at the top.
+- ``SkillDifficultyItem`` schema: added ``attempted_count: int = 0`` (default
+  preserves backward compatibility with existing test fixtures).
+- ``_build_automatic_skill_summaries`` now propagates ``attempted_count`` so
+  the LLM planner can also distinguish "selected" from "actually struggled"
+  when crafting What-If recommendations.
+
+### Tests
+
+- New repository test pins the Cypher to require ``attempted_count`` and the
+  attempted-first ORDER BY, guarding against silent regressions.
+- New service test: an unattempted skill must keep ``perceived_difficulty=0``
+  end-to-end (not the legacy 1.0 default).
+- New frontend tests in ``pages.test.tsx`` cover (a) filtering unattempted
+  skills out of the chart with a deferred-skills footnote, and (b) the
+  empty-state branch when no skill has been attempted yet.
+
+---
+
 ## [Unreleased] — 2026-05-20 — ICCSE2026 ARCD Integration
 
 This entry consolidates the LAB-side integration of the ICCSE2026 ARCD paper

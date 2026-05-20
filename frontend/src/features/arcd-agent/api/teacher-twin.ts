@@ -69,8 +69,12 @@ async function apiFetch<T>(url: string, init?: ApiFetchOptions): Promise<T> {
 
 export interface SkillDifficultyItem {
   skill_name: string;
+  /** All students who selected or attempted the skill (SELECTED_SKILL ∪ MASTERED). */
   student_count: number;
+  /** Subset who actually have a `MASTERED` edge — i.e. real practice signal. */
+  attempted_count: number;
   avg_mastery: number;
+  /** 1 − avg mastery, computed only over `attempted_count`. 0 when no attempts. */
   perceived_difficulty: number;
   prereq_count: number;
   downstream_count: number;

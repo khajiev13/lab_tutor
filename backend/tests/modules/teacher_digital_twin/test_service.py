@@ -32,6 +32,7 @@ class TestGetSkillDifficulty:
             {
                 "skill_name": "calculus",
                 "student_count": 5,
+                "attempted_count": 4,
                 "avg_mastery": 0.6,
                 "perceived_difficulty": 0.4,
                 "prereq_count": 2,
@@ -47,6 +48,29 @@ class TestGetSkillDifficulty:
         assert result.skills[0].prereq_count == 2
         assert result.skills[0].downstream_count == 3
         assert result.skills[0].pco_risk_ratio == pytest.approx(0.2)
+        assert result.skills[0].attempted_count == 4
+
+    def test_unattempted_skill_keeps_zero_perceived_difficulty(self):
+        # The Cypher already sets perceived_difficulty = 0.0 when no one has
+        # attempted; the service must surface that faithfully so the UI can
+        # filter these skills out instead of ranking them as "100% difficult".
+        rows = [
+            {
+                "skill_name": "untouched_skill",
+                "student_count": 12,
+                "attempted_count": 0,
+                "avg_mastery": 0.0,
+                "perceived_difficulty": 0.0,
+                "prereq_count": 1,
+                "downstream_count": 1,
+                "pco_risk_ratio": 0.0,
+            }
+        ]
+        driver, _ = _driver_with_session(rows)
+        svc = TeacherDigitalTwinService(driver)
+        result = svc.get_skill_difficulty(course_id=1)
+        assert result.skills[0].attempted_count == 0
+        assert result.skills[0].perceived_difficulty == pytest.approx(0.0)
 
 
 class TestGetSkillPopularity:
