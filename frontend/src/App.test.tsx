@@ -57,6 +57,9 @@ vi.mock('@/features/normalization/pages/MergeReviewPage', () => ({
 vi.mock('@/features/market-demand/pages/MarketDemandPage', () => ({
   default: () => <div>Market Demand</div>,
 }));
+vi.mock('@/features/prerequisite-review/pages/PrerequisiteReviewPage', () => ({
+  default: () => <div>Prerequisite Review Page</div>,
+}));
 vi.mock('@/features/student-learning-path/pages/ChapterQuizPage', () => ({
   default: () => <div>Chapter Quiz</div>,
 }));
@@ -88,6 +91,14 @@ describe('App routing', () => {
     renderAppAt('/courses/1/learning-path');
 
     expect(screen.getByText('Learning Path Page')).toBeInTheDocument();
+    expect(screen.getByText('Mock Sidebar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeInTheDocument();
+  });
+
+  it('keeps dashboard chrome on the prerequisite review route', () => {
+    renderAppAt('/courses/1/prerequisites');
+
+    expect(screen.getByText('Prerequisite Review Page')).toBeInTheDocument();
     expect(screen.getByText('Mock Sidebar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeInTheDocument();
   });

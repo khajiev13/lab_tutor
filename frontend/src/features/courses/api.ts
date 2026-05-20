@@ -4,7 +4,10 @@ import type {
   CourseCreate,
   CourseEmbeddingStatusResponse,
   CourseFileRead,
+  CourseReadiness,
   ExtractionStatus,
+  PrerequisiteReview,
+  SavePrerequisiteReviewPayload,
 } from './types';
 import type {
   SkillBanksResponse,
@@ -161,6 +164,35 @@ export const coursesApi = {
     const response = await api.get<Course>(`/courses/${id}`);
     return response.data;
   },
+  getReadiness: async (id: number): Promise<CourseReadiness> => {
+    const response = await api.get<CourseReadiness>(`/courses/${id}/readiness`);
+    return response.data;
+  },
+  getPrerequisiteReview: async (id: number): Promise<PrerequisiteReview> => {
+    const response = await api.get<PrerequisiteReview>(
+      `/book-selection/courses/${id}/skill-prerequisites/review`,
+    );
+    return response.data;
+  },
+  savePrerequisiteReview: async (
+    id: number,
+    payload: SavePrerequisiteReviewPayload,
+  ): Promise<PrerequisiteReview> => {
+    const response = await api.put<PrerequisiteReview>(
+      `/book-selection/courses/${id}/skill-prerequisites/review`,
+      payload,
+    );
+    return response.data;
+  },
+  approvePrerequisiteReview: async (id: number): Promise<PrerequisiteReview> => {
+    const response = await api.post<PrerequisiteReview>(
+      `/book-selection/courses/${id}/skill-prerequisites/approve`,
+    );
+    return response.data;
+  },
+  regeneratePrerequisites: async (id: number): Promise<void> => {
+    await api.post(`/book-selection/courses/${id}/skill-prerequisites/regenerate`);
+  },
   create: async (data: CourseCreate): Promise<Course> => {
     const response = await api.post<Course>('/courses/', data);
     return response.data;
@@ -171,6 +203,18 @@ export const coursesApi = {
   },
   delete: async (id: number): Promise<void> => {
     await api.delete(`/courses/${id}`);
+  },
+  publish: async (id: number): Promise<Course> => {
+    const response = await api.post<Course>(`/courses/${id}/publish`);
+    return response.data;
+  },
+  unpublish: async (id: number): Promise<Course> => {
+    const response = await api.post<Course>(`/courses/${id}/unpublish`);
+    return response.data;
+  },
+  waiveMarketGate: async (id: number): Promise<Course> => {
+    const response = await api.post<Course>(`/courses/${id}/market-gate/waive`);
+    return response.data;
   },
   startExtraction: async (id: number): Promise<{ message: string; status: ExtractionStatus }> => {
     const response = await api.post<{ message: string; status: ExtractionStatus }>(

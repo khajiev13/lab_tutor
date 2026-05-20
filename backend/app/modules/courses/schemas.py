@@ -1,8 +1,19 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import CourseLevel, ExtractionStatus, FileProcessingStatus
+from .models import (
+    CourseLevel,
+    CourseMarketGateStatus,
+    CoursePublicationStatus,
+    ExtractionStatus,
+    FileProcessingStatus,
+)
+
+GateStatus = Literal["locked", "ready", "complete", "blocked"]
+AvailabilityStatus = Literal["draft", "published", "publishing_paused"]
+NextActionId = Literal["book", "market", "prerequisites", "publish", "none"]
 
 
 class CourseCreate(BaseModel):
@@ -16,6 +27,8 @@ class CourseRead(BaseModel):
     title: str
     description: str | None
     level: CourseLevel
+    publication_status: CoursePublicationStatus
+    market_gate_status: CourseMarketGateStatus
     teacher_id: int
     created_at: datetime
     extraction_status: ExtractionStatus
@@ -53,3 +66,35 @@ class UploadPresentationsResponse(BaseModel):
 class StartExtractionResponse(BaseModel):
     message: str
     status: ExtractionStatus
+
+
+class ReadinessNextAction(BaseModel):
+    id: NextActionId
+    label: str
+    route: str | None = None
+
+
+class ReadinessGate(BaseModel):
+    id: Literal["book", "market", "prerequisites", "publish"]
+    label: str
+    status: GateStatus
+    route: str | None = None
+    detail: str
+
+
+class PrerequisiteReviewSummary(BaseModel):
+    status: str
+    edge_count: int
+    isolated_skill_count: int
+    last_generated_at: datetime | None = None
+
+
+class CourseReadinessRead(BaseModel):
+    course_id: int
+    publication_status: CoursePublicationStatus
+    availability_status: AvailabilityStatus
+    can_publish: bool
+    blockers: list[str]
+    next_action: ReadinessNextAction
+    gates: list[ReadinessGate]
+    prerequisite_review: PrerequisiteReviewSummary

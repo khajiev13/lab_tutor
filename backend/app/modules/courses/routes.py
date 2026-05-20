@@ -17,10 +17,15 @@ from .curriculum_schemas import (
     StudentInsightsOverviewResponse,
 )
 from .curriculum_service import CurriculumService, get_curriculum_service
+from .readiness_service import (
+    CourseReadinessService,
+    get_course_readiness_service,
+)
 from .schemas import (
     CourseCreate,
     CourseFileRead,
     CourseRead,
+    CourseReadinessRead,
     EnrollmentRead,
     StartExtractionResponse,
     UploadPresentationsResponse,
@@ -60,13 +65,50 @@ def list_enrolled_courses(
     return service.list_enrolled_courses(student)
 
 
+@router.get("/{course_id}/readiness", response_model=CourseReadinessRead)
+def get_course_readiness(
+    course_id: int,
+    service: CourseReadinessService = Depends(get_course_readiness_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    service.require_teacher(course_id, teacher.id)
+    return service.get_readiness(course_id)
+
+
+@router.post("/{course_id}/publish", response_model=CourseRead)
+def publish_course(
+    course_id: int,
+    service: CourseReadinessService = Depends(get_course_readiness_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.publish(course_id, teacher.id)
+
+
+@router.post("/{course_id}/unpublish", response_model=CourseRead)
+def unpublish_course(
+    course_id: int,
+    service: CourseReadinessService = Depends(get_course_readiness_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.unpublish(course_id, teacher.id)
+
+
+@router.post("/{course_id}/market-gate/waive", response_model=CourseRead)
+def waive_market_gate(
+    course_id: int,
+    service: CourseReadinessService = Depends(get_course_readiness_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.waive_market_gate(course_id, teacher.id)
+
+
 @router.get("/{course_id}", response_model=CourseRead)
 def get_course(
     course_id: int,
     service: CourseService = Depends(get_course_service),
     current_user: User = Depends(current_active_user),
 ):
-    return service.get_course(course_id)
+    return service.get_course_for_user(course_id, current_user)
 
 
 @router.post(

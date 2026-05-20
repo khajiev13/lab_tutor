@@ -47,9 +47,13 @@ function makeCourse(overrides: Partial<Course> = {}): Course {
   return {
     id: 1,
     title: "Test Course",
+    description: null,
+    level: "bachelor",
     teacher_id: 1,
     created_at: "2025-01-01T00:00:00Z",
     extraction_status: "finished",
+    publication_status: "draft",
+    market_gate_status: "not_started",
     ...overrides,
   };
 }

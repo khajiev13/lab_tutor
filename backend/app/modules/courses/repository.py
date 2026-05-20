@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.modules.auth.models import User
 
-from .models import Course, CourseEnrollment, CourseFile, FileProcessingStatus
+from .models import (
+    Course,
+    CourseEnrollment,
+    CourseFile,
+    CoursePublicationStatus,
+    FileProcessingStatus,
+)
 
 
 class CourseRepository:
@@ -32,6 +38,13 @@ class CourseRepository:
 
     def list(self) -> Sequence[Course]:
         return self.db.scalars(select(Course).order_by(Course.created_at.desc())).all()
+
+    def list_published(self) -> Sequence[Course]:
+        return self.db.scalars(
+            select(Course)
+            .where(Course.publication_status == CoursePublicationStatus.PUBLISHED)
+            .order_by(Course.created_at.desc())
+        ).all()
 
     def list_by_teacher(self, teacher_id: int) -> Sequence[Course]:
         return self.db.scalars(

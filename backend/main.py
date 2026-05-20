@@ -31,6 +31,7 @@ import app.modules.auth.models  # noqa: E402
 import app.modules.concept_normalization.review_sql_models  # noqa: E402
 import app.modules.courses.models  # noqa: E402
 import app.modules.curricularalignmentarchitect.models  # noqa: E402
+import app.modules.curricularalignmentarchitect.skill_prerequisites.review_models  # noqa: E402
 import app.modules.embeddings.course_models  # noqa: E402
 import app.modules.embeddings.models  # noqa: E402
 import app.modules.marketdemandanalyst.models  # noqa: E402
@@ -113,6 +114,99 @@ def _ensure_sql_schema_upgrades() -> None:
                 text(
                     "ALTER TABLE courses ADD COLUMN level VARCHAR(20) "
                     "NOT NULL DEFAULT 'bachelor'"
+                )
+            )
+
+        publication_type_exists = conn.execute(
+            text("SELECT 1 FROM pg_type WHERE typname = 'course_publication_status'")
+        ).fetchone()
+        if not publication_type_exists:
+            conn.execute(
+                text(
+                    "CREATE TYPE course_publication_status AS ENUM "
+                    "('draft', 'published')"
+                )
+            )
+
+        publication_col_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'courses' "
+                "AND column_name = 'publication_status'"
+            )
+        ).fetchone()
+        if not publication_col_exists:
+            conn.execute(
+                text(
+                    "ALTER TABLE courses ADD COLUMN publication_status "
+                    "course_publication_status NOT NULL DEFAULT 'draft'"
+                )
+            )
+
+        market_gate_type_exists = conn.execute(
+            text("SELECT 1 FROM pg_type WHERE typname = 'course_market_gate_status'")
+        ).fetchone()
+        if not market_gate_type_exists:
+            conn.execute(
+                text(
+                    "CREATE TYPE course_market_gate_status AS ENUM "
+                    "('not_started', 'completed', 'waived')"
+                )
+            )
+
+        market_gate_col_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'courses' "
+                "AND column_name = 'market_gate_status'"
+            )
+        ).fetchone()
+        if not market_gate_col_exists:
+            conn.execute(
+                text(
+                    "ALTER TABLE courses ADD COLUMN market_gate_status "
+                    "course_market_gate_status NOT NULL DEFAULT 'not_started'"
+                )
+            )
+
+        review_type_exists = conn.execute(
+            text("SELECT 1 FROM pg_type WHERE typname = 'prerequisite_review_status'")
+        ).fetchone()
+        if not review_type_exists:
+            conn.execute(
+                text(
+                    "CREATE TYPE prerequisite_review_status AS ENUM "
+                    "('not_started', 'needs_review', 'approved', 'stale')"
+                )
+            )
+
+        review_table_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_name = 'prerequisite_reviews'"
+            )
+        ).fetchone()
+        if not review_table_exists:
+            conn.execute(
+                text(
+                    "CREATE TABLE prerequisite_reviews ("
+                    "course_id INTEGER PRIMARY KEY REFERENCES courses(id) ON DELETE CASCADE, "
+                    "review_status prerequisite_review_status NOT NULL DEFAULT 'not_started', "
+                    "is_rebuilding BOOLEAN NOT NULL DEFAULT false, "
+                    "draft_edges JSONB NOT NULL DEFAULT '[]'::jsonb, "
+                    "isolated_skills_viewed BOOLEAN NOT NULL DEFAULT false, "
+                    "approved_by INTEGER REFERENCES users(id), "
+                    "approved_at TIMESTAMPTZ, "
+                    "edge_count INTEGER NOT NULL DEFAULT 0, "
+                    "generated_edge_count INTEGER NOT NULL DEFAULT 0, "
+                    "added_edge_count INTEGER NOT NULL DEFAULT 0, "
+                    "removed_edge_count INTEGER NOT NULL DEFAULT 0, "
+                    "isolated_skill_count INTEGER NOT NULL DEFAULT 0, "
+                    "last_generated_at TIMESTAMPTZ, "
+                    "last_invalidated_at TIMESTAMPTZ, "
+                    "created_at TIMESTAMPTZ NOT NULL DEFAULT now(), "
+                    "updated_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+                    ")"
                 )
             )
 

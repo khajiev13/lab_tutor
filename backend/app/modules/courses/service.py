@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.neo4j import get_neo4j_session
 from app.core.settings import settings
-from app.modules.auth.models import User
+from app.modules.auth.models import User, UserRole
 from app.modules.document_extraction.neo4j_repository import (
     DocumentExtractionGraphRepository,
 )
@@ -32,6 +32,7 @@ from .models import (
     FileProcessingStatus,
 )
 from .neo4j_repository import CourseGraphRepository
+from .readiness_service import CourseReadinessService
 from .repository import CourseRepository
 from .schemas import CourseCreate
 
@@ -177,7 +178,12 @@ class CourseService:
             ) from e
 
     def list_courses(self) -> list[Course]:
-        return list(self._repo.list())
+        readiness_service = CourseReadinessService(self._repo.db)
+        return [
+            course
+            for course in self._repo.list_published()
+            if readiness_service.is_effectively_available(course.id)
+        ]
 
     def list_teacher_courses(self, teacher: User) -> list[Course]:
         return list(self._repo.list_by_teacher(teacher.id))
@@ -193,8 +199,38 @@ class CourseService:
             )
         return course
 
+    def get_course_for_user(self, course_id: int, user: User) -> Course:
+        course = self.get_course(course_id)
+        if user.role == UserRole.TEACHER:
+            if course.teacher_id == user.id:
+                return course
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this course",
+            )
+
+        enrollment = self._repo.get_enrollment(course_id, user.id)
+        if enrollment is not None:
+            return course
+
+        readiness_service = CourseReadinessService(self._repo.db)
+        if readiness_service.is_effectively_available(course.id):
+            return course
+
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Course is not available",
+        )
+
     def join_course(self, course_id: int, student: User) -> CourseEnrollment:
         course = self.get_course(course_id)  # Re-use logic
+
+        readiness_service = CourseReadinessService(self._repo.db)
+        if not readiness_service.is_effectively_available(course.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Course is not available for enrollment",
+            )
 
         existing = self._repo.get_enrollment(course_id, student.id)
         if existing:
