@@ -2427,6 +2427,20 @@ function WhatIfTab() {
     [setWhatIf],
   );
 
+  // Refs so `loadStudentData` can read the current slider values for its
+  // initial seed without binding them into its dependency array. Without these
+  // refs, every slider tick recreates `loadStudentData`, which retriggers the
+  // mount effect below and refetches the portfolio + twin from the backend —
+  // making the panel flash like a full page refresh on each drag.
+  const studentDeltaRef = useRef(studentDelta);
+  const studentTopKRef = useRef(studentTopK);
+  useEffect(() => {
+    studentDeltaRef.current = studentDelta;
+  }, [studentDelta]);
+  useEffect(() => {
+    studentTopKRef.current = studentTopK;
+  }, [studentTopK]);
+
   const skills = useMemo(() => skillDifficulty?.skills ?? [], [skillDifficulty]);
   const students = useMemo(() => classMastery?.students ?? [], [classMastery]);
   const remainingManualSkills = useMemo(
@@ -2553,20 +2567,22 @@ function WhatIfTab() {
         setStudentTwin(twinData as TwinViewerData);
 
         // Pre-populate manual targets from actual per-skill mastery
+        const initialDelta = studentDeltaRef.current;
+        const initialTopK = studentTopKRef.current;
         const targets: ManualSkillEntry[] = skillList.map((sk, i) => {
           const current = portfolio.final_mastery?.[i] ?? 0;
           return {
             skill_name: sk.name,
             current_avg_mastery: current,
-            hypothetical_mastery: Math.min(1.0, current + studentDelta),
+            hypothetical_mastery: Math.min(1.0, current + initialDelta),
           };
         });
         setStudentManualTargets(targets);
         runStudentAutoSim(
           portfolio,
           skillList,
-          studentDelta,
-          studentTopK,
+          initialDelta,
+          initialTopK,
           twinData as TwinViewerData,
         );
       } catch (e: unknown) {
@@ -2575,7 +2591,9 @@ function WhatIfTab() {
         setStudentLoading(false);
       }
     },
-    [courseId, studentDelta, studentTopK],
+    // Slider values are intentionally read from refs above so a slider drag
+    // doesn't recreate this callback (and refetch from the backend).
+    [courseId],
   );
 
   /**

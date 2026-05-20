@@ -5,6 +5,24 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-05-21 — Student What-If sliders: live, no refetch
+
+### Fixed
+
+- **Student Digital Twin What-If sliders flashed like a page refresh on every
+  drag.** `loadStudentData` listed `studentDelta` and `studentTopK` in its
+  `useCallback` deps, so a slider tick recreated the callback, the mount
+  `useEffect` re-fired it, and the entire student portfolio + twin were
+  refetched from the backend on every value change. The slider's
+  `onValueChange` already invokes the pure-frontend `runStudentAutoSim`, so
+  the backend round-trip was pure overhead — and visually disruptive because
+  the panel briefly disappeared behind the loading state.
+- Now `loadStudentData` reads the slider values from `useRef`s for its
+  initial seed only, and depends on `[courseId]` alone. Slider drags update
+  the simulation result live without any network call.
+
+---
+
 ## [Unreleased] — 2026-05-21 — Top Difficult Skills: attempted-only filtering
 
 ### Fixed
