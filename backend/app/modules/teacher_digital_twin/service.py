@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 from neo4j import Driver as Neo4jDriver
 
@@ -501,15 +502,52 @@ class TeacherDigitalTwinService:
         else:
             skill_names = [t.skill_name for t in req.skills]
 
+        # ── 0b. Empty-skills guard ────────────────────────────────────────────
+        # If we get here with no skills (e.g. class has no enrolled students yet,
+        # or no SELECTED_SKILL/MASTERED edges), short-circuit with a friendly
+        # response instead of running an LLM round-trip that produces garbage.
+        if not req.skills:
+            logger.info(
+                "simulate_multiple_skills: no skills available for course_id=%s "
+                "(mode=%s) — returning empty result",
+                course_id,
+                req.mode,
+            )
+            return MultiSkillSimulationResponse(
+                mode=req.mode,
+                course_id=course_id,
+                auto_selected_skills=[],
+                skill_results=[],
+                coherence=SkillCoherenceResult(
+                    overall_score=0.0,
+                    label="Low",
+                    pairs=[],
+                    teaching_order=[],
+                    clusters=[],
+                    common_students=0,
+                ),
+                llm_insights=(
+                    "No skills are available to simulate yet — this class has no "
+                    "students with selected skills or mastery data. Once students "
+                    "begin practicing, run the simulation again."
+                ),
+            )
+
         # ── 1. Fetch class-level difficulty stats for all selected skills ──────
         with self._driver.session(database=db) as session:
             difficulty_rows = self._repo(session).get_skill_difficulty(course_id)
 
         difficulty_map: dict[str, dict] = {r["skill_name"]: r for r in difficulty_rows}
 
-        # ── 2. Generate per-skill exercise + stats ────────────────────────────
-        skill_results: list[SkillSimResult] = []
-        for target in req.skills:
+        # ── 2. Generate per-skill exercise + stats (parallel) ─────────────────
+        # Per-skill exercise gen can issue several LLM calls (RefinementLoop).
+        # Running them serially for top_k=5 skills was ~30-60s; we fan out to a
+        # ThreadPoolExecutor so wall-clock is bounded by the slowest single
+        # exercise (~10-15s) instead of the sum. Neo4j sessions are opened
+        # per-call inside CognitiveDiagnosisService, and the OpenAI client is
+        # constructed locally inside generate_exercise — both are safe to call
+        # from worker threads.
+        def _simulate_single(target: SkillTarget) -> SkillSimResult:
             sname = target.skill_name
             row = difficulty_map.get(sname)
             avg_class = float(row["avg_mastery"] or 0.0) if row else 0.0
@@ -534,18 +572,25 @@ class TeacherDigitalTwinService:
                 cidx = opts.index(ans)
             except ValueError:
                 cidx = 0
-            skill_results.append(
-                SkillSimResult(
-                    skill_name=sname,
-                    simulated_mastery=round(mastery, 4),
-                    avg_class_mastery=round(avg_class, 4),
-                    perceived_difficulty=perceived_diff,
-                    student_count=student_count,
-                    question=exercise.problem,
-                    options=opts,
-                    correct_index=cidx,
-                    explanation=exercise.why,
-                )
+            return SkillSimResult(
+                skill_name=sname,
+                simulated_mastery=round(mastery, 4),
+                avg_class_mastery=round(avg_class, 4),
+                perceived_difficulty=perceived_diff,
+                student_count=student_count,
+                question=exercise.problem,
+                options=opts,
+                correct_index=cidx,
+                explanation=exercise.why,
+            )
+
+        max_workers = max(1, min(len(req.skills), 5))
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="sim_skill"
+        ) as pool:
+            # Preserve user-supplied skill order in the output.
+            skill_results: list[SkillSimResult] = list(
+                pool.map(_simulate_single, req.skills)
             )
 
         # ── 3. Coherence analysis via co-selection data ───────────────────────
@@ -952,11 +997,13 @@ class TeacherDigitalTwinService:
     ) -> str | None:
         """Generate LLM-powered pedagogical insights for the skill simulation results."""
         try:
+            import httpx
             from openai import OpenAI
 
             client = OpenAI(
                 api_key=settings.llm_api_key or "no-key",
                 base_url=settings.llm_base_url,
+                timeout=httpx.Timeout(20.0, connect=4.0),
             )
             skills_summary = "\n".join(
                 f"- {r.skill_name}: difficulty={r.perceived_difficulty:.0%}, "
@@ -1010,11 +1057,13 @@ class TeacherDigitalTwinService:
     ) -> str | None:
         """Optional LLM narrative for the What-If panel."""
         try:
+            import httpx
             from openai import OpenAI
 
             client = OpenAI(
                 api_key=settings.llm_api_key or "no-key",
                 base_url=settings.llm_base_url,
+                timeout=httpx.Timeout(20.0, connect=4.0),
             )
             top_lines = [
                 f"{i + 1}. {s.skill_name} | gain={s.class_gain:.2f} | score={s.recommendation_score:.2f} | students={s.students_helped}"
