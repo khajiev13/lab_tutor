@@ -156,4 +156,22 @@ describe("PrerequisiteReviewPage", () => {
     expect(screen.getByText("Intro to Python -> Data Frames -> Intro to Python")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Approve graph" })).toBeDisabled();
   });
+
+  it("shows a clear approved state after approval succeeds", async () => {
+    const user = userEvent.setup();
+    mockCoursesApi.getPrerequisiteReview.mockResolvedValue(
+      makeReview({ isolated_skills: [] }),
+    );
+    mockCoursesApi.approvePrerequisiteReview.mockResolvedValue(
+      makeReview({ status: "approved", isolated_skills: [] }),
+    );
+
+    renderRoute();
+
+    await screen.findByRole("heading", { name: "Prerequisite Review" });
+    await user.click(screen.getByRole("button", { name: "Approve graph" }));
+
+    expect(await screen.findByText("Prerequisite graph approved")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approved" })).toBeDisabled();
+  });
 });
