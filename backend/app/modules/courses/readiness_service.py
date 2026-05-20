@@ -13,6 +13,7 @@ from app.modules.curricularalignmentarchitect.skill_prerequisites.review_models 
 from app.modules.curricularalignmentarchitect.skill_prerequisites.schemas import (
     PrerequisiteReviewStatus,
 )
+from app.modules.marketdemandanalyst.models import MDAThreadState
 
 from .models import Course, CourseMarketGateStatus, CoursePublicationStatus
 from .schemas import (
@@ -52,10 +53,7 @@ class CourseReadinessService:
     def get_readiness(self, course_id: int) -> CourseReadinessRead:
         course = self._get_course(course_id)
         book_complete = self._book_gate_complete(course_id)
-        market_complete = course.market_gate_status in {
-            CourseMarketGateStatus.COMPLETED,
-            CourseMarketGateStatus.WAIVED,
-        }
+        market_complete = self._market_gate_complete(course)
         review = self._get_prerequisite_review(course_id)
         prerequisite_complete = (
             review is not None
@@ -192,6 +190,21 @@ class CourseReadinessService:
             latest_session is not None
             and latest_session.status == SessionStatus.COMPLETED
         )
+
+    def _market_gate_complete(self, course: Course) -> bool:
+        if course.market_gate_status in {
+            CourseMarketGateStatus.COMPLETED,
+            CourseMarketGateStatus.WAIVED,
+        }:
+            return True
+
+        thread_state = self._db.get(
+            MDAThreadState,
+            f"mda-{course.teacher_id}-course-{course.id}",
+        )
+        if thread_state is None:
+            return False
+        return bool((thread_state.state_json or {}).get("insertion_results"))
 
     def _get_prerequisite_review(self, course_id: int) -> PrerequisiteReview | None:
         return self._db.get(PrerequisiteReview, course_id)
