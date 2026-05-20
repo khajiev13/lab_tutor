@@ -1,10 +1,47 @@
-from app.modules.courses.models import Course, CoursePublicationStatus
+from app.modules.courses.models import (
+    Course,
+    CourseMarketGateStatus,
+    CoursePublicationStatus,
+)
+from app.modules.curricularalignmentarchitect.models import (
+    BookSelectionSession,
+    SessionStatus,
+)
+from app.modules.curricularalignmentarchitect.skill_prerequisites.review_models import (
+    PrerequisiteReview,
+)
+from app.modules.curricularalignmentarchitect.skill_prerequisites.schemas import (
+    PrerequisiteReviewStatus,
+)
 
 
 def _publish_course_directly(db_session, course_id: int) -> None:
     course = db_session.get(Course, course_id)
     assert course is not None
     course.publication_status = CoursePublicationStatus.PUBLISHED
+    db_session.add(course)
+    db_session.commit()
+
+
+def _mark_readiness_gates_complete(db_session, course_id: int) -> None:
+    db_session.add(
+        BookSelectionSession(
+            course_id=course_id,
+            thread_id=f"router-book-session-{course_id}",
+            status=SessionStatus.COMPLETED,
+        )
+    )
+    course = db_session.get(Course, course_id)
+    assert course is not None
+    course.market_gate_status = CourseMarketGateStatus.COMPLETED
+    db_session.add(
+        PrerequisiteReview(
+            course_id=course_id,
+            review_status=PrerequisiteReviewStatus.APPROVED,
+            draft_edges=[],
+            isolated_skills_viewed=True,
+        )
+    )
     db_session.add(course)
     db_session.commit()
 
@@ -234,6 +271,7 @@ def test_join_course(client, db_session, teacher_auth_headers, student_auth_head
         headers=teacher_auth_headers,
     )
     course_id = create_res.json()["id"]
+    _mark_readiness_gates_complete(db_session, course_id)
     _publish_course_directly(db_session, course_id)
 
     # Join course (as student)

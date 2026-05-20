@@ -181,6 +181,11 @@ async def test_agentic_background_schedules_prerequisites_after_book_mapping(
 
     monkeypatch.setattr(agentic_mod, "fresh_db", lambda: FakeDbContext())
     monkeypatch.setattr(agentic_mod, "update_run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        agentic_mod,
+        "_mark_prerequisites_stale",
+        lambda course_id: calls.append(("stale", course_id)),
+    )
     monkeypatch.setattr(agentic_mod, "get_chapters_for_book", lambda *_args: [])
     monkeypatch.setattr(
         mapping_graph_mod, "build_book_skill_mapping_graph", lambda: FakeMappingGraph()
@@ -215,7 +220,8 @@ async def test_agentic_background_schedules_prerequisites_after_book_mapping(
             frames.append(item)
 
     assert calls[0][0] == "mapping"
-    assert calls[1] == ("prerequisites", 123, "book_skill_mapping")
+    assert calls[1] == ("stale", 123)
+    assert calls[2] == ("prerequisites", 123, "book_skill_mapping")
     assert any("event: prerequisite_scheduled" in frame for frame in frames)
 
 
@@ -279,3 +285,98 @@ async def test_market_stream_schedules_rebuild_when_insertion_results_change(
 
     assert scheduled == [(77, "market_demand_insertion")]
     assert any('"stateKey": "insertion_results"' in frame for frame in frames)
+
+
+def test_market_schedule_marks_gate_complete_and_prerequisites_stale(monkeypatch):
+    from app.modules.marketdemandanalyst import routes as routes_mod
+
+    calls: list[tuple] = []
+
+    class FakeDb:
+        def commit(self):
+            calls.append(("commit",))
+
+        def rollback(self):
+            calls.append(("rollback",))
+
+        def close(self):
+            calls.append(("close",))
+
+    class FakeReadinessService:
+        def __init__(self, db):
+            calls.append(("readiness_service", db))
+
+        def mark_market_gate_complete(self, course_id):
+            calls.append(("market_complete", course_id))
+
+    class FakeReviewRepository:
+        def __init__(self, db):
+            calls.append(("review_repo", db))
+
+        def mark_stale(self, course_id):
+            calls.append(("stale", course_id))
+
+    fake_db = FakeDb()
+    monkeypatch.setattr(routes_mod, "SessionLocal", lambda: fake_db)
+    monkeypatch.setattr(routes_mod, "CourseReadinessService", FakeReadinessService)
+    monkeypatch.setattr(
+        routes_mod, "PrerequisiteReviewRepository", FakeReviewRepository
+    )
+    monkeypatch.setattr(
+        routes_mod,
+        "schedule_prerequisite_rebuild",
+        lambda course_id, trigger_reason: calls.append(
+            ("schedule", course_id, trigger_reason)
+        ),
+    )
+
+    routes_mod._schedule_skill_prerequisite_rebuild(42, "market_demand_insertion")
+
+    assert ("market_complete", 42) in calls
+    assert ("stale", 42) in calls
+    assert ("commit",) in calls
+    assert ("schedule", 42, "market_demand_insertion") in calls
+    assert calls.index(("close",)) < calls.index(
+        ("schedule", 42, "market_demand_insertion")
+    )
+
+
+def test_market_schedule_skips_rebuild_when_readiness_update_fails(monkeypatch):
+    from app.modules.marketdemandanalyst import routes as routes_mod
+
+    calls: list[tuple] = []
+
+    class FakeDb:
+        def commit(self):
+            calls.append(("commit",))
+
+        def rollback(self):
+            calls.append(("rollback",))
+
+        def close(self):
+            calls.append(("close",))
+
+    class FailingReadinessService:
+        def __init__(self, db):
+            calls.append(("readiness_service", db))
+
+        def mark_market_gate_complete(self, course_id):
+            calls.append(("market_complete", course_id))
+            raise RuntimeError("readiness update failed")
+
+    fake_db = FakeDb()
+    monkeypatch.setattr(routes_mod, "SessionLocal", lambda: fake_db)
+    monkeypatch.setattr(routes_mod, "CourseReadinessService", FailingReadinessService)
+    monkeypatch.setattr(
+        routes_mod,
+        "schedule_prerequisite_rebuild",
+        lambda course_id, trigger_reason: calls.append(
+            ("schedule", course_id, trigger_reason)
+        ),
+    )
+
+    routes_mod._schedule_skill_prerequisite_rebuild(42, "market_demand_insertion")
+
+    assert ("rollback",) in calls
+    assert ("close",) in calls
+    assert ("schedule", 42, "market_demand_insertion") not in calls

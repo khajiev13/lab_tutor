@@ -24,6 +24,9 @@ from app.core.database import get_db
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
 from app.modules.courses.models import Course
+from app.modules.curricularalignmentarchitect.skill_prerequisites.review_repository import (
+    PrerequisiteReviewRepository,
+)
 
 from ..chapter_extraction.graph import build_book_pipeline_graph
 from ..chapter_extraction.repository import (
@@ -41,6 +44,12 @@ from ..models import (
 from ..skill_prerequisites.service import schedule_skill_prerequisite_rebuild
 
 logger = logging.getLogger(__name__)
+
+
+def _mark_prerequisites_stale(course_id: int) -> None:
+    with fresh_db() as db:
+        PrerequisiteReviewRepository(db).mark_stale(course_id)
+        db.commit()
 
 
 def register_routes(router):
@@ -381,6 +390,7 @@ async def _run_extraction_background(
             # Don't fail the whole extraction — mapping is best-effort
 
         if mapping_completed:
+            _mark_prerequisites_stale(course_id)
             schedule_skill_prerequisite_rebuild(course_id, "book_skill_mapping")
             await queue.put(
                 _sse(

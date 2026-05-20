@@ -23,6 +23,12 @@ class CoursePublicationStatus(StrEnum):
     PUBLISHED = "published"
 
 
+class CourseMarketGateStatus(StrEnum):
+    NOT_STARTED = "not_started"
+    COMPLETED = "completed"
+    WAIVED = "waived"
+
+
 class ExtractionStatus(StrEnum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -63,6 +69,15 @@ class Course(Base):
             values_callable=lambda obj: [e.value for e in obj],
         ),
         default=CoursePublicationStatus.DRAFT,
+        nullable=False,
+    )
+    market_gate_status: Mapped[CourseMarketGateStatus] = mapped_column(
+        SqlEnum(
+            CourseMarketGateStatus,
+            name="course_market_gate_status",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=CourseMarketGateStatus.NOT_STARTED,
         nullable=False,
     )
     extraction_status: Mapped[ExtractionStatus] = mapped_column(

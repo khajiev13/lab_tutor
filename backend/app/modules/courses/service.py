@@ -28,11 +28,11 @@ from .models import (
     Course,
     CourseEnrollment,
     CourseFile,
-    CoursePublicationStatus,
     ExtractionStatus,
     FileProcessingStatus,
 )
 from .neo4j_repository import CourseGraphRepository
+from .readiness_service import CourseReadinessService
 from .repository import CourseRepository
 from .schemas import CourseCreate
 
@@ -178,7 +178,12 @@ class CourseService:
             ) from e
 
     def list_courses(self) -> list[Course]:
-        return list(self._repo.list_published())
+        readiness_service = CourseReadinessService(self._repo.db)
+        return [
+            course
+            for course in self._repo.list_published()
+            if readiness_service.is_effectively_available(course.id)
+        ]
 
     def list_teacher_courses(self, teacher: User) -> list[Course]:
         return list(self._repo.list_by_teacher(teacher.id))
@@ -197,7 +202,8 @@ class CourseService:
     def join_course(self, course_id: int, student: User) -> CourseEnrollment:
         course = self.get_course(course_id)  # Re-use logic
 
-        if course.publication_status != CoursePublicationStatus.PUBLISHED:
+        readiness_service = CourseReadinessService(self._repo.db)
+        if not readiness_service.is_effectively_available(course.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Course is not available for enrollment",

@@ -28,6 +28,10 @@ from app.core.database import AsyncSessionLocal, SessionLocal, get_db
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
 from app.modules.courses.models import Course
+from app.modules.courses.readiness_service import CourseReadinessService
+from app.modules.curricularalignmentarchitect.skill_prerequisites.review_repository import (
+    PrerequisiteReviewRepository,
+)
 from app.modules.curricularalignmentarchitect.skill_prerequisites.service import (
     schedule_skill_prerequisite_rebuild as schedule_prerequisite_rebuild,
 )
@@ -71,6 +75,21 @@ def _schedule_skill_prerequisite_rebuild(
     course_id: int,
     trigger_reason: str,
 ) -> None:
+    db = SessionLocal()
+    try:
+        CourseReadinessService(db).mark_market_gate_complete(course_id)
+        PrerequisiteReviewRepository(db).mark_stale(course_id)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception(
+            "Failed to update readiness gates for course %s before prerequisite rebuild",
+            course_id,
+        )
+        return
+    finally:
+        db.close()
+
     try:
         schedule_prerequisite_rebuild(course_id, trigger_reason)
     except Exception:

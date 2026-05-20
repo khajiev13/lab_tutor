@@ -143,6 +143,32 @@ def _ensure_sql_schema_upgrades() -> None:
                 )
             )
 
+        market_gate_type_exists = conn.execute(
+            text("SELECT 1 FROM pg_type WHERE typname = 'course_market_gate_status'")
+        ).fetchone()
+        if not market_gate_type_exists:
+            conn.execute(
+                text(
+                    "CREATE TYPE course_market_gate_status AS ENUM "
+                    "('not_started', 'completed', 'waived')"
+                )
+            )
+
+        market_gate_col_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'courses' "
+                "AND column_name = 'market_gate_status'"
+            )
+        ).fetchone()
+        if not market_gate_col_exists:
+            conn.execute(
+                text(
+                    "ALTER TABLE courses ADD COLUMN market_gate_status "
+                    "course_market_gate_status NOT NULL DEFAULT 'not_started'"
+                )
+            )
+
         review_type_exists = conn.execute(
             text("SELECT 1 FROM pg_type WHERE typname = 'prerequisite_review_status'")
         ).fetchone()
