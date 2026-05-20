@@ -61,11 +61,18 @@ class TeacherDigitalTwinService:
 
     def get_skill_difficulty(self, course_id: int) -> SkillDifficultyResponse:
         """
-        Perceived difficulty per skill based on student mastery.
+        Perceived difficulty per skill, computed only over students who have
+        actually practiced the skill (i.e. have a `MASTERED` edge with a recorded
+        mastery value), not those who merely have it on their selected path.
 
-        Formula:
-          AvgMastery(s) = (1/N) * SUM_{i=1}^{N} m_{i,s}
-          PerceivedDifficulty(s) = 1 - AvgMastery(s)
+        For a skill `s`:
+          attempted_count(s)   = #students with a MASTERED edge to s
+          attempted_avg(s)     = mean mastery over attempted_count students
+          perceived_difficulty = 1 − attempted_avg if attempted_count > 0 else 0.0
+
+        Skills that no one has attempted yet (attempted_count == 0) are sorted
+        last; they should be surfaced in the UI as "not yet practiced" rather
+        than ranked as "100% difficult".
         """
         db = settings.neo4j_database
         with self._driver.session(database=db) as session:
@@ -75,8 +82,11 @@ class TeacherDigitalTwinService:
             SkillDifficultyItem(
                 skill_name=r["skill_name"],
                 student_count=int(r["student_count"] or 0),
+                attempted_count=int(r.get("attempted_count") or 0),
                 avg_mastery=round(float(r["avg_mastery"] or 0.0), 4),
-                perceived_difficulty=round(float(r["perceived_difficulty"] or 1.0), 4),
+                perceived_difficulty=round(
+                    float(r.get("perceived_difficulty") or 0.0), 4
+                ),
                 prereq_count=int(r.get("prereq_count") or 0),
                 downstream_count=int(r.get("downstream_count") or 0),
                 pco_risk_ratio=round(float(r.get("pco_risk_ratio") or 0.0), 4),
@@ -1023,8 +1033,9 @@ class TeacherDigitalTwinService:
                     "skill_name": skill_name,
                     "avg_mastery": round(float(row.get("avg_mastery") or 0.0), 4),
                     "student_count": int(row.get("student_count") or 0),
+                    "attempted_count": int(row.get("attempted_count") or 0),
                     "perceived_difficulty": round(
-                        float(row.get("perceived_difficulty") or 1.0), 4
+                        float(row.get("perceived_difficulty") or 0.0), 4
                     ),
                     "prereq_count": int(planning.get("prereq_count") or 0),
                     "downstream_count": int(planning.get("downstream_count") or 0),

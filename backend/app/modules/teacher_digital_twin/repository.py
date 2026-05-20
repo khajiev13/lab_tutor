@@ -30,19 +30,40 @@ MATCH (u)-[:SELECTED_SKILL|MASTERED]->(s)
 WHERE s:BOOK_SKILL OR s:MARKET_SKILL OR s:SKILL
 WITH DISTINCT u, s
 WITH s, u,
-     coalesce([(u)-[r:MASTERED]->(s) | r.mastery][0], 0.0) AS mastery_val,
-     coalesce([(u)-[r:MASTERED]->(s) | r.decay][0], 1.0) AS decay_val
+     [(u)-[r:MASTERED]->(s) | r.mastery] AS m_list,
+     [(u)-[r:MASTERED]->(s) | r.decay] AS d_list
+WITH s, u,
+     coalesce(m_list[0], 0.0) AS mastery_val,
+     coalesce(d_list[0], 1.0) AS decay_val,
+     CASE WHEN size(m_list) > 0 THEN 1 ELSE 0 END AS has_attempt
 WITH s,
      count(DISTINCT u) AS student_count,
+     sum(has_attempt) AS attempted_count,
      avg(mastery_val) AS avg_mastery,
-     sum(CASE WHEN mastery_val < 0.40 AND decay_val < 0.60 THEN 1 ELSE 0 END) AS pco_student_count
+     sum(CASE WHEN has_attempt = 1 THEN mastery_val ELSE 0.0 END) AS attempted_mastery_sum,
+     sum(CASE WHEN has_attempt = 1 AND mastery_val < 0.40 AND decay_val < 0.60 THEN 1 ELSE 0 END) AS pco_student_count
+WITH s,
+     student_count,
+     attempted_count,
+     avg_mastery,
+     CASE
+       WHEN attempted_count > 0
+       THEN attempted_mastery_sum / toFloat(attempted_count)
+       ELSE 0.0
+     END AS attempted_avg_mastery,
+     pco_student_count
 RETURN s.name AS skill_name,
        student_count,
+       attempted_count,
        avg_mastery,
-       1.0 - avg_mastery AS perceived_difficulty,
+       attempted_avg_mastery,
        CASE
-         WHEN student_count = 0 THEN 0.0
-         ELSE toFloat(pco_student_count) / toFloat(student_count)
+         WHEN attempted_count > 0 THEN 1.0 - attempted_avg_mastery
+         ELSE 0.0
+       END AS perceived_difficulty,
+       CASE
+         WHEN attempted_count = 0 THEN 0.0
+         ELSE toFloat(pco_student_count) / toFloat(attempted_count)
        END AS pco_risk_ratio,
        size([(:SKILL)-[:PREREQUISITE]->(s) | 1]) +
        size([(:BOOK_SKILL)-[:PREREQUISITE]->(s) | 1]) +
@@ -50,7 +71,10 @@ RETURN s.name AS skill_name,
        size([(s)-[:PREREQUISITE]->(:SKILL) | 1]) +
        size([(s)-[:PREREQUISITE]->(:BOOK_SKILL) | 1]) +
        size([(s)-[:PREREQUISITE]->(:MARKET_SKILL) | 1]) AS downstream_count
-ORDER BY perceived_difficulty DESC, s.name
+ORDER BY
+  CASE WHEN attempted_count = 0 THEN 1 ELSE 0 END,
+  perceived_difficulty DESC,
+  s.name
 """
 
 

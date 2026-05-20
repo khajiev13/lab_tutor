@@ -67,28 +67,30 @@ function KpiCard({
 
 function SkillDifficultyChart() {
   const { skillDifficulty } = useTeacherData();
-  const top = skillDifficulty?.skills.slice(0, 8) ?? [];
+  const skills = skillDifficulty?.skills ?? [];
 
-  if (!top.length) {
+  if (skills.length === 0) {
     return <p className="text-sm text-muted-foreground">No skill data available.</p>;
   }
 
-  // When students have SELECTED_SKILL edges but no MASTERED.mastery, the
-  // backend returns avg_mastery=0 / perceived_difficulty=1.0 for every skill.
-  // Rendering eight identical full-width red bars is misleading; show a clear
-  // empty state instead. Same logic as the Skill Simulator chart in
-  // TeacherTwinPage.tsx (PR #77).
-  const hasMasterySignal = top.some((s) => s.avg_mastery > 0);
+  // Only rank skills students have actually attempted (have a `MASTERED` edge
+  // with a recorded mastery value). The legacy chart treated "selected but
+  // never started" as "100% difficult", which misleadingly drowned out
+  // genuinely-struggled skills with full-red bars (PR #77 added an empty-state
+  // guard; this fix surfaces the live struggle signal).
+  const attempted = skills.filter((s) => s.attempted_count > 0);
+  const notYetStarted = skills.length - attempted.length;
+  const top = attempted.slice(0, 8);
 
-  if (!hasMasterySignal) {
-    const totalSkills = skillDifficulty?.total_skills ?? top.length;
+  if (top.length === 0) {
+    const totalSkills = skillDifficulty?.total_skills ?? skills.length;
     return (
       <div className="flex flex-col items-center justify-center py-6 px-4 text-center bg-muted/40 rounded-lg">
         <AlertTriangle className="size-5 text-amber-500 mb-2" />
-        <p className="text-sm font-medium">No mastery data for this class yet</p>
+        <p className="text-sm font-medium">No skills practiced yet</p>
         <p className="text-xs text-muted-foreground mt-1 max-w-md">
           Students have selected {totalSkills} skill{totalSkills === 1 ? "" : "s"}, but none have
-          recorded mastery scores yet. Difficulty rankings will appear here once students start
+          attempted exercises yet. Difficulty rankings will appear here once students start
           practicing.
         </p>
       </div>
@@ -103,9 +105,14 @@ function SkillDifficultyChart() {
             <span className="truncate max-w-[200px]" title={s.skill_name}>
               {s.skill_name}
             </span>
-            <span className={`font-medium text-xs ${masteryColor(s.avg_mastery)}`}>
-              {pct(s.avg_mastery)} mastery
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10px] text-muted-foreground">
+                {s.attempted_count} / {s.student_count} attempted
+              </span>
+              <span className={`font-medium text-xs ${masteryColor(s.avg_mastery)}`}>
+                {pct(s.avg_mastery)} mastery
+              </span>
+            </div>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden">
             <div
@@ -121,6 +128,12 @@ function SkillDifficultyChart() {
           </div>
         </div>
       ))}
+      {notYetStarted > 0 ? (
+        <p className="text-[11px] text-muted-foreground italic pt-2">
+          {notYetStarted} more skill{notYetStarted === 1 ? "" : "s"} selected by students but not
+          yet practiced — they'll appear here once attempts are recorded.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -155,10 +168,10 @@ function useNextSteps(): InsightItem[] {
         type: "warning",
       });
     }
-    if ((skillDifficulty?.skills[0]?.perceived_difficulty ?? 0) > 0.6) {
-      const skill = skillDifficulty!.skills[0];
+    const hardest = skillDifficulty?.skills.find((s) => s.attempted_count > 0);
+    if (hardest && hardest.perceived_difficulty > 0.6) {
       items.push({
-        text: `"${skill.skill_name}" has the highest perceived difficulty (${pct(skill.perceived_difficulty)}). Allocate extra class time or add practice exercises.`,
+        text: `"${hardest.skill_name}" has the highest perceived difficulty (${pct(hardest.perceived_difficulty)}, ${hardest.attempted_count}/${hardest.student_count} attempted). Allocate extra class time or add practice exercises.`,
         type: "next-step",
       });
     }
@@ -211,7 +224,8 @@ export default function ClassOverviewPage() {
   const atRisk = classMastery?.at_risk_count ?? 0;
   const classAvg = classMastery?.class_avg_mastery ?? 0;
   const topSkill = skillPopularity?.most_popular[0]?.skill_name ?? "—";
-  const hardestSkill = skillDifficulty?.skills[0]?.skill_name ?? "—";
+  const hardestSkill =
+    skillDifficulty?.skills.find((s) => s.attempted_count > 0)?.skill_name ?? "—";
 
   if (loading) {
     return (

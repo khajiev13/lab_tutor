@@ -23,6 +23,7 @@ const mockTeacherCtx = {
       {
         skill_name: 'algebra',
         student_count: 5,
+        attempted_count: 4,
         avg_mastery: 0.6,
         perceived_difficulty: 0.4,
         prereq_count: 2,
@@ -143,6 +144,103 @@ describe('ClassOverviewPage', () => {
     await waitFor(() => {
       // 70% class avg
       expect(document.body.textContent).toContain('70');
+    });
+  });
+});
+
+// ── SkillDifficultyChart filter regression ────────────────────────────────
+//
+// Selected-but-not-yet-attempted skills must NOT appear in the "Top Difficult
+// Skills" list — they should show up in the "not yet practiced" footer
+// instead. This guards against the legacy bug that ranked unstarted skills as
+// "100% difficult" with full red bars.
+
+describe('ClassOverviewPage — SkillDifficultyChart filter', () => {
+  const originalSkills = mockTeacherCtx.skillDifficulty.skills;
+
+  afterEach(() => {
+    mockTeacherCtx.skillDifficulty.skills = originalSkills;
+    mockTeacherCtx.skillDifficulty.total_skills = originalSkills.length;
+  });
+
+  it('hides selected-but-unattempted skills and shows the deferred-skills footnote', async () => {
+    mockTeacherCtx.skillDifficulty.skills = [
+      {
+        skill_name: 'algebra',
+        student_count: 5,
+        attempted_count: 4,
+        avg_mastery: 0.6,
+        perceived_difficulty: 0.4,
+        prereq_count: 2,
+        downstream_count: 3,
+        pco_risk_ratio: 0.2,
+      },
+      // Unattempted: should be filtered out of the chart and counted in the footer.
+      {
+        skill_name: 'never_started_skill_a',
+        student_count: 5,
+        attempted_count: 0,
+        avg_mastery: 0,
+        perceived_difficulty: 0,
+        prereq_count: 0,
+        downstream_count: 0,
+        pco_risk_ratio: 0,
+      },
+      {
+        skill_name: 'never_started_skill_b',
+        student_count: 5,
+        attempted_count: 0,
+        avg_mastery: 0,
+        perceived_difficulty: 0,
+        prereq_count: 0,
+        downstream_count: 0,
+        pco_risk_ratio: 0,
+      },
+    ];
+    mockTeacherCtx.skillDifficulty.total_skills = 3;
+
+    render(
+      <MemoryRouter initialEntries={['/teacher/1/overview']}>
+        <Routes>
+          <Route path="/teacher/:courseId/overview" element={<ClassOverviewPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      const text = document.body.textContent ?? '';
+      expect(text).toContain('algebra');
+      expect(text).not.toContain('never_started_skill_a');
+      expect(text).not.toContain('never_started_skill_b');
+      expect(text).toContain('2 more skills selected by students but not yet practiced');
+    });
+  });
+
+  it('shows the empty-state when no skill has been attempted yet', async () => {
+    mockTeacherCtx.skillDifficulty.skills = [
+      {
+        skill_name: 'untouched_only',
+        student_count: 7,
+        attempted_count: 0,
+        avg_mastery: 0,
+        perceived_difficulty: 0,
+        prereq_count: 0,
+        downstream_count: 0,
+        pco_risk_ratio: 0,
+      },
+    ];
+    mockTeacherCtx.skillDifficulty.total_skills = 1;
+
+    render(
+      <MemoryRouter initialEntries={['/teacher/1/overview']}>
+        <Routes>
+          <Route path="/teacher/:courseId/overview" element={<ClassOverviewPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      const text = document.body.textContent ?? '';
+      expect(text).toContain('No skills practiced yet');
+      expect(text).not.toContain('untouched_only');
     });
   });
 });
