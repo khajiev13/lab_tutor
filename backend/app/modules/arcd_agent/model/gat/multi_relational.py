@@ -52,10 +52,16 @@ class BipartiteGCNLayer(nn.Module):
 
 
 class BipartiteGCNStack(nn.Module):
-    """L_gcn layers of alternating bipartite message passing with BatchNorm.
+    """Alternating bipartite message passing with per-layer residual + LayerNorm.
 
-    Odd layers:  target <- source
-    Even layers: source <- target
+    See `Thesis_ARCD/wiki/log.md` entry [2026-05-16T19:35] for the over-smoothing
+    diagnostic that motivated this refactor; the published 5-stage architecture
+    is unchanged, only normalisation / residual / activation are re-ordered.
+
+    Each iteration adds a *residual update* to the target (forward step) or the
+    source (backward step) rather than overwriting it, and uses per-node
+    LayerNorm rather than BatchNorm-over-nodes (which empirically wiped out the
+    per-node variance the model needs for discrimination on small graphs).
     """
 
     def __init__(
@@ -69,26 +75,35 @@ class BipartiteGCNStack(nn.Module):
     ):
         super().__init__()
         self.n_layers = n_layers
+        self.d_hidden = d_hidden
+
+        self.src_proj = (
+            nn.Linear(d_source, d_hidden, bias=False)
+            if d_source != d_hidden
+            else nn.Identity()
+        )
+        self.tgt_proj = (
+            nn.Linear(d_target_in, d_hidden, bias=False)
+            if d_target_in != d_hidden
+            else nn.Identity()
+        )
+
         self.fwd_layers = nn.ModuleList()
+        self.fwd_norms = nn.ModuleList()
         self.bwd_layers = nn.ModuleList()
-        self.fwd_bns = nn.ModuleList()
-        self.bwd_bns = nn.ModuleList()
-
-        self.fwd_layers.append(BipartiteGCNLayer(d_source, d_hidden))
-        self.fwd_bns.append(nn.BatchNorm1d(d_hidden))
-
-        for i in range(1, n_layers):
-            if i % 2 == 1:
-                self.bwd_layers.append(BipartiteGCNLayer(d_hidden, d_hidden))
-                self.bwd_bns.append(nn.BatchNorm1d(d_hidden))
-            else:
+        self.bwd_norms = nn.ModuleList()
+        for i in range(n_layers):
+            if i % 2 == 0:
                 self.fwd_layers.append(BipartiteGCNLayer(d_hidden, d_hidden))
-                self.fwd_bns.append(nn.BatchNorm1d(d_hidden))
+                self.fwd_norms.append(nn.LayerNorm(d_hidden))
+            else:
+                self.bwd_layers.append(BipartiteGCNLayer(d_hidden, d_hidden))
+                self.bwd_norms.append(nn.LayerNorm(d_hidden))
 
+        self.dropout = nn.Dropout(dropout)
         self.out_proj = (
             nn.Linear(d_hidden, d_out) if d_hidden != d_out else nn.Identity()
         )
-        self.dropout = nn.Dropout(dropout)
 
     def forward(
         self,
@@ -97,30 +112,32 @@ class BipartiteGCNStack(nn.Module):
         A: torch.Tensor,
     ) -> torch.Tensor:
         A_T = A.t()
-        fwd_idx, bwd_idx = 0, 0
-        h_src, h_tgt = H_source, H_target
+        h_src = self.src_proj(H_source)
+        h_tgt = self.tgt_proj(H_target)
 
+        fwd_idx, bwd_idx = 0, 0
         for i in range(self.n_layers):
             if i % 2 == 0:
-                h_tgt = self.fwd_layers[fwd_idx](h_src, A)
-                h_tgt = self.fwd_bns[fwd_idx](h_tgt)
-                h_tgt = F.relu(h_tgt)
-                h_tgt = self.dropout(h_tgt)
+                src_norm = self.fwd_norms[fwd_idx](h_src)
+                delta = self.fwd_layers[fwd_idx](src_norm, A)
+                h_tgt = h_tgt + self.dropout(F.relu(delta))
                 fwd_idx += 1
             else:
-                h_src = self.bwd_layers[bwd_idx](h_tgt, A_T)
-                h_src = self.bwd_bns[bwd_idx](h_src)
-                h_src = F.relu(h_src)
-                h_src = self.dropout(h_src)
+                tgt_norm = self.bwd_norms[bwd_idx](h_tgt)
+                delta = self.bwd_layers[bwd_idx](tgt_norm, A_T)
+                h_src = h_src + self.dropout(F.relu(delta))
                 bwd_idx += 1
 
         return self.out_proj(h_tgt)
 
 
 class HomoGCNStack(nn.Module):
-    """L_gat graph attention layers with BatchNorm and residual.
+    """Homogeneous graph stack with pre-norm + per-layer residual.
 
-    When use_gat=True (default), uses multi-head GAT layers (paper Eq. 1-2).
+    See `Thesis_ARCD/wiki/log.md` entry [2026-05-16T19:35] for the over-smoothing
+    diagnostic.  Pre-norm residual layout follows the Transformer architecture:
+    `h <- h + Dropout(Layer(LayerNorm(h)))` with per-node LayerNorm and an
+    explicit input projection from raw embedding to model width.
     """
 
     def __init__(
@@ -134,34 +151,36 @@ class HomoGCNStack(nn.Module):
         use_gat: bool = True,
     ):
         super().__init__()
-        dims = [d_in] + [d_hidden] * (n_layers - 1) + [d_out]
-        self.layers = nn.ModuleList()
-        self.bns = nn.ModuleList()
         self.use_gat = use_gat
-        for i in range(n_layers):
+        self.in_proj = (
+            nn.Linear(d_in, d_hidden, bias=False) if d_in != d_hidden else nn.Identity()
+        )
+        self.layers = nn.ModuleList()
+        self.norms = nn.ModuleList()
+        for _ in range(n_layers):
             if use_gat:
                 self.layers.append(
                     AttentionGCNLayer(
-                        dims[i], dims[i + 1], n_heads=n_heads, dropout=dropout
+                        d_hidden, d_hidden, n_heads=n_heads, dropout=dropout
                     )
                 )
             else:
-                self.layers.append(BasicGCNLayer(dims[i], dims[i + 1]))
-            self.bns.append(nn.BatchNorm1d(dims[i + 1]))
+                self.layers.append(BasicGCNLayer(d_hidden, d_hidden))
+            self.norms.append(nn.LayerNorm(d_hidden))
         self.dropout = nn.Dropout(dropout)
-        self.proj = nn.Linear(d_in, d_out, bias=False) if d_in != d_out else None
+        self.out_proj = (
+            nn.Linear(d_hidden, d_out, bias=False)
+            if d_hidden != d_out
+            else nn.Identity()
+        )
 
     def forward(self, H: torch.Tensor, A: torch.Tensor) -> torch.Tensor:
-        residual = self.proj(H) if self.proj else H
-        x = H
-        for i, (layer, bn) in enumerate(zip(self.layers, self.bns, strict=False)):
-            x = layer(x, A)
-            x = bn(x)
-            if i < len(self.layers) - 1:
-                if not self.use_gat:
-                    x = F.relu(x)
-                x = self.dropout(x)
-        return F.elu(x + residual) if self.use_gat else F.relu(x + residual)
+        x = self.in_proj(H)
+        for layer, norm in zip(self.layers, self.norms, strict=False):
+            x_norm = norm(x)
+            delta = layer(x_norm, A)
+            x = x + self.dropout(delta)
+        return self.out_proj(x)
 
 
 class SkillGATStage(nn.Module):
