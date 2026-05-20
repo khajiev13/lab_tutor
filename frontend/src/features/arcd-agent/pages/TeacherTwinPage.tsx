@@ -1585,11 +1585,19 @@ function SkillSimulationTab() {
 
   const loading = taskState.status === "running";
   const result = taskState.result;
+  const runError = taskState.error;
 
   const filteredSkills = allSkills.filter((s) =>
     s.skill_name.toLowerCase().includes(filter.toLowerCase()),
   );
   const selectedCount = Object.keys(selected).length;
+
+  // The backend Cypher query returns avg_mastery=0 / perceived_difficulty=1.0
+  // for every skill when the class has SELECTED_SKILL edges but no MASTERED
+  // edges (or MASTERED.mastery is unset). Showing 10 identical 100%-red bars
+  // is misleading; render a clear empty state instead.
+  const hasMasterySignal =
+    allSkills.length > 0 && allSkills.some((s) => s.avg_mastery > 0);
 
   async function runSim() {
     if (simMode === "manual" && !selectedCount) return;
@@ -1653,38 +1661,55 @@ function SkillSimulationTab() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div style={{ width: "100%", height: 240 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={allSkills.slice(0, 10).map((s) => ({
-                    name: s.skill_name.length > 18 ? s.skill_name.slice(0, 16) + "…" : s.skill_name,
-                    mastery: Math.round(s.avg_mastery * 100),
-                    difficulty: Math.round(s.perceived_difficulty * 100),
-                  }))}
-                  layout="vertical"
-                  margin={{ left: 8, right: 20, top: 4, bottom: 4 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 100]}
-                    tickFormatter={(v) => `${v}%`}
-                    tick={{ fontSize: 10 }}
-                  />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
-                  <Tooltip
-                    formatter={(v: number, key: string) => [
-                      `${v}%`,
-                      key === "mastery" ? "Avg Mastery" : "Difficulty",
-                    ]}
-                    contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="mastery" name="Avg Mastery" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={10} />
-                  <Bar dataKey="difficulty" name="Difficulty" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={10} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {hasMasterySignal ? (
+              <div style={{ width: "100%", height: 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={allSkills.slice(0, 10).map((s) => ({
+                      name:
+                        s.skill_name.length > 18
+                          ? s.skill_name.slice(0, 16) + "…"
+                          : s.skill_name,
+                      mastery: Math.round(s.avg_mastery * 100),
+                      difficulty: Math.round(s.perceived_difficulty * 100),
+                    }))}
+                    layout="vertical"
+                    margin={{ left: 8, right: 20, top: 4, bottom: 4 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                    <XAxis
+                      type="number"
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}%`}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
+                    <Tooltip
+                      formatter={(v: number, key: string) => [
+                        `${v}%`,
+                        key === "mastery" ? "Avg Mastery" : "Difficulty",
+                      ]}
+                      contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="mastery" name="Avg Mastery" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={10} />
+                    <Bar dataKey="difficulty" name="Difficulty" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={10} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
+                <AlertTriangle size={20} className="text-amber-500 mb-2" />
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  No mastery data for this class yet
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-md">
+                  Students have selected {allSkills.length} skill{allSkills.length === 1 ? "" : "s"}, but
+                  none have recorded mastery scores yet. The simulation can still run on these skills,
+                  but difficulty rankings will only become meaningful once students start practicing.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1870,6 +1895,25 @@ function SkillSimulationTab() {
                 ))}
               </div>
             )}
+            {loading && (
+              <div className="flex items-start gap-2 text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/20 px-3 py-2 rounded-lg">
+                <Loader2 size={13} className="mt-0.5 animate-spin flex-shrink-0" />
+                <span>
+                  Generating exercises and pedagogical insights for{" "}
+                  {simMode === "automatic" ? topK : selectedCount} skills. This usually takes
+                  20–60 seconds; the request will time out automatically after 2 minutes if the
+                  LLM provider is unreachable.
+                </span>
+              </div>
+            )}
+
+            {runError && !loading && (
+              <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 px-3 py-2 rounded-lg">
+                <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" />
+                <span>{runError}</span>
+              </div>
+            )}
+
             <Button
               className="w-full"
               disabled={(simMode === "manual" && selectedCount === 0) || loading}
