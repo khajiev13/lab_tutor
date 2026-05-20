@@ -5,6 +5,7 @@ import {
   Video,
   Sparkles,
   BrainCircuit,
+  GitBranch,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +40,16 @@ export const AGENTS: AgentConfig[] = [
     enabled: true,
     color:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
+  },
+  {
+    id: "prerequisites",
+    name: "Prerequisite Review",
+    description:
+      "Review and approve the skill prerequisite graph before students can enroll.",
+    icon: GitBranch,
+    route: "prerequisites",
+    enabled: true,
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
   },
   {
     id: "reading-agent",

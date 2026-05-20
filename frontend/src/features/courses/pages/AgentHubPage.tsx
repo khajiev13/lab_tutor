@@ -13,11 +13,13 @@ import {
 import { LogIn, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { coursesApi } from "../api";
+import type { CourseReadiness } from "../types";
 import {
   CourseDetailProvider,
   useCourseDetail,
 } from "../context/CourseDetailContext";
 import { CourseHeader } from "../components/CourseHeader";
+import { CourseReadinessRoad } from "../components/readiness/CourseReadinessRoad";
 import { AgentHubGrid } from "@/features/agents/components/AgentHubGrid";
 import type { AgentStatus } from "@/features/agents/components/AgentCard";
 import { TeacherAgentTimingDialog } from "@/features/agents/components/TeacherAgentTimingDialog";
@@ -77,10 +79,48 @@ function HubContent() {
   const { isLoading } = useCourseDetail();
   const { courseId } = useCourseDetail();
   const architectInfo = useArchitectStatus();
+  const [readiness, setReadiness] = useState<CourseReadiness | null>(null);
   const [insightAgentId, setInsightAgentId] = useState<"architect" | "market-analyst" | null>(null);
+
+  const fetchReadiness = useCallback(async () => {
+    try {
+      const data = await coursesApi.getReadiness(courseId);
+      setReadiness(data);
+    } catch {
+      toast.error("Failed to load course readiness.");
+    }
+  }, [courseId]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchReadiness());
+  }, [fetchReadiness]);
+
+  const prerequisiteInfo = useMemo(() => {
+    const reviewStatus = readiness?.prerequisite_review.status;
+    if (reviewStatus === "approved") {
+      return {
+        status: "completed" as AgentStatus,
+        progress: 100,
+        lastActivity: "Teacher approved",
+      };
+    }
+    if (reviewStatus === "needs_review" || reviewStatus === "stale") {
+      return {
+        status: "in-progress" as AgentStatus,
+        progress: 60,
+        lastActivity: "Needs teacher review",
+      };
+    }
+    return {
+      status: "not-started" as AgentStatus,
+      progress: 0,
+      lastActivity: "",
+    };
+  }, [readiness]);
 
   const statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }> = {
     architect: architectInfo,
+    prerequisites: prerequisiteInfo,
   };
   const cardClickOverrides = useMemo(
     () => ({
@@ -93,6 +133,11 @@ function HubContent() {
   return (
     <>
       <CourseHeader />
+      {readiness && (
+        <div className="mt-6">
+          <CourseReadinessRoad readiness={readiness} onRefresh={fetchReadiness} />
+        </div>
+      )}
       <div className="mt-6">
         <h2 className="text-lg font-semibold mb-4">AI Agents</h2>
         <AgentHubGrid
