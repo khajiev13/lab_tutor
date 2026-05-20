@@ -57,8 +57,10 @@ export function PrerequisiteReviewPage() {
   }, [loadReview]);
 
   const cyclePath = useMemo(() => review?.validation.cycle_path.join(" -> ") ?? "", [review]);
+  const isApproved = review?.status === "approved";
   const approvalDisabled =
     !review ||
+    isApproved ||
     !review.validation.is_valid ||
     review.is_rebuilding ||
     (review.isolated_skills.length > 0 && !isolatedReviewed);
@@ -162,7 +164,7 @@ export function PrerequisiteReviewPage() {
             Add edge
           </Button>
           <Button type="button" disabled={approvalDisabled || isSaving} onClick={handleApprove}>
-            Approve graph
+            {isApproved ? "Approved" : "Approve graph"}
           </Button>
         </div>
       </div>
@@ -189,6 +191,16 @@ export function PrerequisiteReviewPage() {
       {review.is_rebuilding && (
         <Alert>
           <AlertTitle>Rebuilding prerequisite graph</AlertTitle>
+        </Alert>
+      )}
+
+      {isApproved && (
+        <Alert>
+          <AlertTitle>Prerequisite graph approved</AlertTitle>
+          <AlertDescription>
+            The reviewed prerequisite graph is live for this course. You can return to
+            the course page to publish when the remaining gates are ready.
+          </AlertDescription>
         </Alert>
       )}
 
