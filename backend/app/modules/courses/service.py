@@ -28,6 +28,7 @@ from .models import (
     Course,
     CourseEnrollment,
     CourseFile,
+    CoursePublicationStatus,
     ExtractionStatus,
     FileProcessingStatus,
 )
@@ -177,7 +178,7 @@ class CourseService:
             ) from e
 
     def list_courses(self) -> list[Course]:
-        return list(self._repo.list())
+        return list(self._repo.list_published())
 
     def list_teacher_courses(self, teacher: User) -> list[Course]:
         return list(self._repo.list_by_teacher(teacher.id))
@@ -195,6 +196,12 @@ class CourseService:
 
     def join_course(self, course_id: int, student: User) -> CourseEnrollment:
         course = self.get_course(course_id)  # Re-use logic
+
+        if course.publication_status != CoursePublicationStatus.PUBLISHED:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Course is not available for enrollment",
+            )
 
         existing = self._repo.get_enrollment(course_id, student.id)
         if existing:

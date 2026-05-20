@@ -18,6 +18,11 @@ class CourseLevel(StrEnum):
     PHD = "phd"
 
 
+class CoursePublicationStatus(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+
+
 class ExtractionStatus(StrEnum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -49,6 +54,15 @@ class Course(Base):
             values_callable=lambda obj: [e.value for e in obj],
         ),
         default=CourseLevel.BACHELOR,
+        nullable=False,
+    )
+    publication_status: Mapped[CoursePublicationStatus] = mapped_column(
+        SqlEnum(
+            CoursePublicationStatus,
+            name="course_publication_status",
+            values_callable=lambda obj: [e.value for e in obj],
+        ),
+        default=CoursePublicationStatus.DRAFT,
         nullable=False,
     )
     extraction_status: Mapped[ExtractionStatus] = mapped_column(

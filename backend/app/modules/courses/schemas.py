@@ -2,7 +2,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import CourseLevel, ExtractionStatus, FileProcessingStatus
+from .models import (
+    CourseLevel,
+    CoursePublicationStatus,
+    ExtractionStatus,
+    FileProcessingStatus,
+)
 
 
 class CourseCreate(BaseModel):
@@ -16,6 +21,7 @@ class CourseRead(BaseModel):
     title: str
     description: str | None
     level: CourseLevel
+    publication_status: CoursePublicationStatus
     teacher_id: int
     created_at: datetime
     extraction_status: ExtractionStatus

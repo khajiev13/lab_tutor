@@ -116,6 +116,32 @@ def _ensure_sql_schema_upgrades() -> None:
                 )
             )
 
+        publication_type_exists = conn.execute(
+            text("SELECT 1 FROM pg_type WHERE typname = 'course_publication_status'")
+        ).fetchone()
+        if not publication_type_exists:
+            conn.execute(
+                text(
+                    "CREATE TYPE course_publication_status AS ENUM "
+                    "('draft', 'published')"
+                )
+            )
+
+        publication_col_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'courses' "
+                "AND column_name = 'publication_status'"
+            )
+        ).fetchone()
+        if not publication_col_exists:
+            conn.execute(
+                text(
+                    "ALTER TABLE courses ADD COLUMN publication_status "
+                    "course_publication_status NOT NULL DEFAULT 'draft'"
+                )
+            )
+
         # Idempotent ALTER: add `discovered_books_json` column if missing.
         col_exists2 = conn.execute(
             text(

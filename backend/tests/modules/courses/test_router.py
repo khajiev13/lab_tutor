@@ -1,3 +1,14 @@
+from app.modules.courses.models import Course, CoursePublicationStatus
+
+
+def _publish_course_directly(db_session, course_id: int) -> None:
+    course = db_session.get(Course, course_id)
+    assert course is not None
+    course.publication_status = CoursePublicationStatus.PUBLISHED
+    db_session.add(course)
+    db_session.commit()
+
+
 def test_create_course(client, teacher_auth_headers):
     response = client.post(
         "/courses",
@@ -156,24 +167,24 @@ def test_delete_presentation_locked(
 
 def test_list_courses(client, teacher_auth_headers):
     # Create a course
-    client.post(
+    course_1 = client.post(
         "/courses",
         json={"title": "Course 1", "description": "Desc 1"},
         headers=teacher_auth_headers,
     )
-    client.post(
+    course_2 = client.post(
         "/courses",
         json={"title": "Course 2", "description": "Desc 2"},
         headers=teacher_auth_headers,
     )
+    assert course_1.status_code == 201
+    assert course_2.status_code == 201
 
     response = client.get("/courses")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) >= 2
-    titles = [c["title"] for c in data]
-    assert "Course 1" in titles
-    assert "Course 2" in titles
+    created_ids = {course_1.json()["id"], course_2.json()["id"]}
+    assert all(c["id"] not in created_ids for c in data)
 
 
 def test_update_course(client, teacher_auth_headers):
@@ -215,7 +226,7 @@ def test_delete_course(client, teacher_auth_headers):
     assert get_res.status_code == 404
 
 
-def test_join_course(client, teacher_auth_headers, student_auth_headers):
+def test_join_course(client, db_session, teacher_auth_headers, student_auth_headers):
     # Create course (as teacher)
     create_res = client.post(
         "/courses",
@@ -223,6 +234,7 @@ def test_join_course(client, teacher_auth_headers, student_auth_headers):
         headers=teacher_auth_headers,
     )
     course_id = create_res.json()["id"]
+    _publish_course_directly(db_session, course_id)
 
     # Join course (as student)
     response = client.post(
