@@ -14,6 +14,7 @@ async def test_run_skill_prerequisites_emits_auto_trigger_metadata(monkeypatch):
     )
 
     events: list[tuple[str, dict]] = []
+    saved: list[tuple[int, int]] = []
 
     class FakeGraph:
         async def astream(self, state, *, stream_mode, config):
@@ -21,13 +22,33 @@ async def test_run_skill_prerequisites_emits_auto_trigger_metadata(monkeypatch):
             assert state["merged_skill_names"] == []
             assert stream_mode == ["custom", "updates"]
             assert config == {"max_concurrency": service_mod.MAX_CONCURRENCY}
-            yield "custom", {"type": "prerequisite_completed", "written": 3}
+            yield (
+                "custom",
+                {
+                    "type": "prerequisite_generated",
+                    "final_edges": [
+                        {
+                            "prerequisite_skill": "A",
+                            "dependent_skill": "B",
+                            "confidence": "high",
+                            "reasoning": "A before B",
+                        }
+                    ],
+                },
+            )
 
     async def collect(event_type: str, payload: dict) -> None:
         events.append((event_type, payload))
 
     monkeypatch.setattr(
         service_mod, "build_skill_prerequisite_graph", lambda: FakeGraph()
+    )
+    monkeypatch.setattr(
+        service_mod,
+        "_save_generated_review_draft",
+        lambda course_id, generated_edges: saved.append(
+            (course_id, len(generated_edges))
+        ),
     )
 
     result = await service_mod.run_skill_prerequisites(
@@ -46,10 +67,91 @@ async def test_run_skill_prerequisites_emits_auto_trigger_metadata(monkeypatch):
             "auto_triggered": True,
         },
     )
-    assert events[1][0] == "prerequisite_completed"
-    assert events[1][1]["written"] == 3
+    assert events[1][0] == "prerequisite_generated"
     assert events[1][1]["trigger_reason"] == "book_skill_mapping"
     assert events[1][1]["auto_triggered"] is True
+    assert events[2][0] == "prerequisite_completed"
+    assert events[2][1]["draft_edges"] == 1
+    assert saved == [(11, 1)]
+
+
+@pytest.mark.anyio
+async def test_run_skill_prerequisites_marks_review_failed_on_pipeline_error(
+    monkeypatch,
+):
+    from app.modules.curricularalignmentarchitect.skill_prerequisites import (
+        service as service_mod,
+    )
+
+    events: list[tuple[str, dict]] = []
+    failed_reviews: list[int] = []
+
+    class FakeGraph:
+        async def astream(self, state, *, stream_mode, config):
+            raise RuntimeError("pipeline broke")
+            yield  # pragma: no cover
+
+    async def collect(event_type: str, payload: dict) -> None:
+        events.append((event_type, payload))
+
+    monkeypatch.setattr(
+        service_mod, "build_skill_prerequisite_graph", lambda: FakeGraph()
+    )
+    monkeypatch.setattr(
+        service_mod,
+        "_mark_review_rebuild_failed",
+        lambda course_id: failed_reviews.append(course_id),
+    )
+
+    result = await service_mod.run_skill_prerequisites(
+        22,
+        trigger_reason="manual_regenerate",
+        auto_triggered=True,
+        emit_event=collect,
+    )
+
+    assert result is False
+    assert events[0][0] == "prerequisite_started"
+    assert events[1][0] == "prerequisite_failed"
+    assert events[1][1]["message"] == "pipeline broke"
+    assert failed_reviews == [22]
+
+
+def test_regenerate_route_schedules_without_runtime_error(
+    client,
+    teacher_auth_headers,
+    monkeypatch,
+):
+    from app.modules.curricularalignmentarchitect.api_routes import (
+        skill_prerequisites as routes_mod,
+    )
+
+    scheduled: list[tuple[int, str]] = []
+    monkeypatch.setattr(
+        routes_mod,
+        "schedule_skill_prerequisite_rebuild",
+        lambda course_id, trigger_reason: scheduled.append((course_id, trigger_reason)),
+    )
+
+    create_response = client.post(
+        "/courses",
+        json={
+            "title": "Regenerate Route Course",
+            "description": "A course for prerequisite regeneration",
+        },
+        headers=teacher_auth_headers,
+    )
+    assert create_response.status_code == 201
+    course_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/book-selection/courses/{course_id}/skill-prerequisites/regenerate",
+        headers=teacher_auth_headers,
+    )
+
+    assert response.status_code == 202
+    assert response.json() == {"message": "Skill prerequisite regeneration scheduled"}
+    assert scheduled == [(course_id, "manual_regenerate")]
 
 
 @pytest.mark.anyio

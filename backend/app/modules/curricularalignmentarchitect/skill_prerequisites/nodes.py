@@ -14,12 +14,10 @@ from app.modules.embeddings.embedding_service import EmbeddingService
 
 from .prompts import CLUSTER_PREREQ_PROMPT, DUPE_JUDGE_PROMPT
 from .repository import (
-    clear_skill_prerequisites,
     load_all_skills_for_course,
     load_skills_without_embeddings,
     merge_skill_into_canonical,
     write_skill_embeddings,
-    write_skill_prerequisites,
 )
 from .schemas import ClusterPrerequisiteResult, DupeGroupVerdict
 from .similarity import (
@@ -457,27 +455,21 @@ def enforce_dag(state: SkillPrerequisiteState) -> dict:
     return {"final_edges": reduced}
 
 
-def persist(state: SkillPrerequisiteState) -> dict:
+def finalize_generation(state: SkillPrerequisiteState) -> dict:
     write = get_stream_writer()
-    driver = create_neo4j_driver()
-    if driver is None:
-        return {}
-
     final_edges = state.get("final_edges", [])
-    normalized = [
+
+    write(
         {
-            "prereq_name": e["prerequisite_skill"],
-            "dependent_name": e["dependent_skill"],
-            "confidence": e["confidence"],
-            "reasoning": e["reasoning"],
+            "type": "prerequisite_generated",
+            "edge_count": len(final_edges),
+            "final_edges": final_edges,
         }
-        for e in final_edges
-    ]
+    )
 
-    clear_skill_prerequisites(driver, state["course_id"])
-    written = write_skill_prerequisites(driver, normalized)
-    driver.close()
-
-    write({"type": "prerequisite_completed", "edges_written": written})
-    logger.info("Course %d: wrote %d PREREQUISITE edges.", state["course_id"], written)
+    logger.info(
+        "Course %d: generated %d prerequisite draft edges.",
+        state["course_id"],
+        len(final_edges),
+    )
     return {}

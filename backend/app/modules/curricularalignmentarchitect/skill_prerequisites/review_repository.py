@@ -88,6 +88,14 @@ class PrerequisiteReviewRepository:
         self._flush_refresh(review)
         return review
 
+    def mark_rebuild_failed(self, course_id: int) -> PrerequisiteReview:
+        review = self.get_or_create(course_id)
+        review.is_rebuilding = False
+        review.updated_at = datetime.now(UTC)
+
+        self._flush_refresh(review)
+        return review
+
     def mark_stale(self, course_id: int) -> PrerequisiteReview:
         review = self.get_or_create(course_id)
         now = datetime.now(UTC)

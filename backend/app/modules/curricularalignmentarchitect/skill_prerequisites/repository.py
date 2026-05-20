@@ -92,42 +92,77 @@ def merge_skill_into_canonical(
         ).consume()
 
 
-def clear_skill_prerequisites(driver: Driver, course_id: int) -> None:
+def replace_skill_prerequisites(
+    driver: Driver, course_id: int, edges: list[dict]
+) -> int:
     with driver.session(database=settings.neo4j_database) as session:
-        session.run(
-            """
-            MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)
-                  <-[:MAPPED_TO]-(a:SKILL)-[r:PREREQUISITE]->(b:SKILL)
-            DELETE r
-            """,
-            course_id=course_id,
-        ).consume()
-        session.run(
-            """
-            MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(bk:BOOK)
-                  -[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(a:SKILL)-[r:PREREQUISITE]->(b:SKILL)
-            DELETE r
-            """,
-            course_id=course_id,
-        ).consume()
+        return session.execute_write(
+            _replace_skill_prerequisites_tx,
+            course_id,
+            edges,
+        )
 
 
-def write_skill_prerequisites(driver: Driver, edges: list[dict]) -> int:
-    with driver.session(database=settings.neo4j_database) as session:
-        result = session.run(
-            """
+def _replace_skill_prerequisites_tx(tx, course_id: int, edges: list[dict]) -> int:
+    result = tx.run(
+        """
+        MATCH (cl:CLASS {id: $course_id})
+        CALL {
+            WITH cl
+            MATCH (cl)-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)<-[:MAPPED_TO]-(s:SKILL)
+            RETURN collect(DISTINCT s) AS mapped_skills
+        }
+        CALL {
+            WITH cl
+            MATCH (cl)-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(:BOOK_CHAPTER)
+                  -[:HAS_SKILL]->(s:SKILL)
+            RETURN collect(DISTINCT s) AS book_skills
+        }
+        WITH mapped_skills + book_skills AS raw_skills
+        UNWIND raw_skills AS course_skill
+        WITH collect(DISTINCT course_skill) AS course_skills
+        CALL {
+            WITH course_skills
+            UNWIND course_skills AS a
+            MATCH (a)-[r:PREREQUISITE]->(b)
+            WHERE b IN course_skills
+            DELETE r
+            RETURN count(r) AS deleted
+        }
+        WITH course_skills
+        CALL {
+            WITH course_skills
             UNWIND $edges AS e
             MATCH (a:SKILL {name: e.prereq_name})
+            WHERE a IN course_skills
             MATCH (b:SKILL {name: e.dependent_name})
+            WHERE b IN course_skills
             MERGE (a)-[r:PREREQUISITE]->(b)
             SET r.confidence = e.confidence,
                 r.reasoning = e.reasoning,
                 r.created_at = datetime()
             RETURN count(r) AS written
-            """,
-            edges=edges,
-        ).single()
-        return result["written"] if result else 0
+        }
+        RETURN written
+        """,
+        course_id=course_id,
+        edges=edges,
+    ).single()
+    return result["written"] if result else 0
+
+
+def load_review_skills_for_course(driver: Driver, course_id: int) -> list[dict]:
+    skills_by_name: dict[str, dict] = {}
+    for row in load_all_skills_for_course(driver, course_id):
+        name = str(row.get("name") or "").strip()
+        if not name or name in skills_by_name:
+            continue
+        skills_by_name[name] = {
+            "name": name,
+            "source": row.get("skill_type") or "unknown",
+            "chapter_title": row.get("chapter_title"),
+        }
+    return sorted(skills_by_name.values(), key=lambda skill: skill["name"])
 
 
 def get_skill_prerequisites(driver: Driver, course_id: int) -> list[dict]:

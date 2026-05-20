@@ -7,17 +7,17 @@ from .nodes import (
     build_cluster_fanout,
     embed_missing,
     enforce_dag,
+    finalize_generation,
     find_and_merge_dupes,
     judge_cluster,
     load_skills_for_clustering,
-    persist,
     synthesize,
 )
 from .state import SkillPrerequisiteState
 
 
 def build_skill_prerequisite_graph():
-    """Embed -> Dedup -> Cluster -> Prerequisite judgment -> DAG -> Persist."""
+    """Embed -> Dedup -> Cluster -> Prerequisite judgment -> DAG -> draft event."""
     builder = StateGraph(SkillPrerequisiteState)
 
     builder.add_node("embed_missing", embed_missing)
@@ -26,7 +26,7 @@ def build_skill_prerequisite_graph():
     builder.add_node("judge_cluster", judge_cluster, retry=api_retry_policy)
     builder.add_node("synthesize", synthesize)
     builder.add_node("enforce_dag", enforce_dag)
-    builder.add_node("persist", persist)
+    builder.add_node("finalize_generation", finalize_generation)
 
     builder.add_edge(START, "embed_missing")
     builder.add_edge("embed_missing", "find_and_merge_dupes")
@@ -36,7 +36,7 @@ def build_skill_prerequisite_graph():
     )
     builder.add_edge("judge_cluster", "synthesize")
     builder.add_edge("synthesize", "enforce_dag")
-    builder.add_edge("enforce_dag", "persist")
-    builder.add_edge("persist", END)
+    builder.add_edge("enforce_dag", "finalize_generation")
+    builder.add_edge("finalize_generation", END)
 
     return builder.compile()
