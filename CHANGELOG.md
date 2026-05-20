@@ -5,6 +5,34 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-05-21 — Twin viewer: peak-mastery & strategy advisor cleanup
+
+### Fixed
+
+- **"Overall Mastery Trajectory" chart rendered an invisible/useless dashed
+  "Peak Mastery (before decay)" line for every student**, even when peak
+  matched current mastery at every step (no decay yet). The dashed series
+  sat exactly under the solid line, the legend cluttered the X-axis label,
+  and it carried zero signal. The chart now switches to the simpler
+  single-line layout unless peak actually exceeds current by more than 1pp
+  somewhere in the timeline.
+- **Strategy Advisor showed a red "Load failed" banner whenever the LLM
+  endpoint hung.** Root cause: the `OpenAI` client in
+  `analyze_what_if_strategy` was the only LLM call site without an
+  `httpx.Timeout`, so slow/unreachable endpoints stalled until the gateway
+  dropped the connection (which in browsers surfaces as the cryptic
+  `fetch` error "Load failed"). The client now uses the project-standard
+  `Timeout(8.0, connect=3.0)` so failed LLM calls fall back to the
+  rule-based response within seconds, and the swallowed exception is now
+  logged at INFO so recurring outages are diagnosable.
+- Frontend defense-in-depth: when the advisor request itself fails (e.g.
+  backend down), the cryptic browser fetch message ("Load failed",
+  "Failed to fetch") is rewritten to "Strategy advisor temporarily
+  unreachable — showing local recommendation only" so the panel stays
+  useful instead of looking broken.
+
+---
+
 ## [Unreleased] — 2026-05-21 — Student What-If sliders: live, no refetch
 
 ### Fixed
