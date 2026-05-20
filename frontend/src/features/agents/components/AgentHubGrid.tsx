@@ -7,10 +7,11 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import { Bot } from "lucide-react";
-import { AGENTS } from "../config";
+import { AGENTS, type AgentConfig } from "../config";
 import { AgentCard, type AgentStatus } from "./AgentCard";
 
 interface AgentHubGridProps {
+  agents?: AgentConfig[];
   courseId: number;
   isLoading: boolean;
   statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }>;
@@ -33,17 +34,25 @@ function AgentCardSkeleton() {
   );
 }
 
-export function AgentHubGrid({ courseId, isLoading, statuses, cardClickOverrides }: AgentHubGridProps) {
+export function AgentHubGrid({
+  agents = AGENTS,
+  courseId,
+  isLoading,
+  statuses,
+  cardClickOverrides,
+}: AgentHubGridProps) {
   if (isLoading) {
+    const skeletonCount = Math.min(Math.max(agents.length, 1), 3);
     return (
       <div className="grid gap-4 md:grid-cols-2">
-        <AgentCardSkeleton />
-        <AgentCardSkeleton />
+        {Array.from({ length: skeletonCount }, (_, index) => (
+          <AgentCardSkeleton key={index} />
+        ))}
       </div>
     );
   }
 
-  if (AGENTS.length === 0) {
+  if (agents.length === 0) {
     return (
       <Empty>
         <EmptyHeader>
@@ -61,7 +70,7 @@ export function AgentHubGrid({ courseId, isLoading, statuses, cardClickOverrides
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {AGENTS.map((agent) => {
+      {agents.map((agent) => {
         const info = statuses[agent.id];
         return (
           <AgentCard

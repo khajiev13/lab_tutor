@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { useMemo } from "react";
 
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,12 @@ import { CourseHeader } from "../components/CourseHeader";
 import { CourseReadinessRoad } from "../components/readiness/CourseReadinessRoad";
 import { AgentHubGrid } from "@/features/agents/components/AgentHubGrid";
 import type { AgentStatus } from "@/features/agents/components/AgentCard";
+import {
+  COURSE_SETUP_AGENTS,
+  LEARNING_ANALYTICS_AGENTS,
+  SKILL_RESOURCE_AGENTS,
+  type AgentConfig,
+} from "@/features/agents/config";
 import { TeacherAgentTimingDialog } from "@/features/agents/components/TeacherAgentTimingDialog";
 
 /* ── Derive architect status from context ──────────────────── */
@@ -74,6 +79,42 @@ function useArchitectStatus(): {
 }
 
 /* ── Hub content (rendered inside provider) ────────────────── */
+
+interface AgentHubSectionProps {
+  title: string;
+  description: string;
+  agents: AgentConfig[];
+  courseId: number;
+  isLoading: boolean;
+  statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }>;
+  cardClickOverrides?: Partial<Record<string, () => void>>;
+}
+
+function AgentHubSection({
+  title,
+  description,
+  agents,
+  courseId,
+  isLoading,
+  statuses,
+  cardClickOverrides,
+}: AgentHubSectionProps) {
+  return (
+    <section className="space-y-3">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
+      </div>
+      <AgentHubGrid
+        agents={agents}
+        courseId={courseId}
+        isLoading={isLoading}
+        statuses={statuses}
+        cardClickOverrides={cardClickOverrides}
+      />
+    </section>
+  );
+}
 
 function HubContent() {
   const { isLoading } = useCourseDetail();
@@ -138,13 +179,31 @@ function HubContent() {
           <CourseReadinessRoad readiness={readiness} onRefresh={fetchReadiness} />
         </div>
       )}
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold mb-4">AI Agents</h2>
-        <AgentHubGrid
+      <div className="mt-6 space-y-8">
+        <AgentHubSection
+          title="AI Agents"
+          description="Teacher-guided setup agents that prepare the course for publishing."
+          agents={COURSE_SETUP_AGENTS}
           courseId={courseId}
           isLoading={isLoading}
           statuses={statuses}
           cardClickOverrides={cardClickOverrides}
+        />
+        <AgentHubSection
+          title="Skill Resources"
+          description="Reading and video resources generated from the skills students choose."
+          agents={SKILL_RESOURCE_AGENTS}
+          courseId={courseId}
+          isLoading={isLoading}
+          statuses={statuses}
+        />
+        <AgentHubSection
+          title="Learning Analytics"
+          description="ARCD and teacher digital twin tools for class-level insight after learning starts."
+          agents={LEARNING_ANALYTICS_AGENTS}
+          courseId={courseId}
+          isLoading={isLoading}
+          statuses={statuses}
         />
       </div>
       <TeacherAgentTimingDialog

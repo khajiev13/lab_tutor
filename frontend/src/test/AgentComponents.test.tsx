@@ -3,8 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { vi } from "vitest";
 
-import { AGENTS, getAgentById } from "../features/agents/config";
+import {
+  AGENTS,
+  COURSE_SETUP_AGENTS,
+  LEARNING_ANALYTICS_AGENTS,
+  SKILL_RESOURCE_AGENTS,
+  getAgentById,
+} from "../features/agents/config";
 import { AgentCard } from "../features/agents/components/AgentCard";
+import { AgentHubGrid } from "../features/agents/components/AgentHubGrid";
 import { AgentPageHeader } from "../features/agents/components/AgentPageHeader";
 import { TeacherAgentTimingDialog } from "../features/agents/components/TeacherAgentTimingDialog";
 
@@ -51,6 +58,44 @@ describe("Agent Config", () => {
       expect(agent.icon).toBeDefined();
       expect(agent.color).toBeTruthy();
     }
+  });
+
+  it("groups agents by when teachers or students use them", () => {
+    expect(COURSE_SETUP_AGENTS.map((agent) => agent.id)).toEqual([
+      "architect",
+      "market-analyst",
+      "prerequisites",
+    ]);
+    expect(SKILL_RESOURCE_AGENTS.map((agent) => agent.id)).toEqual([
+      "reading-agent",
+      "video-agent",
+    ]);
+    expect(LEARNING_ANALYTICS_AGENTS.map((agent) => agent.id)).toEqual([
+      "arcd",
+      "teacher-twin",
+    ]);
+  });
+});
+
+/* ── AgentHubGrid ──────────────────────────────────────────── */
+
+describe("AgentHubGrid", () => {
+  it("renders only the agents passed to the section", () => {
+    render(
+      <MemoryRouter>
+        <AgentHubGrid
+          agents={SKILL_RESOURCE_AGENTS}
+          courseId={1}
+          isLoading={false}
+          statuses={{}}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Reading Agent")).toBeInTheDocument();
+    expect(screen.getByText("Video Agent")).toBeInTheDocument();
+    expect(screen.queryByText("Curricular Alignment Architect")).not.toBeInTheDocument();
+    expect(screen.queryByText("ARCD Agent")).not.toBeInTheDocument();
   });
 });
 
