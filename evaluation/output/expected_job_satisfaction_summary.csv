@@ -1,0 +1,76 @@
+portfolio,job_title,job_company,n_required_skills,n_fully_satisfied,n_satisfied,n_partly_satisfied,n_not_satisfied,satisfaction_score
+course_only,BI & Analytics Lead,AtkinsRéalis,6,5,0,0,1,0.8333
+course_only,Data Analyst,Mercor,4,0,0,2,2,0.2
+course_only,Big Data Developer,Galent,5,1,2,0,2,0.5
+course_only,Data Analyst,ADF Medical,6,2,3,0,1,0.7083
+course_only,Data Analyst,Tekshapers,2,1,0,1,0,0.7
+course_only,Data Analyst,President's Choice Financial,4,0,3,1,0,0.6625
+course_only,Data Analyst,The Select Group,3,2,1,0,0,0.9167
+course_only,Data Analyst,BET99,6,0,2,0,4,0.25
+course_only,Data Engineer,Capgemini,3,1,1,0,1,0.5833
+course_only,Data Engineer,Leap Tools,7,1,1,1,4,0.3071
+course_only,Data Engineer,Scotiabank,12,2,1,1,8,0.2625
+course_only,Data Engineer,HireOn Tech,5,0,3,1,1,0.53
+course_only,Data Scientist,Apptad,2,0,2,0,0,0.75
+course_only,Data Engineer,Talenzaa,5,0,4,0,1,0.6
+course_only,Data Engineer,Technical Standards & Safety Authority (TSSA),9,2,1,1,5,0.35
+course_only,Data Scientist,Boeing,7,3,0,1,3,0.4857
+course_only,Data Scientist,Intelliswift - An LTTS Company,8,2,3,3,0,0.6813
+course_only,Data Scientist,Government of Yukon,4,1,2,1,0,0.725
+course_only,Junior Data Analyst,AMEXIO,7,0,0,4,3,0.2286
+course_only,Junior Data Engineer,Helic & Co.,11,5,1,0,5,0.5227
+course_only,Programming Analyst,Cybage Software,8,0,1,1,6,0.1437
+course_only,Senior Data Scientist,Trackunit,3,2,0,0,1,0.6667
+course_only,Senior Business Analyst,Compass Group,14,1,1,2,10,0.1821
+course_only,Senior Data Analyst,Alquemy Search & Consulting,7,1,3,2,1,0.5786
+book_student,BI & Analytics Lead,AtkinsRéalis,6,2,3,0,1,0.7083
+course_only,Senior Data Engineer,Asana,10,6,1,3,0,0.795
+book_student,Big Data Developer,Galent,5,0,2,1,2,0.38
+book_student,Data Analyst,Mercor,4,0,0,2,2,0.2
+book_student,Data Analyst,ADF Medical,6,3,2,1,0,0.8167
+book_student,Data Analyst,Tekshapers,2,1,0,1,0,0.7
+book_student,Data Analyst,President's Choice Financial,4,0,3,1,0,0.6625
+book_student,Data Analyst,BET99,6,0,1,3,2,0.325
+book_student,Data Analyst,The Select Group,3,2,1,0,0,0.9167
+book_student,Data Engineer,Capgemini,3,1,1,0,1,0.5833
+book_student,Data Engineer,HireOn Tech,5,0,2,1,2,0.38
+book_student,Data Scientist,Apptad,2,0,2,0,0,0.75
+book_student,Data Engineer,Talenzaa,5,0,2,2,1,0.46
+book_student,Data Engineer,Scotiabank,12,1,2,1,8,0.2417
+book_student,Data Engineer,Technical Standards & Safety Authority (TSSA),9,1,1,2,5,0.2833
+book_student,Data Scientist,Boeing,7,2,1,2,2,0.5071
+book_student,Data Scientist,Government of Yukon,4,1,3,0,0,0.8125
+book_student,Data Scientist,Intelliswift - An LTTS Company,8,3,4,0,1,0.75
+book_student,Junior Data Analyst,AMEXIO,7,0,2,0,5,0.2143
+book_student,Junior Data Engineer,Helic & Co.,11,6,0,1,4,0.5818
+book_student,Programming Analyst,Cybage Software,8,0,1,1,6,0.1437
+book_student,Senior Data Scientist,Trackunit,3,2,0,0,1,0.6667
+book_student,Data Engineer,Leap Tools,7,1,1,1,4,0.3071
+book_student,Senior Data Engineer,Asana,10,4,3,1,2,0.665
+book_student,Senior Business Analyst,Compass Group,14,0,3,2,9,0.2179
+market_student,BI & Analytics Lead,AtkinsRéalis,6,5,1,0,0,0.9583
+book_student,Senior Data Analyst,Alquemy Search & Consulting,7,4,2,0,1,0.7857
+market_student,Big Data Developer,Galent,5,5,0,0,0,1.0
+market_student,Data Analyst,BET99,6,6,0,0,0,1.0
+market_student,Data Analyst,Mercor,4,0,0,1,3,0.1
+market_student,Data Engineer,Capgemini,3,3,0,0,0,1.0
+market_student,Data Analyst,Tekshapers,2,0,2,0,0,0.75
+market_student,Data Analyst,President's Choice Financial,4,1,2,0,1,0.625
+market_student,Data Engineer,HireOn Tech,5,5,0,0,0,1.0
+market_student,Data Analyst,The Select Group,3,3,0,0,0,1.0
+market_student,Data Analyst,ADF Medical,6,2,4,0,0,0.8333
+market_student,Data Engineer,Technical Standards & Safety Authority (TSSA),9,9,0,0,0,1.0
+market_student,Data Engineer,Scotiabank,12,12,0,0,0,1.0
+market_student,Data Engineer,Leap Tools,7,4,0,3,0,0.7429
+market_student,Data Scientist,Apptad,2,2,0,0,0,1.0
+market_student,Data Engineer,Talenzaa,5,2,1,0,2,0.55
+market_student,Junior Data Analyst,AMEXIO,7,1,1,1,4,0.3071
+market_student,Data Scientist,Boeing,7,3,1,2,1,0.65
+market_student,Data Scientist,Intelliswift - An LTTS Company,8,3,5,0,0,0.8438
+market_student,Data Scientist,Government of Yukon,4,2,2,0,0,0.875
+market_student,Programming Analyst,Cybage Software,8,1,1,0,6,0.2188
+market_student,Junior Data Engineer,Helic & Co.,11,5,3,2,1,0.7318
+market_student,Senior Business Analyst,Compass Group,14,2,2,1,9,0.2786
+market_student,Senior Data Scientist,Trackunit,3,2,0,1,0,0.8
+market_student,Senior Data Analyst,Alquemy Search & Consulting,7,6,1,0,0,0.9643
+market_student,Senior Data Engineer,Asana,10,4,4,1,1,0.74

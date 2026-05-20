@@ -1,0 +1,6 @@
+run_name,family,model,n_calls,n_paired_jobs,course_only_mean,book_student_mean,market_student_mean,market_minus_course_mean,market_gt_course_jobs,market_eq_course_jobs,market_lt_course_jobs,market_rank,ranking,source_dir
+legacy_deepseek_v4_pro,DeepSeek,[次]deepseek-v4-pro,75,25,0.5265,0.5224,0.7588,0.2322,21,0,4,1,market_student>course_only>book_student,docs/thesis_implementation/portfolio_judge
+glm_glm_5_1,GLM,glm-5.1,75,25,0.4363,0.4686,0.7065,0.2702,22,2,1,1,market_student>book_student>course_only,docs/thesis_implementation/portfolio_judge/judge_runs/glm_glm_5_1
+kimi_kimi_k2_6,Kimi,kimi-k2.6,75,25,0.4307,0.4857,0.7654,0.3347,25,0,0,1,market_student>book_student>course_only,docs/thesis_implementation/portfolio_judge/judge_runs/kimi_kimi_k2_6
+minimax_minimax_m2_5,MiniMax,MiniMax-M2.5,75,25,0.4615,0.5027,0.7442,0.2827,21,3,1,1,market_student>book_student>course_only,docs/thesis_implementation/portfolio_judge/judge_runs/minimax_minimax_m2_5
+qwen_qwen3_6_plus,Qwen,qwen3.6-plus,75,25,0.5034,0.5264,0.7767,0.2733,20,3,2,1,market_student>book_student>course_only,docs/thesis_implementation/portfolio_judge/judge_runs/qwen_qwen3_6_plus

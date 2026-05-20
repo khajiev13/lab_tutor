@@ -1,0 +1,31 @@
+{
+  "description": "LLM judges used for the Lab Tutor job-fit robustness check.",
+  "endpoint_contract": "OpenAI-compatible /v1/chat/completions endpoint with temperature=0 and JSON-only output.",
+  "models": [
+    {
+      "family": "DeepSeek",
+      "model": "deepseek-v4-pro",
+      "role": "primary thesis judge"
+    },
+    {
+      "family": "Qwen",
+      "model": "qwen3.6-plus",
+      "role": "robustness judge"
+    },
+    {
+      "family": "GLM",
+      "model": "glm-5.1",
+      "role": "robustness judge"
+    },
+    {
+      "family": "Kimi",
+      "model": "kimi-k2.6",
+      "role": "robustness judge"
+    },
+    {
+      "family": "MiniMax",
+      "model": "MiniMax-M2.5",
+      "role": "robustness judge"
+    }
+  ]
+}

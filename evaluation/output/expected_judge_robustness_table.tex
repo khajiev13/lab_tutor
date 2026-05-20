@@ -1,0 +1,16 @@
+\begin{table}[t]
+\caption{Robustness of portfolio satisfaction results across LLM judges.}
+\label{tab:judge-robustness}
+\centering
+\begin{tabular}{lrrrrr}
+\hline
+Judge & Course & Book & Market & $\Delta$ M-C & M$>$C \\
+\hline
+DeepSeek ([次]deepseek-v4-pro) & 0.526 & 0.522 & 0.759 & 0.232 & 21/25 \\
+GLM (glm-5.1) & 0.436 & 0.469 & 0.707 & 0.270 & 22/25 \\
+Kimi (kimi-k2.6) & 0.431 & 0.486 & 0.765 & 0.335 & 25/25 \\
+MiniMax (MiniMax-M2.5) & 0.462 & 0.503 & 0.744 & 0.283 & 21/25 \\
+Qwen (qwen3.6-plus) & 0.503 & 0.526 & 0.777 & 0.273 & 20/25 \\
+\hline
+\end{tabular}
+\end{table}
