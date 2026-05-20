@@ -73,6 +73,28 @@ function SkillDifficultyChart() {
     return <p className="text-sm text-muted-foreground">No skill data available.</p>;
   }
 
+  // When students have SELECTED_SKILL edges but no MASTERED.mastery, the
+  // backend returns avg_mastery=0 / perceived_difficulty=1.0 for every skill.
+  // Rendering eight identical full-width red bars is misleading; show a clear
+  // empty state instead. Same logic as the Skill Simulator chart in
+  // TeacherTwinPage.tsx (PR #77).
+  const hasMasterySignal = top.some((s) => s.avg_mastery > 0);
+
+  if (!hasMasterySignal) {
+    const totalSkills = skillDifficulty?.total_skills ?? top.length;
+    return (
+      <div className="flex flex-col items-center justify-center py-6 px-4 text-center bg-muted/40 rounded-lg">
+        <AlertTriangle className="size-5 text-amber-500 mb-2" />
+        <p className="text-sm font-medium">No mastery data for this class yet</p>
+        <p className="text-xs text-muted-foreground mt-1 max-w-md">
+          Students have selected {totalSkills} skill{totalSkills === 1 ? "" : "s"}, but none have
+          recorded mastery scores yet. Difficulty rankings will appear here once students start
+          practicing.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       {top.map((s) => (

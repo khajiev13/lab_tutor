@@ -158,11 +158,19 @@ export interface AutomaticWhatIfPreferences {
   max_skills?: number;
 }
 
+export type WhatIfPlanningSource = "llm" | "rule_based" | "mixed";
+
 export interface AutomaticWhatIfCriteria {
   intervention_intensity: number;
   focus: AutomaticWhatIfFocus;
   max_skills: number;
   llm_decision_summary: string;
+  /**
+   * Where the per-skill targets actually came from. The frontend uses this to
+   * avoid claiming "LLM decided" when the rule-based fallback ran (e.g. when
+   * the LLM provider is unreachable or returned invalid JSON).
+   */
+  planning_source: WhatIfPlanningSource;
 }
 
 export interface WhatIfRequest {

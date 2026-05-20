@@ -14,6 +14,7 @@ import hashlib
 import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from typing import Literal
 
 from neo4j import Driver as Neo4jDriver
 
@@ -356,7 +357,7 @@ class TeacherDigitalTwinService:
 
         else:
             preferences = req.preferences or AutomaticWhatIfPreferences()
-            plan = self._plan_automatic_skill_targets(
+            plan, planning_source = self._plan_automatic_skill_targets(
                 course_id=course_id,
                 skill_summaries=self._build_automatic_skill_summaries(course_id),
                 preferences=preferences,
@@ -397,17 +398,32 @@ class TeacherDigitalTwinService:
                 for imp in skill_impacts
                 if imp.current_avg_mastery < 0.40
             ][:3]
+            decision_summary_by_source = {
+                "llm": (
+                    "The LLM used the teacher's automatic-mode preferences as guidance "
+                    "and made the final decision by balancing prerequisite leverage, "
+                    "downstream impact, affected student count, and PCO risk."
+                ),
+                "mixed": (
+                    "The LLM produced a partial plan; the deterministic signal-weighted "
+                    "rule engine filled in the remaining skills. Targets reflect "
+                    "prerequisite leverage, downstream impact, student count, and PCO risk."
+                ),
+                "rule_based": (
+                    "The LLM was unavailable or returned an unusable plan, so the "
+                    "deterministic signal-weighted rule engine produced these targets. "
+                    "Targets are derived from prerequisite leverage, downstream impact, "
+                    "student count, PCO risk, and the teacher's intervention intensity."
+                ),
+            }
             automatic_criteria = AutomaticWhatIfCriteria(
                 intervention_intensity=round(
                     float(preferences.intervention_intensity or 0.6), 4
                 ),
                 focus=preferences.focus,
                 max_skills=max(1, int(preferences.max_skills or 5)),
-                llm_decision_summary=(
-                    "The LLM used the teacher's automatic-mode preferences as guidance and "
-                    "made the final decision by balancing prerequisite leverage, downstream "
-                    "impact, affected student count, and PCO risk."
-                ),
+                llm_decision_summary=decision_summary_by_source[planning_source],
+                planning_source=planning_source,
             )
 
         summary = (
@@ -465,7 +481,7 @@ class TeacherDigitalTwinService:
 
         # ── 0. Automatic mode: pick top-K most difficult skills if none provided ──
         if req.mode == "automatic":
-            plan = self._plan_automatic_skill_targets(
+            plan, _planning_source = self._plan_automatic_skill_targets(
                 course_id=course_id,
                 skill_summaries=self._build_automatic_skill_summaries(course_id),
                 preferences=AutomaticWhatIfPreferences(max_skills=req.top_k),
@@ -692,17 +708,25 @@ class TeacherDigitalTwinService:
         course_id: int,
         skill_summaries: list[dict],
         preferences: AutomaticWhatIfPreferences | None,
-    ) -> list[dict]:
-        """Ask the LLM to choose the highest-impact skills and target masteries."""
+    ) -> tuple[list[dict], Literal["llm", "rule_based", "mixed"]]:
+        """Ask the LLM to choose the highest-impact skills and target masteries.
+
+        Returns a tuple of `(plan, planning_source)` so callers can tell whether
+        the per-skill targets came from the LLM, the deterministic fallback, or
+        a mix of both. This lets the frontend avoid misleading "LLM decided"
+        claims when the LLM provider is unreachable.
+        """
         if not skill_summaries:
-            return []
+            return [], "rule_based"
 
         resolved_preferences = preferences or AutomaticWhatIfPreferences()
         limit = max(
             1,
             min(int(resolved_preferences.max_skills or 5), 10, len(skill_summaries)),
         )
-        fallback = self._fallback_automatic_skill_targets(skill_summaries, limit)
+        fallback = self._fallback_automatic_skill_targets(
+            skill_summaries, limit, resolved_preferences
+        )
 
         try:
             import json as _json
@@ -816,7 +840,8 @@ class TeacherDigitalTwinService:
                 )
                 used_names.add(name)
 
-            if len(cleaned) < limit:
+            llm_count = len(cleaned)
+            if llm_count < limit:
                 for item in fallback:
                     if item["skill_name"] not in used_names:
                         cleaned.append(item)
@@ -824,17 +849,39 @@ class TeacherDigitalTwinService:
                     if len(cleaned) >= limit:
                         break
 
-            return cleaned[:limit]
+            final = cleaned[:limit]
+            if llm_count == 0:
+                source: Literal["llm", "rule_based", "mixed"] = "rule_based"
+            elif llm_count >= len(final):
+                source = "llm"
+            else:
+                source = "mixed"
+            return final, source
         except Exception as exc:
             logger.warning("Automatic teacher twin planning failed: %s", exc)
-            return fallback
+            return fallback, "rule_based"
 
     def _fallback_automatic_skill_targets(
         self,
         skill_summaries: list[dict],
         top_k: int,
+        preferences: AutomaticWhatIfPreferences | None = None,
     ) -> list[dict]:
-        """Deterministic fallback when the LLM is unavailable."""
+        """Deterministic, signal-weighted fallback when the LLM is unavailable.
+
+        The previous version produced a uniform target (0.65) for every skill
+        whenever current_avg was low — which made every What-If recommendation
+        identical when the class had no `MASTERED.mastery` data. This version
+        differentiates per-skill using normalized prereq / downstream / PCO /
+        student-count signals, scaled by the teacher's intervention intensity.
+
+        When all signals are zero (e.g. no graph relationships and no PCO data
+        yet), it falls back to a small rank-based delta so adjacent skills are
+        still distinguishable instead of all collapsing to the same number.
+        """
+        resolved = preferences or AutomaticWhatIfPreferences()
+        intensity = float(resolved.intervention_intensity or 0.6)
+
         ranked = sorted(
             skill_summaries,
             key=lambda item: (
@@ -846,21 +893,109 @@ class TeacherDigitalTwinService:
                 -int(item.get("student_count") or 0),
             ),
         )
+        candidates = ranked[:top_k]
+
+        # Normalize signals against the top-K candidate set so a skill with the
+        # highest prereq_count in the selection gets norm_prereq=1.0, regardless
+        # of absolute scale.
+        max_prereq = max(
+            (int(r.get("prereq_count") or 0) for r in candidates), default=0
+        )
+        max_downstream = max(
+            (int(r.get("downstream_count") or 0) for r in candidates), default=0
+        )
+        max_students = max(
+            (int(r.get("student_count") or 0) for r in candidates), default=0
+        )
+
+        def _norm(value: float, ceiling: float) -> float:
+            return float(value) / float(ceiling) if ceiling > 0 else 0.0
+
         planned: list[dict] = []
-        for row in ranked[:top_k]:
+        for rank, row in enumerate(candidates):
             current_avg = float(row.get("avg_mastery") or 0.0)
-            target_mastery = min(0.9, max(0.65, current_avg + 0.2))
+            prereq_count = int(row.get("prereq_count") or 0)
+            downstream_count = int(row.get("downstream_count") or 0)
+            student_count = int(row.get("student_count") or 0)
+            pco_risk = float(row.get("pco_risk_ratio") or 0.0)
+
+            norm_prereq = _norm(prereq_count, max_prereq)
+            norm_downstream = _norm(downstream_count, max_downstream)
+            norm_students = _norm(student_count, max_students)
+
+            all_signals_zero = (
+                norm_prereq == 0.0
+                and norm_downstream == 0.0
+                and norm_students == 0.0
+                and pco_risk == 0.0
+            )
+
+            if all_signals_zero:
+                # No graph signal yet (e.g. fresh class with no MASTERED edges
+                # and no PCO data). Use a direct rank-based target so adjacent
+                # skills are still distinguishable instead of all collapsing to
+                # the 0.55 floor. Top skill -> 0.75, tail -> 0.55, scaled by
+                # intervention intensity.
+                rank_fraction = (
+                    1.0 - rank / max(len(candidates) - 1, 1)
+                    if len(candidates) > 1
+                    else 0.5
+                )
+                target = 0.55 + rank_fraction * 0.20 * intensity / 0.6
+            else:
+                # Signal-weighted boost. Weights are calibrated so a skill that
+                # maxes every signal lands at +0.55 above current_avg, and a
+                # skill with no signal lands at +0.15. Multiplied by the
+                # teacher's intensity preference (default 0.6).
+                signal_boost = (
+                    0.15
+                    + 0.15 * pco_risk
+                    + 0.10 * norm_prereq
+                    + 0.10 * norm_downstream
+                    + 0.05 * norm_students
+                )
+                target = current_avg + intensity * signal_boost
+
+            target = min(0.95, max(0.55, target))
+            target = max(target, current_avg + 0.05)  # always +5pp over current
+
+            # Honest reason text — only mention factors that actually drove the
+            # decision. The previous template listed every factor verbatim,
+            # including zeros, which made the reason identical for every skill.
+            factors: list[str] = []
+            if pco_risk >= 0.05:
+                factors.append(f"{pco_risk:.0%} PCO risk")
+            if prereq_count > 0:
+                factors.append(
+                    f"{prereq_count} prerequisite skill{'s' if prereq_count != 1 else ''}"
+                )
+            if downstream_count > 0:
+                factors.append(
+                    f"{downstream_count} downstream skill{'s' if downstream_count != 1 else ''} depend on it"
+                )
+            if student_count > 0:
+                factors.append(
+                    f"affects {student_count} student{'s' if student_count != 1 else ''}"
+                )
+
+            if factors:
+                reason = (
+                    "Rule-based recommendation: "
+                    + ", ".join(factors)
+                    + f". Suggested class-average target: {target:.0%}."
+                )
+            else:
+                reason = (
+                    f"Rule-based recommendation: ranked #{rank + 1} by current "
+                    f"mastery ({current_avg:.0%}); no PCO or prerequisite signal "
+                    f"available yet. Suggested target: {target:.0%}."
+                )
+
             planned.append(
                 {
                     "skill_name": row["skill_name"],
-                    "target_mastery": round(target_mastery, 4),
-                    "reason": (
-                        "Rule-based fallback selected this skill because it combines "
-                        f"student impact ({int(row.get('student_count') or 0)} students), "
-                        f"prerequisite/downstream leverage ({int(row.get('prereq_count') or 0)} prereqs, "
-                        f"{int(row.get('downstream_count') or 0)} downstream skills), and "
-                        f"PCO risk ({float(row.get('pco_risk_ratio') or 0.0):.0%})."
-                    ),
+                    "target_mastery": round(target, 4),
+                    "reason": reason,
                 }
             )
         return planned
