@@ -55,7 +55,7 @@ export const AGENTS: AgentConfig[] = [
     id: "reading-agent",
     name: "Reading Agent",
     description:
-      "Discovers the best online reading materials for every skill in your curriculum.",
+      "Finds online reading materials for the skills students select in their learning paths.",
     icon: BookOpenText,
     route: "reading-agent",
     enabled: true,
@@ -65,7 +65,7 @@ export const AGENTS: AgentConfig[] = [
     id: "video-agent",
     name: "Video Agent",
     description:
-      "Discovers the best YouTube videos for every skill in your curriculum.",
+      "Finds YouTube videos for the skills students select in their learning paths.",
     icon: Video,
     route: "video-agent",
     enabled: true,
@@ -96,3 +96,29 @@ export const AGENTS: AgentConfig[] = [
 export function getAgentById(id: string) {
   return AGENTS.find((a) => a.id === id);
 }
+
+function getAgentsByIds(ids: string[]) {
+  return ids.map((id) => {
+    const agent = getAgentById(id);
+    if (!agent) {
+      throw new Error(`Unknown agent id: ${id}`);
+    }
+    return agent;
+  });
+}
+
+export const COURSE_SETUP_AGENTS = getAgentsByIds([
+  "architect",
+  "market-analyst",
+  "prerequisites",
+]);
+
+export const SKILL_RESOURCE_AGENTS = getAgentsByIds([
+  "reading-agent",
+  "video-agent",
+]);
+
+export const LEARNING_ANALYTICS_AGENTS = getAgentsByIds([
+  "arcd",
+  "teacher-twin",
+]);
