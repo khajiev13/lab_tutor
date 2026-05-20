@@ -155,7 +155,7 @@ def _build_pathgen_node(A_skill, skill_names: dict, llm=None):
 def _build_review_node(A_skill, skills_list: list, llm=None):
     """Return a review_node closure."""
     n = A_skill.shape[0] if hasattr(A_skill, "shape") else len(skills_list)
-    pco_det = PCODetector(phi=3, tau_m=0.60)
+    pco_det = PCODetector(phi=3, tau_m=0.50)
     fast_rev = FastReviewMode(mu=0.3, t_max=168.0)
     sync = MasterySync(eta_base=0.10)
 

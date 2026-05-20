@@ -1,0 +1,84 @@
+{
+  "_doc": "Canonical ICCSE2026 ARCD evaluation results. Authoritative source for any 'paper number' cited in LAB_ARCD_INTEGERATE (CHANGELOG, docs, agent prompts, regression tests). Numbers are imported verbatim from the ARCD_AGENT companion repo's post-fix (gcnfix2) screening campaign and the LF-PCO LLM-judge v2 calibration. LAB does NOT reproduce these locally — paper checkpoints are d_model=128, ~5-7M params; LAB production is d=2048, ~170M params, 423 skills, 5-stage V/R-aware. The 5-epoch smoke retrain run by this branch only verifies state-dict compatibility, NOT paper-grade accuracy.",
+  "paper": "Khajiev, R. et al. ARCD: Attentive Relational Cognitive Diagnosis with V/R-aware GCN over Multi-Relational Knowledge Graphs. ICCSE 2026 (under review).",
+  "imported_at": "2026-05-20",
+  "source_repo": "/Users/mohasani/ARCD_AGENT",
+  "source_commit": "external (companion repo, not vendored)",
+  "datasets": {
+    "synthetic": {
+      "description": "V/R-aware synthetic corpus with 423 skills, 5-stage GCN+temporal+decay+relational-decay ablations enabled",
+      "post_fix_run_tag": "gcnfix2",
+      "seeds": [
+        {"seed": 42, "auc": 0.8257, "acc": 0.8192, "f1": 0.8853, "elapsed_s": 331.7,
+         "source": "runs/iccse2026_screen/synthetic/_summary.json (tag=ARCD_synthetic_gcnfix2_s42)"},
+        {"seed": 137, "auc": 0.8366, "acc": 0.8511, "f1": 0.9088, "elapsed_s": 473.8,
+         "source": "runs/iccse2026_screen/synthetic/_summary.json (tag=ARCD_synthetic_gcnfix2_s137)"},
+        {"seed": 271, "auc": 0.8232, "acc": 0.8343, "f1": 0.8963, "elapsed_s": 308.0,
+         "source": "runs/iccse2026_screen/synthetic/_summary.json (tag=ARCD_synthetic_gcnfix2_s271)"}
+      ],
+      "aggregate": {
+        "auc_mean": 0.8285,
+        "auc_std": 0.0071,
+        "auc_paper_reported": "0.829 ± 0.006",
+        "n_seeds": 3
+      }
+    },
+    "xes3g5m": {
+      "description": "Public XES3G5M math knowledge tracing benchmark; ARCD compared against simpleKT, Q-KT, RCD, DisenGCD, GKT-CD",
+      "post_fix_run_tag": "gcnfix2",
+      "seeds": [
+        {"seed": 42, "auc_roc": 0.7855, "pr_auc": 0.9263, "acc": 0.7942, "f1": 0.8698,
+         "balanced_acc": 0.6916, "cohen_kappa": 0.3784,
+         "source": "runs/iccse2026_screen/xes3g5m/ARCD_xes3g5m_gcnfix2_s42/experiment_results_RUN.json"},
+        {"seed": 137, "auc_roc": 0.7838,
+         "source": "runs/iccse2026_screen/xes3g5m/ARCD_xes3g5m_gcnfix2_s137/experiment_results_RUN.json"},
+        {"seed": 271, "auc_roc": 0.7817,
+         "source": "runs/iccse2026_screen/xes3g5m/ARCD_xes3g5m_gcnfix2_s271/experiment_results_RUN.json"}
+      ],
+      "aggregate": {
+        "auc_mean": 0.7837,
+        "auc_std": 0.0019,
+        "auc_paper_reported": "0.784 ± 0.002",
+        "n_seeds": 3
+      },
+      "comparison_baselines_s42": {
+        "simpleKT": {"auc": 0.7683, "acc": 0.81, "f1": 0.8861},
+        "Q-KT": {"auc": 0.7591, "acc": 0.7965, "f1": 0.8765},
+        "RCD": {"auc": 0.714, "acc": 0.759, "f1": 0.8488},
+        "DisenGCD": {"auc": 0.7135, "acc": 0.7141, "f1": 0.8083},
+        "GKT-CD": {"auc": 0.7705, "acc": 0.8097, "f1": 0.8899}
+      }
+    }
+  },
+  "learning_fellow_pco_calibration": {
+    "description": "Cohen's kappa between rule-based PCODetector and DeepSeek-v3.2 LLM judge over 500 synthetic learner sessions across 6 archetypes (background, predictive_only, clean_pco, borderline_mastery, decoy, stale_skill)",
+    "n_sessions": 500,
+    "seed": 42,
+    "llm_judge_model": "deepseek-v3.2",
+    "dry_run": false,
+    "rule_based": {
+      "tp": 195, "fp": 9, "tn": 264, "fn": 32,
+      "precision": 0.9559, "recall": 0.8590, "f1": 0.9049
+    },
+    "llm_judge": {
+      "tp": 208, "fp": 10, "tn": 263, "fn": 19,
+      "precision": 0.9541, "recall": 0.9163, "f1": 0.9348
+    },
+    "cohen_kappa_rule_vs_llm": 0.9017,
+    "kappa_paper_reported": "0.902",
+    "elapsed_s": 2424.5,
+    "source": "runs/iccse2026_lf_llm_v2/lf_llm_judge_summary.json"
+  },
+  "lab_local_smoke_calibration": {
+    "description": "Local 5-session dry-run of the same calibrator inside LAB_ARCD_INTEGERATE — used to verify the calibrate_pco_with_llm.py CLI works in this repo, NOT to reproduce the paper's kappa. The 0.902 figure stays canonical.",
+    "n_sessions": 5,
+    "dry_run": true,
+    "cohen_kappa": 1.0,
+    "source": "backend/runs/lf_llm_calibration_v2/lf_llm_judge_summary.json"
+  },
+  "consumed_by": [
+    "CHANGELOG.md (Unreleased ICCSE2026 entry)",
+    "THESIS4_BLUEPRINT.md (chapter on evaluation)",
+    "backend/tests/modules/arcd_agent/test_pco_thresholds.py (κ comment reference)"
+  ]
+}

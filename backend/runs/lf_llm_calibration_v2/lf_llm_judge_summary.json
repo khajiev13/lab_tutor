@@ -1,0 +1,46 @@
+{
+  "n_sessions": 5,
+  "seed": 42,
+  "model": "deepseek-v3.2",
+  "dry_run": true,
+  "rule_based": {
+    "tp": 2,
+    "fp": 0,
+    "tn": 3,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "llm_judge": {
+    "tp": 2,
+    "fp": 0,
+    "tn": 3,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "cohen_kappa_rule_vs_llm": 1.0,
+  "by_archetype": {
+    "background": {
+      "n": 3,
+      "rule_pos": 0,
+      "llm_pos": 0,
+      "y_pos": 0
+    },
+    "predictive_only": {
+      "n": 1,
+      "rule_pos": 1,
+      "llm_pos": 1,
+      "y_pos": 1
+    },
+    "clean_pco": {
+      "n": 1,
+      "rule_pos": 1,
+      "llm_pos": 1,
+      "y_pos": 1
+    }
+  },
+  "total_elapsed_s": 0.0
+}

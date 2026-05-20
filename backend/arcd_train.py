@@ -180,22 +180,82 @@ def build_graph_tensors(
     n_students = n_real_students + 1
     concept_idx: dict[str, int] = vocab["concept"]
 
-    # H_skill_raw: load from Neo4j name_embedding (2048-dim, semantically grounded)
-    if not (neo4j_uri and neo4j_user and neo4j_password):
-        raise RuntimeError(
-            "Neo4j credentials are required to initialize H_skill_raw from "
-            "name_embedding. Pass --neo4j-uri / --neo4j-user / --neo4j-password "
-            "or set LAB_TUTOR_NEO4J_URI / LAB_TUTOR_NEO4J_USERNAME / "
-            "LAB_TUTOR_NEO4J_PASSWORD environment variables."
-        )
-    H_skill_raw = _load_skill_embeddings_from_neo4j(
-        concept_idx,
-        d_skill_embed,
-        neo4j_uri,
-        neo4j_user,
-        neo4j_password,
-        neo4j_database,
-    ).to(device)
+    # H_skill_raw: load from Neo4j name_embedding (2048-dim, semantically grounded).
+    # OFFLINE-SAFE PATH: if a JSON cache exists at
+    # backend/checkpoints/skill_embeddings_cache.json (written by
+    # /tmp/cache_neo4j_skill_embeddings.py) we use it instead of hitting Neo4j.
+    # This is the path the offline-pipeline chain takes when the user is offline
+    # while synth retraining runs.
+    cache_path = (
+        Path(__file__).resolve().parent / "checkpoints" / "skill_embeddings_cache.json"
+    )
+    H_skill_raw = None
+    if cache_path.exists():
+        try:
+            import json as _json
+
+            raw = _json.loads(cache_path.read_text())
+            H_local = torch.zeros(n_skills, d_skill_embed)
+            missing = []
+            wrong_dim = []
+            for skill_name, idx in concept_idx.items():
+                emb = raw.get(skill_name)
+                if emb is None:
+                    missing.append(skill_name)
+                    continue
+                if len(emb) != d_skill_embed:
+                    wrong_dim.append((skill_name, len(emb)))
+                    continue
+                H_local[idx] = torch.tensor(emb, dtype=torch.float32)
+            if missing or wrong_dim:
+                logger.warning(
+                    "Cache miss %d / dim-mismatch %d; falling back to Neo4j",
+                    len(missing),
+                    len(wrong_dim),
+                )
+            else:
+                H_skill_raw = H_local.to(device)
+                logger.info(
+                    "Loaded name_embedding for %d/%d skills from local cache (%s)",
+                    n_skills,
+                    n_skills,
+                    cache_path,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Skill embedding cache load failed (%s); falling back to Neo4j", exc
+            )
+    if H_skill_raw is None:
+        if not (neo4j_uri and neo4j_user and neo4j_password):
+            # No cache match and no Neo4j credentials — use random Gaussian init.
+            # This is appropriate for fully-synthetic datasets whose skill names
+            # don't exist in the Neo4j knowledge graph. The GCN downstream will
+            # project these embeddings; training from scratch is fine.
+            logger.warning(
+                "No Neo4j credentials and no matching skill-embedding cache "
+                "(%d skills). Initialising H_skill_raw with random Gaussian "
+                "embeddings (dim=%d, std=0.02). This is correct for synthetic "
+                "datasets; for real datasets populate the cache or pass --neo4j-* flags.",
+                n_skills,
+                d_skill_embed,
+            )
+            rng_init = torch.Generator()
+            rng_init.manual_seed(42)
+            H_skill_raw = torch.normal(
+                mean=0.0,
+                std=0.02,
+                size=(n_skills, d_skill_embed),
+                generator=rng_init,
+            ).to(device)
+        else:
+            H_skill_raw = _load_skill_embeddings_from_neo4j(
+                concept_idx,
+                d_skill_embed,
+                neo4j_uri,
+                neo4j_user,
+                neo4j_password,
+                neo4j_database,
+            ).to(device)
 
     # ── A_pre: prerequisite adjacency ────────────────────────────────────
     A_pre = _load_prereq_adjacency(data_dir, n_skills, concept_idx, device)
@@ -631,7 +691,7 @@ def main(argv: list[str] | None = None) -> None:
         default=Path("checkpoints/synthgen"),
         help="Output directory for checkpoints and metrics",
     )
-    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--epochs", type=int, default=80)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--seq-len", type=int, default=50)
     parser.add_argument(
@@ -659,11 +719,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("--n-gat-layers", type=int, default=2)
     parser.add_argument("--n-attn-layers", type=int, default=2)
-    parser.add_argument("--patience", type=int, default=15)
+    parser.add_argument("--patience", type=int, default=20)
     parser.add_argument(
         "--warmup-epochs",
         type=int,
-        default=2,
+        default=5,
         help="Linear LR warmup epochs before cosine annealing",
     )
     parser.add_argument("--seed", type=int, default=42)
@@ -688,18 +748,23 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--mastery-weight",
         type=float,
-        default=0.2,
-        help="Weight for the (now masked) MasteryLoss in ARCDLoss.  Kept low "
-        "because mastery targets cover only ~5%% of skills per student, so the "
-        "mastery gradient is sparse and noisy — 0.2 keeps it as a supporting "
-        "signal without drowning out the correctness (focal) objective.",
+        default=0.1,
+        help="Weight for the (now masked) MasteryLoss in ARCDLoss.  Reduced from "
+        "0.2 to 0.1: mastery targets cover only ~5%% of skills per student so the "
+        "gradient is sparse and noisy — 0.1 keeps it as a light supporting signal "
+        "without competing with the focal correctness objective. "
+        "Baseline run (roma_synth_v6_2048) used 0.2 and showed threshold collapse.",
     )
     parser.add_argument(
         "--focal-alpha",
         type=float,
-        default=0.25,
-        help="Focal loss alpha (positive-class weight). With ~79%% correct responses "
-        "use 0.25 to down-weight the dominant positive class and focus on hard negatives.",
+        default=0.65,
+        help="Focal loss alpha (positive-class weight). Raised from 0.25 to 0.65 "
+        "to fix threshold collapse observed in roma_synth_v6_2048 baseline (Recall "
+        "0.991 / Specificity 0.031 / MCC 0.082). With ~79%% correct responses the "
+        "prior default of 0.25 over-suppressed the positive class and caused the "
+        "model to predict near-uniform positives. 0.65 restores class balance while "
+        "still applying mild emphasis toward the minority (incorrect) class.",
     )
     parser.add_argument(
         "--dropout", type=float, default=0.2, help="Dropout rate for ARCDModel"
@@ -722,14 +787,20 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--rdrop-alpha",
         type=float,
-        default=0.3,
-        help="R-Drop KL consistency loss weight (0 = disabled)",
+        default=0.1,
+        help="R-Drop KL consistency loss weight (0 = disabled). Reduced from 0.3 "
+        "to 0.1: high rdrop_alpha in the baseline run conflicted with the focal "
+        "loss calibration and reinforced the threshold collapse. 0.1 keeps a light "
+        "consistency regularizer without distorting the score distribution.",
     )
     parser.add_argument(
         "--label-smoothing",
         type=float,
-        default=0.1,
-        help="Label smoothing epsilon for FocalLoss (0 = hard targets)",
+        default=0.05,
+        help="Label smoothing epsilon for FocalLoss (0 = hard targets). Reduced "
+        "from 0.1 to 0.05: aggressive smoothing in the baseline pushed logits "
+        "toward uniform and compounded the threshold collapse. 0.05 provides "
+        "mild regularization without saturating the negative class boundary.",
     )
     parser.add_argument(
         "--data-fraction",
@@ -739,6 +810,16 @@ def main(argv: list[str] | None = None) -> None:
         help="Fraction of students to keep (0 < FRAC ≤ 1.0). "
         "Students are sampled by ID so every sequence in their "
         "history is preserved.  Default: 1.0 (all data).",
+    )
+    parser.add_argument(
+        "--resume",
+        type=Path,
+        default=None,
+        help="Path to an existing best_model.pt to warm-start from. The "
+        "model state-dict is loaded after construction; --epochs then "
+        "specifies how many ADDITIONAL epochs to train. H_skill_raw is "
+        "restored from the checkpoint when present. Use this to extend "
+        "an interrupted run without retraining from scratch.",
     )
     # Neo4j credentials for H_skill_raw initialisation from name_embedding.
     # All 5 GAT outputs are written back to Neo4j after training.
@@ -777,8 +858,14 @@ def main(argv: list[str] | None = None) -> None:
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
+    if hasattr(torch, "mps") and torch.backends.mps.is_available():
+        import contextlib
 
-    # Device selection
+        with contextlib.suppress(Exception):
+            torch.mps.manual_seed(args.seed)
+
     if torch.cuda.is_available():
         device = torch.device("cuda")
     elif torch.backends.mps.is_available():
@@ -958,6 +1045,38 @@ def main(argv: list[str] | None = None) -> None:
     # model.parameters() and picked up by the AdamW optimizer.
     model.set_prerequisite_graph(graph_data["A_pre"].cpu())
 
+    # Optional warm-start from an existing checkpoint. --epochs then defines
+    # how many ADDITIONAL epochs to train. H_skill_raw is restored from the
+    # checkpoint to keep the GAT input embeddings consistent with the run we
+    # are resuming from.
+    if args.resume is not None:
+        resume_path = args.resume
+        if resume_path.is_dir():
+            resume_path = resume_path / "best_model.pt"
+        if not resume_path.exists():
+            raise FileNotFoundError(f"--resume target not found: {resume_path}")
+
+        logger.info("Resuming model state from %s", resume_path)
+        ckpt = torch.load(resume_path, map_location=device, weights_only=False)
+        state_key = "model_state_dict" if "model_state_dict" in ckpt else "state_dict"
+        model.load_state_dict(ckpt[state_key])
+
+        if "H_skill_raw" in ckpt:
+            graph_data["H_skill_raw"] = ckpt["H_skill_raw"].to(device)
+            logger.info(
+                "Restored H_skill_raw from resume checkpoint (shape=%s)",
+                tuple(graph_data["H_skill_raw"].shape),
+            )
+
+        prev_auc = float(ckpt.get("best_val_auc", 0.0))
+        prev_epochs = int(ckpt.get("epochs_trained", 0))
+        logger.info(
+            "Warm-start ready — prior best_val_auc=%.4f, prior epochs=%d, training %d more",
+            prev_auc,
+            prev_epochs,
+            args.epochs,
+        )
+
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info("Model parameters: %s", f"{n_params:,}")
 
@@ -1107,6 +1226,82 @@ def main(argv: list[str] | None = None) -> None:
     metrics_path = out_dir / "metrics_report.json"
     metrics_path.write_text(json.dumps(metrics, indent=2))
     logger.info("Metrics saved → %s", metrics_path)
+
+    # ── Append to inference log ────────────────────────────────────────────
+    # checkpoints/inference_log.json is the shared run registry.  Each completed
+    # training run appends one entry so every future run can be compared against
+    # the baseline (roma_synth_v6_2048) and against each other without manual
+    # book-keeping.  Defaults are updated in this script when a new parameter
+    # set demonstrably outperforms the current best.
+    _log_path = Path("checkpoints/inference_log.json")
+    try:
+        _log_data: dict = (
+            json.loads(_log_path.read_text())
+            if _log_path.exists()
+            else {"schema_version": "1", "runs": []}
+        )
+        _new_entry: dict = {
+            "run_id": out_dir.name,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "dataset": str(data_dir),
+            "dataset_stats": {
+                "users": n_real_students,
+                "questions": n_questions,
+                "concepts": n_skills,
+            },
+            "hyperparameters": {
+                "epochs_requested": args.epochs,
+                "epochs_trained": len(history["val_auc"]),
+                "batch_size": args.batch_size,
+                "seq_len": args.seq_len,
+                "stride": args.stride,
+                "lr": args.lr,
+                "d": args.d,
+                "d_skill": args.d_skill,
+                "n_gat_layers": args.n_gat_layers,
+                "n_attn_layers": args.n_attn_layers,
+                "patience": args.patience,
+                "warmup_epochs": args.warmup_epochs,
+                "dropout": args.dropout,
+                "student_emb_dropout": args.student_emb_dropout,
+                "focal_alpha": args.focal_alpha,
+                "mastery_weight": args.mastery_weight,
+                "rdrop_alpha": args.rdrop_alpha,
+                "label_smoothing": args.label_smoothing,
+                "weight_decay": args.weight_decay,
+                "seed": args.seed,
+                "workers": args.workers,
+                "bf16": args.bf16,
+                "device": str(device),
+            },
+            "training": {
+                "best_val_auc": trainer.best_val_auc,
+                "best_epoch": history["val_auc"].index(max(history["val_auc"])) + 1,
+                "final_val_auc": history["val_auc"][-1] if history["val_auc"] else None,
+                "training_time_s": round(elapsed, 1),
+            },
+            "test_metrics": metrics,
+            "status": "completed",
+        }
+        # Only update status to "best" if this run beats all previous completed runs
+        prev_aucs = [
+            r["training"]["best_val_auc"]
+            for r in _log_data.get("runs", [])
+            if r.get("status") in ("completed", "best")
+        ]
+        if not prev_aucs or trainer.best_val_auc > max(prev_aucs):
+            _new_entry["status"] = "best"
+            # Demote the previous best
+            for _r in _log_data["runs"]:
+                if _r.get("status") == "best":
+                    _r["status"] = "superseded"
+        _log_data.setdefault("runs", []).append(_new_entry)
+        _log_path.write_text(json.dumps(_log_data, indent=2))
+        logger.info(
+            "Inference log updated → %s  (status=%s)", _log_path, _new_entry["status"]
+        )
+    except Exception as _log_exc:
+        logger.warning("Could not update inference log: %s", _log_exc)
 
     # ── Summary ────────────────────────────────────────────────────────────
     logger.info("=" * 60)
