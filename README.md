@@ -2,9 +2,15 @@
 
 An AI-powered platform that helps university teachers align their courses with industry demands using knowledge graphs, multi-agent workflows, and curriculum analysis.
 
-![System Architecture](docs/images/system-architecture.png)
+## Methodology / System Logic
 
-![Logic Architecture](docs/images/logic_architecture.png)
+Lab Tutor's methodology is a teacher-governed evidence workflow: course materials, reviewed textbooks, and teacher-scoped job postings are represented as provenance-preserving graph artifacts, then used to support prerequisite-aware resource construction. The system supports curriculum-market evidence analysis and course-connected learning resources; it does not claim measured learning gains, employment outcomes, hiring causality, or autonomous curriculum redesign.
+
+![Two-stage methodology](docs/images/methodology/two-stage-methodology.png)
+
+![Knowledge graph evidence structure](docs/images/methodology/kg-evidence-structure.png)
+
+See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the full eight-diagram methodology sequence.
 
 ## Tech Stack
 
@@ -18,6 +24,8 @@ An AI-powered platform that helps university teachers align their courses with i
 | **Observability** | LangSmith (optional) |
 
 ## Architecture
+
+For visual context, see the original [System Architecture](docs/images/system-architecture.png) and [Logic Architecture](docs/images/logic_architecture.png) diagrams.
 
 The backend follows **modular onion architecture** — each feature is a self-contained module under `backend/app/modules/`:
 
@@ -374,6 +382,7 @@ lab_tutor/
 
 | Document | Description |
 |----------|-------------|
+| [METHODOLOGY.md](docs/METHODOLOGY.md) | Lab Tutor methodology sequence, including graph evidence, skill banks, prerequisites, and resource support |
 | [MARKET_DEMAND_ANALYST.md](docs/MARKET_DEMAND_ANALYST.md) | 3-agent LangGraph swarm, SSE protocol, tool inventory, Neo4j schema |
 | [CURRICULAR_ALIGNMENT_ARCHITECT.md](docs/CURRICULAR_ALIGNMENT_ARCHITECT.md) | Book discovery, scoring, download workflows, HITL interrupts |
 | [CONCEPT_NORMALIZATION.md](docs/CONCEPT_NORMALIZATION.md) | Iterative merge workflow, APOC operations, review pipeline |
