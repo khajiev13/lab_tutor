@@ -12,6 +12,16 @@ Lab Tutor's methodology is a teacher-governed evidence workflow: course material
 
 See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the full eight-diagram methodology sequence.
 
+## Implementation Diagrams
+
+The implementation diagrams show how the thesis methodology is realized in the running system: FastAPI modules, LangGraph workflows, Neo4j graph writes, teacher review checkpoints, learning-resource branches, and deployment safeguards.
+
+![Implementation architecture overview](docs/images/implementation/architecture-overview.png)
+
+![Teacher course graph pipeline](docs/images/implementation/teacher-course-graph-pipeline.png)
+
+See [docs/IMPLEMENTATION_DIAGRAMS.md](docs/IMPLEMENTATION_DIAGRAMS.md) for the full Chapter 4 implementation diagram sequence.
+
 ## Tech Stack
 
 | Layer | Technology |
