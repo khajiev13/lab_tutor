@@ -57,6 +57,17 @@ def test_select_skills_persists_unique_clean_market_skill_names(monkeypatch) -> 
 
     service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
 
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_names",
+        lambda _session, *, user_id: [],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.resolve_market_skill_names",
+        lambda _session, *, skill_names: ["Python", "Docker"],
+        raising=False,
+    )
+
     def fake_select_market_skills(
         session,
         *,
@@ -76,7 +87,7 @@ def test_select_skills_persists_unique_clean_market_skill_names(monkeypatch) -> 
 
     count = service.select_skills(
         user_id=7,
-        skill_names=[" Python ", "Docker", "Python", ""],
+        skill_names=[" Python ", "Docker", "Python", "CV-only", ""],
         source="manual-selection",
     )
 
@@ -86,6 +97,50 @@ def test_select_skills_persists_unique_clean_market_skill_names(monkeypatch) -> 
         "skill_names": ["Python", "Docker"],
         "source": "manual-selection",
     }
+
+
+def test_select_skills_enforces_cap_against_persisted_plus_valid_market_skills(
+    monkeypatch,
+) -> None:
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+    select_market_skills = []
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_names",
+        lambda _session, *, user_id: [f"Persisted {index}" for index in range(19)],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.resolve_market_skill_names",
+        lambda _session, *, skill_names: ["GraphQL", "Docker"],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.select_market_skills",
+        lambda *_args, **_kwargs: select_market_skills.append("called"),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Select no more than 20 market skills before building",
+    ):
+        service.select_skills(
+            user_id=7,
+            skill_names=["GraphQL", "Docker", "CV-only"],
+        )
+
+    assert select_market_skills == []
 
 
 def test_build_learning_path_runs_sync_resource_pipeline(monkeypatch) -> None:
@@ -108,6 +163,36 @@ def test_build_learning_path_runs_sync_resource_pipeline(monkeypatch) -> None:
     service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
 
     monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_names",
+        lambda _session, *, user_id: [],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.resolve_market_skill_names",
+        lambda _session, *, skill_names: ["GraphQL"],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_market_skill_profiles",
+        lambda _session, *, skill_names: [
+            {
+                "name": "GraphQL",
+                "description": "Build production GraphQL APIs",
+                "category": "Backend",
+                "concepts": [{"name": "Resolvers", "definition": "Field handlers"}],
+                "job_evidence": ["Need GraphQL API ownership"],
+            }
+        ],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_profiles",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("build should not load all persisted selected skills")
+        ),
+    )
+
+    monkeypatch.setattr(
         "app.modules.individual_learning.service.select_market_skills",
         lambda _session, *, user_id, skill_names, source: (
             selection_calls.append(
@@ -119,18 +204,6 @@ def test_build_learning_path_runs_sync_resource_pipeline(monkeypatch) -> None:
             )
             or len(skill_names)
         ),
-    )
-    monkeypatch.setattr(
-        "app.modules.individual_learning.service.get_selected_market_skill_profiles",
-        lambda _session, *, user_id: [
-            {
-                "name": "GraphQL",
-                "description": "Build production GraphQL APIs",
-                "category": "Backend",
-                "concepts": [{"name": "Resolvers", "definition": "Field handlers"}],
-                "job_evidence": ["Need GraphQL API ownership"],
-            }
-        ],
     )
     monkeypatch.setattr(
         "app.modules.individual_learning.service.fetch_readings_for_skill",
@@ -159,9 +232,16 @@ def test_build_learning_path_runs_sync_resource_pipeline(monkeypatch) -> None:
     )
     monkeypatch.setattr(
         "app.modules.individual_learning.service.write_questions",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("shared question writer should not be used")
+        ),
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.write_market_skill_questions",
         lambda _session, skill_name, questions: (
             question_writes.append((skill_name, questions)) or len(questions)
         ),
+        raising=False,
     )
 
     result = service.build_learning_path(user_id=7, selected_skill_names=["GraphQL"])
@@ -203,8 +283,9 @@ def test_build_learning_path_requires_valid_persisted_market_skills(monkeypatch)
     service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
 
     monkeypatch.setattr(
-        "app.modules.individual_learning.service.select_market_skills",
-        lambda *_args, **_kwargs: 0,
+        "app.modules.individual_learning.service.get_selected_market_skill_names",
+        lambda _session, *, user_id: [],
+        raising=False,
     )
     monkeypatch.setattr(
         "app.modules.individual_learning.service.get_selected_market_skill_profiles",
@@ -212,9 +293,127 @@ def test_build_learning_path_requires_valid_persisted_market_skills(monkeypatch)
     )
 
     with pytest.raises(
-        ValueError, match="Select at least one valid market skill before building"
+        ValueError, match="Select at least one market skill before building"
     ):
-        service.build_learning_path(user_id=7, selected_skill_names=["Unknown Skill"])
+        service.build_learning_path(user_id=7, selected_skill_names=[])
+
+
+def test_build_learning_path_rejects_non_market_request_even_with_existing_selection(
+    monkeypatch,
+) -> None:
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+    select_market_skills = []
+    fetch_calls = []
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_names",
+        lambda _session, *, user_id: ["Persisted GraphQL"],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.resolve_market_skill_names",
+        lambda _session, *, skill_names: [],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.select_market_skills",
+        lambda *_args, **_kwargs: select_market_skills.append("called"),
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.fetch_readings_for_skill",
+        lambda *_args, **_kwargs: fetch_calls.append("called"),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Select only valid market skills before building",
+    ):
+        service.build_learning_path(user_id=7, selected_skill_names=["CV-only"])
+
+    assert select_market_skills == []
+    assert fetch_calls == []
+
+
+def test_build_learning_path_empty_request_builds_existing_selected_market_skills(
+    monkeypatch,
+) -> None:
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+    selection_calls = []
+    fetched_skill_names = []
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_names",
+        lambda _session, *, user_id: ["GraphQL"],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.select_market_skills",
+        lambda *_args, **_kwargs: selection_calls.append("called"),
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_profiles",
+        lambda _session, *, user_id: [
+            {
+                "name": "GraphQL",
+                "description": "Build production GraphQL APIs",
+                "category": "Backend",
+                "concepts": [{"name": "Resolvers", "definition": "Field handlers"}],
+                "job_evidence": ["Need GraphQL API ownership"],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_market_skill_profiles",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("empty build should use persisted selected skills")
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.fetch_readings_for_skill",
+        lambda skill_profile: (fetched_skill_names.append(skill_profile.name) or []),
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.fetch_videos_for_skill",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.generate_questions_for_skill",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.write_market_skill_questions",
+        lambda *_args, **_kwargs: 0,
+        raising=False,
+    )
+
+    result = service.build_learning_path(user_id=7, selected_skill_names=[])
+
+    assert result == {"status": "completed"}
+    assert selection_calls == []
+    assert fetched_skill_names == ["GraphQL"]
 
 
 def test_get_learning_path_reads_selected_market_skill_projection(monkeypatch) -> None:

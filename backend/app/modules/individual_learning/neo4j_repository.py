@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+import uuid
 from datetime import UTC, datetime
 
 from neo4j import Session as Neo4jSession
 
+from app.modules.question_generation.schemas import GeneratedQuestion
+
 from .schemas import CVSkillExtraction
+
+logger = logging.getLogger(__name__)
 
 
 def upsert_cv_skills(
@@ -149,6 +155,39 @@ def select_market_skills(
     return int(record["written"] if record else 0)
 
 
+def get_selected_market_skill_names(
+    session: Neo4jSession,
+    *,
+    user_id: int,
+) -> list[str]:
+    result = session.run(
+        """
+        MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:MARKET_SKILL)
+        RETURN sk.name AS name
+        ORDER BY sk.name
+        """,
+        user_id=user_id,
+    )
+    return [record["name"] for record in result]
+
+
+def resolve_market_skill_names(
+    session: Neo4jSession,
+    *,
+    skill_names: list[str],
+) -> list[str]:
+    result = session.run(
+        """
+        UNWIND $skill_names AS skill_name
+        MATCH (sk:SKILL:MARKET_SKILL {name: skill_name})
+        RETURN DISTINCT sk.name AS name
+        """,
+        skill_names=skill_names,
+    )
+    resolved_names = {record["name"] for record in result}
+    return [skill_name for skill_name in skill_names if skill_name in resolved_names]
+
+
 def deselect_market_skills(
     session: Neo4jSession,
     *,
@@ -169,14 +208,15 @@ def deselect_market_skills(
     return int(record["deleted"] if record else 0)
 
 
-def get_selected_market_skill_profiles(
+def get_market_skill_profiles(
     session: Neo4jSession,
     *,
-    user_id: int,
+    skill_names: list[str],
 ) -> list[dict]:
     result = session.run(
         """
-        MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:SKILL:MARKET_SKILL)
+        UNWIND $skill_names AS skill_name
+        MATCH (sk:SKILL:MARKET_SKILL {name: skill_name})
         RETURN sk {
             .name,
             .description,
@@ -190,11 +230,76 @@ def get_selected_market_skill_profiles(
             }],
             job_evidence: [(sk)-[:SOURCED_FROM]->(jp:JOB_POSTING) | jp.description][0..3]
         } AS skill
-        ORDER BY sk.name
         """,
-        user_id=user_id,
+        skill_names=skill_names,
     )
-    return [record["skill"] for record in result]
+    profiles_by_name = {record["skill"]["name"]: record["skill"] for record in result}
+    return [
+        profiles_by_name[skill_name]
+        for skill_name in skill_names
+        if skill_name in profiles_by_name
+    ]
+
+
+def get_selected_market_skill_profiles(
+    session: Neo4jSession,
+    *,
+    user_id: int,
+) -> list[dict]:
+    selected_names = get_selected_market_skill_names(session, user_id=user_id)
+    if not selected_names:
+        return []
+    return get_market_skill_profiles(session, skill_names=selected_names)
+
+
+def write_market_skill_questions(
+    session: Neo4jSession,
+    skill_name: str,
+    questions: list[GeneratedQuestion],
+) -> int:
+    now = datetime.now(UTC).isoformat()
+    question_dicts = [
+        {
+            "id": str(uuid.uuid4()),
+            "text": question.text,
+            "difficulty": question.difficulty,
+            "options": question.options,
+            "correct_option": question.correct_option,
+            "answer": question.answer,
+            "skill_name": skill_name,
+            "created_at": now,
+        }
+        for question in questions
+    ]
+
+    result = session.run(
+        """
+        MATCH (sk:SKILL:MARKET_SKILL {name: $skill_name})
+        OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(existing:QUESTION)
+        WITH sk, collect(existing) AS existing_questions
+        FOREACH (node IN existing_questions | DETACH DELETE node)
+        WITH sk
+        UNWIND $questions AS q
+        CREATE (qn:QUESTION {
+            id: q.id,
+            text: q.text,
+            difficulty: q.difficulty,
+            options: q.options,
+            correct_option: q.correct_option,
+            answer: q.answer,
+            skill_name: q.skill_name,
+            created_at: datetime(q.created_at)
+        })
+        MERGE (sk)-[:HAS_QUESTION]->(qn)
+        RETURN count(qn) AS written
+        """,
+        skill_name=skill_name,
+        questions=question_dicts,
+    )
+    record = result.single()
+    count = int(record["written"] if record else 0)
+    logger.info("Wrote %d market-skill questions for skill %s", count, skill_name)
+    return count
 
 
 def get_individual_skill_bank(
@@ -211,14 +316,7 @@ def get_individual_skill_bank(
     )
     interested_urls = [record["url"] for record in interested_result]
 
-    selected_result = session.run(
-        """
-        MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:MARKET_SKILL)
-        RETURN sk.name AS name
-        """,
-        user_id=user_id,
-    )
-    selected_names = [record["name"] for record in selected_result]
+    selected_names = get_selected_market_skill_names(session, user_id=user_id)
 
     bank_result = session.run(
         """

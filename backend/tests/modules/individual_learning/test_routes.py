@@ -173,6 +173,31 @@ def test_build_individual_learning_path_route_returns_400_on_validation_error(
     assert exc_info.value.detail == "Select at least one market skill before building"
 
 
+def test_build_individual_learning_path_route_returns_400_for_non_market_request(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        routes,
+        "_get_service",
+        lambda _db, _driver: SimpleNamespace(
+            build_learning_path=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                ValueError("Select only valid market skills before building")
+            )
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        routes.build_learning_path(
+            body=SimpleNamespace(skill_names=["CV-only"]),
+            user=SimpleNamespace(id=7),
+            db=MagicMock(),
+            driver=MagicMock(),
+        )
+
+    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc_info.value.detail == "Select only valid market skills before building"
+
+
 def test_get_individual_learning_path_route_returns_projection(monkeypatch) -> None:
     monkeypatch.setattr(
         routes,

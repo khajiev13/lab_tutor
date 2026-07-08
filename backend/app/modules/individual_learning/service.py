@@ -11,8 +11,6 @@ from sqlalchemy.orm import Session
 
 from app.core.resource_pipeline.neo4j_repository import write_resources
 from app.core.resource_pipeline.schemas import SkillProfile
-from app.providers.storage import blob_service
-from app.modules.question_generation.neo4j_repository import write_questions
 from app.modules.question_generation.service import generate_questions_for_skill
 from app.modules.textualresourceanalyst.config import RELATIONSHIP as READING_RELATIONSHIP
 from app.modules.textualresourceanalyst.config import RESOURCE_LABEL as READING_LABEL
@@ -20,6 +18,7 @@ from app.modules.textualresourceanalyst.service import fetch_readings_for_skill
 from app.modules.visualcontentevaluator.config import RELATIONSHIP as VIDEO_RELATIONSHIP
 from app.modules.visualcontentevaluator.config import RESOURCE_LABEL as VIDEO_LABEL
 from app.modules.visualcontentevaluator.service import fetch_videos_for_skill
+from app.providers.storage import blob_service
 
 from .cv_extractor import extract_cv_text
 from .graph import build_individual_learning_graph
@@ -27,11 +26,15 @@ from .job_matcher import score_market_skill_coverage
 from .models import CVDocument, CVDocumentStatus, CVExtractionRun
 from .neo4j_repository import (
     deselect_market_skills,
+    get_market_skill_profiles,
     get_individual_learning_path,
     get_individual_skill_bank,
+    get_selected_market_skill_names,
     get_selected_market_skill_profiles,
+    resolve_market_skill_names,
     select_job_postings,
     select_market_skills,
+    write_market_skill_questions,
 )
 from .repository import IndividualLearningRepository
 from .schemas import (
@@ -165,14 +168,26 @@ class IndividualLearningService:
         source: str = "individual_market_skill",
     ) -> int:
         cleaned_skill_names = self._clean_skill_names(skill_names)
-        self.validate_selected_skill_names(cleaned_skill_names)
+        if not cleaned_skill_names:
+            self.validate_selected_skill_names(cleaned_skill_names)
 
         driver = self._require_neo4j_driver()
         with driver.session() as session:
+            resolved_skill_names = resolve_market_skill_names(
+                session,
+                skill_names=cleaned_skill_names,
+            )
+            combined_skill_names = self._combine_selected_skill_names(
+                get_selected_market_skill_names(session, user_id=user_id),
+                resolved_skill_names,
+            )
+            self.validate_selected_skill_names(combined_skill_names)
+            if not resolved_skill_names:
+                return 0
             return select_market_skills(
                 session,
                 user_id=user_id,
-                skill_names=cleaned_skill_names,
+                skill_names=resolved_skill_names,
                 source=source,
             )
 
@@ -195,17 +210,44 @@ class IndividualLearningService:
         selected_skill_names: list[str],
     ) -> dict[str, str]:
         cleaned_skill_names = self._clean_skill_names(selected_skill_names)
-        self.validate_selected_skill_names(cleaned_skill_names)
 
         driver = self._require_neo4j_driver()
         with driver.session() as session:
-            select_market_skills(
-                session,
-                user_id=user_id,
-                skill_names=cleaned_skill_names,
-                source="individual_market_skill",
-            )
-            selected_skills = get_selected_market_skill_profiles(session, user_id=user_id)
+            if cleaned_skill_names:
+                resolved_skill_names = resolve_market_skill_names(
+                    session,
+                    skill_names=cleaned_skill_names,
+                )
+                if len(resolved_skill_names) != len(cleaned_skill_names):
+                    raise ValueError("Select only valid market skills before building")
+
+                combined_skill_names = self._combine_selected_skill_names(
+                    get_selected_market_skill_names(session, user_id=user_id),
+                    resolved_skill_names,
+                )
+                self.validate_selected_skill_names(combined_skill_names)
+                select_market_skills(
+                    session,
+                    user_id=user_id,
+                    skill_names=resolved_skill_names,
+                    source="individual_market_skill",
+                )
+                selected_skills = get_market_skill_profiles(
+                    session,
+                    skill_names=resolved_skill_names,
+                )
+                if len(selected_skills) != len(resolved_skill_names):
+                    raise ValueError("Select only valid market skills before building")
+            else:
+                persisted_skill_names = get_selected_market_skill_names(
+                    session,
+                    user_id=user_id,
+                )
+                self.validate_selected_skill_names(persisted_skill_names)
+                selected_skills = get_selected_market_skill_profiles(
+                    session,
+                    user_id=user_id,
+                )
 
         if not selected_skills:
             raise ValueError("Select at least one valid market skill before building")
@@ -241,7 +283,11 @@ class IndividualLearningService:
                         VIDEO_RELATIONSHIP,
                     )
                 if questions:
-                    write_questions(session, skill_profile.name, questions)
+                    write_market_skill_questions(
+                        session,
+                        skill_profile.name,
+                        questions,
+                    )
 
         return {"status": "completed"}
 
@@ -475,6 +521,21 @@ class IndividualLearningService:
             seen.add(key)
             cleaned_skill_names.append(name)
         return cleaned_skill_names
+
+    @staticmethod
+    def _combine_selected_skill_names(
+        persisted_skill_names: list[str],
+        requested_skill_names: list[str],
+    ) -> list[str]:
+        combined_skill_names: list[str] = []
+        seen: set[str] = set()
+        for skill_name in [*persisted_skill_names, *requested_skill_names]:
+            key = skill_name.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            combined_skill_names.append(skill_name)
+        return combined_skill_names
 
     @staticmethod
     def _build_market_skill_profile(skill: dict[str, Any]) -> SkillProfile:
