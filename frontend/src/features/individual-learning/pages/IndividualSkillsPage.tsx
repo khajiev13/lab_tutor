@@ -2,6 +2,7 @@ import { ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +22,7 @@ import {
   selectIndividualSkills,
   type IndividualSkillBankJobPosting,
   type IndividualSkillBankSkill,
-} from '../api';
+} from '@/features/individual-learning/api';
 
 type SkillSummary = {
   name: string;
@@ -92,6 +93,7 @@ export default function IndividualSkillsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isBuilding, setIsBuilding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -113,8 +115,12 @@ export default function IndividualSkillsPage() {
         setInterestedUrls(nextInterestedUrls);
         setSelectedSkills(nextSelectedSkills);
         setPersistedSkills(nextSelectedSkills);
+        setError(null);
       } catch (error) {
         console.error(error);
+        if (active) {
+          setError('We could not load market skills for your interested jobs.');
+        }
         toast.error('Failed to load market skills.');
       } finally {
         if (active) {
@@ -248,6 +254,12 @@ export default function IndividualSkillsPage() {
 
           {isLoading ? (
             <div className="rounded-md border p-8 text-sm text-muted-foreground">Loading skill bank...</div>
+          ) : error ? (
+            <Alert variant="destructive">
+              <ArrowRight className="size-4" />
+              <AlertTitle>Skills unavailable</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           ) : availableSkills.length === 0 ? (
             <Empty>
               <EmptyHeader>

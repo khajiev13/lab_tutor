@@ -17,7 +17,11 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { getIndividualProfile, type IndividualProfile, uploadCv } from '../api';
+import {
+  getIndividualProfile,
+  type IndividualProfile,
+  uploadCv,
+} from '@/features/individual-learning/api';
 
 const uploadSchema = z.object({
   file: z.custom<FileList>(

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import api from '@/services/api';
-import { getIndividualProfile } from './api';
+import { getIndividualProfile } from '@/features/individual-learning/api';
 
 vi.mock('@/services/api', () => ({
   default: {

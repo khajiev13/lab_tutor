@@ -1,6 +1,7 @@
 import { BookOpen, CircleHelp, ExternalLink, PlayCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -10,7 +11,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
-import { getIndividualLearningPath, type IndividualLearningPathResponse } from '../api';
+import {
+  getIndividualLearningPath,
+  type IndividualLearningPathResponse,
+} from '@/features/individual-learning/api';
 
 function getErrorStatus(error: unknown) {
   if (!error || typeof error !== 'object' || !('response' in error)) {
@@ -61,6 +65,7 @@ function ResourceLinks({
 export default function IndividualLearningPathPage() {
   const [path, setPath] = useState<IndividualLearningPathResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -70,13 +75,17 @@ export default function IndividualLearningPathPage() {
         const data = await getIndividualLearningPath();
         if (active) {
           setPath(data);
+          setError(null);
         }
       } catch (error) {
-        console.error(error);
         if (active) {
           setPath(null);
+          if (getErrorStatus(error) !== 404) {
+            setError('We could not load your individual learning path.');
+          }
         }
         if (getErrorStatus(error) !== 404) {
+          console.error(error);
           toast.error('Failed to load your individual learning path.');
         }
       } finally {
@@ -104,6 +113,12 @@ export default function IndividualLearningPathPage() {
 
       {isLoading ? (
         <div className="rounded-md border p-8 text-sm text-muted-foreground">Loading learning path...</div>
+      ) : error ? (
+        <Alert variant="destructive">
+          <BookOpen className="size-4" />
+          <AlertTitle>Learning path unavailable</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : !path || path.selected_skills.length === 0 ? (
         <Empty>
           <EmptyHeader>

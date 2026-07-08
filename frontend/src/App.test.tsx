@@ -126,10 +126,16 @@ describe('App routing', () => {
     expect(screen.queryByRole('button', { name: /Toggle theme/i })).not.toBeInTheDocument();
   });
 
-  it('keeps dashboard chrome on the individual profile route', () => {
-    renderAppAt('/individual/profile');
+  it.each([
+    ['/individual/onboarding', 'Individual Onboarding'],
+    ['/individual/profile', 'Individual Profile'],
+    ['/individual/jobs', 'Individual Jobs'],
+    ['/individual/skills', 'Individual Skills'],
+    ['/individual/learning-path', 'Individual Learning Path'],
+  ])('keeps dashboard chrome on %s', (pathname, content) => {
+    renderAppAt(pathname);
 
-    expect(screen.getByText('Individual Profile')).toBeInTheDocument();
+    expect(screen.getByText(content)).toBeInTheDocument();
     expect(screen.getByText('Mock Sidebar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeInTheDocument();
   });
