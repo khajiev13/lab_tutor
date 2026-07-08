@@ -2,6 +2,7 @@ import io
 import zipfile
 
 import pytest
+from pypdf.errors import PdfReadError
 
 from app.modules.individual_learning.cv_extractor import extract_cv_text
 
@@ -9,10 +10,8 @@ from app.modules.individual_learning.cv_extractor import extract_cv_text
 def _docx_bytes(text: str) -> bytes:
     payload = (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        (
-            '<w:document xmlns:w="http://schemas.openxmlformats.org/'
-            'wordprocessingml/2006/main">'
-        )
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+        'wordprocessingml/2006/main">'
         f"<w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body></w:document>"
     )
     buf = io.BytesIO()
@@ -40,3 +39,35 @@ def test_extract_cv_text_supports_docx() -> None:
 def test_extract_cv_text_rejects_unknown_type() -> None:
     with pytest.raises(ValueError, match="Only PDF and DOCX CV files are supported"):
         extract_cv_text(filename="cv.txt", content_type="text/plain", data=b"hello")
+
+
+def test_extract_cv_text_rejects_malformed_pdf() -> None:
+    with pytest.raises(ValueError, match="Invalid PDF CV file"):
+        extract_cv_text(
+            filename="cv.pdf",
+            content_type="application/pdf",
+            data=b"not a real pdf",
+        )
+
+
+def test_extract_cv_text_wraps_pdf_page_extraction_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _BrokenPage:
+        def extract_text(self) -> str:
+            raise PdfReadError("broken page")
+
+    class _BrokenReader:
+        pages = [_BrokenPage()]
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.cv_extractor.pypdf.PdfReader",
+        lambda *_args, **_kwargs: _BrokenReader(),
+    )
+
+    with pytest.raises(ValueError, match="Invalid PDF CV file"):
+        extract_cv_text(
+            filename="cv.pdf",
+            content_type="application/pdf",
+            data=b"%PDF-1.7",
+        )

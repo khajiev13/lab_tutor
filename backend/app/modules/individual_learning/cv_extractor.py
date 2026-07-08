@@ -13,8 +13,12 @@ DOCX_CONTENT_TYPES = {
 
 
 def _extract_pdf_text(data: bytes) -> str:
-    reader = pypdf.PdfReader(io.BytesIO(data))
-    pages = [(page.extract_text() or "").strip() for page in reader.pages]
+    try:
+        reader = pypdf.PdfReader(io.BytesIO(data))
+        pages = [(page.extract_text() or "").strip() for page in reader.pages]
+    except pypdf.errors.PyPdfError as exc:
+        raise ValueError("Invalid PDF CV file") from exc
+
     return "\n\n".join(page for page in pages if page).strip()
 
 
