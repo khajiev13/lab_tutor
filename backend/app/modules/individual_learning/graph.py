@@ -18,9 +18,6 @@ class IndividualLearningState(TypedDict, total=False):
     selected_skill_names: list[str]
 
 
-_DEFAULT_CHECKPOINTER = InMemorySaver()
-
-
 def review_profile_and_roles(state: IndividualLearningState) -> dict[str, Any]:
     profile = dict(state.get("profile", {}))
     decision = interrupt(
@@ -35,6 +32,8 @@ def review_profile_and_roles(state: IndividualLearningState) -> dict[str, Any]:
     return {
         "profile": dict(decision.get("profile", profile)),
         "target_titles": list(decision.get("target_titles", [])),
+        "candidate_jobs": list(decision.get("candidate_jobs", [])),
+        "skill_bank": list(decision.get("skill_bank", [])),
     }
 
 
@@ -72,16 +71,36 @@ def load_candidate_jobs(state: IndividualLearningState) -> dict[str, Any]:
 
 
 def choose_jobs_and_skills(state: IndividualLearningState) -> dict[str, Any]:
+    candidate_jobs = list(state.get("candidate_jobs", []))
+    skill_bank = list(state.get("skill_bank", []))
     decision = interrupt(
         {
             "kind": "choose_jobs_and_skills",
-            "candidate_jobs": list(state.get("candidate_jobs", [])),
-            "skill_bank": list(state.get("skill_bank", [])),
+            "candidate_jobs": candidate_jobs,
+            "skill_bank": skill_bank,
         }
     )
+    available_posting_urls = {
+        str(job.get("url", "")).strip() for job in candidate_jobs if job.get("url")
+    }
+    available_skill_names = {
+        str(skill.get("name", "")).strip() for skill in skill_bank if skill.get("name")
+    }
+    selected_posting_urls = [
+        url
+        for url in decision.get("selected_posting_urls", [])
+        if isinstance(url, str)
+        and url in available_posting_urls
+    ]
+    selected_skill_names = [
+        name
+        for name in decision.get("selected_skill_names", [])
+        if isinstance(name, str)
+        and name in available_skill_names
+    ]
     return {
-        "selected_posting_urls": list(decision.get("selected_posting_urls", [])),
-        "selected_skill_names": list(decision.get("selected_skill_names", [])),
+        "selected_posting_urls": selected_posting_urls,
+        "selected_skill_names": selected_skill_names,
     }
 
 
@@ -94,4 +113,6 @@ def build_individual_learning_graph(checkpointer=None):
     builder.add_edge("review_profile_and_roles", "search_jobs")
     builder.add_edge("search_jobs", "choose_jobs_and_skills")
     builder.add_edge("choose_jobs_and_skills", END)
-    return builder.compile(checkpointer=checkpointer or _DEFAULT_CHECKPOINTER)
+    if checkpointer is None:
+        checkpointer = InMemorySaver()
+    return builder.compile(checkpointer=checkpointer)

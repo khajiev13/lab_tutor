@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from fastapi import HTTPException, UploadFile, status
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session
@@ -21,6 +22,10 @@ from .schemas import (
     IndividualGraphStartResponse,
     IndividualProfileRead,
 )
+
+_THREAD_ID_PATTERN = re.compile(r"^individual-(?P<user_id>\d+)-cv-(?P<cv_document_id>\d+)$")
+_SERVICE_GRAPH_CHECKPOINTER = InMemorySaver()
+_SERVICE_GRAPH = build_individual_learning_graph(checkpointer=_SERVICE_GRAPH_CHECKPOINTER)
 
 
 def _safe_filename(filename: str) -> str:
@@ -113,7 +118,7 @@ class IndividualLearningService:
         self, user_id: int, cv_document_id: int
     ) -> IndividualGraphStartResponse:
         thread_id = self._build_thread_id(user_id, cv_document_id)
-        graph = build_individual_learning_graph()
+        graph = self._get_graph()
         config = self._graph_config(thread_id)
         result = graph.invoke(
             {
@@ -133,7 +138,8 @@ class IndividualLearningService:
     def resume_individual_graph(
         self, user_id: int, thread_id: str, payload: dict[str, Any]
     ) -> IndividualGraphResumeResponse:
-        graph = build_individual_learning_graph()
+        self._validate_resume_thread(user_id, thread_id)
+        graph = self._get_graph()
         config = self._graph_config(thread_id)
         result = graph.invoke(Command(resume=payload), config)
         response_data = self._build_graph_response(thread_id, result)
@@ -153,6 +159,33 @@ class IndividualLearningService:
     @staticmethod
     def _graph_config(thread_id: str) -> dict[str, Any]:
         return {"configurable": {"thread_id": thread_id}}
+
+    @staticmethod
+    def _get_graph():
+        return _SERVICE_GRAPH
+
+    def _validate_resume_thread(self, user_id: int, thread_id: str) -> int:
+        cv_document_id = self._parse_thread_id(thread_id, user_id)
+        try:
+            self._load_profile_payload(user_id, cv_document_id)
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_404_NOT_FOUND:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Thread does not belong to the current user",
+                ) from exc
+            raise
+        return cv_document_id
+
+    @staticmethod
+    def _parse_thread_id(thread_id: str, user_id: int) -> int:
+        match = _THREAD_ID_PATTERN.fullmatch(thread_id)
+        if match is None or int(match.group("user_id")) != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Thread does not belong to the current user",
+            )
+        return int(match.group("cv_document_id"))
 
     def _load_profile_payload(self, user_id: int, cv_document_id: int) -> dict[str, Any]:
         if self._db is None:
