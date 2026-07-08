@@ -15,6 +15,8 @@ import {
   User,
   BrainCircuit,
   ListOrdered,
+  ListChecks,
+  BriefcaseBusiness,
 } from "lucide-react"
 import { useAuth } from "@/features/auth/context/AuthContext"
 import {
@@ -66,6 +68,13 @@ export function AppSidebar() {
     { title: "My Courses", url: "/courses", icon: BookOpen },
     { title: "Profile", url: "/profile", icon: User },
   ]
+  const individualItems = [
+    { title: "Dashboard", url: "/home", icon: LayoutDashboard },
+    { title: "CV Profile", url: "/individual/profile", icon: User },
+    { title: "Job Matches", url: "/individual/jobs", icon: BriefcaseBusiness },
+    { title: "Skill Selection", url: "/individual/skills", icon: ListChecks },
+    { title: "Learning Path", url: "/individual/learning-path", icon: Route },
+  ]
 
   const UserIcon = user?.role === "teacher" ? BookOpen : GraduationCap
   const arcdBase = courseId ? `/courses/${courseId}/arcd` : "#"
@@ -110,7 +119,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {globalItems.map((item) => (
+              {(user?.role === "individual" ? individualItems : globalItems).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <Link to={item.url}>

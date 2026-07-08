@@ -19,6 +19,11 @@ import StudentLearningPathPage from '@/features/student-learning-path/pages/Stud
 import StudentLearningPathStudyPage from '@/features/student-learning-path/pages/StudentLearningPathStudyPage';
 import Profile from '@/features/auth/pages/Profile';
 import TeacherDigitalTwinPage from '@/features/teacher-digital-twin/pages/TeacherDigitalTwinPage';
+import IndividualOnboardingPage from '@/features/individual-learning/pages/IndividualOnboardingPage';
+import IndividualProfilePage from '@/features/individual-learning/pages/IndividualProfilePage';
+import IndividualJobsPage from '@/features/individual-learning/pages/IndividualJobsPage';
+import IndividualSkillsPage from '@/features/individual-learning/pages/IndividualSkillsPage';
+import IndividualLearningPathPage from '@/features/individual-learning/pages/IndividualLearningPathPage';
 import { lazy, Suspense } from 'react';
 const ArcdAgentShell = lazy(() => import('@/features/arcd-agent/ArcdAgentShell'));
 
@@ -210,6 +215,46 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/individual/onboarding"
+        element={
+          <ProtectedRoute>
+            <IndividualOnboardingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/individual/profile"
+        element={
+          <ProtectedRoute>
+            <IndividualProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/individual/jobs"
+        element={
+          <ProtectedRoute>
+            <IndividualJobsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/individual/skills"
+        element={
+          <ProtectedRoute>
+            <IndividualSkillsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/individual/learning-path"
+        element={
+          <ProtectedRoute>
+            <IndividualLearningPathPage />
           </ProtectedRoute>
         }
       />

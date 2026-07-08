@@ -70,6 +70,21 @@ vi.mock('@/features/student-learning-path/pages/StudentLearningPathStudyPage', (
   default: () => <div>Study Page</div>,
 }));
 vi.mock('@/features/auth/pages/Profile', () => ({ default: () => <div>Profile</div> }));
+vi.mock('@/features/individual-learning/pages/IndividualOnboardingPage', () => ({
+  default: () => <div>Individual Onboarding</div>,
+}));
+vi.mock('@/features/individual-learning/pages/IndividualProfilePage', () => ({
+  default: () => <div>Individual Profile</div>,
+}));
+vi.mock('@/features/individual-learning/pages/IndividualJobsPage', () => ({
+  default: () => <div>Individual Jobs</div>,
+}));
+vi.mock('@/features/individual-learning/pages/IndividualSkillsPage', () => ({
+  default: () => <div>Individual Skills</div>,
+}));
+vi.mock('@/features/individual-learning/pages/IndividualLearningPathPage', () => ({
+  default: () => <div>Individual Learning Path</div>,
+}));
 
 import App from './App';
 
@@ -109,5 +124,13 @@ describe('App routing', () => {
     expect(screen.getByText('Study Page')).toBeInTheDocument();
     expect(screen.queryByText('Mock Sidebar')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Toggle theme/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps dashboard chrome on the individual profile route', () => {
+    renderAppAt('/individual/profile');
+
+    expect(screen.getByText('Individual Profile')).toBeInTheDocument();
+    expect(screen.getByText('Mock Sidebar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeInTheDocument();
   });
 });
