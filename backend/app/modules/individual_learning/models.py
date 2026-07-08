@@ -18,6 +18,10 @@ class IndividualRunStatus(StrEnum):
     FAILED = "failed"
 
 
+class CVDocumentStatus(StrEnum):
+    UPLOADED = "uploaded"
+
+
 class IndividualProfile(Base):
     __tablename__ = "individual_profiles"
 
@@ -48,7 +52,9 @@ class CVDocument(Base):
     content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
     content_hash: Mapped[str] = mapped_column(String(64), index=True)
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(String(50), default="uploaded")
+    status: Mapped[str] = mapped_column(
+        String(50), default=CVDocumentStatus.UPLOADED.value
+    )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)

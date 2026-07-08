@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from .models import IndividualProfile
+from .models import CVDocument, IndividualProfile
 
 
 class IndividualLearningRepository:
@@ -17,3 +17,12 @@ class IndividualLearningRepository:
             .filter(IndividualProfile.user_id == user_id)
             .one_or_none()
         )
+
+    def create_cv_document(self, cv_document: CVDocument) -> CVDocument:
+        if self._db is None:
+            raise RuntimeError("Database session is required")
+
+        self._db.add(cv_document)
+        self._db.commit()
+        self._db.refresh(cv_document)
+        return cv_document
