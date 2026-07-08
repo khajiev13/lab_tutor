@@ -130,12 +130,15 @@ def test_select_market_skills_rejects_cv_skill_label() -> None:
 def test_get_individual_skill_bank_reads_only_market_skills_from_interested_jobs() -> None:
     session = FakeSession(
         [
+            FakeResult(rows=[{"url": "https://jobs.example/backend"}]),
+            FakeResult(rows=[{"name": "Python"}]),
             FakeResult(
                 rows=[
                     {
-                        "job_posting": {
+                        "posting": {
                             "url": "https://jobs.example/backend",
                             "title": "Backend Engineer",
+                            "company": "Example",
                             "skills": [{"name": "Python", "category": "Programming"}],
                         }
                     }
@@ -147,14 +150,25 @@ def test_get_individual_skill_bank_reads_only_market_skills_from_interested_jobs
     result = neo4j_repository.get_individual_skill_bank(session, user_id=7)
     query, params = session.calls[0]
 
-    assert result == [
-        {
-            "url": "https://jobs.example/backend",
-            "title": "Backend Engineer",
-            "skills": [{"name": "Python", "category": "Programming"}],
-        }
-    ]
-    assert "MATCH (u:USER:INDIVIDUAL {id: $user_id})-[:INTERESTED_IN]->(jp:JOB_POSTING)" in query
-    assert "MATCH (sk:SKILL:MARKET_SKILL)-[:SOURCED_FROM]->(jp)" in query
+    interested_query, interested_params = session.calls[0]
+    selected_query, selected_params = session.calls[1]
+
+    assert result == {
+        "postings": [
+            {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+                "company": "Example",
+                "skills": [{"name": "Python", "category": "Programming"}],
+            }
+        ],
+        "selected_skill_names": ["Python"],
+        "interested_posting_urls": ["https://jobs.example/backend"],
+    }
+    assert "MATCH (u:USER:INDIVIDUAL {id: $user_id})-[r:INTERESTED_IN]->(jp:JOB_POSTING)" in interested_query
+    assert "MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:MARKET_SKILL)" in selected_query
+    assert "MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(ms:MARKET_SKILL)" in query
     assert "CV_SKILL" not in query
-    assert params["user_id"] == 7
+    assert interested_params["user_id"] == 7
+    assert selected_params["user_id"] == 7
+    assert params["interested_urls"] == ["https://jobs.example/backend"]

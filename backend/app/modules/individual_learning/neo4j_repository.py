@@ -153,31 +153,39 @@ def get_individual_skill_bank(
     session: Neo4jSession,
     *,
     user_id: int,
-) -> list[dict]:
-    result = session.run(
+) -> dict[str, list[dict] | list[str]]:
+    interested_result = session.run(
         """
-        MATCH (u:USER:INDIVIDUAL {id: $user_id})-[:INTERESTED_IN]->(jp:JOB_POSTING)
-        WITH DISTINCT jp
-        RETURN jp {
-            .url,
-            .title,
-            .company,
-            .site,
-            .search_term,
-            .country,
-            .location,
-            skills: COLLECT {
-                MATCH (sk:SKILL:MARKET_SKILL)-[:SOURCED_FROM]->(jp)
-                RETURN sk {
-                    .name,
-                    .category,
-                    .description
-                } AS skill
-                ORDER BY skill.name
-            }
-        } AS job_posting
-        ORDER BY jp.title, jp.company, jp.url
+        MATCH (u:USER:INDIVIDUAL {id: $user_id})-[r:INTERESTED_IN]->(jp:JOB_POSTING)
+        RETURN jp.url AS url
         """,
         user_id=user_id,
     )
-    return [record["job_posting"] for record in result]
+    interested_urls = [record["url"] for record in interested_result]
+
+    selected_result = session.run(
+        """
+        MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:MARKET_SKILL)
+        RETURN sk.name AS name
+        """,
+        user_id=user_id,
+    )
+    selected_names = [record["name"] for record in selected_result]
+
+    bank_result = session.run(
+        """
+        MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(ms:MARKET_SKILL)
+        WHERE jp.url IN $interested_urls
+        RETURN jp {
+            .url, .title, .company, .site, .search_term,
+            skills: collect(ms { .name, .description, .category })
+        } AS posting
+        ORDER BY jp.title, jp.company, jp.url
+        """,
+        interested_urls=interested_urls,
+    )
+    return {
+        "postings": [record["posting"] for record in bank_result],
+        "selected_skill_names": selected_names,
+        "interested_posting_urls": interested_urls,
+    }

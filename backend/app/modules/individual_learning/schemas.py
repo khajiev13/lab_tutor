@@ -90,3 +90,32 @@ class IndividualGraphStartResponse(IndividualGraphResponse):
 
 class IndividualGraphResumeResponse(IndividualGraphResponse):
     pass
+
+
+class IndividualSkillBankSkill(BaseModel):
+    name: str
+    description: str | None = None
+    category: str | None = None
+    is_selected: bool = False
+    coverage: Literal["covered", "gap", "partial", "unknown"] = "unknown"
+
+
+class IndividualSkillBankJobPosting(BaseModel):
+    url: str
+    title: str
+    company: str = ""
+    site: str | None = None
+    search_term: str | None = None
+    is_interested: bool = False
+    match_score: float | None = None
+    skills: list[IndividualSkillBankSkill] = Field(default_factory=list)
+
+
+class IndividualSkillBanksResponse(BaseModel):
+    market_skill_bank: list[IndividualSkillBankJobPosting] = Field(default_factory=list)
+    selected_skill_names: list[str] = Field(default_factory=list)
+    interested_posting_urls: list[str] = Field(default_factory=list)
+
+
+class SelectInterestedJobsRequest(BaseModel):
+    posting_urls: list[str] = Field(default_factory=list)

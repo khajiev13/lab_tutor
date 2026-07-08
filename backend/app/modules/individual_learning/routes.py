@@ -18,6 +18,8 @@ from .schemas import (
     IndividualGraphStartRequest,
     IndividualGraphStartResponse,
     IndividualProfileRead,
+    IndividualSkillBanksResponse,
+    SelectInterestedJobsRequest,
 )
 from .service import IndividualLearningService
 
@@ -75,3 +77,23 @@ def resume_individual_graph(
         body.thread_id,
         body.payload,
     )
+
+
+@router.get("/skill-banks", response_model=IndividualSkillBanksResponse)
+def get_skill_banks(
+    user: IndividualDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> IndividualSkillBanksResponse:
+    return _get_service(db, driver).get_skill_banks(user.id)
+
+
+@router.post("/interested-jobs")
+def select_interested_jobs(
+    body: SelectInterestedJobsRequest,
+    user: IndividualDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> dict[str, int]:
+    count = _get_service(db, driver).select_interested_jobs(user.id, body.posting_urls)
+    return {"postings_linked": count}

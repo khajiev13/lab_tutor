@@ -13,14 +13,22 @@ from app.providers.storage import blob_service
 
 from .cv_extractor import extract_cv_text
 from .graph import build_individual_learning_graph
+from .job_matcher import score_market_skill_coverage
 from .models import CVDocument, CVDocumentStatus, CVExtractionRun
-from .neo4j_repository import select_job_postings, select_market_skills
+from .neo4j_repository import (
+    get_individual_skill_bank,
+    select_job_postings,
+    select_market_skills,
+)
 from .repository import IndividualLearningRepository
 from .schemas import (
     CVDocumentRead,
     IndividualGraphResumeResponse,
     IndividualGraphStartResponse,
     IndividualProfileRead,
+    IndividualSkillBankJobPosting,
+    IndividualSkillBankSkill,
+    IndividualSkillBanksResponse,
 )
 
 _THREAD_ID_PATTERN = re.compile(r"^individual-(?P<user_id>\d+)-cv-(?P<cv_document_id>\d+)$")
@@ -53,6 +61,83 @@ class IndividualLearningService:
             preferred_location=profile.preferred_location,
             reviewed_at=profile.reviewed_at,
         )
+
+    def get_skill_banks(self, user_id: int) -> IndividualSkillBanksResponse:
+        driver = self._require_neo4j_driver()
+        with driver.session() as session:
+            raw_bank = get_individual_skill_bank(session, user_id=user_id)
+
+        cv_skill_names = self._list_cv_skill_names(user_id)
+        selected_skill_names = list(raw_bank["selected_skill_names"])
+        selected_skill_set = {name.casefold() for name in selected_skill_names}
+        interested_urls = list(raw_bank["interested_posting_urls"])
+        interested_url_set = set(interested_urls)
+
+        postings: list[IndividualSkillBankJobPosting] = []
+        for posting in raw_bank["postings"]:
+            skills = list(posting.get("skills") or [])
+            skill_names = [
+                str(skill.get("name", "")).strip()
+                for skill in skills
+                if str(skill.get("name", "")).strip()
+            ]
+            coverage_by_name = {
+                score.skill_name: score
+                for score in score_market_skill_coverage(
+                    cv_skill_names=cv_skill_names,
+                    market_skill_names=skill_names,
+                )
+            }
+            postings.append(
+                IndividualSkillBankJobPosting(
+                    url=str(posting.get("url", "")),
+                    title=str(posting.get("title", "")),
+                    company=str(posting.get("company", "")),
+                    site=posting.get("site"),
+                    search_term=posting.get("search_term"),
+                    is_interested=str(posting.get("url", "")) in interested_url_set,
+                    match_score=posting.get("match_score"),
+                    skills=[
+                        IndividualSkillBankSkill(
+                            name=skill_name,
+                            description=skill.get("description"),
+                            category=skill.get("category"),
+                            is_selected=skill_name.casefold() in selected_skill_set,
+                            coverage=coverage_by_name.get(skill_name).coverage
+                            if coverage_by_name.get(skill_name) is not None
+                            else "unknown",
+                        )
+                        for skill_name, skill in (
+                            (
+                                str(skill.get("name", "")).strip(),
+                                skill,
+                            )
+                            for skill in skills
+                        )
+                        if skill_name
+                    ],
+                )
+            )
+
+        return IndividualSkillBanksResponse(
+            market_skill_bank=postings,
+            selected_skill_names=selected_skill_names,
+            interested_posting_urls=interested_urls,
+        )
+
+    def select_interested_jobs(self, user_id: int, posting_urls: list[str]) -> int:
+        cleaned_posting_urls = list(dict.fromkeys(url.strip() for url in posting_urls if url.strip()))
+        if not cleaned_posting_urls:
+            return 0
+
+        driver = self._require_neo4j_driver()
+        with driver.session() as session:
+            return select_job_postings(
+                session,
+                user_id=user_id,
+                posting_urls=cleaned_posting_urls,
+                run_id="manual-selection",
+            )
 
     async def upload_cv(self, user_id: int, file: UploadFile) -> CVDocumentRead:
         filename = (file.filename or "").strip()
@@ -264,3 +349,44 @@ class IndividualLearningService:
                     user_id=user_id,
                     skill_names=skill_names,
                 )
+
+    def _list_cv_skill_names(self, user_id: int) -> list[str]:
+        if self._db is None:
+            return []
+
+        extraction = (
+            self._db.query(CVExtractionRun)
+            .filter(CVExtractionRun.user_id == user_id)
+            .order_by(CVExtractionRun.created_at.desc(), CVExtractionRun.id.desc())
+            .first()
+        )
+        if extraction is None:
+            return []
+
+        extracted_profile = extraction.extracted_profile_json or {}
+        skills = extracted_profile.get("skills")
+        if not isinstance(skills, list):
+            return []
+
+        unique_names: set[str] = set()
+        cv_skill_names: list[str] = []
+        for skill in skills:
+            if not isinstance(skill, dict):
+                continue
+            name = str(skill.get("name", "")).strip()
+            if not name:
+                continue
+            key = name.casefold()
+            if key in unique_names:
+                continue
+            unique_names.add(key)
+            cv_skill_names.append(name)
+        return cv_skill_names
+
+    def _require_neo4j_driver(self) -> Neo4jDriver:
+        if self._neo4j_driver is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Neo4j is not configured",
+            )
+        return self._neo4j_driver
