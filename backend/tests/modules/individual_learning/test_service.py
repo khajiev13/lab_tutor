@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import sys
+
 from fastapi import HTTPException
 from langgraph.types import Command
 
+from app.modules.individual_learning.job_search import (
+    extract_market_skills_for_jobs,
+    search_jobs_for_titles,
+)
 from app.modules.individual_learning.job_matcher import score_market_skill_coverage
 from app.modules.individual_learning.service import IndividualLearningService
 
@@ -265,3 +271,91 @@ def test_select_interested_jobs_uses_direct_individual_to_job_link(monkeypatch) 
         "https://jobs.example/platform",
     ]
     assert captured["run_id"] == "manual-selection"
+
+
+def test_search_jobs_for_titles_defaults_country_for_location_only_calls(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeFrame:
+        def iterrows(self):
+            yield 0, {
+                "job_url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+                "company_name": "Example",
+                "site": "indeed",
+                "location": "New York, NY",
+                "description": "Build APIs with FastAPI and Docker",
+                "skills": None,
+            }
+
+    class FakeJobSpyModule:
+        @staticmethod
+        def scrape_jobs(**kwargs):
+            captured.update(kwargs)
+            return FakeFrame()
+
+    monkeypatch.setitem(sys.modules, "jobspy", FakeJobSpyModule)
+
+    jobs = search_jobs_for_titles(
+        target_titles=["Backend Engineer"],
+        country="",
+        location="New York",
+    )
+
+    assert captured["country_indeed"] == "USA"
+    assert captured["location"] == "New York"
+    assert jobs == [
+        {
+            "url": "https://jobs.example/backend",
+            "title": "Backend Engineer",
+            "company": "Example",
+            "site": "indeed",
+            "search_term": "Backend Engineer",
+            "country": "USA",
+            "location": "New York, NY",
+            "description": "Build APIs with FastAPI and Docker",
+            "skills": None,
+        }
+    ]
+
+
+def test_extract_market_skills_for_jobs_prefers_explicit_skills_then_description_fallback() -> None:
+    result = extract_market_skills_for_jobs(
+        [
+            {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+                "skills": ["Python, SQL", {"name": "Docker"}, "Python"],
+                "description": "FastAPI and Docker appear here too",
+            },
+            {
+                "url": "https://jobs.example/platform",
+                "title": "Platform Engineer",
+                "skills": None,
+                "description": "Need Kubernetes, AWS, and PostgreSQL experience",
+            },
+        ]
+    )
+
+    assert result["https://jobs.example/backend"] == [
+        {"name": "Python", "category": "Market Skill"},
+        {"name": "SQL", "category": "Market Skill"},
+        {"name": "Docker", "category": "Market Skill"},
+    ]
+    assert result["https://jobs.example/platform"] == [
+        {
+            "name": "Kubernetes",
+            "category": "Market Skill",
+            "description": "Inferred from job description for Platform Engineer",
+        },
+        {
+            "name": "PostgreSQL",
+            "category": "Market Skill",
+            "description": "Inferred from job description for Platform Engineer",
+        },
+        {
+            "name": "AWS",
+            "category": "Market Skill",
+            "description": "Inferred from job description for Platform Engineer",
+        },
+    ]

@@ -3,7 +3,10 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-from app.modules.marketdemandanalyst.countries import normalize_job_search_country
+from app.modules.marketdemandanalyst.countries import (
+    DEFAULT_JOB_SEARCH_COUNTRY,
+    normalize_job_search_country,
+)
 
 _SKILL_SPLIT_RE = re.compile(r"[,/|;\n]+")
 _DESCRIPTION_SKILL_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -27,7 +30,7 @@ def search_jobs_for_titles(
     if not terms:
         return []
 
-    selected_country = normalize_job_search_country(country or location)
+    selected_country = _resolve_job_search_country(country)
     try:
         from jobspy import scrape_jobs
     except ImportError:
@@ -66,6 +69,11 @@ def search_jobs_for_titles(
                 "skills": row.get("skills"),
             }
     return list(jobs_by_url.values())
+
+
+def _resolve_job_search_country(country: str) -> object:
+    raw_country = country.strip() or DEFAULT_JOB_SEARCH_COUNTRY
+    return normalize_job_search_country(raw_country)
 
 
 def extract_market_skills_for_jobs(jobs: list[dict]) -> dict[str, list[dict]]:

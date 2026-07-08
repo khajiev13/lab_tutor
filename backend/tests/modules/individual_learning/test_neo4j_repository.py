@@ -148,10 +148,9 @@ def test_get_individual_skill_bank_reads_only_market_skills_from_interested_jobs
     )
 
     result = neo4j_repository.get_individual_skill_bank(session, user_id=7)
-    query, params = session.calls[0]
-
     interested_query, interested_params = session.calls[0]
     selected_query, selected_params = session.calls[1]
+    bank_query, bank_params = session.calls[2]
 
     assert result == {
         "postings": [
@@ -167,8 +166,8 @@ def test_get_individual_skill_bank_reads_only_market_skills_from_interested_jobs
     }
     assert "MATCH (u:USER:INDIVIDUAL {id: $user_id})-[r:INTERESTED_IN]->(jp:JOB_POSTING)" in interested_query
     assert "MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:MARKET_SKILL)" in selected_query
-    assert "MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(ms:MARKET_SKILL)" in query
-    assert "CV_SKILL" not in query
+    assert "MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(ms:MARKET_SKILL)" in bank_query
+    assert "CV_SKILL" not in bank_query
     assert interested_params["user_id"] == 7
     assert selected_params["user_id"] == 7
-    assert params["interested_urls"] == ["https://jobs.example/backend"]
+    assert bank_params["interested_urls"] == ["https://jobs.example/backend"]
