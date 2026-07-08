@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -61,3 +61,32 @@ class CVProfileExtraction(BaseModel):
     industries: list[str] = Field(default_factory=list)
     seniority_signals: list[str] = Field(default_factory=list)
     target_title_suggestions: list[str] = Field(default_factory=list)
+
+
+GraphRunStatus = Literal["interrupted", "completed"]
+
+
+class IndividualGraphStartRequest(BaseModel):
+    cv_document_id: int
+
+
+class IndividualGraphResumeRequest(BaseModel):
+    thread_id: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class IndividualGraphResponse(BaseModel):
+    thread_id: str
+    status: GraphRunStatus
+    interrupt: dict[str, Any] | None = None
+    target_titles: list[str] = Field(default_factory=list)
+    selected_posting_urls: list[str] = Field(default_factory=list)
+    selected_skill_names: list[str] = Field(default_factory=list)
+
+
+class IndividualGraphStartResponse(IndividualGraphResponse):
+    pass
+
+
+class IndividualGraphResumeResponse(IndividualGraphResponse):
+    pass

@@ -11,7 +11,14 @@ from app.core.neo4j import get_neo4j_driver
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
 
-from .schemas import CVDocumentRead, IndividualProfileRead
+from .schemas import (
+    CVDocumentRead,
+    IndividualGraphResumeRequest,
+    IndividualGraphResumeResponse,
+    IndividualGraphStartRequest,
+    IndividualGraphStartResponse,
+    IndividualProfileRead,
+)
 from .service import IndividualLearningService
 
 router = APIRouter(prefix="/individual-learning", tags=["individual-learning"])
@@ -41,3 +48,30 @@ async def upload_cv(
     file: UploadFile = File(...),
 ) -> CVDocumentRead:
     return await _get_service(db, driver).upload_cv(user.id, file)
+
+
+@router.post("/graph/start", response_model=IndividualGraphStartResponse)
+def start_individual_graph(
+    body: IndividualGraphStartRequest,
+    user: IndividualDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> IndividualGraphStartResponse:
+    return _get_service(db, driver).start_individual_graph(
+        user.id,
+        body.cv_document_id,
+    )
+
+
+@router.post("/graph/resume", response_model=IndividualGraphResumeResponse)
+def resume_individual_graph(
+    body: IndividualGraphResumeRequest,
+    user: IndividualDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> IndividualGraphResumeResponse:
+    return _get_service(db, driver).resume_individual_graph(
+        user.id,
+        body.thread_id,
+        body.payload,
+    )
