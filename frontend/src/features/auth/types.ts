@@ -8,7 +8,7 @@ export interface RegisterData {
   last_name: string;
   email: string;
   password: string;
-  role: 'student' | 'teacher';
+  role: 'student' | 'teacher' | 'individual';
 }
 
 export interface LoginResponse {
@@ -22,6 +22,6 @@ export interface UserResponse {
   first_name: string;
   last_name: string;
   email: string;
-  role: 'student' | 'teacher';
+  role: 'student' | 'teacher' | 'individual';
   created_at: string;
 }

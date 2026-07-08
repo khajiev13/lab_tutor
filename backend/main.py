@@ -304,6 +304,17 @@ def _ensure_sql_schema_upgrades() -> None:
                 text("ALTER TYPE book_status ADD VALUE IF NOT EXISTS 'ignored'")
             )
 
+        has_individual_role = conn.execute(
+            text(
+                "SELECT 1 FROM pg_enum e "
+                "JOIN pg_type t ON t.oid = e.enumtypid "
+                "WHERE t.typname = 'user_role' "
+                "AND e.enumlabel = 'individual'"
+            )
+        ).fetchone()
+        if not has_individual_role:
+            conn.execute(text("ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'individual'"))
+
         # Migrate vector columns to the correct dimension (2048).
         # text-embedding-v4 actually returns 2048-dim vectors.
         # Previous deployments may have used 2536 or 3072 — fix both.

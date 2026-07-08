@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { UserPlus, Mail, Lock, User, Loader2, GraduationCap, BookOpen } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Loader2, GraduationCap, BookOpen, BriefcaseBusiness } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +47,7 @@ const registerSchema = z.object({
     .max(100, 'Last name must be 100 characters or less'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['student', 'teacher'], {
+  role: z.enum(['student', 'teacher', 'individual'], {
     message: 'Please select a role',
   }),
 });
@@ -223,6 +223,12 @@ export default function Register() {
                           <div className="flex items-center">
                             <BookOpen className="mr-2 h-4 w-4" />
                             Teacher
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="individual">
+                          <div className="flex items-center">
+                            <BriefcaseBusiness className="mr-2 h-4 w-4" />
+                            Individual
                           </div>
                         </SelectItem>
                       </SelectContent>

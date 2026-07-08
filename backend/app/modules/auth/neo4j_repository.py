@@ -15,9 +15,10 @@ SET
     u.created_at = $created_at
 WITH u
 REMOVE u.role
-REMOVE u:STUDENT:TEACHER
+REMOVE u:STUDENT:TEACHER:INDIVIDUAL
 FOREACH (_ IN CASE WHEN $role = 'student' THEN [1] ELSE [] END | SET u:STUDENT)
 FOREACH (_ IN CASE WHEN $role = 'teacher' THEN [1] ELSE [] END | SET u:TEACHER)
+FOREACH (_ IN CASE WHEN $role = 'individual' THEN [1] ELSE [] END | SET u:INDIVIDUAL)
 """
 
 

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 class UserRole(StrEnum):
     STUDENT = "student"
     TEACHER = "teacher"
+    INDIVIDUAL = "individual"
 
 
 class User(SQLAlchemyBaseUserTable[int], Base):
