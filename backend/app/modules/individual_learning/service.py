@@ -166,6 +166,11 @@ class IndividualLearningService:
 
     def _validate_resume_thread(self, user_id: int, thread_id: str) -> int:
         cv_document_id = self._parse_thread_id(thread_id, user_id)
+        if self._db is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Thread does not belong to the current user",
+            )
         try:
             self._load_profile_payload(user_id, cv_document_id)
         except HTTPException as exc:

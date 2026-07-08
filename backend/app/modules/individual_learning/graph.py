@@ -32,8 +32,6 @@ def review_profile_and_roles(state: IndividualLearningState) -> dict[str, Any]:
     return {
         "profile": dict(decision.get("profile", profile)),
         "target_titles": list(decision.get("target_titles", [])),
-        "candidate_jobs": list(decision.get("candidate_jobs", [])),
-        "skill_bank": list(decision.get("skill_bank", [])),
     }
 
 

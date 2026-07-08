@@ -87,6 +87,30 @@ def test_resume_individual_graph_rejects_missing_cv_for_owned_thread(monkeypatch
         raise AssertionError("Expected HTTPException when CV ownership cannot be proven")
 
 
+def test_resume_individual_graph_rejects_owned_thread_when_db_is_unavailable(
+    monkeypatch,
+) -> None:
+    service = IndividualLearningService(db=None, neo4j_driver=None)
+
+    monkeypatch.setattr(
+        IndividualLearningService,
+        "_get_graph",
+        staticmethod(lambda: (_ for _ in ()).throw(AssertionError("graph should not be built"))),
+    )
+
+    try:
+        service.resume_individual_graph(
+            user_id=7,
+            thread_id="individual-7-cv-3",
+            payload={},
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 403
+        assert exc.detail == "Thread does not belong to the current user"
+    else:
+        raise AssertionError("Expected HTTPException when DB ownership proof is unavailable")
+
+
 def test_resume_individual_graph_allows_owned_thread_and_invokes_graph(monkeypatch) -> None:
     service = IndividualLearningService(db=None, neo4j_driver=None)
     resume_payload = {"approved": True}
@@ -102,11 +126,7 @@ def test_resume_individual_graph_allows_owned_thread_and_invokes_graph(monkeypat
                 "selected_skill_names": [],
             }
 
-    monkeypatch.setattr(
-        service,
-        "_load_profile_payload",
-        lambda user_id, cv_document_id: {"target_title_suggestions": ["Data Analyst"]},
-    )
+    monkeypatch.setattr(service, "_validate_resume_thread", lambda user_id, thread_id: 3)
     monkeypatch.setattr(
         IndividualLearningService,
         "_get_graph",

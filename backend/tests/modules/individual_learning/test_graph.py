@@ -29,12 +29,28 @@ def test_graph_interrupts_for_profile_review() -> None:
 def test_graph_resumes_to_skill_selection_interrupt() -> None:
     graph = build_individual_learning_graph()
     config = {"configurable": {"thread_id": "individual-7"}}
+    candidate_jobs = [
+        {
+            "url": "https://jobs.example/backend",
+            "title": "Backend Engineer",
+            "skills": [{"name": "Python", "category": "Programming"}],
+        }
+    ]
+    skill_bank = [
+        {
+            "name": "Python",
+            "category": "Programming",
+            "description": "Write backend services",
+        }
+    ]
     graph.invoke(
         {
             "user_id": 7,
             "cv_document_id": 3,
             "profile": {"skills": [], "target_title_suggestions": ["Data Analyst"]},
             "target_titles": [],
+            "candidate_jobs": candidate_jobs,
+            "skill_bank": skill_bank,
             "selected_posting_urls": [],
             "selected_skill_names": [],
         },
@@ -47,10 +63,13 @@ def test_graph_resumes_to_skill_selection_interrupt() -> None:
     )
 
     assert "__interrupt__" in result
-    assert result["__interrupt__"][0].value["kind"] == "choose_jobs_and_skills"
+    interrupt_value = result["__interrupt__"][0].value
+    assert interrupt_value["kind"] == "choose_jobs_and_skills"
+    assert interrupt_value["candidate_jobs"] == candidate_jobs
+    assert interrupt_value["skill_bank"] == skill_bank
 
 
-def test_graph_carries_candidate_jobs_and_skill_bank_from_first_resume() -> None:
+def test_graph_ignores_resume_payload_attempts_to_override_server_candidate_jobs_and_skill_bank() -> None:
     graph = build_individual_learning_graph()
     config = {"configurable": {"thread_id": "individual-7"}}
     candidate_jobs = [
@@ -73,6 +92,8 @@ def test_graph_carries_candidate_jobs_and_skill_bank_from_first_resume() -> None
             "cv_document_id": 3,
             "profile": {"skills": [], "target_title_suggestions": ["Data Analyst"]},
             "target_titles": [],
+            "candidate_jobs": candidate_jobs,
+            "skill_bank": skill_bank,
             "selected_posting_urls": [],
             "selected_skill_names": [],
         },
@@ -84,8 +105,8 @@ def test_graph_carries_candidate_jobs_and_skill_bank_from_first_resume() -> None
             resume={
                 "approved": True,
                 "target_titles": ["Data Analyst"],
-                "candidate_jobs": candidate_jobs,
-                "skill_bank": skill_bank,
+                "candidate_jobs": [{"url": "https://jobs.example/injected"}],
+                "skill_bank": [{"name": "Injected"}],
             }
         ),
         config,
@@ -96,6 +117,64 @@ def test_graph_carries_candidate_jobs_and_skill_bank_from_first_resume() -> None
     assert interrupt_value["kind"] == "choose_jobs_and_skills"
     assert interrupt_value["candidate_jobs"] == candidate_jobs
     assert interrupt_value["skill_bank"] == skill_bank
+
+
+def test_graph_derives_skill_bank_from_server_candidate_jobs_when_state_has_no_skill_bank() -> None:
+    graph = build_individual_learning_graph()
+    config = {"configurable": {"thread_id": "individual-7"}}
+    candidate_jobs = [
+        {
+            "url": "https://jobs.example/backend",
+            "title": "Backend Engineer",
+            "skills": [
+                {
+                    "name": "Python",
+                    "category": "Programming",
+                    "description": "Write backend services",
+                },
+                {
+                    "name": "SQL",
+                    "category": "Data",
+                    "description": "Query relational databases",
+                },
+            ],
+        }
+    ]
+    graph.invoke(
+        {
+            "user_id": 7,
+            "cv_document_id": 3,
+            "profile": {"skills": [], "target_title_suggestions": ["Data Analyst"]},
+            "target_titles": [],
+            "candidate_jobs": candidate_jobs,
+            "skill_bank": [],
+            "selected_posting_urls": [],
+            "selected_skill_names": [],
+        },
+        config,
+    )
+
+    result = graph.invoke(
+        Command(resume={"approved": True, "target_titles": ["Data Analyst"]}),
+        config,
+    )
+
+    assert "__interrupt__" in result
+    interrupt_value = result["__interrupt__"][0].value
+    assert interrupt_value["kind"] == "choose_jobs_and_skills"
+    assert interrupt_value["candidate_jobs"] == candidate_jobs
+    assert interrupt_value["skill_bank"] == [
+        {
+            "name": "Python",
+            "category": "Programming",
+            "description": "Write backend services",
+        },
+        {
+            "name": "SQL",
+            "category": "Data",
+            "description": "Query relational databases",
+        },
+    ]
 
 
 def test_graph_filters_selected_jobs_and_skills_against_market_inputs() -> None:
@@ -121,6 +200,8 @@ def test_graph_filters_selected_jobs_and_skills_against_market_inputs() -> None:
             "cv_document_id": 3,
             "profile": {"skills": [], "target_title_suggestions": ["Data Analyst"]},
             "target_titles": [],
+            "candidate_jobs": candidate_jobs,
+            "skill_bank": skill_bank,
             "selected_posting_urls": [],
             "selected_skill_names": [],
         },
@@ -131,8 +212,6 @@ def test_graph_filters_selected_jobs_and_skills_against_market_inputs() -> None:
             resume={
                 "approved": True,
                 "target_titles": ["Data Analyst"],
-                "candidate_jobs": candidate_jobs,
-                "skill_bank": skill_bank,
             }
         ),
         config,
