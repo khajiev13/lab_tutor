@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session
 
@@ -17,8 +17,10 @@ from .schemas import (
     IndividualGraphResumeResponse,
     IndividualGraphStartRequest,
     IndividualGraphStartResponse,
+    IndividualLearningPathResponse,
     IndividualProfileRead,
     IndividualSkillBanksResponse,
+    SelectIndividualSkillsRequest,
     SelectInterestedJobsRequest,
 )
 from .service import IndividualLearningService
@@ -97,3 +99,58 @@ def select_interested_jobs(
 ) -> dict[str, int]:
     count = _get_service(db, driver).select_interested_jobs(user.id, body.posting_urls)
     return {"postings_linked": count}
+
+
+@router.post("/select-skills", status_code=status.HTTP_200_OK)
+def select_skills(
+    body: SelectIndividualSkillsRequest,
+    user: IndividualDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> dict[str, int]:
+    try:
+        count = _get_service(db, driver).select_skills(user.id, body.skill_names)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    return {"selected": count}
+
+
+@router.delete("/select-skills")
+def deselect_skills(
+    body: SelectIndividualSkillsRequest,
+    user: IndividualDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> dict[str, int]:
+    count = _get_service(db, driver).deselect_skills(user.id, body.skill_names)
+    return {"deselected": count}
+
+
+@router.post("/build", status_code=status.HTTP_200_OK)
+def build_learning_path(
+    body: SelectIndividualSkillsRequest,
+    user: IndividualDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> dict[str, str]:
+    try:
+        return _get_service(db, driver).build_learning_path(user.id, body.skill_names)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get("/path", response_model=IndividualLearningPathResponse)
+def get_learning_path(
+    user: IndividualDep,
+    db: DbDep,
+    driver: Neo4jDep,
+) -> IndividualLearningPathResponse:
+    return IndividualLearningPathResponse.model_validate(
+        _get_service(db, driver).get_learning_path(user.id)
+    )

@@ -9,14 +9,27 @@ from langgraph.types import Command
 from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session
 
+from app.core.resource_pipeline.neo4j_repository import write_resources
+from app.core.resource_pipeline.schemas import SkillProfile
 from app.providers.storage import blob_service
+from app.modules.question_generation.neo4j_repository import write_questions
+from app.modules.question_generation.service import generate_questions_for_skill
+from app.modules.textualresourceanalyst.config import RELATIONSHIP as READING_RELATIONSHIP
+from app.modules.textualresourceanalyst.config import RESOURCE_LABEL as READING_LABEL
+from app.modules.textualresourceanalyst.service import fetch_readings_for_skill
+from app.modules.visualcontentevaluator.config import RELATIONSHIP as VIDEO_RELATIONSHIP
+from app.modules.visualcontentevaluator.config import RESOURCE_LABEL as VIDEO_LABEL
+from app.modules.visualcontentevaluator.service import fetch_videos_for_skill
 
 from .cv_extractor import extract_cv_text
 from .graph import build_individual_learning_graph
 from .job_matcher import score_market_skill_coverage
 from .models import CVDocument, CVDocumentStatus, CVExtractionRun
 from .neo4j_repository import (
+    deselect_market_skills,
+    get_individual_learning_path,
     get_individual_skill_bank,
+    get_selected_market_skill_profiles,
     select_job_postings,
     select_market_skills,
 )
@@ -138,6 +151,104 @@ class IndividualLearningService:
                 posting_urls=cleaned_posting_urls,
                 run_id="manual-selection",
             )
+
+    def validate_selected_skill_names(self, skill_names: list[str]) -> None:
+        if not skill_names:
+            raise ValueError("Select at least one market skill before building")
+        if len(skill_names) > 20:
+            raise ValueError("Select no more than 20 market skills before building")
+
+    def select_skills(
+        self,
+        user_id: int,
+        skill_names: list[str],
+        source: str = "individual_market_skill",
+    ) -> int:
+        cleaned_skill_names = self._clean_skill_names(skill_names)
+        self.validate_selected_skill_names(cleaned_skill_names)
+
+        driver = self._require_neo4j_driver()
+        with driver.session() as session:
+            return select_market_skills(
+                session,
+                user_id=user_id,
+                skill_names=cleaned_skill_names,
+                source=source,
+            )
+
+    def deselect_skills(self, user_id: int, skill_names: list[str]) -> int:
+        cleaned_skill_names = self._clean_skill_names(skill_names)
+        if not cleaned_skill_names:
+            return 0
+
+        driver = self._require_neo4j_driver()
+        with driver.session() as session:
+            return deselect_market_skills(
+                session,
+                user_id=user_id,
+                skill_names=cleaned_skill_names,
+            )
+
+    def build_learning_path(
+        self,
+        user_id: int,
+        selected_skill_names: list[str],
+    ) -> dict[str, str]:
+        cleaned_skill_names = self._clean_skill_names(selected_skill_names)
+        self.validate_selected_skill_names(cleaned_skill_names)
+
+        driver = self._require_neo4j_driver()
+        with driver.session() as session:
+            select_market_skills(
+                session,
+                user_id=user_id,
+                skill_names=cleaned_skill_names,
+                source="individual_market_skill",
+            )
+            selected_skills = get_selected_market_skill_profiles(session, user_id=user_id)
+
+        if not selected_skills:
+            raise ValueError("Select at least one valid market skill before building")
+
+        for skill in selected_skills:
+            skill_profile = self._build_market_skill_profile(skill)
+            readings = fetch_readings_for_skill(skill_profile)
+            videos = fetch_videos_for_skill(skill_profile)
+            questions = generate_questions_for_skill(
+                skill_profile.name,
+                skill_profile.description,
+                skill_profile.concepts,
+                skill_profile.course_level,
+            )
+
+            with driver.session() as session:
+                if readings:
+                    write_resources(
+                        session,
+                        skill_profile.name,
+                        skill_profile.skill_type,
+                        readings,
+                        READING_LABEL,
+                        READING_RELATIONSHIP,
+                    )
+                if videos:
+                    write_resources(
+                        session,
+                        skill_profile.name,
+                        skill_profile.skill_type,
+                        videos,
+                        VIDEO_LABEL,
+                        VIDEO_RELATIONSHIP,
+                    )
+                if questions:
+                    write_questions(session, skill_profile.name, questions)
+
+        return {"status": "completed"}
+
+    def get_learning_path(self, user_id: int) -> dict[str, object]:
+        driver = self._require_neo4j_driver()
+        with driver.session() as session:
+            return get_individual_learning_path(session, user_id=user_id)
 
     async def upload_cv(self, user_id: int, file: UploadFile) -> CVDocumentRead:
         filename = (file.filename or "").strip()
@@ -349,6 +460,43 @@ class IndividualLearningService:
                     user_id=user_id,
                     skill_names=skill_names,
                 )
+
+    @staticmethod
+    def _clean_skill_names(skill_names: list[str]) -> list[str]:
+        cleaned_skill_names: list[str] = []
+        seen: set[str] = set()
+        for raw_name in skill_names:
+            name = raw_name.strip()
+            if not name:
+                continue
+            key = name.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned_skill_names.append(name)
+        return cleaned_skill_names
+
+    @staticmethod
+    def _build_market_skill_profile(skill: dict[str, Any]) -> SkillProfile:
+        concepts = [
+            concept
+            for concept in skill.get("concepts", [])
+            if isinstance(concept, dict) and concept.get("name")
+        ]
+        job_evidence = [
+            str(evidence)[:500]
+            for evidence in skill.get("job_evidence", [])
+            if evidence
+        ]
+        return SkillProfile(
+            name=str(skill.get("name", "")),
+            skill_type="market",
+            description=str(skill.get("description", "") or ""),
+            concepts=concepts,
+            category=str(skill.get("category", "") or ""),
+            job_evidence=job_evidence,
+            course_level="bachelor",
+        )
 
     def _list_cv_skill_names(self, user_id: int) -> list[str]:
         if self._db is None:

@@ -117,5 +117,45 @@ class IndividualSkillBanksResponse(BaseModel):
     interested_posting_urls: list[str] = Field(default_factory=list)
 
 
+class IndividualLearningPathResourceRead(BaseModel):
+    id: str = ""
+    title: str = ""
+    url: str = ""
+    domain: str | None = None
+    snippet: str | None = None
+    search_content: str | None = None
+    resource_type: str | None = None
+    final_score: float | None = None
+    video_id: str | None = None
+
+
+class IndividualLearningPathQuestionRead(BaseModel):
+    id: str = ""
+    text: str = ""
+    difficulty: Literal["easy", "medium", "hard"]
+    options: list[str] = Field(default_factory=list)
+
+
+class IndividualLearningPathSkillRead(BaseModel):
+    name: str
+    description: str | None = None
+    source: str | None = None
+    selected_at: str | None = None
+    readings: list[IndividualLearningPathResourceRead] = Field(default_factory=list)
+    videos: list[IndividualLearningPathResourceRead] = Field(default_factory=list)
+    questions: list[IndividualLearningPathQuestionRead] = Field(default_factory=list)
+
+
+class IndividualLearningPathResponse(BaseModel):
+    user_id: int
+    selected_skills: list[IndividualLearningPathSkillRead] = Field(default_factory=list)
+    total_selected_skills: int = 0
+    skills_with_resources: int = 0
+
+
 class SelectInterestedJobsRequest(BaseModel):
     posting_urls: list[str] = Field(default_factory=list)
+
+
+class SelectIndividualSkillsRequest(BaseModel):
+    skill_names: list[str] = Field(default_factory=list)

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sys
+from types import SimpleNamespace
 
+import pytest
 from fastapi import HTTPException
 from langgraph.types import Command
 
@@ -20,6 +22,240 @@ def test_get_profile_returns_default_onboarding_state() -> None:
     assert profile.user_id == 42
     assert profile.onboarding_status == "needs_cv"
     assert profile.target_titles == []
+
+
+def test_select_skills_requires_market_skills() -> None:
+    service = IndividualLearningService(db=None, neo4j_driver=None)
+
+    with pytest.raises(ValueError, match="Select at least one market skill before building"):
+        service.validate_selected_skill_names([])
+
+
+def test_select_skills_rejects_more_than_twenty_market_skills() -> None:
+    service = IndividualLearningService(db=None, neo4j_driver=None)
+
+    with pytest.raises(
+        ValueError,
+        match="Select no more than 20 market skills before building",
+    ):
+        service.validate_selected_skill_names([f"Skill {index}" for index in range(21)])
+
+
+def test_select_skills_persists_unique_clean_market_skill_names(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+
+    def fake_select_market_skills(
+        session,
+        *,
+        user_id: int,
+        skill_names: list[str],
+        source: str,
+    ) -> int:
+        captured["user_id"] = user_id
+        captured["skill_names"] = skill_names
+        captured["source"] = source
+        return len(skill_names)
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.select_market_skills",
+        fake_select_market_skills,
+    )
+
+    count = service.select_skills(
+        user_id=7,
+        skill_names=[" Python ", "Docker", "Python", ""],
+        source="manual-selection",
+    )
+
+    assert count == 2
+    assert captured == {
+        "user_id": 7,
+        "skill_names": ["Python", "Docker"],
+        "source": "manual-selection",
+    }
+
+
+def test_build_learning_path_runs_sync_resource_pipeline(monkeypatch) -> None:
+    selection_calls: list[dict[str, object]] = []
+    reading_writes: list[tuple[str, str, list[object], str, str]] = []
+    question_writes: list[tuple[str, list[object]]] = []
+    captured_profiles: list[object] = []
+
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.select_market_skills",
+        lambda _session, *, user_id, skill_names, source: (
+            selection_calls.append(
+                {
+                    "user_id": user_id,
+                    "skill_names": skill_names,
+                    "source": source,
+                }
+            )
+            or len(skill_names)
+        ),
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_profiles",
+        lambda _session, *, user_id: [
+            {
+                "name": "GraphQL",
+                "description": "Build production GraphQL APIs",
+                "category": "Backend",
+                "concepts": [{"name": "Resolvers", "definition": "Field handlers"}],
+                "job_evidence": ["Need GraphQL API ownership"],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.fetch_readings_for_skill",
+        lambda skill_profile: (captured_profiles.append(skill_profile) or ["reading-resource"]),
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.fetch_videos_for_skill",
+        lambda skill_profile: ["video-resource"],
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.generate_questions_for_skill",
+        lambda *_args: [
+            SimpleNamespace(text="Q1", difficulty="easy", options=["A", "B", "C", "D"]),
+            SimpleNamespace(text="Q2", difficulty="medium", options=["A", "B", "C", "D"]),
+            SimpleNamespace(text="Q3", difficulty="hard", options=["A", "B", "C", "D"]),
+        ],
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.write_resources",
+        lambda _session, skill_name, skill_type, resources, resource_label, relationship: (
+            reading_writes.append(
+                (skill_name, skill_type, resources, resource_label, relationship)
+            )
+            or len(resources)
+        ),
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.write_questions",
+        lambda _session, skill_name, questions: (
+            question_writes.append((skill_name, questions)) or len(questions)
+        ),
+    )
+
+    result = service.build_learning_path(user_id=7, selected_skill_names=["GraphQL"])
+
+    assert result == {"status": "completed"}
+    assert selection_calls == [
+        {
+            "user_id": 7,
+            "skill_names": ["GraphQL"],
+            "source": "individual_market_skill",
+        }
+    ]
+    assert captured_profiles
+    skill_profile = captured_profiles[0]
+    assert skill_profile.name == "GraphQL"
+    assert skill_profile.skill_type == "market"
+    assert skill_profile.category == "Backend"
+    assert reading_writes == [
+        ("GraphQL", "market", ["reading-resource"], "READING_RESOURCE", "HAS_READING"),
+        ("GraphQL", "market", ["video-resource"], "VIDEO_RESOURCE", "HAS_VIDEO"),
+    ]
+    assert len(question_writes) == 1
+    assert question_writes[0][0] == "GraphQL"
+    assert len(question_writes[0][1]) == 3
+
+
+def test_build_learning_path_requires_valid_persisted_market_skills(monkeypatch) -> None:
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.select_market_skills",
+        lambda *_args, **_kwargs: 0,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_selected_market_skill_profiles",
+        lambda _session, *, user_id: [],
+    )
+
+    with pytest.raises(
+        ValueError, match="Select at least one valid market skill before building"
+    ):
+        service.build_learning_path(user_id=7, selected_skill_names=["Unknown Skill"])
+
+
+def test_get_learning_path_reads_selected_market_skill_projection(monkeypatch) -> None:
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_individual_learning_path",
+        lambda _session, *, user_id: {
+            "user_id": user_id,
+            "selected_skills": [
+                {
+                    "name": "GraphQL",
+                    "description": "Build production GraphQL APIs",
+                    "source": "individual_market_skill",
+                    "readings": [{"id": "reading-1", "title": "Guide", "url": "https://example.com"}],
+                    "videos": [],
+                    "questions": [],
+                }
+            ],
+            "total_selected_skills": 1,
+            "skills_with_resources": 1,
+        },
+    )
+
+    response = service.get_learning_path(user_id=7)
+
+    assert response["user_id"] == 7
+    assert response["total_selected_skills"] == 1
+    assert response["skills_with_resources"] == 1
+    assert response["selected_skills"][0]["name"] == "GraphQL"
 
 
 def test_resume_individual_graph_rejects_malformed_thread_id(monkeypatch) -> None:

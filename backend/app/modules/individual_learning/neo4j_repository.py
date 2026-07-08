@@ -149,6 +149,54 @@ def select_market_skills(
     return int(record["written"] if record else 0)
 
 
+def deselect_market_skills(
+    session: Neo4jSession,
+    *,
+    user_id: int,
+    skill_names: list[str],
+) -> int:
+    result = session.run(
+        """
+        UNWIND $skill_names AS skill_name
+        MATCH (u:USER:INDIVIDUAL {id: $user_id})-[r:SELECTED_SKILL]->(sk:SKILL:MARKET_SKILL {name: skill_name})
+        DELETE r
+        RETURN count(*) AS deleted
+        """,
+        user_id=user_id,
+        skill_names=skill_names,
+    )
+    record = result.single()
+    return int(record["deleted"] if record else 0)
+
+
+def get_selected_market_skill_profiles(
+    session: Neo4jSession,
+    *,
+    user_id: int,
+) -> list[dict]:
+    result = session.run(
+        """
+        MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:SKILL:MARKET_SKILL)
+        RETURN sk {
+            .name,
+            .description,
+            .category,
+            concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | {
+                name: CASE
+                    WHEN valueType(c.name) STARTS WITH 'STRING' THEN c.name
+                    ELSE head(c.name)
+                END,
+                definition: coalesce(c.description, '')
+            }],
+            job_evidence: [(sk)-[:SOURCED_FROM]->(jp:JOB_POSTING) | jp.description][0..3]
+        } AS skill
+        ORDER BY sk.name
+        """,
+        user_id=user_id,
+    )
+    return [record["skill"] for record in result]
+
+
 def get_individual_skill_bank(
     session: Neo4jSession,
     *,
@@ -188,4 +236,76 @@ def get_individual_skill_bank(
         "postings": [record["posting"] for record in bank_result],
         "selected_skill_names": selected_names,
         "interested_posting_urls": interested_urls,
+    }
+
+
+def get_individual_learning_path(
+    session: Neo4jSession,
+    *,
+    user_id: int,
+) -> dict[str, object]:
+    result = session.run(
+        """
+        MATCH (u:USER:INDIVIDUAL {id: $user_id})-[sel:SELECTED_SKILL]->(sk:SKILL:MARKET_SKILL)
+        OPTIONAL MATCH (sk)-[:HAS_READING]->(rr:READING_RESOURCE)
+        OPTIONAL MATCH (sk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE)
+        OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION)
+        WITH sk, sel,
+             [item IN collect(DISTINCT CASE
+                 WHEN rr IS NULL THEN NULL
+                 ELSE rr {
+                     .id,
+                     .title,
+                     .url,
+                     .domain,
+                     .snippet,
+                     .search_content,
+                     .resource_type,
+                     .final_score
+                 }
+             END) WHERE item IS NOT NULL] AS readings,
+             [item IN collect(DISTINCT CASE
+                 WHEN vr IS NULL THEN NULL
+                 ELSE vr {
+                     .id,
+                     .title,
+                     .url,
+                     .domain,
+                     .snippet,
+                     .search_content,
+                     .video_id,
+                     .resource_type,
+                     .final_score
+                 }
+             END) WHERE item IS NOT NULL] AS videos,
+             [item IN collect(DISTINCT CASE
+                 WHEN q IS NULL THEN NULL
+                 ELSE q {
+                     .id,
+                     .text,
+                     .difficulty,
+                     options: coalesce(q.options, [])
+                 }
+             END) WHERE item IS NOT NULL] AS questions
+        RETURN sk {
+            .name,
+            .description,
+            source: sel.source,
+            selected_at: toString(sel.selected_at),
+            readings: readings,
+            videos: videos,
+            questions: questions
+        } AS skill
+        ORDER BY sk.name
+        """,
+        user_id=user_id,
+    )
+    skills = [record["skill"] for record in result]
+    return {
+        "user_id": user_id,
+        "selected_skills": skills,
+        "total_selected_skills": len(skills),
+        "skills_with_resources": sum(
+            1 for skill in skills if skill.get("readings") or skill.get("videos")
+        ),
     }
