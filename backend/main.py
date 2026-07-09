@@ -483,6 +483,16 @@ def _ensure_sql_schema_upgrades() -> None:
                 )
             )
 
+        # Serialize this migration section across concurrent application replicas.
+        # The transaction-scoped lock is released by the commit below.
+        conn.execute(
+            text(
+                "SELECT pg_advisory_xact_lock("
+                "hashtext('lab_tutor'), "
+                "hashtext('individual_learning_schema_upgrade'))"
+            )
+        )
+
         # Stable workflow identity makes individual job-search audit writes
         # idempotent when LangGraph retries a node after a process interruption.
         conn.execute(
@@ -525,7 +535,10 @@ def _ensure_sql_schema_upgrades() -> None:
         ).scalar()
         if match_search_index_is_unique:
             conn.execute(
-                text("DROP INDEX ix_individual_job_match_runs_job_search_run_id")
+                text(
+                    "DROP INDEX IF EXISTS "
+                    "ix_individual_job_match_runs_job_search_run_id"
+                )
             )
         conn.execute(
             text(
