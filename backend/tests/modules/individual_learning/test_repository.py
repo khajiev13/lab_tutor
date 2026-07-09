@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
+from sqlalchemy.orm import Session
+
 from app.modules.auth.models import User, UserRole
 from app.modules.individual_learning.models import (
     CVDocumentStatus,
@@ -215,14 +220,59 @@ def test_repository_reuses_job_audit_runs_for_the_same_workflow_thread(
     first_match = repository.get_or_create_job_match_run(
         user_id=user.id,
         job_search_run_id=first_search.id,
+        workflow_thread_id=f"individual-{user.id}-cv-9-extraction-10",
     )
     second_match = repository.get_or_create_job_match_run(
         user_id=user.id,
         job_search_run_id=first_search.id,
+        workflow_thread_id=f"individual-{user.id}-cv-9-extraction-10",
     )
 
     assert first_search.id == second_search.id
     assert first_match.id == second_match.id
+
+
+def test_repository_atomically_reuses_search_and_match_runs_across_sessions(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="concurrent-job-runs@example.com")
+    bind = db_session.get_bind()
+    search_thread_id = f"individual-{user.id}-cv-17-extraction-21"
+    search_barrier = Barrier(2)
+
+    def get_search_run_id() -> int:
+        with Session(bind=bind) as session:
+            search_barrier.wait()
+            run = IndividualLearningRepository(session).get_or_create_job_search_run(
+                user_id=user.id,
+                workflow_thread_id=search_thread_id,
+                target_titles=["Backend Engineer"],
+                country="USA",
+                location="New York",
+            )
+            return run.id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        search_ids = list(executor.map(lambda _index: get_search_run_id(), range(2)))
+
+    assert len(set(search_ids)) == 1
+    match_barrier = Barrier(2)
+    match_thread_id = f"{search_thread_id}-match"
+
+    def get_match_run_id() -> int:
+        with Session(bind=bind) as session:
+            match_barrier.wait()
+            run = IndividualLearningRepository(session).get_or_create_job_match_run(
+                user_id=user.id,
+                job_search_run_id=search_ids[0],
+                workflow_thread_id=match_thread_id,
+            )
+            return run.id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        match_ids = list(executor.map(lambda _index: get_match_run_id(), range(2)))
+
+    assert len(set(match_ids)) == 1
 
 
 def test_repository_records_job_selection_only_on_owned_search_run(db_session) -> None:

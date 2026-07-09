@@ -60,8 +60,8 @@ class BlobService:
         try:
             blob_client.upload_blob(content, overwrite=overwrite)
             return blob_client.url
-        except Exception as e:
-            logger.error(f"Failed to upload bytes to {destination_path}: {e}")
+        except Exception as exc:
+            logger.error("Blob byte upload failed (%s)", type(exc).__name__)
             raise
 
     async def upload_file(self, file: UploadFile, destination_path: str) -> str:

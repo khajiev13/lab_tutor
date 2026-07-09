@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -102,12 +102,18 @@ class CVExtractionRun(Base):
 
 class IndividualJobSearchRun(Base):
     __tablename__ = "individual_job_search_runs"
+    __table_args__ = (
+        Index(
+            "ux_individual_job_search_runs_workflow_thread_id",
+            "workflow_thread_id",
+            unique=True,
+            postgresql_where=text("workflow_thread_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    workflow_thread_id: Mapped[str | None] = mapped_column(
-        String(200), unique=True, index=True, nullable=True
-    )
+    workflow_thread_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     target_titles_json: Mapped[list[str]] = mapped_column(JSONB, default=list)
     country: Mapped[str] = mapped_column(String(100), default="")
     location: Mapped[str] = mapped_column(String(200), default="")
@@ -127,11 +133,20 @@ class IndividualJobSearchRun(Base):
 
 class IndividualJobMatchRun(Base):
     __tablename__ = "individual_job_match_runs"
+    __table_args__ = (
+        Index(
+            "ux_individual_job_match_runs_workflow_thread_id",
+            "workflow_thread_id",
+            unique=True,
+            postgresql_where=text("workflow_thread_id IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    workflow_thread_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     job_search_run_id: Mapped[int] = mapped_column(
-        ForeignKey("individual_job_search_runs.id"), unique=True, index=True
+        ForeignKey("individual_job_search_runs.id"), index=True
     )
     scores_json: Mapped[list[dict]] = mapped_column(JSONB, default=list)
     skill_gap_json: Mapped[list[dict]] = mapped_column(JSONB, default=list)

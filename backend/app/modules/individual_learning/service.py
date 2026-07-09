@@ -36,7 +36,7 @@ from .cv_extractor import (
 from .graph import build_individual_learning_graph
 from .job_matcher import score_market_skill_coverage
 from .job_search import extract_market_skills_for_jobs, search_jobs_for_titles
-from .models import IndividualRunStatus
+from .models import CVDocumentStatus, CVExtractionRun, IndividualRunStatus
 from .neo4j_repository import (
     deselect_market_skills,
     get_individual_learning_path,
@@ -66,14 +66,9 @@ from .schemas import (
 )
 
 _THREAD_ID_PATTERN = re.compile(
-    r"^individual-(?P<user_id>\d+)-cv-(?P<cv_document_id>\d+)$"
+    r"^individual-(?P<user_id>\d+)-cv-(?P<cv_document_id>\d+)"
+    r"-extraction-(?P<extraction_run_id>\d+)$"
 )
-
-
-def _safe_filename(filename: str) -> str:
-    base = filename.strip().split("/")[-1].split("\\")[-1]
-    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("._")
-    return cleaned or "cv"
 
 
 class IndividualLearningService:
@@ -119,14 +114,20 @@ class IndividualLearningService:
         if profile is None:
             return IndividualProfileRead(user_id=user_id, onboarding_status="needs_cv")
 
-        document = self._repo.get_latest_cv_document(user_id)
-        extraction = self._repo.get_latest_cv_extraction(user_id)
+        document, extraction = self._repo.get_cv_lifecycle(user_id=user_id)
+        lifecycle_completed = (
+            document is not None
+            and document.status == CVDocumentStatus.COMPLETED.value
+            and extraction is not None
+            and extraction.status == IndividualRunStatus.COMPLETED.value
+        )
         thread_id = (
-            self._build_thread_id(user_id, document.id)
-            if document is not None and extraction is not None
+            self._build_thread_id(user_id, document.id, extraction.id)
+            if lifecycle_completed and extraction is not None
             else None
         )
         pending_interrupt: dict[str, Any] | None = None
+        snapshot = None
         if thread_id is not None:
             graph = self._get_graph()
             snapshot = graph.get_state(self._graph_config(thread_id))
@@ -142,11 +143,23 @@ class IndividualLearningService:
             "error": "retry_cv",
         }
         next_step = next_step_by_status.get(profile.onboarding_status, "upload_cv")
-        if pending_interrupt is not None:
+        snapshot_next = tuple(getattr(snapshot, "next", ()))
+        if snapshot_next == ("search_jobs",):
+            next_step = "search_jobs"
+        elif pending_interrupt is not None:
             if pending_interrupt.get("kind") == "review_profile_and_roles":
                 next_step = "review_profile"
             elif pending_interrupt.get("kind") == "choose_jobs_and_skills":
                 next_step = "select_jobs_and_skills"
+        elif document is not None and not lifecycle_completed:
+            if (
+                document.status == CVDocumentStatus.FAILED.value
+                or extraction is not None
+                and extraction.status == IndividualRunStatus.FAILED.value
+            ):
+                next_step = "retry_cv"
+            else:
+                next_step = "wait_for_extraction"
 
         return IndividualProfileRead(
             user_id=user_id,
@@ -156,12 +169,12 @@ class IndividualLearningService:
             preferred_location=profile.preferred_location,
             reviewed_at=profile.reviewed_at,
             cv_document_id=document.id if document is not None else None,
-            extraction_run_id=extraction.id if extraction is not None else None,
+            extraction_run_id=extraction.id if lifecycle_completed else None,
             active_thread_id=thread_id,
             next_step=next_step,
             extracted_profile=(
                 dict(extraction.extracted_profile_json or {})
-                if extraction is not None
+                if lifecycle_completed and extraction is not None
                 else None
             ),
             pending_interrupt=pending_interrupt,
@@ -169,12 +182,18 @@ class IndividualLearningService:
 
     @staticmethod
     def _get_snapshot_interrupt(snapshot: Any) -> dict[str, Any] | None:
+        interrupts = IndividualLearningService._get_snapshot_interrupts(snapshot)
+        return interrupts[0] if interrupts else None
+
+    @staticmethod
+    def _get_snapshot_interrupts(snapshot: Any) -> list[dict[str, Any]]:
+        interrupts: list[dict[str, Any]] = []
         for task in getattr(snapshot, "tasks", ()):
             for graph_interrupt in getattr(task, "interrupts", ()):
                 value = getattr(graph_interrupt, "value", None)
                 if isinstance(value, dict):
-                    return dict(value)
-        return None
+                    interrupts.append(dict(value))
+        return interrupts
 
     def get_skill_banks(self, user_id: int) -> IndividualSkillBanksResponse:
         driver = self._require_neo4j_driver()
@@ -497,15 +516,14 @@ class IndividualLearningService:
             )
 
         content_hash = self._storage.sha256_hex(content)
-        safe_filename = _safe_filename(filename)
-        blob_path = f"users/{user_id}/cv/{content_hash}/{safe_filename}"
+        blob_path = f"users/{user_id}/cv/{content_hash}/document"
 
         try:
             await self._storage.upload_bytes(content, blob_path)
         except Exception as exc:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload CV file {filename}: {exc}",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="CV storage is temporarily unavailable; retry",
             ) from exc
 
         cv_document = self._repo.upsert_cv_document(
@@ -623,7 +641,32 @@ class IndividualLearningService:
     def start_individual_graph(
         self, user_id: int, cv_document_id: int
     ) -> IndividualGraphStartResponse:
-        thread_id = self._build_thread_id(user_id, cv_document_id)
+        document, extraction = self._repo.get_cv_lifecycle(
+            user_id=user_id,
+            cv_document_id=cv_document_id,
+        )
+        if document is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="CV document not found",
+            )
+        if (
+            document.status != CVDocumentStatus.COMPLETED.value
+            or extraction is None
+            or extraction.status != IndividualRunStatus.COMPLETED.value
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "CV processing is incomplete; retry extraction or upload the CV again"
+                ),
+            )
+
+        thread_id = self._build_thread_id(
+            user_id,
+            cv_document_id,
+            extraction.id,
+        )
         graph = self._get_graph()
         config = self._graph_config(thread_id)
         result = graph.invoke(
@@ -631,7 +674,7 @@ class IndividualLearningService:
                 "thread_id": thread_id,
                 "user_id": user_id,
                 "cv_document_id": cv_document_id,
-                "profile": self._load_profile_payload(user_id, cv_document_id),
+                "profile": self._profile_payload_from_extraction(extraction),
                 "target_titles": [],
                 "candidate_jobs": [],
                 "skill_bank": [],
@@ -647,19 +690,37 @@ class IndividualLearningService:
     def resume_individual_graph(
         self, user_id: int, thread_id: str, payload: dict[str, Any]
     ) -> IndividualGraphResumeResponse:
-        cv_document_id = self._validate_resume_thread(user_id, thread_id)
+        cv_document_id, extraction_run_id = self._validate_resume_thread(
+            user_id,
+            thread_id,
+        )
         graph = self._get_graph()
         config = self._graph_config(thread_id)
         resume_payload = dict(payload)
         snapshot = graph.get_state(config)
-        if "review_profile_and_roles" in snapshot.next:
+        resume_stage = self._resolve_resume_stage(snapshot)
+        if resume_stage == "review_profile_and_roles":
+            if "approved" not in resume_payload:
+                self._raise_stale_resume_conflict()
             resume_payload = self._approve_profile_review(
                 user_id=user_id,
                 cv_document_id=cv_document_id,
+                extraction_run_id=extraction_run_id,
                 payload=resume_payload,
                 checkpoint_profile=dict(snapshot.values.get("profile", {})),
             )
-        elif "choose_jobs_and_skills" in snapshot.next:
+        elif resume_stage == "search_jobs":
+            if (
+                resume_payload.get("approved") is not True
+                or "target_titles" not in resume_payload
+            ):
+                self._raise_stale_resume_conflict()
+        elif resume_stage == "choose_jobs_and_skills":
+            if (
+                "selected_posting_urls" not in resume_payload
+                or "selected_skill_names" not in resume_payload
+            ):
+                self._raise_stale_resume_conflict()
             resume_payload = self._persist_checkpointed_selections(
                 user_id=user_id,
                 payload=resume_payload,
@@ -669,9 +730,43 @@ class IndividualLearningService:
         response_data = self._build_graph_response(thread_id, result)
         return IndividualGraphResumeResponse(**response_data)
 
+    def _resolve_resume_stage(self, snapshot: Any) -> str:
+        next_nodes = tuple(getattr(snapshot, "next", ()))
+        if len(next_nodes) != 1:
+            self._raise_stale_resume_conflict()
+        stage = next_nodes[0]
+        expected_interrupt_kinds = {
+            "review_profile_and_roles": "review_profile_and_roles",
+            "choose_jobs_and_skills": "choose_jobs_and_skills",
+        }
+        if stage == "search_jobs":
+            if self._get_snapshot_interrupts(snapshot):
+                self._raise_stale_resume_conflict()
+            return stage
+        expected_kind = expected_interrupt_kinds.get(stage)
+        if expected_kind is None:
+            self._raise_stale_resume_conflict()
+        interrupts = self._get_snapshot_interrupts(snapshot)
+        if len(interrupts) != 1 or interrupts[0].get("kind") != expected_kind:
+            self._raise_stale_resume_conflict()
+        return stage
+
     @staticmethod
-    def _build_thread_id(user_id: int, cv_document_id: int) -> str:
-        return f"individual-{user_id}-cv-{cv_document_id}"
+    def _raise_stale_resume_conflict() -> None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Workflow state changed; reload the current profile",
+        )
+
+    @staticmethod
+    def _build_thread_id(
+        user_id: int,
+        cv_document_id: int,
+        extraction_run_id: int,
+    ) -> str:
+        return (
+            f"individual-{user_id}-cv-{cv_document_id}-extraction-{extraction_run_id}"
+        )
 
     @staticmethod
     def _graph_config(thread_id: str) -> dict[str, Any]:
@@ -805,6 +900,7 @@ class IndividualLearningService:
         match_run = self._repo.get_or_create_job_match_run(
             user_id=user_id,
             job_search_run_id=search_run.id,
+            workflow_thread_id=str(state["thread_id"]),
         )
         self._repo.complete_job_match_run(
             match_run,
@@ -928,6 +1024,7 @@ class IndividualLearningService:
         *,
         user_id: int,
         cv_document_id: int,
+        extraction_run_id: int,
         payload: dict[str, Any],
         checkpoint_profile: dict[str, Any],
     ) -> dict[str, Any]:
@@ -965,9 +1062,13 @@ class IndividualLearningService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Reviewed profile is invalid",
             ) from exc
+        reviewed_profile = reviewed_profile.model_copy(
+            update={"skills": self._normalize_cv_skills(reviewed_profile.skills)}
+        )
         persisted = self._repo.approve_profile_review(
             user_id=user_id,
             cv_document_id=cv_document_id,
+            extraction_run_id=extraction_run_id,
             reviewed_profile=reviewed_profile.model_dump(mode="json"),
             target_titles=target_titles,
         )
@@ -979,16 +1080,24 @@ class IndividualLearningService:
         _, extraction = persisted
 
         driver = self._require_neo4j_driver()
-        with driver.session() as session:
-            upsert_cv_skills(
-                session,
-                user_id=user_id,
-                skills=[
-                    CVSkillExtraction.model_validate(skill)
-                    for skill in reviewed_profile.skills
-                ],
-                cv_document_id=cv_document_id,
-                extraction_run_id=extraction.id,
+        try:
+            with driver.session() as session:
+                written_count = upsert_cv_skills(
+                    session,
+                    user_id=user_id,
+                    skills=list(reviewed_profile.skills),
+                    cv_document_id=cv_document_id,
+                    extraction_run_id=extraction.id,
+                )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="CV skill projection is incomplete; retry approval",
+            ) from exc
+        if written_count != len(reviewed_profile.skills):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="CV skill projection is incomplete; retry approval",
             )
 
         return {
@@ -1106,40 +1215,56 @@ class IndividualLearningService:
             "selected_skill_names": skill_names,
         }
 
-    def _validate_resume_thread(self, user_id: int, thread_id: str) -> int:
-        cv_document_id = self._parse_thread_id(thread_id, user_id)
+    def _validate_resume_thread(self, user_id: int, thread_id: str) -> tuple[int, int]:
+        cv_document_id, extraction_run_id = self._parse_thread_id(thread_id, user_id)
         if self._db is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Thread does not belong to the current user",
             )
-        try:
-            self._load_profile_payload(user_id, cv_document_id)
-        except HTTPException as exc:
-            if exc.status_code == status.HTTP_404_NOT_FOUND:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Thread does not belong to the current user",
-                ) from exc
-            raise
-        return cv_document_id
+        document, extraction = self._repo.get_cv_lifecycle(
+            user_id=user_id,
+            cv_document_id=cv_document_id,
+        )
+        if document is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Thread does not belong to the current user",
+            )
+        if (
+            extraction is None
+            or extraction.id != extraction_run_id
+            or document.status != CVDocumentStatus.COMPLETED.value
+            or extraction.status != IndividualRunStatus.COMPLETED.value
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Workflow attempt is stale; reload the current profile",
+            )
+        return cv_document_id, extraction_run_id
 
     @staticmethod
-    def _parse_thread_id(thread_id: str, user_id: int) -> int:
+    def _parse_thread_id(thread_id: str, user_id: int) -> tuple[int, int]:
         match = _THREAD_ID_PATTERN.fullmatch(thread_id)
         if match is None or int(match.group("user_id")) != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Thread does not belong to the current user",
             )
-        return int(match.group("cv_document_id"))
+        return (
+            int(match.group("cv_document_id")),
+            int(match.group("extraction_run_id")),
+        )
 
     def _load_profile_payload(
-        self, user_id: int, cv_document_id: int
+        self,
+        user_id: int,
+        cv_document_id: int,
+        extraction_run_id: int | None = None,
     ) -> dict[str, Any]:
         if self._db is None:
             return {}
-        cv_document = self._repo.get_owned_cv_document(
+        cv_document, extraction = self._repo.get_cv_lifecycle(
             user_id=user_id,
             cv_document_id=cv_document_id,
         )
@@ -1149,13 +1274,20 @@ class IndividualLearningService:
                 detail="CV document not found",
             )
 
-        extraction = self._repo.get_latest_cv_extraction(
-            user_id,
-            cv_document_id=cv_document_id,
-        )
         if extraction is None:
             return {}
+        if extraction_run_id is not None and extraction.id != extraction_run_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Workflow attempt is stale; reload the current profile",
+            )
 
+        return self._profile_payload_from_extraction(extraction)
+
+    @staticmethod
+    def _profile_payload_from_extraction(
+        extraction: CVExtractionRun,
+    ) -> dict[str, Any]:
         profile = dict(extraction.extracted_profile_json or {})
         profile.setdefault(
             "target_title_suggestions",
@@ -1190,6 +1322,20 @@ class IndividualLearningService:
             seen.add(key)
             cleaned_skill_names.append(name)
         return cleaned_skill_names
+
+    @staticmethod
+    def _normalize_cv_skills(
+        skills: list[CVSkillExtraction],
+    ) -> list[CVSkillExtraction]:
+        normalized: list[CVSkillExtraction] = []
+        seen: set[str] = set()
+        for skill in skills:
+            name = " ".join(skill.name.split())
+            if not name or name.casefold() in seen:
+                continue
+            seen.add(name.casefold())
+            normalized.append(skill.model_copy(update={"name": name}))
+        return normalized
 
     @staticmethod
     def _clean_target_titles(raw_titles: object) -> list[str]:

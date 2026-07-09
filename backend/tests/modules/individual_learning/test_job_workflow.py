@@ -291,10 +291,20 @@ def test_job_search_with_no_usable_candidates_stays_recoverable(
     assert search_run.error_message == "No usable job postings were found"
     assert project_calls == []
 
+    repository.upsert_profile_status(
+        user_id=user.id,
+        onboarding_status="needs_skill_selection",
+    )
+    recovery = service.get_profile(user.id)
+    assert recovery.active_thread_id == started.thread_id
+    assert recovery.next_step == "search_jobs"
+    assert recovery.pending_interrupt is None
+    assert recovery.target_titles == ["Backend Engineer"]
+
     recovered = service.resume_individual_graph(
         user.id,
-        started.thread_id,
-        {"approved": True, "target_titles": ["Backend Engineer"]},
+        recovery.active_thread_id,
+        {"approved": True, "target_titles": recovery.target_titles},
     )
     recovered_profile = repository.get_profile(user.id)
     recovered_run = repository.get_latest_job_search_run(user.id)
@@ -350,6 +360,47 @@ def _build_selection_service(db_session, monkeypatch):
     assert review.interrupt is not None
     assert review.interrupt["kind"] == "choose_jobs_and_skills"
     return service, user, started.thread_id
+
+
+def test_lost_first_resume_response_returns_recovery_conflict_without_consuming_selection(
+    db_session,
+    monkeypatch,
+) -> None:
+    service, user, thread_id = _build_selection_service(db_session, monkeypatch)
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.resume_individual_graph(
+            user.id,
+            thread_id,
+            {"approved": True, "target_titles": ["Backend Engineer"]},
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == (
+        "Workflow state changed; reload the current profile"
+    )
+    recovery = service.get_profile(user.id)
+    assert recovery.next_step == "select_jobs_and_skills"
+    assert recovery.pending_interrupt is not None
+    assert recovery.pending_interrupt["kind"] == "choose_jobs_and_skills"
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.select_job_postings",
+        lambda *_args, **_kwargs: 1,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.select_candidate_market_skills",
+        lambda *_args, **_kwargs: 1,
+    )
+    completed = service.resume_individual_graph(
+        user.id,
+        thread_id,
+        {
+            "selected_posting_urls": ["https://jobs.example/backend"],
+            "selected_skill_names": ["Docker"],
+        },
+    )
+    assert completed.status == "completed"
 
 
 def test_second_resume_persists_only_checkpointed_jobs_and_market_skills(
@@ -416,6 +467,22 @@ def test_second_resume_persists_only_checkpointed_jobs_and_market_skills(
             },
         ),
     ]
+
+    with pytest.raises(HTTPException) as lost_response_retry:
+        service.resume_individual_graph(
+            user.id,
+            thread_id,
+            {
+                "selected_posting_urls": ["https://jobs.example/backend"],
+                "selected_skill_names": ["Docker"],
+            },
+        )
+
+    assert lost_response_retry.value.status_code == 409
+    assert lost_response_retry.value.detail == (
+        "Workflow state changed; reload the current profile"
+    )
+    assert len(writes) == 2
 
 
 @pytest.mark.parametrize(

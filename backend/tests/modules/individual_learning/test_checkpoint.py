@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import sys
 from contextlib import nullcontext
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -210,6 +211,131 @@ def _seed_completed_cv(db_session) -> tuple[User, int]:
         onboarding_status="needs_profile_review",
     )
     return user, document.id
+
+
+def test_profile_recovery_does_not_pair_new_document_with_old_extraction(
+    db_session,
+) -> None:
+    user, old_document_id = _seed_completed_cv(db_session)
+    repository = IndividualLearningRepository(db_session)
+    new_document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/new-opaque-id",
+        original_filename="new.pdf",
+        content_type="application/pdf",
+        content_hash="c" * 64,
+        size_bytes=456,
+    )
+    repository.upsert_profile_status(
+        user_id=user.id,
+        onboarding_status="extracting",
+    )
+    assert new_document.id != old_document_id
+
+    profile = IndividualLearningService(
+        db_session,
+        None,
+        graph_checkpointer=InMemorySaver(),
+    ).get_profile(user.id)
+
+    assert profile.cv_document_id == new_document.id
+    assert profile.extraction_run_id is None
+    assert profile.active_thread_id is None
+    assert profile.extracted_profile is None
+    assert profile.pending_interrupt is None
+    assert profile.next_step == "wait_for_extraction"
+
+
+def test_same_hash_reupload_refreshes_recency_and_uses_new_extraction_thread(
+    db_session,
+) -> None:
+    user, first_document_id = _seed_completed_cv(db_session)
+    repository = IndividualLearningRepository(db_session)
+    first_document = repository.get_owned_cv_document(
+        user_id=user.id,
+        cv_document_id=first_document_id,
+    )
+    first_extraction = repository.get_latest_cv_extraction(
+        user.id,
+        cv_document_id=first_document_id,
+    )
+    assert first_document is not None
+    assert first_extraction is not None
+    checkpointer = InMemorySaver()
+    service = IndividualLearningService(
+        db_session,
+        None,
+        graph_checkpointer=checkpointer,
+    )
+    first_started = service.start_individual_graph(user.id, first_document.id)
+
+    second_document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/second-opaque-id",
+        original_filename="second.pdf",
+        content_type="application/pdf",
+        content_hash="d" * 64,
+        size_bytes=456,
+    )
+    second_extraction = repository.create_cv_extraction_run(
+        cv_document_id=second_document.id,
+        user_id=user.id,
+        model_provider="test",
+        model_name="test",
+        raw_text_hash="e" * 64,
+    )
+    repository.complete_cv_extraction(
+        second_extraction,
+        extracted_profile={"summary": "Profile B", "skills": []},
+        target_title_suggestions=["Role B"],
+        confidence_summary={},
+    )
+    repository.complete_cv_document(second_document)
+    first_document.uploaded_at = datetime.now(UTC) - timedelta(days=2)
+    second_document.uploaded_at = datetime.now(UTC) - timedelta(days=1)
+    db_session.commit()
+
+    reuploaded_first = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/reuploaded-opaque-id",
+        original_filename="renamed-first.pdf",
+        content_type="application/pdf",
+        content_hash="a" * 64,
+        size_bytes=789,
+    )
+    latest_first_extraction = repository.create_cv_extraction_run(
+        cv_document_id=reuploaded_first.id,
+        user_id=user.id,
+        model_provider="test",
+        model_name="test",
+        raw_text_hash="f" * 64,
+    )
+    repository.complete_cv_extraction(
+        latest_first_extraction,
+        extracted_profile={"summary": "Profile A refreshed", "skills": []},
+        target_title_suggestions=["Role A2"],
+        confidence_summary={},
+    )
+    repository.complete_cv_document(reuploaded_first)
+    repository.upsert_profile_status(
+        user_id=user.id,
+        onboarding_status="needs_profile_review",
+    )
+    second_started = service.start_individual_graph(user.id, reuploaded_first.id)
+    recovered = service.get_profile(user.id)
+
+    assert reuploaded_first.id == first_document.id
+    assert reuploaded_first.uploaded_at > second_document.uploaded_at
+    assert second_started.thread_id == (
+        f"individual-{user.id}-cv-{first_document.id}"
+        f"-extraction-{latest_first_extraction.id}"
+    )
+    assert second_started.thread_id != first_started.thread_id
+    assert recovered.cv_document_id == first_document.id
+    assert recovered.extraction_run_id == latest_first_extraction.id
+    assert recovered.active_thread_id == second_started.thread_id
+    assert recovered.extracted_profile is not None
+    assert recovered.extracted_profile["summary"] == "Profile A refreshed"
 
 
 def test_graph_reconstructs_across_service_instances_with_shared_checkpointer(

@@ -31,7 +31,7 @@ class FakeSession:
 
 
 def test_upsert_cv_skills_uses_cv_skill_label_and_has_skill() -> None:
-    session = FakeSession()
+    session = FakeSession([FakeResult({"written": 1})])
 
     count = neo4j_repository.upsert_cv_skills(
         session,
@@ -43,15 +43,37 @@ def test_upsert_cv_skills_uses_cv_skill_label_and_has_skill() -> None:
         extraction_run_id=5,
     )
 
+    assert len(session.calls) == 1
     query, params = session.calls[0]
 
     assert count == 1
     assert "MATCH (u:USER:INDIVIDUAL {id: $user_id})" in query
+    assert "OPTIONAL MATCH (u)-[stale:HAS_SKILL]->(existing:SKILL:CV_SKILL)" in query
+    assert "collect({relationship: stale, name: existing.name})" in query
+    assert "NOT item.name IN $skill_names" in query
+    assert "DELETE item.relationship" in query
+    assert "FOREACH (skill IN $skills" in query
     assert "MERGE (sk:SKILL:CV_SKILL" in query
     assert "MERGE (u)-[r:HAS_SKILL]->(sk)" in query
     assert params["user_id"] == 7
+    assert params["skill_names"] == ["Python"]
     assert params["cv_document_id"] == 3
     assert params["extraction_run_id"] == 5
+
+
+def test_upsert_cv_skills_returns_none_without_individual_user() -> None:
+    session = FakeSession([FakeResult(None)])
+
+    count = neo4j_repository.upsert_cv_skills(
+        session,
+        user_id=404,
+        skills=[CVSkillExtraction(name="Python")],
+        cv_document_id=3,
+        extraction_run_id=5,
+    )
+
+    assert count is None
+    assert len(session.calls) == 1
 
 
 def test_upsert_job_postings_and_market_skills_uses_market_skill_and_sourced_from() -> (

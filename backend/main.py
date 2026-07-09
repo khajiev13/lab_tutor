@@ -501,9 +501,45 @@ def _ensure_sql_schema_upgrades() -> None:
         )
         conn.execute(
             text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS "
-                "ux_individual_job_match_runs_job_search_run_id "
+                "DROP INDEX IF EXISTS ix_individual_job_search_runs_workflow_thread_id"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE individual_job_match_runs "
+                "ADD COLUMN IF NOT EXISTS workflow_thread_id VARCHAR(200)"
+            )
+        )
+        conn.execute(
+            text("DROP INDEX IF EXISTS ux_individual_job_match_runs_job_search_run_id")
+        )
+        match_search_index_is_unique = conn.execute(
+            text(
+                "SELECT index_meta.indisunique "
+                "FROM pg_class AS index_name "
+                "JOIN pg_index AS index_meta "
+                "ON index_meta.indexrelid = index_name.oid "
+                "WHERE index_name.relname = "
+                "'ix_individual_job_match_runs_job_search_run_id'"
+            )
+        ).scalar()
+        if match_search_index_is_unique:
+            conn.execute(
+                text("DROP INDEX ix_individual_job_match_runs_job_search_run_id")
+            )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS "
+                "ix_individual_job_match_runs_job_search_run_id "
                 "ON individual_job_match_runs (job_search_run_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ux_individual_job_match_runs_workflow_thread_id "
+                "ON individual_job_match_runs (workflow_thread_id) "
+                "WHERE workflow_thread_id IS NOT NULL"
             )
         )
 

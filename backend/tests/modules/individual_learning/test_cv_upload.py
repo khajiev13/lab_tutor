@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import logging
 import threading
 
 import pytest
@@ -14,6 +15,7 @@ from app.modules.individual_learning.models import IndividualRunStatus
 from app.modules.individual_learning.repository import IndividualLearningRepository
 from app.modules.individual_learning.schemas import CVProfileExtraction
 from app.modules.individual_learning.service import IndividualLearningService
+from app.providers.storage import BlobService
 
 
 def _create_individual(db_session, *, email: str) -> User:
@@ -137,12 +139,11 @@ def test_upload_cv_runs_scoped_storage_and_structured_extraction_pipeline(
             "data": b"document-bytes",
         }
     ]
-    assert storage.uploads == [
-        (
-            b"document-bytes",
-            f"users/{user.id}/cv/{expected_content_hash}/{filename}",
-        )
-    ]
+    assert len(storage.uploads) == 1
+    uploaded_bytes, uploaded_path = storage.uploads[0]
+    assert uploaded_bytes == b"document-bytes"
+    assert uploaded_path == f"users/{user.id}/cv/{expected_content_hash}/document"
+    assert filename not in uploaded_path
     assert profile_extractor.inputs == [extracted_text]
     assert parser_thread_ids and parser_thread_ids[0] != caller_thread_id
     assert (
@@ -152,6 +153,9 @@ def test_upload_cv_runs_scoped_storage_and_structured_extraction_pipeline(
     assert profile is not None
     assert profile.onboarding_status == "needs_profile_review"
     assert document is not None
+    assert document.content_hash == expected_content_hash
+    assert document.original_filename == filename
+    assert document.blob_path == uploaded_path
     assert document.status == "completed"
     assert extraction is not None
     assert extraction.model_provider == "test-provider"
@@ -267,3 +271,76 @@ def test_supported_cv_parse_failure_preserves_scoped_blob_and_durable_error(
     assert profile.onboarding_status == "error"
     assert profile_extractor.inputs == []
     assert raw_marker not in caplog.text
+
+
+def test_upload_cv_hides_filename_and_provider_error_on_storage_failure(
+    db_session,
+    caplog,
+) -> None:
+    filename_marker = "private-candidate-name.pdf"
+    secret_marker = "AZURE-CREDENTIAL-SECRET-8842"
+    user = _create_individual(db_session, email="storage-failure@example.com")
+
+    class FailingStorage(FakeStorage):
+        async def upload_bytes(self, data: bytes, blob_path: str) -> str:
+            self.uploads.append((data, blob_path))
+            raise RuntimeError(f"{secret_marker} while uploading {filename_marker}")
+
+    storage = FailingStorage()
+    service = IndividualLearningService(
+        db_session,
+        None,
+        storage=storage,
+        cv_text_extractor=lambda **_kwargs: "unused",
+        cv_profile_extractor=FakeProfileExtractor(),
+    )
+    upload = UploadFile(
+        filename=filename_marker,
+        file=io.BytesIO(b"private-document-bytes"),
+        headers=Headers({"content-type": "application/pdf"}),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(service.upload_cv(user.id, upload))
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "CV storage is temporarily unavailable; retry"
+    response_text = str(exc_info.value.detail)
+    assert filename_marker not in response_text
+    assert secret_marker not in response_text
+    assert filename_marker not in caplog.text
+    assert secret_marker not in caplog.text
+    assert storage.uploads
+    assert filename_marker not in storage.uploads[0][1]
+
+
+def test_blob_upload_logging_omits_destination_and_raw_provider_exception(
+    caplog,
+) -> None:
+    destination_marker = "users/77/cv/PRIVATE-DESTINATION-9921"
+    secret_marker = "PROVIDER-SECRET-TOKEN-1138"
+
+    class FailingBlobClient:
+        url = "https://storage.invalid/blob"
+
+        def upload_blob(self, _content: bytes, *, overwrite: bool) -> None:
+            assert overwrite is True
+            raise RuntimeError(secret_marker)
+
+    class FakeContainerClient:
+        def get_blob_client(self, destination_path: str):
+            assert destination_path == destination_marker
+            return FailingBlobClient()
+
+    storage = BlobService.__new__(BlobService)
+    storage.container_client = FakeContainerClient()
+
+    with (
+        caplog.at_level(logging.ERROR, logger="app.providers.storage"),
+        pytest.raises(RuntimeError, match=secret_marker),
+    ):
+        asyncio.run(storage.upload_bytes(b"private", destination_marker))
+
+    assert destination_marker not in caplog.text
+    assert secret_marker not in caplog.text
+    assert "RuntimeError" in caplog.text

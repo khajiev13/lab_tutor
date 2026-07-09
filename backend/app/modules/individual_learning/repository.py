@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -74,6 +75,7 @@ class IndividualLearningRepository:
         document.status = CVDocumentStatus.PROCESSING.value
         document.error_message = None
         document.processed_at = None
+        document.uploaded_at = datetime.now(UTC)
         self._commit(document)
         return document
 
@@ -101,6 +103,30 @@ class IndividualLearningRepository:
             .order_by(CVDocument.uploaded_at.desc(), CVDocument.id.desc())
             .limit(1)
         )
+
+    def get_cv_lifecycle(
+        self,
+        *,
+        user_id: int,
+        cv_document_id: int | None = None,
+    ) -> tuple[CVDocument | None, CVExtractionRun | None]:
+        """Return one document and only its latest matching extraction run."""
+
+        document = (
+            self.get_owned_cv_document(
+                user_id=user_id,
+                cv_document_id=cv_document_id,
+            )
+            if cv_document_id is not None
+            else self.get_latest_cv_document(user_id)
+        )
+        if document is None:
+            return None, None
+        extraction = self.get_latest_cv_extraction(
+            user_id,
+            cv_document_id=document.id,
+        )
+        return document, extraction
 
     def create_cv_extraction_run(
         self,
@@ -174,20 +200,15 @@ class IndividualLearningRepository:
         *,
         user_id: int,
         cv_document_id: int,
+        extraction_run_id: int,
         reviewed_profile: dict,
         target_titles: list[str],
     ) -> tuple[IndividualProfile, CVExtractionRun] | None:
-        document = self.get_owned_cv_document(
+        document, extraction = self.get_cv_lifecycle(
             user_id=user_id,
             cv_document_id=cv_document_id,
         )
-        if document is None:
-            return None
-        extraction = self.get_latest_cv_extraction(
-            user_id,
-            cv_document_id=cv_document_id,
-        )
-        if extraction is None:
+        if extraction is None or extraction.id != extraction_run_id:
             return None
 
         profile = self.get_profile(user_id)
@@ -268,25 +289,37 @@ class IndividualLearningRepository:
         location: str,
     ) -> IndividualJobSearchRun:
         db = self._require_db()
-        existing = db.scalar(
-            select(IndividualJobSearchRun).where(
-                IndividualJobSearchRun.workflow_thread_id == workflow_thread_id
+        statement = (
+            insert(IndividualJobSearchRun)
+            .values(
+                user_id=user_id,
+                workflow_thread_id=workflow_thread_id,
+                target_titles_json=target_titles,
+                country=country,
+                location=location,
+                status=IndividualRunStatus.RUNNING.value,
+            )
+            .on_conflict_do_nothing(
+                index_elements=[IndividualJobSearchRun.workflow_thread_id],
+                index_where=IndividualJobSearchRun.workflow_thread_id.is_not(None),
+            )
+            .returning(IndividualJobSearchRun.id)
+        )
+        inserted_id = db.scalar(statement)
+        db.commit()
+        run = (
+            db.get(IndividualJobSearchRun, inserted_id)
+            if inserted_id is not None
+            else db.scalar(
+                select(IndividualJobSearchRun).where(
+                    IndividualJobSearchRun.workflow_thread_id == workflow_thread_id
+                )
             )
         )
-        if existing is not None:
-            if existing.user_id != user_id:
-                raise RuntimeError("Workflow thread belongs to another user")
-            return existing
-        run = IndividualJobSearchRun(
-            user_id=user_id,
-            workflow_thread_id=workflow_thread_id,
-            target_titles_json=target_titles,
-            country=country,
-            location=location,
-            status=IndividualRunStatus.RUNNING.value,
-        )
-        db.add(run)
-        self._commit(run)
+        if run is None:
+            raise RuntimeError("Workflow search run could not be recovered")
+        if run.user_id != user_id:
+            raise RuntimeError("Workflow thread belongs to another user")
         return run
 
     def complete_job_search_run(
@@ -361,24 +394,38 @@ class IndividualLearningRepository:
         *,
         user_id: int,
         job_search_run_id: int,
+        workflow_thread_id: str,
     ) -> IndividualJobMatchRun:
         db = self._require_db()
-        existing = db.scalar(
-            select(IndividualJobMatchRun).where(
-                IndividualJobMatchRun.job_search_run_id == job_search_run_id
+        statement = (
+            insert(IndividualJobMatchRun)
+            .values(
+                user_id=user_id,
+                job_search_run_id=job_search_run_id,
+                workflow_thread_id=workflow_thread_id,
+                status=IndividualRunStatus.RUNNING.value,
+            )
+            .on_conflict_do_nothing(
+                index_elements=[IndividualJobMatchRun.workflow_thread_id],
+                index_where=IndividualJobMatchRun.workflow_thread_id.is_not(None),
+            )
+            .returning(IndividualJobMatchRun.id)
+        )
+        inserted_id = db.scalar(statement)
+        db.commit()
+        run = (
+            db.get(IndividualJobMatchRun, inserted_id)
+            if inserted_id is not None
+            else db.scalar(
+                select(IndividualJobMatchRun).where(
+                    IndividualJobMatchRun.workflow_thread_id == workflow_thread_id
+                )
             )
         )
-        if existing is not None:
-            if existing.user_id != user_id:
-                raise RuntimeError("Job match run belongs to another user")
-            return existing
-        run = IndividualJobMatchRun(
-            user_id=user_id,
-            job_search_run_id=job_search_run_id,
-            status=IndividualRunStatus.RUNNING.value,
-        )
-        db.add(run)
-        self._commit(run)
+        if run is None:
+            raise RuntimeError("Workflow match run could not be recovered")
+        if run.user_id != user_id or run.job_search_run_id != job_search_run_id:
+            raise RuntimeError("Job match run belongs to another workflow")
         return run
 
     def complete_job_match_run(

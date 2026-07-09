@@ -22,32 +22,42 @@ def upsert_cv_skills(
     skills: list[CVSkillExtraction],
     cv_document_id: int,
     extraction_run_id: int,
-) -> int:
+) -> int | None:
+    skill_names = [skill.name for skill in skills]
     result = session.run(
         """
-        UNWIND $skills AS skill
         MATCH (u:USER:INDIVIDUAL {id: $user_id})
-        MERGE (sk:SKILL:CV_SKILL {name: skill.name})
-        ON CREATE SET sk.created_at = datetime($now)
-        SET sk.category = coalesce(skill.category, sk.category, ''),
-            sk.source = 'cv'
-        MERGE (u)-[r:HAS_SKILL]->(sk)
-        SET r.source = 'cv',
-            r.confidence = skill.confidence,
-            r.evidence = skill.evidence,
-            r.cv_document_id = $cv_document_id,
-            r.extraction_run_id = $extraction_run_id,
-            r.updated_at = datetime($now)
-        RETURN count(DISTINCT sk) AS written
+        OPTIONAL MATCH (u)-[stale:HAS_SKILL]->(existing:SKILL:CV_SKILL)
+        WITH u, [item IN collect({relationship: stale, name: existing.name})
+                 WHERE item.relationship IS NOT NULL] AS current_skills
+        FOREACH (item IN [item IN current_skills
+                          WHERE NOT item.name IN $skill_names] |
+            DELETE item.relationship
+        )
+        FOREACH (skill IN $skills |
+            MERGE (sk:SKILL:CV_SKILL {name: skill.name})
+            ON CREATE SET sk.created_at = datetime($now)
+            SET sk.category = coalesce(skill.category, sk.category, ''),
+                sk.source = 'cv'
+            MERGE (u)-[r:HAS_SKILL]->(sk)
+            SET r.source = 'cv',
+                r.confidence = skill.confidence,
+                r.evidence = skill.evidence,
+                r.cv_document_id = $cv_document_id,
+                r.extraction_run_id = $extraction_run_id,
+                r.updated_at = datetime($now)
+        )
+        RETURN size($skills) AS written
         """,
         user_id=user_id,
+        skill_names=skill_names,
         skills=[skill.model_dump() for skill in skills],
         cv_document_id=cv_document_id,
         extraction_run_id=extraction_run_id,
         now=datetime.now(UTC).isoformat(),
     )
     record = result.single()
-    return int(record["written"] if record else 0)
+    return int(record["written"]) if record is not None else None
 
 
 def upsert_job_postings_and_market_skills(

@@ -848,11 +848,10 @@ def test_resume_individual_graph_rejects_owned_thread_when_db_is_unavailable(
         )
 
 
-def test_resume_individual_graph_allows_owned_thread_and_invokes_graph(
+def test_resume_individual_graph_rejects_missing_checkpoint_without_invoking_graph(
     monkeypatch,
 ) -> None:
     service = IndividualLearningService(db=None, neo4j_driver=None)
-    resume_payload = {"approved": True}
     captured: dict[str, object] = {}
 
     class DummyGraph:
@@ -863,16 +862,10 @@ def test_resume_individual_graph_allows_owned_thread_and_invokes_graph(
         def invoke(
             self, command: Command, config: dict[str, object]
         ) -> dict[str, object]:
-            captured["command"] = command
-            captured["config"] = config
-            return {
-                "target_titles": ["Data Analyst"],
-                "selected_posting_urls": [],
-                "selected_skill_names": [],
-            }
+            raise AssertionError("graph must not be invoked without a pending state")
 
     monkeypatch.setattr(
-        service, "_validate_resume_thread", lambda user_id, thread_id: 3
+        service, "_validate_resume_thread", lambda user_id, thread_id: (3, 4)
     )
     monkeypatch.setattr(
         IndividualLearningService,
@@ -880,17 +873,54 @@ def test_resume_individual_graph_allows_owned_thread_and_invokes_graph(
         staticmethod(lambda: DummyGraph()),
     )
 
-    response = service.resume_individual_graph(
-        user_id=7,
-        thread_id="individual-7-cv-3",
-        payload=resume_payload,
+    with pytest.raises(HTTPException) as exc_info:
+        service.resume_individual_graph(
+            user_id=7,
+            thread_id="individual-7-cv-3-extraction-4",
+            payload={"approved": True},
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == (
+        "Workflow state changed; reload the current profile"
+    )
+    assert captured["state_config"] == {
+        "configurable": {"thread_id": "individual-7-cv-3-extraction-4"}
+    }
+
+
+def test_resume_individual_graph_rejects_unexpected_pending_state(monkeypatch) -> None:
+    service = IndividualLearningService(db=None, neo4j_driver=None)
+
+    class DummyGraph:
+        def get_state(self, _config: dict[str, object]):
+            return SimpleNamespace(next=("unexpected_node",), values={})
+
+        def invoke(self, _command: Command, _config: dict[str, object]):
+            raise AssertionError("unexpected graph state must not be invoked")
+
+    monkeypatch.setattr(
+        service,
+        "_validate_resume_thread",
+        lambda user_id, thread_id: (3, 4),
+    )
+    monkeypatch.setattr(
+        IndividualLearningService,
+        "_get_graph",
+        staticmethod(lambda: DummyGraph()),
     )
 
-    assert captured["config"] == {"configurable": {"thread_id": "individual-7-cv-3"}}
-    assert captured["state_config"] == captured["config"]
-    assert isinstance(captured["command"], Command)
-    assert captured["command"].resume == resume_payload
-    assert response.status == "completed"
+    with pytest.raises(HTTPException) as exc_info:
+        service.resume_individual_graph(
+            user_id=7,
+            thread_id="individual-7-cv-3-extraction-4",
+            payload={"approved": True},
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == (
+        "Workflow state changed; reload the current profile"
+    )
 
 
 def test_score_market_skill_coverage_marks_existing_and_gap_skills() -> None:
