@@ -38,6 +38,8 @@ import {
   readIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
 
+const MAX_TARGET_TITLES = 10;
+
 const targetTitlesSchema = z.object({
   targetTitles: z
     .array(
@@ -46,7 +48,7 @@ const targetTitlesSchema = z.object({
       }),
     )
     .min(1, 'Add at least one target title.')
-    .max(10, 'Choose no more than 10 target titles.'),
+    .max(MAX_TARGET_TITLES, `Choose no more than ${MAX_TARGET_TITLES} target titles.`),
 });
 
 type TargetTitlesFormValues = z.infer<typeof targetTitlesSchema>;
@@ -253,7 +255,7 @@ export default function IndividualProfilePage() {
 
   const addSuggestion = (suggestion: string) => {
     const current = cleanTitles(form.getValues('targetTitles'));
-    if (current.includes(suggestion)) {
+    if (titleFields.fields.length >= MAX_TARGET_TITLES || current.includes(suggestion)) {
       return;
     }
     titleFields.append({ value: suggestion });
@@ -369,6 +371,7 @@ export default function IndividualProfilePage() {
                           size="sm"
                           variant="outline"
                           onClick={() => addSuggestion(suggestion)}
+                          disabled={titleFields.fields.length >= MAX_TARGET_TITLES}
                         >
                           <Plus className="size-3.5" />
                           {suggestion}
@@ -435,7 +438,7 @@ export default function IndividualProfilePage() {
                       type="button"
                       variant="outline"
                       onClick={() => titleFields.append({ value: '' })}
-                      disabled={titleFields.fields.length >= 10}
+                      disabled={titleFields.fields.length >= MAX_TARGET_TITLES}
                     >
                       <Plus className="size-4" />
                       Add another title

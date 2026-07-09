@@ -92,6 +92,7 @@ export type PersistIndividualGraphResponseResult = {
 };
 
 let inMemorySession: IndividualGraphSession | null = null;
+let inMemorySessionIsAuthoritative = false;
 
 function getSessionStorage(): Storage | null {
   if (typeof window === 'undefined') {
@@ -106,6 +107,10 @@ function getSessionStorage(): Storage | null {
 }
 
 export function readIndividualGraphSession(): IndividualGraphSession | null {
+  if (inMemorySessionIsAuthoritative) {
+    return inMemorySession;
+  }
+
   const storage = getSessionStorage();
   if (!storage) {
     return inMemorySession;
@@ -119,8 +124,12 @@ export function readIndividualGraphSession(): IndividualGraphSession | null {
 
     const result = individualGraphSessionSchema.safeParse(JSON.parse(raw));
     if (!result.success) {
-      storage.removeItem(INDIVIDUAL_GRAPH_SESSION_KEY);
       inMemorySession = null;
+      try {
+        storage.removeItem(INDIVIDUAL_GRAPH_SESSION_KEY);
+      } catch {
+        inMemorySessionIsAuthoritative = true;
+      }
       return null;
     }
 
@@ -140,13 +149,16 @@ export function writeIndividualGraphSession(session: IndividualGraphSession): bo
 
   inMemorySession = result.data;
   if (!storage) {
+    inMemorySessionIsAuthoritative = true;
     return false;
   }
 
   try {
     storage.setItem(INDIVIDUAL_GRAPH_SESSION_KEY, JSON.stringify(result.data));
+    inMemorySessionIsAuthoritative = false;
     return true;
   } catch {
+    inMemorySessionIsAuthoritative = true;
     return false;
   }
 }
@@ -155,13 +167,15 @@ export function clearIndividualGraphSession(): void {
   inMemorySession = null;
   const storage = getSessionStorage();
   if (!storage) {
+    inMemorySessionIsAuthoritative = true;
     return;
   }
 
   try {
     storage.removeItem(INDIVIDUAL_GRAPH_SESSION_KEY);
+    inMemorySessionIsAuthoritative = false;
   } catch {
-    // Clearing the in-memory copy still prevents this SPA session from rendering stale data.
+    inMemorySessionIsAuthoritative = true;
   }
 }
 

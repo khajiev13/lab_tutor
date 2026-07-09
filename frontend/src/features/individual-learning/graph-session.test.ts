@@ -1,9 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearIndividualGraphSession,
+  clearIndividualGraphSessionForOtherUser,
   persistIndividualGraphResponse,
   readIndividualGraphSession,
+  writeIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
+
+const storedSession = {
+  ownerUserId: 7,
+  threadId: 'older-thread',
+  graphStatus: 'interrupted' as const,
+  targetTitles: ['Data Analyst'],
+  selectedPostingUrls: [],
+  selectedSkillNames: [],
+};
 
 describe('individual graph session', () => {
   beforeEach(() => {
@@ -75,5 +86,42 @@ describe('individual graph session', () => {
       ownerUserId: 7,
       threadId: 'individual-7-cv-42',
     });
+  });
+
+  it('does not let an older stored session overwrite a newer in-memory session after setItem fails', () => {
+    vi.spyOn(window, 'sessionStorage', 'get').mockReturnValue({
+      getItem: () => JSON.stringify(storedSession),
+      setItem: () => {
+        throw new Error('storage unavailable');
+      },
+      removeItem: () => undefined,
+    } as unknown as Storage);
+
+    expect(
+      writeIndividualGraphSession({
+        ...storedSession,
+        threadId: 'newer-thread',
+        targetTitles: ['Analytics Engineer'],
+      }),
+    ).toBe(false);
+
+    expect(readIndividualGraphSession()).toMatchObject({
+      threadId: 'newer-thread',
+      targetTitles: ['Analytics Engineer'],
+    });
+  });
+
+  it('does not resurrect a cleared prior-owner session after removeItem fails', () => {
+    vi.spyOn(window, 'sessionStorage', 'get').mockReturnValue({
+      getItem: () => JSON.stringify(storedSession),
+      setItem: () => undefined,
+      removeItem: () => {
+        throw new Error('storage unavailable');
+      },
+    } as unknown as Storage);
+
+    clearIndividualGraphSessionForOtherUser(8);
+
+    expect(readIndividualGraphSession()).toBeNull();
   });
 });

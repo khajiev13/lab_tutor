@@ -163,4 +163,36 @@ describe('IndividualProfilePage', () => {
     expect(await screen.findByText('Job selection step')).toBeInTheDocument();
     expect(individualLearningApi.resumeIndividualGraph).not.toHaveBeenCalled();
   });
+
+  it('does not append a suggested title after reaching the 10-title limit', async () => {
+    const storedSession = JSON.parse(
+      sessionStorage.getItem('individual-learning.graph-session') ?? '{}',
+    );
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({
+        ...storedSession,
+        reviewInterrupt: {
+          ...storedSession.reviewInterrupt,
+          target_title_suggestions: ['Analytics Engineer'],
+        },
+        targetTitles: Array.from({ length: 10 }, (_, index) => `Target role ${index + 1}`),
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/individual/profile']}>
+        <Routes>
+          <Route path="/individual/profile" element={<IndividualProfilePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const suggestion = await screen.findByRole('button', { name: /analytics engineer/i });
+    expect(suggestion).toBeDisabled();
+
+    fireEvent.click(suggestion);
+
+    expect(screen.getAllByRole('textbox')).toHaveLength(10);
+  });
 });

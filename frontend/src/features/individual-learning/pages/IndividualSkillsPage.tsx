@@ -34,6 +34,7 @@ import {
 import {
   persistIndividualGraphResponse,
   readIndividualGraphSession,
+  writeIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
 
 const MAX_SELECTED_SKILLS = 20;
@@ -268,6 +269,18 @@ export default function IndividualSkillsPage() {
         }
         if (removed.length > 0) {
           await deselectIndividualSkills(removed);
+        }
+
+        if (isGraphWorkflow && graphSession?.graphStatus === 'completed') {
+          const reconciledSession = {
+            ...graphSession,
+            selectedSkillNames: orderedSelection,
+          };
+          const stored = writeIndividualGraphSession(reconciledSession);
+          setGraphSession(reconciledSession);
+          if (!stored) {
+            toast.warning('Updated skill selection is available for this page session only.');
+          }
         }
       }
 

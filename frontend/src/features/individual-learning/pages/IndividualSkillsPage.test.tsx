@@ -231,4 +231,44 @@ describe('IndividualSkillsPage', () => {
     });
     expect(individualLearningApi.resumeIndividualGraph).not.toHaveBeenCalled();
   });
+
+  it('restores a completed graph REST selection after remounting the page', async () => {
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({
+        cvDocumentId: 42,
+        ownerUserId: 7,
+        threadId: 'individual-7-cv-42',
+        graphStatus: 'completed',
+        reviewInterrupt: null,
+        jobsInterrupt: {
+          kind: 'choose_jobs_and_skills',
+          candidate_jobs: [skillBanksResponse.market_skill_bank[0]],
+          skill_bank: skillBanksResponse.market_skill_bank[0].skills,
+        },
+        targetTitles: ['Data Analyst'],
+        selectedPostingUrls: ['https://example.test/jobs/data-analyst'],
+        selectedSkillNames: [],
+      }),
+    );
+
+    const firstRender = renderPage();
+
+    await screen.findByText('Data Analyst');
+    fireEvent.click(screen.getByRole('button', { name: /select all market skills/i }));
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+
+    expect(await screen.findByText('Learning path route')).toBeInTheDocument();
+    firstRender.unmount();
+
+    renderPage();
+
+    expect(await screen.findByText('2 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /remove query relational databases using sql/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /remove build stakeholder dashboards/i }),
+    ).toBeInTheDocument();
+  });
 });
