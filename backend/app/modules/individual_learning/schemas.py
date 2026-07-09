@@ -5,7 +5,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 OnboardingStatus = Literal[
     "needs_cv",
     "extracting",
@@ -14,6 +13,15 @@ OnboardingStatus = Literal[
     "needs_skill_selection",
     "ready",
     "error",
+]
+IndividualNextStep = Literal[
+    "upload_cv",
+    "wait_for_extraction",
+    "review_profile",
+    "search_jobs",
+    "select_jobs_and_skills",
+    "learning_path",
+    "retry_cv",
 ]
 
 
@@ -24,6 +32,12 @@ class IndividualProfileRead(BaseModel):
     preferred_country: str | None = None
     preferred_location: str | None = None
     reviewed_at: datetime | None = None
+    cv_document_id: int | None = None
+    extraction_run_id: int | None = None
+    active_thread_id: str | None = None
+    next_step: IndividualNextStep = "upload_cv"
+    extracted_profile: dict[str, Any] | None = None
+    pending_interrupt: dict[str, Any] | None = None
 
 
 class CVDocumentRead(BaseModel):
@@ -61,6 +75,7 @@ class CVProfileExtraction(BaseModel):
     industries: list[str] = Field(default_factory=list)
     seniority_signals: list[str] = Field(default_factory=list)
     target_title_suggestions: list[str] = Field(default_factory=list)
+    confidence_summary: dict[str, float] = Field(default_factory=dict)
 
 
 GraphRunStatus = Literal["interrupted", "completed"]

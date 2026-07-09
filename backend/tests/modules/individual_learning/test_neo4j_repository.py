@@ -5,7 +5,9 @@ from app.modules.individual_learning.schemas import CVSkillExtraction
 
 
 class FakeResult:
-    def __init__(self, single_record: dict | None = None, rows: list[dict] | None = None) -> None:
+    def __init__(
+        self, single_record: dict | None = None, rows: list[dict] | None = None
+    ) -> None:
         self._single_record = single_record
         self._rows = rows or []
 
@@ -34,7 +36,9 @@ def test_upsert_cv_skills_uses_cv_skill_label_and_has_skill() -> None:
     count = neo4j_repository.upsert_cv_skills(
         session,
         user_id=7,
-        skills=[CVSkillExtraction(name="Python", evidence="Built APIs", confidence=0.9)],
+        skills=[
+            CVSkillExtraction(name="Python", evidence="Built APIs", confidence=0.9)
+        ],
         cv_document_id=3,
         extraction_run_id=5,
     )
@@ -50,7 +54,9 @@ def test_upsert_cv_skills_uses_cv_skill_label_and_has_skill() -> None:
     assert params["extraction_run_id"] == 5
 
 
-def test_upsert_job_postings_and_market_skills_uses_market_skill_and_sourced_from() -> None:
+def test_upsert_job_postings_and_market_skills_uses_market_skill_and_sourced_from() -> (
+    None
+):
     session = FakeSession(
         [
             FakeResult({"written": 1}),
@@ -69,7 +75,11 @@ def test_upsert_job_postings_and_market_skills_uses_market_skill_and_sourced_fro
         ],
         skills_by_job_url={
             "https://jobs.example/backend": [
-                {"name": "Python", "category": "Programming", "description": "Backend work"},
+                {
+                    "name": "Python",
+                    "category": "Programming",
+                    "description": "Backend work",
+                },
                 {"name": "SQL"},
             ]
         },
@@ -117,7 +127,9 @@ def test_select_job_postings_links_individual_directly_to_job_postings() -> None
 def test_select_market_skills_rejects_cv_skill_label() -> None:
     session = FakeSession()
 
-    count = neo4j_repository.select_market_skills(session, user_id=7, skill_names=["Python"])
+    count = neo4j_repository.select_market_skills(
+        session, user_id=7, skill_names=["Python"]
+    )
     query, params = session.calls[0]
 
     assert count == 1
@@ -127,7 +139,51 @@ def test_select_market_skills_rejects_cv_skill_label() -> None:
     assert params["source"] == "individual_market_skill"
 
 
-def test_get_individual_skill_bank_reads_only_market_skills_from_interested_jobs() -> None:
+def test_select_candidate_market_skills_is_scoped_to_selected_candidate_jobs() -> None:
+    session = FakeSession([FakeResult({"written": 1})])
+
+    count = neo4j_repository.select_candidate_market_skills(
+        session,
+        user_id=7,
+        skill_names=["Docker"],
+        posting_urls=["https://jobs.example/backend"],
+        job_search_run_id="12",
+        match_run_id="13",
+    )
+
+    query, params = session.calls[0]
+
+    assert count == 1
+    assert "MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(sk:SKILL:MARKET_SKILL" in query
+    assert "WHERE jp.url IN $posting_urls" in query
+    assert "MERGE (u)-[r:SELECTED_SKILL]->(sk)" in query
+    assert "CV_SKILL" not in query
+    assert params["posting_urls"] == ["https://jobs.example/backend"]
+    assert params["job_search_run_id"] == "12"
+    assert params["match_run_id"] == "13"
+
+
+def test_resolve_interested_market_skills_requires_user_job_interest() -> None:
+    session = FakeSession([FakeResult(rows=[{"name": "Docker"}])])
+
+    names = neo4j_repository.resolve_interested_market_skill_names(
+        session,
+        user_id=7,
+        skill_names=["Docker", "CV-only"],
+    )
+
+    query, params = session.calls[0]
+
+    assert names == ["Docker"]
+    assert "(u)-[:INTERESTED_IN]->(jp:JOB_POSTING)" in query
+    assert "(sk:SKILL:MARKET_SKILL)-[:SOURCED_FROM]->(jp)" in query
+    assert "CV_SKILL" not in query
+    assert params == {"user_id": 7, "skill_names": ["Docker", "CV-only"]}
+
+
+def test_get_individual_skill_bank_reads_only_market_skills_from_interested_jobs() -> (
+    None
+):
     session = FakeSession(
         [
             FakeResult(rows=[{"url": "https://jobs.example/backend"}]),
@@ -143,7 +199,7 @@ def test_get_individual_skill_bank_reads_only_market_skills_from_interested_jobs
                         }
                     }
                 ]
-            )
+            ),
         ]
     )
 
@@ -164,8 +220,14 @@ def test_get_individual_skill_bank_reads_only_market_skills_from_interested_jobs
         "selected_skill_names": ["Python"],
         "interested_posting_urls": ["https://jobs.example/backend"],
     }
-    assert "MATCH (u:USER:INDIVIDUAL {id: $user_id})-[r:INTERESTED_IN]->(jp:JOB_POSTING)" in interested_query
-    assert "MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:MARKET_SKILL)" in selected_query
+    assert (
+        "MATCH (u:USER:INDIVIDUAL {id: $user_id})-[r:INTERESTED_IN]->(jp:JOB_POSTING)"
+        in interested_query
+    )
+    assert (
+        "MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:MARKET_SKILL)"
+        in selected_query
+    )
     assert "MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(ms:MARKET_SKILL)" in bank_query
     assert "CV_SKILL" not in bank_query
     assert interested_params["user_id"] == 7

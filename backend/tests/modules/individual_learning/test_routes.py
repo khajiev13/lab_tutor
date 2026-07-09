@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 
 from app.modules.auth.models import UserRole
 from app.modules.individual_learning import routes
+from app.modules.individual_learning.schemas import CVProfileExtraction
 
 
 def test_individual_learning_router_prefix() -> None:
@@ -14,6 +15,21 @@ def test_individual_learning_router_prefix() -> None:
 
 def test_individual_learning_uses_individual_role() -> None:
     assert routes.INDIVIDUAL_ROLE == UserRole.INDIVIDUAL
+
+
+def test_service_dependency_constructs_injected_individual_learning_service(
+    monkeypatch,
+) -> None:
+    db = MagicMock()
+    driver = MagicMock()
+    expected = object()
+    constructor = MagicMock(return_value=expected)
+    monkeypatch.setattr(routes, "IndividualLearningService", constructor)
+
+    service = routes.get_individual_learning_service(db, driver)
+
+    assert service is expected
+    constructor.assert_called_once_with(db, driver)
 
 
 def test_individual_learning_cv_upload_route_exists() -> None:
@@ -60,24 +76,18 @@ def test_individual_learning_skill_selection_routes_exist() -> None:
     assert path_route.path == "/individual-learning/path"
 
 
-def test_select_individual_skills_route_returns_selected_count(monkeypatch) -> None:
+def test_select_individual_skills_route_returns_selected_count() -> None:
     captured: dict[str, object] = {}
-
-    monkeypatch.setattr(
-        routes,
-        "_get_service",
-        lambda _db, _driver: SimpleNamespace(
-            select_skills=lambda user_id, skill_names: (
-                captured.update({"user_id": user_id, "skill_names": skill_names}) or 2
-            )
-        ),
+    service = SimpleNamespace(
+        select_skills=lambda user_id, skill_names: (
+            captured.update({"user_id": user_id, "skill_names": skill_names}) or 2
+        )
     )
 
     response = routes.select_skills(
         body=SimpleNamespace(skill_names=["GraphQL", "Docker"]),
         user=SimpleNamespace(id=7),
-        db=MagicMock(),
-        driver=MagicMock(),
+        service=service,
     )
 
     assert response == {"selected": 2}
@@ -87,135 +97,119 @@ def test_select_individual_skills_route_returns_selected_count(monkeypatch) -> N
     }
 
 
-def test_select_individual_skills_route_returns_400_on_validation_error(monkeypatch) -> None:
-    monkeypatch.setattr(
-        routes,
-        "_get_service",
-        lambda _db, _driver: SimpleNamespace(
-            select_skills=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                ValueError("Select at least one market skill before building")
-            )
-        ),
+def test_select_individual_skills_route_returns_400_on_validation_error() -> None:
+    service = SimpleNamespace(
+        select_skills=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("Select at least one market skill before building")
+        )
     )
 
     with pytest.raises(HTTPException) as exc_info:
         routes.select_skills(
             body=SimpleNamespace(skill_names=[]),
             user=SimpleNamespace(id=7),
-            db=MagicMock(),
-            driver=MagicMock(),
+            service=service,
         )
 
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
     assert exc_info.value.detail == "Select at least one market skill before building"
 
 
-def test_deselect_individual_skills_route_returns_deleted_count(monkeypatch) -> None:
-    monkeypatch.setattr(
-        routes,
-        "_get_service",
-        lambda _db, _driver: SimpleNamespace(
-            deselect_skills=lambda user_id, skill_names: 1
-        ),
-    )
+def test_deselect_individual_skills_route_returns_deleted_count() -> None:
+    service = SimpleNamespace(deselect_skills=lambda user_id, skill_names: 1)
 
     response = routes.deselect_skills(
         body=SimpleNamespace(skill_names=["GraphQL"]),
         user=SimpleNamespace(id=7),
-        db=MagicMock(),
-        driver=MagicMock(),
+        service=service,
     )
 
     assert response == {"deselected": 1}
 
 
-def test_build_individual_learning_path_route_returns_completed_status(monkeypatch) -> None:
-    monkeypatch.setattr(
-        routes,
-        "_get_service",
-        lambda _db, _driver: SimpleNamespace(
-            build_learning_path=lambda user_id, skill_names: {"status": "completed"}
-        ),
+def test_select_interested_jobs_route_returns_400_for_non_candidate() -> None:
+    service = SimpleNamespace(
+        select_interested_jobs=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("Select only jobs from your latest candidate search")
+        )
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        routes.select_interested_jobs(
+            body=SimpleNamespace(posting_urls=["https://jobs.example/injected"]),
+            user=SimpleNamespace(id=7),
+            service=service,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Select only jobs from your latest candidate search"
+
+
+def test_build_individual_learning_path_route_returns_completed_status() -> None:
+    service = SimpleNamespace(
+        build_learning_path=lambda user_id, skill_names: {"status": "completed"}
     )
 
     response = routes.build_learning_path(
         body=SimpleNamespace(skill_names=["GraphQL"]),
         user=SimpleNamespace(id=7),
-        db=MagicMock(),
-        driver=MagicMock(),
+        service=service,
     )
 
     assert response == {"status": "completed"}
 
 
-def test_build_individual_learning_path_route_returns_400_on_validation_error(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        routes,
-        "_get_service",
-        lambda _db, _driver: SimpleNamespace(
-            build_learning_path=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                ValueError("Select at least one market skill before building")
-            )
-        ),
+def test_build_individual_learning_path_route_returns_400_on_validation_error() -> None:
+    service = SimpleNamespace(
+        build_learning_path=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("Select at least one market skill before building")
+        )
     )
 
     with pytest.raises(HTTPException) as exc_info:
         routes.build_learning_path(
             body=SimpleNamespace(skill_names=[]),
             user=SimpleNamespace(id=7),
-            db=MagicMock(),
-            driver=MagicMock(),
+            service=service,
         )
 
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
     assert exc_info.value.detail == "Select at least one market skill before building"
 
 
-def test_build_individual_learning_path_route_returns_400_for_non_market_request(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        routes,
-        "_get_service",
-        lambda _db, _driver: SimpleNamespace(
-            build_learning_path=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                ValueError("Select only valid market skills before building")
-            )
-        ),
+def test_build_individual_learning_path_route_returns_400_for_non_market_request() -> (
+    None
+):
+    service = SimpleNamespace(
+        build_learning_path=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("Select only valid market skills before building")
+        )
     )
 
     with pytest.raises(HTTPException) as exc_info:
         routes.build_learning_path(
             body=SimpleNamespace(skill_names=["CV-only"]),
             user=SimpleNamespace(id=7),
-            db=MagicMock(),
-            driver=MagicMock(),
+            service=service,
         )
 
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
     assert exc_info.value.detail == "Select only valid market skills before building"
 
 
-def test_get_individual_learning_path_route_returns_projection(monkeypatch) -> None:
-    monkeypatch.setattr(
-        routes,
-        "_get_service",
-        lambda _db, _driver: SimpleNamespace(
-            get_learning_path=lambda user_id: {
-                "user_id": user_id,
-                "selected_skills": [],
-                "total_selected_skills": 0,
-                "skills_with_resources": 0,
-            }
-        ),
+def test_get_individual_learning_path_route_returns_projection() -> None:
+    service = SimpleNamespace(
+        get_learning_path=lambda user_id: {
+            "user_id": user_id,
+            "selected_skills": [],
+            "total_selected_skills": 0,
+            "skills_with_resources": 0,
+        }
     )
 
     response = routes.get_learning_path(
         user=SimpleNamespace(id=7),
-        db=MagicMock(),
-        driver=MagicMock(),
+        service=service,
     )
 
     assert response.user_id == 7
@@ -258,6 +252,19 @@ def test_individual_learning_cv_upload_endpoint_returns_created(
         "data analysis machine learning dashboards APIs cloud deployment testing "
         "architecture collaboration documentation monitoring orchestration pipelines",
     )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.StructuredCVProfileExtractor",
+        lambda: SimpleNamespace(
+            model_provider="test-provider",
+            model_name="test-model",
+            extract=lambda _text: CVProfileExtraction(
+                summary="Backend engineer",
+                skills=[{"name": "Python", "confidence": 0.9}],
+                target_title_suggestions=["Backend Engineer"],
+                confidence_summary={"skills": 0.9},
+            ),
+        ),
+    )
 
     response = client.post(
         "/individual-learning/cv",
@@ -282,5 +289,5 @@ def test_individual_learning_cv_upload_endpoint_returns_created(
         "content_type": (
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ),
-        "status": "uploaded",
+        "status": "completed",
     }

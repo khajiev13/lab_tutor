@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, TypedDict
 
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
 
 class IndividualLearningState(TypedDict, total=False):
+    thread_id: str
     user_id: int
     cv_document_id: int
     profile: dict[str, Any]
@@ -16,6 +17,8 @@ class IndividualLearningState(TypedDict, total=False):
     skill_bank: list[dict[str, Any]]
     selected_posting_urls: list[str]
     selected_skill_names: list[str]
+    job_search_run_id: int
+    job_match_run_id: int
 
 
 def review_profile_and_roles(state: IndividualLearningState) -> dict[str, Any]:
@@ -87,14 +90,12 @@ def choose_jobs_and_skills(state: IndividualLearningState) -> dict[str, Any]:
     selected_posting_urls = [
         url
         for url in decision.get("selected_posting_urls", [])
-        if isinstance(url, str)
-        and url in available_posting_urls
+        if isinstance(url, str) and url in available_posting_urls
     ]
     selected_skill_names = [
         name
         for name in decision.get("selected_skill_names", [])
-        if isinstance(name, str)
-        and name in available_skill_names
+        if isinstance(name, str) and name in available_skill_names
     ]
     return {
         "selected_posting_urls": selected_posting_urls,
@@ -102,15 +103,19 @@ def choose_jobs_and_skills(state: IndividualLearningState) -> dict[str, Any]:
     }
 
 
-def build_individual_learning_graph(checkpointer=None):
+def build_individual_learning_graph(
+    checkpointer=None,
+    *,
+    job_search_node: Callable[[IndividualLearningState], dict[str, Any]] | None = None,
+):
+    if checkpointer is None:
+        raise ValueError("checkpointer is required for the individual learning graph")
     builder = StateGraph(IndividualLearningState)
     builder.add_node("review_profile_and_roles", review_profile_and_roles)
-    builder.add_node("search_jobs", load_candidate_jobs)
+    builder.add_node("search_jobs", job_search_node or load_candidate_jobs)
     builder.add_node("choose_jobs_and_skills", choose_jobs_and_skills)
     builder.add_edge(START, "review_profile_and_roles")
     builder.add_edge("review_profile_and_roles", "search_jobs")
     builder.add_edge("search_jobs", "choose_jobs_and_skills")
     builder.add_edge("choose_jobs_and_skills", END)
-    if checkpointer is None:
-        checkpointer = InMemorySaver()
     return builder.compile(checkpointer=checkpointer)

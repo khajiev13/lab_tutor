@@ -33,35 +33,43 @@ DbDep = Annotated[Session, Depends(get_db)]
 Neo4jDep = Annotated[Neo4jDriver | None, Depends(get_neo4j_driver)]
 
 
-def _get_service(db: DbDep, driver: Neo4jDep) -> IndividualLearningService:
+def get_individual_learning_service(
+    db: DbDep,
+    driver: Neo4jDep,
+) -> IndividualLearningService:
     return IndividualLearningService(db, driver)
+
+
+ServiceDep = Annotated[
+    IndividualLearningService,
+    Depends(get_individual_learning_service),
+]
 
 
 @router.get("/profile", response_model=IndividualProfileRead)
 def get_profile(
-    user: IndividualDep, db: DbDep, driver: Neo4jDep
+    user: IndividualDep,
+    service: ServiceDep,
 ) -> IndividualProfileRead:
-    return _get_service(db, driver).get_profile(user.id)
+    return service.get_profile(user.id)
 
 
 @router.post("/cv", response_model=CVDocumentRead, status_code=status.HTTP_201_CREATED)
 async def upload_cv(
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
     file: UploadFile = File(...),
 ) -> CVDocumentRead:
-    return await _get_service(db, driver).upload_cv(user.id, file)
+    return await service.upload_cv(user.id, file)
 
 
 @router.post("/graph/start", response_model=IndividualGraphStartResponse)
 def start_individual_graph(
     body: IndividualGraphStartRequest,
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
 ) -> IndividualGraphStartResponse:
-    return _get_service(db, driver).start_individual_graph(
+    return service.start_individual_graph(
         user.id,
         body.cv_document_id,
     )
@@ -71,10 +79,9 @@ def start_individual_graph(
 def resume_individual_graph(
     body: IndividualGraphResumeRequest,
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
 ) -> IndividualGraphResumeResponse:
-    return _get_service(db, driver).resume_individual_graph(
+    return service.resume_individual_graph(
         user.id,
         body.thread_id,
         body.payload,
@@ -84,20 +91,24 @@ def resume_individual_graph(
 @router.get("/skill-banks", response_model=IndividualSkillBanksResponse)
 def get_skill_banks(
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
 ) -> IndividualSkillBanksResponse:
-    return _get_service(db, driver).get_skill_banks(user.id)
+    return service.get_skill_banks(user.id)
 
 
 @router.post("/interested-jobs")
 def select_interested_jobs(
     body: SelectInterestedJobsRequest,
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
 ) -> dict[str, int]:
-    count = _get_service(db, driver).select_interested_jobs(user.id, body.posting_urls)
+    try:
+        count = service.select_interested_jobs(user.id, body.posting_urls)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     return {"postings_linked": count}
 
 
@@ -105,11 +116,10 @@ def select_interested_jobs(
 def select_skills(
     body: SelectIndividualSkillsRequest,
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
 ) -> dict[str, int]:
     try:
-        count = _get_service(db, driver).select_skills(user.id, body.skill_names)
+        count = service.select_skills(user.id, body.skill_names)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -122,10 +132,9 @@ def select_skills(
 def deselect_skills(
     body: SelectIndividualSkillsRequest,
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
 ) -> dict[str, int]:
-    count = _get_service(db, driver).deselect_skills(user.id, body.skill_names)
+    count = service.deselect_skills(user.id, body.skill_names)
     return {"deselected": count}
 
 
@@ -133,11 +142,10 @@ def deselect_skills(
 def build_learning_path(
     body: SelectIndividualSkillsRequest,
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
 ) -> dict[str, str]:
     try:
-        return _get_service(db, driver).build_learning_path(user.id, body.skill_names)
+        return service.build_learning_path(user.id, body.skill_names)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -148,9 +156,8 @@ def build_learning_path(
 @router.get("/path", response_model=IndividualLearningPathResponse)
 def get_learning_path(
     user: IndividualDep,
-    db: DbDep,
-    driver: Neo4jDep,
+    service: ServiceDep,
 ) -> IndividualLearningPathResponse:
     return IndividualLearningPathResponse.model_validate(
-        _get_service(db, driver).get_learning_path(user.id)
+        service.get_learning_path(user.id)
     )

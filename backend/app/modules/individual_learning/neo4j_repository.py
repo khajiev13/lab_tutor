@@ -155,6 +155,40 @@ def select_market_skills(
     return int(record["written"] if record else 0)
 
 
+def select_candidate_market_skills(
+    session: Neo4jSession,
+    *,
+    user_id: int,
+    skill_names: list[str],
+    posting_urls: list[str],
+    job_search_run_id: str,
+    match_run_id: str,
+) -> int:
+    result = session.run(
+        """
+        UNWIND $skill_names AS skill_name
+        MATCH (u:USER:INDIVIDUAL {id: $user_id})
+        MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(sk:SKILL:MARKET_SKILL {name: skill_name})
+        WHERE jp.url IN $posting_urls
+        WITH DISTINCT u, sk
+        MERGE (u)-[r:SELECTED_SKILL]->(sk)
+        ON CREATE SET r.selected_at = datetime($now)
+        SET r.source = 'individual_market_skill',
+            r.job_search_run_id = $job_search_run_id,
+            r.match_run_id = $match_run_id
+        RETURN count(DISTINCT sk) AS written
+        """,
+        user_id=user_id,
+        skill_names=skill_names,
+        posting_urls=posting_urls,
+        job_search_run_id=job_search_run_id,
+        match_run_id=match_run_id,
+        now=datetime.now(UTC).isoformat(),
+    )
+    record = result.single()
+    return int(record["written"] if record else 0)
+
+
 def get_selected_market_skill_names(
     session: Neo4jSession,
     *,
@@ -182,6 +216,27 @@ def resolve_market_skill_names(
         MATCH (sk:SKILL:MARKET_SKILL {name: skill_name})
         RETURN DISTINCT sk.name AS name
         """,
+        skill_names=skill_names,
+    )
+    resolved_names = {record["name"] for record in result}
+    return [skill_name for skill_name in skill_names if skill_name in resolved_names]
+
+
+def resolve_interested_market_skill_names(
+    session: Neo4jSession,
+    *,
+    user_id: int,
+    skill_names: list[str],
+) -> list[str]:
+    result = session.run(
+        """
+        MATCH (u:USER:INDIVIDUAL {id: $user_id})
+        MATCH (u)-[:INTERESTED_IN]->(jp:JOB_POSTING)
+        MATCH (sk:SKILL:MARKET_SKILL)-[:SOURCED_FROM]->(jp)
+        WHERE sk.name IN $skill_names
+        RETURN DISTINCT sk.name AS name
+        """,
+        user_id=user_id,
         skill_names=skill_names,
     )
     resolved_names = {record["name"] for record in result}

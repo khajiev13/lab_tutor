@@ -2,9 +2,14 @@ import io
 import zipfile
 
 import pytest
+from langchain_core.runnables import RunnableLambda
 from pypdf.errors import PdfReadError
 
-from app.modules.individual_learning.cv_extractor import extract_cv_text
+from app.modules.individual_learning.cv_extractor import (
+    StructuredCVProfileExtractor,
+    extract_cv_text,
+)
+from app.modules.individual_learning.schemas import CVProfileExtraction
 
 
 def _docx_bytes(text: str) -> bytes:
@@ -71,3 +76,45 @@ def test_extract_cv_text_wraps_pdf_page_extraction_failures(
             content_type="application/pdf",
             data=b"%PDF-1.7",
         )
+
+
+def test_structured_cv_extractor_uses_cv_profile_schema_and_validates_output() -> None:
+    captured: dict[str, object] = {}
+
+    class FakeLLM:
+        def with_structured_output(self, schema, *, method: str):
+            captured["schema"] = schema
+            captured["method"] = method
+            return RunnableLambda(
+                lambda _prompt: {
+                    "summary": "Backend engineer",
+                    "skills": [
+                        {
+                            "name": "Python",
+                            "category": "Programming",
+                            "evidence": "Built FastAPI services",
+                            "confidence": 0.95,
+                        }
+                    ],
+                    "target_title_suggestions": ["Backend Engineer"],
+                    "confidence_summary": {"skills": 0.95},
+                }
+            )
+
+    extractor = StructuredCVProfileExtractor(
+        llm_factory=lambda: FakeLLM(),
+        model_provider="test-provider",
+        model_name="test-model",
+    )
+
+    result = extractor.extract(
+        "Private CV text that must stay inside the prompt boundary"
+    )
+
+    assert captured["schema"] is CVProfileExtraction
+    assert captured["method"] == "function_calling"
+    assert result.skills[0].name == "Python"
+    assert result.target_title_suggestions == ["Backend Engineer"]
+    assert result.confidence_summary == {"skills": 0.95}
+    assert extractor.model_provider == "test-provider"
+    assert extractor.model_name == "test-model"

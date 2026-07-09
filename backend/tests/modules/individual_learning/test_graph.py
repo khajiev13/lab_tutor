@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import pytest
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from app.modules.individual_learning.graph import build_individual_learning_graph
 
 
 def test_graph_interrupts_for_profile_review() -> None:
-    graph = build_individual_learning_graph()
+    graph = build_individual_learning_graph(InMemorySaver())
     config = {"configurable": {"thread_id": "individual-7"}}
 
     result = graph.invoke(
@@ -27,7 +29,7 @@ def test_graph_interrupts_for_profile_review() -> None:
 
 
 def test_graph_resumes_to_skill_selection_interrupt() -> None:
-    graph = build_individual_learning_graph()
+    graph = build_individual_learning_graph(InMemorySaver())
     config = {"configurable": {"thread_id": "individual-7"}}
     candidate_jobs = [
         {
@@ -69,8 +71,10 @@ def test_graph_resumes_to_skill_selection_interrupt() -> None:
     assert interrupt_value["skill_bank"] == skill_bank
 
 
-def test_graph_ignores_resume_payload_attempts_to_override_server_candidate_jobs_and_skill_bank() -> None:
-    graph = build_individual_learning_graph()
+def test_graph_ignores_resume_payload_attempts_to_override_server_candidate_jobs_and_skill_bank() -> (
+    None
+):
+    graph = build_individual_learning_graph(InMemorySaver())
     config = {"configurable": {"thread_id": "individual-7"}}
     candidate_jobs = [
         {
@@ -119,8 +123,10 @@ def test_graph_ignores_resume_payload_attempts_to_override_server_candidate_jobs
     assert interrupt_value["skill_bank"] == skill_bank
 
 
-def test_graph_derives_skill_bank_from_server_candidate_jobs_when_state_has_no_skill_bank() -> None:
-    graph = build_individual_learning_graph()
+def test_graph_derives_skill_bank_from_server_candidate_jobs_when_state_has_no_skill_bank() -> (
+    None
+):
+    graph = build_individual_learning_graph(InMemorySaver())
     config = {"configurable": {"thread_id": "individual-7"}}
     candidate_jobs = [
         {
@@ -178,7 +184,7 @@ def test_graph_derives_skill_bank_from_server_candidate_jobs_when_state_has_no_s
 
 
 def test_graph_filters_selected_jobs_and_skills_against_market_inputs() -> None:
-    graph = build_individual_learning_graph()
+    graph = build_individual_learning_graph(InMemorySaver())
     config = {"configurable": {"thread_id": "individual-7"}}
     candidate_jobs = [
         {
@@ -235,10 +241,6 @@ def test_graph_filters_selected_jobs_and_skills_against_market_inputs() -> None:
     assert result["selected_skill_names"] == ["Python"]
 
 
-def test_graph_builder_uses_fresh_default_checkpointer_per_build() -> None:
-    graph_a = build_individual_learning_graph()
-    graph_b = build_individual_learning_graph()
-
-    assert graph_a.checkpointer is not None
-    assert graph_b.checkpointer is not None
-    assert graph_a.checkpointer is not graph_b.checkpointer
+def test_graph_builder_requires_explicit_checkpointer() -> None:
+    with pytest.raises(ValueError, match="checkpointer is required"):
+        build_individual_learning_graph()

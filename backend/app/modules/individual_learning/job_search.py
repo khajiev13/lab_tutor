@@ -50,8 +50,10 @@ def search_jobs_for_titles(
                 linkedin_fetch_description=True,
                 verbose=0,
             )
-        except Exception:
-            continue
+        except Exception as exc:
+            raise RuntimeError(
+                f"{term}: {str(exc)[:200] or type(exc).__name__}"
+            ) from exc
 
         for _, row in results.iterrows():
             url = str(row.get("job_url", "")).strip()
@@ -60,7 +62,9 @@ def search_jobs_for_titles(
             jobs_by_url[url] = {
                 "url": url,
                 "title": str(row.get("title", "")).strip(),
-                "company": str(row.get("company_name") or row.get("company", "")).strip(),
+                "company": str(
+                    row.get("company_name") or row.get("company", "")
+                ).strip(),
                 "site": str(row.get("site", "")).strip() or None,
                 "search_term": term,
                 "country": selected_country.jobspy_country,

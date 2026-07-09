@@ -66,6 +66,10 @@ from app.modules.curricularalignmentarchitect.api_routes import (  # noqa: E402
 from app.modules.curricularalignmentarchitect.curriculum_planning import (  # noqa: E402
     router as chapter_plan_router,
 )
+from app.modules.individual_learning.checkpoint import (  # noqa: E402
+    close_individual_learning_checkpointer,
+    get_individual_learning_checkpointer,
+)
 from app.modules.individual_learning.routes import (  # noqa: E402
     router as individual_learning_router,
 )
@@ -317,7 +321,9 @@ def _ensure_sql_schema_upgrades() -> None:
             )
         ).fetchone()
         if not has_individual_role:
-            conn.execute(text("ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'individual'"))
+            conn.execute(
+                text("ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'individual'")
+            )
 
         # Migrate vector columns to the correct dimension (2048).
         # text-embedding-v4 actually returns 2048-dim vectors.
@@ -476,6 +482,30 @@ def _ensure_sql_schema_upgrades() -> None:
                     "ADD COLUMN agentic_processed BOOLEAN NOT NULL DEFAULT FALSE"
                 )
             )
+
+        # Stable workflow identity makes individual job-search audit writes
+        # idempotent when LangGraph retries a node after a process interruption.
+        conn.execute(
+            text(
+                "ALTER TABLE individual_job_search_runs "
+                "ADD COLUMN IF NOT EXISTS workflow_thread_id VARCHAR(200)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ux_individual_job_search_runs_workflow_thread_id "
+                "ON individual_job_search_runs (workflow_thread_id) "
+                "WHERE workflow_thread_id IS NOT NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ux_individual_job_match_runs_job_search_run_id "
+                "ON individual_job_match_runs (job_search_run_id)"
+            )
+        )
 
         conn.commit()
 
@@ -663,6 +693,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         return await asyncio.to_thread(_init)
 
+    async def _task_individual_checkpoint() -> object:
+        try:
+            checkpointer = await asyncio.to_thread(get_individual_learning_checkpointer)
+            logger.info("Individual-learning checkpoint store ready")
+            return checkpointer
+        except Exception:
+            logger.exception("Individual-learning checkpoint setup failed")
+            raise
+
     # Run all tasks concurrently.  Schema upgrades must succeed; the rest
     # are best-effort (warm-ups, backfill, orphan recovery).
     results = await asyncio.gather(
@@ -671,21 +710,41 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _task_warmup_sync_pool(),
         _task_warmup_async_pool(),
         _task_recover_orphans(),
+        _task_individual_checkpoint(),
         _task_neo4j_init(),
         return_exceptions=True,
     )
+    schema_result = results[0]
+    checkpoint_result = results[-2]
     # The last result is the neo4j driver (or an exception).
     neo4j_result = results[-1]
+
+    startup_error = next(
+        (
+            result
+            for result in (schema_result, checkpoint_result)
+            if isinstance(result, BaseException)
+        ),
+        None,
+    )
+    if startup_error is not None:
+        await asyncio.to_thread(close_individual_learning_checkpointer)
+        if not isinstance(neo4j_result, BaseException) and neo4j_result is not None:
+            neo4j_result.close()
+        raise startup_error
+
     if isinstance(neo4j_result, BaseException):
         logger.error("Neo4j init failed during startup: %s", neo4j_result)
         app.state.neo4j_driver = None
     else:
         app.state.neo4j_driver = neo4j_result
 
-    yield
-
-    if app.state.neo4j_driver is not None:
-        app.state.neo4j_driver.close()
+    try:
+        yield
+    finally:
+        await asyncio.to_thread(close_individual_learning_checkpointer)
+        if app.state.neo4j_driver is not None:
+            app.state.neo4j_driver.close()
 
 
 app = FastAPI(

@@ -1,0 +1,246 @@
+from __future__ import annotations
+
+from contextlib import nullcontext
+
+import pytest
+from fastapi import HTTPException
+from langgraph.checkpoint.memory import InMemorySaver
+
+from app.modules.auth.models import User, UserRole
+from app.modules.individual_learning.repository import IndividualLearningRepository
+from app.modules.individual_learning.service import IndividualLearningService
+
+
+def _create_individual(db_session, *, email: str) -> User:
+    user = User(
+        email=email,
+        hashed_password="hashed",
+        first_name="Indy",
+        last_name="Learner",
+        role=UserRole.INDIVIDUAL,
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+def _seed_completed_extraction(db_session, *, user_id: int):
+    repository = IndividualLearningRepository(db_session)
+    document = repository.upsert_cv_document(
+        user_id=user_id,
+        blob_path=f"users/{user_id}/cv/hash/cv.pdf",
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash=str(user_id).zfill(64),
+        size_bytes=123,
+    )
+    extraction = repository.create_cv_extraction_run(
+        cv_document_id=document.id,
+        user_id=user_id,
+        model_provider="test-provider",
+        model_name="test-model",
+        raw_text_hash="b" * 64,
+    )
+    repository.complete_cv_extraction(
+        extraction,
+        extracted_profile={
+            "summary": "Backend engineer",
+            "skills": [
+                {
+                    "name": "Python",
+                    "category": "Programming",
+                    "evidence": "Built APIs",
+                    "confidence": 0.9,
+                }
+            ],
+            "target_title_suggestions": ["Backend Engineer"],
+            "confidence_summary": {"skills": 0.9},
+        },
+        target_title_suggestions=["Backend Engineer"],
+        confidence_summary={"skills": 0.9},
+    )
+    repository.complete_cv_document(document)
+    repository.upsert_profile_status(
+        user_id=user_id,
+        onboarding_status="needs_profile_review",
+    )
+    return document, extraction
+
+
+class DummyDriver:
+    def __init__(self) -> None:
+        self.session_value = object()
+
+    def session(self):
+        return nullcontext(self.session_value)
+
+
+def test_first_resume_durably_approves_stored_profile_titles_and_cv_skills(
+    db_session,
+    monkeypatch,
+) -> None:
+    user = _create_individual(db_session, email="owner@example.com")
+    document, extraction = _seed_completed_extraction(db_session, user_id=user.id)
+    driver = DummyDriver()
+    checkpointer = InMemorySaver()
+    captured: dict[str, object] = {}
+
+    def fake_upsert_cv_skills(
+        session,
+        *,
+        user_id,
+        skills,
+        cv_document_id,
+        extraction_run_id,
+    ) -> int:
+        captured.update(
+            {
+                "session": session,
+                "user_id": user_id,
+                "skills": skills,
+                "cv_document_id": cv_document_id,
+                "extraction_run_id": extraction_run_id,
+            }
+        )
+        return len(skills)
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.upsert_cv_skills",
+        fake_upsert_cv_skills,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.upsert_job_postings_and_market_skills",
+        lambda *_args, **_kwargs: {"jobs": 0, "market_skills": 0},
+    )
+    service = IndividualLearningService(
+        db_session,
+        driver,
+        graph_checkpointer=checkpointer,
+        job_searcher=lambda *_args: [
+            {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+            }
+        ],
+        market_skill_extractor=lambda jobs: {jobs[0]["url"]: [{"name": "Docker"}]},
+    )
+
+    started = service.start_individual_graph(user.id, document.id)
+    resumed = service.resume_individual_graph(
+        user.id,
+        started.thread_id,
+        {
+            "approved": True,
+            "target_titles": [" Backend Engineer ", "Platform Engineer"],
+        },
+    )
+
+    profile = IndividualLearningRepository(db_session).get_profile(user.id)
+
+    assert started.interrupt is not None
+    assert started.interrupt["kind"] == "review_profile_and_roles"
+    assert resumed.interrupt is not None
+    assert resumed.interrupt["kind"] == "choose_jobs_and_skills"
+    assert profile is not None
+    assert profile.target_titles_json == ["Backend Engineer", "Platform Engineer"]
+    assert profile.reviewed_at is not None
+    assert profile.onboarding_status == "needs_skill_selection"
+    assert captured["session"] is driver.session_value
+    assert captured["user_id"] == user.id
+    assert captured["cv_document_id"] == document.id
+    assert captured["extraction_run_id"] == extraction.id
+    skills = captured["skills"]
+    assert len(skills) == 1
+    assert skills[0].name == "Python"
+    assert skills[0].evidence == "Built APIs"
+
+
+def test_graph_start_rejects_cv_owned_by_another_individual(db_session) -> None:
+    owner = _create_individual(db_session, email="cv-owner@example.com")
+    attacker = _create_individual(db_session, email="other@example.com")
+    document, _ = _seed_completed_extraction(db_session, user_id=owner.id)
+    service = IndividualLearningService(
+        db_session,
+        DummyDriver(),
+        graph_checkpointer=InMemorySaver(),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.start_individual_graph(attacker.id, document.id)
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "CV document not found"
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_detail"),
+    [
+        (
+            {"approved": False, "target_titles": ["Backend Engineer"]},
+            "Profile approval is required before job search",
+        ),
+        (
+            {"approved": True, "target_titles": ["Backend Engineer", 7]},
+            "Target titles must be a list of text values",
+        ),
+        (
+            {
+                "approved": True,
+                "target_titles": [
+                    "Role 1",
+                    "Role 2",
+                    "Role 3",
+                    "Role 4",
+                    "Role 5",
+                    "Role 6",
+                    "Role 7",
+                    "Role 8",
+                    "Role 9",
+                    "Role 10",
+                    "Role 11",
+                ],
+            },
+            "Select no more than 10 target titles",
+        ),
+        (
+            {
+                "approved": True,
+                "target_titles": ["Backend Engineer"],
+                "profile": {
+                    "skills": [{"name": "Python", "confidence": 2.0}],
+                },
+            },
+            "Reviewed profile is invalid",
+        ),
+    ],
+)
+def test_first_resume_rejects_unapproved_or_malformed_profile_review(
+    db_session,
+    payload,
+    expected_detail: str,
+) -> None:
+    user = _create_individual(
+        db_session,
+        email=f"invalid-{expected_detail[:8]}-{len(payload['target_titles'])}@example.com",
+    )
+    document, _ = _seed_completed_extraction(db_session, user_id=user.id)
+    service = IndividualLearningService(
+        db_session,
+        DummyDriver(),
+        graph_checkpointer=InMemorySaver(),
+    )
+    started = service.start_individual_graph(user.id, document.id)
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.resume_individual_graph(
+            user.id,
+            started.thread_id,
+            payload,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == expected_detail

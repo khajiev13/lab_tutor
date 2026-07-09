@@ -14,24 +14,32 @@ class IndividualRunStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     NEEDS_REVIEW = "needs_review"
+    PARTIAL = "partial"
     COMPLETED = "completed"
     FAILED = "failed"
 
 
 class CVDocumentStatus(StrEnum):
     UPLOADED = "uploaded"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class IndividualProfile(Base):
     __tablename__ = "individual_profiles"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), unique=True, index=True
+    )
     onboarding_status: Mapped[str] = mapped_column(String(50), default="needs_cv")
     preferred_country: Mapped[str | None] = mapped_column(String(100), nullable=True)
     preferred_location: Mapped[str | None] = mapped_column(String(200), nullable=True)
     target_titles_json: Mapped[list[str]] = mapped_column(JSONB, default=list)
-    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -68,13 +76,17 @@ class CVExtractionRun(Base):
     __tablename__ = "cv_extraction_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    cv_document_id: Mapped[int] = mapped_column(ForeignKey("cv_documents.id"), index=True)
+    cv_document_id: Mapped[int] = mapped_column(
+        ForeignKey("cv_documents.id"), index=True
+    )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     model_provider: Mapped[str] = mapped_column(String(100), default="")
     model_name: Mapped[str] = mapped_column(String(200), default="")
     raw_text_hash: Mapped[str] = mapped_column(String(64), default="")
     extracted_profile_json: Mapped[dict] = mapped_column(JSONB, default=dict)
-    target_title_suggestions_json: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    target_title_suggestions_json: Mapped[list[str]] = mapped_column(
+        JSONB, default=list
+    )
     confidence_summary_json: Mapped[dict] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(
         String(50), default=IndividualRunStatus.PENDING.value
@@ -93,6 +105,9 @@ class IndividualJobSearchRun(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    workflow_thread_id: Mapped[str | None] = mapped_column(
+        String(200), unique=True, index=True, nullable=True
+    )
     target_titles_json: Mapped[list[str]] = mapped_column(JSONB, default=list)
     country: Mapped[str] = mapped_column(String(100), default="")
     location: Mapped[str] = mapped_column(String(200), default="")
@@ -116,7 +131,7 @@ class IndividualJobMatchRun(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     job_search_run_id: Mapped[int] = mapped_column(
-        ForeignKey("individual_job_search_runs.id"), index=True
+        ForeignKey("individual_job_search_runs.id"), unique=True, index=True
     )
     scores_json: Mapped[list[dict]] = mapped_column(JSONB, default=list)
     skill_gap_json: Mapped[list[dict]] = mapped_column(JSONB, default=list)
