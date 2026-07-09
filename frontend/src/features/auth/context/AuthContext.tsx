@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { authApi } from '../api';
 import type { LoginCredentials, RegisterData, UserResponse } from '../types';
 import { isTokenExpired } from '../utils/token';
+import {
+  clearIndividualGraphSession,
+  clearIndividualGraphSessionForOtherUser,
+} from '@/features/individual-learning/graph-session';
 
 // User type alias
 type User = UserResponse;
@@ -33,10 +37,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchUser = useCallback(async () => {
     try {
       const userData = await authApi.getMe();
+      clearIndividualGraphSessionForOtherUser(userData.id);
       setUser(userData);
     } catch (error: unknown) {
       console.error('Failed to fetch user:', error);
       clearTokens();
+      clearIndividualGraphSession();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -87,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Both tokens expired or refresh failed → clear & show login.
       clearTokens();
+      clearIndividualGraphSession();
       setUser(null);
     } finally {
       clearTimeout(wakingUpTimer);
@@ -113,6 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(() => {
     clearTokens();
+    clearIndividualGraphSession();
     setUser(null);
   }, [clearTokens]);
 

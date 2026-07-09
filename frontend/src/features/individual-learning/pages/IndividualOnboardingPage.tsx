@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { FileUp, Loader2, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -19,15 +19,16 @@ import {
 import { Input } from '@/components/ui/input';
 import {
   getIndividualProfile,
+  startIndividualGraph,
   type IndividualProfile,
   uploadCv,
 } from '@/features/individual-learning/api';
+import { persistIndividualGraphResponse } from '@/features/individual-learning/graph-session';
 
 const uploadSchema = z.object({
-  file: z.custom<FileList>(
-    (value) => value instanceof FileList && value.length > 0,
-    'Select a CV file to continue.',
-  ),
+  file: z
+    .custom<File>((value) => value instanceof File, 'Select a CV file to continue.')
+    .refine((file) => /\.(pdf|docx)$/i.test(file.name), 'Choose a PDF or DOCX file.'),
 });
 
 type UploadFormValues = z.infer<typeof uploadSchema>;
@@ -37,10 +38,15 @@ function formatStatus(status: IndividualProfile['onboarding_status']) {
 }
 
 export default function IndividualOnboardingPage() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<IndividualProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [lastUpload, setLastUpload] = useState<{ id: number; status: string } | null>(null);
+  const [lastUpload, setLastUpload] = useState<{
+    id: number;
+    original_filename: string;
+    status: string;
+  } | null>(null);
 
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
@@ -72,26 +78,39 @@ export default function IndividualOnboardingPage() {
     };
   }, []);
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    const file = values.file.item(0);
-    if (!file) {
-      return;
-    }
-
+  const onSubmit = form.handleSubmit(async ({ file }) => {
     setIsUploading(true);
+    let didUpload = false;
     try {
-      const response = await uploadCv(file);
-      setLastUpload(response);
-      const nextProfile = await getIndividualProfile();
-      setProfile(nextProfile);
-      toast.success('CV uploaded', {
-        description: 'We saved your document and refreshed your onboarding status.',
+      const uploadResponse = await uploadCv(file);
+      didUpload = true;
+      setLastUpload({
+        id: uploadResponse.id,
+        original_filename: uploadResponse.original_filename,
+        status: uploadResponse.status,
       });
-      form.reset();
+
+      const graphResponse = await startIndividualGraph(uploadResponse.id);
+      const { stored } = persistIndividualGraphResponse(graphResponse, {
+        cvDocumentId: uploadResponse.id,
+        ownerUserId: uploadResponse.user_id,
+        replace: true,
+      });
+      if (!stored) {
+        toast.warning('Review state is available for this page session only.', {
+          description: 'Avoid reloading until you finish profile review.',
+        });
+      }
+      toast.success('CV uploaded', {
+        description: 'Your extracted profile is ready for review.',
+      });
+      navigate('/individual/profile');
     } catch (error) {
       console.error(error);
-      toast.error('CV upload failed', {
-        description: 'Please try a PDF or DOC file again.',
+      toast.error(didUpload ? 'Could not start CV review' : 'CV upload failed', {
+        description: didUpload
+          ? 'Your CV was saved, but the review workflow did not start. Please try again.'
+          : 'Please try a PDF or DOCX file again.',
       });
     } finally {
       setIsUploading(false);
@@ -112,7 +131,7 @@ export default function IndividualOnboardingPage() {
           <CardHeader>
             <CardTitle>Upload CV</CardTitle>
             <CardDescription>
-              This shell is wired to the real onboarding upload endpoint.
+              Upload a PDF or DOCX CV to start the individual learning review flow.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -129,13 +148,13 @@ export default function IndividualOnboardingPage() {
                           type="file"
                           name={field.name}
                           ref={field.ref}
-                          accept=".pdf,.doc,.docx"
+                          accept=".pdf,.docx"
                           onBlur={field.onBlur}
-                          onChange={(event) => field.onChange(event.target.files)}
+                          onChange={(event) => field.onChange(event.target.files?.[0])}
                         />
                       </FormControl>
                       <FormDescription>
-                        PDF, DOC, and DOCX files are accepted by this frontend shell.
+                        Accepted formats: `.pdf` and `.docx`.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -175,7 +194,8 @@ export default function IndividualOnboardingPage() {
             {lastUpload ? (
               <div className="rounded-md border p-4">
                 <div className="text-muted-foreground">Last upload</div>
-                <div className="mt-1 font-medium">Document #{lastUpload.id}</div>
+                <div className="mt-1 font-medium">{lastUpload.original_filename}</div>
+                <div className="text-sm text-muted-foreground">Document #{lastUpload.id}</div>
                 <div className="capitalize text-muted-foreground">{lastUpload.status}</div>
               </div>
             ) : null}
@@ -185,8 +205,8 @@ export default function IndividualOnboardingPage() {
                 What happens next
               </div>
               <p className="mt-2 text-muted-foreground">
-                After upload, the backend moves your profile toward review, job selection, and skill
-                selection.
+                After upload, you will review extracted profile details, choose interested jobs, and
+                then build a market-skill learning path.
               </p>
             </div>
           </CardContent>

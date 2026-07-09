@@ -18,12 +18,59 @@ export interface IndividualProfile {
   reviewed_at?: string | null;
 }
 
+export interface IndividualCvSkillExtraction {
+  name: string;
+  category?: string | null;
+  evidence?: string | null;
+  confidence?: number | null;
+}
+
+export interface IndividualCvExperienceExtraction {
+  title?: string | null;
+  organization?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  summary?: string | null;
+}
+
+export interface IndividualCvProfileExtraction {
+  summary?: string | null;
+  skills?: IndividualCvSkillExtraction[];
+  experience?: IndividualCvExperienceExtraction[];
+  projects?: string[];
+  education?: string[];
+  certifications?: string[];
+  tools?: string[];
+  languages?: string[];
+  industries?: string[];
+  seniority_signals?: string[];
+  target_title_suggestions?: string[];
+}
+
 export interface IndividualSkillBankSkill {
   name: string;
   description?: string | null;
   category?: string | null;
   is_selected?: boolean;
   coverage?: 'covered' | 'gap' | 'partial' | 'unknown';
+}
+
+export interface IndividualGraphJobPosting {
+  url: string;
+  title: string;
+  company?: string | null;
+  site?: string | null;
+  search_term?: string | null;
+  country?: string | null;
+  location?: string | null;
+  description?: string | null;
+  match_score?: number | null;
+  skills?: Array<{
+    name: string;
+    category?: string | null;
+    description?: string | null;
+    coverage?: 'covered' | 'gap' | 'partial' | 'unknown';
+  }>;
 }
 
 export interface IndividualSkillBankJobPosting {
@@ -41,6 +88,39 @@ export interface IndividualSkillBanksResponse {
   market_skill_bank: IndividualSkillBankJobPosting[];
   selected_skill_names: string[];
   interested_posting_urls: string[];
+}
+
+export interface IndividualGraphReviewInterrupt {
+  kind: 'review_profile_and_roles';
+  profile: IndividualCvProfileExtraction;
+  target_title_suggestions: string[];
+}
+
+export interface IndividualGraphJobsInterrupt {
+  kind: 'choose_jobs_and_skills';
+  candidate_jobs: IndividualGraphJobPosting[];
+  skill_bank: Array<{
+    name: string;
+    category?: string | null;
+    description?: string | null;
+  }>;
+}
+
+export type IndividualGraphInterrupt =
+  | IndividualGraphReviewInterrupt
+  | IndividualGraphJobsInterrupt
+  | {
+      kind: string;
+      [key: string]: unknown;
+    };
+
+export interface IndividualGraphResponse {
+  thread_id: string;
+  status: 'interrupted' | 'completed';
+  interrupt: IndividualGraphInterrupt | null;
+  target_titles: string[];
+  selected_posting_urls: string[];
+  selected_skill_names: string[];
 }
 
 export interface IndividualLearningPathResource {
@@ -80,12 +160,36 @@ export async function getIndividualProfile(): Promise<IndividualProfile> {
   return data;
 }
 
-export async function uploadCv(file: File): Promise<{ id: number; status: string }> {
+export async function uploadCv(file: File): Promise<{
+  id: number;
+  user_id: number;
+  original_filename: string;
+  content_type?: string | null;
+  status: string;
+}> {
   const formData = new FormData();
   formData.append('file', file);
 
   const { data } = await api.post(`${BASE}/cv`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function startIndividualGraph(cvDocumentId: number): Promise<IndividualGraphResponse> {
+  const { data } = await api.post(`${BASE}/graph/start`, {
+    cv_document_id: cvDocumentId,
+  });
+  return data;
+}
+
+export async function resumeIndividualGraph(
+  threadId: string,
+  payload: Record<string, unknown>,
+): Promise<IndividualGraphResponse> {
+  const { data } = await api.post(`${BASE}/graph/resume`, {
+    thread_id: threadId,
+    payload,
   });
   return data;
 }
@@ -139,6 +243,8 @@ export async function getIndividualLearningPath(): Promise<IndividualLearningPat
 export const individualLearningApi = {
   getProfile: getIndividualProfile,
   uploadCv,
+  startGraph: startIndividualGraph,
+  resumeGraph: resumeIndividualGraph,
   getSkillBanks: getIndividualSkillBanks,
   selectInterestedJobs,
   selectSkills: selectIndividualSkills,

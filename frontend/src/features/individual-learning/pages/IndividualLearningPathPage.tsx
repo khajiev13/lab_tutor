@@ -1,4 +1,4 @@
-import { BookOpen, CircleHelp, ExternalLink, PlayCircle } from 'lucide-react';
+import { BookOpen, CircleHelp, Clock3, ExternalLink, PlayCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -155,68 +155,84 @@ export default function IndividualLearningPathPage() {
           </div>
 
           <div className="grid gap-4">
-            {path.selected_skills.map((skill) => (
-              <Card key={skill.name}>
-                <CardHeader>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <CardTitle>{skill.name}</CardTitle>
-                    {skill.source ? <Badge variant="outline">{skill.source}</Badge> : null}
-                  </div>
-                  <CardDescription>
-                    {skill.description ?? 'No description was returned for this skill.'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-6 lg:grid-cols-3">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <BookOpen className="size-4" />
-                      Readings
+            {path.selected_skills.map((skill) => {
+              const isPending =
+                skill.readings.length === 0 &&
+                skill.videos.length === 0 &&
+                skill.questions.length === 0;
+
+              return (
+                <Card key={skill.name}>
+                  <CardHeader>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle>{skill.name}</CardTitle>
+                      {skill.source ? <Badge variant="outline">{skill.source}</Badge> : null}
                     </div>
-                    <ResourceLinks
-                      items={skill.readings}
-                      icon={BookOpen}
-                      emptyLabel="No readings yet."
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <PlayCircle className="size-4" />
-                      Videos
+                    <CardDescription>
+                      {skill.description ?? 'No description was returned for this skill.'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {isPending ? (
+                      <div className="flex items-start gap-3 rounded-md border p-4 text-sm text-muted-foreground">
+                        <Clock3 className="mt-0.5 size-4 shrink-0" />
+                        <span>Content is still being assembled for this skill.</span>
+                      </div>
+                    ) : null}
+
+                    <div className="grid gap-6 lg:grid-cols-3">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <BookOpen className="size-4" />
+                          Readings
+                        </div>
+                        <ResourceLinks
+                          items={skill.readings}
+                          icon={BookOpen}
+                          emptyLabel="No readings yet."
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <PlayCircle className="size-4" />
+                          Videos
+                        </div>
+                        <ResourceLinks
+                          items={skill.videos}
+                          icon={PlayCircle}
+                          emptyLabel="No videos yet."
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <CircleHelp className="size-4" />
+                          Questions
+                        </div>
+                        <div className="space-y-2">
+                          {skill.questions.length > 0 ? (
+                            skill.questions.map((question) => (
+                              <div key={question.id} className="rounded-md border p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium">{question.text}</span>
+                                  <Badge variant="secondary" className="capitalize">
+                                    {question.difficulty}
+                                  </Badge>
+                                </div>
+                                <div className="mt-2 text-sm text-muted-foreground">
+                                  {question.options.length} option(s)
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-sm text-muted-foreground">No questions yet.</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <ResourceLinks
-                      items={skill.videos}
-                      icon={PlayCircle}
-                      emptyLabel="No videos yet."
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <CircleHelp className="size-4" />
-                      Questions
-                    </div>
-                    <div className="space-y-2">
-                      {skill.questions.length > 0 ? (
-                        skill.questions.map((question) => (
-                          <div key={question.id} className="rounded-md border p-3">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium">{question.text}</span>
-                              <Badge variant="secondary" className="capitalize">
-                                {question.difficulty}
-                              </Badge>
-                            </div>
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              {question.options.length} option(s)
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-sm text-muted-foreground">No questions yet.</span>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </>
       )}

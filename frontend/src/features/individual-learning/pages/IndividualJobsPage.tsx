@@ -1,5 +1,6 @@
-import { BriefcaseBusiness, ExternalLink, Loader2, Save } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, BriefcaseBusiness, ExternalLink, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -16,32 +17,102 @@ import {
 import {
   getIndividualSkillBanks,
   selectInterestedJobs,
+  type IndividualGraphJobPosting,
   type IndividualSkillBankJobPosting,
 } from '@/features/individual-learning/api';
+import {
+  type IndividualGraphSession,
+  readIndividualGraphSession,
+  writeIndividualGraphSession,
+} from '@/features/individual-learning/graph-session';
+
+function toSkillBankPosting(
+  posting: IndividualGraphJobPosting,
+  selectedUrls: Set<string>,
+): IndividualSkillBankJobPosting {
+  return {
+    url: posting.url,
+    title: posting.title,
+    company: posting.company ?? '',
+    site: posting.site,
+    search_term: posting.search_term,
+    is_interested: selectedUrls.has(posting.url),
+    match_score: posting.match_score,
+    skills: (posting.skills ?? []).map((skill) => ({
+      name: skill.name,
+      category: skill.category,
+      description: skill.description,
+      is_selected: false,
+      coverage: skill.coverage ?? 'unknown',
+    })),
+  };
+}
 
 function buildSelectionSet(postings: IndividualSkillBankJobPosting[], persistedUrls: string[]) {
   const next = new Set(persistedUrls);
-
   postings.forEach((posting) => {
     if (posting.is_interested) {
       next.add(posting.url);
     }
   });
-
   return next;
 }
 
+function formatMatchScore(score: number) {
+  const percentage = score <= 1 ? score * 100 : score;
+  return `${Math.round(percentage)}%`;
+}
+
+function formatCoverage(coverage: IndividualSkillBankJobPosting['skills'][number]['coverage']) {
+  return coverage ? coverage.charAt(0).toUpperCase() + coverage.slice(1) : '';
+}
+
+function buildGraphDraftSession(
+  session: IndividualGraphSession,
+  jobs: IndividualSkillBankJobPosting[],
+  selectedUrls: Set<string>,
+): IndividualGraphSession {
+  const nextUrls = jobs.filter((job) => selectedUrls.has(job.url)).map((job) => job.url);
+  const availableSkillNames = new Set(
+    jobs
+      .filter((job) => selectedUrls.has(job.url))
+      .flatMap((job) => job.skills.map((skill) => skill.name)),
+  );
+
+  return {
+    ...session,
+    selectedPostingUrls: nextUrls,
+    selectedSkillNames: session.selectedSkillNames.filter((name) =>
+      availableSkillNames.has(name),
+    ),
+  };
+}
+
 export default function IndividualJobsPage() {
-  const [jobs, setJobs] = useState<IndividualSkillBankJobPosting[]>([]);
-  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
+  const [graphSession] = useState(readIndividualGraphSession);
+  const graphInterrupt = graphSession?.jobsInterrupt ?? null;
+  const isGraphWorkflow = graphInterrupt !== null;
+  const isGraphSelectionActive = isGraphWorkflow && graphSession?.graphStatus === 'interrupted';
+  const isCompletedGraphWorkflow = isGraphWorkflow && graphSession?.graphStatus === 'completed';
+  const initialSelectedUrls = new Set(graphSession?.selectedPostingUrls ?? []);
+  const [jobs, setJobs] = useState<IndividualSkillBankJobPosting[]>(() =>
+    (graphInterrupt?.candidate_jobs ?? []).map((posting) =>
+      toSkillBankPosting(posting, initialSelectedUrls),
+    ),
+  );
+  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(initialSelectedUrls);
   const [persistedUrls, setPersistedUrls] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!isGraphWorkflow);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let active = true;
+    if (isGraphWorkflow) {
+      return;
+    }
 
+    let active = true;
     async function loadJobs() {
       try {
         const data = await getIndividualSkillBanks();
@@ -49,16 +120,16 @@ export default function IndividualJobsPage() {
           return;
         }
 
-        const initialSelection = buildSelectionSet(
+        const selection = buildSelectionSet(
           data.market_skill_bank,
           data.interested_posting_urls,
         );
         setJobs(data.market_skill_bank);
-        setSelectedUrls(initialSelection);
-        setPersistedUrls(new Set(initialSelection));
+        setSelectedUrls(selection);
+        setPersistedUrls(new Set(selection));
         setError(null);
-      } catch (error) {
-        console.error(error);
+      } catch (loadError) {
+        console.error(loadError);
         if (active) {
           setError('We could not load your current job matches.');
         }
@@ -71,20 +142,21 @@ export default function IndividualJobsPage() {
     }
 
     loadJobs();
-
     return () => {
       active = false;
     };
-  }, []);
+  }, [isGraphWorkflow]);
 
-  const selectedCount = selectedUrls.size;
-  const hasChanges = useMemo(() => {
-    return Array.from(selectedUrls).some((url) => !persistedUrls.has(url));
-  }, [persistedUrls, selectedUrls]);
-  const lockedCount = persistedUrls.size;
+  useEffect(() => {
+    if (!isGraphSelectionActive || !graphSession) {
+      return;
+    }
+
+    writeIndividualGraphSession(buildGraphDraftSession(graphSession, jobs, selectedUrls));
+  }, [graphSession, isGraphSelectionActive, jobs, selectedUrls]);
 
   const handleToggle = (url: string, checked: boolean) => {
-    if (persistedUrls.has(url)) {
+    if (isCompletedGraphWorkflow || (!isGraphWorkflow && persistedUrls.has(url))) {
       return;
     }
 
@@ -99,19 +171,35 @@ export default function IndividualJobsPage() {
     });
   };
 
-  const handleSave = async () => {
+  const handleContinue = async () => {
+    if (selectedUrls.size === 0) {
+      toast.error('Select at least one interested job to continue.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const addedUrls = Array.from(selectedUrls).filter((url) => !persistedUrls.has(url));
-      const response = await selectInterestedJobs(addedUrls);
-      const nextPersistedUrls = new Set([...persistedUrls, ...addedUrls]);
-      setPersistedUrls(nextPersistedUrls);
-      setSelectedUrls(new Set(nextPersistedUrls));
-      toast.success('Interested jobs saved', {
-        description: `${response.postings_linked} job posting(s) linked to your profile.`,
-      });
-    } catch (error) {
-      console.error(error);
+      const nextUrls = jobs.filter((job) => selectedUrls.has(job.url)).map((job) => job.url);
+
+      if (isGraphSelectionActive && graphSession) {
+        const stored = writeIndividualGraphSession(
+          buildGraphDraftSession(graphSession, jobs, selectedUrls),
+        );
+        if (!stored) {
+          toast.warning('Job selection is available for this page session only.', {
+            description: 'Avoid reloading until you finish skill selection.',
+          });
+        }
+      } else if (!isCompletedGraphWorkflow) {
+        const addedUrls = nextUrls.filter((url) => !persistedUrls.has(url));
+        if (addedUrls.length > 0) {
+          await selectInterestedJobs(addedUrls);
+        }
+      }
+
+      navigate('/individual/skills');
+    } catch (saveError) {
+      console.error(saveError);
       toast.error('Could not save interested jobs.');
     } finally {
       setIsSaving(false);
@@ -121,9 +209,9 @@ export default function IndividualJobsPage() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Job matches</h1>
+        <h1 className="text-2xl font-semibold">Choose job matches</h1>
         <p className="text-sm text-muted-foreground">
-          Mark the postings that should contribute market skills to your individual path.
+          Select the postings whose market skills should shape your individual learning path.
         </p>
       </div>
 
@@ -132,25 +220,30 @@ export default function IndividualJobsPage() {
           <div>
             <CardTitle>Interested jobs</CardTitle>
             <CardDescription>
-              Individual learning uses only market skills from the jobs you select here. Saved
-              interested jobs are locked in this shell because the backend endpoint only adds new
-              links.
+              Review source details, match scores, and market-skill coverage before moving to skill
+              selection.
             </CardDescription>
           </div>
-          <Button onClick={handleSave} disabled={isLoading || isSaving || !hasChanges}>
-            {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            Save interested jobs
+          <Button
+            onClick={handleContinue}
+            disabled={isLoading || isSaving || selectedUrls.size === 0}
+          >
+            {isSaving ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
+            Continue to skill selection
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <Badge variant="secondary">{selectedCount} selected</Badge>
-            <Badge variant="outline">{lockedCount} locked</Badge>
+            <Badge variant="secondary">{selectedUrls.size} selected</Badge>
             <span>{jobs.length} job posting(s) available</span>
+            {isGraphSelectionActive ? <Badge variant="outline">Draft selection</Badge> : null}
+            {isCompletedGraphWorkflow ? <Badge variant="outline">Selection complete</Badge> : null}
           </div>
 
           {isLoading ? (
-            <div className="rounded-md border p-8 text-sm text-muted-foreground">Loading job matches...</div>
+            <div className="rounded-md border p-8 text-sm text-muted-foreground">
+              Loading job matches...
+            </div>
           ) : error ? (
             <Alert variant="destructive">
               <BriefcaseBusiness className="size-4" />
@@ -165,7 +258,7 @@ export default function IndividualJobsPage() {
                 </EmptyMedia>
                 <EmptyTitle>No job matches yet</EmptyTitle>
                 <EmptyDescription>
-                  Your backend profile has not surfaced any job postings yet.
+                  No candidate postings were returned for the approved target titles.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -173,34 +266,42 @@ export default function IndividualJobsPage() {
             <div className="grid gap-4">
               {jobs.map((job) => {
                 const checked = selectedUrls.has(job.url);
-                const isPersisted = persistedUrls.has(job.url);
+                const isLocked =
+                  isCompletedGraphWorkflow || (!isGraphWorkflow && persistedUrls.has(job.url));
 
                 return (
-                  <Card key={job.url} className="rounded-lg">
-                    <CardContent className="flex flex-col gap-4 p-5">
+                  <Card key={job.url} className="rounded-lg shadow-none">
+                    <CardContent className="flex flex-col gap-5 p-5">
                       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              checked={checked}
-                              disabled={isPersisted}
-                              onCheckedChange={(value) => handleToggle(job.url, value === true)}
-                              aria-label={`Mark ${job.title} as interested`}
-                            />
+                        <div className="flex min-w-0 items-start gap-3">
+                          <Checkbox
+                            checked={checked}
+                            disabled={isLocked}
+                            onCheckedChange={(value) => handleToggle(job.url, value === true)}
+                            aria-label={`Mark ${job.title} as interested`}
+                          />
+                          <div className="min-w-0 space-y-2">
                             <div>
                               <div className="font-medium">{job.title}</div>
                               <div className="text-sm text-muted-foreground">
                                 {job.company || 'Unknown company'}
-                                {job.site ? ` • ${job.site}` : ''}
-                                {job.search_term ? ` • ${job.search_term}` : ''}
                               </div>
                             </div>
+                            <div className="flex flex-wrap gap-2">
+                              {job.site ? <Badge variant="outline">{job.site}</Badge> : null}
+                              {job.search_term ? (
+                                <Badge variant="outline">Search: {job.search_term}</Badge>
+                              ) : null}
+                              {job.match_score != null ? (
+                                <Badge variant="secondary">
+                                  Match {formatMatchScore(job.match_score)}
+                                </Badge>
+                              ) : null}
+                              {isLocked ? <Badge variant="secondary">Already saved</Badge> : null}
+                            </div>
                           </div>
-                          {job.match_score != null ? (
-                            <Badge variant="outline">Match {(job.match_score * 100).toFixed(0)}%</Badge>
-                          ) : null}
-                          {isPersisted ? <Badge variant="secondary">Saved</Badge> : null}
                         </div>
+
                         <Button variant="outline" size="sm" asChild>
                           <a href={job.url} target="_blank" rel="noreferrer">
                             <ExternalLink className="size-4" />
@@ -208,22 +309,31 @@ export default function IndividualJobsPage() {
                           </a>
                         </Button>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {job.skills.length > 0 ? (
-                          job.skills.map((skill) => (
-                            <Badge key={`${job.url}-${skill.name}`} variant="secondary">
-                              {skill.name}
-                            </Badge>
-                          ))
-                        ) : (
-                          <span className="text-sm text-muted-foreground">No market skills attached yet.</span>
-                        )}
+
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">Market skills and coverage</div>
+                        <div className="flex flex-wrap gap-2">
+                          {job.skills.length > 0 ? (
+                            job.skills.map((skill) => (
+                              <div
+                                key={`${job.url}-${skill.name}`}
+                                className="flex flex-wrap items-center gap-1"
+                              >
+                                <Badge variant="outline">{skill.name}</Badge>
+                                {skill.coverage && skill.coverage !== 'unknown' ? (
+                                  <Badge variant="secondary">
+                                    {formatCoverage(skill.coverage)}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              No market skills were attached to this posting.
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {isPersisted ? (
-                        <p className="text-sm text-muted-foreground">
-                          This interested job is already saved and cannot be removed from this shell.
-                        </p>
-                      ) : null}
                     </CardContent>
                   </Card>
                 );

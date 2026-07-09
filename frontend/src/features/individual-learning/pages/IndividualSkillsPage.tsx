@@ -1,12 +1,19 @@
-import { ArrowRight, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  CheckCircle2,
+  ExternalLink,
+  Loader2,
+  Sparkles,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Empty,
   EmptyDescription,
@@ -14,90 +21,120 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
-import { cn } from '@/lib/utils';
 import {
   buildIndividualLearningPath,
   deselectIndividualSkills,
   getIndividualSkillBanks,
+  resumeIndividualGraph,
   selectIndividualSkills,
+  type IndividualGraphJobPosting,
   type IndividualSkillBankJobPosting,
   type IndividualSkillBankSkill,
 } from '@/features/individual-learning/api';
+import {
+  persistIndividualGraphResponse,
+  readIndividualGraphSession,
+} from '@/features/individual-learning/graph-session';
 
-type SkillSummary = {
-  name: string;
-  description?: string | null;
-  category?: string | null;
-  coverage?: IndividualSkillBankSkill['coverage'];
-  postingCount: number;
-};
+const MAX_SELECTED_SKILLS = 20;
+
+function toSkillBankPosting(
+  posting: IndividualGraphJobPosting,
+  selectedSkillNames: Set<string>,
+): IndividualSkillBankJobPosting {
+  return {
+    url: posting.url,
+    title: posting.title,
+    company: posting.company ?? '',
+    site: posting.site,
+    search_term: posting.search_term,
+    is_interested: true,
+    match_score: posting.match_score,
+    skills: (posting.skills ?? []).map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      category: skill.category,
+      is_selected: selectedSkillNames.has(skill.name),
+      coverage: skill.coverage ?? 'unknown',
+    })),
+  };
+}
 
 function buildInterestedPostingUrls(postings: IndividualSkillBankJobPosting[], persistedUrls: string[]) {
   const next = new Set(persistedUrls);
-
   postings.forEach((posting) => {
     if (posting.is_interested) {
       next.add(posting.url);
     }
   });
-
   return next;
 }
 
-function buildMarketSkillSummaries(
-  postings: IndividualSkillBankJobPosting[],
-  interestedUrls: Set<string>,
-) {
-  const summaries = new Map<string, SkillSummary>();
+function getUniqueSkillNames(postings: IndividualSkillBankJobPosting[]) {
+  return Array.from(
+    new Set(postings.flatMap((posting) => posting.skills.map((skill) => skill.name))),
+  );
+}
 
-  postings.forEach((posting) => {
-    if (!interestedUrls.has(posting.url)) {
-      return;
-    }
-
-    posting.skills.forEach((skill) => {
-      const current = summaries.get(skill.name);
-      if (current) {
-        current.postingCount += 1;
-        if (!current.description && skill.description) {
-          current.description = skill.description;
-        }
-        if (!current.category && skill.category) {
-          current.category = skill.category;
-        }
-        if ((!current.coverage || current.coverage === 'unknown') && skill.coverage) {
-          current.coverage = skill.coverage;
-        }
-        return;
-      }
-
-      summaries.set(skill.name, {
-        name: skill.name,
-        description: skill.description,
-        category: skill.category,
-        coverage: skill.coverage,
-        postingCount: 1,
-      });
-    });
-  });
-
-  return Array.from(summaries.values()).sort((left, right) => left.name.localeCompare(right.name));
+function SkillChip({
+  skill,
+  selected,
+  onToggle,
+}: {
+  skill: IndividualSkillBankSkill;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={selected ? 'default' : 'outline'}
+      className="h-auto min-h-9 rounded-full px-3 py-1.5"
+      onClick={onToggle}
+      aria-label={`${selected ? 'Remove' : 'Select'} ${skill.name}`}
+      title={skill.description ?? undefined}
+    >
+      {selected ? <CheckCircle2 className="size-3.5" /> : null}
+      <span>{skill.name}</span>
+      {skill.coverage && skill.coverage !== 'unknown' ? (
+        <Badge
+          variant={selected ? 'secondary' : 'outline'}
+          className="ml-1 capitalize"
+        >
+          {skill.coverage}
+        </Badge>
+      ) : null}
+    </Button>
+  );
 }
 
 export default function IndividualSkillsPage() {
   const navigate = useNavigate();
-  const [postings, setPostings] = useState<IndividualSkillBankJobPosting[]>([]);
-  const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
-  const [persistedSkills, setPersistedSkills] = useState<Set<string>>(new Set());
-  const [interestedUrls, setInterestedUrls] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [graphSession, setGraphSession] = useState(readIndividualGraphSession);
+  const graphInterrupt = graphSession?.jobsInterrupt ?? null;
+  const isGraphWorkflow = graphInterrupt !== null;
+  const graphSelectedSkills = new Set(graphSession?.selectedSkillNames ?? []);
+  const [postings, setPostings] = useState<IndividualSkillBankJobPosting[]>(() =>
+    (graphInterrupt?.candidate_jobs ?? []).map((posting) =>
+      toSkillBankPosting(posting, graphSelectedSkills),
+    ),
+  );
+  const [selectedSkills, setSelectedSkills] = useState<Set<string>>(graphSelectedSkills);
+  const [persistedSkills, setPersistedSkills] = useState<Set<string>>(graphSelectedSkills);
+  const [interestedUrls, setInterestedUrls] = useState<Set<string>>(
+    new Set(graphSession?.selectedPostingUrls ?? []),
+  );
+  const [isLoading, setIsLoading] = useState(!isGraphWorkflow);
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let active = true;
+    if (isGraphWorkflow) {
+      return;
+    }
 
+    let active = true;
     async function loadSkillBanks() {
       try {
         const data = await getIndividualSkillBanks();
@@ -109,15 +146,18 @@ export default function IndividualSkillsPage() {
           data.market_skill_bank,
           data.interested_posting_urls,
         );
-        const nextSelectedSkills = new Set(data.selected_skill_names);
+        const availableNames = new Set(getUniqueSkillNames(data.market_skill_bank));
+        const nextSelectedSkills = new Set(
+          data.selected_skill_names.filter((name) => availableNames.has(name)),
+        );
 
         setPostings(data.market_skill_bank);
         setInterestedUrls(nextInterestedUrls);
         setSelectedSkills(nextSelectedSkills);
-        setPersistedSkills(nextSelectedSkills);
+        setPersistedSkills(new Set(nextSelectedSkills));
         setError(null);
-      } catch (error) {
-        console.error(error);
+      } catch (loadError) {
+        console.error(loadError);
         if (active) {
           setError('We could not load market skills for your interested jobs.');
         }
@@ -130,86 +170,115 @@ export default function IndividualSkillsPage() {
     }
 
     loadSkillBanks();
-
     return () => {
       active = false;
     };
-  }, []);
+  }, [isGraphWorkflow]);
 
-  const availableSkills = useMemo(
-    () => buildMarketSkillSummaries(postings, interestedUrls),
+  const interestedPostings = useMemo(
+    () => postings.filter((posting) => interestedUrls.has(posting.url)),
     [interestedUrls, postings],
   );
+  const availableSkillNames = useMemo(
+    () => getUniqueSkillNames(interestedPostings),
+    [interestedPostings],
+  );
+  const allSkillsSelected =
+    availableSkillNames.length > 0 &&
+    availableSkillNames.every((skillName) => selectedSkills.has(skillName));
 
-  const hasSelectionChanges = useMemo(() => {
-    if (selectedSkills.size !== persistedSkills.size) {
-      return true;
-    }
-
-    return Array.from(selectedSkills).some((skillName) => !persistedSkills.has(skillName));
-  }, [persistedSkills, selectedSkills]);
-
-  const toggleSkill = (skillName: string, checked: boolean) => {
+  const toggleSkill = (skillName: string) => {
     setSelectedSkills((current) => {
       const next = new Set(current);
-      if (checked) {
-        next.add(skillName);
-      } else {
+      if (next.has(skillName)) {
         next.delete(skillName);
+      } else {
+        next.add(skillName);
       }
       return next;
     });
   };
 
-  const persistSelection = async () => {
-    const selected = Array.from(selectedSkills);
-    const added = selected.filter((skillName) => !persistedSkills.has(skillName));
-    const removed = Array.from(persistedSkills).filter((skillName) => !selectedSkills.has(skillName));
-
-    if (added.length === 0 && removed.length === 0) {
-      return;
-    }
-
-    if (added.length > 0) {
-      await selectIndividualSkills(added);
-    }
-
-    if (removed.length > 0) {
-      await deselectIndividualSkills(removed);
-    }
-
-    setPersistedSkills(new Set(selected));
+  const togglePostingSkills = (posting: IndividualSkillBankJobPosting) => {
+    const postingSkillNames = posting.skills.map((skill) => skill.name);
+    const everySelected = postingSkillNames.every((name) => selectedSkills.has(name));
+    setSelectedSkills((current) => {
+      const next = new Set(current);
+      postingSkillNames.forEach((name) => {
+        if (everySelected) {
+          next.delete(name);
+        } else {
+          next.add(name);
+        }
+      });
+      return next;
+    });
   };
 
-  const handleSaveSelection = async () => {
-    setIsSaving(true);
-    try {
-      await persistSelection();
-      toast.success('Skill selection saved.');
-    } catch (error) {
-      console.error(error);
-      toast.error('Could not save your selected skills.');
-    } finally {
-      setIsSaving(false);
-    }
+  const toggleAllSkills = () => {
+    setSelectedSkills((current) => {
+      const next = new Set(current);
+      availableSkillNames.forEach((name) => {
+        if (allSkillsSelected) {
+          next.delete(name);
+        } else {
+          next.add(name);
+        }
+      });
+      return next;
+    });
   };
 
   const handleBuild = async () => {
-    if (selectedSkills.size === 0) {
-      toast.error('Select at least one market skill before building.');
+    if (selectedSkills.size === 0 || selectedSkills.size > MAX_SELECTED_SKILLS) {
+      toast.error(`Select between 1 and ${MAX_SELECTED_SKILLS} market skills before building.`);
       return;
     }
 
+    const orderedSelection = availableSkillNames.filter((name) => selectedSkills.has(name));
+    const added = orderedSelection.filter((name) => !persistedSkills.has(name));
+    const removed = Array.from(persistedSkills).filter((name) => !selectedSkills.has(name));
+
     setIsBuilding(true);
     try {
-      await persistSelection();
-      const response = await buildIndividualLearningPath(Array.from(selectedSkills));
+      if (
+        isGraphWorkflow &&
+        graphSession &&
+        graphSession.graphStatus === 'interrupted'
+      ) {
+        const graphResponse = await resumeIndividualGraph(graphSession.threadId, {
+          selected_posting_urls: Array.from(interestedUrls),
+          selected_skill_names: orderedSelection,
+        });
+        if (graphResponse.status !== 'completed') {
+          throw new Error('The individual learning graph did not complete skill selection.');
+        }
+        const persistedGraph = persistIndividualGraphResponse(graphResponse);
+        setGraphSession(persistedGraph.session);
+        if (!persistedGraph.stored) {
+          toast.warning('Completed graph state is available for this page session only.');
+        }
+
+        if (removed.length > 0) {
+          await deselectIndividualSkills(removed);
+        }
+      } else {
+        if (added.length > 0) {
+          await selectIndividualSkills(added);
+        }
+        if (removed.length > 0) {
+          await deselectIndividualSkills(removed);
+        }
+      }
+
+      const response = await buildIndividualLearningPath(orderedSelection);
+      setPersistedSkills(new Set(orderedSelection));
       toast.success('Learning path built', {
         description: `Backend status: ${response.status}.`,
       });
       navigate('/individual/learning-path');
-    } catch (error) {
-      console.error(error);
+    } catch (buildError) {
+      console.error(buildError);
       toast.error('Learning path build failed.');
     } finally {
       setIsBuilding(false);
@@ -219,27 +288,40 @@ export default function IndividualSkillsPage() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Skill selection</h1>
+        <h1 className="text-2xl font-semibold">Select market skills</h1>
         <p className="text-sm text-muted-foreground">
-          Choose from market skills attached to your interested jobs, then build the path
-          synchronously.
+          Stage skills from interested job postings, then persist the final market-skill selection
+          when you build.
         </p>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <CardTitle>Selected skills</CardTitle>
+            <CardTitle>Job-posting skill bank</CardTitle>
             <CardDescription>
-              CV skills are intentionally not selectable in this flow.
+              CV skills remain profile evidence and are not selectable learning targets.
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" onClick={handleSaveSelection} disabled={isLoading || isSaving || !hasSelectionChanges}>
-              {isSaving ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
-              Save selection
+            <Button
+              type="button"
+              variant="outline"
+              onClick={toggleAllSkills}
+              disabled={isLoading || availableSkillNames.length === 0}
+            >
+              <CheckCircle2 className="size-4" />
+              {allSkillsSelected ? 'Clear all market skills' : 'Select all market skills'}
             </Button>
-            <Button onClick={handleBuild} disabled={isLoading || isBuilding || selectedSkills.size === 0}>
+            <Button
+              onClick={handleBuild}
+              disabled={
+                isLoading ||
+                isBuilding ||
+                selectedSkills.size === 0 ||
+                selectedSkills.size > MAX_SELECTED_SKILLS
+              }
+            >
               {isBuilding ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
               Build learning path
             </Button>
@@ -248,65 +330,117 @@ export default function IndividualSkillsPage() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
             <Badge variant="secondary">{selectedSkills.size} selected</Badge>
-            <Badge variant="outline">{interestedUrls.size} interested job(s)</Badge>
-            <Badge variant="outline">{availableSkills.length} available market skill(s)</Badge>
+            <Badge variant="outline">{interestedPostings.length} interested job(s)</Badge>
+            <Badge variant="outline">{availableSkillNames.length} available market skill(s)</Badge>
+            <span>Choose 1-{MAX_SELECTED_SKILLS} skills.</span>
           </div>
 
           {isLoading ? (
-            <div className="rounded-md border p-8 text-sm text-muted-foreground">Loading skill bank...</div>
+            <div className="rounded-md border p-8 text-sm text-muted-foreground">
+              Loading skill bank...
+            </div>
           ) : error ? (
             <Alert variant="destructive">
               <ArrowRight className="size-4" />
               <AlertTitle>Skills unavailable</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-          ) : availableSkills.length === 0 ? (
+          ) : interestedPostings.length === 0 ? (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <ArrowRight className="size-5" />
+                  <BriefcaseBusiness className="size-5" />
                 </EmptyMedia>
-                <EmptyTitle>No selectable skills yet</EmptyTitle>
+                <EmptyTitle>No interested job skills yet</EmptyTitle>
                 <EmptyDescription>
-                  Pick interested jobs first so market skills can appear here.
+                  Return to job matches and select at least one posting first.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {availableSkills.map((skill) => {
-                const checked = selectedSkills.has(skill.name);
+            <Accordion
+              type="multiple"
+              defaultValue={[`job-${interestedPostings[0]?.url}`]}
+              className="space-y-3"
+            >
+              {interestedPostings.map((posting) => {
+                const postingSkillNames = posting.skills.map((skill) => skill.name);
+                const everyPostingSkillSelected =
+                  postingSkillNames.length > 0 &&
+                  postingSkillNames.every((name) => selectedSkills.has(name));
 
                 return (
-                  <Card key={skill.name} className={cn('rounded-lg', checked && 'border-primary')}>
-                    <CardContent className="flex h-full flex-col gap-4 p-5">
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(value) => toggleSkill(skill.name, value === true)}
-                          aria-label={`Select ${skill.name}`}
-                        />
-                        <div className="space-y-2">
-                          <div className="font-medium">{skill.name}</div>
+                  <AccordionItem
+                    key={posting.url}
+                    value={`job-${posting.url}`}
+                    className="overflow-hidden rounded-xl border px-4"
+                  >
+                    <div className="flex flex-col gap-3 py-4 lg:flex-row lg:items-start">
+                      <AccordionTrigger className="min-w-0 flex-1 gap-3 py-0 hover:no-underline">
+                        <div className="min-w-0 space-y-2 text-left">
+                          <div>
+                            <div className="font-medium">{posting.title}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {posting.company || 'Unknown company'}
+                              {posting.site ? ` • ${posting.site}` : ''}
+                            </div>
+                          </div>
                           <div className="flex flex-wrap gap-2">
-                            {skill.category ? <Badge variant="outline">{skill.category}</Badge> : null}
-                            <Badge variant="secondary">{skill.postingCount} posting(s)</Badge>
-                            {skill.coverage ? (
-                              <Badge variant="outline" className="capitalize">
-                                {skill.coverage}
-                              </Badge>
+                            <Badge variant="outline">{posting.skills.length} skills</Badge>
+                            {posting.search_term ? (
+                              <Badge variant="outline">Search: {posting.search_term}</Badge>
                             ) : null}
                           </div>
                         </div>
+                      </AccordionTrigger>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={everyPostingSkillSelected ? 'default' : 'outline'}
+                        onClick={() => togglePostingSkills(posting)}
+                        disabled={posting.skills.length === 0}
+                        aria-label={`${
+                          everyPostingSkillSelected ? 'Clear' : 'Select all'
+                        } skills for ${posting.title}`}
+                      >
+                        <Sparkles className="size-3.5" />
+                        {everyPostingSkillSelected ? 'Clear posting skills' : 'Select posting skills'}
+                      </Button>
+                    </div>
+                    <AccordionContent className="space-y-4 border-t pt-4">
+                      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>Fine-tune the draft with individual market-skill chips.</span>
+                        <a
+                          href={posting.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex shrink-0 items-center gap-1 hover:text-foreground"
+                        >
+                          View posting
+                          <ExternalLink className="size-3" />
+                        </a>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {skill.description ?? 'No description was returned for this market skill.'}
-                      </p>
-                    </CardContent>
-                  </Card>
+                      {posting.skills.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 pb-2">
+                          {posting.skills.map((skill) => (
+                            <SkillChip
+                              key={`${posting.url}-${skill.name}`}
+                              skill={skill}
+                              selected={selectedSkills.has(skill.name)}
+                              onToggle={() => toggleSkill(skill.name)}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="pb-2 text-sm text-muted-foreground">
+                          No market skills are linked to this posting yet.
+                        </p>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
                 );
               })}
-            </div>
+            </Accordion>
           )}
         </CardContent>
       </Card>
