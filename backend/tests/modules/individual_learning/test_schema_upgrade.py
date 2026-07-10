@@ -1,0 +1,386 @@
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+from threading import Barrier, Lock
+
+from sqlalchemy import text
+
+import main as main_module
+from app.modules.auth.models import User, UserRole
+from app.modules.individual_learning.models import (
+    IndividualJobMatchRun,
+    IndividualRunStatus,
+)
+from app.modules.individual_learning.repository import IndividualLearningRepository
+from main import _ensure_sql_schema_upgrades
+
+
+def test_schema_upgrade_adds_sqlalchemy_user_role_enum_value(db_session) -> None:
+    bind = db_session.get_bind()
+    role_enum = User.__table__.c.role.type
+    bind_processor = role_enum.bind_processor(bind.dialect)
+    individual_database_value = bind_processor(UserRole.INDIVIDUAL)
+
+    with bind.begin() as connection:
+        connection.execute(text("ALTER TYPE user_role RENAME TO user_role_active"))
+        connection.execute(text("CREATE TYPE user_role AS ENUM ('STUDENT', 'TEACHER')"))
+
+    try:
+        _ensure_sql_schema_upgrades()
+        _ensure_sql_schema_upgrades()
+
+        with bind.connect() as connection:
+            labels = connection.scalars(
+                text(
+                    "SELECT e.enumlabel FROM pg_enum e "
+                    "JOIN pg_type t ON t.oid = e.enumtypid "
+                    "WHERE t.typname = 'user_role' ORDER BY e.enumsortorder"
+                )
+            ).all()
+            connection.execute(
+                text("SELECT CAST(:role AS user_role)"),
+                {"role": individual_database_value},
+            )
+
+        assert labels == ["STUDENT", "TEACHER", individual_database_value]
+        assert UserRole.INDIVIDUAL.value not in labels
+    finally:
+        with bind.begin() as connection:
+            connection.execute(text("DROP TYPE IF EXISTS user_role"))
+            connection.execute(text("ALTER TYPE user_role_active RENAME TO user_role"))
+
+
+def test_schema_upgrade_preserves_duplicate_legacy_matches_and_adds_workflow_identity(
+    db_session,
+) -> None:
+    user = User(
+        email="legacy-match-upgrade@example.com",
+        hashed_password="hashed",
+        first_name="Indy",
+        last_name="Learner",
+        role=UserRole.INDIVIDUAL,
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    repository = IndividualLearningRepository(db_session)
+    search_run = repository.create_job_search_run(
+        user_id=user.id,
+        target_titles=["Backend Engineer"],
+        country="USA",
+        location="New York",
+    )
+    user_id = user.id
+    search_run_id = search_run.id
+    bind = db_session.get_bind()
+    with bind.begin() as connection:
+        connection.execute(
+            text("DROP INDEX IF EXISTS ux_individual_job_match_runs_job_search_run_id")
+        )
+        connection.execute(
+            text("DROP INDEX IF EXISTS ix_individual_job_match_runs_job_search_run_id")
+        )
+
+    db_session.add_all(
+        [
+            IndividualJobMatchRun(
+                user_id=user.id,
+                job_search_run_id=search_run.id,
+                status=IndividualRunStatus.FAILED.value,
+            ),
+            IndividualJobMatchRun(
+                user_id=user.id,
+                job_search_run_id=search_run.id,
+                status=IndividualRunStatus.COMPLETED.value,
+            ),
+        ]
+    )
+    db_session.commit()
+    db_session.close()
+    with bind.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE individual_job_match_runs "
+                "DROP COLUMN IF EXISTS workflow_thread_id"
+            )
+        )
+
+    _ensure_sql_schema_upgrades()
+    _ensure_sql_schema_upgrades()
+
+    with bind.connect() as connection:
+        duplicate_count = connection.scalar(
+            text(
+                "SELECT count(*) FROM individual_job_match_runs "
+                "WHERE job_search_run_id = :job_search_run_id"
+            ),
+            {"job_search_run_id": search_run_id},
+        )
+        column_exists = connection.scalar(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_name = 'individual_job_match_runs' "
+                "AND column_name = 'workflow_thread_id'"
+            )
+        )
+        index_rows = connection.execute(
+            text(
+                "SELECT indexname, indexdef FROM pg_indexes "
+                "WHERE tablename = 'individual_job_match_runs'"
+            )
+        ).mappings()
+        indexes = {row["indexname"]: row["indexdef"] for row in index_rows}
+
+    assert duplicate_count == 2
+    assert column_exists == 1
+    assert "ux_individual_job_match_runs_job_search_run_id" not in indexes
+    assert (
+        "UNIQUE"
+        not in indexes["ix_individual_job_match_runs_job_search_run_id"].upper()
+    )
+    workflow_index = indexes["ux_individual_job_match_runs_workflow_thread_id"].upper()
+    assert "UNIQUE" in workflow_index
+    assert "WORKFLOW_THREAD_ID IS NOT NULL" in workflow_index
+
+    workflow_thread_id = f"individual-{user_id}-cv-8-extraction-13-match"
+    new_match = repository.get_or_create_job_match_run(
+        user_id=user_id,
+        job_search_run_id=search_run_id,
+        workflow_thread_id=workflow_thread_id,
+    )
+    retried_match = repository.get_or_create_job_match_run(
+        user_id=user_id,
+        job_search_run_id=search_run_id,
+        workflow_thread_id=workflow_thread_id,
+    )
+    assert new_match.id == retried_match.id
+
+
+def test_schema_upgrade_reconciles_duplicate_cv_documents_before_unique_index(
+    db_session,
+) -> None:
+    user = User(
+        email="legacy-duplicate-cv-upgrade@example.com",
+        hashed_password="hashed",
+        first_name="Indy",
+        last_name="Learner",
+        role=UserRole.INDIVIDUAL,
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    bind = db_session.get_bind()
+    older_at = datetime.now(UTC) - timedelta(days=1)
+    newer_at = datetime.now(UTC)
+
+    with bind.begin() as connection:
+        connection.execute(
+            text("DROP INDEX IF EXISTS ux_cv_documents_user_id_content_hash")
+        )
+        older_document_id = connection.scalar(
+            text(
+                "INSERT INTO cv_documents "
+                "(user_id, blob_path, original_filename, content_type, content_hash, "
+                " size_bytes, status, uploaded_at, processed_at) "
+                "VALUES (:user_id, 'legacy/old', 'old.pdf', 'application/pdf', "
+                " :content_hash, 10, 'completed', :uploaded_at, :uploaded_at) "
+                "RETURNING id"
+            ),
+            {
+                "user_id": user.id,
+                "content_hash": "9" * 64,
+                "uploaded_at": older_at,
+            },
+        )
+        newer_document_id = connection.scalar(
+            text(
+                "INSERT INTO cv_documents "
+                "(user_id, blob_path, original_filename, content_type, content_hash, "
+                " size_bytes, status, error_message, uploaded_at, processed_at) "
+                "VALUES (:user_id, 'legacy/new', 'new.pdf', 'application/pdf', "
+                " :content_hash, 20, 'failed', 'latest failure', :uploaded_at, "
+                " :uploaded_at) RETURNING id"
+            ),
+            {
+                "user_id": user.id,
+                "content_hash": "9" * 64,
+                "uploaded_at": newer_at,
+            },
+        )
+        for document_id, created_at in (
+            (older_document_id, older_at),
+            (newer_document_id, newer_at),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO cv_extraction_runs "
+                    "(cv_document_id, user_id, model_provider, model_name, "
+                    " raw_text_hash, extracted_profile_json, "
+                    " target_title_suggestions_json, confidence_summary_json, "
+                    " status, created_at) "
+                    "VALUES (:document_id, :user_id, 'test', 'test', '', "
+                    " '{}'::jsonb, '[]'::jsonb, '{}'::jsonb, 'failed', :created_at)"
+                ),
+                {
+                    "document_id": document_id,
+                    "user_id": user.id,
+                    "created_at": created_at,
+                },
+            )
+
+    try:
+        _ensure_sql_schema_upgrades()
+
+        with bind.connect() as connection:
+            documents = (
+                connection.execute(
+                    text(
+                        "SELECT id, original_filename, status, error_message "
+                        "FROM cv_documents WHERE user_id = :user_id "
+                        "AND content_hash = :content_hash"
+                    ),
+                    {"user_id": user.id, "content_hash": "9" * 64},
+                )
+                .mappings()
+                .all()
+            )
+            extraction_document_ids = connection.scalars(
+                text(
+                    "SELECT cv_document_id FROM cv_extraction_runs "
+                    "WHERE user_id = :user_id ORDER BY id"
+                ),
+                {"user_id": user.id},
+            ).all()
+            index_definition = connection.scalar(
+                text(
+                    "SELECT indexdef FROM pg_indexes "
+                    "WHERE tablename = 'cv_documents' "
+                    "AND indexname = 'ux_cv_documents_user_id_content_hash'"
+                )
+            )
+
+        assert documents == [
+            {
+                "id": newer_document_id,
+                "original_filename": "new.pdf",
+                "status": "failed",
+                "error_message": "latest failure",
+            }
+        ]
+        assert extraction_document_ids == [newer_document_id, newer_document_id]
+        assert index_definition is not None
+        assert "UNIQUE" in index_definition.upper()
+    finally:
+        with bind.begin() as connection:
+            connection.execute(
+                text("DELETE FROM cv_extraction_runs WHERE user_id = :user_id"),
+                {"user_id": user.id},
+            )
+            connection.execute(
+                text("DELETE FROM cv_documents WHERE user_id = :user_id"),
+                {"user_id": user.id},
+            )
+            connection.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS "
+                    "ux_cv_documents_user_id_content_hash "
+                    "ON cv_documents (user_id, content_hash)"
+                )
+            )
+
+
+def test_individual_schema_upgrade_serializes_concurrent_callers(
+    db_session,
+    monkeypatch,
+) -> None:
+    bind = db_session.get_bind()
+    legacy_index_name = "ix_individual_job_match_runs_job_search_run_id"
+    with bind.begin() as connection:
+        connection.execute(text(f"DROP INDEX IF EXISTS {legacy_index_name}"))
+        connection.execute(
+            text("DROP INDEX IF EXISTS ux_cv_documents_user_id_content_hash")
+        )
+        connection.execute(
+            text(
+                f"CREATE UNIQUE INDEX {legacy_index_name} "
+                "ON individual_job_match_runs (job_search_run_id)"
+            )
+        )
+
+    connection_start_barrier = Barrier(2)
+    observation_lock = Lock()
+    observations = {"advisory_calls": 0, "unsafe_drop": False}
+    real_engine = main_module.engine
+
+    class CoordinatedConnection:
+        def __init__(self, connection) -> None:
+            self._connection = connection
+
+        def __enter__(self):
+            self._connection.__enter__()
+            connection_start_barrier.wait(timeout=10)
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return self._connection.__exit__(exc_type, exc_value, traceback)
+
+        def execute(self, statement, *args, **kwargs):
+            sql = str(statement)
+            if "pg_advisory_xact_lock" in sql:
+                with observation_lock:
+                    observations["advisory_calls"] += 1
+            if f"DROP INDEX {legacy_index_name}" in sql and "IF EXISTS" not in sql:
+                with observation_lock:
+                    observations["unsafe_drop"] = True
+
+            return self._connection.execute(statement, *args, **kwargs)
+
+        def __getattr__(self, name: str):
+            return getattr(self._connection, name)
+
+    class CoordinatedEngine:
+        url = real_engine.url
+
+        @staticmethod
+        def connect():
+            return CoordinatedConnection(real_engine.connect())
+
+    monkeypatch.setattr(main_module, "engine", CoordinatedEngine())
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(_ensure_sql_schema_upgrades) for _ in range(2)]
+        results = [future.result(timeout=20) for future in futures]
+
+    assert results == [None, None]
+    assert observations == {"advisory_calls": 2, "unsafe_drop": False}
+
+    with bind.connect() as connection:
+        index_rows = connection.execute(
+            text(
+                "SELECT indexname, indexdef FROM pg_indexes "
+                "WHERE tablename = 'individual_job_match_runs'"
+            )
+        ).mappings()
+        indexes = {row["indexname"]: row["indexdef"] for row in index_rows}
+        cv_document_index = connection.scalar(
+            text(
+                "SELECT indexdef FROM pg_indexes "
+                "WHERE tablename = 'cv_documents' "
+                "AND indexname = 'ux_cv_documents_user_id_content_hash'"
+            )
+        )
+
+    assert "UNIQUE" not in indexes[legacy_index_name].upper()
+    workflow_index = indexes["ux_individual_job_match_runs_workflow_thread_id"].upper()
+    assert "UNIQUE" in workflow_index
+    assert "WORKFLOW_THREAD_ID IS NOT NULL" in workflow_index
+    assert cv_document_index is not None
+    assert "UNIQUE" in cv_document_index.upper()
+    assert "(USER_ID, CONTENT_HASH)" in cv_document_index.upper()

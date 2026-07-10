@@ -4,6 +4,8 @@ import { Toaster } from '@/components/ui/sonner';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import Login from '@/features/auth/pages/Login';
 import Register from '@/features/auth/pages/Register';
 import Dashboard from '@/features/dashboard/pages/Dashboard';
@@ -19,8 +21,37 @@ import StudentLearningPathPage from '@/features/student-learning-path/pages/Stud
 import StudentLearningPathStudyPage from '@/features/student-learning-path/pages/StudentLearningPathStudyPage';
 import Profile from '@/features/auth/pages/Profile';
 import TeacherDigitalTwinPage from '@/features/teacher-digital-twin/pages/TeacherDigitalTwinPage';
+import IndividualOnboardingPage from '@/features/individual-learning/pages/IndividualOnboardingPage';
+import IndividualProfilePage from '@/features/individual-learning/pages/IndividualProfilePage';
+import IndividualJobsPage from '@/features/individual-learning/pages/IndividualJobsPage';
+import IndividualSkillsPage from '@/features/individual-learning/pages/IndividualSkillsPage';
+import IndividualLearningPathPage from '@/features/individual-learning/pages/IndividualLearningPathPage';
+import { IndividualRecoveryGate } from '@/features/individual-learning/IndividualRecoveryGate';
+import { getAuthenticatedLandingPath } from '@/features/auth/landing';
 import { lazy, Suspense } from 'react';
 const ArcdAgentShell = lazy(() => import('@/features/arcd-agent/ArcdAgentShell'));
+
+function SessionVerificationPrompt({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => Promise<void>;
+}) {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <Alert className="max-w-xl">
+        <AlertTitle>Session verification paused</AlertTitle>
+        <AlertDescription className="flex flex-col items-start gap-3">
+          <span>{message}</span>
+          <Button type="button" size="sm" onClick={() => void onRetry()}>
+            Retry session
+          </Button>
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -47,7 +78,13 @@ function ProtectedRoute({
   children: React.ReactNode;
   withDashboardLayout?: boolean;
 }) {
-  const { isAuthenticated, isLoading, isServerWakingUp } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    isServerWakingUp,
+    sessionError,
+    retrySession,
+  } = useAuth();
 
   if (isLoading) {
     return (
@@ -60,6 +97,10 @@ function ProtectedRoute({
         )}
       </div>
     );
+  }
+
+  if (sessionError) {
+    return <SessionVerificationPrompt message={sessionError} onRetry={retrySession} />;
   }
 
   if (!isAuthenticated) {
@@ -75,7 +116,14 @@ function ProtectedRoute({
 
 // Public Route component (redirects to home if already authenticated)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, isServerWakingUp } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    isLoading,
+    isServerWakingUp,
+    sessionError,
+    retrySession,
+  } = useAuth();
 
   if (isLoading) {
     return (
@@ -90,11 +138,33 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (sessionError) {
+    return <SessionVerificationPrompt message={sessionError} onRetry={retrySession} />;
+  }
+
   if (isAuthenticated) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to={getAuthenticatedLandingPath(user)} replace />;
   }
 
   return <>{children}</>;
+}
+
+function RoleAwareHome() {
+  const { user } = useAuth();
+
+  if (user?.role === 'individual') {
+    return <Navigate to="/individual" replace />;
+  }
+
+  return <Dashboard />;
+}
+
+function IndividualRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <IndividualRecoveryGate>{children}</IndividualRecoveryGate>
+    </ProtectedRoute>
+  );
 }
 
 function AppRoutes() {
@@ -121,7 +191,7 @@ function AppRoutes() {
         path="/home"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <RoleAwareHome />
           </ProtectedRoute>
         }
       />
@@ -211,6 +281,56 @@ function AppRoutes() {
           <ProtectedRoute>
             <Profile />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/individual"
+        element={
+          <IndividualRoute>
+            <div className="flex min-h-64 items-center justify-center text-sm text-muted-foreground">
+              Opening your individual learning workspace
+            </div>
+          </IndividualRoute>
+        }
+      />
+      <Route
+        path="/individual/onboarding"
+        element={
+          <IndividualRoute>
+            <IndividualOnboardingPage />
+          </IndividualRoute>
+        }
+      />
+      <Route
+        path="/individual/profile"
+        element={
+          <IndividualRoute>
+            <IndividualProfilePage />
+          </IndividualRoute>
+        }
+      />
+      <Route
+        path="/individual/jobs"
+        element={
+          <IndividualRoute>
+            <IndividualJobsPage />
+          </IndividualRoute>
+        }
+      />
+      <Route
+        path="/individual/skills"
+        element={
+          <IndividualRoute>
+            <IndividualSkillsPage />
+          </IndividualRoute>
+        }
+      />
+      <Route
+        path="/individual/learning-path"
+        element={
+          <IndividualRoute>
+            <IndividualLearningPathPage />
+          </IndividualRoute>
         }
       />
       {/* ARCD Agent — nested sub-routes under each course */}

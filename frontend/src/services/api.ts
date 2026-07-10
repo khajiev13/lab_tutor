@@ -1,4 +1,13 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { dispatchAuthSessionExpired } from '@/features/auth/auth-events';
+import { decodeJwtPayload } from '@/features/auth/utils/token';
+import {
+  captureAuthSessionState,
+  invalidateAuthSession,
+  isAuthSessionStateCurrent,
+  StaleAuthSessionError,
+  type AuthSessionStateSnapshot,
+} from '@/features/auth/auth-session';
 
 // Production should never call localhost from the deployed site.
 // Prefer VITE_API_URL injected at build time; otherwise fall back to the known Azure backend FQDN.
@@ -19,13 +28,112 @@ const api = axios.create({
 type TimedRequestConfig = InternalAxiosRequestConfig & {
   __timingStart?: number;
   _retry?: boolean;
+  __authAccessToken?: string | null;
+  __authRefreshToken?: string | null;
+  __authSession?: AuthSessionStateSnapshot;
 };
 
-// Singleton refresh lock: all concurrent 401s share one refresh promise.
-let refreshingPromise: Promise<{ access_token: string; refresh_token: string }> | null = null;
+type RefreshTokens = { access_token: string; refresh_token: string };
+
+type RefreshFlight = {
+  sourceAccessToken: string | null;
+  sourceRefreshToken: string;
+  authSession: AuthSessionStateSnapshot;
+  promise: Promise<RefreshTokens>;
+};
+
+// Concurrent 401s share a refresh only when they belong to the same token/session source.
+let refreshingFlight: RefreshFlight | null = null;
 
 const LOG_API_TIMINGS =
   import.meta.env.DEV && String(import.meta.env.VITE_LOG_API_TIMINGS) === 'true';
+
+function isSameAuthSession(
+  left: AuthSessionStateSnapshot,
+  right: AuthSessionStateSnapshot,
+): boolean {
+  return left.generation === right.generation && left.userId === right.userId;
+}
+
+function isRefreshSourceCurrent(flight: RefreshFlight): boolean {
+  return (
+    isAuthSessionStateCurrent(flight.authSession) &&
+    localStorage.getItem('access_token') === flight.sourceAccessToken &&
+    localStorage.getItem('refresh_token') === flight.sourceRefreshToken
+  );
+}
+
+function isRefreshResultCurrent(flight: RefreshFlight, tokens: RefreshTokens): boolean {
+  return (
+    isAuthSessionStateCurrent(flight.authSession) &&
+    localStorage.getItem('access_token') === tokens.access_token &&
+    localStorage.getItem('refresh_token') === tokens.refresh_token
+  );
+}
+
+function getRefreshFlight(
+  sourceAccessToken: string | null,
+  sourceRefreshToken: string,
+  authSession: AuthSessionStateSnapshot,
+): RefreshFlight {
+  if (
+    refreshingFlight &&
+    refreshingFlight.sourceAccessToken === sourceAccessToken &&
+    refreshingFlight.sourceRefreshToken === sourceRefreshToken &&
+    isSameAuthSession(refreshingFlight.authSession, authSession)
+  ) {
+    return refreshingFlight;
+  }
+
+  const flight: RefreshFlight = {
+    sourceAccessToken,
+    sourceRefreshToken,
+    authSession,
+    promise: Promise.resolve({ access_token: '', refresh_token: '' }),
+  };
+  flight.promise = import('@/features/auth/api')
+    .then(({ authApi }) => authApi.refresh(sourceRefreshToken))
+    .finally(() => {
+      if (refreshingFlight === flight) {
+        refreshingFlight = null;
+      }
+    });
+  refreshingFlight = flight;
+  return flight;
+}
+
+function expireCurrentSession(): void {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  invalidateAuthSession();
+  dispatchAuthSessionExpired();
+}
+
+function getRequestAccessToken(config: TimedRequestConfig): string | null {
+  const authorization = config.headers?.Authorization ?? config.headers?.authorization;
+  if (typeof authorization !== 'string') {
+    return null;
+  }
+  return authorization.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
+}
+
+function getAccessTokenUserId(token: string | null): number | null {
+  if (!token) {
+    return null;
+  }
+  const subject = decodeJwtPayload(token)?.sub;
+  const userId = typeof subject === 'string' ? Number(subject) : Number.NaN;
+  return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
+}
+
+function isSameUserTokenRotation(
+  authSession: AuthSessionStateSnapshot,
+  requestAccessToken: string,
+  currentAccessToken: string,
+): boolean {
+  const requestUserId = authSession.userId ?? getAccessTokenUserId(requestAccessToken);
+  return requestUserId !== null && getAccessTokenUserId(currentAccessToken) === requestUserId;
+}
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -44,6 +152,10 @@ api.interceptors.request.use(
     }
 
     const token = localStorage.getItem('access_token');
+    const timedConfig = config as TimedRequestConfig;
+    timedConfig.__authAccessToken = token;
+    timedConfig.__authRefreshToken = localStorage.getItem('refresh_token');
+    timedConfig.__authSession = captureAuthSessionState();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -104,38 +216,68 @@ api.interceptors.response.use(
         !originalRequest._retry &&
         !originalRequest.url?.includes('/auth/jwt/login') &&
         !originalRequest.url?.includes('/auth/jwt/refresh')) {
+      const requestAuthSession = originalRequest.__authSession;
+      if (requestAuthSession && !isAuthSessionStateCurrent(requestAuthSession)) {
+        return Promise.reject(new StaleAuthSessionError());
+      }
+      const requestAccessToken =
+        originalRequest.__authAccessToken ?? getRequestAccessToken(originalRequest);
+      const currentAccessToken = localStorage.getItem('access_token');
+      if (requestAccessToken && requestAccessToken !== currentAccessToken) {
+        if (
+          requestAuthSession &&
+          currentAccessToken &&
+          isSameUserTokenRotation(
+            requestAuthSession,
+            requestAccessToken,
+            currentAccessToken,
+          )
+        ) {
+          originalRequest._retry = true;
+          originalRequest.headers.Authorization = `Bearer ${currentAccessToken}`;
+          return api(originalRequest);
+        }
+        return Promise.reject(new StaleAuthSessionError());
+      }
       const refreshToken = localStorage.getItem('refresh_token');
+      if (
+        originalRequest.__authRefreshToken !== undefined &&
+        originalRequest.__authRefreshToken !== refreshToken
+      ) {
+        return Promise.reject(new StaleAuthSessionError());
+      }
 
       if (refreshToken) {
         originalRequest._retry = true;
+        const sourceAccessToken = currentAccessToken;
+        const authSession = requestAuthSession ?? captureAuthSessionState();
+        const flight = getRefreshFlight(
+          sourceAccessToken,
+          refreshToken,
+          authSession,
+        );
+        let tokens: RefreshTokens;
         try {
-          // All concurrent 401s share one refresh call; subsequents just await the same promise.
-          if (!refreshingPromise) {
-            const { authApi } = await import('@/features/auth/api');
-            refreshingPromise = authApi.refresh(refreshToken).finally(() => {
-              refreshingPromise = null;
-            });
-          }
-
-          const tokens = await refreshingPromise;
-          localStorage.setItem('access_token', tokens.access_token);
-          localStorage.setItem('refresh_token', tokens.refresh_token);
-
-          // Retry original request with new token
-          originalRequest.headers.Authorization = `Bearer ${tokens.access_token}`;
-          return api(originalRequest);
+          tokens = await flight.promise;
         } catch (refreshError) {
-          refreshingPromise = null;
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
+          if (isRefreshSourceCurrent(flight)) {
+            expireCurrentSession();
           }
           return Promise.reject(refreshError);
         }
+
+        if (isRefreshSourceCurrent(flight)) {
+          localStorage.setItem('access_token', tokens.access_token);
+          localStorage.setItem('refresh_token', tokens.refresh_token);
+        } else if (!isRefreshResultCurrent(flight, tokens)) {
+          return Promise.reject(new StaleAuthSessionError());
+        }
+
+        // Retry only after verifying the refresh still belongs to this session.
+        originalRequest.headers.Authorization = `Bearer ${tokens.access_token}`;
+        return api(originalRequest);
       } else {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+        expireCurrentSession();
       }
     }
     return Promise.reject(error);

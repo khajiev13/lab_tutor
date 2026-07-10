@@ -2,20 +2,37 @@ import type { ReactNode } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const authState = vi.hoisted(() => ({
+  user: {
+    id: 1,
+    first_name: 'Test',
+    last_name: 'Student',
+    email: 'student@example.com',
+    role: 'student' as 'student' | 'teacher' | 'individual',
+    created_at: '2026-04-15T00:00:00Z',
+  } as {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    role: 'student' | 'teacher' | 'individual';
+    created_at: string;
+  } | null,
+  isAuthenticated: true,
+  isLoading: false,
+  sessionError: null as string | null,
+  retrySession: vi.fn(),
+}));
+
 vi.mock('@/features/auth/context/AuthContext', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useAuth: () => ({
-    user: {
-      id: 1,
-      first_name: 'Test',
-      last_name: 'Student',
-      email: 'student@example.com',
-      role: 'student',
-      created_at: '2026-04-15T00:00:00Z',
-    },
-    isAuthenticated: true,
-    isLoading: false,
+    user: authState.user,
+    isAuthenticated: authState.isAuthenticated,
+    isLoading: authState.isLoading,
     isServerWakingUp: false,
+    sessionError: authState.sessionError,
+    retrySession: authState.retrySession,
     login: vi.fn(),
     register: vi.fn(),
     logout: vi.fn(),
@@ -70,6 +87,26 @@ vi.mock('@/features/student-learning-path/pages/StudentLearningPathStudyPage', (
   default: () => <div>Study Page</div>,
 }));
 vi.mock('@/features/auth/pages/Profile', () => ({ default: () => <div>Profile</div> }));
+vi.mock('@/features/individual-learning/pages/IndividualOnboardingPage', () => ({
+  default: () => <div>Individual Onboarding</div>,
+}));
+vi.mock('@/features/individual-learning/pages/IndividualProfilePage', () => ({
+  default: () => <div>Individual Profile</div>,
+}));
+vi.mock('@/features/individual-learning/pages/IndividualJobsPage', () => ({
+  default: () => <div>Individual Jobs</div>,
+}));
+vi.mock('@/features/individual-learning/pages/IndividualSkillsPage', () => ({
+  default: () => <div>Individual Skills</div>,
+}));
+vi.mock('@/features/individual-learning/pages/IndividualLearningPathPage', () => ({
+  default: () => <div>Individual Learning Path</div>,
+}));
+vi.mock('@/features/individual-learning/IndividualRecoveryGate', () => ({
+  IndividualRecoveryGate: ({ children }: { children: ReactNode }) => (
+    <div data-testid="individual-recovery-gate">{children}</div>
+  ),
+}));
 
 import App from './App';
 
@@ -80,6 +117,18 @@ function renderAppAt(pathname: string) {
 
 describe('App routing', () => {
   beforeEach(() => {
+    authState.user = {
+      id: 1,
+      first_name: 'Test',
+      last_name: 'Student',
+      email: 'student@example.com',
+      role: 'student',
+      created_at: '2026-04-15T00:00:00Z',
+    };
+    authState.isAuthenticated = true;
+    authState.isLoading = false;
+    authState.sessionError = null;
+    authState.retrySession.mockReset();
     window.history.pushState({}, '', '/');
   });
 
@@ -109,5 +158,52 @@ describe('App routing', () => {
     expect(screen.getByText('Study Page')).toBeInTheDocument();
     expect(screen.queryByText('Mock Sidebar')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Toggle theme/i })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['/individual', 'Opening your individual learning workspace'],
+    ['/individual/onboarding', 'Individual Onboarding'],
+    ['/individual/profile', 'Individual Profile'],
+    ['/individual/jobs', 'Individual Jobs'],
+    ['/individual/skills', 'Individual Skills'],
+    ['/individual/learning-path', 'Individual Learning Path'],
+  ])('keeps dashboard chrome on %s', (pathname, content) => {
+    renderAppAt(pathname);
+
+    expect(screen.getByText(content)).toBeInTheDocument();
+    expect(screen.getByTestId('individual-recovery-gate')).toBeInTheDocument();
+    expect(screen.getByText('Mock Sidebar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeInTheDocument();
+  });
+
+  it('routes an authenticated individual away from the public login route', () => {
+    authState.user!.role = 'individual';
+
+    renderAppAt('/login');
+
+    expect(screen.getByText('Opening your individual learning workspace')).toBeInTheDocument();
+    expect(screen.getByTestId('individual-recovery-gate')).toBeInTheDocument();
+  });
+
+  it('routes an individual who opens the shared home route into recovery', () => {
+    authState.user!.role = 'individual';
+
+    renderAppAt('/home');
+
+    expect(screen.getByText('Opening your individual learning workspace')).toBeInTheDocument();
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+  });
+
+  it('quarantines a transient session verification failure with a retry action', () => {
+    authState.user = null;
+    authState.isAuthenticated = false;
+    authState.sessionError = 'We could not verify your session. Your work is preserved.';
+
+    renderAppAt('/individual/profile');
+
+    expect(screen.getByText(/could not verify your session/i)).toBeInTheDocument();
+    screen.getByRole('button', { name: /retry session/i }).click();
+    expect(authState.retrySession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Login')).not.toBeInTheDocument();
   });
 });

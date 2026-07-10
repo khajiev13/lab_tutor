@@ -34,6 +34,7 @@ import app.modules.curricularalignmentarchitect.models  # noqa: E402
 import app.modules.curricularalignmentarchitect.skill_prerequisites.review_models  # noqa: E402
 import app.modules.embeddings.course_models  # noqa: E402
 import app.modules.embeddings.models  # noqa: E402
+import app.modules.individual_learning.models  # noqa: E402
 import app.modules.marketdemandanalyst.models  # noqa: E402
 from app.core.api_schemas import (  # noqa: E402
     HealthResponse,
@@ -52,6 +53,7 @@ from app.core.neo4j import (  # noqa: E402
 from app.core.request_timing_middleware import RequestTimingMiddleware  # noqa: E402
 from app.core.settings import settings  # noqa: E402
 from app.modules.auth import routes as auth_routes  # noqa: E402
+from app.modules.auth.models import UserRole  # noqa: E402
 from app.modules.cognitive_diagnosis import (  # noqa: E402
     routes as cognitive_diagnosis_routes,
 )
@@ -64,6 +66,13 @@ from app.modules.curricularalignmentarchitect.api_routes import (  # noqa: E402
 )
 from app.modules.curricularalignmentarchitect.curriculum_planning import (  # noqa: E402
     router as chapter_plan_router,
+)
+from app.modules.individual_learning.checkpoint import (  # noqa: E402
+    close_individual_learning_checkpointer,
+    get_individual_learning_checkpointer,
+)
+from app.modules.individual_learning.routes import (  # noqa: E402
+    router as individual_learning_router,
 )
 from app.modules.marketdemandanalyst.routes import (  # noqa: E402
     router as market_demand_router,
@@ -304,6 +313,26 @@ def _ensure_sql_schema_upgrades() -> None:
                 text("ALTER TYPE book_status ADD VALUE IF NOT EXISTS 'ignored'")
             )
 
+        # SqlEnum(UserRole) persists enum member names unless values_callable is
+        # configured, so upgraded databases need `INDIVIDUAL`, not `individual`.
+        individual_role_db_value = UserRole.INDIVIDUAL.name
+        has_individual_role = conn.execute(
+            text(
+                "SELECT 1 FROM pg_enum e "
+                "JOIN pg_type t ON t.oid = e.enumtypid "
+                "WHERE t.typname = 'user_role' "
+                "AND e.enumlabel = :individual_role"
+            ),
+            {"individual_role": individual_role_db_value},
+        ).fetchone()
+        if not has_individual_role:
+            conn.execute(
+                text(
+                    "ALTER TYPE user_role ADD VALUE IF NOT EXISTS "
+                    f"'{individual_role_db_value}'"
+                )
+            )
+
         # Migrate vector columns to the correct dimension (2048).
         # text-embedding-v4 actually returns 2048-dim vectors.
         # Previous deployments may have used 2536 or 3072 — fix both.
@@ -461,6 +490,148 @@ def _ensure_sql_schema_upgrades() -> None:
                     "ADD COLUMN agentic_processed BOOLEAN NOT NULL DEFAULT FALSE"
                 )
             )
+
+        # Serialize this migration section across concurrent application replicas.
+        # The transaction-scoped lock is released by the commit below.
+        conn.execute(
+            text(
+                "SELECT pg_advisory_xact_lock("
+                "hashtext('lab_tutor'), "
+                "hashtext('individual_learning_schema_upgrade'))"
+            )
+        )
+
+        conn.execute(
+            text(
+                "ALTER TABLE individual_profiles "
+                "ADD COLUMN IF NOT EXISTS cv_attempt_token VARCHAR(100)"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE individual_profiles "
+                "ADD COLUMN IF NOT EXISTS cv_attempt_started_at "
+                "TIMESTAMP WITH TIME ZONE"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE cv_extraction_runs "
+                "ADD COLUMN IF NOT EXISTS workflow_lease_token VARCHAR(100)"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE cv_extraction_runs "
+                "ADD COLUMN IF NOT EXISTS workflow_lease_started_at "
+                "TIMESTAMP WITH TIME ZONE"
+            )
+        )
+
+        # Legacy deployments could contain duplicate documents before the
+        # idempotency index was introduced. Keep the newest lifecycle row and
+        # repoint every extraction audit row before deleting older documents.
+        conn.execute(
+            text(
+                "WITH ranked AS ("
+                " SELECT id, first_value(id) OVER ("
+                "  PARTITION BY user_id, content_hash "
+                "  ORDER BY uploaded_at DESC, id DESC"
+                " ) AS survivor_id"
+                " FROM cv_documents"
+                ") "
+                "UPDATE cv_extraction_runs AS extraction "
+                "SET cv_document_id = ranked.survivor_id "
+                "FROM ranked "
+                "WHERE extraction.cv_document_id = ranked.id "
+                "AND ranked.id <> ranked.survivor_id"
+            )
+        )
+        conn.execute(
+            text(
+                "WITH ranked AS ("
+                " SELECT id, row_number() OVER ("
+                "  PARTITION BY user_id, content_hash "
+                "  ORDER BY uploaded_at DESC, id DESC"
+                " ) AS position"
+                " FROM cv_documents"
+                ") "
+                "DELETE FROM cv_documents AS document "
+                "USING ranked "
+                "WHERE document.id = ranked.id AND ranked.position > 1"
+            )
+        )
+
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ux_cv_documents_user_id_content_hash "
+                "ON cv_documents (user_id, content_hash)"
+            )
+        )
+
+        # Stable workflow identity makes individual job-search audit writes
+        # idempotent when LangGraph retries a node after a process interruption.
+        conn.execute(
+            text(
+                "ALTER TABLE individual_job_search_runs "
+                "ADD COLUMN IF NOT EXISTS workflow_thread_id VARCHAR(200)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ux_individual_job_search_runs_workflow_thread_id "
+                "ON individual_job_search_runs (workflow_thread_id) "
+                "WHERE workflow_thread_id IS NOT NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "DROP INDEX IF EXISTS ix_individual_job_search_runs_workflow_thread_id"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE individual_job_match_runs "
+                "ADD COLUMN IF NOT EXISTS workflow_thread_id VARCHAR(200)"
+            )
+        )
+        conn.execute(
+            text("DROP INDEX IF EXISTS ux_individual_job_match_runs_job_search_run_id")
+        )
+        match_search_index_is_unique = conn.execute(
+            text(
+                "SELECT index_meta.indisunique "
+                "FROM pg_class AS index_name "
+                "JOIN pg_index AS index_meta "
+                "ON index_meta.indexrelid = index_name.oid "
+                "WHERE index_name.relname = "
+                "'ix_individual_job_match_runs_job_search_run_id'"
+            )
+        ).scalar()
+        if match_search_index_is_unique:
+            conn.execute(
+                text(
+                    "DROP INDEX IF EXISTS "
+                    "ix_individual_job_match_runs_job_search_run_id"
+                )
+            )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS "
+                "ix_individual_job_match_runs_job_search_run_id "
+                "ON individual_job_match_runs (job_search_run_id)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ux_individual_job_match_runs_workflow_thread_id "
+                "ON individual_job_match_runs (workflow_thread_id) "
+                "WHERE workflow_thread_id IS NOT NULL"
+            )
+        )
 
         conn.commit()
 
@@ -648,6 +819,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         return await asyncio.to_thread(_init)
 
+    async def _task_individual_checkpoint() -> object:
+        try:
+            checkpointer = await asyncio.to_thread(get_individual_learning_checkpointer)
+            logger.info("Individual-learning checkpoint store ready")
+            return checkpointer
+        except Exception:
+            logger.exception("Individual-learning checkpoint setup failed")
+            raise
+
     # Run all tasks concurrently.  Schema upgrades must succeed; the rest
     # are best-effort (warm-ups, backfill, orphan recovery).
     results = await asyncio.gather(
@@ -656,21 +836,41 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _task_warmup_sync_pool(),
         _task_warmup_async_pool(),
         _task_recover_orphans(),
+        _task_individual_checkpoint(),
         _task_neo4j_init(),
         return_exceptions=True,
     )
+    schema_result = results[0]
+    checkpoint_result = results[-2]
     # The last result is the neo4j driver (or an exception).
     neo4j_result = results[-1]
+
+    startup_error = next(
+        (
+            result
+            for result in (schema_result, checkpoint_result)
+            if isinstance(result, BaseException)
+        ),
+        None,
+    )
+    if startup_error is not None:
+        await asyncio.to_thread(close_individual_learning_checkpointer)
+        if not isinstance(neo4j_result, BaseException) and neo4j_result is not None:
+            neo4j_result.close()
+        raise startup_error
+
     if isinstance(neo4j_result, BaseException):
         logger.error("Neo4j init failed during startup: %s", neo4j_result)
         app.state.neo4j_driver = None
     else:
         app.state.neo4j_driver = neo4j_result
 
-    yield
-
-    if app.state.neo4j_driver is not None:
-        app.state.neo4j_driver.close()
+    try:
+        yield
+    finally:
+        await asyncio.to_thread(close_individual_learning_checkpointer)
+        if app.state.neo4j_driver is not None:
+            app.state.neo4j_driver.close()
 
 
 app = FastAPI(
@@ -717,6 +917,7 @@ app.include_router(concept_normalization_routes.router)
 app.include_router(book_selection_router)
 app.include_router(market_demand_router)
 app.include_router(student_learning_path_router)
+app.include_router(individual_learning_router)
 app.include_router(chapter_plan_router)
 app.include_router(cognitive_diagnosis_routes.router)
 app.include_router(review_chat_routes.router)

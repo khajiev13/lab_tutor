@@ -195,6 +195,9 @@ docs/.agents/skills/excalidraw-diagram
 .agents/
 .agent/
 
+# Local git worktrees
+.worktrees/
+
 # Python tool caches
 .pytest_cache/
 .ruff_cache/
