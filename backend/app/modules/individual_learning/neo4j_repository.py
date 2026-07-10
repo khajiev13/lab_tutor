@@ -75,9 +75,21 @@ def upsert_job_postings_and_market_skills(
     jobs: list[dict],
     skills_by_job_url: dict[str, list[dict]],
 ) -> dict[str, int]:
-    job_result = session.run(
+    job_skill_sets = [
+        {
+            "job": job,
+            "skills": [
+                skill
+                for skill in skills_by_job_url.get(str(job.get("url", "")), [])
+                if skill.get("name")
+            ],
+        }
+        for job in jobs
+    ]
+    result = session.run(
         """
-        UNWIND $jobs AS job
+        UNWIND $job_skill_sets AS item
+        WITH item.job AS job, item.skills AS skills
         MERGE (jp:JOB_POSTING {url: job.url})
         SET jp.title = coalesce(job.title, ''),
             jp.company = coalesce(job.company, ''),
@@ -90,38 +102,28 @@ def upsert_job_postings_and_market_skills(
                 job.skill_extraction_status, 'completed'
             ),
             jp.skill_extraction_error = job.skill_extraction_error
-        RETURN count(DISTINCT jp) AS written
+        WITH jp, skills
+        OPTIONAL MATCH (jp)<-[stale:SOURCED_FROM]-(:SKILL:MARKET_SKILL)
+        WITH jp, skills, collect(stale) AS stale_relationships
+        FOREACH (relationship IN stale_relationships | DELETE relationship)
+        FOREACH (skill IN skills |
+            MERGE (sk:SKILL:MARKET_SKILL {name: skill.name})
+            ON CREATE SET sk.created_at = datetime($now)
+            SET sk.category = coalesce(skill.category, sk.category, ''),
+                sk.description = coalesce(skill.description, sk.description, ''),
+                sk.source = 'individual_job_search'
+            MERGE (sk)-[:SOURCED_FROM]->(jp)
+        )
+        RETURN count(DISTINCT jp) AS jobs,
+               sum(size(skills)) AS market_skills
         """,
-        jobs=jobs,
-    )
-    jobs_record = job_result.single()
-    jobs_written = int(jobs_record["written"] if jobs_record else 0)
-
-    pairs = [
-        {"url": url, **skill}
-        for url, skills in skills_by_job_url.items()
-        for skill in skills
-        if skill.get("name")
-    ]
-    skill_result = session.run(
-        """
-        UNWIND $pairs AS pair
-        MATCH (jp:JOB_POSTING {url: pair.url})
-        MERGE (sk:SKILL:MARKET_SKILL {name: pair.name})
-        ON CREATE SET sk.created_at = datetime($now)
-        SET sk.category = coalesce(pair.category, sk.category, ''),
-            sk.description = coalesce(pair.description, sk.description, ''),
-            sk.source = 'individual_job_search'
-        MERGE (sk)-[:SOURCED_FROM]->(jp)
-        RETURN count(DISTINCT sk) AS written
-        """,
-        pairs=pairs,
+        job_skill_sets=job_skill_sets,
         now=datetime.now(UTC).isoformat(),
     )
-    skills_record = skill_result.single()
+    record = result.single()
     return {
-        "jobs": jobs_written,
-        "market_skills": int(skills_record["written"] if skills_record else 0),
+        "jobs": int(record["jobs"] if record else 0),
+        "market_skills": int(record["market_skills"] if record else 0),
     }
 
 

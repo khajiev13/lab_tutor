@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from threading import Barrier, Lock
 
 from sqlalchemy import text
@@ -157,6 +158,142 @@ def test_schema_upgrade_preserves_duplicate_legacy_matches_and_adds_workflow_ide
         workflow_thread_id=workflow_thread_id,
     )
     assert new_match.id == retried_match.id
+
+
+def test_schema_upgrade_reconciles_duplicate_cv_documents_before_unique_index(
+    db_session,
+) -> None:
+    user = User(
+        email="legacy-duplicate-cv-upgrade@example.com",
+        hashed_password="hashed",
+        first_name="Indy",
+        last_name="Learner",
+        role=UserRole.INDIVIDUAL,
+        is_active=True,
+        is_superuser=False,
+        is_verified=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    bind = db_session.get_bind()
+    older_at = datetime.now(UTC) - timedelta(days=1)
+    newer_at = datetime.now(UTC)
+
+    with bind.begin() as connection:
+        connection.execute(
+            text("DROP INDEX IF EXISTS ux_cv_documents_user_id_content_hash")
+        )
+        older_document_id = connection.scalar(
+            text(
+                "INSERT INTO cv_documents "
+                "(user_id, blob_path, original_filename, content_type, content_hash, "
+                " size_bytes, status, uploaded_at, processed_at) "
+                "VALUES (:user_id, 'legacy/old', 'old.pdf', 'application/pdf', "
+                " :content_hash, 10, 'completed', :uploaded_at, :uploaded_at) "
+                "RETURNING id"
+            ),
+            {
+                "user_id": user.id,
+                "content_hash": "9" * 64,
+                "uploaded_at": older_at,
+            },
+        )
+        newer_document_id = connection.scalar(
+            text(
+                "INSERT INTO cv_documents "
+                "(user_id, blob_path, original_filename, content_type, content_hash, "
+                " size_bytes, status, error_message, uploaded_at, processed_at) "
+                "VALUES (:user_id, 'legacy/new', 'new.pdf', 'application/pdf', "
+                " :content_hash, 20, 'failed', 'latest failure', :uploaded_at, "
+                " :uploaded_at) RETURNING id"
+            ),
+            {
+                "user_id": user.id,
+                "content_hash": "9" * 64,
+                "uploaded_at": newer_at,
+            },
+        )
+        for document_id, created_at in (
+            (older_document_id, older_at),
+            (newer_document_id, newer_at),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO cv_extraction_runs "
+                    "(cv_document_id, user_id, model_provider, model_name, "
+                    " raw_text_hash, extracted_profile_json, "
+                    " target_title_suggestions_json, confidence_summary_json, "
+                    " status, created_at) "
+                    "VALUES (:document_id, :user_id, 'test', 'test', '', "
+                    " '{}'::jsonb, '[]'::jsonb, '{}'::jsonb, 'failed', :created_at)"
+                ),
+                {
+                    "document_id": document_id,
+                    "user_id": user.id,
+                    "created_at": created_at,
+                },
+            )
+
+    try:
+        _ensure_sql_schema_upgrades()
+
+        with bind.connect() as connection:
+            documents = (
+                connection.execute(
+                    text(
+                        "SELECT id, original_filename, status, error_message "
+                        "FROM cv_documents WHERE user_id = :user_id "
+                        "AND content_hash = :content_hash"
+                    ),
+                    {"user_id": user.id, "content_hash": "9" * 64},
+                )
+                .mappings()
+                .all()
+            )
+            extraction_document_ids = connection.scalars(
+                text(
+                    "SELECT cv_document_id FROM cv_extraction_runs "
+                    "WHERE user_id = :user_id ORDER BY id"
+                ),
+                {"user_id": user.id},
+            ).all()
+            index_definition = connection.scalar(
+                text(
+                    "SELECT indexdef FROM pg_indexes "
+                    "WHERE tablename = 'cv_documents' "
+                    "AND indexname = 'ux_cv_documents_user_id_content_hash'"
+                )
+            )
+
+        assert documents == [
+            {
+                "id": newer_document_id,
+                "original_filename": "new.pdf",
+                "status": "failed",
+                "error_message": "latest failure",
+            }
+        ]
+        assert extraction_document_ids == [newer_document_id, newer_document_id]
+        assert index_definition is not None
+        assert "UNIQUE" in index_definition.upper()
+    finally:
+        with bind.begin() as connection:
+            connection.execute(
+                text("DELETE FROM cv_extraction_runs WHERE user_id = :user_id"),
+                {"user_id": user.id},
+            )
+            connection.execute(
+                text("DELETE FROM cv_documents WHERE user_id = :user_id"),
+                {"user_id": user.id},
+            )
+            connection.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS "
+                    "ux_cv_documents_user_id_content_hash "
+                    "ON cv_documents (user_id, content_hash)"
+                )
+            )
 
 
 def test_individual_schema_upgrade_serializes_concurrent_callers(

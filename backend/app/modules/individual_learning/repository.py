@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -17,6 +16,10 @@ from .models import (
     IndividualProfile,
     IndividualRunStatus,
 )
+
+
+class CVAttemptSupersededError(RuntimeError):
+    """Raised when an expired CV worker tries to mutate the current lifecycle."""
 
 
 class IndividualLearningRepository:
@@ -110,34 +113,208 @@ class IndividualLearningRepository:
             raise RuntimeError("CV document upsert could not be recovered")
         return document
 
-    def acquire_user_cv_lock(self, user_id: int) -> Connection:
-        connection = self._require_db().get_bind().connect()
-        try:
-            connection.execute(
-                text(
-                    "SELECT pg_advisory_lock("
-                    "hashtext('individual_cv_attempt'), :user_id)"
-                ),
-                {"user_id": user_id},
+    def claim_cv_attempt(
+        self,
+        *,
+        user_id: int,
+        attempt_token: str,
+        now: datetime,
+        stale_before: datetime,
+    ) -> bool:
+        db = self._require_db()
+        profile_id = db.scalar(
+            insert(IndividualProfile)
+            .values(
+                user_id=user_id,
+                onboarding_status="needs_cv",
+                cv_attempt_token=attempt_token,
+                cv_attempt_started_at=now,
+                created_at=now,
+                updated_at=now,
             )
-        except Exception:
-            connection.close()
-            raise
-        return connection
+            .on_conflict_do_update(
+                index_elements=[IndividualProfile.user_id],
+                set_={
+                    "cv_attempt_token": attempt_token,
+                    "cv_attempt_started_at": now,
+                    "updated_at": now,
+                },
+                where=or_(
+                    IndividualProfile.cv_attempt_token.is_(None),
+                    IndividualProfile.cv_attempt_started_at.is_(None),
+                    IndividualProfile.cv_attempt_started_at <= stale_before,
+                ),
+            )
+            .returning(IndividualProfile.id)
+        )
+        self._commit()
+        db.expire_all()
+        return profile_id is not None
 
-    @staticmethod
-    def release_user_cv_lock(connection: Connection, user_id: int) -> None:
-        try:
-            connection.execute(
-                text(
-                    "SELECT pg_advisory_unlock("
-                    "hashtext('individual_cv_attempt'), :user_id)"
-                ),
-                {"user_id": user_id},
+    def release_cv_attempt(self, *, user_id: int, attempt_token: str) -> bool:
+        db = self._require_db()
+        profile_id = db.scalar(
+            update(IndividualProfile)
+            .where(
+                IndividualProfile.user_id == user_id,
+                IndividualProfile.cv_attempt_token == attempt_token,
             )
-            connection.commit()
-        finally:
-            connection.close()
+            .values(
+                cv_attempt_token=None,
+                cv_attempt_started_at=None,
+                updated_at=datetime.now(UTC),
+            )
+            .returning(IndividualProfile.id)
+        )
+        self._commit()
+        db.expire_all()
+        return profile_id is not None
+
+    def renew_cv_attempt(
+        self,
+        *,
+        user_id: int,
+        attempt_token: str,
+        now: datetime,
+    ) -> bool:
+        db = self._require_db()
+        profile_id = db.scalar(
+            update(IndividualProfile)
+            .where(
+                IndividualProfile.user_id == user_id,
+                IndividualProfile.cv_attempt_token == attempt_token,
+            )
+            .values(cv_attempt_started_at=now, updated_at=now)
+            .returning(IndividualProfile.id)
+        )
+        self._commit()
+        db.expire_all()
+        return profile_id is not None
+
+    def claim_workflow_operation(
+        self,
+        *,
+        extraction_run_id: int,
+        user_id: int,
+        operation_token: str,
+        now: datetime,
+        stale_before: datetime,
+    ) -> bool:
+        if self._db is None:
+            return True
+        run_id = self._db.scalar(
+            update(CVExtractionRun)
+            .where(
+                CVExtractionRun.id == extraction_run_id,
+                CVExtractionRun.user_id == user_id,
+                or_(
+                    CVExtractionRun.workflow_lease_token.is_(None),
+                    CVExtractionRun.workflow_lease_started_at.is_(None),
+                    CVExtractionRun.workflow_lease_started_at <= stale_before,
+                ),
+            )
+            .values(
+                workflow_lease_token=operation_token,
+                workflow_lease_started_at=now,
+            )
+            .returning(CVExtractionRun.id)
+        )
+        self._commit()
+        self._db.expire_all()
+        return run_id is not None
+
+    def release_workflow_operation(
+        self,
+        *,
+        extraction_run_id: int,
+        user_id: int,
+        operation_token: str,
+    ) -> bool:
+        if self._db is None:
+            return True
+        run_id = self._db.scalar(
+            update(CVExtractionRun)
+            .where(
+                CVExtractionRun.id == extraction_run_id,
+                CVExtractionRun.user_id == user_id,
+                CVExtractionRun.workflow_lease_token == operation_token,
+            )
+            .values(
+                workflow_lease_token=None,
+                workflow_lease_started_at=None,
+            )
+            .returning(CVExtractionRun.id)
+        )
+        self._commit()
+        self._db.expire_all()
+        return run_id is not None
+
+    def renew_workflow_operation(
+        self,
+        *,
+        extraction_run_id: int,
+        user_id: int,
+        operation_token: str,
+        now: datetime,
+    ) -> bool:
+        if self._db is None:
+            return True
+        run_id = self._db.scalar(
+            update(CVExtractionRun)
+            .where(
+                CVExtractionRun.id == extraction_run_id,
+                CVExtractionRun.user_id == user_id,
+                CVExtractionRun.workflow_lease_token == operation_token,
+            )
+            .values(workflow_lease_started_at=now)
+            .returning(CVExtractionRun.id)
+        )
+        self._commit()
+        self._db.expire_all()
+        return run_id is not None
+
+    def get_cv_lifecycle_completion_state(
+        self,
+        *,
+        user_id: int,
+        cv_document_id: int,
+        extraction_run_id: int,
+    ) -> bool | None:
+        """Read durable completion using a new session after commit ambiguity."""
+
+        if self._db is None:
+            return None
+        try:
+            with Session(bind=self._db.get_bind()) as verification_db:
+                row = verification_db.execute(
+                    select(
+                        CVDocument.status,
+                        CVExtractionRun.status,
+                        IndividualProfile.onboarding_status,
+                    )
+                    .join(
+                        CVExtractionRun,
+                        CVExtractionRun.cv_document_id == CVDocument.id,
+                    )
+                    .join(
+                        IndividualProfile,
+                        IndividualProfile.user_id == CVDocument.user_id,
+                    )
+                    .where(
+                        CVDocument.id == cv_document_id,
+                        CVDocument.user_id == user_id,
+                        CVExtractionRun.id == extraction_run_id,
+                    )
+                ).one_or_none()
+        except Exception:
+            return None
+        if row is None:
+            return False
+        return (
+            row[0] == CVDocumentStatus.COMPLETED.value
+            and row[1] == IndividualRunStatus.COMPLETED.value
+            and row[2] == "needs_profile_review"
+        )
 
     def get_owned_cv_document(
         self,
@@ -254,25 +431,45 @@ class IndividualLearningRepository:
         extracted_profile: dict,
         target_title_suggestions: list[str],
         confidence_summary: dict,
+        attempt_token: str | None = None,
     ) -> None:
         db = self._require_db()
         now = datetime.now(UTC)
-        db.execute(
-            insert(IndividualProfile)
-            .values(
-                user_id=user_id,
-                onboarding_status="needs_profile_review",
-                created_at=now,
-                updated_at=now,
+        if attempt_token is None:
+            db.execute(
+                insert(IndividualProfile)
+                .values(
+                    user_id=user_id,
+                    onboarding_status="needs_profile_review",
+                    created_at=now,
+                    updated_at=now,
+                )
+                .on_conflict_do_update(
+                    index_elements=[IndividualProfile.user_id],
+                    set_={
+                        "onboarding_status": "needs_profile_review",
+                        "updated_at": now,
+                    },
+                )
             )
-            .on_conflict_do_update(
-                index_elements=[IndividualProfile.user_id],
-                set_={
-                    "onboarding_status": "needs_profile_review",
-                    "updated_at": now,
-                },
+        else:
+            profile_id = db.scalar(
+                update(IndividualProfile)
+                .where(
+                    IndividualProfile.user_id == user_id,
+                    IndividualProfile.cv_attempt_token == attempt_token,
+                )
+                .values(
+                    onboarding_status="needs_profile_review",
+                    cv_attempt_token=None,
+                    cv_attempt_started_at=None,
+                    updated_at=now,
+                )
+                .returning(IndividualProfile.id)
             )
-        )
+            if profile_id is None:
+                db.rollback()
+                raise CVAttemptSupersededError("CV processing attempt was superseded")
         extraction.extracted_profile_json = extracted_profile
         extraction.target_title_suggestions_json = target_title_suggestions
         extraction.confidence_summary_json = confidence_summary
@@ -282,7 +479,9 @@ class IndividualLearningRepository:
         document.status = CVDocumentStatus.COMPLETED.value
         document.error_message = None
         document.processed_at = now
-        self._commit(document, extraction)
+        # Avoid post-commit refreshes: a refresh failure after a successful
+        # commit makes the outcome ambiguous and must not trigger a downgrade.
+        self._commit()
 
     def set_cv_extraction_text_hash(
         self,
@@ -366,29 +565,49 @@ class IndividualLearningRepository:
         document: CVDocument,
         user_id: int,
         error_message: str,
+        attempt_token: str | None = None,
     ) -> None:
         db = self._require_db()
         now = datetime.now(UTC)
-        db.execute(
-            insert(IndividualProfile)
-            .values(
-                user_id=user_id,
-                onboarding_status="error",
-                created_at=now,
-                updated_at=now,
+        if attempt_token is None:
+            db.execute(
+                insert(IndividualProfile)
+                .values(
+                    user_id=user_id,
+                    onboarding_status="error",
+                    created_at=now,
+                    updated_at=now,
+                )
+                .on_conflict_do_update(
+                    index_elements=[IndividualProfile.user_id],
+                    set_={"onboarding_status": "error", "updated_at": now},
+                )
             )
-            .on_conflict_do_update(
-                index_elements=[IndividualProfile.user_id],
-                set_={"onboarding_status": "error", "updated_at": now},
+        else:
+            profile_id = db.scalar(
+                update(IndividualProfile)
+                .where(
+                    IndividualProfile.user_id == user_id,
+                    IndividualProfile.cv_attempt_token == attempt_token,
+                )
+                .values(
+                    onboarding_status="error",
+                    cv_attempt_token=None,
+                    cv_attempt_started_at=None,
+                    updated_at=now,
+                )
+                .returning(IndividualProfile.id)
             )
-        )
+            if profile_id is None:
+                db.rollback()
+                raise CVAttemptSupersededError("CV processing attempt was superseded")
         run.status = IndividualRunStatus.FAILED.value
         run.error_message = error_message
         run.completed_at = now
         document.status = CVDocumentStatus.FAILED.value
         document.error_message = error_message
         document.processed_at = now
-        self._commit(run, document)
+        self._commit()
 
     def create_job_search_run(
         self,

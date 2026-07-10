@@ -120,8 +120,7 @@ def test_upsert_job_postings_and_market_skills_uses_market_skill_and_sourced_fro
 ):
     session = FakeSession(
         [
-            FakeResult({"written": 1}),
-            FakeResult({"written": 2}),
+            FakeResult({"jobs": 1, "market_skills": 2}),
         ]
     )
 
@@ -146,24 +145,71 @@ def test_upsert_job_postings_and_market_skills_uses_market_skill_and_sourced_fro
         },
     )
 
-    jobs_query = session.calls[0][0]
-    skills_query, params = session.calls[1]
+    query, params = session.calls[0]
 
     assert counts == {"jobs": 1, "market_skills": 2}
-    assert "MERGE (jp:JOB_POSTING {url: job.url})" in jobs_query
-    assert "jp.skill_extraction_status" in jobs_query
-    assert "jp.skill_extraction_error" in jobs_query
-    assert "MERGE (sk:SKILL:MARKET_SKILL {name: pair.name})" in skills_query
-    assert "MERGE (sk)-[:SOURCED_FROM]->(jp)" in skills_query
-    assert "CV_SKILL" not in skills_query
-    assert params["pairs"] == [
+    assert len(session.calls) == 1
+    assert "MERGE (jp:JOB_POSTING {url: job.url})" in query
+    assert "jp.skill_extraction_status" in query
+    assert "jp.skill_extraction_error" in query
+    assert "MERGE (sk:SKILL:MARKET_SKILL {name: skill.name})" in query
+    assert "MERGE (sk)-[:SOURCED_FROM]->(jp)" in query
+    assert "CV_SKILL" not in query
+    assert params["job_skill_sets"] == [
         {
-            "url": "https://jobs.example/backend",
-            "name": "Python",
-            "category": "Programming",
-            "description": "Backend work",
-        },
-        {"url": "https://jobs.example/backend", "name": "SQL"},
+            "job": {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+                "company": "Example",
+            },
+            "skills": [
+                {
+                    "name": "Python",
+                    "category": "Programming",
+                    "description": "Backend work",
+                },
+                {"name": "SQL"},
+            ],
+        }
+    ]
+
+
+def test_job_projection_transactionally_replaces_stale_skill_edges_including_empty() -> (
+    None
+):
+    session = FakeSession([FakeResult({"jobs": 1, "market_skills": 0})])
+
+    counts = neo4j_repository.upsert_job_postings_and_market_skills(
+        session,
+        jobs=[
+            {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+                "company": "Example",
+                "skill_extraction_status": "failed",
+                "skill_extraction_error": "temporary failure",
+            }
+        ],
+        skills_by_job_url={"https://jobs.example/backend": []},
+    )
+
+    assert counts == {"jobs": 1, "market_skills": 0}
+    assert len(session.calls) == 1
+    query, params = session.calls[0]
+    assert "OPTIONAL MATCH (jp)<-[stale:SOURCED_FROM]-" in query
+    assert "DELETE relationship" in query
+    assert "FOREACH (skill IN skills" in query
+    assert params["job_skill_sets"] == [
+        {
+            "job": {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+                "company": "Example",
+                "skill_extraction_status": "failed",
+                "skill_extraction_error": "temporary failure",
+            },
+            "skills": [],
+        }
     ]
 
 

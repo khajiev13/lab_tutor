@@ -4,7 +4,10 @@ import asyncio
 import hashlib
 import re
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
+from threading import Event, Thread
 from typing import Any
 
 from fastapi import HTTPException, UploadFile, status
@@ -52,7 +55,7 @@ from .neo4j_repository import (
     upsert_job_postings_and_market_skills,
     write_market_skill_questions,
 )
-from .repository import IndividualLearningRepository
+from .repository import CVAttemptSupersededError, IndividualLearningRepository
 from .schemas import (
     CVDocumentRead,
     CVProfileExtraction,
@@ -71,6 +74,9 @@ _THREAD_ID_PATTERN = re.compile(
 )
 MAX_CV_UPLOAD_BYTES = 10 * 1024 * 1024
 CV_UPLOAD_CHUNK_BYTES = 64 * 1024
+CV_ATTEMPT_STALE_AFTER = timedelta(hours=1)
+WORKFLOW_OPERATION_STALE_AFTER = timedelta(hours=1)
+WORKFLOW_LEASE_HEARTBEAT_SECONDS = 30.0
 _SAFE_CV_PARSE_ERRORS = frozenset(
     {
         "Only PDF and DOCX CV files are supported",
@@ -83,6 +89,55 @@ _SAFE_CV_PARSE_ERRORS = frozenset(
         "CV text is too short to analyze",
     }
 )
+
+
+class _WorkflowLeaseHeartbeat:
+    """Renew a workflow lease with short, independent DB transactions."""
+
+    def __init__(
+        self,
+        *,
+        bind: Any,
+        extraction_run_id: int,
+        user_id: int,
+        operation_token: str,
+        interval_seconds: float,
+    ) -> None:
+        self._bind = bind
+        self._extraction_run_id = extraction_run_id
+        self._user_id = user_id
+        self._operation_token = operation_token
+        self._interval_seconds = interval_seconds
+        self._stop = Event()
+        self._thread = Thread(
+            target=self._run,
+            name="individual-workflow-lease-heartbeat",
+            daemon=True,
+        )
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=1)
+
+    def _run(self) -> None:
+        while not self._stop.wait(self._interval_seconds):
+            try:
+                with Session(bind=self._bind) as db:
+                    renewed = IndividualLearningRepository(db).renew_workflow_operation(
+                        extraction_run_id=self._extraction_run_id,
+                        user_id=self._user_id,
+                        operation_token=self._operation_token,
+                        now=datetime.now(UTC),
+                    )
+            except Exception:
+                # A transient database failure does not prove ownership loss.
+                # Keep retrying; the final fenced renewal decides the outcome.
+                continue
+            if not renewed:
+                return
 
 
 class IndividualLearningService:
@@ -170,6 +225,7 @@ class IndividualLearningService:
                 document.status == CVDocumentStatus.FAILED.value
                 or extraction is not None
                 and extraction.status == IndividualRunStatus.FAILED.value
+                or not self._cv_attempt_is_active(profile)
             ):
                 next_step = "retry_cv"
             else:
@@ -192,6 +248,15 @@ class IndividualLearningService:
                 else None
             ),
             pending_interrupt=pending_interrupt,
+        )
+
+    @staticmethod
+    def _cv_attempt_is_active(profile: Any) -> bool:
+        started_at = getattr(profile, "cv_attempt_started_at", None)
+        return bool(
+            getattr(profile, "cv_attempt_token", None)
+            and started_at is not None
+            and started_at > datetime.now(UTC) - CV_ATTEMPT_STALE_AFTER
         )
 
     @staticmethod
@@ -510,10 +575,24 @@ class IndividualLearningService:
             learning_path = dict(get_individual_learning_path(session, user_id=user_id))
 
         latest_run = self._repo.get_latest_learning_run(user_id)
+        selected_skill_snapshot = {
+            str(skill.get("name", "")).strip().casefold()
+            for skill in learning_path.get("selected_skills", [])
+            if isinstance(skill, dict) and str(skill.get("name", "")).strip()
+        }
+        latest_run_snapshot = (
+            {
+                str(name).strip().casefold()
+                for name in getattr(latest_run, "selected_skill_names_json", [])
+                if str(name).strip()
+            }
+            if latest_run is not None
+            else set()
+        )
         build_status: str | None = None
         build_run_id: str | None = None
         build_error: str | None = None
-        if latest_run is not None:
+        if latest_run is not None and latest_run_snapshot == selected_skill_snapshot:
             build_run_id = latest_run.run_id
             if latest_run.status == IndividualRunStatus.COMPLETED.value:
                 build_status = IndividualRunStatus.COMPLETED.value
@@ -557,10 +636,18 @@ class IndividualLearningService:
         content = await self._read_cv_upload(file)
         content_hash = self._storage.sha256_hex(content)
         blob_path = f"users/{user_id}/cv/{content_hash}/document"
-        attempt_lock = await asyncio.to_thread(
-            self._repo.acquire_user_cv_lock,
-            user_id,
-        )
+        attempt_token = str(uuid.uuid4())
+        now = datetime.now(UTC)
+        if not self._repo.claim_cv_attempt(
+            user_id=user_id,
+            attempt_token=attempt_token,
+            now=now,
+            stale_before=now - CV_ATTEMPT_STALE_AFTER,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="CV processing is already in progress",
+            )
         try:
             try:
                 await self._storage.upload_bytes(content, blob_path)
@@ -569,6 +656,10 @@ class IndividualLearningService:
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail="CV storage is temporarily unavailable; retry",
                 ) from exc
+            self._renew_cv_attempt_or_raise(
+                user_id=user_id,
+                attempt_token=attempt_token,
+            )
 
             cv_document = self._repo.upsert_cv_document(
                 user_id=user_id,
@@ -586,12 +677,12 @@ class IndividualLearningService:
                 user_id=user_id,
                 cv_document=cv_document,
                 content=content,
+                attempt_token=attempt_token,
             )
         finally:
-            await asyncio.to_thread(
-                self._repo.release_user_cv_lock,
-                attempt_lock,
-                user_id,
+            self._repo.release_cv_attempt(
+                user_id=user_id,
+                attempt_token=attempt_token,
             )
 
     async def retry_cv_document(
@@ -599,10 +690,36 @@ class IndividualLearningService:
         user_id: int,
         cv_document_id: int,
     ) -> CVDocumentRead:
-        attempt_lock = await asyncio.to_thread(
-            self._repo.acquire_user_cv_lock,
-            user_id,
+        document = self._repo.get_owned_cv_document(
+            user_id=user_id,
+            cv_document_id=cv_document_id,
         )
+        if document is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="CV document not found",
+            )
+        if document.status not in {
+            CVDocumentStatus.FAILED.value,
+            CVDocumentStatus.PROCESSING.value,
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only a failed CV document can be retried",
+            )
+
+        attempt_token = str(uuid.uuid4())
+        now = datetime.now(UTC)
+        if not self._repo.claim_cv_attempt(
+            user_id=user_id,
+            attempt_token=attempt_token,
+            now=now,
+            stale_before=now - CV_ATTEMPT_STALE_AFTER,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="CV processing is already in progress",
+            )
         try:
             document = self._repo.get_owned_cv_document(
                 user_id=user_id,
@@ -613,7 +730,16 @@ class IndividualLearningService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="CV document not found",
                 )
-            if document.status != CVDocumentStatus.FAILED.value:
+            current_document = self._repo.get_latest_cv_document(user_id)
+            if current_document is None or current_document.id != document.id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="CV document is stale; reload the current profile",
+                )
+            if document.status not in {
+                CVDocumentStatus.FAILED.value,
+                CVDocumentStatus.PROCESSING.value,
+            }:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Only a failed CV document can be retried",
@@ -645,6 +771,10 @@ class IndividualLearningService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Stored CV file is invalid; upload the CV again",
                 )
+            self._renew_cv_attempt_or_raise(
+                user_id=user_id,
+                attempt_token=attempt_token,
+            )
 
             document = self._repo.upsert_cv_document(
                 user_id=user_id,
@@ -662,12 +792,12 @@ class IndividualLearningService:
                 user_id=user_id,
                 cv_document=document,
                 content=content,
+                attempt_token=attempt_token,
             )
         finally:
-            await asyncio.to_thread(
-                self._repo.release_user_cv_lock,
-                attempt_lock,
-                user_id,
+            self._repo.release_cv_attempt(
+                user_id=user_id,
+                attempt_token=attempt_token,
             )
 
     async def _read_cv_upload(self, file: UploadFile) -> bytes:
@@ -698,6 +828,7 @@ class IndividualLearningService:
         user_id: int,
         cv_document: CVDocument,
         content: bytes,
+        attempt_token: str,
     ) -> CVDocumentRead:
         profile_extractor = self._cv_profile_extractor
         extraction_run = self._repo.create_cv_extraction_run(
@@ -726,27 +857,34 @@ class IndividualLearningService:
                 if raw_error in _SAFE_CV_PARSE_ERRORS
                 else "CV file could not be parsed safely"
             )
-            self._repo.fail_cv_lifecycle(
+            self._fail_cv_attempt(
                 extraction_run,
                 document=cv_document,
                 user_id=user_id,
                 error_message=error_message,
+                attempt_token=attempt_token,
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_message,
             ) from exc
         except Exception as exc:
-            self._repo.fail_cv_lifecycle(
+            self._fail_cv_attempt(
                 extraction_run,
                 document=cv_document,
                 user_id=user_id,
                 error_message="CV parser failed",
+                attempt_token=attempt_token,
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to parse CV file",
             ) from exc
+
+        self._renew_cv_attempt_or_raise(
+            user_id=user_id,
+            attempt_token=attempt_token,
+        )
 
         self._repo.set_cv_extraction_text_hash(
             extraction_run,
@@ -761,11 +899,12 @@ class IndividualLearningService:
             )
         except Exception as exc:
             error_message = "Structured CV extraction failed"
-            self._repo.fail_cv_lifecycle(
+            self._fail_cv_attempt(
                 extraction_run,
                 document=cv_document,
                 user_id=user_id,
                 error_message=error_message,
+                attempt_token=attempt_token,
             )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -782,18 +921,32 @@ class IndividualLearningService:
                     extracted_profile.target_title_suggestions
                 ),
                 confidence_summary=dict(extracted_profile.confidence_summary),
+                attempt_token=attempt_token,
             )
-        except Exception as exc:
-            self._repo.fail_cv_lifecycle(
-                extraction_run,
-                document=cv_document,
-                user_id=user_id,
-                error_message="CV finalization failed",
-            )
+        except CVAttemptSupersededError as exc:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to finalize CV processing",
+                status_code=status.HTTP_409_CONFLICT,
+                detail="CV processing attempt was superseded",
             ) from exc
+        except Exception as exc:
+            completion_state = self._repo.get_cv_lifecycle_completion_state(
+                user_id=user_id,
+                cv_document_id=cv_document.id,
+                extraction_run_id=extraction_run.id,
+            )
+            if completion_state is not True:
+                if completion_state is False:
+                    self._fail_cv_attempt(
+                        extraction_run,
+                        document=cv_document,
+                        user_id=user_id,
+                        error_message="CV finalization failed",
+                        attempt_token=attempt_token,
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to finalize CV processing",
+                ) from exc
 
         return CVDocumentRead(
             id=cv_document.id,
@@ -802,6 +955,102 @@ class IndividualLearningService:
             content_type=cv_document.content_type,
             status=cv_document.status,
         )
+
+    def _fail_cv_attempt(
+        self,
+        extraction_run: CVExtractionRun,
+        *,
+        document: CVDocument,
+        user_id: int,
+        error_message: str,
+        attempt_token: str,
+    ) -> None:
+        try:
+            self._repo.fail_cv_lifecycle(
+                extraction_run,
+                document=document,
+                user_id=user_id,
+                error_message=error_message,
+                attempt_token=attempt_token,
+            )
+        except CVAttemptSupersededError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="CV processing attempt was superseded",
+            ) from exc
+
+    def _renew_cv_attempt_or_raise(
+        self,
+        *,
+        user_id: int,
+        attempt_token: str,
+    ) -> None:
+        if not self._repo.renew_cv_attempt(
+            user_id=user_id,
+            attempt_token=attempt_token,
+            now=datetime.now(UTC),
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="CV processing attempt was superseded",
+            )
+
+    @contextmanager
+    def _workflow_operation(
+        self,
+        *,
+        extraction_run_id: int,
+        user_id: int,
+    ) -> Iterator[None]:
+        operation_token = str(uuid.uuid4())
+        now = datetime.now(UTC)
+        if not self._repo.claim_workflow_operation(
+            extraction_run_id=extraction_run_id,
+            user_id=user_id,
+            operation_token=operation_token,
+            now=now,
+            stale_before=now - WORKFLOW_OPERATION_STALE_AFTER,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Workflow operation is already in progress",
+            )
+
+        heartbeat = (
+            _WorkflowLeaseHeartbeat(
+                bind=self._db.get_bind(),
+                extraction_run_id=extraction_run_id,
+                user_id=user_id,
+                operation_token=operation_token,
+                interval_seconds=WORKFLOW_LEASE_HEARTBEAT_SECONDS,
+            )
+            if self._db is not None
+            else None
+        )
+        if heartbeat is not None:
+            heartbeat.start()
+        try:
+            yield
+            if heartbeat is not None:
+                heartbeat.stop()
+            if not self._repo.renew_workflow_operation(
+                extraction_run_id=extraction_run_id,
+                user_id=user_id,
+                operation_token=operation_token,
+                now=datetime.now(UTC),
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Workflow operation was superseded",
+                )
+        finally:
+            if heartbeat is not None:
+                heartbeat.stop()
+            self._repo.release_workflow_operation(
+                extraction_run_id=extraction_run_id,
+                user_id=user_id,
+                operation_token=operation_token,
+            )
 
     def start_individual_graph(
         self, user_id: int, cv_document_id: int
@@ -847,25 +1096,38 @@ class IndividualLearningService:
             cv_document_id,
             extraction.id,
         )
-        graph = self._get_graph()
-        config = self._graph_config(thread_id)
-        result = graph.invoke(
-            {
-                "thread_id": thread_id,
-                "user_id": user_id,
-                "cv_document_id": cv_document_id,
-                "profile": self._profile_payload_from_extraction(extraction),
-                "target_titles": [],
-                "candidate_jobs": [],
-                "skill_bank": [],
-                "selected_posting_urls": [],
-                "selected_skill_names": [],
-            },
-            config,
-        )
-        return IndividualGraphStartResponse(
-            **self._build_graph_response(thread_id, result)
-        )
+        with self._workflow_operation(
+            extraction_run_id=extraction.id,
+            user_id=user_id,
+        ):
+            graph = self._get_graph()
+            config = self._graph_config(thread_id)
+            snapshot = graph.get_state(config)
+            snapshot_values = getattr(snapshot, "values", {})
+            if (
+                isinstance(snapshot_values, dict)
+                and snapshot_values.get("thread_id") == thread_id
+            ):
+                return IndividualGraphStartResponse(
+                    **self._build_graph_snapshot_response(thread_id, snapshot)
+                )
+            result = graph.invoke(
+                {
+                    "thread_id": thread_id,
+                    "user_id": user_id,
+                    "cv_document_id": cv_document_id,
+                    "profile": self._profile_payload_from_extraction(extraction),
+                    "target_titles": [],
+                    "candidate_jobs": [],
+                    "skill_bank": [],
+                    "selected_posting_urls": [],
+                    "selected_skill_names": [],
+                },
+                config,
+            )
+            return IndividualGraphStartResponse(
+                **self._build_graph_response(thread_id, result)
+            )
 
     def resume_individual_graph(
         self, user_id: int, thread_id: str, payload: dict[str, Any]
@@ -874,41 +1136,45 @@ class IndividualLearningService:
             user_id,
             thread_id,
         )
-        graph = self._get_graph()
-        config = self._graph_config(thread_id)
-        resume_payload = dict(payload)
-        snapshot = graph.get_state(config)
-        resume_stage = self._resolve_resume_stage(snapshot)
-        if resume_stage == "review_profile_and_roles":
-            if "approved" not in resume_payload:
-                self._raise_stale_resume_conflict()
-            resume_payload = self._approve_profile_review(
-                user_id=user_id,
-                cv_document_id=cv_document_id,
-                extraction_run_id=extraction_run_id,
-                payload=resume_payload,
-                checkpoint_profile=dict(snapshot.values.get("profile", {})),
-            )
-        elif resume_stage == "search_jobs":
-            if (
-                resume_payload.get("approved") is not True
-                or "target_titles" not in resume_payload
-            ):
-                self._raise_stale_resume_conflict()
-        elif resume_stage == "choose_jobs_and_skills":
-            if (
-                "selected_posting_urls" not in resume_payload
-                or "selected_skill_names" not in resume_payload
-            ):
-                self._raise_stale_resume_conflict()
-            resume_payload = self._persist_checkpointed_selections(
-                user_id=user_id,
-                payload=resume_payload,
-                checkpoint_state=dict(snapshot.values),
-            )
-        result = graph.invoke(Command(resume=resume_payload), config)
-        response_data = self._build_graph_response(thread_id, result)
-        return IndividualGraphResumeResponse(**response_data)
+        with self._workflow_operation(
+            extraction_run_id=extraction_run_id,
+            user_id=user_id,
+        ):
+            graph = self._get_graph()
+            config = self._graph_config(thread_id)
+            resume_payload = dict(payload)
+            snapshot = graph.get_state(config)
+            resume_stage = self._resolve_resume_stage(snapshot)
+            if resume_stage == "review_profile_and_roles":
+                if "approved" not in resume_payload:
+                    self._raise_stale_resume_conflict()
+                resume_payload = self._approve_profile_review(
+                    user_id=user_id,
+                    cv_document_id=cv_document_id,
+                    extraction_run_id=extraction_run_id,
+                    payload=resume_payload,
+                    checkpoint_profile=dict(snapshot.values.get("profile", {})),
+                )
+            elif resume_stage == "search_jobs":
+                if (
+                    resume_payload.get("approved") is not True
+                    or "target_titles" not in resume_payload
+                ):
+                    self._raise_stale_resume_conflict()
+            elif resume_stage == "choose_jobs_and_skills":
+                if (
+                    "selected_posting_urls" not in resume_payload
+                    or "selected_skill_names" not in resume_payload
+                ):
+                    self._raise_stale_resume_conflict()
+                resume_payload = self._persist_checkpointed_selections(
+                    user_id=user_id,
+                    payload=resume_payload,
+                    checkpoint_state=dict(snapshot.values),
+                )
+            result = graph.invoke(Command(resume=resume_payload), config)
+            response_data = self._build_graph_response(thread_id, result)
+            return IndividualGraphResumeResponse(**response_data)
 
     def _resolve_resume_stage(self, snapshot: Any) -> str:
         next_nodes = tuple(getattr(snapshot, "next", ()))
@@ -1499,6 +1765,27 @@ class IndividualLearningService:
             "target_titles": list(result.get("target_titles", [])),
             "selected_posting_urls": list(result.get("selected_posting_urls", [])),
             "selected_skill_names": list(result.get("selected_skill_names", [])),
+        }
+
+    @staticmethod
+    def _build_graph_snapshot_response(
+        thread_id: str,
+        snapshot: Any,
+    ) -> dict[str, Any]:
+        values = dict(getattr(snapshot, "values", {}) or {})
+        interrupt_value = IndividualLearningService._get_snapshot_interrupt(snapshot)
+        has_pending_work = bool(getattr(snapshot, "next", ()))
+        return {
+            "thread_id": thread_id,
+            "status": (
+                "interrupted"
+                if interrupt_value is not None or has_pending_work
+                else "completed"
+            ),
+            "interrupt": interrupt_value,
+            "target_titles": list(values.get("target_titles", [])),
+            "selected_posting_urls": list(values.get("selected_posting_urls", [])),
+            "selected_skill_names": list(values.get("selected_skill_names", [])),
         }
 
     @staticmethod

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier, Event
+from datetime import UTC, datetime, timedelta
+from threading import Barrier
 
 import pytest
 from sqlalchemy import event, func, select
@@ -290,31 +291,154 @@ def test_repository_concurrent_document_and_profile_upserts_are_idempotent(
     )
 
 
-def test_repository_serializes_per_user_cv_attempts_across_sessions(db_session) -> None:
-    user = _create_individual(db_session, email="concurrent-cv-lock@example.com")
+def test_repository_cv_attempt_lease_is_bounded_and_does_not_hold_a_connection(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="bounded-cv-lease@example.com")
     repository = IndividualLearningRepository(db_session)
-    first_lock = repository.acquire_user_cv_lock(user.id)
-    second_acquired = Event()
+    started_at = datetime.now(UTC)
+    stale_after = timedelta(hours=1)
 
-    def acquire_second_lock() -> None:
-        second_repository = IndividualLearningRepository(
-            Session(bind=db_session.get_bind())
-        )
-        lock = second_repository.acquire_user_cv_lock(user.id)
-        second_acquired.set()
-        second_repository.release_user_cv_lock(lock, user.id)
+    first_claim = repository.claim_cv_attempt(
+        user_id=user.id,
+        attempt_token="attempt-a",
+        now=started_at,
+        stale_before=started_at - stale_after,
+    )
+    assert first_claim is True
+    assert not repository.claim_cv_attempt(
+        user_id=user.id,
+        attempt_token="attempt-b",
+        now=started_at + stale_after - timedelta(microseconds=1),
+        stale_before=started_at - timedelta(microseconds=1),
+    )
+    assert repository.claim_cv_attempt(
+        user_id=user.id,
+        attempt_token="attempt-b",
+        now=started_at + stale_after,
+        stale_before=started_at,
+    )
+    assert repository.release_cv_attempt(
+        user_id=user.id,
+        attempt_token="attempt-b",
+    )
 
-    try:
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(acquire_second_lock)
-            assert second_acquired.wait(timeout=0.2) is False
-            repository.release_user_cv_lock(first_lock, user.id)
-            future.result(timeout=10)
-    finally:
-        if not second_acquired.is_set():
-            repository.release_user_cv_lock(first_lock, user.id)
 
-    assert second_acquired.is_set()
+def test_repository_concurrent_cv_attempt_claims_have_one_winner(db_session) -> None:
+    user = _create_individual(db_session, email="concurrent-cv-lease@example.com")
+    bind = db_session.get_bind()
+    barrier = Barrier(2)
+    now = datetime.now(UTC)
+
+    def claim(index: int) -> bool:
+        with Session(bind=bind) as session:
+            barrier.wait(timeout=10)
+            return IndividualLearningRepository(session).claim_cv_attempt(
+                user_id=user.id,
+                attempt_token=f"attempt-{index}",
+                now=now,
+                stale_before=now - timedelta(hours=1),
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(claim, range(2)))
+
+    assert sorted(results) == [False, True]
+
+
+def test_repository_workflow_operation_lease_is_bounded_and_serialized(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="bounded-workflow-lease@example.com")
+    repository = IndividualLearningRepository(db_session)
+    document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/workflow/document",
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash="6" * 64,
+        size_bytes=123,
+    )
+    extraction = repository.create_cv_extraction_run(
+        cv_document_id=document.id,
+        user_id=user.id,
+        model_provider="test-provider",
+        model_name="test-model",
+        raw_text_hash="7" * 64,
+    )
+    started_at = datetime.now(UTC)
+    stale_after = timedelta(hours=1)
+
+    assert repository.claim_workflow_operation(
+        extraction_run_id=extraction.id,
+        user_id=user.id,
+        operation_token="operation-a",
+        now=started_at,
+        stale_before=started_at - stale_after,
+    )
+    assert not repository.claim_workflow_operation(
+        extraction_run_id=extraction.id,
+        user_id=user.id,
+        operation_token="operation-b",
+        now=started_at + stale_after - timedelta(microseconds=1),
+        stale_before=started_at - timedelta(microseconds=1),
+    )
+    assert repository.claim_workflow_operation(
+        extraction_run_id=extraction.id,
+        user_id=user.id,
+        operation_token="operation-b",
+        now=started_at + stale_after,
+        stale_before=started_at,
+    )
+    assert repository.release_workflow_operation(
+        extraction_run_id=extraction.id,
+        user_id=user.id,
+        operation_token="operation-b",
+    )
+
+
+def test_repository_concurrent_workflow_operation_claims_have_one_winner(
+    db_session,
+) -> None:
+    user = _create_individual(
+        db_session,
+        email="concurrent-workflow-lease@example.com",
+    )
+    repository = IndividualLearningRepository(db_session)
+    document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/concurrent-workflow/document",
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash="8" * 64,
+        size_bytes=123,
+    )
+    extraction = repository.create_cv_extraction_run(
+        cv_document_id=document.id,
+        user_id=user.id,
+        model_provider="test-provider",
+        model_name="test-model",
+        raw_text_hash="9" * 64,
+    )
+    bind = db_session.get_bind()
+    barrier = Barrier(2)
+    now = datetime.now(UTC)
+
+    def claim(index: int) -> bool:
+        with Session(bind=bind) as session:
+            barrier.wait(timeout=10)
+            return IndividualLearningRepository(session).claim_workflow_operation(
+                extraction_run_id=extraction.id,
+                user_id=user.id,
+                operation_token=f"operation-{index}",
+                now=now,
+                stale_before=now - timedelta(hours=1),
+            )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(claim, range(2)))
+
+    assert sorted(results) == [False, True]
 
 
 def test_repository_persists_partial_job_search_and_match_runs(db_session) -> None:

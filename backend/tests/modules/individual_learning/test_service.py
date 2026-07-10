@@ -797,6 +797,48 @@ def test_get_learning_path_exposes_sanitized_latest_build_status(
     assert "PRIVATE-PROVIDER-DETAIL" not in str(response)
 
 
+def test_get_learning_path_hides_build_metadata_for_an_old_skill_snapshot(
+    monkeypatch,
+) -> None:
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_individual_learning_path",
+        lambda _session, *, user_id: {
+            "user_id": user_id,
+            "selected_skills": [{"name": "Docker"}],
+            "total_selected_skills": 1,
+            "skills_with_resources": 0,
+        },
+    )
+    monkeypatch.setattr(
+        service._repo,
+        "get_latest_learning_run",
+        lambda _user_id: SimpleNamespace(
+            status="completed",
+            run_id="old-graphql-build",
+            selected_skill_names_json=["GraphQL"],
+            error_message=None,
+        ),
+    )
+
+    response = service.get_learning_path(user_id=7)
+
+    assert response["build_status"] is None
+    assert response["build_run_id"] is None
+    assert response["build_error"] is None
+
+
 def test_resume_individual_graph_rejects_malformed_thread_id(monkeypatch) -> None:
     service = IndividualLearningService(db=None, neo4j_driver=None)
 
@@ -819,6 +861,70 @@ def test_resume_individual_graph_rejects_malformed_thread_id(monkeypatch) -> Non
         assert exc.detail == "Thread does not belong to the current user"
     else:
         raise AssertionError("Expected HTTPException for malformed thread_id")
+
+
+def test_resume_individual_graph_rejects_a_concurrent_operation_before_graph_access(
+    monkeypatch,
+) -> None:
+    service = IndividualLearningService(db=None, neo4j_driver=None)
+    monkeypatch.setattr(
+        service,
+        "_validate_resume_thread",
+        lambda user_id, thread_id: (3, 4),
+    )
+    monkeypatch.setattr(
+        service._repo,
+        "claim_workflow_operation",
+        lambda **_kwargs: False,
+    )
+    monkeypatch.setattr(
+        IndividualLearningService,
+        "_get_graph",
+        staticmethod(
+            lambda: (_ for _ in ()).throw(AssertionError("graph should not be built"))
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.resume_individual_graph(
+            user_id=7,
+            thread_id="individual-7-cv-3-extraction-4",
+            payload={"approved": True},
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Workflow operation is already in progress"
+
+
+def test_start_individual_graph_rejects_a_concurrent_operation_before_graph_access(
+    monkeypatch,
+) -> None:
+    service = IndividualLearningService(db=None, neo4j_driver=None)
+    document = SimpleNamespace(id=3, status="completed")
+    extraction = SimpleNamespace(id=4, status="completed")
+    monkeypatch.setattr(
+        service._repo,
+        "get_cv_lifecycle",
+        lambda **_kwargs: (document, extraction),
+    )
+    monkeypatch.setattr(
+        service._repo,
+        "claim_workflow_operation",
+        lambda **_kwargs: False,
+    )
+    monkeypatch.setattr(
+        IndividualLearningService,
+        "_get_graph",
+        staticmethod(
+            lambda: (_ for _ in ()).throw(AssertionError("graph should not be built"))
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.start_individual_graph(user_id=7, cv_document_id=3)
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Workflow operation is already in progress"
 
 
 def test_resume_individual_graph_rejects_foreign_thread_id(monkeypatch) -> None:

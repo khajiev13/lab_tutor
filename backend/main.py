@@ -503,6 +503,67 @@ def _ensure_sql_schema_upgrades() -> None:
 
         conn.execute(
             text(
+                "ALTER TABLE individual_profiles "
+                "ADD COLUMN IF NOT EXISTS cv_attempt_token VARCHAR(100)"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE individual_profiles "
+                "ADD COLUMN IF NOT EXISTS cv_attempt_started_at "
+                "TIMESTAMP WITH TIME ZONE"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE cv_extraction_runs "
+                "ADD COLUMN IF NOT EXISTS workflow_lease_token VARCHAR(100)"
+            )
+        )
+        conn.execute(
+            text(
+                "ALTER TABLE cv_extraction_runs "
+                "ADD COLUMN IF NOT EXISTS workflow_lease_started_at "
+                "TIMESTAMP WITH TIME ZONE"
+            )
+        )
+
+        # Legacy deployments could contain duplicate documents before the
+        # idempotency index was introduced. Keep the newest lifecycle row and
+        # repoint every extraction audit row before deleting older documents.
+        conn.execute(
+            text(
+                "WITH ranked AS ("
+                " SELECT id, first_value(id) OVER ("
+                "  PARTITION BY user_id, content_hash "
+                "  ORDER BY uploaded_at DESC, id DESC"
+                " ) AS survivor_id"
+                " FROM cv_documents"
+                ") "
+                "UPDATE cv_extraction_runs AS extraction "
+                "SET cv_document_id = ranked.survivor_id "
+                "FROM ranked "
+                "WHERE extraction.cv_document_id = ranked.id "
+                "AND ranked.id <> ranked.survivor_id"
+            )
+        )
+        conn.execute(
+            text(
+                "WITH ranked AS ("
+                " SELECT id, row_number() OVER ("
+                "  PARTITION BY user_id, content_hash "
+                "  ORDER BY uploaded_at DESC, id DESC"
+                " ) AS position"
+                " FROM cv_documents"
+                ") "
+                "DELETE FROM cv_documents AS document "
+                "USING ranked "
+                "WHERE document.id = ranked.id AND ranked.position > 1"
+            )
+        )
+
+        conn.execute(
+            text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS "
                 "ux_cv_documents_user_id_content_hash "
                 "ON cv_documents (user_id, content_hash)"

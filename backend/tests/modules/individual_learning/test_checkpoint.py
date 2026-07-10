@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import importlib
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
+from threading import Event
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -12,6 +16,7 @@ from fastapi import HTTPException
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
+from sqlalchemy.orm import Session
 
 from app.modules.auth.models import User, UserRole
 from app.modules.individual_learning.graph import build_individual_learning_graph
@@ -244,7 +249,9 @@ def test_profile_recovery_does_not_pair_new_document_with_old_extraction(
     assert profile.active_thread_id is None
     assert profile.extracted_profile is None
     assert profile.pending_interrupt is None
-    assert profile.next_step == "wait_for_extraction"
+    # A processing document without a live lease represents an interrupted
+    # worker and must recover instead of leaving the UI waiting forever.
+    assert profile.next_step == "retry_cv"
 
 
 def test_same_hash_reupload_refreshes_recency_and_uses_new_extraction_thread(
@@ -461,3 +468,179 @@ def test_graph_reconstructs_across_service_instances_with_shared_checkpointer(
     assert recovered_jobs.next_step == "select_jobs_and_skills"
     assert recovered_jobs.pending_interrupt is not None
     assert recovered_jobs.pending_interrupt["kind"] == "choose_jobs_and_skills"
+
+
+def test_duplicate_start_returns_the_advanced_checkpoint_without_resetting_it(
+    db_session,
+    monkeypatch,
+) -> None:
+    user, cv_document_id = _seed_completed_cv(db_session)
+    checkpointer = InMemorySaver()
+
+    class DummyDriver:
+        def session(self):
+            return nullcontext(object())
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.upsert_cv_skills",
+        lambda *_args, **_kwargs: 1,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.upsert_job_postings_and_market_skills",
+        lambda *_args, **_kwargs: {"jobs": 1, "market_skills": 1},
+    )
+    service = IndividualLearningService(
+        db_session,
+        DummyDriver(),
+        graph_checkpointer=checkpointer,
+        job_searcher=lambda *_args: [
+            {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+            }
+        ],
+        market_skill_extractor=lambda jobs: {jobs[0]["url"]: [{"name": "Docker"}]},
+    )
+    started = service.start_individual_graph(user.id, cv_document_id)
+    advanced = service.resume_individual_graph(
+        user.id,
+        started.thread_id,
+        {"approved": True, "target_titles": ["Backend Engineer"]},
+    )
+
+    duplicate = service.start_individual_graph(user.id, cv_document_id)
+
+    assert advanced.interrupt is not None
+    assert advanced.interrupt["kind"] == "choose_jobs_and_skills"
+    assert duplicate.interrupt == advanced.interrupt
+    assert duplicate.target_titles == ["Backend Engineer"]
+
+
+def test_workflow_lease_heartbeat_prevents_theft_past_the_expiry_boundary(
+    db_session,
+    monkeypatch,
+) -> None:
+    user, cv_document_id = _seed_completed_cv(db_session)
+    repository = IndividualLearningRepository(db_session)
+    extraction = repository.get_latest_cv_extraction(
+        user.id,
+        cv_document_id=cv_document_id,
+    )
+    assert extraction is not None
+    user_id = user.id
+    extraction_run_id = extraction.id
+    bind = db_session.get_bind()
+    entered_graph = Event()
+    release_graph = Event()
+
+    class BlockingGraph:
+        @staticmethod
+        def get_state(_config):
+            return SimpleNamespace(values={}, next=(), tasks=())
+
+        @staticmethod
+        def invoke(_payload, _config):
+            entered_graph.set()
+            assert release_graph.wait(timeout=5)
+            return {
+                "target_titles": [],
+                "selected_posting_urls": [],
+                "selected_skill_names": [],
+            }
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.WORKFLOW_OPERATION_STALE_AFTER",
+        timedelta(milliseconds=80),
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.WORKFLOW_LEASE_HEARTBEAT_SECONDS",
+        0.01,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        IndividualLearningService,
+        "_get_graph",
+        lambda _self: BlockingGraph(),
+    )
+
+    def run_start():
+        with Session(bind=bind) as worker_session:
+            return IndividualLearningService(
+                worker_session,
+                None,
+            ).start_individual_graph(user_id, cv_document_id)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(run_start)
+        assert entered_graph.wait(timeout=5)
+        time.sleep(0.2)
+        now = datetime.now(UTC)
+        try:
+            with Session(bind=bind) as competing_session:
+                stolen = IndividualLearningRepository(
+                    competing_session
+                ).claim_workflow_operation(
+                    extraction_run_id=extraction_run_id,
+                    user_id=user_id,
+                    operation_token="competing-operation",
+                    now=now,
+                    stale_before=now - timedelta(milliseconds=80),
+                )
+            assert stolen is False
+        finally:
+            release_graph.set()
+        assert future.result(timeout=5).status == "completed"
+
+
+def test_workflow_lease_is_released_when_graph_invoke_raises(
+    db_session,
+    monkeypatch,
+) -> None:
+    user, cv_document_id = _seed_completed_cv(db_session)
+    repository = IndividualLearningRepository(db_session)
+    extraction = repository.get_latest_cv_extraction(
+        user.id,
+        cv_document_id=cv_document_id,
+    )
+    assert extraction is not None
+
+    class FailingGraph:
+        @staticmethod
+        def get_state(_config):
+            return SimpleNamespace(values={}, next=(), tasks=())
+
+        @staticmethod
+        def invoke(_payload, _config):
+            raise RuntimeError("injected graph failure")
+
+    monkeypatch.setattr(
+        IndividualLearningService,
+        "_get_graph",
+        lambda _self: FailingGraph(),
+    )
+    service = IndividualLearningService(db_session, None)
+
+    with pytest.raises(RuntimeError, match="injected graph failure"):
+        service.start_individual_graph(user.id, cv_document_id)
+
+    db_session.expire_all()
+    recovered = repository.get_latest_cv_extraction(
+        user.id,
+        cv_document_id=cv_document_id,
+    )
+    assert recovered is not None
+    assert recovered.workflow_lease_token is None
+    assert recovered.workflow_lease_started_at is None
+    now = datetime.now(UTC)
+    assert repository.claim_workflow_operation(
+        extraction_run_id=extraction.id,
+        user_id=user.id,
+        operation_token="operation-after-failure",
+        now=now,
+        stale_before=now - timedelta(hours=1),
+    )
+    repository.release_workflow_operation(
+        extraction_run_id=extraction.id,
+        user_id=user.id,
+        operation_token="operation-after-failure",
+    )

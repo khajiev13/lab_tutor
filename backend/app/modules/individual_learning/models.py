@@ -37,6 +37,10 @@ class IndividualProfile(Base):
     preferred_country: Mapped[str | None] = mapped_column(String(100), nullable=True)
     preferred_location: Mapped[str | None] = mapped_column(String(200), nullable=True)
     target_titles_json: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    cv_attempt_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cv_attempt_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -100,6 +104,10 @@ class CVExtractionRun(Base):
         String(50), default=IndividualRunStatus.PENDING.value
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    workflow_lease_token: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    workflow_lease_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

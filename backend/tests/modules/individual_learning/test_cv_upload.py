@@ -5,6 +5,7 @@ import hashlib
 import io
 import logging
 import threading
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
@@ -508,6 +509,260 @@ def test_retry_cv_document_enforces_ownership_and_failed_status(db_session) -> N
     assert not_failed.value.detail == "Only a failed CV document can be retried"
 
 
+def test_retry_cv_document_rejects_an_active_processing_attempt(db_session) -> None:
+    user = _create_individual(db_session, email="active-cv-attempt@example.com")
+    repository = IndividualLearningRepository(db_session)
+    document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/active/document",
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash="a" * 64,
+        size_bytes=123,
+    )
+    profile = repository.upsert_profile_status(
+        user_id=user.id,
+        onboarding_status="extracting",
+    )
+    profile.cv_attempt_token = "active-attempt"
+    profile.cv_attempt_started_at = datetime.now(UTC)
+    db_session.commit()
+    service = IndividualLearningService(db_session, None, storage=FakeStorage())
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(service.retry_cv_document(user.id, document.id))
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "CV processing is already in progress"
+
+
+def test_retry_cv_document_recovers_a_stale_processing_attempt(db_session) -> None:
+    user = _create_individual(db_session, email="stale-cv-attempt@example.com")
+    storage = FakeStorage()
+    content = b"stale-processing-document"
+    content_hash = storage.sha256_hex(content)
+    blob_path = f"users/{user.id}/cv/{content_hash}/document"
+    storage.blobs[blob_path] = content
+    repository = IndividualLearningRepository(db_session)
+    document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=blob_path,
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash=content_hash,
+        size_bytes=len(content),
+    )
+    profile = repository.upsert_profile_status(
+        user_id=user.id,
+        onboarding_status="extracting",
+    )
+    profile.cv_attempt_token = "abandoned-attempt"
+    profile.cv_attempt_started_at = datetime.now(UTC) - timedelta(hours=1, minutes=1)
+    db_session.commit()
+    service = IndividualLearningService(
+        db_session,
+        None,
+        storage=storage,
+        cv_text_extractor=lambda **_kwargs: (
+            "Python SQL Azure FastAPI PostgreSQL Docker React TypeScript data "
+            "analysis machine learning dashboards APIs cloud deployment testing "
+            "architecture collaboration documentation monitoring orchestration"
+        ),
+        cv_profile_extractor=FakeProfileExtractor(),
+    )
+
+    response = asyncio.run(service.retry_cv_document(user.id, document.id))
+
+    assert response.status == "completed"
+    assert repository.get_profile(user.id).onboarding_status == "needs_profile_review"
+
+
+def test_retry_cv_document_rejects_an_older_document_without_making_it_current(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="stale-cv-retry@example.com")
+    repository = IndividualLearningRepository(db_session)
+    old_document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/old/document",
+        original_filename="old.pdf",
+        content_type="application/pdf",
+        content_hash="c" * 64,
+        size_bytes=123,
+    )
+    old_document.status = "failed"
+    old_document.uploaded_at = datetime.now(UTC) - timedelta(days=1)
+    db_session.commit()
+    current_document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/current/document",
+        original_filename="current.pdf",
+        content_type="application/pdf",
+        content_hash="d" * 64,
+        size_bytes=456,
+    )
+    current_extraction = repository.create_cv_extraction_run(
+        cv_document_id=current_document.id,
+        user_id=user.id,
+        model_provider="test-provider",
+        model_name="test-model",
+        raw_text_hash="e" * 64,
+    )
+    repository.complete_cv_extraction(
+        current_extraction,
+        extracted_profile={"summary": "Current profile", "skills": []},
+        target_title_suggestions=["Current role"],
+        confidence_summary={},
+    )
+    repository.complete_cv_document(current_document)
+    repository.upsert_profile_status(
+        user_id=user.id,
+        onboarding_status="needs_profile_review",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(
+            IndividualLearningService(
+                db_session,
+                None,
+                storage=FakeStorage(),
+            ).retry_cv_document(user.id, old_document.id)
+        )
+
+    latest_document = repository.get_latest_cv_document(user.id)
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "CV document is stale; reload the current profile"
+    assert latest_document is not None and latest_document.id == current_document.id
+    assert old_document.status == "failed"
+
+
+def test_get_profile_offers_retry_for_a_stale_processing_attempt(db_session) -> None:
+    user = _create_individual(db_session, email="stale-cv-profile@example.com")
+    repository = IndividualLearningRepository(db_session)
+    repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/stale/document",
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash="b" * 64,
+        size_bytes=123,
+    )
+    profile = repository.upsert_profile_status(
+        user_id=user.id,
+        onboarding_status="extracting",
+    )
+    profile.cv_attempt_token = "abandoned-attempt"
+    profile.cv_attempt_started_at = datetime.now(UTC) - timedelta(hours=1, minutes=1)
+    db_session.commit()
+
+    response = IndividualLearningService(db_session, None).get_profile(user.id)
+
+    assert response.next_step == "retry_cv"
+
+
+def test_upload_cv_rejects_a_stolen_lease_before_initializing_the_lifecycle(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="stolen-cv-lease@example.com")
+    bind = db_session.get_bind()
+
+    class LeaseStealingStorage(FakeStorage):
+        async def upload_bytes(self, data: bytes, blob_path: str) -> str:
+            result = await super().upload_bytes(data, blob_path)
+            future = datetime.now(UTC) + timedelta(hours=2)
+            with type(db_session)(bind=bind) as competing_session:
+                assert IndividualLearningRepository(competing_session).claim_cv_attempt(
+                    user_id=user.id,
+                    attempt_token="replacement-attempt",
+                    now=future,
+                    stale_before=future - timedelta(hours=1),
+                )
+            return result
+
+    service = IndividualLearningService(
+        db_session,
+        None,
+        storage=LeaseStealingStorage(),
+        cv_text_extractor=lambda **_kwargs: "must not parse",
+        cv_profile_extractor=FakeProfileExtractor(),
+    )
+    upload = UploadFile(
+        filename="cv.pdf",
+        file=io.BytesIO(b"stolen-lease-document"),
+        headers=Headers({"content-type": "application/pdf"}),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(service.upload_cv(user.id, upload))
+
+    repository = IndividualLearningRepository(db_session)
+    db_session.expire_all()
+    profile = repository.get_profile(user.id)
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "CV processing attempt was superseded"
+    assert repository.get_latest_cv_document(user.id) is None
+    assert repository.get_latest_cv_extraction(user.id) is None
+    assert profile is not None and profile.cv_attempt_token == "replacement-attempt"
+
+
+def test_retry_cv_rejects_a_stolen_lease_before_resetting_the_lifecycle(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="stolen-cv-retry-lease@example.com")
+    user_id = user.id
+    bind = db_session.get_bind()
+    content = b"stolen-retry-lease-document"
+    content_hash = hashlib.sha256(content).hexdigest()
+    blob_path = f"users/{user_id}/cv/{content_hash}/document"
+
+    class LeaseStealingStorage(FakeStorage):
+        def download_bytes(self, requested_path: str, *, max_bytes: int) -> bytes:
+            data = super().download_bytes(requested_path, max_bytes=max_bytes)
+            future = datetime.now(UTC) + timedelta(hours=2)
+            with type(db_session)(bind=bind) as competing_session:
+                assert IndividualLearningRepository(competing_session).claim_cv_attempt(
+                    user_id=user_id,
+                    attempt_token="replacement-retry-attempt",
+                    now=future,
+                    stale_before=future - timedelta(hours=1),
+                )
+            return data
+
+    storage = LeaseStealingStorage()
+    storage.blobs[blob_path] = content
+    repository = IndividualLearningRepository(db_session)
+    document = repository.upsert_cv_document(
+        user_id=user_id,
+        blob_path=blob_path,
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash=content_hash,
+        size_bytes=len(content),
+    )
+    document.status = "failed"
+    db_session.commit()
+    service = IndividualLearningService(
+        db_session,
+        None,
+        storage=storage,
+        cv_text_extractor=lambda **_kwargs: "must not parse",
+        cv_profile_extractor=FakeProfileExtractor(),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(service.retry_cv_document(user_id, document.id))
+
+    db_session.expire_all()
+    recovered_document = repository.get_latest_cv_document(user_id)
+    profile = repository.get_profile(user_id)
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "CV processing attempt was superseded"
+    assert recovered_document is not None and recovered_document.status == "failed"
+    assert repository.get_latest_cv_extraction(user_id) is None
+    assert profile is not None
+    assert profile.cv_attempt_token == "replacement-retry-attempt"
+
+
 def test_upload_cv_finalization_fault_rolls_back_then_marks_retryable_failure(
     db_session,
     monkeypatch,
@@ -558,6 +813,51 @@ def test_upload_cv_finalization_fault_rolls_back_then_marks_retryable_failure(
     assert document.status == "failed"
     assert extraction is not None
     assert extraction.status == "failed"
+
+
+def test_upload_cv_durable_completion_is_not_downgraded_when_return_is_ambiguous(
+    db_session,
+    monkeypatch,
+) -> None:
+    user = _create_individual(db_session, email="ambiguous-finalization@example.com")
+    service = IndividualLearningService(
+        db_session,
+        None,
+        storage=FakeStorage(),
+        cv_text_extractor=lambda **_kwargs: (
+            "Python SQL Azure FastAPI PostgreSQL Docker React TypeScript data "
+            "analysis machine learning dashboards APIs cloud deployment testing "
+            "architecture collaboration documentation monitoring orchestration"
+        ),
+        cv_profile_extractor=FakeProfileExtractor(),
+    )
+    real_complete = service._repo.complete_cv_lifecycle
+
+    def commit_then_lose_response(**kwargs) -> None:
+        real_complete(**kwargs)
+        raise RuntimeError("database response was lost after commit")
+
+    monkeypatch.setattr(
+        service._repo,
+        "complete_cv_lifecycle",
+        commit_then_lose_response,
+    )
+    upload = UploadFile(
+        filename="cv.pdf",
+        file=io.BytesIO(b"ambiguous-document-bytes"),
+        headers=Headers({"content-type": "application/pdf"}),
+    )
+
+    response = asyncio.run(service.upload_cv(user.id, upload))
+
+    repository = IndividualLearningRepository(db_session)
+    document = repository.get_latest_cv_document(user.id)
+    extraction = repository.get_latest_cv_extraction(user.id)
+    profile = repository.get_profile(user.id)
+    assert response.status == "completed"
+    assert document is not None and document.status == "completed"
+    assert extraction is not None and extraction.status == "completed"
+    assert profile is not None and profile.onboarding_status == "needs_profile_review"
 
 
 def test_upload_cv_hides_filename_and_provider_error_on_storage_failure(
