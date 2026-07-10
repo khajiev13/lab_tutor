@@ -150,5 +150,5 @@ jobs:
           az containerapp update \
             --name frontend \
             --resource-group lab_tutor \
-            --image "$REGISTRY/$IMAGE_NAME:latest" \
+            --image "$REGISTRY/$IMAGE_NAME:${GITHUB_SHA}" \
             --only-show-errors
