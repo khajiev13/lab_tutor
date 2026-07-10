@@ -1224,7 +1224,6 @@ class IndividualLearningService:
             )
         document, extraction = self._repo.get_cv_lifecycle(
             user_id=user_id,
-            cv_document_id=cv_document_id,
         )
         if document is None:
             raise HTTPException(
@@ -1232,7 +1231,8 @@ class IndividualLearningService:
                 detail="Thread does not belong to the current user",
             )
         if (
-            extraction is None
+            document.id != cv_document_id
+            or extraction is None
             or extraction.id != extraction_run_id
             or document.status != CVDocumentStatus.COMPLETED.value
             or extraction.status != IndividualRunStatus.COMPLETED.value

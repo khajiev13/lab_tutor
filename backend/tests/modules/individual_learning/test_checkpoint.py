@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.types import Command
@@ -336,6 +337,61 @@ def test_same_hash_reupload_refreshes_recency_and_uses_new_extraction_thread(
     assert recovered.active_thread_id == second_started.thread_id
     assert recovered.extracted_profile is not None
     assert recovered.extracted_profile["summary"] == "Profile A refreshed"
+
+
+def test_resume_rejects_old_cv_thread_after_newer_cv_completed(db_session) -> None:
+    user, first_document_id = _seed_completed_cv(db_session)
+    repository = IndividualLearningRepository(db_session)
+    checkpointer = InMemorySaver()
+    service = IndividualLearningService(
+        db_session,
+        None,
+        graph_checkpointer=checkpointer,
+    )
+    first_started = service.start_individual_graph(user.id, first_document_id)
+
+    second_document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/newer-opaque-id",
+        original_filename="newer.pdf",
+        content_type="application/pdf",
+        content_hash="c" * 64,
+        size_bytes=456,
+    )
+    second_extraction = repository.create_cv_extraction_run(
+        cv_document_id=second_document.id,
+        user_id=user.id,
+        model_provider="test",
+        model_name="test",
+        raw_text_hash="d" * 64,
+    )
+    repository.complete_cv_extraction(
+        second_extraction,
+        extracted_profile={"summary": "Current profile", "skills": []},
+        target_title_suggestions=["Current role"],
+        confidence_summary={},
+    )
+    repository.complete_cv_document(second_document)
+    repository.upsert_profile_status(
+        user_id=user.id,
+        onboarding_status="needs_profile_review",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.resume_individual_graph(
+            user.id,
+            first_started.thread_id,
+            {"approved": True, "target_titles": ["Stale role"]},
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == (
+        "Workflow attempt is stale; reload the current profile"
+    )
+    current_profile = repository.get_profile(user.id)
+    assert current_profile is not None
+    assert current_profile.onboarding_status == "needs_profile_review"
+    assert current_profile.target_titles_json == []
 
 
 def test_graph_reconstructs_across_service_instances_with_shared_checkpointer(

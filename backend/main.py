@@ -53,6 +53,7 @@ from app.core.neo4j import (  # noqa: E402
 from app.core.request_timing_middleware import RequestTimingMiddleware  # noqa: E402
 from app.core.settings import settings  # noqa: E402
 from app.modules.auth import routes as auth_routes  # noqa: E402
+from app.modules.auth.models import UserRole  # noqa: E402
 from app.modules.cognitive_diagnosis import (  # noqa: E402
     routes as cognitive_diagnosis_routes,
 )
@@ -312,17 +313,24 @@ def _ensure_sql_schema_upgrades() -> None:
                 text("ALTER TYPE book_status ADD VALUE IF NOT EXISTS 'ignored'")
             )
 
+        # SqlEnum(UserRole) persists enum member names unless values_callable is
+        # configured, so upgraded databases need `INDIVIDUAL`, not `individual`.
+        individual_role_db_value = UserRole.INDIVIDUAL.name
         has_individual_role = conn.execute(
             text(
                 "SELECT 1 FROM pg_enum e "
                 "JOIN pg_type t ON t.oid = e.enumtypid "
                 "WHERE t.typname = 'user_role' "
-                "AND e.enumlabel = 'individual'"
-            )
+                "AND e.enumlabel = :individual_role"
+            ),
+            {"individual_role": individual_role_db_value},
         ).fetchone()
         if not has_individual_role:
             conn.execute(
-                text("ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'individual'")
+                text(
+                    "ALTER TYPE user_role ADD VALUE IF NOT EXISTS "
+                    f"'{individual_role_db_value}'"
+                )
             )
 
         # Migrate vector columns to the correct dimension (2048).

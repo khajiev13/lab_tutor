@@ -15,6 +15,41 @@ from app.modules.individual_learning.repository import IndividualLearningReposit
 from main import _ensure_sql_schema_upgrades
 
 
+def test_schema_upgrade_adds_sqlalchemy_user_role_enum_value(db_session) -> None:
+    bind = db_session.get_bind()
+    role_enum = User.__table__.c.role.type
+    bind_processor = role_enum.bind_processor(bind.dialect)
+    individual_database_value = bind_processor(UserRole.INDIVIDUAL)
+
+    with bind.begin() as connection:
+        connection.execute(text("ALTER TYPE user_role RENAME TO user_role_active"))
+        connection.execute(text("CREATE TYPE user_role AS ENUM ('STUDENT', 'TEACHER')"))
+
+    try:
+        _ensure_sql_schema_upgrades()
+        _ensure_sql_schema_upgrades()
+
+        with bind.connect() as connection:
+            labels = connection.scalars(
+                text(
+                    "SELECT e.enumlabel FROM pg_enum e "
+                    "JOIN pg_type t ON t.oid = e.enumtypid "
+                    "WHERE t.typname = 'user_role' ORDER BY e.enumsortorder"
+                )
+            ).all()
+            connection.execute(
+                text("SELECT CAST(:role AS user_role)"),
+                {"role": individual_database_value},
+            )
+
+        assert labels == ["STUDENT", "TEACHER", individual_database_value]
+        assert UserRole.INDIVIDUAL.value not in labels
+    finally:
+        with bind.begin() as connection:
+            connection.execute(text("DROP TYPE IF EXISTS user_role"))
+            connection.execute(text("ALTER TYPE user_role_active RENAME TO user_role"))
+
+
 def test_schema_upgrade_preserves_duplicate_legacy_matches_and_adds_workflow_identity(
     db_session,
 ) -> None:
