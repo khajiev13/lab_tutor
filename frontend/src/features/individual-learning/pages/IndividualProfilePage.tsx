@@ -74,12 +74,16 @@ function getInitialTitles(
   return (titles.length > 0 ? titles : ['']).map((value) => ({ value }));
 }
 
+function hasKnownConfidence(confidence: number | null | undefined): confidence is number {
+  return confidence != null && confidence > 0;
+}
+
 function hasLowConfidence(profile: IndividualCvProfileExtraction) {
   const skillConfidenceIsLow = (profile.skills ?? []).some(
-    (skill) => skill.confidence != null && skill.confidence < 0.6,
+    (skill) => hasKnownConfidence(skill.confidence) && skill.confidence < 0.6,
   );
   const summaryConfidenceIsLow = Object.values(profile.confidence_summary ?? {}).some(
-    (confidence) => confidence < 0.6,
+    (confidence) => hasKnownConfidence(confidence) && confidence < 0.6,
   );
   return skillConfidenceIsLow || summaryConfidenceIsLow;
 }
@@ -152,11 +156,13 @@ function ExtractedProfile({ profile }: { profile: IndividualCvProfileExtraction 
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{skill.name}</span>
                   {skill.category ? <Badge variant="outline">{skill.category}</Badge> : null}
-                  {skill.confidence != null ? (
+                  {hasKnownConfidence(skill.confidence) ? (
                     <Badge variant="secondary">
                       {Math.round(Math.max(0, Math.min(1, skill.confidence)) * 100)}% confidence
                     </Badge>
-                  ) : null}
+                  ) : (
+                    <Badge variant="outline">Confidence unavailable</Badge>
+                  )}
                 </div>
                 {skill.evidence ? (
                   <p className="mt-2 text-sm text-muted-foreground">{skill.evidence}</p>

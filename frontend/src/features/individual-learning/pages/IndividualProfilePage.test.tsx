@@ -148,6 +148,7 @@ describe('IndividualProfilePage', () => {
     expect(await screen.findByText('Built dashboards for operations teams.')).toBeInTheDocument();
     expect(screen.getByText('SQL')).toBeInTheDocument();
     expect(screen.getByText('Automated weekly reporting queries.')).toBeInTheDocument();
+    expect(screen.getByText('92% confidence')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Data Analyst')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /approve profile and find jobs/i }));
@@ -279,8 +280,48 @@ describe('IndividualProfilePage', () => {
 
     expect(await screen.findByText('Recovered analytics profile')).toBeInTheDocument();
     expect(screen.getByText('Python')).toBeInTheDocument();
+    expect(screen.getByText('55% confidence')).toBeInTheDocument();
     expect(screen.getByText(/some extracted details have low confidence/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue('Analytics Engineer')).toBeInTheDocument();
+  });
+
+  it('presents zero, null, and absent provider confidence as unavailable without a low warning', async () => {
+    sessionStorage.clear();
+    const unknownConfidenceProfile = {
+      summary: 'Forward-deployed AI engineering profile',
+      skills: [
+        { name: 'RAG', confidence: 0 },
+        { name: 'LangGraph', confidence: null },
+        { name: 'Neo4j' },
+      ],
+      confidence_summary: { skills: 0, experience: 0 },
+    };
+    vi.mocked(individualLearningApi.getIndividualProfile).mockResolvedValue({
+      user_id: 7,
+      onboarding_status: 'needs_profile_review',
+      target_titles: ['AI Engineer'],
+      cv_document_id: 42,
+      extraction_run_id: 91,
+      active_thread_id: 'opaque-thread-value',
+      next_step: 'review_profile',
+      extracted_profile: unknownConfidenceProfile,
+      pending_interrupt: {
+        kind: 'review_profile_and_roles',
+        profile: unknownConfidenceProfile,
+        target_title_suggestions: ['AI Engineer'],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <IndividualProfilePage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Forward-deployed AI engineering profile')).toBeInTheDocument();
+    expect(screen.getAllByText('Confidence unavailable')).toHaveLength(3);
+    expect(screen.queryByText('0% confidence')).not.toBeInTheDocument();
+    expect(screen.queryByText(/some extracted details have low confidence/i)).not.toBeInTheDocument();
   });
 
   it('retries durable job search with the active opaque thread and durable titles', async () => {
