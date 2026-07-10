@@ -444,7 +444,20 @@ export function UnifiedTab({ student, skills, twinData, viewMode = "student", al
       });
   }, [student.timeline, chapterSkillIds, student.base_mastery, twinData]);
 
-  const hasRetentionGap = student.base_mastery != null && student.base_mastery.length > 0;
+  // Only render the dashed peak-mastery overlay when peak actually differs
+  // from current mastery at some point in the timeline. Without this guard,
+  // the dashed "Peak Mastery (before decay)" series sits exactly under the
+  // solid "Current Mastery" line whenever no decay has happened yet — adding
+  // a confusing legend entry and visually overlapping the X-axis label
+  // without conveying any signal. Threshold of 1pp avoids re-enabling the
+  // overlay for floating-point noise.
+  const hasRetentionGap = useMemo(
+    () =>
+      masteryTimeline.some(
+        (p) => p.base !== undefined && p.base - p.overall > 1,
+      ),
+    [masteryTimeline],
+  );
 
   // ── Section 5 data: rolling accuracy ────────────────────────────────────
   const rollingData = useMemo(() => {

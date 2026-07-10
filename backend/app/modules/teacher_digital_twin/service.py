@@ -13,6 +13,8 @@ from __future__ import annotations
 import hashlib
 import logging
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
+from typing import Literal
 
 from neo4j import Driver as Neo4jDriver
 
@@ -59,11 +61,18 @@ class TeacherDigitalTwinService:
 
     def get_skill_difficulty(self, course_id: int) -> SkillDifficultyResponse:
         """
-        Perceived difficulty per skill based on student mastery.
+        Perceived difficulty per skill, computed only over students who have
+        actually practiced the skill (i.e. have a `MASTERED` edge with a recorded
+        mastery value), not those who merely have it on their selected path.
 
-        Formula:
-          AvgMastery(s) = (1/N) * SUM_{i=1}^{N} m_{i,s}
-          PerceivedDifficulty(s) = 1 - AvgMastery(s)
+        For a skill `s`:
+          attempted_count(s)   = #students with a MASTERED edge to s
+          attempted_avg(s)     = mean mastery over attempted_count students
+          perceived_difficulty = 1 − attempted_avg if attempted_count > 0 else 0.0
+
+        Skills that no one has attempted yet (attempted_count == 0) are sorted
+        last; they should be surfaced in the UI as "not yet practiced" rather
+        than ranked as "100% difficult".
         """
         db = settings.neo4j_database
         with self._driver.session(database=db) as session:
@@ -73,8 +82,11 @@ class TeacherDigitalTwinService:
             SkillDifficultyItem(
                 skill_name=r["skill_name"],
                 student_count=int(r["student_count"] or 0),
+                attempted_count=int(r.get("attempted_count") or 0),
                 avg_mastery=round(float(r["avg_mastery"] or 0.0), 4),
-                perceived_difficulty=round(float(r["perceived_difficulty"] or 1.0), 4),
+                perceived_difficulty=round(
+                    float(r.get("perceived_difficulty") or 0.0), 4
+                ),
                 prereq_count=int(r.get("prereq_count") or 0),
                 downstream_count=int(r.get("downstream_count") or 0),
                 pco_risk_ratio=round(float(r.get("pco_risk_ratio") or 0.0), 4),
@@ -355,7 +367,7 @@ class TeacherDigitalTwinService:
 
         else:
             preferences = req.preferences or AutomaticWhatIfPreferences()
-            plan = self._plan_automatic_skill_targets(
+            plan, planning_source = self._plan_automatic_skill_targets(
                 course_id=course_id,
                 skill_summaries=self._build_automatic_skill_summaries(course_id),
                 preferences=preferences,
@@ -396,17 +408,32 @@ class TeacherDigitalTwinService:
                 for imp in skill_impacts
                 if imp.current_avg_mastery < 0.40
             ][:3]
+            decision_summary_by_source = {
+                "llm": (
+                    "The LLM used the teacher's automatic-mode preferences as guidance "
+                    "and made the final decision by balancing prerequisite leverage, "
+                    "downstream impact, affected student count, and PCO risk."
+                ),
+                "mixed": (
+                    "The LLM produced a partial plan; the deterministic signal-weighted "
+                    "rule engine filled in the remaining skills. Targets reflect "
+                    "prerequisite leverage, downstream impact, student count, and PCO risk."
+                ),
+                "rule_based": (
+                    "The LLM was unavailable or returned an unusable plan, so the "
+                    "deterministic signal-weighted rule engine produced these targets. "
+                    "Targets are derived from prerequisite leverage, downstream impact, "
+                    "student count, PCO risk, and the teacher's intervention intensity."
+                ),
+            }
             automatic_criteria = AutomaticWhatIfCriteria(
                 intervention_intensity=round(
                     float(preferences.intervention_intensity or 0.6), 4
                 ),
                 focus=preferences.focus,
                 max_skills=max(1, int(preferences.max_skills or 5)),
-                llm_decision_summary=(
-                    "The LLM used the teacher's automatic-mode preferences as guidance and "
-                    "made the final decision by balancing prerequisite leverage, downstream "
-                    "impact, affected student count, and PCO risk."
-                ),
+                llm_decision_summary=decision_summary_by_source[planning_source],
+                planning_source=planning_source,
             )
 
         summary = (
@@ -464,7 +491,7 @@ class TeacherDigitalTwinService:
 
         # ── 0. Automatic mode: pick top-K most difficult skills if none provided ──
         if req.mode == "automatic":
-            plan = self._plan_automatic_skill_targets(
+            plan, _planning_source = self._plan_automatic_skill_targets(
                 course_id=course_id,
                 skill_summaries=self._build_automatic_skill_summaries(course_id),
                 preferences=AutomaticWhatIfPreferences(max_skills=req.top_k),
@@ -501,15 +528,52 @@ class TeacherDigitalTwinService:
         else:
             skill_names = [t.skill_name for t in req.skills]
 
+        # ── 0b. Empty-skills guard ────────────────────────────────────────────
+        # If we get here with no skills (e.g. class has no enrolled students yet,
+        # or no SELECTED_SKILL/MASTERED edges), short-circuit with a friendly
+        # response instead of running an LLM round-trip that produces garbage.
+        if not req.skills:
+            logger.info(
+                "simulate_multiple_skills: no skills available for course_id=%s "
+                "(mode=%s) — returning empty result",
+                course_id,
+                req.mode,
+            )
+            return MultiSkillSimulationResponse(
+                mode=req.mode,
+                course_id=course_id,
+                auto_selected_skills=[],
+                skill_results=[],
+                coherence=SkillCoherenceResult(
+                    overall_score=0.0,
+                    label="Low",
+                    pairs=[],
+                    teaching_order=[],
+                    clusters=[],
+                    common_students=0,
+                ),
+                llm_insights=(
+                    "No skills are available to simulate yet — this class has no "
+                    "students with selected skills or mastery data. Once students "
+                    "begin practicing, run the simulation again."
+                ),
+            )
+
         # ── 1. Fetch class-level difficulty stats for all selected skills ──────
         with self._driver.session(database=db) as session:
             difficulty_rows = self._repo(session).get_skill_difficulty(course_id)
 
         difficulty_map: dict[str, dict] = {r["skill_name"]: r for r in difficulty_rows}
 
-        # ── 2. Generate per-skill exercise + stats ────────────────────────────
-        skill_results: list[SkillSimResult] = []
-        for target in req.skills:
+        # ── 2. Generate per-skill exercise + stats (parallel) ─────────────────
+        # Per-skill exercise gen can issue several LLM calls (RefinementLoop).
+        # Running them serially for top_k=5 skills was ~30-60s; we fan out to a
+        # ThreadPoolExecutor so wall-clock is bounded by the slowest single
+        # exercise (~10-15s) instead of the sum. Neo4j sessions are opened
+        # per-call inside CognitiveDiagnosisService, and the OpenAI client is
+        # constructed locally inside generate_exercise — both are safe to call
+        # from worker threads.
+        def _simulate_single(target: SkillTarget) -> SkillSimResult:
             sname = target.skill_name
             row = difficulty_map.get(sname)
             avg_class = float(row["avg_mastery"] or 0.0) if row else 0.0
@@ -534,18 +598,25 @@ class TeacherDigitalTwinService:
                 cidx = opts.index(ans)
             except ValueError:
                 cidx = 0
-            skill_results.append(
-                SkillSimResult(
-                    skill_name=sname,
-                    simulated_mastery=round(mastery, 4),
-                    avg_class_mastery=round(avg_class, 4),
-                    perceived_difficulty=perceived_diff,
-                    student_count=student_count,
-                    question=exercise.problem,
-                    options=opts,
-                    correct_index=cidx,
-                    explanation=exercise.why,
-                )
+            return SkillSimResult(
+                skill_name=sname,
+                simulated_mastery=round(mastery, 4),
+                avg_class_mastery=round(avg_class, 4),
+                perceived_difficulty=perceived_diff,
+                student_count=student_count,
+                question=exercise.problem,
+                options=opts,
+                correct_index=cidx,
+                explanation=exercise.why,
+            )
+
+        max_workers = max(1, min(len(req.skills), 5))
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="sim_skill"
+        ) as pool:
+            # Preserve user-supplied skill order in the output.
+            skill_results: list[SkillSimResult] = list(
+                pool.map(_simulate_single, req.skills)
             )
 
         # ── 3. Coherence analysis via co-selection data ───────────────────────
@@ -647,17 +718,25 @@ class TeacherDigitalTwinService:
         course_id: int,
         skill_summaries: list[dict],
         preferences: AutomaticWhatIfPreferences | None,
-    ) -> list[dict]:
-        """Ask the LLM to choose the highest-impact skills and target masteries."""
+    ) -> tuple[list[dict], Literal["llm", "rule_based", "mixed"]]:
+        """Ask the LLM to choose the highest-impact skills and target masteries.
+
+        Returns a tuple of `(plan, planning_source)` so callers can tell whether
+        the per-skill targets came from the LLM, the deterministic fallback, or
+        a mix of both. This lets the frontend avoid misleading "LLM decided"
+        claims when the LLM provider is unreachable.
+        """
         if not skill_summaries:
-            return []
+            return [], "rule_based"
 
         resolved_preferences = preferences or AutomaticWhatIfPreferences()
         limit = max(
             1,
             min(int(resolved_preferences.max_skills or 5), 10, len(skill_summaries)),
         )
-        fallback = self._fallback_automatic_skill_targets(skill_summaries, limit)
+        fallback = self._fallback_automatic_skill_targets(
+            skill_summaries, limit, resolved_preferences
+        )
 
         try:
             import json as _json
@@ -771,7 +850,8 @@ class TeacherDigitalTwinService:
                 )
                 used_names.add(name)
 
-            if len(cleaned) < limit:
+            llm_count = len(cleaned)
+            if llm_count < limit:
                 for item in fallback:
                     if item["skill_name"] not in used_names:
                         cleaned.append(item)
@@ -779,17 +859,39 @@ class TeacherDigitalTwinService:
                     if len(cleaned) >= limit:
                         break
 
-            return cleaned[:limit]
+            final = cleaned[:limit]
+            if llm_count == 0:
+                source: Literal["llm", "rule_based", "mixed"] = "rule_based"
+            elif llm_count >= len(final):
+                source = "llm"
+            else:
+                source = "mixed"
+            return final, source
         except Exception as exc:
             logger.warning("Automatic teacher twin planning failed: %s", exc)
-            return fallback
+            return fallback, "rule_based"
 
     def _fallback_automatic_skill_targets(
         self,
         skill_summaries: list[dict],
         top_k: int,
+        preferences: AutomaticWhatIfPreferences | None = None,
     ) -> list[dict]:
-        """Deterministic fallback when the LLM is unavailable."""
+        """Deterministic, signal-weighted fallback when the LLM is unavailable.
+
+        The previous version produced a uniform target (0.65) for every skill
+        whenever current_avg was low — which made every What-If recommendation
+        identical when the class had no `MASTERED.mastery` data. This version
+        differentiates per-skill using normalized prereq / downstream / PCO /
+        student-count signals, scaled by the teacher's intervention intensity.
+
+        When all signals are zero (e.g. no graph relationships and no PCO data
+        yet), it falls back to a small rank-based delta so adjacent skills are
+        still distinguishable instead of all collapsing to the same number.
+        """
+        resolved = preferences or AutomaticWhatIfPreferences()
+        intensity = float(resolved.intervention_intensity or 0.6)
+
         ranked = sorted(
             skill_summaries,
             key=lambda item: (
@@ -801,21 +903,109 @@ class TeacherDigitalTwinService:
                 -int(item.get("student_count") or 0),
             ),
         )
+        candidates = ranked[:top_k]
+
+        # Normalize signals against the top-K candidate set so a skill with the
+        # highest prereq_count in the selection gets norm_prereq=1.0, regardless
+        # of absolute scale.
+        max_prereq = max(
+            (int(r.get("prereq_count") or 0) for r in candidates), default=0
+        )
+        max_downstream = max(
+            (int(r.get("downstream_count") or 0) for r in candidates), default=0
+        )
+        max_students = max(
+            (int(r.get("student_count") or 0) for r in candidates), default=0
+        )
+
+        def _norm(value: float, ceiling: float) -> float:
+            return float(value) / float(ceiling) if ceiling > 0 else 0.0
+
         planned: list[dict] = []
-        for row in ranked[:top_k]:
+        for rank, row in enumerate(candidates):
             current_avg = float(row.get("avg_mastery") or 0.0)
-            target_mastery = min(0.9, max(0.65, current_avg + 0.2))
+            prereq_count = int(row.get("prereq_count") or 0)
+            downstream_count = int(row.get("downstream_count") or 0)
+            student_count = int(row.get("student_count") or 0)
+            pco_risk = float(row.get("pco_risk_ratio") or 0.0)
+
+            norm_prereq = _norm(prereq_count, max_prereq)
+            norm_downstream = _norm(downstream_count, max_downstream)
+            norm_students = _norm(student_count, max_students)
+
+            all_signals_zero = (
+                norm_prereq == 0.0
+                and norm_downstream == 0.0
+                and norm_students == 0.0
+                and pco_risk == 0.0
+            )
+
+            if all_signals_zero:
+                # No graph signal yet (e.g. fresh class with no MASTERED edges
+                # and no PCO data). Use a direct rank-based target so adjacent
+                # skills are still distinguishable instead of all collapsing to
+                # the 0.55 floor. Top skill -> 0.75, tail -> 0.55, scaled by
+                # intervention intensity.
+                rank_fraction = (
+                    1.0 - rank / max(len(candidates) - 1, 1)
+                    if len(candidates) > 1
+                    else 0.5
+                )
+                target = 0.55 + rank_fraction * 0.20 * intensity / 0.6
+            else:
+                # Signal-weighted boost. Weights are calibrated so a skill that
+                # maxes every signal lands at +0.55 above current_avg, and a
+                # skill with no signal lands at +0.15. Multiplied by the
+                # teacher's intensity preference (default 0.6).
+                signal_boost = (
+                    0.15
+                    + 0.15 * pco_risk
+                    + 0.10 * norm_prereq
+                    + 0.10 * norm_downstream
+                    + 0.05 * norm_students
+                )
+                target = current_avg + intensity * signal_boost
+
+            target = min(0.95, max(0.55, target))
+            target = max(target, current_avg + 0.05)  # always +5pp over current
+
+            # Honest reason text — only mention factors that actually drove the
+            # decision. The previous template listed every factor verbatim,
+            # including zeros, which made the reason identical for every skill.
+            factors: list[str] = []
+            if pco_risk >= 0.05:
+                factors.append(f"{pco_risk:.0%} PCO risk")
+            if prereq_count > 0:
+                factors.append(
+                    f"{prereq_count} prerequisite skill{'s' if prereq_count != 1 else ''}"
+                )
+            if downstream_count > 0:
+                factors.append(
+                    f"{downstream_count} downstream skill{'s' if downstream_count != 1 else ''} depend on it"
+                )
+            if student_count > 0:
+                factors.append(
+                    f"affects {student_count} student{'s' if student_count != 1 else ''}"
+                )
+
+            if factors:
+                reason = (
+                    "Rule-based recommendation: "
+                    + ", ".join(factors)
+                    + f". Suggested class-average target: {target:.0%}."
+                )
+            else:
+                reason = (
+                    f"Rule-based recommendation: ranked #{rank + 1} by current "
+                    f"mastery ({current_avg:.0%}); no PCO or prerequisite signal "
+                    f"available yet. Suggested target: {target:.0%}."
+                )
+
             planned.append(
                 {
                     "skill_name": row["skill_name"],
-                    "target_mastery": round(target_mastery, 4),
-                    "reason": (
-                        "Rule-based fallback selected this skill because it combines "
-                        f"student impact ({int(row.get('student_count') or 0)} students), "
-                        f"prerequisite/downstream leverage ({int(row.get('prereq_count') or 0)} prereqs, "
-                        f"{int(row.get('downstream_count') or 0)} downstream skills), and "
-                        f"PCO risk ({float(row.get('pco_risk_ratio') or 0.0):.0%})."
-                    ),
+                    "target_mastery": round(target, 4),
+                    "reason": reason,
                 }
             )
         return planned
@@ -843,8 +1033,9 @@ class TeacherDigitalTwinService:
                     "skill_name": skill_name,
                     "avg_mastery": round(float(row.get("avg_mastery") or 0.0), 4),
                     "student_count": int(row.get("student_count") or 0),
+                    "attempted_count": int(row.get("attempted_count") or 0),
                     "perceived_difficulty": round(
-                        float(row.get("perceived_difficulty") or 1.0), 4
+                        float(row.get("perceived_difficulty") or 0.0), 4
                     ),
                     "prereq_count": int(planning.get("prereq_count") or 0),
                     "downstream_count": int(planning.get("downstream_count") or 0),
@@ -952,11 +1143,13 @@ class TeacherDigitalTwinService:
     ) -> str | None:
         """Generate LLM-powered pedagogical insights for the skill simulation results."""
         try:
+            import httpx
             from openai import OpenAI
 
             client = OpenAI(
                 api_key=settings.llm_api_key or "no-key",
                 base_url=settings.llm_base_url,
+                timeout=httpx.Timeout(20.0, connect=4.0),
             )
             skills_summary = "\n".join(
                 f"- {r.skill_name}: difficulty={r.perceived_difficulty:.0%}, "
@@ -1010,11 +1203,13 @@ class TeacherDigitalTwinService:
     ) -> str | None:
         """Optional LLM narrative for the What-If panel."""
         try:
+            import httpx
             from openai import OpenAI
 
             client = OpenAI(
                 api_key=settings.llm_api_key or "no-key",
                 base_url=settings.llm_base_url,
+                timeout=httpx.Timeout(20.0, connect=4.0),
             )
             top_lines = [
                 f"{i + 1}. {s.skill_name} | gain={s.class_gain:.2f} | score={s.recommendation_score:.2f} | students={s.students_helped}"

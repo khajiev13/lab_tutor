@@ -741,7 +741,18 @@ export function TwinViewerTab({ student, skills, datasetId, twinData, viewMode =
         setWhatIfAdvice(data);
       } catch (e: unknown) {
         if ((e as { name?: string })?.name !== "AbortError") {
-          setAdvisorError(e instanceof Error ? e.message : "Failed to load strategy advisor");
+          // Browser-native fetch failures surface as terse messages like
+          // "Load failed" or "Failed to fetch". Replace those with a more
+          // self-explanatory note so the panel doesn't display a cryptic
+          // red banner. The header card above still shows the rule-based
+          // best-strategy summary so the panel stays useful.
+          const raw =
+            e instanceof Error ? e.message : "Failed to load strategy advisor";
+          const friendly =
+            /load failed|failed to fetch|networkerror/i.test(raw)
+              ? "Strategy advisor temporarily unreachable — showing local recommendation only."
+              : raw;
+          setAdvisorError(friendly);
         }
       } finally {
         setAdvisorLoading(false);

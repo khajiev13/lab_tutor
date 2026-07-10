@@ -1737,11 +1737,18 @@ class CognitiveDiagnosisService:
             ]
 
         try:
+            import httpx
             from openai import OpenAI
 
             client = OpenAI(
                 api_key=settings.llm_api_key or "no-key",
                 base_url=settings.llm_base_url,
+                # Fail fast when the LLM endpoint is unreachable. Without this
+                # the request hangs until the gateway drops the connection,
+                # which surfaces in the browser as a "Load failed" advisor
+                # error instead of falling back to rule-based content. Match
+                # the values used in `_build_llm_chain` for consistency.
+                timeout=httpx.Timeout(8.0, connect=3.0),
             )
             options_txt = "\n".join(
                 f"- {o.name}: gain={o.total_gain:.3f}, final={o.final_avg:.3f}, targets={', '.join(o.target_skills[:5])}"
@@ -1773,8 +1780,12 @@ class CognitiveDiagnosisService:
                     generated_at=datetime.now(tz=UTC).isoformat(),
                     source="llm",
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            # Don't fail the endpoint — silently fall back to rule-based
+            # content so the UI still gets a usable response. Log at INFO so
+            # ops can spot recurring LLM downtime without alarming on every
+            # transient hiccup.
+            logger.info("what_if_advisor LLM call failed, using rule-based: %s", exc)
 
         return WhatIfAnalysisResponse(
             best_strategy=best_strategy,

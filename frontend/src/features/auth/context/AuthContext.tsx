@@ -6,6 +6,8 @@ import {
   clearIndividualGraphSession,
   clearIndividualGraphSessionForOtherUser,
 } from '@/features/individual-learning/graph-session';
+import { resetTeacherTwinSimulationTasks } from '@/features/arcd-agent/state/teacherTwinSimulationStore';
+import { resetTeacherTwinUiState } from '@/features/arcd-agent/state/teacherTwinUiStore';
 
 // User type alias
 type User = UserResponse;
@@ -122,6 +124,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearTokens();
     clearIndividualGraphSession();
     setUser(null);
+    // Clear teacher-twin caches so the next teacher who logs in starts with
+    // a fresh dashboard. The simulation store holds expensive results; the
+    // UI store holds tab/filter/slider state. Both are session-scoped.
+    resetTeacherTwinSimulationTasks();
+    resetTeacherTwinUiState();
   }, [clearTokens]);
 
   const value: AuthContextType = {

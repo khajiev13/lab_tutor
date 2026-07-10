@@ -19,24 +19,62 @@ function authHeaders(): Record<string, string> {
   };
 }
 
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${url}`, {
-    ...init,
-    headers: { ...authHeaders(), ...(init?.headers ?? {}) },
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status}: ${text}`);
+interface ApiFetchOptions extends RequestInit {
+  /** Abort the request after this many milliseconds. Surfaces as a clear
+   *  error message instead of an indefinite spinner. Default: no timeout. */
+  timeoutMs?: number;
+}
+
+async function apiFetch<T>(url: string, init?: ApiFetchOptions): Promise<T> {
+  const { timeoutMs, signal: callerSignal, ...rest } = init ?? {};
+
+  // Compose caller's AbortSignal (if any) with our own timeout signal so
+  // either source can cancel the request.
+  const controller = new AbortController();
+  const onCallerAbort = () => controller.abort(callerSignal?.reason);
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort(callerSignal.reason);
+    else callerSignal.addEventListener("abort", onCallerAbort, { once: true });
   }
-  return res.json() as Promise<T>;
+  const timer =
+    typeof timeoutMs === "number" && timeoutMs > 0
+      ? setTimeout(() => controller.abort(new DOMException("Request timed out", "TimeoutError")), timeoutMs)
+      : null;
+
+  try {
+    const res = await fetch(`${API_BASE}${url}`, {
+      ...rest,
+      headers: { ...authHeaders(), ...(rest.headers ?? {}) },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+    return (await res.json()) as T;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new Error(
+        `Request timed out after ${(timeoutMs ?? 0) / 1000}s. The server is taking longer than expected — try again or reduce the simulation size.`,
+      );
+    }
+    throw err;
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+    if (callerSignal) callerSignal.removeEventListener("abort", onCallerAbort);
+  }
 }
 
 // ── Types matching backend Pydantic schemas ────────────────────────────────
 
 export interface SkillDifficultyItem {
   skill_name: string;
+  /** All students who selected or attempted the skill (SELECTED_SKILL ∪ MASTERED). */
   student_count: number;
+  /** Subset who actually have a `MASTERED` edge — i.e. real practice signal. */
+  attempted_count: number;
   avg_mastery: number;
+  /** 1 − avg mastery, computed only over `attempted_count`. 0 when no attempts. */
   perceived_difficulty: number;
   prereq_count: number;
   downstream_count: number;
@@ -124,11 +162,19 @@ export interface AutomaticWhatIfPreferences {
   max_skills?: number;
 }
 
+export type WhatIfPlanningSource = "llm" | "rule_based" | "mixed";
+
 export interface AutomaticWhatIfCriteria {
   intervention_intensity: number;
   focus: AutomaticWhatIfFocus;
   max_skills: number;
   llm_decision_summary: string;
+  /**
+   * Where the per-skill targets actually came from. The frontend uses this to
+   * avoid claiming "LLM decided" when the rule-based fallback ran (e.g. when
+   * the LLM provider is unreachable or returned invalid JSON).
+   */
+  planning_source: WhatIfPlanningSource;
 }
 
 export interface WhatIfRequest {
@@ -271,6 +317,11 @@ export function simulateSkill(
   });
 }
 
+/** Multi-skill simulation. Backend fans out per-skill exercise generation in
+ *  parallel (~5 concurrent), so wall-clock is bounded by the slowest skill
+ *  (~10-15s) plus an LLM-insights call (≤20s). 120s timeout gives generous
+ *  headroom while still preventing the spinner from hanging forever if the
+ *  LLM provider is unreachable. */
 export function simulateSkills(
   courseId: number,
   body: MultiSkillSimulationRequest,
@@ -278,6 +329,7 @@ export function simulateSkills(
   return apiFetch(`/teacher-twin/${courseId}/simulate-skills`, {
     method: "POST",
     body: JSON.stringify(body),
+    timeoutMs: 120_000,
   });
 }
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   LineChart,
   Line,
@@ -57,8 +57,13 @@ import {
   useTeacherTwinSkillSimulationTask,
   useTeacherTwinWhatIfTask,
 } from "@/features/arcd-agent/state/teacherTwinSimulationStore";
+import { useTeacherTwinUiState } from "@/features/arcd-agent/state/teacherTwinUiStore";
 import { TwinViewerTab } from "@/features/arcd-agent/components/twin-viewer-tab";
 import type { StudentPortfolio, SkillInfo, TwinViewerData } from "@/features/arcd-agent/lib/types";
+import {
+  estimateStudentWhatIf,
+  type StudentWhatIfRow,
+} from "@/features/arcd-agent/lib/studentWhatIf";
 import {
   Users,
   BookOpen,
@@ -623,18 +628,53 @@ interface LcConfig {
 }
 
 function CohortTab() {
-  const { classMastery, skillDifficulty, studentGroups } = useTeacherData();
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const { classMastery, skillDifficulty, studentGroups, courseId } = useTeacherData();
+  const { state: uiState, setCohort } = useTeacherTwinUiState(courseId);
 
-  const [cfg, setCfg] = useState<LcConfig>({
-    steps: 10,
-    alpha: 0.15,
-    lambda: 0.03,
-    showBaseline: true,
-    showIndividuals: false,
-    mode: "groups",
-    selectedSkills: [],
-  });
+  // Cohort UI state lives in `teacherTwinUiStore` so the sliders, expanded
+  // group, and selected skills survive tab switches and page navigation.
+  const expandedGroup = uiState.cohort.expandedGroup;
+  const setExpandedGroup = useCallback(
+    (next: string | null | ((prev: string | null) => string | null)) => {
+      setCohort((prev) => ({
+        ...prev,
+        expandedGroup: typeof next === "function" ? next(prev.expandedGroup) : next,
+      }));
+    },
+    [setCohort],
+  );
+  const cfg: LcConfig = useMemo(
+    () => ({
+      steps: uiState.cohort.steps,
+      alpha: uiState.cohort.alpha,
+      lambda: uiState.cohort.lambda,
+      showBaseline: uiState.cohort.showBaseline,
+      showIndividuals: uiState.cohort.showIndividuals,
+      mode: uiState.cohort.mode,
+      selectedSkills: uiState.cohort.selectedSkills,
+    }),
+    [uiState.cohort],
+  );
+  const setCfg = useCallback(
+    (next: LcConfig | ((prev: LcConfig) => LcConfig)) => {
+      setCohort((prev) => {
+        const computed =
+          typeof next === "function"
+            ? next({
+                steps: prev.steps,
+                alpha: prev.alpha,
+                lambda: prev.lambda,
+                showBaseline: prev.showBaseline,
+                showIndividuals: prev.showIndividuals,
+                mode: prev.mode,
+                selectedSkills: prev.selectedSkills,
+              })
+            : next;
+        return { ...prev, ...computed };
+      });
+    },
+    [setCohort],
+  );
 
   const students = useMemo(() => classMastery?.students ?? [], [classMastery]);
   const skills = useMemo(() => skillDifficulty?.skills ?? [], [skillDifficulty]);
@@ -1571,25 +1611,92 @@ function SkillSimulationTab() {
   const { skillDifficulty, courseId } = useTeacherData();
   const allSkills: SkillDifficultyItem[] = skillDifficulty?.skills ?? [];
   const taskState = useTeacherTwinSkillSimulationTask(courseId);
+  const { state: uiState, setSimulator } = useTeacherTwinUiState(courseId);
 
-  const [simMode, setSimMode] = useState<"automatic" | "manual">(
-    taskState.request?.mode === "manual" ? "manual" : "automatic",
+  // Hydrate the UI store from the last task request the first time this tab
+  // mounts for a given course (e.g. after a fresh login). After that the
+  // store wins so user edits across tabs persist.
+  const hydratedFromTaskRef = useRef(false);
+  useEffect(() => {
+    if (hydratedFromTaskRef.current || !taskState.request) return;
+    hydratedFromTaskRef.current = true;
+    setSimulator((prev) => ({
+      ...prev,
+      simMode: taskState.request?.mode === "manual" ? "manual" : "automatic",
+      topK: taskState.request?.top_k ?? prev.topK,
+      defaultMastery: taskState.request?.default_mastery ?? prev.defaultMastery,
+      selected: buildInitialSelectedSkills(taskState.request),
+    }));
+  }, [taskState.request, setSimulator]);
+
+  const simMode = uiState.simulator.simMode;
+  const topK = uiState.simulator.topK;
+  const selected = uiState.simulator.selected;
+  const defaultMastery = uiState.simulator.defaultMastery;
+  const filter = uiState.simulator.filter;
+  const showPairs = uiState.simulator.showPairs;
+
+  const setSimMode = useCallback(
+    (next: "automatic" | "manual") =>
+      setSimulator((prev) => ({ ...prev, simMode: next })),
+    [setSimulator],
   );
-  const [topK, setTopK] = useState(taskState.request?.top_k ?? 5);
-  const [selected, setSelected] = useState<Record<string, number | null>>(
-    buildInitialSelectedSkills(taskState.request),
+  const setTopK = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setSimulator((prev) => ({
+        ...prev,
+        topK: typeof next === "function" ? next(prev.topK) : next,
+      })),
+    [setSimulator],
   );
-  const [defaultMastery, setDefaultMastery] = useState(taskState.request?.default_mastery ?? 0.5);
-  const [filter, setFilter] = useState("");
-  const [showPairs, setShowPairs] = useState(false);
+  const setSelected = useCallback(
+    (
+      next:
+        | Record<string, number | null>
+        | ((prev: Record<string, number | null>) => Record<string, number | null>),
+    ) =>
+      setSimulator((prev) => ({
+        ...prev,
+        selected: typeof next === "function" ? next(prev.selected) : next,
+      })),
+    [setSimulator],
+  );
+  const setDefaultMastery = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setSimulator((prev) => ({
+        ...prev,
+        defaultMastery: typeof next === "function" ? next(prev.defaultMastery) : next,
+      })),
+    [setSimulator],
+  );
+  const setFilter = useCallback(
+    (next: string) => setSimulator((prev) => ({ ...prev, filter: next })),
+    [setSimulator],
+  );
+  const setShowPairs = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) =>
+      setSimulator((prev) => ({
+        ...prev,
+        showPairs: typeof next === "function" ? next(prev.showPairs) : next,
+      })),
+    [setSimulator],
+  );
 
   const loading = taskState.status === "running";
   const result = taskState.result;
+  const runError = taskState.error;
 
   const filteredSkills = allSkills.filter((s) =>
     s.skill_name.toLowerCase().includes(filter.toLowerCase()),
   );
   const selectedCount = Object.keys(selected).length;
+
+  // The backend Cypher query returns avg_mastery=0 / perceived_difficulty=1.0
+  // for every skill when the class has SELECTED_SKILL edges but no MASTERED
+  // edges (or MASTERED.mastery is unset). Showing 10 identical 100%-red bars
+  // is misleading; render a clear empty state instead.
+  const hasMasterySignal =
+    allSkills.length > 0 && allSkills.some((s) => s.avg_mastery > 0);
 
   async function runSim() {
     if (simMode === "manual" && !selectedCount) return;
@@ -1653,38 +1760,55 @@ function SkillSimulationTab() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div style={{ width: "100%", height: 240 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={allSkills.slice(0, 10).map((s) => ({
-                    name: s.skill_name.length > 18 ? s.skill_name.slice(0, 16) + "…" : s.skill_name,
-                    mastery: Math.round(s.avg_mastery * 100),
-                    difficulty: Math.round(s.perceived_difficulty * 100),
-                  }))}
-                  layout="vertical"
-                  margin={{ left: 8, right: 20, top: 4, bottom: 4 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 100]}
-                    tickFormatter={(v) => `${v}%`}
-                    tick={{ fontSize: 10 }}
-                  />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
-                  <Tooltip
-                    formatter={(v: number, key: string) => [
-                      `${v}%`,
-                      key === "mastery" ? "Avg Mastery" : "Difficulty",
-                    ]}
-                    contentStyle={{ fontSize: 11, borderRadius: 8 }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="mastery" name="Avg Mastery" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={10} />
-                  <Bar dataKey="difficulty" name="Difficulty" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={10} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {hasMasterySignal ? (
+              <div style={{ width: "100%", height: 240 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={allSkills.slice(0, 10).map((s) => ({
+                      name:
+                        s.skill_name.length > 18
+                          ? s.skill_name.slice(0, 16) + "…"
+                          : s.skill_name,
+                      mastery: Math.round(s.avg_mastery * 100),
+                      difficulty: Math.round(s.perceived_difficulty * 100),
+                    }))}
+                    layout="vertical"
+                    margin={{ left: 8, right: 20, top: 4, bottom: 4 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                    <XAxis
+                      type="number"
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}%`}
+                      tick={{ fontSize: 10 }}
+                    />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
+                    <Tooltip
+                      formatter={(v: number, key: string) => [
+                        `${v}%`,
+                        key === "mastery" ? "Avg Mastery" : "Difficulty",
+                      ]}
+                      contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="mastery" name="Avg Mastery" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={10} />
+                    <Bar dataKey="difficulty" name="Difficulty" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={10} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
+                <AlertTriangle size={20} className="text-amber-500 mb-2" />
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  No mastery data for this class yet
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-md">
+                  Students have selected {allSkills.length} skill{allSkills.length === 1 ? "" : "s"}, but
+                  none have recorded mastery scores yet. The simulation can still run on these skills,
+                  but difficulty rankings will only become meaningful once students start practicing.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1870,6 +1994,25 @@ function SkillSimulationTab() {
                 ))}
               </div>
             )}
+            {loading && (
+              <div className="flex items-start gap-2 text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/20 px-3 py-2 rounded-lg">
+                <Loader2 size={13} className="mt-0.5 animate-spin flex-shrink-0" />
+                <span>
+                  Generating exercises and pedagogical insights for{" "}
+                  {simMode === "automatic" ? topK : selectedCount} skills. This usually takes
+                  20–60 seconds; the request will time out automatically after 2 minutes if the
+                  LLM provider is unreachable.
+                </span>
+              </div>
+            )}
+
+            {runError && !loading && (
+              <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 px-3 py-2 rounded-lg">
+                <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" />
+                <span>{runError}</span>
+              </div>
+            )}
+
             <Button
               className="w-full"
               disabled={(simMode === "manual" && selectedCount === 0) || loading}
@@ -2142,39 +2285,113 @@ interface ManualSkillEntry {
   hypothetical_mastery: number;
 }
 
-/** Frontend-only per-student simulation result (no backend call needed). */
-interface StudentWhatIfResult {
-  skill_name: string;
-  current_mastery: number;
-  simulated_mastery: number;
-  gain: number;
-}
+/**
+ * Frontend-only per-student simulation result (no backend call needed).
+ * Backed by the ZPD-weighted estimator in `lib/studentWhatIf.ts`.
+ */
+type StudentWhatIfResult = StudentWhatIfRow;
 
 function WhatIfTab() {
   const { courseId, skillDifficulty, classMastery } = useTeacherData();
   const taskState = useTeacherTwinWhatIfTask(courseId);
-  const [analysisMode, setAnalysisMode] = useState<"class" | "student">("class");
+  const { state: uiState, setWhatIf } = useTeacherTwinUiState(courseId);
 
-  // ── Class analysis state ──────────────────────────────────────────────────
-  const [mode, setMode] = useState<"automatic" | "manual">(
-    taskState.request?.mode === "manual" ? "manual" : "automatic",
+  // Hydrate the UI store from the last What-If task request the first time
+  // this tab mounts for a course (e.g. after a fresh login). After that the
+  // store is the source of truth.
+  const hydratedFromTaskRef = useRef(false);
+  useEffect(() => {
+    if (hydratedFromTaskRef.current || !taskState.request) return;
+    hydratedFromTaskRef.current = true;
+    setWhatIf((prev) => ({
+      ...prev,
+      mode: taskState.request?.mode === "manual" ? "manual" : "automatic",
+      automaticIntensity:
+        taskState.request?.preferences?.intervention_intensity ?? prev.automaticIntensity,
+      automaticTopKHint:
+        taskState.request?.preferences?.max_skills ?? prev.automaticTopKHint,
+      automaticFocus: taskState.request?.preferences?.focus ?? prev.automaticFocus,
+      topK: taskState.request?.preferences?.max_skills ?? prev.topK,
+    }));
+  }, [taskState.request, setWhatIf]);
+
+  const analysisMode = uiState.whatIf.analysisMode;
+  const setAnalysisMode = useCallback(
+    (next: "class" | "student") =>
+      setWhatIf((prev) => ({ ...prev, analysisMode: next })),
+    [setWhatIf],
   );
-  const [automaticIntensity, setAutomaticIntensity] = useState(
-    taskState.request?.preferences?.intervention_intensity ?? 0.6,
+  const mode = uiState.whatIf.mode;
+  const setMode = useCallback(
+    (next: "automatic" | "manual" | ((prev: "automatic" | "manual") => "automatic" | "manual")) =>
+      setWhatIf((prev) => ({
+        ...prev,
+        mode: typeof next === "function" ? next(prev.mode) : next,
+      })),
+    [setWhatIf],
   );
-  const [automaticTopKHint, setAutomaticTopKHint] = useState(
-    taskState.request?.preferences?.max_skills ?? 5,
+  const automaticIntensity = uiState.whatIf.automaticIntensity;
+  const setAutomaticIntensity = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setWhatIf((prev) => ({
+        ...prev,
+        automaticIntensity:
+          typeof next === "function" ? next(prev.automaticIntensity) : next,
+      })),
+    [setWhatIf],
   );
-  const [automaticFocus, setAutomaticFocus] = useState<AutomaticWhatIfFocus>(
-    taskState.request?.preferences?.focus ?? "balanced",
+  const automaticTopKHint = uiState.whatIf.automaticTopKHint;
+  const setAutomaticTopKHint = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setWhatIf((prev) => ({
+        ...prev,
+        automaticTopKHint:
+          typeof next === "function" ? next(prev.automaticTopKHint) : next,
+      })),
+    [setWhatIf],
   );
-  const [topK, setTopK] = useState(taskState.request?.preferences?.max_skills ?? 5);
+  const automaticFocus = uiState.whatIf.automaticFocus;
+  const setAutomaticFocus = useCallback(
+    (next: AutomaticWhatIfFocus) =>
+      setWhatIf((prev) => ({ ...prev, automaticFocus: next })),
+    [setWhatIf],
+  );
+  const topK = uiState.whatIf.topK;
+  const setTopK = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setWhatIf((prev) => ({
+        ...prev,
+        topK: typeof next === "function" ? next(prev.topK) : next,
+      })),
+    [setWhatIf],
+  );
 
   // Manual mode — per-skill targets
-  const [manualSkills, setManualSkills] = useState<ManualSkillEntry[]>([]);
+  const manualSkills = uiState.whatIf.manualSkills;
+  const setManualSkills = useCallback(
+    (next: ManualSkillEntry[] | ((prev: ManualSkillEntry[]) => ManualSkillEntry[])) =>
+      setWhatIf((prev) => ({
+        ...prev,
+        manualSkills: typeof next === "function" ? next(prev.manualSkills) : next,
+      })),
+    [setWhatIf],
+  );
 
   // ── Per-student state ─────────────────────────────────────────────────────
-  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const selectedStudentId = uiState.whatIf.selectedStudentId;
+  const setSelectedStudentId = useCallback(
+    (next: number | null | ((prev: number | null) => number | null)) =>
+      setWhatIf((prev) => ({
+        ...prev,
+        selectedStudentId:
+          typeof next === "function" ? next(prev.selectedStudentId) : next,
+      })),
+    [setWhatIf],
+  );
+  // Fetched per-student data is intentionally still local: it can be
+  // re-derived from `selectedStudentId` via the existing `useEffect`, so
+  // there's no benefit to caching it across remounts (and re-fetching keeps
+  // the data fresh).
   const [studentPortfolio, setStudentPortfolio] = useState<StudentPortfolio | null>(null);
   const [studentSkills, setStudentSkills] = useState<SkillInfo[]>([]);
   const [studentTwin, setStudentTwin] = useState<TwinViewerData | null>(null);
@@ -2185,9 +2402,44 @@ function WhatIfTab() {
   // Per-student manual skill targets (pre-populated from portfolio mastery)
   const [studentManualTargets, setStudentManualTargets] = useState<ManualSkillEntry[]>([]);
   const [studentSimResult, setStudentSimResult] = useState<StudentWhatIfResult[]>([]);
-  const [studentMode, setStudentMode] = useState<"automatic" | "manual">("automatic");
-  const [studentDelta, setStudentDelta] = useState(0.2);
-  const [studentTopK, setStudentTopK] = useState(5);
+  const studentMode = uiState.whatIf.studentMode;
+  const setStudentMode = useCallback(
+    (next: "automatic" | "manual") =>
+      setWhatIf((prev) => ({ ...prev, studentMode: next })),
+    [setWhatIf],
+  );
+  const studentDelta = uiState.whatIf.studentDelta;
+  const setStudentDelta = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setWhatIf((prev) => ({
+        ...prev,
+        studentDelta: typeof next === "function" ? next(prev.studentDelta) : next,
+      })),
+    [setWhatIf],
+  );
+  const studentTopK = uiState.whatIf.studentTopK;
+  const setStudentTopK = useCallback(
+    (next: number | ((prev: number) => number)) =>
+      setWhatIf((prev) => ({
+        ...prev,
+        studentTopK: typeof next === "function" ? next(prev.studentTopK) : next,
+      })),
+    [setWhatIf],
+  );
+
+  // Refs so `loadStudentData` can read the current slider values for its
+  // initial seed without binding them into its dependency array. Without these
+  // refs, every slider tick recreates `loadStudentData`, which retriggers the
+  // mount effect below and refetches the portfolio + twin from the backend —
+  // making the panel flash like a full page refresh on each drag.
+  const studentDeltaRef = useRef(studentDelta);
+  const studentTopKRef = useRef(studentTopK);
+  useEffect(() => {
+    studentDeltaRef.current = studentDelta;
+  }, [studentDelta]);
+  useEffect(() => {
+    studentTopKRef.current = studentTopK;
+  }, [studentTopK]);
 
   const skills = useMemo(() => skillDifficulty?.skills ?? [], [skillDifficulty]);
   const students = useMemo(() => classMastery?.students ?? [], [classMastery]);
@@ -2236,7 +2488,7 @@ function WhatIfTab() {
         }));
       setManualSkills(initial);
     }
-  }, [mode, skills, manualSkills.length, topK, automaticIntensity, taskState.request]);
+  }, [mode, skills, manualSkills.length, topK, automaticIntensity, taskState.request, setManualSkills]);
 
   function addManualSkill(skillName: string) {
     if (manualSkills.find((ms) => ms.skill_name === skillName)) return;
@@ -2315,40 +2567,49 @@ function WhatIfTab() {
         setStudentTwin(twinData as TwinViewerData);
 
         // Pre-populate manual targets from actual per-skill mastery
+        const initialDelta = studentDeltaRef.current;
+        const initialTopK = studentTopKRef.current;
         const targets: ManualSkillEntry[] = skillList.map((sk, i) => {
           const current = portfolio.final_mastery?.[i] ?? 0;
           return {
             skill_name: sk.name,
             current_avg_mastery: current,
-            hypothetical_mastery: Math.min(1.0, current + studentDelta),
+            hypothetical_mastery: Math.min(1.0, current + initialDelta),
           };
         });
         setStudentManualTargets(targets);
-        runStudentAutoSim(portfolio, skillList, studentDelta, studentTopK);
+        runStudentAutoSim(
+          portfolio,
+          skillList,
+          initialDelta,
+          initialTopK,
+          twinData as TwinViewerData,
+        );
       } catch (e: unknown) {
         setStudentError(e instanceof Error ? e.message : "Failed to load student data");
       } finally {
         setStudentLoading(false);
       }
     },
-    [courseId, studentDelta, studentTopK],
+    // Slider values are intentionally read from refs above so a slider drag
+    // doesn't recreate this callback (and refetch from the backend).
+    [courseId],
   );
 
-  /** Frontend-only simulation against a single student's mastery array. */
+  /**
+   * Frontend-only per-student simulation, ZPD-weighted with risk-forecast and
+   * regression bonuses. See `lib/studentWhatIf.ts` for the full formula.
+   */
   function runStudentAutoSim(
     portfolio: StudentPortfolio,
     skillList: SkillInfo[],
     d: number,
     k: number,
+    twinData?: TwinViewerData | null,
   ) {
-    const rows: StudentWhatIfResult[] = skillList.map((sk, i) => {
-      const current = portfolio.final_mastery?.[i] ?? 0;
-      const simulated = Math.min(1.0, current + d);
-      return { skill_name: sk.name, current_mastery: current, simulated_mastery: simulated, gain: simulated - current };
-    });
-    // Sort by largest gain → weakest first (ZPD order)
-    rows.sort((a, b) => b.gain - a.gain || a.current_mastery - b.current_mastery);
-    setStudentSimResult(rows.slice(0, k));
+    const riskAlerts = twinData?.risk_forecast?.at_risk_skills ?? [];
+    const rows = estimateStudentWhatIf(portfolio, skillList, d, k, riskAlerts);
+    setStudentSimResult(rows);
   }
 
   function runStudentManualSim() {
@@ -2357,6 +2618,7 @@ function WhatIfTab() {
       current_mastery: t.current_avg_mastery,
       simulated_mastery: t.hypothetical_mastery,
       gain: t.hypothetical_mastery - t.current_avg_mastery,
+      rationale: "teacher-set target",
     }));
     rows.sort((a, b) => b.gain - a.gain);
     setStudentSimResult(rows.slice(0, studentTopK));
@@ -2515,45 +2777,84 @@ function WhatIfTab() {
                     </div>
                   </div>
 
-                  {skills.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                        Likely candidates in scope. The LLM may override this preview after considering the whole course:
-                      </p>
-                      <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
-                        {skills.slice(0, Math.min(automaticTopKHint * 2, skills.length)).map((s) => {
-                          const isZpd = s.avg_mastery >= 0.4 && s.avg_mastery <= 0.9;
-                          const simulated = Math.min(1.0, s.avg_mastery + automaticIntensity * 0.35);
-                          return (
-                            <div
-                              key={s.skill_name}
-                              className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-md ${
-                                isZpd
-                                  ? "bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800"
-                                  : "bg-zinc-50 dark:bg-zinc-800/40"
-                              }`}
-                            >
-                              <span className="truncate max-w-[200px] font-medium" title={s.skill_name}>
-                                {s.skill_name}
-                              </span>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {isZpd && (
-                                  <Badge className="text-[10px] h-4 px-1 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 border-0">
-                                    ZPD
-                                  </Badge>
-                                )}
-                                <span className="text-zinc-500">{pct(s.avg_mastery)}</span>
-                                <span className="text-zinc-300 dark:text-zinc-600">→</span>
-                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                                  {pct(simulated)}
+                  {skills.length > 0 && (() => {
+                    // Mirror backend service.py _fallback_automatic_skill_targets so
+                    // the preview matches what the backend will actually return when
+                    // the LLM is unavailable. Previously the preview used a uniform
+                    // formula (avg + intensity * 0.35) that produced "0% → 21%" for
+                    // every skill when mastery was zero — visually confusing.
+                    const candidates = skills.slice(0, Math.min(automaticTopKHint * 2, skills.length));
+                    const maxPrereq = Math.max(0, ...candidates.map((c) => c.prereq_count ?? 0));
+                    const maxDownstream = Math.max(0, ...candidates.map((c) => c.downstream_count ?? 0));
+                    const maxStudents = Math.max(0, ...candidates.map((c) => c.student_count ?? 0));
+                    const norm = (v: number, ceiling: number) =>
+                      ceiling > 0 ? v / ceiling : 0;
+                    return (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          Likely candidates in scope, scored by prerequisite leverage, downstream impact, and PCO risk. The LLM may override this preview:
+                        </p>
+                        <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+                          {candidates.map((s, rank) => {
+                            const isZpd = s.avg_mastery >= 0.4 && s.avg_mastery <= 0.9;
+                            const normPrereq = norm(s.prereq_count ?? 0, maxPrereq);
+                            const normDownstream = norm(s.downstream_count ?? 0, maxDownstream);
+                            const normStudents = norm(s.student_count ?? 0, maxStudents);
+                            const pcoRisk = s.pco_risk_ratio ?? 0;
+                            const allZero =
+                              normPrereq === 0 &&
+                              normDownstream === 0 &&
+                              normStudents === 0 &&
+                              pcoRisk === 0;
+                            let target: number;
+                            if (allZero) {
+                              const rankFraction =
+                                candidates.length > 1
+                                  ? 1 - rank / (candidates.length - 1)
+                                  : 0.5;
+                              target = 0.55 + rankFraction * 0.2 * (automaticIntensity / 0.6);
+                            } else {
+                              const boost =
+                                0.15 +
+                                0.15 * pcoRisk +
+                                0.1 * normPrereq +
+                                0.1 * normDownstream +
+                                0.05 * normStudents;
+                              target = s.avg_mastery + automaticIntensity * boost;
+                            }
+                            target = Math.max(0.55, Math.min(0.95, target));
+                            target = Math.max(target, s.avg_mastery + 0.05);
+                            return (
+                              <div
+                                key={s.skill_name}
+                                className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-md ${
+                                  isZpd
+                                    ? "bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800"
+                                    : "bg-zinc-50 dark:bg-zinc-800/40"
+                                }`}
+                              >
+                                <span className="truncate max-w-[200px] font-medium" title={s.skill_name}>
+                                  {s.skill_name}
                                 </span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {isZpd && (
+                                    <Badge className="text-[10px] h-4 px-1 bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 border-0">
+                                      ZPD
+                                    </Badge>
+                                  )}
+                                  <span className="text-zinc-500">{pct(s.avg_mastery)}</span>
+                                  <span className="text-zinc-300 dark:text-zinc-600">→</span>
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                    {pct(target)}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </>
               )}
 
@@ -2689,14 +2990,37 @@ function WhatIfTab() {
           </Card>
 
           {/* Results */}
-          {result && (
+          {result && (() => {
+            const planningSource = result.automatic_criteria?.planning_source ?? "llm";
+            const sourceMeta = {
+              llm: {
+                cardClass:
+                  "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800",
+                textClass: "text-indigo-800 dark:text-indigo-300",
+                badge: "LLM decided the final automatic criteria.",
+              },
+              mixed: {
+                cardClass:
+                  "bg-violet-50 dark:bg-violet-900/20 border-violet-100 dark:border-violet-800",
+                textClass: "text-violet-800 dark:text-violet-300",
+                badge: "Mixed plan: LLM produced part of the plan; rule engine filled the rest.",
+              },
+              rule_based: {
+                cardClass:
+                  "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800",
+                textClass: "text-amber-900 dark:text-amber-200",
+                badge: "Rule-based recommendation (LLM unavailable).",
+              },
+            } as const;
+            const meta = sourceMeta[planningSource];
+            return (
             <div className="space-y-4">
-              <Card className="border-0 shadow-sm bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800">
+              <Card className={`border-0 shadow-sm ${meta.cardClass}`}>
                 <CardContent className="p-4">
-                  <p className="text-sm text-indigo-800 dark:text-indigo-300">{result.summary}</p>
+                  <p className={`text-sm ${meta.textClass}`}>{result.summary}</p>
                       {mode === "automatic" && result.automatic_criteria && (
-                        <div className="mt-3 text-xs text-indigo-800 dark:text-indigo-300 space-y-1">
-                          <p className="font-medium">LLM decided the final automatic criteria.</p>
+                        <div className={`mt-3 text-xs ${meta.textClass} space-y-1`}>
+                          <p className="font-medium">{meta.badge}</p>
                           <p>
                             Focus: <strong>{result.automatic_criteria.focus.replaceAll("_", " ")}</strong>, scope:{" "}
                             <strong>{result.automatic_criteria.max_skills}</strong> skills, intensity hint:{" "}
@@ -2789,7 +3113,8 @@ function WhatIfTab() {
                 </Card>
               )}
             </div>
-          )}
+            );
+          })()}
         </>
       )}
 
@@ -2898,7 +3223,9 @@ function WhatIfTab() {
                     Simulation Parameters — {selectedStudent?.full_name}
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Each mastery value is read live from this student's knowledge tracing output
+                    Each mastery value is read live from this student's knowledge tracing output. The
+                    Teaching Δ is a max-effort knob — actual gains are weighted per skill by ZPD
+                    position, regression vs. peak mastery, and risk-forecast signals.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -2910,7 +3237,13 @@ function WhatIfTab() {
                       onClick={() => {
                         setStudentMode("automatic");
                         if (studentPortfolio)
-                          runStudentAutoSim(studentPortfolio, studentSkills, studentDelta, studentTopK);
+                          runStudentAutoSim(
+                            studentPortfolio,
+                            studentSkills,
+                            studentDelta,
+                            studentTopK,
+                            studentTwin,
+                          );
                       }}
                     >
                       Automatic
@@ -2937,7 +3270,13 @@ function WhatIfTab() {
                             const d = v / 100;
                             setStudentDelta(d);
                             if (studentPortfolio)
-                              runStudentAutoSim(studentPortfolio, studentSkills, d, studentTopK);
+                              runStudentAutoSim(
+                                studentPortfolio,
+                                studentSkills,
+                                d,
+                                studentTopK,
+                                studentTwin,
+                              );
                           }}
                           min={5}
                           max={50}
@@ -2953,7 +3292,13 @@ function WhatIfTab() {
                           onValueChange={([v]) => {
                             setStudentTopK(v);
                             if (studentPortfolio)
-                              runStudentAutoSim(studentPortfolio, studentSkills, studentDelta, v);
+                              runStudentAutoSim(
+                                studentPortfolio,
+                                studentSkills,
+                                studentDelta,
+                                v,
+                                studentTwin,
+                              );
                           }}
                           min={1}
                           max={Math.min(10, studentSkills.length)}
@@ -3089,6 +3434,14 @@ function WhatIfTab() {
                               style={{ width: `${r.simulated_mastery * 100}%` }}
                             />
                           </div>
+                          {r.rationale ? (
+                            <p
+                              className="text-[10px] text-zinc-500 dark:text-zinc-400 italic truncate"
+                              title={r.rationale}
+                            >
+                              {r.rationale}
+                            </p>
+                          ) : null}
                         </div>
                       ))}
                     </CardContent>
@@ -3121,7 +3474,8 @@ export default function TeacherTwinPage() {
   const { loading, error, classMastery, skillDifficulty, skillPopularity, refresh, courseId } =
     useTeacherData();
 
-  const [activeTab, setActiveTab] = useState("overview");
+  const { state: uiState, setActiveTab } = useTeacherTwinUiState(courseId);
+  const activeTab = uiState.activeTab;
   const lastSimResult = useTeacherTwinSkillSimulationTask(courseId).result;
   const lastWhatIfResult = useTeacherTwinWhatIfTask(courseId).result;
 

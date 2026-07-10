@@ -39,6 +39,7 @@ class TestGetSkillDifficulty:
             {
                 "skill_name": "calculus",
                 "student_count": 5,
+                "attempted_count": 4,
                 "avg_mastery": 0.6,
                 "perceived_difficulty": 0.4,
             }
@@ -46,6 +47,24 @@ class TestGetSkillDifficulty:
         result = repo.get_skill_difficulty(course_id=1)
         assert len(result) == 1
         assert result[0]["skill_name"] == "calculus"
+        assert result[0]["attempted_count"] == 4
+
+    def test_cypher_returns_attempted_count_and_orders_unattempted_last(self):
+        # Pin the Cypher's behavior: the query must surface an attempted_count
+        # field and sort skills with no attempts at the end. If the underlying
+        # query is rewritten, this guards against silently dropping that
+        # filter and regressing the chart that ranks "Top Difficult Skills".
+        repo, _ = _make_repo()
+        from app.modules.teacher_digital_twin.repository import GET_SKILL_DIFFICULTY
+
+        cypher = GET_SKILL_DIFFICULTY
+        assert "attempted_count" in cypher
+        assert "perceived_difficulty" in cypher
+        assert "CASE WHEN attempted_count = 0 THEN 1 ELSE 0 END" in cypher
+        # Ensure the Cypher doesn't accidentally fall back to the legacy
+        # avg-over-all-students formulation, which made selected-but-unattempted
+        # skills look maximally difficult.
+        assert "1.0 - attempted_avg_mastery" in cypher
 
 
 class TestGetSkillPopularity:
