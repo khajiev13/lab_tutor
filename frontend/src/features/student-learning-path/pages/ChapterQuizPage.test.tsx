@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { vi, type Mock } from 'vitest';
 
@@ -191,5 +191,12 @@ describe('ChapterQuizPage', () => {
 
     expect(await screen.findByText('2/2 correct')).toBeInTheDocument();
     expect(screen.getByText('Chapter unlocked - next chapter now available.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue to learning/i }));
+    expect(await screen.findByText('Learning path destination')).toBeInTheDocument();
+
+    await act(async () => {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    });
   });
 });
