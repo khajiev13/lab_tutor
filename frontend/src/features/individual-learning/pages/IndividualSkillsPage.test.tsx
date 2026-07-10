@@ -111,6 +111,41 @@ function renderPage() {
   );
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+function SkillsRecoveryHarness({ showPage }: { showPage: boolean }) {
+  return (
+    <MemoryRouter initialEntries={['/individual/skills']}>
+      <Routes>
+        <Route
+          path="/individual/skills"
+          element={
+            <>
+              {showPage ? <IndividualSkillsPage /> : null}
+              <LocationProbe />
+            </>
+          }
+        />
+        <Route
+          path="/individual/jobs"
+          element={
+            <>
+              <div>Recovered job selection</div>
+              <LocationProbe />
+            </>
+          }
+        />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
 describe('IndividualSkillsPage', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -387,6 +422,64 @@ describe('IndividualSkillsPage', () => {
       'Query relational databases using SQL',
       'Build stakeholder dashboards',
     ]);
+  });
+
+  it('does not hydrate or navigate from a delayed 409 recovery after unmount', async () => {
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({
+        cvDocumentId: 42,
+        extractionRunId: 91,
+        ownerUserId: 7,
+        threadId: 'opaque-selection-thread',
+        nextStep: 'select_jobs_and_skills',
+        graphStatus: 'interrupted',
+        reviewInterrupt: null,
+        jobsInterrupt: {
+          kind: 'choose_jobs_and_skills',
+          candidate_jobs: [skillBanksResponse.market_skill_bank[0]],
+          skill_bank: skillBanksResponse.market_skill_bank[0].skills,
+        },
+        targetTitles: ['Data Analyst'],
+        selectedPostingUrls: ['https://example.test/jobs/data-analyst'],
+        selectedSkillNames: [],
+      }),
+    );
+    vi.mocked(individualLearningApi.resumeIndividualGraph).mockRejectedValue({
+      response: { status: 409 },
+    });
+    const recovery = deferred<Awaited<ReturnType<typeof individualLearningApi.getIndividualProfile>>>();
+    vi.mocked(individualLearningApi.getIndividualProfile).mockReturnValue(recovery.promise);
+    const view = render(<SkillsRecoveryHarness showPage />);
+
+    await screen.findByText('Data Analyst');
+    fireEvent.click(screen.getByRole('button', { name: /select all market skills/i }));
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+    await waitFor(() => expect(individualLearningApi.getIndividualProfile).toHaveBeenCalled());
+
+    view.rerender(<SkillsRecoveryHarness showPage={false} />);
+    await act(async () => {
+      recovery.resolve({
+        user_id: 7,
+        onboarding_status: 'needs_skill_selection',
+        target_titles: ['Data Analyst'],
+        cv_document_id: 42,
+        extraction_run_id: 91,
+        active_thread_id: 'opaque-selection-thread',
+        next_step: 'select_jobs_and_skills',
+        extracted_profile: { summary: 'Analytics profile' },
+        pending_interrupt: {
+          kind: 'choose_jobs_and_skills',
+          candidate_jobs: [skillBanksResponse.market_skill_bank[0]],
+          skill_bank: skillBanksResponse.market_skill_bank[0].skills,
+        },
+      });
+      await recovery.promise;
+    });
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/individual/skills');
+    expect(screen.queryByText('Recovered job selection')).not.toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('allows a durable completed graph to retry the downstream path build', async () => {

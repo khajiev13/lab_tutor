@@ -63,7 +63,7 @@ describe('Login', () => {
     await submitLogin();
 
     await waitFor(() => {
-      expect(screen.getByTestId('location')).toHaveTextContent('/individual/profile');
+      expect(screen.getByTestId('location')).toHaveTextContent(/^\/individual$/);
     });
   });
 

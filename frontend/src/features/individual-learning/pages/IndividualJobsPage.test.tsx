@@ -244,6 +244,53 @@ describe('IndividualJobsPage', () => {
     expect(individualLearningApi.getIndividualSkillBanks).toHaveBeenCalledTimes(2);
   });
 
+  it('sends the complete durable interested-job replacement when adding a posting', async () => {
+    clearIndividualGraphSession();
+    const persistedUrl = 'https://example.test/jobs/persisted-a';
+    const addedUrl = 'https://example.test/jobs/new-b';
+    vi.mocked(individualLearningApi.getIndividualSkillBanks).mockResolvedValue({
+      market_skill_bank: [
+        {
+          url: persistedUrl,
+          title: 'Persisted A',
+          company: 'Existing Co',
+          is_interested: true,
+          skills: [],
+        },
+        {
+          url: addedUrl,
+          title: 'New B',
+          company: 'New Co',
+          is_interested: false,
+          skills: [],
+        },
+      ],
+      selected_skill_names: [],
+      interested_posting_urls: [persistedUrl],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/individual/jobs']}>
+        <Routes>
+          <Route path="/individual/jobs" element={<IndividualJobsPage />} />
+          <Route path="/individual/skills" element={<div>Skill selection step</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: /mark new b as interested/i }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /continue to skill selection/i }));
+
+    await waitFor(() => {
+      expect(individualLearningApi.selectInterestedJobs).toHaveBeenCalledWith([
+        persistedUrl,
+        addedUrl,
+      ]);
+    });
+  });
+
   it('keeps durable jobs read-only after completed recovery', async () => {
     clearIndividualGraphSession();
     hydrateIndividualGraphSession({

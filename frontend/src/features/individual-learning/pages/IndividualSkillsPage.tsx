@@ -6,7 +6,7 @@ import {
   Loader2,
   Sparkles,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -130,6 +130,7 @@ function SkillChip({
 export default function IndividualSkillsPage() {
   const navigate = useNavigate();
   const { assertRequestCurrent, isRequestCurrent } = useAuthRequestGuard();
+  const recoveryAbortRef = useRef<AbortController | null>(null);
   const [graphSession, setGraphSession] = useState(readIndividualGraphSession);
   const graphInterrupt = graphSession?.jobsInterrupt ?? null;
   const isGraphWorkflow = graphInterrupt !== null;
@@ -203,6 +204,13 @@ export default function IndividualSkillsPage() {
       active = false;
     };
   }, [assertRequestCurrent, isGraphWorkflow, isRequestCurrent]);
+
+  useEffect(
+    () => () => {
+      recoveryAbortRef.current?.abort();
+    },
+    [],
+  );
 
   const interestedPostings = useMemo(
     () => postings.filter((posting) => interestedUrls.has(posting.url)),
@@ -372,16 +380,34 @@ export default function IndividualSkillsPage() {
       ) {
         return;
       }
-      if (getErrorStatus(buildError) === 409 && graphSession) {
+      if (getErrorStatus(buildError) === 409 && graphSession && authSession) {
+        recoveryAbortRef.current?.abort();
+        const controller = new AbortController();
+        recoveryAbortRef.current = controller;
         try {
-          const recovery = await recoverIndividualWorkflow(graphSession.ownerUserId);
+          const recovery = await recoverIndividualWorkflow(
+            graphSession.ownerUserId,
+            controller.signal,
+          );
+          assertRequestCurrent(authSession);
           setGraphSession(recovery.session);
           navigate(getIndividualRecoveryPath(recovery.profile.next_step));
           return;
         } catch (recoveryError) {
+          if (
+            isStaleAuthSessionError(recoveryError) ||
+            !isRequestCurrent(authSession) ||
+            (recoveryError instanceof DOMException && recoveryError.name === 'AbortError')
+          ) {
+            return;
+          }
           console.error(recoveryError);
           toast.error('Workflow changed and could not be recovered.');
           return;
+        } finally {
+          if (recoveryAbortRef.current === controller) {
+            recoveryAbortRef.current = null;
+          }
         }
       }
       console.error(buildError);

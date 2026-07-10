@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
@@ -27,6 +27,14 @@ vi.mock('sonner', () => ({
 function LocationProbe() {
   const location = useLocation();
   return <span data-testid="location">{location.pathname}</span>;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 describe('IndividualProfilePage', () => {
@@ -443,6 +451,65 @@ describe('IndividualProfilePage', () => {
       jobsInterrupt: { kind: 'choose_jobs_and_skills' },
     });
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('does not surface a delayed 409 recovery error after an account switch', async () => {
+    vi.mocked(individualLearningApi.resumeIndividualGraph).mockRejectedValue({
+      response: { status: 409 },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/individual/profile']}>
+        <Routes>
+          <Route
+            path="/individual/profile"
+            element={
+              <>
+                <IndividualProfilePage />
+                <LocationProbe />
+              </>
+            }
+          />
+          <Route path="/individual/jobs" element={<div>Wrong account jobs</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByText('Built dashboards for operations teams.');
+
+    const recovery = deferred<Awaited<ReturnType<typeof individualLearningApi.getIndividualProfile>>>();
+    vi.mocked(individualLearningApi.getIndividualProfile).mockReturnValueOnce(recovery.promise);
+    fireEvent.click(screen.getByRole('button', { name: /approve profile and find jobs/i }));
+    await waitFor(() => {
+      expect(individualLearningApi.getIndividualProfile).toHaveBeenCalledTimes(2);
+    });
+
+    invalidateAuthSession();
+    establishAuthSession(8);
+    clearIndividualGraphSession();
+    await act(async () => {
+      recovery.resolve({
+        user_id: 7,
+        onboarding_status: 'needs_skill_selection',
+        target_titles: ['Data Analyst'],
+        cv_document_id: 42,
+        extraction_run_id: 91,
+        active_thread_id: 'individual-7-cv-42',
+        next_step: 'select_jobs_and_skills',
+        extracted_profile: { summary: 'Former account profile' },
+        pending_interrupt: {
+          kind: 'choose_jobs_and_skills',
+          candidate_jobs: [],
+          skill_bank: [],
+        },
+      });
+      await recovery.promise;
+    });
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/individual/profile');
+    expect(screen.queryByText(/workflow changed, but its latest state could not be loaded/i))
+      .not.toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('individual-learning.graph-session')).toBeNull();
   });
 
   it('does not persist or navigate when profile approval resolves after logout', async () => {

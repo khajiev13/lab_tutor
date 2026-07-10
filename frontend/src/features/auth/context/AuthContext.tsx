@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { authApi } from '../api';
 import type { LoginCredentials, RegisterData, UserResponse } from '../types';
-import { isTokenExpired } from '../utils/token';
+import { decodeJwtPayload, isTokenExpired } from '../utils/token';
 import {
   clearIndividualGraphSession,
   clearIndividualGraphSessionForOtherUser,
@@ -9,10 +9,13 @@ import {
 import { resetTeacherTwinSimulationTasks } from '@/features/arcd-agent/state/teacherTwinSimulationStore';
 import { resetTeacherTwinUiState } from '@/features/arcd-agent/state/teacherTwinUiStore';
 import {
+  captureAuthSessionState,
   establishAuthSession,
   invalidateAuthSession,
+  isAuthSessionStateCurrent,
   StaleAuthSessionError,
 } from '@/features/auth/auth-session';
+import { AUTH_SESSION_EXPIRED_EVENT } from '@/features/auth/auth-events';
 
 // User type alias
 type User = UserResponse;
@@ -24,6 +27,8 @@ interface AuthContextType {
   isLoading: boolean;
   /** True when we're waiting on a cold-started backend (> 4s). */
   isServerWakingUp: boolean;
+  sessionError: string | null;
+  retrySession: () => Promise<void>;
   login: (credentials: LoginCredentials) => Promise<UserResponse>;
   register: (data: RegisterData) => Promise<UserResponse>;
   logout: () => void;
@@ -44,12 +49,26 @@ function isConfirmedAuthenticationFailure(error: unknown): boolean {
   return status === 401 || status === 403;
 }
 
+function getTokenUserId(token: string | null): number | null {
+  if (!token) {
+    return null;
+  }
+  const subject = decodeJwtPayload(token)?.sub;
+  const userId = typeof subject === 'string' ? Number(subject) : Number.NaN;
+  return Number.isSafeInteger(userId) && userId > 0 ? userId : null;
+}
+
+const SESSION_VERIFICATION_ERROR =
+  'We could not verify your session. Your work is preserved; retry when the server is available.';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isServerWakingUp, setIsServerWakingUp] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const authAttemptRef = useRef(0);
   const isMountedRef = useRef(true);
+  const userRef = useRef<User | null>(null);
 
   const clearTokens = useCallback(() => {
     localStorage.removeItem('access_token');
@@ -67,7 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     invalidateAuthSession();
     resetUserScopedState();
     if (isMountedRef.current) {
+      userRef.current = null;
       setUser(null);
+      setSessionError(null);
     }
   }, [clearTokens, resetUserScopedState]);
 
@@ -79,7 +100,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     clearIndividualGraphSessionForOtherUser(userData.id);
     establishAuthSession(userData.id);
+    userRef.current = userData;
     setUser(userData);
+    setSessionError(null);
     return userData;
   }, []);
 
@@ -95,12 +118,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const attempt = ++authAttemptRef.current;
     const accessToken = localStorage.getItem('access_token');
     const refreshToken = localStorage.getItem('refresh_token');
+    const authSession = captureAuthSessionState();
+    let expectedAccessToken = accessToken;
+    let expectedRefreshToken = refreshToken;
+    const restoreSourceIsCurrent = () =>
+      attempt === authAttemptRef.current &&
+      isMountedRef.current &&
+      isAuthSessionStateCurrent(authSession) &&
+      localStorage.getItem('access_token') === expectedAccessToken &&
+      localStorage.getItem('refresh_token') === expectedRefreshToken;
+
+    if (isMountedRef.current) {
+      setSessionError(null);
+    }
 
     // Nothing stored → go straight to login.
     if (!accessToken) {
       invalidateAuthSession();
       resetUserScopedState();
       if (isMountedRef.current && attempt === authAttemptRef.current) {
+        userRef.current = null;
         setUser(null);
         setIsLoading(false);
         setIsServerWakingUp(false);
@@ -122,16 +159,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (refreshToken && !isTokenExpired(refreshToken)) {
         try {
           const tokens = await authApi.refresh(refreshToken);
+          if (!restoreSourceIsCurrent()) {
+            throw new StaleAuthSessionError();
+          }
           localStorage.setItem('access_token', tokens.access_token);
           localStorage.setItem('refresh_token', tokens.refresh_token);
+          expectedAccessToken = tokens.access_token;
+          expectedRefreshToken = tokens.refresh_token;
           await fetchUser(attempt);
           return;
         } catch (error: unknown) {
           if (error instanceof StaleAuthSessionError) {
             return;
           }
-          if (isConfirmedAuthenticationFailure(error)) {
+          const refreshSourceIsCurrent = restoreSourceIsCurrent();
+          if (isConfirmedAuthenticationFailure(error) && refreshSourceIsCurrent) {
             clearConfirmedSession();
+          } else if (refreshSourceIsCurrent) {
+            setSessionError(SESSION_VERIFICATION_ERROR);
           }
           return;
         }
@@ -143,8 +188,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error instanceof StaleAuthSessionError) {
         return;
       }
-      if (isConfirmedAuthenticationFailure(error)) {
+      if (isConfirmedAuthenticationFailure(error) && restoreSourceIsCurrent()) {
         clearConfirmedSession();
+      } else if (restoreSourceIsCurrent()) {
+        setSessionError(SESSION_VERIFICATION_ERROR);
       }
     } finally {
       clearTimeout(wakingUpTimer);
@@ -170,10 +217,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      const previousUserId = getTokenUserId(event.oldValue);
+      const nextUserId = getTokenUserId(event.newValue);
+      const currentUserId = userRef.current?.id ?? captureAuthSessionState().userId;
+      if (
+        nextUserId !== null &&
+        (nextUserId === currentUserId ||
+          (currentUserId === null && nextUserId === previousUserId))
+      ) {
+        return;
+      }
+
       authAttemptRef.current += 1;
       invalidateAuthSession();
       resetUserScopedState();
+      userRef.current = null;
       setUser(null);
+      setSessionError(null);
       setIsLoading(true);
       setIsServerWakingUp(false);
       void restoreSession();
@@ -183,12 +243,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('storage', handleStorage);
   }, [resetUserScopedState, restoreSession]);
 
+  useEffect(() => {
+    const handleExpiredSession = () => {
+      authAttemptRef.current += 1;
+      clearConfirmedSession();
+      if (isMountedRef.current) {
+        setIsLoading(false);
+        setIsServerWakingUp(false);
+      }
+    };
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpiredSession);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpiredSession);
+  }, [clearConfirmedSession]);
+
+  const retrySession = useCallback(async () => {
+    if (isMountedRef.current) {
+      setIsLoading(true);
+      setSessionError(null);
+    }
+    await restoreSession();
+  }, [restoreSession]);
+
   const login = useCallback(async (credentials: LoginCredentials): Promise<UserResponse> => {
     const response = await authApi.login(credentials);
     const attempt = ++authAttemptRef.current;
     invalidateAuthSession();
     resetUserScopedState();
+    userRef.current = null;
     setUser(null);
+    setSessionError(null);
     localStorage.setItem('access_token', response.access_token);
     localStorage.setItem('refresh_token', response.refresh_token);
     try {
@@ -211,7 +295,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearTokens();
     invalidateAuthSession();
     resetUserScopedState();
+    userRef.current = null;
     setUser(null);
+    setSessionError(null);
+    setIsLoading(false);
+    setIsServerWakingUp(false);
     // Clear teacher-twin caches so the next teacher who logs in starts with
     // a fresh dashboard. The simulation store holds expensive results; the
     // UI store holds tab/filter/slider state. Both are session-scoped.
@@ -222,6 +310,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: !!user,
     isLoading,
     isServerWakingUp,
+    sessionError,
+    retrySession,
     login,
     register,
     logout,

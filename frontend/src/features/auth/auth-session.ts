@@ -3,6 +3,11 @@ export interface AuthSessionSnapshot {
   userId: number;
 }
 
+export interface AuthSessionStateSnapshot {
+  generation: number;
+  userId: number | null;
+}
+
 export class StaleAuthSessionError extends Error {
   constructor(message = 'The authenticated session changed before the request completed.') {
     super(message);
@@ -24,6 +29,14 @@ export function establishAuthSession(userId: number): AuthSessionSnapshot {
 export function invalidateAuthSession(): void {
   generation += 1;
   activeUserId = null;
+}
+
+export function captureAuthSessionState(): AuthSessionStateSnapshot {
+  return { generation, userId: activeUserId };
+}
+
+export function isAuthSessionStateCurrent(snapshot: AuthSessionStateSnapshot): boolean {
+  return snapshot.generation === generation && snapshot.userId === activeUserId;
 }
 
 export function captureAuthSession(userId: number): AuthSessionSnapshot {

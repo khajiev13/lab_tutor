@@ -10,16 +10,29 @@ const authState = vi.hoisted(() => ({
     email: 'student@example.com',
     role: 'student' as 'student' | 'teacher' | 'individual',
     created_at: '2026-04-15T00:00:00Z',
-  },
+  } as {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    role: 'student' | 'teacher' | 'individual';
+    created_at: string;
+  } | null,
+  isAuthenticated: true,
+  isLoading: false,
+  sessionError: null as string | null,
+  retrySession: vi.fn(),
 }));
 
 vi.mock('@/features/auth/context/AuthContext', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useAuth: () => ({
     user: authState.user,
-    isAuthenticated: true,
-    isLoading: false,
+    isAuthenticated: authState.isAuthenticated,
+    isLoading: authState.isLoading,
     isServerWakingUp: false,
+    sessionError: authState.sessionError,
+    retrySession: authState.retrySession,
     login: vi.fn(),
     register: vi.fn(),
     logout: vi.fn(),
@@ -104,7 +117,18 @@ function renderAppAt(pathname: string) {
 
 describe('App routing', () => {
   beforeEach(() => {
-    authState.user.role = 'student';
+    authState.user = {
+      id: 1,
+      first_name: 'Test',
+      last_name: 'Student',
+      email: 'student@example.com',
+      role: 'student',
+      created_at: '2026-04-15T00:00:00Z',
+    };
+    authState.isAuthenticated = true;
+    authState.isLoading = false;
+    authState.sessionError = null;
+    authState.retrySession.mockReset();
     window.history.pushState({}, '', '/');
   });
 
@@ -137,6 +161,7 @@ describe('App routing', () => {
   });
 
   it.each([
+    ['/individual', 'Opening your individual learning workspace'],
     ['/individual/onboarding', 'Individual Onboarding'],
     ['/individual/profile', 'Individual Profile'],
     ['/individual/jobs', 'Individual Jobs'],
@@ -152,20 +177,33 @@ describe('App routing', () => {
   });
 
   it('routes an authenticated individual away from the public login route', () => {
-    authState.user.role = 'individual';
+    authState.user!.role = 'individual';
 
     renderAppAt('/login');
 
-    expect(screen.getByText('Individual Profile')).toBeInTheDocument();
+    expect(screen.getByText('Opening your individual learning workspace')).toBeInTheDocument();
     expect(screen.getByTestId('individual-recovery-gate')).toBeInTheDocument();
   });
 
   it('routes an individual who opens the shared home route into recovery', () => {
-    authState.user.role = 'individual';
+    authState.user!.role = 'individual';
 
     renderAppAt('/home');
 
-    expect(screen.getByText('Individual Profile')).toBeInTheDocument();
+    expect(screen.getByText('Opening your individual learning workspace')).toBeInTheDocument();
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+  });
+
+  it('quarantines a transient session verification failure with a retry action', () => {
+    authState.user = null;
+    authState.isAuthenticated = false;
+    authState.sessionError = 'We could not verify your session. Your work is preserved.';
+
+    renderAppAt('/individual/profile');
+
+    expect(screen.getByText(/could not verify your session/i)).toBeInTheDocument();
+    screen.getByRole('button', { name: /retry session/i }).click();
+    expect(authState.retrySession).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Login')).not.toBeInTheDocument();
   });
 });

@@ -107,13 +107,15 @@ describe('individual recovery routing', () => {
       isAuthenticated: true,
       isLoading: false,
       isServerWakingUp: false,
+      sessionError: null,
+      retrySession: vi.fn(),
       login: vi.fn(),
       register: vi.fn(),
       logout: vi.fn(),
     });
   });
 
-  it('maps only unsafe downstream routes to the durable recovery step', () => {
+  it('maps every route to the durable recovery step, including forward progress', () => {
     expect(getIndividualRecoveryRedirect('upload_cv', '/individual/profile', null)).toBe(
       '/individual/onboarding',
     );
@@ -138,8 +140,55 @@ describe('individual recovery routing', () => {
     ).toBeNull();
     expect(
       getIndividualRecoveryRedirect('learning_path', '/individual/profile', null),
-    ).toBeNull();
+    ).toBe('/individual/learning-path');
+    expect(
+      getIndividualRecoveryRedirect('select_jobs_and_skills', '/individual/profile', null),
+    ).toBe('/individual/jobs');
+    expect(getIndividualRecoveryRedirect('search_jobs', '/individual', null)).toBe(
+      '/individual/profile',
+    );
   });
+
+  it.each([
+    {
+      nextStep: 'search_jobs' as const,
+      onboardingStatus: 'needs_jobs' as const,
+      pendingInterrupt: null,
+      expectedPath: '/individual/profile',
+    },
+    {
+      nextStep: 'select_jobs_and_skills' as const,
+      onboardingStatus: 'needs_skill_selection' as const,
+      pendingInterrupt: {
+        kind: 'choose_jobs_and_skills' as const,
+        candidate_jobs: [],
+        skill_bank: [],
+      },
+      expectedPath: '/individual/jobs',
+    },
+    {
+      nextStep: 'learning_path' as const,
+      onboardingStatus: 'ready' as const,
+      pendingInterrupt: null,
+      expectedPath: '/individual/learning-path',
+    },
+  ])(
+    'routes the neutral individual landing from backend next_step=$nextStep',
+    async ({ nextStep, onboardingStatus, pendingInterrupt, expectedPath }) => {
+      vi.mocked(individualLearningApi.getIndividualProfile).mockResolvedValue({
+        ...reviewRecovery,
+        onboarding_status: onboardingStatus,
+        next_step: nextStep,
+        pending_interrupt: pendingInterrupt,
+      });
+
+      renderGate('/individual');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('location')).toHaveTextContent(expectedPath);
+      });
+    },
+  );
 
   it('starts a missing review checkpoint before rendering the profile route', async () => {
     vi.mocked(individualLearningApi.getIndividualProfile).mockResolvedValue({

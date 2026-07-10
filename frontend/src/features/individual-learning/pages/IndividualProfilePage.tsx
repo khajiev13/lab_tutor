@@ -11,7 +11,7 @@ import {
   RefreshCw,
   Trash2,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -231,6 +231,7 @@ function ExtractedProfile({ profile }: { profile: IndividualCvProfileExtraction 
 export default function IndividualProfilePage() {
   const navigate = useNavigate();
   const { assertRequestCurrent, isRequestCurrent } = useAuthRequestGuard();
+  const recoveryAbortRef = useRef<AbortController | null>(null);
   const [graphSession, setGraphSession] = useState(readIndividualGraphSession);
   const [profile, setProfile] = useState<IndividualProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -315,6 +316,13 @@ export default function IndividualProfilePage() {
     };
   }, [assertRequestCurrent, getFieldState, isRequestCurrent, resetForm]);
 
+  useEffect(
+    () => () => {
+      recoveryAbortRef.current?.abort();
+    },
+    [],
+  );
+
   const addSuggestion = (suggestion: string) => {
     const current = cleanTitles(form.getValues('targetTitles'));
     if (titleFields.fields.length >= MAX_TARGET_TITLES || current.includes(suggestion)) {
@@ -323,15 +331,25 @@ export default function IndividualProfilePage() {
     titleFields.append({ value: suggestion });
   };
 
-  const recoverConflict = async () => {
+  const recoverConflict = async (authSession: AuthSessionSnapshot) => {
     const ownerUserId = profile?.user_id ?? graphSession?.ownerUserId;
     if (!ownerUserId) {
       throw new Error('The current individual workflow has no owner.');
     }
-    const recovery = await recoverIndividualWorkflow(ownerUserId);
-    setProfile(recovery.profile);
-    setGraphSession(recovery.session);
-    navigate(getIndividualRecoveryPath(recovery.profile.next_step));
+    recoveryAbortRef.current?.abort();
+    const controller = new AbortController();
+    recoveryAbortRef.current = controller;
+    try {
+      const recovery = await recoverIndividualWorkflow(ownerUserId, controller.signal);
+      assertRequestCurrent(authSession);
+      setProfile(recovery.profile);
+      setGraphSession(recovery.session);
+      navigate(getIndividualRecoveryPath(recovery.profile.next_step));
+    } finally {
+      if (recoveryAbortRef.current === controller) {
+        recoveryAbortRef.current = null;
+      }
+    }
   };
 
   const resumeProfile = async (threadId: string, targetTitles: string[]) => {
@@ -371,11 +389,18 @@ export default function IndividualProfilePage() {
       ) {
         return;
       }
-      if (getErrorStatus(error) === 409) {
+      if (getErrorStatus(error) === 409 && authSession) {
         try {
-          await recoverConflict();
+          await recoverConflict(authSession);
           return;
         } catch (recoveryError) {
+          if (
+            isStaleAuthSessionError(recoveryError) ||
+            !isRequestCurrent(authSession) ||
+            (recoveryError instanceof DOMException && recoveryError.name === 'AbortError')
+          ) {
+            return;
+          }
           console.error(recoveryError);
           setActionError('The workflow changed, but its latest state could not be loaded.');
           return;

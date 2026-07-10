@@ -14,14 +14,6 @@ import {
   captureAuthSession,
 } from '@/features/auth/auth-session';
 
-const INDIVIDUAL_ROUTE_STAGES: Record<string, number> = {
-  '/individual/onboarding': 0,
-  '/individual/profile': 1,
-  '/individual/jobs': 2,
-  '/individual/skills': 3,
-  '/individual/learning-path': 4,
-};
-
 type RecoveryDraft = Pick<IndividualGraphSession, 'selectedPostingUrls'>;
 
 function normalizeIndividualPathname(pathname: string): string {
@@ -57,34 +49,20 @@ export function getIndividualRecoveryRedirect(
   pathname: string,
   session: RecoveryDraft | null,
 ): string | null {
-  if (nextStep === 'learning_path') {
-    return null;
-  }
-
-  const currentStage = INDIVIDUAL_ROUTE_STAGES[normalizeIndividualPathname(pathname)];
-  if (currentStage == null) {
+  const currentPath = normalizeIndividualPathname(pathname);
+  const recoveryPath = getIndividualRecoveryPath(nextStep);
+  if (currentPath === recoveryPath) {
     return null;
   }
 
   if (
-    nextStep === 'upload_cv' ||
-    nextStep === 'wait_for_extraction' ||
-    nextStep === 'retry_cv'
+    nextStep === 'select_jobs_and_skills' &&
+    currentPath === '/individual/skills' &&
+    (session?.selectedPostingUrls.length ?? 0) > 0
   ) {
-    return currentStage === 0 ? null : '/individual/onboarding';
-  }
-
-  if (nextStep === 'review_profile' || nextStep === 'search_jobs') {
-    return currentStage <= 1 ? null : '/individual/profile';
-  }
-
-  if (currentStage <= 2) {
     return null;
   }
-  if (currentStage === 3 && (session?.selectedPostingUrls.length ?? 0) > 0) {
-    return null;
-  }
-  return '/individual/jobs';
+  return recoveryPath;
 }
 
 export type IndividualRecovery = {

@@ -4,6 +4,8 @@ import { Toaster } from '@/components/ui/sonner';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import Login from '@/features/auth/pages/Login';
 import Register from '@/features/auth/pages/Register';
 import Dashboard from '@/features/dashboard/pages/Dashboard';
@@ -28,6 +30,28 @@ import { IndividualRecoveryGate } from '@/features/individual-learning/Individua
 import { getAuthenticatedLandingPath } from '@/features/auth/landing';
 import { lazy, Suspense } from 'react';
 const ArcdAgentShell = lazy(() => import('@/features/arcd-agent/ArcdAgentShell'));
+
+function SessionVerificationPrompt({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => Promise<void>;
+}) {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <Alert className="max-w-xl">
+        <AlertTitle>Session verification paused</AlertTitle>
+        <AlertDescription className="flex flex-col items-start gap-3">
+          <span>{message}</span>
+          <Button type="button" size="sm" onClick={() => void onRetry()}>
+            Retry session
+          </Button>
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
+}
 
 function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -54,7 +78,13 @@ function ProtectedRoute({
   children: React.ReactNode;
   withDashboardLayout?: boolean;
 }) {
-  const { isAuthenticated, isLoading, isServerWakingUp } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    isServerWakingUp,
+    sessionError,
+    retrySession,
+  } = useAuth();
 
   if (isLoading) {
     return (
@@ -67,6 +97,10 @@ function ProtectedRoute({
         )}
       </div>
     );
+  }
+
+  if (sessionError) {
+    return <SessionVerificationPrompt message={sessionError} onRetry={retrySession} />;
   }
 
   if (!isAuthenticated) {
@@ -82,7 +116,14 @@ function ProtectedRoute({
 
 // Public Route component (redirects to home if already authenticated)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isLoading, isServerWakingUp } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    isLoading,
+    isServerWakingUp,
+    sessionError,
+    retrySession,
+  } = useAuth();
 
   if (isLoading) {
     return (
@@ -97,6 +138,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (sessionError) {
+    return <SessionVerificationPrompt message={sessionError} onRetry={retrySession} />;
+  }
+
   if (isAuthenticated) {
     return <Navigate to={getAuthenticatedLandingPath(user)} replace />;
   }
@@ -108,7 +153,7 @@ function RoleAwareHome() {
   const { user } = useAuth();
 
   if (user?.role === 'individual') {
-    return <Navigate to="/individual/profile" replace />;
+    return <Navigate to="/individual" replace />;
   }
 
   return <Dashboard />;
@@ -236,6 +281,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Profile />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/individual"
+        element={
+          <IndividualRoute>
+            <div className="flex min-h-64 items-center justify-center text-sm text-muted-foreground">
+              Opening your individual learning workspace
+            </div>
+          </IndividualRoute>
         }
       />
       <Route

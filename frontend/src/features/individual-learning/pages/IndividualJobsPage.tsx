@@ -233,7 +233,7 @@ export default function IndividualJobsPage() {
       } else if (!isCompletedGraphWorkflow) {
         const addedUrls = nextUrls.filter((url) => !persistedUrls.has(url));
         if (addedUrls.length > 0) {
-          await selectInterestedJobs(addedUrls);
+          await selectInterestedJobs(nextUrls);
           assertRequestCurrent(authSession);
         }
       }
