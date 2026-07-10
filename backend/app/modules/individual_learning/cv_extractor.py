@@ -25,6 +25,7 @@ Extract a factual professional profile from the CV text below.
 Return only information supported by the CV. Keep skill evidence concise and avoid
 inventing dates, employers, qualifications, or target roles. Suggest a short ordered
 list of realistic target job titles. Confidence values must be between 0 and 1.
+Never use -1; use 0 when confidence is unknown.
 
 CV text:
 {cv_text}

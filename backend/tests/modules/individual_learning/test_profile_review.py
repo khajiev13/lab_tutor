@@ -384,7 +384,7 @@ def test_graph_start_requires_completed_document_and_latest_extraction_without_c
                 "approved": True,
                 "target_titles": ["Backend Engineer"],
                 "profile": {
-                    "skills": [{"name": "Python", "confidence": 2.0}],
+                    "skills": [{"name": {"unexpected": "object"}}],
                 },
             },
             "Reviewed profile is invalid",

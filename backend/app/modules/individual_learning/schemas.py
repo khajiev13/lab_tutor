@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import math
 from datetime import datetime
+from numbers import Real
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 OnboardingStatus = Literal[
     "needs_cv",
@@ -23,6 +25,15 @@ IndividualNextStep = Literal[
     "learning_path",
     "retry_cv",
 ]
+
+
+def _normalize_confidence(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        return 0.0
+    confidence = float(value)
+    if not math.isfinite(confidence):
+        return 0.0
+    return min(max(confidence, 0.0), 1.0)
 
 
 class IndividualProfileRead(BaseModel):
@@ -54,6 +65,11 @@ class CVSkillExtraction(BaseModel):
     evidence: str = ""
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
 
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: object) -> float:
+        return _normalize_confidence(value)
+
 
 class CVExperienceExtraction(BaseModel):
     title: str = ""
@@ -76,6 +92,15 @@ class CVProfileExtraction(BaseModel):
     seniority_signals: list[str] = Field(default_factory=list)
     target_title_suggestions: list[str] = Field(default_factory=list)
     confidence_summary: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator("confidence_summary", mode="before")
+    @classmethod
+    def normalize_confidence_summary(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        return {
+            key: _normalize_confidence(confidence) for key, confidence in value.items()
+        }
 
 
 GraphRunStatus = Literal["interrupted", "completed"]

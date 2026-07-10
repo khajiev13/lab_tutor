@@ -3,6 +3,7 @@ import zipfile
 
 import pytest
 from langchain_core.runnables import RunnableLambda
+from pydantic import ValidationError
 from pypdf.errors import PdfReadError
 
 from app.modules.individual_learning.cv_extractor import (
@@ -85,21 +86,24 @@ def test_structured_cv_extractor_uses_cv_profile_schema_and_validates_output() -
         def with_structured_output(self, schema, *, method: str):
             captured["schema"] = schema
             captured["method"] = method
-            return RunnableLambda(
-                lambda _prompt: {
-                    "summary": "Backend engineer",
-                    "skills": [
-                        {
-                            "name": "Python",
-                            "category": "Programming",
-                            "evidence": "Built FastAPI services",
-                            "confidence": 0.95,
-                        }
-                    ],
-                    "target_title_suggestions": ["Backend Engineer"],
-                    "confidence_summary": {"skills": 0.95},
-                }
-            )
+            return RunnableLambda(self._respond)
+
+        @staticmethod
+        def _respond(prompt):
+            captured["prompt"] = prompt.to_string()
+            return {
+                "summary": "Backend engineer",
+                "skills": [
+                    {
+                        "name": "Python",
+                        "category": "Programming",
+                        "evidence": "Built FastAPI services",
+                        "confidence": 0.95,
+                    }
+                ],
+                "target_title_suggestions": ["Backend Engineer"],
+                "confidence_summary": {"skills": 0.95},
+            }
 
     extractor = StructuredCVProfileExtractor(
         llm_factory=lambda: FakeLLM(),
@@ -116,5 +120,80 @@ def test_structured_cv_extractor_uses_cv_profile_schema_and_validates_output() -
     assert result.skills[0].name == "Python"
     assert result.target_title_suggestions == ["Backend Engineer"]
     assert result.confidence_summary == {"skills": 0.95}
+    assert "Never use -1" in captured["prompt"]
+    assert "use 0 when confidence is unknown" in captured["prompt"]
     assert extractor.model_provider == "test-provider"
     assert extractor.model_name == "test-model"
+
+
+def test_structured_cv_extractor_normalizes_provider_confidence_values() -> None:
+    class FakeLLM:
+        def with_structured_output(self, _schema, *, method: str):
+            assert method == "function_calling"
+            return RunnableLambda(
+                lambda _prompt: {
+                    "summary": "Backend engineer",
+                    "skills": [
+                        {"name": "Negative sentinel", "confidence": -1},
+                        {"name": "Too high", "confidence": 1.5},
+                        {"name": "Low confidence", "confidence": 0.2},
+                        {"name": "Unknown confidence", "confidence": "unknown"},
+                    ],
+                    "confidence_summary": {
+                        "negative": -0.3,
+                        "too_high": 2,
+                        "not_a_number": float("nan"),
+                        "positive_infinity": float("inf"),
+                        "negative_infinity": float("-inf"),
+                        "low": 0.1,
+                        "unknown": None,
+                    },
+                }
+            )
+
+    extractor = StructuredCVProfileExtractor(
+        llm_factory=lambda: FakeLLM(),
+        model_provider="test-provider",
+        model_name="test-model",
+    )
+
+    result = extractor.extract("CV text with provider confidence sentinels")
+
+    assert [skill.confidence for skill in result.skills] == [0.0, 1.0, 0.2, 0.0]
+    assert result.confidence_summary == {
+        "negative": 0.0,
+        "too_high": 1.0,
+        "not_a_number": 0.0,
+        "positive_infinity": 0.0,
+        "negative_infinity": 0.0,
+        "low": 0.1,
+        "unknown": 0.0,
+    }
+
+
+@pytest.mark.parametrize(
+    "invalid_output",
+    [
+        {"summary": {"unexpected": "object"}},
+        {
+            "summary": "Backend engineer",
+            "skills": [{"name": {"unexpected": "object"}, "confidence": 0.8}],
+        },
+    ],
+)
+def test_structured_cv_extractor_rejects_invalid_non_confidence_fields(
+    invalid_output: dict[str, object],
+) -> None:
+    class FakeLLM:
+        def with_structured_output(self, _schema, *, method: str):
+            assert method == "function_calling"
+            return RunnableLambda(lambda _prompt: invalid_output)
+
+    extractor = StructuredCVProfileExtractor(
+        llm_factory=lambda: FakeLLM(),
+        model_provider="test-provider",
+        model_name="test-model",
+    )
+
+    with pytest.raises(ValidationError):
+        extractor.extract("CV text with malformed non-confidence fields")
