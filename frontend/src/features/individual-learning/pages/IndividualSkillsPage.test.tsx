@@ -5,6 +5,7 @@ import * as individualLearningApi from '@/features/individual-learning/api';
 import IndividualSkillsPage from './IndividualSkillsPage';
 
 vi.mock('@/features/individual-learning/api', () => ({
+  getIndividualProfile: vi.fn(),
   getIndividualSkillBanks: vi.fn(),
   selectIndividualSkills: vi.fn(),
   deselectIndividualSkills: vi.fn(),
@@ -96,6 +97,7 @@ function renderPage() {
             </>
           }
         />
+        <Route path="/individual/jobs" element={<div>Recovered job selection</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -110,6 +112,7 @@ describe('IndividualSkillsPage', () => {
     vi.mocked(individualLearningApi.deselectIndividualSkills).mockResolvedValue({ deselected: 0 });
     vi.mocked(individualLearningApi.buildIndividualLearningPath).mockResolvedValue({
       status: 'completed',
+      run_id: 'learning-run-4',
     });
     vi.mocked(individualLearningApi.resumeIndividualGraph).mockResolvedValue({
       thread_id: 'individual-7-cv-42',
@@ -200,6 +203,52 @@ describe('IndividualSkillsPage', () => {
     expect(individualLearningApi.buildIndividualLearningPath).toHaveBeenCalled();
   });
 
+  it('restores an interrupted skill draft after the page remounts', async () => {
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({
+        cvDocumentId: 42,
+        extractionRunId: 91,
+        ownerUserId: 7,
+        threadId: 'opaque-selection-thread',
+        nextStep: 'select_jobs_and_skills',
+        graphStatus: 'interrupted',
+        reviewInterrupt: null,
+        jobsInterrupt: {
+          kind: 'choose_jobs_and_skills',
+          candidate_jobs: [skillBanksResponse.market_skill_bank[0]],
+          skill_bank: skillBanksResponse.market_skill_bank[0].skills,
+        },
+        targetTitles: ['Data Analyst'],
+        selectedPostingUrls: ['https://example.test/jobs/data-analyst'],
+        selectedSkillNames: [],
+      }),
+    );
+
+    const firstRender = renderPage();
+
+    await screen.findByText('Data Analyst');
+    fireEvent.click(screen.getByRole('button', { name: /select all market skills/i }));
+
+    await waitFor(() => {
+      expect(
+        JSON.parse(sessionStorage.getItem('individual-learning.graph-session') ?? '{}')
+          .selectedSkillNames,
+      ).toEqual([
+        'Query relational databases using SQL',
+        'Build stakeholder dashboards',
+      ]);
+    });
+
+    firstRender.unmount();
+    renderPage();
+
+    expect(await screen.findByText('2 selected')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /remove query relational databases using sql/i }),
+    ).toBeInTheDocument();
+  });
+
   it('does not resume a graph that already completed before retrying a build', async () => {
     sessionStorage.setItem(
       'individual-learning.graph-session',
@@ -270,5 +319,95 @@ describe('IndividualSkillsPage', () => {
     expect(
       screen.getByRole('button', { name: /remove build stakeholder dashboards/i }),
     ).toBeInTheDocument();
+  });
+
+  it('recovers a 409 resume conflict and never builds with stale skill selections', async () => {
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({
+        cvDocumentId: 42,
+        extractionRunId: 91,
+        ownerUserId: 7,
+        threadId: 'opaque-selection-thread',
+        nextStep: 'select_jobs_and_skills',
+        graphStatus: 'interrupted',
+        reviewInterrupt: null,
+        jobsInterrupt: {
+          kind: 'choose_jobs_and_skills',
+          candidate_jobs: [skillBanksResponse.market_skill_bank[0]],
+          skill_bank: skillBanksResponse.market_skill_bank[0].skills,
+        },
+        targetTitles: ['Data Analyst'],
+        selectedPostingUrls: ['https://example.test/jobs/data-analyst'],
+        selectedSkillNames: [],
+      }),
+    );
+    vi.mocked(individualLearningApi.resumeIndividualGraph).mockRejectedValue({
+      response: { status: 409 },
+    });
+    vi.mocked(individualLearningApi.getIndividualProfile).mockResolvedValue({
+      user_id: 7,
+      onboarding_status: 'needs_skill_selection',
+      target_titles: ['Data Analyst'],
+      cv_document_id: 42,
+      extraction_run_id: 91,
+      active_thread_id: 'opaque-selection-thread',
+      next_step: 'select_jobs_and_skills',
+      extracted_profile: { summary: 'Analytics profile' },
+      pending_interrupt: {
+        kind: 'choose_jobs_and_skills',
+        candidate_jobs: [skillBanksResponse.market_skill_bank[0]],
+        skill_bank: skillBanksResponse.market_skill_bank[0].skills,
+      },
+    });
+
+    renderPage();
+
+    await screen.findByText('Data Analyst');
+    fireEvent.click(screen.getByRole('button', { name: /select all market skills/i }));
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+
+    expect(await screen.findByText('Recovered job selection')).toBeInTheDocument();
+    expect(individualLearningApi.buildIndividualLearningPath).not.toHaveBeenCalled();
+    expect(
+      JSON.parse(sessionStorage.getItem('individual-learning.graph-session') ?? '{}')
+        .selectedSkillNames,
+    ).toEqual([
+      'Query relational databases using SQL',
+      'Build stakeholder dashboards',
+    ]);
+  });
+
+  it('uses durable skill-bank selections for completed recovery without resuming the graph', async () => {
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({
+        cvDocumentId: 42,
+        extractionRunId: 91,
+        ownerUserId: 7,
+        threadId: 'opaque-completed-thread',
+        nextStep: 'learning_path',
+        graphStatus: 'completed',
+        extractedProfile: { summary: 'Analytics profile' },
+        reviewInterrupt: null,
+        jobsInterrupt: null,
+        targetTitles: ['Data Analyst'],
+        selectedPostingUrls: [],
+        selectedSkillNames: [],
+      }),
+    );
+    vi.mocked(individualLearningApi.getIndividualSkillBanks).mockResolvedValue({
+      ...skillBanksResponse,
+      selected_skill_names: ['Query relational databases using SQL'],
+    });
+
+    renderPage();
+
+    expect(
+      await screen.findByRole('button', { name: /remove query relational databases using sql/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /select all market skills/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /build learning path/i })).toBeDisabled();
+    expect(individualLearningApi.resumeIndividualGraph).not.toHaveBeenCalled();
   });
 });

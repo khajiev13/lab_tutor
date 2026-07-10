@@ -2,6 +2,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as individualLearningApi from '@/features/individual-learning/api';
+import {
+  clearIndividualGraphSession,
+  hydrateIndividualGraphSession,
+} from '@/features/individual-learning/graph-session';
 import IndividualJobsPage from './IndividualJobsPage';
 
 vi.mock('@/features/individual-learning/api', () => ({
@@ -24,6 +28,7 @@ function LocationProbe() {
 describe('IndividualJobsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearIndividualGraphSession();
     sessionStorage.clear();
     sessionStorage.setItem(
       'individual-learning.graph-session',
@@ -55,6 +60,14 @@ describe('IndividualJobsPage', () => {
         selectedSkillNames: [],
       }),
     );
+    vi.mocked(individualLearningApi.getIndividualSkillBanks).mockResolvedValue({
+      market_skill_bank: [],
+      selected_skill_names: [],
+      interested_posting_urls: [],
+    });
+    vi.mocked(individualLearningApi.selectInterestedJobs).mockResolvedValue({
+      postings_linked: 1,
+    });
   });
 
   it('renders interrupt job cards and carries interested jobs to skill selection', async () => {
@@ -154,6 +167,111 @@ describe('IndividualJobsPage', () => {
 
     expect(
       await screen.findByRole('checkbox', { name: /mark data analyst as interested/i }),
+    ).toBeDisabled();
+    expect(screen.getByText('Selection complete')).toBeInTheDocument();
+  });
+
+  it('renders recovered choose-interrupt candidates after session storage is lost', async () => {
+    clearIndividualGraphSession();
+    hydrateIndividualGraphSession({
+      user_id: 7,
+      onboarding_status: 'needs_skill_selection',
+      target_titles: ['Data Analyst'],
+      cv_document_id: 42,
+      extraction_run_id: 91,
+      active_thread_id: 'opaque-job-thread',
+      next_step: 'select_jobs_and_skills',
+      extracted_profile: { summary: 'Analytics profile' },
+      pending_interrupt: {
+        kind: 'choose_jobs_and_skills',
+        candidate_jobs: [
+          {
+            url: 'https://example.test/jobs/recovered',
+            title: 'Recovered Data Analyst',
+            company: 'Recovery Co',
+            skills: [{ name: 'SQL', coverage: 'partial' }],
+          },
+        ],
+        skill_bank: [{ name: 'SQL' }],
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <IndividualJobsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Recovered Data Analyst')).toBeInTheDocument();
+    expect(screen.getByText('Recovery Co')).toBeInTheDocument();
+    expect(individualLearningApi.getIndividualSkillBanks).not.toHaveBeenCalled();
+  });
+
+  it('retries a failed durable job-bank load inline', async () => {
+    clearIndividualGraphSession();
+    vi.mocked(individualLearningApi.getIndividualSkillBanks)
+      .mockRejectedValueOnce({ response: { status: 503 } })
+      .mockResolvedValueOnce({
+        market_skill_bank: [
+          {
+            url: 'https://example.test/jobs/retried',
+            title: 'Retried Data Analyst',
+            company: 'Retry Co',
+            is_interested: false,
+            skills: [],
+          },
+        ],
+        selected_skill_names: [],
+        interested_posting_urls: [],
+      });
+
+    render(
+      <MemoryRouter>
+        <IndividualJobsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /retry job matches/i }));
+
+    expect(await screen.findByText('Retried Data Analyst')).toBeInTheDocument();
+    expect(individualLearningApi.getIndividualSkillBanks).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps durable jobs read-only after completed recovery', async () => {
+    clearIndividualGraphSession();
+    hydrateIndividualGraphSession({
+      user_id: 7,
+      onboarding_status: 'ready',
+      target_titles: ['Data Analyst'],
+      cv_document_id: 42,
+      extraction_run_id: 91,
+      active_thread_id: 'opaque-completed-thread',
+      next_step: 'learning_path',
+      extracted_profile: { summary: 'Analytics profile' },
+      pending_interrupt: null,
+    });
+    vi.mocked(individualLearningApi.getIndividualSkillBanks).mockResolvedValue({
+      market_skill_bank: [
+        {
+          url: 'https://example.test/jobs/durable',
+          title: 'Durable Data Analyst',
+          company: 'Durable Co',
+          is_interested: false,
+          skills: [],
+        },
+      ],
+      selected_skill_names: [],
+      interested_posting_urls: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <IndividualJobsPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('checkbox', { name: /mark durable data analyst as interested/i }),
     ).toBeDisabled();
     expect(screen.getByText('Selection complete')).toBeInTheDocument();
   });

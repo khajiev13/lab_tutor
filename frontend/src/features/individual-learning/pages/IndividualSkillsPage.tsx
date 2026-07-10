@@ -36,6 +36,11 @@ import {
   readIndividualGraphSession,
   writeIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
+import {
+  getErrorStatus,
+  getIndividualRecoveryPath,
+  recoverIndividualWorkflow,
+} from '@/features/individual-learning/recovery';
 
 const MAX_SELECTED_SKILLS = 20;
 
@@ -80,10 +85,12 @@ function getUniqueSkillNames(postings: IndividualSkillBankJobPosting[]) {
 function SkillChip({
   skill,
   selected,
+  disabled,
   onToggle,
 }: {
   skill: IndividualSkillBankSkill;
   selected: boolean;
+  disabled?: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -93,6 +100,7 @@ function SkillChip({
       variant={selected ? 'default' : 'outline'}
       className="h-auto min-h-9 rounded-full px-3 py-1.5"
       onClick={onToggle}
+      disabled={disabled}
       aria-label={`${selected ? 'Remove' : 'Select'} ${skill.name}`}
       title={skill.description ?? undefined}
     >
@@ -115,6 +123,7 @@ export default function IndividualSkillsPage() {
   const [graphSession, setGraphSession] = useState(readIndividualGraphSession);
   const graphInterrupt = graphSession?.jobsInterrupt ?? null;
   const isGraphWorkflow = graphInterrupt !== null;
+  const isCompletedRecovery = graphSession?.graphStatus === 'completed' && !graphInterrupt;
   const graphSelectedSkills = new Set(graphSession?.selectedSkillNames ?? []);
   const [postings, setPostings] = useState<IndividualSkillBankJobPosting[]>(() =>
     (graphInterrupt?.candidate_jobs ?? []).map((posting) =>
@@ -184,11 +193,26 @@ export default function IndividualSkillsPage() {
     () => getUniqueSkillNames(interestedPostings),
     [interestedPostings],
   );
+
+  useEffect(() => {
+    if (!isGraphWorkflow || graphSession?.graphStatus !== 'interrupted') {
+      return;
+    }
+
+    writeIndividualGraphSession({
+      ...graphSession,
+      selectedSkillNames: availableSkillNames.filter((name) => selectedSkills.has(name)),
+    });
+  }, [availableSkillNames, graphSession, isGraphWorkflow, selectedSkills]);
+
   const allSkillsSelected =
     availableSkillNames.length > 0 &&
     availableSkillNames.every((skillName) => selectedSkills.has(skillName));
 
   const toggleSkill = (skillName: string) => {
+    if (isCompletedRecovery) {
+      return;
+    }
     setSelectedSkills((current) => {
       const next = new Set(current);
       if (next.has(skillName)) {
@@ -201,6 +225,9 @@ export default function IndividualSkillsPage() {
   };
 
   const togglePostingSkills = (posting: IndividualSkillBankJobPosting) => {
+    if (isCompletedRecovery) {
+      return;
+    }
     const postingSkillNames = posting.skills.map((skill) => skill.name);
     const everySelected = postingSkillNames.every((name) => selectedSkills.has(name));
     setSelectedSkills((current) => {
@@ -217,6 +244,9 @@ export default function IndividualSkillsPage() {
   };
 
   const toggleAllSkills = () => {
+    if (isCompletedRecovery) {
+      return;
+    }
     setSelectedSkills((current) => {
       const next = new Set(current);
       availableSkillNames.forEach((name) => {
@@ -231,6 +261,9 @@ export default function IndividualSkillsPage() {
   };
 
   const handleBuild = async () => {
+    if (isCompletedRecovery) {
+      return;
+    }
     if (selectedSkills.size === 0 || selectedSkills.size > MAX_SELECTED_SKILLS) {
       toast.error(`Select between 1 and ${MAX_SELECTED_SKILLS} market skills before building.`);
       return;
@@ -291,6 +324,18 @@ export default function IndividualSkillsPage() {
       });
       navigate('/individual/learning-path');
     } catch (buildError) {
+      if (getErrorStatus(buildError) === 409 && graphSession) {
+        try {
+          const recovery = await recoverIndividualWorkflow(graphSession.ownerUserId);
+          setGraphSession(recovery.session);
+          navigate(getIndividualRecoveryPath(recovery.profile.next_step));
+          return;
+        } catch (recoveryError) {
+          console.error(recoveryError);
+          toast.error('Workflow changed and could not be recovered.');
+          return;
+        }
+      }
       console.error(buildError);
       toast.error('Learning path build failed.');
     } finally {
@@ -321,7 +366,7 @@ export default function IndividualSkillsPage() {
               type="button"
               variant="outline"
               onClick={toggleAllSkills}
-              disabled={isLoading || availableSkillNames.length === 0}
+              disabled={isCompletedRecovery || isLoading || availableSkillNames.length === 0}
             >
               <CheckCircle2 className="size-4" />
               {allSkillsSelected ? 'Clear all market skills' : 'Select all market skills'}
@@ -331,6 +376,7 @@ export default function IndividualSkillsPage() {
               disabled={
                 isLoading ||
                 isBuilding ||
+                isCompletedRecovery ||
                 selectedSkills.size === 0 ||
                 selectedSkills.size > MAX_SELECTED_SKILLS
               }
@@ -411,7 +457,7 @@ export default function IndividualSkillsPage() {
                         size="sm"
                         variant={everyPostingSkillSelected ? 'default' : 'outline'}
                         onClick={() => togglePostingSkills(posting)}
-                        disabled={posting.skills.length === 0}
+                        disabled={isCompletedRecovery || posting.skills.length === 0}
                         aria-label={`${
                           everyPostingSkillSelected ? 'Clear' : 'Select all'
                         } skills for ${posting.title}`}
@@ -440,6 +486,7 @@ export default function IndividualSkillsPage() {
                               key={`${posting.url}-${skill.name}`}
                               skill={skill}
                               selected={selectedSkills.has(skill.name)}
+                              disabled={isCompletedRecovery}
                               onToggle={() => toggleSkill(skill.name)}
                             />
                           ))}

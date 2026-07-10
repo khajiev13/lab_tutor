@@ -59,6 +59,12 @@ describe('IndividualOnboardingPage', () => {
       user_id: 7,
       onboarding_status: 'needs_cv',
       target_titles: [],
+      cv_document_id: null,
+      extraction_run_id: null,
+      active_thread_id: null,
+      next_step: 'upload_cv',
+      extracted_profile: null,
+      pending_interrupt: null,
     });
     vi.mocked(individualLearningApi.uploadCv).mockResolvedValue({
       id: 42,
@@ -110,5 +116,34 @@ describe('IndividualOnboardingPage', () => {
     expect(storedSession).toContain('individual-7-cv-42');
     expect(storedSession).not.toContain('candidate-cv.pdf');
     expect(JSON.parse(storedSession ?? '{}')).toMatchObject({ ownerUserId: 7 });
+  });
+
+  it('retries onboarding-status network failures inline without resetting the form', async () => {
+    vi.mocked(individualLearningApi.getIndividualProfile)
+      .mockRejectedValueOnce({ response: { status: 503 } })
+      .mockResolvedValueOnce({
+        user_id: 7,
+        onboarding_status: 'needs_cv',
+        target_titles: [],
+        cv_document_id: null,
+        extraction_run_id: null,
+        active_thread_id: null,
+        next_step: 'upload_cv',
+        extracted_profile: null,
+        pending_interrupt: null,
+      });
+
+    renderPage();
+
+    const input = screen.getByLabelText(/cv file/i);
+    const file = new File(['cv'], 'candidate-cv.pdf', { type: 'application/pdf' });
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(await screen.findByRole('button', { name: /retry status/i }));
+
+    await waitFor(() => {
+      expect(individualLearningApi.getIndividualProfile).toHaveBeenCalledTimes(2);
+    });
+    expect((screen.getByLabelText(/cv file/i) as HTMLInputElement).files?.[0]).toBe(file);
+    expect(await screen.findByText('needs cv')).toBeInTheDocument();
   });
 });

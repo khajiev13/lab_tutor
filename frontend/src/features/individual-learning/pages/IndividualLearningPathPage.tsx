@@ -1,8 +1,9 @@
-import { BookOpen, CircleHelp, Clock3, ExternalLink, PlayCircle } from 'lucide-react';
+import { BookOpen, CircleHelp, Clock3, ExternalLink, PlayCircle, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Empty,
@@ -65,6 +66,7 @@ function ResourceLinks({
 export default function IndividualLearningPathPage() {
   const [path, setPath] = useState<IndividualLearningPathResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,7 +102,13 @@ export default function IndividualLearningPathPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
+
+  const retryLearningPath = () => {
+    setError(null);
+    setIsLoading(true);
+    setLoadAttempt((attempt) => attempt + 1);
+  };
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -117,7 +125,13 @@ export default function IndividualLearningPathPage() {
         <Alert variant="destructive">
           <BookOpen className="size-4" />
           <AlertTitle>Learning path unavailable</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex flex-col items-start gap-3">
+            <span>{error}</span>
+            <Button type="button" size="sm" variant="outline" onClick={retryLearningPath}>
+              <RefreshCw className="size-4" />
+              Retry learning path
+            </Button>
+          </AlertDescription>
         </Alert>
       ) : !path || path.selected_skills.length === 0 ? (
         <Empty>

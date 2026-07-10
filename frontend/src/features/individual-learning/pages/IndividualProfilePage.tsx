@@ -2,11 +2,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowDown,
   ArrowUp,
+  AlertTriangle,
   BriefcaseBusiness,
   CheckCircle2,
   FileText,
   Loader2,
   Plus,
+  RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -34,9 +36,16 @@ import {
   type IndividualProfile,
 } from '@/features/individual-learning/api';
 import {
+  hydrateIndividualGraphSession,
   persistIndividualGraphResponse,
   readIndividualGraphSession,
+  writeIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
+import {
+  getErrorStatus,
+  getIndividualRecoveryPath,
+  recoverIndividualWorkflow,
+} from '@/features/individual-learning/recovery';
 
 const MAX_TARGET_TITLES = 10;
 
@@ -63,6 +72,16 @@ function getInitialTitles(
 ): TargetTitlesFormValues['targetTitles'] {
   const titles = savedTitles.length > 0 ? savedTitles : suggestions;
   return (titles.length > 0 ? titles : ['']).map((value) => ({ value }));
+}
+
+function hasLowConfidence(profile: IndividualCvProfileExtraction) {
+  const skillConfidenceIsLow = (profile.skills ?? []).some(
+    (skill) => skill.confidence != null && skill.confidence < 0.6,
+  );
+  const summaryConfidenceIsLow = Object.values(profile.confidence_summary ?? {}).some(
+    (confidence) => confidence < 0.6,
+  );
+  return skillConfidenceIsLow || summaryConfidenceIsLow;
 }
 
 function ProfileList({
@@ -198,19 +217,27 @@ function ExtractedProfile({ profile }: { profile: IndividualCvProfileExtraction 
 
 export default function IndividualProfilePage() {
   const navigate = useNavigate();
-  const [graphSession] = useState(readIndividualGraphSession);
+  const [graphSession, setGraphSession] = useState(readIndividualGraphSession);
   const [profile, setProfile] = useState<IndividualProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isRetryingJobs, setIsRetryingJobs] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const reviewInterrupt = graphSession?.reviewInterrupt ?? null;
   const hasAdvancedToJobs = graphSession?.jobsInterrupt != null;
+  const nextStep = profile?.next_step ?? graphSession?.nextStep;
+  const needsJobSearchRetry = nextStep === 'search_jobs';
+  const hasCompletedWorkflow = nextStep === 'learning_path' || graphSession?.graphStatus === 'completed';
+  const extractedProfile =
+    reviewInterrupt?.profile ?? graphSession?.extractedProfile ?? profile?.extracted_profile ?? null;
   const suggestions = useMemo(() => {
     const values = [
       ...(reviewInterrupt?.target_title_suggestions ?? []),
       ...(reviewInterrupt?.profile.target_title_suggestions ?? []),
+      ...(extractedProfile?.target_title_suggestions ?? []),
     ];
     return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
-  }, [reviewInterrupt]);
+  }, [extractedProfile, reviewInterrupt]);
 
   const form = useForm<TargetTitlesFormValues>({
     resolver: zodResolver(targetTitlesSchema),
@@ -218,6 +245,7 @@ export default function IndividualProfilePage() {
       targetTitles: getInitialTitles(graphSession?.targetTitles ?? [], suggestions),
     },
   });
+  const { getFieldState, reset: resetForm } = form;
   const titleFields = useFieldArray({ control: form.control, name: 'targetTitles' });
 
   useEffect(() => {
@@ -229,11 +257,22 @@ export default function IndividualProfilePage() {
         if (!active) {
           return;
         }
+        const recoveredSession = hydrateIndividualGraphSession(data);
         setProfile(data);
+        setGraphSession(recoveredSession);
         setProfileError(null);
 
-        if (!reviewInterrupt && data.target_titles.length > 0) {
-          form.reset({ targetTitles: getInitialTitles(data.target_titles, []) });
+        if (!getFieldState('targetTitles').isDirty) {
+          const recoveredSuggestions =
+            data.pending_interrupt?.kind === 'review_profile_and_roles'
+              ? data.pending_interrupt.target_title_suggestions
+              : data.extracted_profile?.target_title_suggestions ?? [];
+          resetForm({
+            targetTitles: getInitialTitles(
+              recoveredSession?.targetTitles ?? data.target_titles,
+              recoveredSuggestions,
+            ),
+          });
         }
       } catch (error) {
         console.error(error);
@@ -251,7 +290,7 @@ export default function IndividualProfilePage() {
     return () => {
       active = false;
     };
-  }, [form, reviewInterrupt]);
+  }, [getFieldState, resetForm]);
 
   const addSuggestion = (suggestion: string) => {
     const current = cleanTitles(form.getValues('targetTitles'));
@@ -261,20 +300,27 @@ export default function IndividualProfilePage() {
     titleFields.append({ value: suggestion });
   };
 
-  const onSubmit = form.handleSubmit(async ({ targetTitles }) => {
-    if (!graphSession) {
-      toast.error('Upload a CV again to start a resumable review.');
-      return;
+  const recoverConflict = async () => {
+    const ownerUserId = profile?.user_id ?? graphSession?.ownerUserId;
+    if (!ownerUserId) {
+      throw new Error('The current individual workflow has no owner.');
     }
+    const recovery = await recoverIndividualWorkflow(ownerUserId);
+    setProfile(recovery.profile);
+    setGraphSession(recovery.session);
+    navigate(getIndividualRecoveryPath(recovery.profile.next_step));
+  };
 
-    const editedTitles = cleanTitles(targetTitles);
+  const resumeProfile = async (threadId: string, targetTitles: string[]) => {
+    setActionError(null);
     try {
-      const response = await resumeIndividualGraph(graphSession.threadId, {
+      const response = await resumeIndividualGraph(threadId, {
         approved: true,
-        target_titles: editedTitles,
+        target_titles: targetTitles,
       });
-      const { stored } = persistIndividualGraphResponse(response);
-      if (!stored) {
+      const persisted = persistIndividualGraphResponse(response);
+      setGraphSession(persisted.session);
+      if (!persisted.stored) {
         toast.warning('Job review state is available for this page session only.', {
           description: 'Avoid reloading until you finish job and skill selection.',
         });
@@ -284,10 +330,44 @@ export default function IndividualProfilePage() {
       });
       navigate('/individual/jobs');
     } catch (error) {
+      if (getErrorStatus(error) === 409) {
+        try {
+          await recoverConflict();
+          return;
+        } catch (recoveryError) {
+          console.error(recoveryError);
+          setActionError('The workflow changed, but its latest state could not be loaded.');
+          return;
+        }
+      }
       console.error(error);
+      setActionError('Job search did not complete. Your target titles are still available.');
       toast.error('Could not approve your profile.');
     }
+  };
+
+  const onSubmit = form.handleSubmit(async ({ targetTitles }) => {
+    if (!graphSession?.reviewInterrupt) {
+      toast.error('Upload a CV again to start a resumable review.');
+      return;
+    }
+
+    const editedTitles = cleanTitles(targetTitles);
+    const draftSession = { ...graphSession, targetTitles: editedTitles };
+    writeIndividualGraphSession(draftSession);
+    setGraphSession(draftSession);
+    await resumeProfile(graphSession.threadId, editedTitles);
   });
+
+  const retryJobSearch = async () => {
+    if (!profile?.active_thread_id || profile.target_titles.length === 0) {
+      setActionError('The durable job-search state is incomplete. Refresh recovery and try again.');
+      return;
+    }
+    setIsRetryingJobs(true);
+    await resumeProfile(profile.active_thread_id, profile.target_titles);
+    setIsRetryingJobs(false);
+  };
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -306,7 +386,17 @@ export default function IndividualProfilePage() {
         </Alert>
       ) : null}
 
-      {!reviewInterrupt ? (
+      {extractedProfile && hasLowConfidence(extractedProfile) ? (
+        <Alert>
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Low-confidence extraction</AlertTitle>
+          <AlertDescription>
+            Some extracted details have low confidence. Review the CV evidence carefully before continuing.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {!extractedProfile ? (
         <Alert>
           <FileText className="size-4" />
           <AlertTitle>No active CV review</AlertTitle>
@@ -325,9 +415,9 @@ export default function IndividualProfilePage() {
         </Alert>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
-          <ExtractedProfile profile={reviewInterrupt.profile} />
+          <ExtractedProfile profile={extractedProfile} />
 
-          {hasAdvancedToJobs ? (
+          {hasAdvancedToJobs || hasCompletedWorkflow ? (
             <Card className="h-fit xl:sticky xl:top-6">
               <CardHeader>
                 <CardTitle>Profile review complete</CardTitle>
@@ -337,7 +427,7 @@ export default function IndividualProfilePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  {graphSession.targetTitles.map((title) => (
+                  {(profile?.target_titles ?? graphSession?.targetTitles ?? []).map((title) => (
                     <Badge key={title} variant="outline">
                       {title}
                     </Badge>
@@ -351,6 +441,33 @@ export default function IndividualProfilePage() {
                 </Button>
               </CardContent>
             </Card>
+          ) : needsJobSearchRetry ? (
+            <Card className="h-fit xl:sticky xl:top-6">
+              <CardHeader>
+                <CardTitle>Retry job search</CardTitle>
+                <CardDescription>
+                  Your reviewed profile and target titles are saved. Retry the failed provider step without re-approving the CV.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {(profile?.target_titles ?? []).map((title) => (
+                    <Badge key={title} variant="outline">{title}</Badge>
+                  ))}
+                </div>
+                {actionError ? (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="size-4" />
+                    <AlertTitle>Job search unavailable</AlertTitle>
+                    <AlertDescription>{actionError}</AlertDescription>
+                  </Alert>
+                ) : null}
+                <Button type="button" className="w-full" onClick={retryJobSearch} disabled={isRetryingJobs}>
+                  {isRetryingJobs ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                  Retry job search
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <Card className="h-fit xl:sticky xl:top-6">
               <CardHeader>
@@ -360,6 +477,13 @@ export default function IndividualProfilePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
+                {actionError ? (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="size-4" />
+                    <AlertTitle>Job search unavailable</AlertTitle>
+                    <AlertDescription>{actionError}</AlertDescription>
+                  </Alert>
+                ) : null}
                 {suggestions.length > 0 ? (
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Suggestions from your CV</div>

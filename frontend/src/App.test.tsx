@@ -85,6 +85,11 @@ vi.mock('@/features/individual-learning/pages/IndividualSkillsPage', () => ({
 vi.mock('@/features/individual-learning/pages/IndividualLearningPathPage', () => ({
   default: () => <div>Individual Learning Path</div>,
 }));
+vi.mock('@/features/individual-learning/IndividualRecoveryGate', () => ({
+  IndividualRecoveryGate: ({ children }: { children: ReactNode }) => (
+    <div data-testid="individual-recovery-gate">{children}</div>
+  ),
+}));
 
 import App from './App';
 
@@ -136,6 +141,7 @@ describe('App routing', () => {
     renderAppAt(pathname);
 
     expect(screen.getByText(content)).toBeInTheDocument();
+    expect(screen.getByTestId('individual-recovery-gate')).toBeInTheDocument();
     expect(screen.getByText('Mock Sidebar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeInTheDocument();
   });

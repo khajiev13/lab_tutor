@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  type IndividualNextStep,
   type IndividualGraphJobsInterrupt,
   type IndividualGraphResponse,
   type IndividualGraphReviewInterrupt,
@@ -9,40 +10,43 @@ export const INDIVIDUAL_GRAPH_SESSION_KEY = 'individual-learning.graph-session';
 
 const optionalText = z.string().nullable().optional();
 
+const cvProfileSchema = z.object({
+  summary: optionalText,
+  skills: z
+    .array(
+      z.object({
+        name: z.string(),
+        category: optionalText,
+        evidence: optionalText,
+        confidence: z.number().nullable().optional(),
+      }),
+    )
+    .optional(),
+  experience: z
+    .array(
+      z.object({
+        title: optionalText,
+        organization: optionalText,
+        start_date: optionalText,
+        end_date: optionalText,
+        summary: optionalText,
+      }),
+    )
+    .optional(),
+  projects: z.array(z.string()).optional(),
+  education: z.array(z.string()).optional(),
+  certifications: z.array(z.string()).optional(),
+  tools: z.array(z.string()).optional(),
+  languages: z.array(z.string()).optional(),
+  industries: z.array(z.string()).optional(),
+  seniority_signals: z.array(z.string()).optional(),
+  target_title_suggestions: z.array(z.string()).optional(),
+  confidence_summary: z.record(z.string(), z.number()).optional(),
+});
+
 const reviewInterruptSchema = z.object({
   kind: z.literal('review_profile_and_roles'),
-  profile: z.object({
-    summary: optionalText,
-    skills: z
-      .array(
-        z.object({
-          name: z.string(),
-          category: optionalText,
-          evidence: optionalText,
-          confidence: z.number().nullable().optional(),
-        }),
-      )
-      .optional(),
-    experience: z
-      .array(
-        z.object({
-          title: optionalText,
-          organization: optionalText,
-          start_date: optionalText,
-          end_date: optionalText,
-          summary: optionalText,
-        }),
-      )
-      .optional(),
-    projects: z.array(z.string()).optional(),
-    education: z.array(z.string()).optional(),
-    certifications: z.array(z.string()).optional(),
-    tools: z.array(z.string()).optional(),
-    languages: z.array(z.string()).optional(),
-    industries: z.array(z.string()).optional(),
-    seniority_signals: z.array(z.string()).optional(),
-    target_title_suggestions: z.array(z.string()).optional(),
-  }),
+  profile: cvProfileSchema,
   target_title_suggestions: z.array(z.string()),
 });
 
@@ -72,16 +76,51 @@ const jobsInterruptSchema = z.object({
   skill_bank: z.array(graphSkillSchema),
 });
 
+const nextStepSchema = z.enum([
+  'upload_cv',
+  'wait_for_extraction',
+  'review_profile',
+  'search_jobs',
+  'select_jobs_and_skills',
+  'learning_path',
+  'retry_cv',
+]);
+
 const individualGraphSessionSchema = z.object({
   cvDocumentId: z.number().int().positive().optional(),
+  extractionRunId: z.number().int().positive().optional(),
   ownerUserId: z.number().int().positive(),
   threadId: z.string().min(1),
+  nextStep: nextStepSchema.optional(),
   graphStatus: z.enum(['interrupted', 'completed']).default('interrupted'),
+  extractedProfile: cvProfileSchema.nullable().optional(),
   reviewInterrupt: reviewInterruptSchema.nullable().optional(),
   jobsInterrupt: jobsInterruptSchema.nullable().optional(),
   targetTitles: z.array(z.string()),
   selectedPostingUrls: z.array(z.string()),
   selectedSkillNames: z.array(z.string()),
+});
+
+const recoveryProfileSchema = z.object({
+  user_id: z.number().int().positive(),
+  onboarding_status: z.enum([
+    'needs_cv',
+    'extracting',
+    'needs_profile_review',
+    'needs_jobs',
+    'needs_skill_selection',
+    'ready',
+    'error',
+  ]),
+  target_titles: z.array(z.string()),
+  cv_document_id: z.number().int().positive().nullable(),
+  extraction_run_id: z.number().int().positive().nullable(),
+  active_thread_id: z.string().min(1).nullable(),
+  next_step: nextStepSchema,
+  extracted_profile: cvProfileSchema.nullable(),
+  pending_interrupt: z
+    .discriminatedUnion('kind', [reviewInterruptSchema, jobsInterruptSchema])
+    .nullable(),
 });
 
 export type IndividualGraphSession = z.infer<typeof individualGraphSessionSchema>;
@@ -186,9 +225,77 @@ export function clearIndividualGraphSessionForOtherUser(userId: number): void {
   }
 }
 
+function recoveryPhaseIsConsistent(
+  nextStep: IndividualNextStep,
+  interrupt: IndividualGraphReviewInterrupt | IndividualGraphJobsInterrupt | null,
+) {
+  if (nextStep === 'review_profile') {
+    return !interrupt || interrupt.kind === 'review_profile_and_roles';
+  }
+  if (nextStep === 'select_jobs_and_skills') {
+    return interrupt?.kind === 'choose_jobs_and_skills';
+  }
+  return interrupt === null;
+}
+
+export function hydrateIndividualGraphSession(recovery: unknown): IndividualGraphSession | null {
+  const result = recoveryProfileSchema.safeParse(recovery);
+  if (!result.success) {
+    clearIndividualGraphSession();
+    return null;
+  }
+
+  const profile = result.data;
+  if (
+    !recoveryPhaseIsConsistent(profile.next_step, profile.pending_interrupt) ||
+    profile.next_step === 'upload_cv' ||
+    profile.next_step === 'wait_for_extraction' ||
+    profile.next_step === 'retry_cv' ||
+    !profile.cv_document_id ||
+    !profile.extraction_run_id ||
+    !profile.active_thread_id
+  ) {
+    clearIndividualGraphSession();
+    return null;
+  }
+
+  const current = readIndividualGraphSession();
+  const sameAttempt =
+    current?.ownerUserId === profile.user_id &&
+    current.threadId === profile.active_thread_id &&
+    current.extractionRunId === profile.extraction_run_id;
+  const isCompleted = profile.next_step === 'learning_path';
+  const preserveDrafts = sameAttempt && !isCompleted;
+  const interrupt = profile.pending_interrupt;
+  const session: IndividualGraphSession = {
+    cvDocumentId: profile.cv_document_id,
+    extractionRunId: profile.extraction_run_id,
+    ownerUserId: profile.user_id,
+    threadId: profile.active_thread_id,
+    nextStep: profile.next_step,
+    graphStatus: isCompleted ? 'completed' : 'interrupted',
+    extractedProfile: profile.extracted_profile,
+    reviewInterrupt:
+      interrupt?.kind === 'review_profile_and_roles' ? interrupt : null,
+    jobsInterrupt: interrupt?.kind === 'choose_jobs_and_skills' ? interrupt : null,
+    targetTitles: preserveDrafts ? current.targetTitles : profile.target_titles,
+    selectedPostingUrls: preserveDrafts ? current.selectedPostingUrls : [],
+    selectedSkillNames: preserveDrafts ? current.selectedSkillNames : [],
+  };
+
+  writeIndividualGraphSession(session);
+  return session;
+}
+
 export function persistIndividualGraphResponse(
   response: IndividualGraphResponse,
-  options: { cvDocumentId?: number; ownerUserId?: number; replace?: boolean } = {},
+  options: {
+    cvDocumentId?: number;
+    extractionRunId?: number;
+    ownerUserId?: number;
+    nextStep?: IndividualNextStep;
+    replace?: boolean;
+  } = {},
 ): PersistIndividualGraphResponseResult {
   const current = options.replace ? null : readIndividualGraphSession();
   const ownerUserId = options.ownerUserId ?? current?.ownerUserId;
@@ -207,9 +314,23 @@ export function persistIndividualGraphResponse(
 
   const next: IndividualGraphSession = {
     cvDocumentId: options.cvDocumentId ?? current?.cvDocumentId,
+    extractionRunId: options.extractionRunId ?? current?.extractionRunId,
     ownerUserId,
     threadId: response.thread_id,
+    nextStep:
+      options.nextStep ??
+      (response.status === 'completed'
+        ? 'learning_path'
+        : interrupt?.kind === 'review_profile_and_roles'
+          ? 'review_profile'
+          : interrupt?.kind === 'choose_jobs_and_skills'
+            ? 'select_jobs_and_skills'
+            : current?.nextStep),
     graphStatus: response.status,
+    extractedProfile:
+      interrupt?.kind === 'review_profile_and_roles'
+        ? (interrupt as IndividualGraphReviewInterrupt).profile
+        : current?.extractedProfile ?? null,
     reviewInterrupt,
     jobsInterrupt,
     targetTitles: response.target_titles,

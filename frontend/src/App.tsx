@@ -24,6 +24,7 @@ import IndividualProfilePage from '@/features/individual-learning/pages/Individu
 import IndividualJobsPage from '@/features/individual-learning/pages/IndividualJobsPage';
 import IndividualSkillsPage from '@/features/individual-learning/pages/IndividualSkillsPage';
 import IndividualLearningPathPage from '@/features/individual-learning/pages/IndividualLearningPathPage';
+import { IndividualRecoveryGate } from '@/features/individual-learning/IndividualRecoveryGate';
 import { lazy, Suspense } from 'react';
 const ArcdAgentShell = lazy(() => import('@/features/arcd-agent/ArcdAgentShell'));
 
@@ -100,6 +101,14 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+function IndividualRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <IndividualRecoveryGate>{children}</IndividualRecoveryGate>
+    </ProtectedRoute>
+  );
 }
 
 function AppRoutes() {
@@ -221,41 +230,41 @@ function AppRoutes() {
       <Route
         path="/individual/onboarding"
         element={
-          <ProtectedRoute>
+          <IndividualRoute>
             <IndividualOnboardingPage />
-          </ProtectedRoute>
+          </IndividualRoute>
         }
       />
       <Route
         path="/individual/profile"
         element={
-          <ProtectedRoute>
+          <IndividualRoute>
             <IndividualProfilePage />
-          </ProtectedRoute>
+          </IndividualRoute>
         }
       />
       <Route
         path="/individual/jobs"
         element={
-          <ProtectedRoute>
+          <IndividualRoute>
             <IndividualJobsPage />
-          </ProtectedRoute>
+          </IndividualRoute>
         }
       />
       <Route
         path="/individual/skills"
         element={
-          <ProtectedRoute>
+          <IndividualRoute>
             <IndividualSkillsPage />
-          </ProtectedRoute>
+          </IndividualRoute>
         }
       />
       <Route
         path="/individual/learning-path"
         element={
-          <ProtectedRoute>
+          <IndividualRoute>
             <IndividualLearningPathPage />
-          </ProtectedRoute>
+          </IndividualRoute>
         }
       />
       {/* ARCD Agent — nested sub-routes under each course */}

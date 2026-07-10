@@ -1,4 +1,4 @@
-import { ArrowRight, BriefcaseBusiness, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowRight, BriefcaseBusiness, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -94,7 +94,7 @@ export default function IndividualJobsPage() {
   const graphInterrupt = graphSession?.jobsInterrupt ?? null;
   const isGraphWorkflow = graphInterrupt !== null;
   const isGraphSelectionActive = isGraphWorkflow && graphSession?.graphStatus === 'interrupted';
-  const isCompletedGraphWorkflow = isGraphWorkflow && graphSession?.graphStatus === 'completed';
+  const isCompletedGraphWorkflow = graphSession?.graphStatus === 'completed';
   const initialSelectedUrls = new Set(graphSession?.selectedPostingUrls ?? []);
   const [jobs, setJobs] = useState<IndividualSkillBankJobPosting[]>(() =>
     (graphInterrupt?.candidate_jobs ?? []).map((posting) =>
@@ -104,6 +104,7 @@ export default function IndividualJobsPage() {
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(initialSelectedUrls);
   const [persistedUrls, setPersistedUrls] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(!isGraphWorkflow);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -145,7 +146,13 @@ export default function IndividualJobsPage() {
     return () => {
       active = false;
     };
-  }, [isGraphWorkflow]);
+  }, [isGraphWorkflow, loadAttempt]);
+
+  const retryLoadJobs = () => {
+    setError(null);
+    setIsLoading(true);
+    setLoadAttempt((attempt) => attempt + 1);
+  };
 
   useEffect(() => {
     if (!isGraphSelectionActive || !graphSession) {
@@ -248,7 +255,13 @@ export default function IndividualJobsPage() {
             <Alert variant="destructive">
               <BriefcaseBusiness className="size-4" />
               <AlertTitle>Jobs unavailable</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="flex flex-col items-start gap-3">
+                <span>{error}</span>
+                <Button type="button" size="sm" variant="outline" onClick={retryLoadJobs}>
+                  <RefreshCw className="size-4" />
+                  Retry job matches
+                </Button>
+              </AlertDescription>
             </Alert>
           ) : jobs.length === 0 ? (
             <Empty>

@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FileUp, Loader2, Sparkles } from 'lucide-react';
+import { FileUp, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
@@ -41,6 +42,8 @@ export default function IndividualOnboardingPage() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<IndividualProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileLoadAttempt, setProfileLoadAttempt] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [lastUpload, setLastUpload] = useState<{
     id: number;
@@ -60,9 +63,13 @@ export default function IndividualOnboardingPage() {
         const nextProfile = await getIndividualProfile();
         if (active) {
           setProfile(nextProfile);
+          setProfileError(null);
         }
       } catch (error) {
         console.error(error);
+        if (active) {
+          setProfileError('We could not load your current onboarding status.');
+        }
         toast.error('Failed to load your onboarding status.');
       } finally {
         if (active) {
@@ -76,7 +83,13 @@ export default function IndividualOnboardingPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [profileLoadAttempt]);
+
+  const retryProfileStatus = () => {
+    setProfileError(null);
+    setIsLoadingProfile(true);
+    setProfileLoadAttempt((attempt) => attempt + 1);
+  };
 
   const onSubmit = form.handleSubmit(async ({ file }) => {
     setIsUploading(true);
@@ -185,6 +198,19 @@ export default function IndividualOnboardingPage() {
             <CardDescription>Live profile data from `/individual-learning/profile`.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
+            {profileError ? (
+              <Alert variant="destructive">
+                <RefreshCw className="size-4" />
+                <AlertTitle>Status unavailable</AlertTitle>
+                <AlertDescription className="flex flex-col items-start gap-3">
+                  <span>{profileError}</span>
+                  <Button type="button" size="sm" variant="outline" onClick={retryProfileStatus}>
+                    <RefreshCw className="size-4" />
+                    Retry status
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="rounded-md border p-4">
               <div className="text-muted-foreground">Onboarding</div>
               <div className="mt-1 font-medium capitalize">

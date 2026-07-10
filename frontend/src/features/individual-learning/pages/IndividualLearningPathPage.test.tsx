@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as individualLearningApi from '@/features/individual-learning/api';
@@ -77,5 +77,34 @@ describe('IndividualLearningPathPage', () => {
     expect(screen.getByText('Which clause filters grouped rows?')).toBeInTheDocument();
     expect(screen.getByText('Build stakeholder dashboards')).toBeInTheDocument();
     expect(screen.getByText(/content is still being assembled for this skill/i)).toBeInTheDocument();
+  });
+
+  it('retries a failed learning-path load inline', async () => {
+    vi.mocked(individualLearningApi.getIndividualLearningPath)
+      .mockRejectedValueOnce({ response: { status: 502 } })
+      .mockResolvedValueOnce({
+        user_id: 7,
+        total_selected_skills: 1,
+        skills_with_resources: 0,
+        selected_skills: [
+          {
+            name: 'Recovered SQL',
+            readings: [],
+            videos: [],
+            questions: [],
+          },
+        ],
+      });
+
+    render(
+      <MemoryRouter>
+        <IndividualLearningPathPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /retry learning path/i }));
+
+    expect(await screen.findByText('Recovered SQL')).toBeInTheDocument();
+    expect(individualLearningApi.getIndividualLearningPath).toHaveBeenCalledTimes(2);
   });
 });

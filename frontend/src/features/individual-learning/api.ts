@@ -16,7 +16,22 @@ export interface IndividualProfile {
   preferred_country?: string | null;
   preferred_location?: string | null;
   reviewed_at?: string | null;
+  cv_document_id: number | null;
+  extraction_run_id: number | null;
+  active_thread_id: string | null;
+  next_step: IndividualNextStep;
+  extracted_profile: IndividualCvProfileExtraction | null;
+  pending_interrupt: IndividualGraphReviewInterrupt | IndividualGraphJobsInterrupt | null;
 }
+
+export type IndividualNextStep =
+  | 'upload_cv'
+  | 'wait_for_extraction'
+  | 'review_profile'
+  | 'search_jobs'
+  | 'select_jobs_and_skills'
+  | 'learning_path'
+  | 'retry_cv';
 
 export interface IndividualCvSkillExtraction {
   name: string;
@@ -45,6 +60,7 @@ export interface IndividualCvProfileExtraction {
   industries?: string[];
   seniority_signals?: string[];
   target_title_suggestions?: string[];
+  confidence_summary?: Record<string, number>;
 }
 
 export interface IndividualSkillBankSkill {
@@ -228,7 +244,7 @@ export async function deselectIndividualSkills(
 
 export async function buildIndividualLearningPath(
   skillNames: string[],
-): Promise<{ status: string }> {
+): Promise<{ status: string; run_id: string }> {
   const { data } = await api.post(`${BASE}/build`, {
     skill_names: skillNames,
   });
