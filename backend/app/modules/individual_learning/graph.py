@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import wraps
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -103,17 +104,50 @@ def choose_jobs_and_skills(state: IndividualLearningState) -> dict[str, Any]:
     }
 
 
+def _guard_node_ownership(
+    node: Callable[[IndividualLearningState], dict[str, Any]],
+    ownership_guard: Callable[[], None] | None,
+) -> Callable[[IndividualLearningState], dict[str, Any]]:
+    if ownership_guard is None:
+        return node
+
+    @wraps(node)
+    def guarded(state: IndividualLearningState) -> dict[str, Any]:
+        ownership_guard()
+        try:
+            return node(state)
+        finally:
+            # LangGraph checkpoints after a node returns or interrupts. A
+            # fail-closed guard here prevents uncertain work from advancing it.
+            ownership_guard()
+
+    return guarded
+
+
 def build_individual_learning_graph(
     checkpointer=None,
     *,
     job_search_node: Callable[[IndividualLearningState], dict[str, Any]] | None = None,
+    ownership_guard: Callable[[], None] | None = None,
 ):
     if checkpointer is None:
         raise ValueError("checkpointer is required for the individual learning graph")
     builder = StateGraph(IndividualLearningState)
-    builder.add_node("review_profile_and_roles", review_profile_and_roles)
-    builder.add_node("search_jobs", job_search_node or load_candidate_jobs)
-    builder.add_node("choose_jobs_and_skills", choose_jobs_and_skills)
+    builder.add_node(
+        "review_profile_and_roles",
+        _guard_node_ownership(review_profile_and_roles, ownership_guard),
+    )
+    builder.add_node(
+        "search_jobs",
+        _guard_node_ownership(
+            job_search_node or load_candidate_jobs,
+            ownership_guard,
+        ),
+    )
+    builder.add_node(
+        "choose_jobs_and_skills",
+        _guard_node_ownership(choose_jobs_and_skills, ownership_guard),
+    )
     builder.add_edge(START, "review_profile_and_roles")
     builder.add_edge("review_profile_and_roles", "search_jobs")
     builder.add_edge("search_jobs", "choose_jobs_and_skills")

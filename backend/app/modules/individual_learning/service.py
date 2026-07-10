@@ -109,6 +109,7 @@ class _WorkflowLeaseHeartbeat:
         self._operation_token = operation_token
         self._interval_seconds = interval_seconds
         self._stop = Event()
+        self._ownership_uncertain = Event()
         self._thread = Thread(
             target=self._run,
             name="individual-workflow-lease-heartbeat",
@@ -122,6 +123,13 @@ class _WorkflowLeaseHeartbeat:
         self._stop.set()
         self._thread.join(timeout=1)
 
+    def assert_owned(self) -> None:
+        if self._ownership_uncertain.is_set():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Workflow operation ownership is uncertain",
+            )
+
     def _run(self) -> None:
         while not self._stop.wait(self._interval_seconds):
             try:
@@ -133,10 +141,10 @@ class _WorkflowLeaseHeartbeat:
                         now=datetime.now(UTC),
                     )
             except Exception:
-                # A transient database failure does not prove ownership loss.
-                # Keep retrying; the final fenced renewal decides the outcome.
-                continue
+                self._ownership_uncertain.set()
+                return
             if not renewed:
+                self._ownership_uncertain.set()
                 return
 
 
@@ -177,6 +185,7 @@ class IndividualLearningService:
         self._resource_writer = resource_writer
         self._question_writer = question_writer
         self._run_id_factory = run_id_factory or (lambda: str(uuid.uuid4()))
+        self._workflow_lease_heartbeat: _WorkflowLeaseHeartbeat | None = None
 
     def get_profile(self, user_id: int) -> IndividualProfileRead:
         profile = self._repo.get_profile(user_id)
@@ -1016,23 +1025,27 @@ class IndividualLearningService:
                 detail="Workflow operation is already in progress",
             )
 
-        heartbeat = (
-            _WorkflowLeaseHeartbeat(
-                bind=self._db.get_bind(),
-                extraction_run_id=extraction_run_id,
-                user_id=user_id,
-                operation_token=operation_token,
-                interval_seconds=WORKFLOW_LEASE_HEARTBEAT_SECONDS,
-            )
-            if self._db is not None
-            else None
-        )
-        if heartbeat is not None:
-            heartbeat.start()
+        heartbeat: _WorkflowLeaseHeartbeat | None = None
+        heartbeat_started = False
         try:
+            if self._db is not None:
+                heartbeat = _WorkflowLeaseHeartbeat(
+                    bind=self._db.get_bind(),
+                    extraction_run_id=extraction_run_id,
+                    user_id=user_id,
+                    operation_token=operation_token,
+                    interval_seconds=WORKFLOW_LEASE_HEARTBEAT_SECONDS,
+                )
+                self._workflow_lease_heartbeat = heartbeat
+                heartbeat.start()
+                heartbeat_started = True
+                heartbeat.assert_owned()
             yield
-            if heartbeat is not None:
+            self._assert_workflow_owned()
+            if heartbeat_started and heartbeat is not None:
                 heartbeat.stop()
+                heartbeat_started = False
+                heartbeat.assert_owned()
             if not self._repo.renew_workflow_operation(
                 extraction_run_id=extraction_run_id,
                 user_id=user_id,
@@ -1044,13 +1057,19 @@ class IndividualLearningService:
                     detail="Workflow operation was superseded",
                 )
         finally:
-            if heartbeat is not None:
+            if heartbeat_started and heartbeat is not None:
                 heartbeat.stop()
+            self._workflow_lease_heartbeat = None
             self._repo.release_workflow_operation(
                 extraction_run_id=extraction_run_id,
                 user_id=user_id,
                 operation_token=operation_token,
             )
+
+    def _assert_workflow_owned(self) -> None:
+        heartbeat = self._workflow_lease_heartbeat
+        if heartbeat is not None:
+            heartbeat.assert_owned()
 
     def start_individual_graph(
         self, user_id: int, cv_document_id: int
@@ -1100,9 +1119,12 @@ class IndividualLearningService:
             extraction_run_id=extraction.id,
             user_id=user_id,
         ):
+            self._assert_workflow_owned()
             graph = self._get_graph()
             config = self._graph_config(thread_id)
+            self._assert_workflow_owned()
             snapshot = graph.get_state(config)
+            self._assert_workflow_owned()
             snapshot_values = getattr(snapshot, "values", {})
             if (
                 isinstance(snapshot_values, dict)
@@ -1111,6 +1133,7 @@ class IndividualLearningService:
                 return IndividualGraphStartResponse(
                     **self._build_graph_snapshot_response(thread_id, snapshot)
                 )
+            self._assert_workflow_owned()
             result = graph.invoke(
                 {
                     "thread_id": thread_id,
@@ -1125,6 +1148,7 @@ class IndividualLearningService:
                 },
                 config,
             )
+            self._assert_workflow_owned()
             return IndividualGraphStartResponse(
                 **self._build_graph_response(thread_id, result)
             )
@@ -1140,10 +1164,13 @@ class IndividualLearningService:
             extraction_run_id=extraction_run_id,
             user_id=user_id,
         ):
+            self._assert_workflow_owned()
             graph = self._get_graph()
             config = self._graph_config(thread_id)
             resume_payload = dict(payload)
+            self._assert_workflow_owned()
             snapshot = graph.get_state(config)
+            self._assert_workflow_owned()
             resume_stage = self._resolve_resume_stage(snapshot)
             if resume_stage == "review_profile_and_roles":
                 if "approved" not in resume_payload:
@@ -1172,7 +1199,9 @@ class IndividualLearningService:
                     payload=resume_payload,
                     checkpoint_state=dict(snapshot.values),
                 )
+            self._assert_workflow_owned()
             result = graph.invoke(Command(resume=resume_payload), config)
+            self._assert_workflow_owned()
             response_data = self._build_graph_response(thread_id, result)
             return IndividualGraphResumeResponse(**response_data)
 
@@ -1225,14 +1254,17 @@ class IndividualLearningService:
         return build_individual_learning_graph(
             checkpointer=checkpointer,
             job_search_node=self._run_job_search,
+            ownership_guard=self._assert_workflow_owned,
         )
 
     def _run_job_search(self, state: dict[str, Any]) -> dict[str, Any]:
+        self._assert_workflow_owned()
         user_id = int(state["user_id"])
         target_titles = self._clean_target_titles(state.get("target_titles", []))
         profile = self._repo.get_profile(user_id)
         country = (profile.preferred_country if profile is not None else None) or ""
         location = (profile.preferred_location if profile is not None else None) or ""
+        self._assert_workflow_owned()
         search_run = self._repo.get_or_create_job_search_run(
             user_id=user_id,
             workflow_thread_id=str(state["thread_id"]),
@@ -1240,15 +1272,19 @@ class IndividualLearningService:
             country=country,
             location=location,
         )
+        self._assert_workflow_owned()
 
         errors: list[str] = []
         jobs_by_url: dict[str, dict[str, Any]] = {}
         for title in target_titles:
+            self._assert_workflow_owned()
             try:
                 found_jobs = self._job_searcher([title], country, location)
             except Exception:
+                self._assert_workflow_owned()
                 errors.append(f"{title}: job search failed")
                 continue
+            self._assert_workflow_owned()
             for raw_job in found_jobs:
                 job = self._normalize_job(raw_job, search_term=title)
                 if job is not None:
@@ -1269,16 +1305,19 @@ class IndividualLearningService:
             raw_job = entry["raw"]
             job = entry["job"]
             url = job["url"]
+            self._assert_workflow_owned()
             try:
                 extracted = self._market_skill_extractor([raw_job])
                 skills = self._normalize_market_skills(extracted.get(url, []))
                 skill_extraction_status = "completed"
                 skill_extraction_error = None
             except Exception:
+                self._assert_workflow_owned()
                 errors.append(f"{job['title'] or url}: skill extraction failed")
                 skills = []
                 skill_extraction_status = "failed"
                 skill_extraction_error = "Skill extraction is temporarily unavailable"
+            self._assert_workflow_owned()
             skills_by_job_url[url] = skills
 
             coverage = score_market_skill_coverage(
@@ -1350,62 +1389,78 @@ class IndividualLearningService:
             else IndividualRunStatus.COMPLETED.value
         )
         error_message = "; ".join(errors) or None
+        self._assert_workflow_owned()
         self._repo.complete_job_search_run(
             search_run,
             jobs=candidate_jobs,
             status=run_status,
             error_message=error_message,
         )
+        self._assert_workflow_owned()
         match_run = self._repo.get_or_create_job_match_run(
             user_id=user_id,
             job_search_run_id=search_run.id,
             workflow_thread_id=str(state["thread_id"]),
         )
+        self._assert_workflow_owned()
         self._repo.complete_job_match_run(
             match_run,
             scores=scores,
             skill_gaps=skill_gaps,
             status=run_status,
         )
+        self._assert_workflow_owned()
 
         if run_status == IndividualRunStatus.FAILED.value:
+            self._assert_workflow_owned()
             self._repo.upsert_profile_status(
                 user_id=user_id,
                 onboarding_status="needs_jobs",
             )
+            self._assert_workflow_owned()
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=failure_detail or "No usable job postings were found",
             )
 
         driver = self._require_neo4j_driver()
+        self._assert_workflow_owned()
         try:
             with driver.session() as session:
+                self._assert_workflow_owned()
                 upsert_job_postings_and_market_skills(
                     session,
                     jobs=candidate_jobs,
                     skills_by_job_url=skills_by_job_url,
                 )
+                self._assert_workflow_owned()
+        except HTTPException:
+            raise
         except Exception as exc:
+            self._assert_workflow_owned()
             projection_error = (
                 f"Graph projection: {str(exc)[:200] or type(exc).__name__}"
             )
             combined_error = "; ".join(filter(None, [error_message, projection_error]))
+            self._assert_workflow_owned()
             self._repo.complete_job_search_run(
                 search_run,
                 jobs=candidate_jobs,
                 status=IndividualRunStatus.PARTIAL.value,
                 error_message=combined_error,
             )
+            self._assert_workflow_owned()
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Job results could not be projected to the knowledge graph",
             ) from exc
 
+        self._assert_workflow_owned()
         self._repo.upsert_profile_status(
             user_id=user_id,
             onboarding_status="needs_skill_selection",
         )
+        self._assert_workflow_owned()
         return {
             "candidate_jobs": candidate_jobs,
             "skill_bank": self._derive_skill_bank(candidate_jobs),
@@ -1487,6 +1542,7 @@ class IndividualLearningService:
         payload: dict[str, Any],
         checkpoint_profile: dict[str, Any],
     ) -> dict[str, Any]:
+        self._assert_workflow_owned()
         if payload.get("approved") is not True:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1524,6 +1580,7 @@ class IndividualLearningService:
         reviewed_profile = reviewed_profile.model_copy(
             update={"skills": self._normalize_cv_skills(reviewed_profile.skills)}
         )
+        self._assert_workflow_owned()
         persisted = self._repo.approve_profile_review(
             user_id=user_id,
             cv_document_id=cv_document_id,
@@ -1531,6 +1588,7 @@ class IndividualLearningService:
             reviewed_profile=reviewed_profile.model_dump(mode="json"),
             target_titles=target_titles,
         )
+        self._assert_workflow_owned()
         if persisted is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -1539,8 +1597,10 @@ class IndividualLearningService:
         _, extraction = persisted
 
         driver = self._require_neo4j_driver()
+        self._assert_workflow_owned()
         try:
             with driver.session() as session:
+                self._assert_workflow_owned()
                 written_count = upsert_cv_skills(
                     session,
                     user_id=user_id,
@@ -1548,6 +1608,9 @@ class IndividualLearningService:
                     cv_document_id=cv_document_id,
                     extraction_run_id=extraction.id,
                 )
+                self._assert_workflow_owned()
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1559,6 +1622,7 @@ class IndividualLearningService:
                 detail="CV skill projection is incomplete; retry approval",
             )
 
+        self._assert_workflow_owned()
         return {
             **payload,
             "approved": True,
@@ -1573,6 +1637,7 @@ class IndividualLearningService:
         payload: dict[str, Any],
         checkpoint_state: dict[str, Any],
     ) -> dict[str, Any]:
+        self._assert_workflow_owned()
         raw_urls = payload.get("selected_posting_urls", [])
         raw_skills = payload.get("selected_skill_names", [])
         if (
@@ -1634,13 +1699,16 @@ class IndividualLearningService:
             )
 
         driver = self._require_neo4j_driver()
+        self._assert_workflow_owned()
         with driver.session() as session:
+            self._assert_workflow_owned()
             jobs_written = select_job_postings(
                 session,
                 user_id=user_id,
                 posting_urls=posting_urls,
                 run_id=str(job_search_run_id),
             )
+            self._assert_workflow_owned()
             skills_written = select_candidate_market_skills(
                 session,
                 user_id=user_id,
@@ -1649,12 +1717,14 @@ class IndividualLearningService:
                 job_search_run_id=str(job_search_run_id),
                 match_run_id=str(job_match_run_id),
             )
+            self._assert_workflow_owned()
         if jobs_written != len(posting_urls) or skills_written != len(skill_names):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Candidate graph projection is incomplete; retry job search",
             )
 
+        self._assert_workflow_owned()
         if not self._repo.record_job_selections(
             user_id=user_id,
             job_search_run_id=job_search_run_id,
@@ -1664,10 +1734,12 @@ class IndividualLearningService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Job search run does not belong to the current user",
             )
+        self._assert_workflow_owned()
         self._repo.upsert_profile_status(
             user_id=user_id,
             onboarding_status="ready",
         )
+        self._assert_workflow_owned()
         return {
             **payload,
             "selected_posting_urls": posting_urls,

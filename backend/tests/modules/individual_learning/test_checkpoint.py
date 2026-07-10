@@ -6,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
-from threading import Event
+from threading import Event, current_thread
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -644,3 +644,162 @@ def test_workflow_lease_is_released_when_graph_invoke_raises(
         user_id=user.id,
         operation_token="operation-after-failure",
     )
+
+
+def test_workflow_lease_is_released_when_heartbeat_start_fails(
+    db_session,
+    monkeypatch,
+) -> None:
+    user, cv_document_id = _seed_completed_cv(db_session)
+    repository = IndividualLearningRepository(db_session)
+    extraction = repository.get_latest_cv_extraction(
+        user.id,
+        cv_document_id=cv_document_id,
+    )
+    assert extraction is not None
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service._WorkflowLeaseHeartbeat.start",
+        lambda _self: (_ for _ in ()).throw(RuntimeError("heartbeat start failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="heartbeat start failed"):
+        IndividualLearningService(
+            db_session,
+            None,
+            graph_checkpointer=InMemorySaver(),
+        ).start_individual_graph(user.id, cv_document_id)
+
+    db_session.expire_all()
+    recovered = repository.get_latest_cv_extraction(
+        user.id,
+        cv_document_id=cv_document_id,
+    )
+    assert recovered is not None
+    assert recovered.workflow_lease_token is None
+    assert recovered.workflow_lease_started_at is None
+    now = datetime.now(UTC)
+    assert repository.claim_workflow_operation(
+        extraction_run_id=extraction.id,
+        user_id=user.id,
+        operation_token="operation-after-start-failure",
+        now=now,
+        stale_before=now - timedelta(hours=1),
+    )
+    repository.release_workflow_operation(
+        extraction_run_id=extraction.id,
+        user_id=user.id,
+        operation_token="operation-after-start-failure",
+    )
+
+
+@pytest.mark.parametrize("renewal_failure", ["exception", "lost"])
+def test_heartbeat_renewal_failure_aborts_before_job_persistence_and_checkpoint(
+    db_session,
+    monkeypatch,
+    renewal_failure: str,
+) -> None:
+    user, cv_document_id = _seed_completed_cv(db_session)
+    user_id = user.id
+    bind = db_session.get_bind()
+    checkpointer = InMemorySaver()
+    entered_job_search = Event()
+    heartbeat_failed = Event()
+    release_job_search = Event()
+    projection_calls: list[object] = []
+
+    class DummyDriver:
+        def session(self):
+            return nullcontext(object())
+
+    def blocking_job_searcher(*_args):
+        entered_job_search.set()
+        assert release_job_search.wait(timeout=5)
+        return [
+            {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+            }
+        ]
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.upsert_cv_skills",
+        lambda *_args, **_kwargs: 1,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.upsert_job_postings_and_market_skills",
+        lambda *args, **_kwargs: projection_calls.append(args)
+        or {"jobs": 1, "market_skills": 1},
+    )
+    initial_service = IndividualLearningService(
+        db_session,
+        DummyDriver(),
+        graph_checkpointer=checkpointer,
+        job_searcher=blocking_job_searcher,
+        market_skill_extractor=lambda jobs: {jobs[0]["url"]: [{"name": "Docker"}]},
+    )
+    started = initial_service.start_individual_graph(user_id, cv_document_id)
+    real_renew = IndividualLearningRepository.renew_workflow_operation
+
+    def fail_heartbeat_renewal(repository, **kwargs):
+        if (
+            current_thread().name == "individual-workflow-lease-heartbeat"
+            and entered_job_search.is_set()
+        ):
+            heartbeat_failed.set()
+            if renewal_failure == "exception":
+                raise RuntimeError("heartbeat database failure")
+            return False
+        return real_renew(repository, **kwargs)
+
+    monkeypatch.setattr(
+        IndividualLearningRepository,
+        "renew_workflow_operation",
+        fail_heartbeat_renewal,
+    )
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.WORKFLOW_LEASE_HEARTBEAT_SECONDS",
+        0.01,
+    )
+
+    def run_resume():
+        with Session(bind=bind) as worker_session:
+            return IndividualLearningService(
+                worker_session,
+                DummyDriver(),
+                graph_checkpointer=checkpointer,
+                job_searcher=blocking_job_searcher,
+                market_skill_extractor=lambda jobs: {
+                    jobs[0]["url"]: [{"name": "Docker"}]
+                },
+            ).resume_individual_graph(
+                user_id,
+                started.thread_id,
+                {"approved": True, "target_titles": ["Backend Engineer"]},
+            )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(run_resume)
+        try:
+            assert entered_job_search.wait(timeout=5)
+            assert heartbeat_failed.wait(timeout=5)
+        finally:
+            release_job_search.set()
+        with pytest.raises(HTTPException) as exc_info:
+            future.result(timeout=5)
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Workflow operation ownership is uncertain"
+    db_session.expire_all()
+    repository = IndividualLearningRepository(db_session)
+    search_run = repository.get_latest_job_search_run(user_id)
+    assert search_run is not None
+    assert search_run.status == "running"
+    assert repository.get_latest_job_match_run(user_id) is None
+    assert projection_calls == []
+    profile = repository.get_profile(user_id)
+    assert profile is not None and profile.onboarding_status == "needs_jobs"
+    snapshot = initial_service._get_graph().get_state(
+        {"configurable": {"thread_id": started.thread_id}}
+    )
+    assert tuple(snapshot.next) == ("search_jobs",)
+    assert snapshot.values.get("candidate_jobs", []) == []
