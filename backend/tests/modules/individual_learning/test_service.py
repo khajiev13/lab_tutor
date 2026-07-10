@@ -734,6 +734,67 @@ def test_get_learning_path_reads_selected_market_skill_projection(monkeypatch) -
     assert response["total_selected_skills"] == 1
     assert response["skills_with_resources"] == 1
     assert response["selected_skills"][0]["name"] == "GraphQL"
+    assert response["build_status"] is None
+    assert response["build_run_id"] is None
+    assert response["build_error"] is None
+
+
+@pytest.mark.parametrize(
+    ("stored_status", "expected_status", "expected_error"),
+    [
+        ("completed", "completed", None),
+        (
+            "partial",
+            "partial",
+            "Some resources could not be generated; retry to complete the path",
+        ),
+        ("failed", "failed", "Resource generation failed; retry"),
+        ("running", "failed", "Resource generation was interrupted; retry"),
+    ],
+)
+def test_get_learning_path_exposes_sanitized_latest_build_status(
+    monkeypatch,
+    stored_status: str,
+    expected_status: str,
+    expected_error: str | None,
+) -> None:
+    class DummySessionContext:
+        def __enter__(self):
+            return object()
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    class DummyDriver:
+        def session(self):
+            return DummySessionContext()
+
+    service = IndividualLearningService(db=None, neo4j_driver=DummyDriver())
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.get_individual_learning_path",
+        lambda _session, *, user_id: {
+            "user_id": user_id,
+            "selected_skills": [],
+            "total_selected_skills": 0,
+            "skills_with_resources": 0,
+        },
+    )
+    monkeypatch.setattr(
+        service._repo,
+        "get_latest_learning_run",
+        lambda _user_id: SimpleNamespace(
+            status=stored_status,
+            run_id="build-run-7",
+            error_message="PRIVATE-PROVIDER-DETAIL",
+        ),
+    )
+
+    response = service.get_learning_path(user_id=7)
+
+    assert response["build_status"] == expected_status
+    assert response["build_run_id"] == "build-run-7"
+    assert response["build_error"] == expected_error
+    assert "PRIVATE-PROVIDER-DETAIL" not in str(response)
 
 
 def test_resume_individual_graph_rejects_malformed_thread_id(monkeypatch) -> None:

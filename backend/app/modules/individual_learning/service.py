@@ -36,7 +36,7 @@ from .cv_extractor import (
 from .graph import build_individual_learning_graph
 from .job_matcher import score_market_skill_coverage
 from .job_search import extract_market_skills_for_jobs, search_jobs_for_titles
-from .models import CVDocumentStatus, CVExtractionRun, IndividualRunStatus
+from .models import CVDocument, CVDocumentStatus, CVExtractionRun, IndividualRunStatus
 from .neo4j_repository import (
     deselect_market_skills,
     get_individual_learning_path,
@@ -68,6 +68,20 @@ from .schemas import (
 _THREAD_ID_PATTERN = re.compile(
     r"^individual-(?P<user_id>\d+)-cv-(?P<cv_document_id>\d+)"
     r"-extraction-(?P<extraction_run_id>\d+)$"
+)
+MAX_CV_UPLOAD_BYTES = 10 * 1024 * 1024
+CV_UPLOAD_CHUNK_BYTES = 64 * 1024
+_SAFE_CV_PARSE_ERRORS = frozenset(
+    {
+        "Only PDF and DOCX CV files are supported",
+        "Invalid PDF CV file",
+        "PDF CV exceeds the page limit",
+        "CV text exceeds the character limit",
+        "DOCX CV exceeds safe archive limits",
+        "Invalid docx file (cannot read word/document.xml)",
+        "Invalid docx XML",
+        "CV text is too short to analyze",
+    }
 )
 
 
@@ -230,6 +244,10 @@ class IndividualLearningService:
                     search_term=posting.get("search_term"),
                     is_interested=str(posting.get("url", "")) in interested_url_set,
                     match_score=posting.get("match_score"),
+                    skill_extraction_status=posting.get(
+                        "skill_extraction_status", "completed"
+                    ),
+                    skill_extraction_error=posting.get("skill_extraction_error"),
                     skills=[
                         IndividualSkillBankSkill(
                             name=skill_name,
@@ -489,7 +507,36 @@ class IndividualLearningService:
     def get_learning_path(self, user_id: int) -> dict[str, object]:
         driver = self._require_neo4j_driver()
         with driver.session() as session:
-            return get_individual_learning_path(session, user_id=user_id)
+            learning_path = dict(get_individual_learning_path(session, user_id=user_id))
+
+        latest_run = self._repo.get_latest_learning_run(user_id)
+        build_status: str | None = None
+        build_run_id: str | None = None
+        build_error: str | None = None
+        if latest_run is not None:
+            build_run_id = latest_run.run_id
+            if latest_run.status == IndividualRunStatus.COMPLETED.value:
+                build_status = IndividualRunStatus.COMPLETED.value
+            elif latest_run.status == IndividualRunStatus.PARTIAL.value:
+                build_status = IndividualRunStatus.PARTIAL.value
+                build_error = (
+                    "Some resources could not be generated; retry to complete the path"
+                )
+            elif latest_run.status == IndividualRunStatus.FAILED.value:
+                build_status = IndividualRunStatus.FAILED.value
+                build_error = "Resource generation failed; retry"
+            else:
+                build_status = IndividualRunStatus.FAILED.value
+                build_error = "Resource generation was interrupted; retry"
+
+        learning_path.update(
+            {
+                "build_status": build_status,
+                "build_run_id": build_run_id,
+                "build_error": build_error,
+            }
+        )
+        return learning_path
 
     async def upload_cv(self, user_id: int, file: UploadFile) -> CVDocumentRead:
         filename = (file.filename or "").strip()
@@ -497,14 +544,6 @@ class IndividualLearningService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="CV filename is required",
-            )
-
-        await file.seek(0)
-        content = await file.read()
-        if not content:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="CV file is empty",
             )
         if not is_supported_cv_file(
             filename=filename,
@@ -515,30 +554,151 @@ class IndividualLearningService:
                 detail="Only PDF and DOCX CV files are supported",
             )
 
+        content = await self._read_cv_upload(file)
         content_hash = self._storage.sha256_hex(content)
         blob_path = f"users/{user_id}/cv/{content_hash}/document"
-
+        attempt_lock = await asyncio.to_thread(
+            self._repo.acquire_user_cv_lock,
+            user_id,
+        )
         try:
-            await self._storage.upload_bytes(content, blob_path)
-        except Exception as exc:
+            try:
+                await self._storage.upload_bytes(content, blob_path)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="CV storage is temporarily unavailable; retry",
+                ) from exc
+
+            cv_document = self._repo.upsert_cv_document(
+                user_id=user_id,
+                blob_path=blob_path,
+                original_filename=filename,
+                content_type=file.content_type,
+                content_hash=content_hash,
+                size_bytes=len(content),
+            )
+            self._repo.upsert_profile_status(
+                user_id=user_id,
+                onboarding_status="extracting",
+            )
+            return await self._process_cv_document(
+                user_id=user_id,
+                cv_document=cv_document,
+                content=content,
+            )
+        finally:
+            await asyncio.to_thread(
+                self._repo.release_user_cv_lock,
+                attempt_lock,
+                user_id,
+            )
+
+    async def retry_cv_document(
+        self,
+        user_id: int,
+        cv_document_id: int,
+    ) -> CVDocumentRead:
+        attempt_lock = await asyncio.to_thread(
+            self._repo.acquire_user_cv_lock,
+            user_id,
+        )
+        try:
+            document = self._repo.get_owned_cv_document(
+                user_id=user_id,
+                cv_document_id=cv_document_id,
+            )
+            if document is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="CV document not found",
+                )
+            if document.status != CVDocumentStatus.FAILED.value:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Only a failed CV document can be retried",
+                )
+
+            try:
+                content = await asyncio.to_thread(
+                    self._storage.download_bytes,
+                    document.blob_path,
+                    max_bytes=MAX_CV_UPLOAD_BYTES,
+                )
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail="Stored CV file exceeds the upload size limit",
+                ) from exc
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="CV storage is temporarily unavailable; retry",
+                ) from exc
+
+            if (
+                not content
+                or len(content) > MAX_CV_UPLOAD_BYTES
+                or self._storage.sha256_hex(content) != document.content_hash
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Stored CV file is invalid; upload the CV again",
+                )
+
+            document = self._repo.upsert_cv_document(
+                user_id=user_id,
+                blob_path=document.blob_path,
+                original_filename=document.original_filename,
+                content_type=document.content_type,
+                content_hash=document.content_hash,
+                size_bytes=len(content),
+            )
+            self._repo.upsert_profile_status(
+                user_id=user_id,
+                onboarding_status="extracting",
+            )
+            return await self._process_cv_document(
+                user_id=user_id,
+                cv_document=document,
+                content=content,
+            )
+        finally:
+            await asyncio.to_thread(
+                self._repo.release_user_cv_lock,
+                attempt_lock,
+                user_id,
+            )
+
+    async def _read_cv_upload(self, file: UploadFile) -> bytes:
+        await file.seek(0)
+        chunks: list[bytes] = []
+        total_bytes = 0
+        while True:
+            chunk = await file.read(CV_UPLOAD_CHUNK_BYTES)
+            if not chunk:
+                break
+            total_bytes += len(chunk)
+            if total_bytes > MAX_CV_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail="CV file exceeds the upload size limit",
+                )
+            chunks.append(chunk)
+        if not chunks:
             raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="CV storage is temporarily unavailable; retry",
-            ) from exc
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="CV file is empty",
+            )
+        return b"".join(chunks)
 
-        cv_document = self._repo.upsert_cv_document(
-            user_id=user_id,
-            blob_path=blob_path,
-            original_filename=filename,
-            content_type=file.content_type,
-            content_hash=content_hash,
-            size_bytes=len(content),
-        )
-        self._repo.upsert_profile_status(
-            user_id=user_id,
-            onboarding_status="extracting",
-        )
-
+    async def _process_cv_document(
+        self,
+        *,
+        user_id: int,
+        cv_document: CVDocument,
+        content: bytes,
+    ) -> CVDocumentRead:
         profile_extractor = self._cv_profile_extractor
         extraction_run = self._repo.create_cv_extraction_run(
             cv_document_id=cv_document.id,
@@ -555,35 +715,33 @@ class IndividualLearningService:
         try:
             extracted_text = await asyncio.to_thread(
                 self._cv_text_extractor,
-                filename=filename,
-                content_type=file.content_type,
+                filename=cv_document.original_filename,
+                content_type=cv_document.content_type,
                 data=content,
             )
         except ValueError as exc:
-            error_message = str(exc)[:1000] or type(exc).__name__
-            self._repo.fail_cv_extraction(
+            raw_error = str(exc)
+            error_message = (
+                raw_error
+                if raw_error in _SAFE_CV_PARSE_ERRORS
+                else "CV file could not be parsed safely"
+            )
+            self._repo.fail_cv_lifecycle(
                 extraction_run,
                 document=cv_document,
-                error_message=error_message,
-            )
-            self._repo.upsert_profile_status(
                 user_id=user_id,
-                onboarding_status="error",
+                error_message=error_message,
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_message,
             ) from exc
         except Exception as exc:
-            error_message = str(exc)[:1000] or type(exc).__name__
-            self._repo.fail_cv_extraction(
+            self._repo.fail_cv_lifecycle(
                 extraction_run,
                 document=cv_document,
-                error_message=error_message,
-            )
-            self._repo.upsert_profile_status(
                 user_id=user_id,
-                onboarding_status="error",
+                error_message="CV parser failed",
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -602,33 +760,40 @@ class IndividualLearningService:
                 await asyncio.to_thread(profile_extractor.extract, extracted_text)
             )
         except Exception as exc:
-            error_message = str(exc)[:1000] or type(exc).__name__
-            self._repo.fail_cv_extraction(
+            error_message = "Structured CV extraction failed"
+            self._repo.fail_cv_lifecycle(
                 extraction_run,
                 document=cv_document,
-                error_message=error_message,
-            )
-            self._repo.upsert_profile_status(
                 user_id=user_id,
-                onboarding_status="error",
+                error_message=error_message,
             )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Failed to extract a structured CV profile",
             ) from exc
 
-        profile_payload = extracted_profile.model_dump(mode="json")
-        self._repo.complete_cv_extraction(
-            extraction_run,
-            extracted_profile=profile_payload,
-            target_title_suggestions=list(extracted_profile.target_title_suggestions),
-            confidence_summary=dict(extracted_profile.confidence_summary),
-        )
-        self._repo.complete_cv_document(cv_document)
-        self._repo.upsert_profile_status(
-            user_id=user_id,
-            onboarding_status="needs_profile_review",
-        )
+        try:
+            self._repo.complete_cv_lifecycle(
+                document=cv_document,
+                extraction=extraction_run,
+                user_id=user_id,
+                extracted_profile=extracted_profile.model_dump(mode="json"),
+                target_title_suggestions=list(
+                    extracted_profile.target_title_suggestions
+                ),
+                confidence_summary=dict(extracted_profile.confidence_summary),
+            )
+        except Exception as exc:
+            self._repo.fail_cv_lifecycle(
+                extraction_run,
+                document=cv_document,
+                user_id=user_id,
+                error_message="CV finalization failed",
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to finalize CV processing",
+            ) from exc
 
         return CVDocumentRead(
             id=cv_document.id,
@@ -649,6 +814,21 @@ class IndividualLearningService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="CV document not found",
+            )
+        current_document, current_extraction = self._repo.get_cv_lifecycle(
+            user_id=user_id,
+        )
+        if (
+            current_document is None
+            or current_document.id != document.id
+            or (current_extraction is None) != (extraction is None)
+            or current_extraction is not None
+            and extraction is not None
+            and current_extraction.id != extraction.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Workflow attempt is stale; reload the current profile",
             )
         if (
             document.status != CVDocumentStatus.COMPLETED.value
@@ -800,8 +980,8 @@ class IndividualLearningService:
         for title in target_titles:
             try:
                 found_jobs = self._job_searcher([title], country, location)
-            except Exception as exc:
-                errors.append(f"{title}: {str(exc)[:200] or type(exc).__name__}")
+            except Exception:
+                errors.append(f"{title}: job search failed")
                 continue
             for raw_job in found_jobs:
                 job = self._normalize_job(raw_job, search_term=title)
@@ -826,11 +1006,13 @@ class IndividualLearningService:
             try:
                 extracted = self._market_skill_extractor([raw_job])
                 skills = self._normalize_market_skills(extracted.get(url, []))
-            except Exception as exc:
-                errors.append(
-                    f"{job['title'] or url}: {str(exc)[:200] or type(exc).__name__}"
-                )
+                skill_extraction_status = "completed"
+                skill_extraction_error = None
+            except Exception:
+                errors.append(f"{job['title'] or url}: skill extraction failed")
                 skills = []
+                skill_extraction_status = "failed"
+                skill_extraction_error = "Skill extraction is temporarily unavailable"
             skills_by_job_url[url] = skills
 
             coverage = score_market_skill_coverage(
@@ -853,7 +1035,10 @@ class IndividualLearningService:
                 **job,
                 "match_score": match_score,
                 "skills": candidate_skills,
+                "skill_extraction_status": skill_extraction_status,
             }
+            if skill_extraction_error is not None:
+                candidate["skill_extraction_error"] = skill_extraction_error
             candidate_jobs.append(candidate)
             scores.append(
                 {
@@ -881,11 +1066,19 @@ class IndividualLearningService:
         score_order = {job["url"]: index for index, job in enumerate(candidate_jobs)}
         scores.sort(key=lambda item: score_order[item["job_url"]])
 
-        if not candidate_jobs and not errors:
-            errors.append("No usable job postings were found")
+        failure_detail: str | None = None
+        if not candidate_jobs:
+            failure_detail = "No usable job postings were found"
+        elif not any(job.get("skills") for job in candidate_jobs):
+            failure_detail = (
+                "No usable market skills were extracted; retry job search or edit "
+                "target titles"
+            )
+        if failure_detail is not None and failure_detail not in errors:
+            errors.append(failure_detail)
         run_status = (
             IndividualRunStatus.FAILED.value
-            if not candidate_jobs
+            if failure_detail is not None
             else IndividualRunStatus.PARTIAL.value
             if errors
             else IndividualRunStatus.COMPLETED.value
@@ -916,7 +1109,7 @@ class IndividualLearningService:
             )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="No usable job postings were found",
+                detail=failure_detail or "No usable job postings were found",
             )
 
         driver = self._require_neo4j_driver()

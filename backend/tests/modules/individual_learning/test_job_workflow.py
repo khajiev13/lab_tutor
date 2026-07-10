@@ -185,6 +185,8 @@ def test_first_resume_runs_real_adapters_and_keeps_partial_job_results(
         "https://jobs.example/api",
     ]
     assert candidate_jobs[0]["match_score"] == 50.0
+    assert candidate_jobs[0]["skill_extraction_status"] == "completed"
+    assert "skill_extraction_error" not in candidate_jobs[0]
     assert candidate_jobs[0]["skills"] == [
         {
             "name": "Python",
@@ -201,6 +203,10 @@ def test_first_resume_runs_real_adapters_and_keeps_partial_job_results(
     ]
     assert candidate_jobs[1]["match_score"] == 0.0
     assert candidate_jobs[1]["skills"] == []
+    assert candidate_jobs[1]["skill_extraction_status"] == "failed"
+    assert candidate_jobs[1]["skill_extraction_error"] == (
+        "Skill extraction is temporarily unavailable"
+    )
     assert projected["session"] is driver.session_value
     assert projected["skills_by_job_url"] == {
         "https://jobs.example/backend": [
@@ -214,10 +220,10 @@ def test_first_resume_runs_real_adapters_and_keeps_partial_job_results(
     assert search_run is not None
     assert search_run.status == IndividualRunStatus.PARTIAL.value
     assert len(search_run.fetched_jobs_json) == 2
-    assert "Platform Engineer: provider unavailable" in (search_run.error_message or "")
-    assert "API Engineer: skill provider unavailable" in (
-        search_run.error_message or ""
-    )
+    assert "Platform Engineer: job search failed" in (search_run.error_message or "")
+    assert "provider unavailable" not in (search_run.error_message or "")
+    assert "API Engineer: skill extraction failed" in (search_run.error_message or "")
+    assert "skill provider unavailable" not in (search_run.error_message or "")
     assert match_run is not None
     assert match_run.job_search_run_id == search_run.id
     assert match_run.status == IndividualRunStatus.PARTIAL.value
@@ -267,7 +273,9 @@ def test_job_search_with_no_usable_candidates_stays_recoverable(
         DummyDriver(),
         graph_checkpointer=InMemorySaver(),
         job_searcher=search_with_recovery,
-        market_skill_extractor=lambda _jobs: {},
+        market_skill_extractor=lambda jobs: {
+            jobs[0]["url"]: [{"name": "Python", "category": "Programming"}]
+        },
     )
     started = service.start_individual_graph(user.id, document.id)
 
@@ -320,6 +328,77 @@ def test_job_search_with_no_usable_candidates_stays_recoverable(
     assert recovered_run.id == search_run.id
     assert recovered_run.status == IndividualRunStatus.COMPLETED.value
     assert project_calls == ["projected"]
+
+
+def test_job_search_with_all_skill_extractions_failed_is_retryable(
+    db_session,
+    monkeypatch,
+) -> None:
+    user = _create_individual(db_session)
+    document = _seed_profile(db_session, user_id=user.id)
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.upsert_cv_skills",
+        lambda *_args, **_kwargs: 1,
+    )
+    project_calls: list[object] = []
+    monkeypatch.setattr(
+        "app.modules.individual_learning.service.upsert_job_postings_and_market_skills",
+        lambda *_args, **_kwargs: project_calls.append("projected"),
+    )
+
+    def fail_skill_extraction(_jobs):
+        raise RuntimeError("PRIVATE-PROVIDER-DETAIL")
+
+    service = IndividualLearningService(
+        db_session,
+        DummyDriver(),
+        graph_checkpointer=InMemorySaver(),
+        job_searcher=lambda *_args: [
+            {
+                "url": "https://jobs.example/backend",
+                "title": "Backend Engineer",
+            },
+            {
+                "url": "https://jobs.example/platform",
+                "title": "Platform Engineer",
+            },
+        ],
+        market_skill_extractor=fail_skill_extraction,
+    )
+    started = service.start_individual_graph(user.id, document.id)
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.resume_individual_graph(
+            user.id,
+            started.thread_id,
+            {"approved": True, "target_titles": ["Backend Engineer"]},
+        )
+
+    repository = IndividualLearningRepository(db_session)
+    profile = repository.get_profile(user.id)
+    search_run = repository.get_latest_job_search_run(user.id)
+    match_run = repository.get_latest_job_match_run(user.id)
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == (
+        "No usable market skills were extracted; retry job search or edit target titles"
+    )
+    assert profile is not None
+    assert profile.onboarding_status == "needs_jobs"
+    assert search_run is not None
+    assert search_run.status == IndividualRunStatus.FAILED.value
+    assert len(search_run.fetched_jobs_json) == 2
+    assert all(
+        job["skill_extraction_status"] == "failed"
+        for job in search_run.fetched_jobs_json
+    )
+    assert all(
+        job["skill_extraction_error"] == "Skill extraction is temporarily unavailable"
+        for job in search_run.fetched_jobs_json
+    )
+    assert "PRIVATE-PROVIDER-DETAIL" not in (search_run.error_message or "")
+    assert match_run is not None
+    assert match_run.status == IndividualRunStatus.FAILED.value
+    assert project_calls == []
 
 
 def _build_selection_service(db_session, monkeypatch):

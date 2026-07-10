@@ -52,6 +52,14 @@ class IndividualProfile(Base):
 
 class CVDocument(Base):
     __tablename__ = "cv_documents"
+    __table_args__ = (
+        Index(
+            "ux_cv_documents_user_id_content_hash",
+            "user_id",
+            "content_hash",
+            unique=True,
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)

@@ -148,6 +148,8 @@ class IndividualSkillBankJobPosting(BaseModel):
     search_term: str | None = None
     is_interested: bool = False
     match_score: float | None = None
+    skill_extraction_status: Literal["completed", "failed"] = "completed"
+    skill_extraction_error: str | None = None
     skills: list[IndividualSkillBankSkill] = Field(default_factory=list)
 
 
@@ -191,6 +193,9 @@ class IndividualLearningPathResponse(BaseModel):
     selected_skills: list[IndividualLearningPathSkillRead] = Field(default_factory=list)
     total_selected_skills: int = 0
     skills_with_resources: int = 0
+    build_status: Literal["completed", "partial", "failed"] | None = None
+    build_run_id: str | None = None
+    build_error: str | None = None
 
 
 class SelectInterestedJobsRequest(BaseModel):
@@ -199,3 +204,8 @@ class SelectInterestedJobsRequest(BaseModel):
 
 class SelectIndividualSkillsRequest(BaseModel):
     skill_names: list[str] = Field(default_factory=list)
+
+
+class IndividualBuildResponse(BaseModel):
+    status: Literal["completed", "partial", "failed"]
+    run_id: str

@@ -191,6 +191,37 @@ class BlobService:
             logger.error(f"Failed to download file {blob_path}: {e}")
             raise
 
+    def download_bytes(
+        self,
+        blob_path: str,
+        *,
+        max_bytes: int,
+        max_concurrency: int = 8,
+    ) -> bytes:
+        """Download at most ``max_bytes`` without buffering an arbitrary blob."""
+
+        if not self.container_client:
+            raise Exception("Blob service is not configured")
+        if max_bytes < 1:
+            raise ValueError("Download limit must be positive")
+
+        blob_client = self.container_client.get_blob_client(blob_path)
+        try:
+            downloader = blob_client.download_blob(max_concurrency=max_concurrency)
+            chunks: list[bytes] = []
+            total_bytes = 0
+            for chunk in downloader.chunks():
+                total_bytes += len(chunk)
+                if total_bytes > max_bytes:
+                    raise ValueError("Blob exceeds the download limit")
+                chunks.append(chunk)
+            return b"".join(chunks)
+        except ValueError:
+            raise
+        except Exception:
+            logger.error("Bounded blob download failed")
+            raise
+
     def get_blob_info(self, blob_path: str) -> BlobInfo:
         if not self.container_client:
             raise Exception("Blob service is not configured")

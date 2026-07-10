@@ -13,6 +13,7 @@ from app.modules.auth.models import User, UserRole
 
 from .schemas import (
     CVDocumentRead,
+    IndividualBuildResponse,
     IndividualGraphResumeRequest,
     IndividualGraphResumeResponse,
     IndividualGraphStartRequest,
@@ -61,6 +62,15 @@ async def upload_cv(
     file: UploadFile = File(...),
 ) -> CVDocumentRead:
     return await service.upload_cv(user.id, file)
+
+
+@router.post("/cv/{document_id}/retry", response_model=CVDocumentRead)
+async def retry_cv_document(
+    document_id: int,
+    user: IndividualDep,
+    service: ServiceDep,
+) -> CVDocumentRead:
+    return await service.retry_cv_document(user.id, document_id)
 
 
 @router.post("/graph/start", response_model=IndividualGraphStartResponse)
@@ -138,7 +148,11 @@ def deselect_skills(
     return {"deselected": count}
 
 
-@router.post("/build", status_code=status.HTTP_200_OK)
+@router.post(
+    "/build",
+    response_model=IndividualBuildResponse,
+    status_code=status.HTTP_200_OK,
+)
 def build_learning_path(
     body: SelectIndividualSkillsRequest,
     user: IndividualDep,

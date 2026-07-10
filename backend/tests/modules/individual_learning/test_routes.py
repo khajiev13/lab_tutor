@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -44,6 +45,31 @@ def test_individual_learning_cv_upload_route_exists() -> None:
     assert "POST" in upload_route.methods
 
 
+def test_individual_learning_failed_cv_retry_route_exists_and_delegates() -> None:
+    retry_route = next(
+        route
+        for route in routes.router.routes
+        if getattr(route, "path", "").endswith("/cv/{document_id}/retry")
+        and "POST" in getattr(route, "methods", set())
+    )
+    expected = SimpleNamespace(id=9, user_id=7, status="completed")
+    service = SimpleNamespace(
+        retry_cv_document=AsyncMock(return_value=expected),
+    )
+
+    response = asyncio.run(
+        routes.retry_cv_document(
+            document_id=9,
+            user=SimpleNamespace(id=7),
+            service=service,
+        )
+    )
+
+    assert retry_route.path == "/individual-learning/cv/{document_id}/retry"
+    assert response is expected
+    service.retry_cv_document.assert_awaited_once_with(7, 9)
+
+
 def test_individual_learning_skill_selection_routes_exist() -> None:
     select_route = next(
         route
@@ -73,6 +99,7 @@ def test_individual_learning_skill_selection_routes_exist() -> None:
     assert select_route.path == "/individual-learning/select-skills"
     assert deselect_route.path == "/individual-learning/select-skills"
     assert build_route.path == "/individual-learning/build"
+    assert build_route.response_model is routes.IndividualBuildResponse
     assert path_route.path == "/individual-learning/path"
 
 
@@ -147,7 +174,10 @@ def test_select_interested_jobs_route_returns_400_for_non_candidate() -> None:
 
 def test_build_individual_learning_path_route_returns_completed_status() -> None:
     service = SimpleNamespace(
-        build_learning_path=lambda user_id, skill_names: {"status": "completed"}
+        build_learning_path=lambda user_id, skill_names: {
+            "status": "completed",
+            "run_id": "build-run-7",
+        }
     )
 
     response = routes.build_learning_path(
@@ -156,7 +186,7 @@ def test_build_individual_learning_path_route_returns_completed_status() -> None
         service=service,
     )
 
-    assert response == {"status": "completed"}
+    assert response == {"status": "completed", "run_id": "build-run-7"}
 
 
 def test_build_individual_learning_path_route_returns_400_on_validation_error() -> None:

@@ -168,6 +168,9 @@ def test_individual_schema_upgrade_serializes_concurrent_callers(
     with bind.begin() as connection:
         connection.execute(text(f"DROP INDEX IF EXISTS {legacy_index_name}"))
         connection.execute(
+            text("DROP INDEX IF EXISTS ux_cv_documents_user_id_content_hash")
+        )
+        connection.execute(
             text(
                 f"CREATE UNIQUE INDEX {legacy_index_name} "
                 "ON individual_job_match_runs (job_search_run_id)"
@@ -229,8 +232,18 @@ def test_individual_schema_upgrade_serializes_concurrent_callers(
             )
         ).mappings()
         indexes = {row["indexname"]: row["indexdef"] for row in index_rows}
+        cv_document_index = connection.scalar(
+            text(
+                "SELECT indexdef FROM pg_indexes "
+                "WHERE tablename = 'cv_documents' "
+                "AND indexname = 'ux_cv_documents_user_id_content_hash'"
+            )
+        )
 
     assert "UNIQUE" not in indexes[legacy_index_name].upper()
     workflow_index = indexes["ux_individual_job_match_runs_workflow_thread_id"].upper()
     assert "UNIQUE" in workflow_index
     assert "WORKFLOW_THREAD_ID IS NOT NULL" in workflow_index
+    assert cv_document_index is not None
+    assert "UNIQUE" in cv_document_index.upper()
+    assert "(USER_ID, CONTENT_HASH)" in cv_document_index.upper()

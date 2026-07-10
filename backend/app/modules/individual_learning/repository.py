@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -36,16 +37,29 @@ class IndividualLearningRepository:
         onboarding_status: str,
     ) -> IndividualProfile:
         db = self._require_db()
-        profile = self.get_profile(user_id)
-        if profile is None:
-            profile = IndividualProfile(
+        now = datetime.now(UTC)
+        profile_id = db.scalar(
+            insert(IndividualProfile)
+            .values(
                 user_id=user_id,
                 onboarding_status=onboarding_status,
+                created_at=now,
+                updated_at=now,
             )
-            db.add(profile)
-        else:
-            profile.onboarding_status = onboarding_status
-        self._commit(profile)
+            .on_conflict_do_update(
+                index_elements=[IndividualProfile.user_id],
+                set_={
+                    "onboarding_status": onboarding_status,
+                    "updated_at": now,
+                },
+            )
+            .returning(IndividualProfile.id)
+        )
+        self._commit()
+        db.expire_all()
+        profile = db.get(IndividualProfile, profile_id)
+        if profile is None:
+            raise RuntimeError("Individual profile upsert could not be recovered")
         return profile
 
     def upsert_cv_document(
@@ -59,25 +73,71 @@ class IndividualLearningRepository:
         size_bytes: int,
     ) -> CVDocument:
         db = self._require_db()
-        document = db.scalar(
-            select(CVDocument).where(
-                CVDocument.user_id == user_id,
-                CVDocument.content_hash == content_hash,
+        now = datetime.now(UTC)
+        document_id = db.scalar(
+            insert(CVDocument)
+            .values(
+                user_id=user_id,
+                blob_path=blob_path,
+                original_filename=original_filename,
+                content_type=content_type,
+                content_hash=content_hash,
+                size_bytes=size_bytes,
+                status=CVDocumentStatus.PROCESSING.value,
+                error_message=None,
+                uploaded_at=now,
+                processed_at=None,
             )
+            .on_conflict_do_update(
+                index_elements=[CVDocument.user_id, CVDocument.content_hash],
+                set_={
+                    "blob_path": blob_path,
+                    "original_filename": original_filename,
+                    "content_type": content_type,
+                    "size_bytes": size_bytes,
+                    "status": CVDocumentStatus.PROCESSING.value,
+                    "error_message": None,
+                    "processed_at": None,
+                    "uploaded_at": now,
+                },
+            )
+            .returning(CVDocument.id)
         )
+        self._commit()
+        db.expire_all()
+        document = db.get(CVDocument, document_id)
         if document is None:
-            document = CVDocument(user_id=user_id, content_hash=content_hash)
-            db.add(document)
-        document.blob_path = blob_path
-        document.original_filename = original_filename
-        document.content_type = content_type
-        document.size_bytes = size_bytes
-        document.status = CVDocumentStatus.PROCESSING.value
-        document.error_message = None
-        document.processed_at = None
-        document.uploaded_at = datetime.now(UTC)
-        self._commit(document)
+            raise RuntimeError("CV document upsert could not be recovered")
         return document
+
+    def acquire_user_cv_lock(self, user_id: int) -> Connection:
+        connection = self._require_db().get_bind().connect()
+        try:
+            connection.execute(
+                text(
+                    "SELECT pg_advisory_lock("
+                    "hashtext('individual_cv_attempt'), :user_id)"
+                ),
+                {"user_id": user_id},
+            )
+        except Exception:
+            connection.close()
+            raise
+        return connection
+
+    @staticmethod
+    def release_user_cv_lock(connection: Connection, user_id: int) -> None:
+        try:
+            connection.execute(
+                text(
+                    "SELECT pg_advisory_unlock("
+                    "hashtext('individual_cv_attempt'), :user_id)"
+                ),
+                {"user_id": user_id},
+            )
+            connection.commit()
+        finally:
+            connection.close()
 
     def get_owned_cv_document(
         self,
@@ -185,6 +245,45 @@ class IndividualLearningRepository:
         self._commit(run)
         return run
 
+    def complete_cv_lifecycle(
+        self,
+        *,
+        document: CVDocument,
+        extraction: CVExtractionRun,
+        user_id: int,
+        extracted_profile: dict,
+        target_title_suggestions: list[str],
+        confidence_summary: dict,
+    ) -> None:
+        db = self._require_db()
+        now = datetime.now(UTC)
+        db.execute(
+            insert(IndividualProfile)
+            .values(
+                user_id=user_id,
+                onboarding_status="needs_profile_review",
+                created_at=now,
+                updated_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=[IndividualProfile.user_id],
+                set_={
+                    "onboarding_status": "needs_profile_review",
+                    "updated_at": now,
+                },
+            )
+        )
+        extraction.extracted_profile_json = extracted_profile
+        extraction.target_title_suggestions_json = target_title_suggestions
+        extraction.confidence_summary_json = confidence_summary
+        extraction.status = IndividualRunStatus.COMPLETED.value
+        extraction.error_message = None
+        extraction.completed_at = now
+        document.status = CVDocumentStatus.COMPLETED.value
+        document.error_message = None
+        document.processed_at = now
+        self._commit(document, extraction)
+
     def set_cv_extraction_text_hash(
         self,
         run: CVExtractionRun,
@@ -252,6 +351,37 @@ class IndividualLearningRepository:
         error_message: str,
     ) -> None:
         now = datetime.now(UTC)
+        run.status = IndividualRunStatus.FAILED.value
+        run.error_message = error_message
+        run.completed_at = now
+        document.status = CVDocumentStatus.FAILED.value
+        document.error_message = error_message
+        document.processed_at = now
+        self._commit(run, document)
+
+    def fail_cv_lifecycle(
+        self,
+        run: CVExtractionRun,
+        *,
+        document: CVDocument,
+        user_id: int,
+        error_message: str,
+    ) -> None:
+        db = self._require_db()
+        now = datetime.now(UTC)
+        db.execute(
+            insert(IndividualProfile)
+            .values(
+                user_id=user_id,
+                onboarding_status="error",
+                created_at=now,
+                updated_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=[IndividualProfile.user_id],
+                set_={"onboarding_status": "error", "updated_at": now},
+            )
+        )
         run.status = IndividualRunStatus.FAILED.value
         run.error_message = error_message
         run.completed_at = now
@@ -517,6 +647,10 @@ class IndividualLearningRepository:
 
     def _commit(self, *instances: object) -> None:
         db = self._require_db()
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         for instance in instances:
             db.refresh(instance)

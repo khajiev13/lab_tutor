@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from threading import Barrier
+from threading import Barrier, Event
 
+import pytest
+from sqlalchemy import event, func, select
 from sqlalchemy.orm import Session
 
 from app.modules.auth.models import User, UserRole
 from app.modules.individual_learning.models import (
+    CVDocument,
     CVDocumentStatus,
     IndividualRunStatus,
 )
@@ -133,6 +136,185 @@ def test_repository_marks_cv_extraction_failure_without_losing_uploaded_document
     assert recovered_extraction.status == IndividualRunStatus.FAILED.value
     assert recovered_extraction.error_message == "structured extraction failed"
     assert recovered_extraction.completed_at is not None
+
+
+def test_repository_finalizes_cv_document_extraction_and_profile_atomically(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="atomic-cv-success@example.com")
+    repository = IndividualLearningRepository(db_session)
+    repository.upsert_profile_status(user_id=user.id, onboarding_status="extracting")
+    document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/atomic/document",
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash="1" * 64,
+        size_bytes=123,
+    )
+    extraction = repository.create_cv_extraction_run(
+        cv_document_id=document.id,
+        user_id=user.id,
+        model_provider="test-provider",
+        model_name="test-model",
+        raw_text_hash="2" * 64,
+    )
+
+    repository.complete_cv_lifecycle(
+        document=document,
+        extraction=extraction,
+        user_id=user.id,
+        extracted_profile={"summary": "Backend engineer", "skills": []},
+        target_title_suggestions=["Backend Engineer"],
+        confidence_summary={},
+    )
+
+    profile = repository.get_profile(user.id)
+    assert profile is not None
+    assert profile.onboarding_status == "needs_profile_review"
+    assert document.status == CVDocumentStatus.COMPLETED.value
+    assert extraction.status == IndividualRunStatus.COMPLETED.value
+
+
+def test_repository_rolls_back_all_cv_finalization_state_on_commit_fault(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="atomic-cv-fault@example.com")
+    repository = IndividualLearningRepository(db_session)
+    repository.upsert_profile_status(user_id=user.id, onboarding_status="extracting")
+    document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/fault/document",
+        original_filename="cv.pdf",
+        content_type="application/pdf",
+        content_hash="3" * 64,
+        size_bytes=456,
+    )
+    extraction = repository.create_cv_extraction_run(
+        cv_document_id=document.id,
+        user_id=user.id,
+        model_provider="test-provider",
+        model_name="test-model",
+        raw_text_hash="4" * 64,
+    )
+    injected = False
+
+    def fail_completed_commit(session) -> None:
+        nonlocal injected
+        if not injected and extraction.status == IndividualRunStatus.COMPLETED.value:
+            injected = True
+            raise RuntimeError("injected finalization fault")
+
+    event.listen(db_session, "before_commit", fail_completed_commit)
+    try:
+        with pytest.raises(RuntimeError, match="injected finalization fault"):
+            repository.complete_cv_lifecycle(
+                document=document,
+                extraction=extraction,
+                user_id=user.id,
+                extracted_profile={"summary": "Backend engineer", "skills": []},
+                target_title_suggestions=["Backend Engineer"],
+                confidence_summary={},
+            )
+    finally:
+        event.remove(db_session, "before_commit", fail_completed_commit)
+
+    db_session.expire_all()
+    profile = repository.get_profile(user.id)
+    recovered_document = repository.get_owned_cv_document(
+        user_id=user.id,
+        cv_document_id=document.id,
+    )
+    recovered_extraction = repository.get_latest_cv_extraction(
+        user.id,
+        cv_document_id=document.id,
+    )
+    assert injected is True
+    assert profile is not None
+    assert profile.onboarding_status == "extracting"
+    assert recovered_document is not None
+    assert recovered_document.status == CVDocumentStatus.PROCESSING.value
+    assert recovered_extraction is not None
+    assert recovered_extraction.status == IndividualRunStatus.RUNNING.value
+
+
+def test_repository_concurrent_document_and_profile_upserts_are_idempotent(
+    db_session,
+) -> None:
+    user = _create_individual(db_session, email="concurrent-cv-upsert@example.com")
+    user_id = user.id
+    bind = db_session.get_bind()
+    document_barrier = Barrier(2)
+
+    def upsert_document(index: int) -> int:
+        with Session(bind=bind) as session:
+            document_barrier.wait(timeout=10)
+            document = IndividualLearningRepository(session).upsert_cv_document(
+                user_id=user_id,
+                blob_path=f"users/{user_id}/cv/shared/document",
+                original_filename=f"cv-{index}.pdf",
+                content_type="application/pdf",
+                content_hash="5" * 64,
+                size_bytes=100 + index,
+            )
+            return document.id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        document_ids = list(executor.map(upsert_document, range(2)))
+
+    profile_barrier = Barrier(2)
+
+    def upsert_profile(index: int) -> int:
+        with Session(bind=bind) as session:
+            profile_barrier.wait(timeout=10)
+            profile = IndividualLearningRepository(session).upsert_profile_status(
+                user_id=user_id,
+                onboarding_status=("extracting" if index == 0 else "error"),
+            )
+            return profile.id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        profile_ids = list(executor.map(upsert_profile, range(2)))
+
+    db_session.expire_all()
+    assert len(set(document_ids)) == 1
+    assert len(set(profile_ids)) == 1
+    assert (
+        db_session.scalar(
+            select(func.count(CVDocument.id)).where(
+                CVDocument.user_id == user_id,
+                CVDocument.content_hash == "5" * 64,
+            )
+        )
+        == 1
+    )
+
+
+def test_repository_serializes_per_user_cv_attempts_across_sessions(db_session) -> None:
+    user = _create_individual(db_session, email="concurrent-cv-lock@example.com")
+    repository = IndividualLearningRepository(db_session)
+    first_lock = repository.acquire_user_cv_lock(user.id)
+    second_acquired = Event()
+
+    def acquire_second_lock() -> None:
+        second_repository = IndividualLearningRepository(
+            Session(bind=db_session.get_bind())
+        )
+        lock = second_repository.acquire_user_cv_lock(user.id)
+        second_acquired.set()
+        second_repository.release_user_cv_lock(lock, user.id)
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(acquire_second_lock)
+            assert second_acquired.wait(timeout=0.2) is False
+            repository.release_user_cv_lock(first_lock, user.id)
+            future.result(timeout=10)
+    finally:
+        if not second_acquired.is_set():
+            repository.release_user_cv_lock(first_lock, user.id)
+
+    assert second_acquired.is_set()
 
 
 def test_repository_persists_partial_job_search_and_match_runs(db_session) -> None:

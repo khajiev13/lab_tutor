@@ -7,6 +7,10 @@ from pydantic import ValidationError
 from pypdf.errors import PdfReadError
 
 from app.modules.individual_learning.cv_extractor import (
+    MAX_CV_PDF_PAGES,
+    MAX_CV_TEXT_CHARS,
+    MAX_DOCX_ARCHIVE_ENTRIES,
+    MAX_DOCX_UNCOMPRESSED_BYTES,
     StructuredCVProfileExtractor,
     extract_cv_text,
 )
@@ -76,6 +80,153 @@ def test_extract_cv_text_wraps_pdf_page_extraction_failures(
             filename="cv.pdf",
             content_type="application/pdf",
             data=b"%PDF-1.7",
+        )
+
+
+def test_extract_cv_text_rejects_pdf_over_page_limit_before_extracting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _UnexpectedPage:
+        def extract_text(self) -> str:
+            raise AssertionError("over-limit PDF pages must not be extracted")
+
+    class _OversizedReader:
+        pages = [_UnexpectedPage() for _ in range(MAX_CV_PDF_PAGES + 1)]
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.cv_extractor.pypdf.PdfReader",
+        lambda *_args, **_kwargs: _OversizedReader(),
+    )
+
+    with pytest.raises(ValueError, match="PDF CV exceeds the page limit"):
+        extract_cv_text(
+            filename="cv.pdf",
+            content_type="application/pdf",
+            data=b"%PDF-1.7",
+        )
+
+
+def test_extract_cv_text_rejects_pdf_text_over_character_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _OversizedPage:
+        def extract_text(self) -> str:
+            return "x" * (MAX_CV_TEXT_CHARS + 1)
+
+    class _OversizedReader:
+        pages = [_OversizedPage()]
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.cv_extractor.pypdf.PdfReader",
+        lambda *_args, **_kwargs: _OversizedReader(),
+    )
+
+    with pytest.raises(ValueError, match="CV text exceeds the character limit"):
+        extract_cv_text(
+            filename="cv.pdf",
+            content_type="application/pdf",
+            data=b"%PDF-1.7",
+        )
+
+
+def test_extract_cv_text_accepts_pdf_at_page_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _BoundaryPage:
+        def extract_text(self) -> str:
+            return "supported"
+
+    class _BoundaryReader:
+        pages = [_BoundaryPage() for _ in range(MAX_CV_PDF_PAGES)]
+
+    monkeypatch.setattr(
+        "app.modules.individual_learning.cv_extractor.pypdf.PdfReader",
+        lambda *_args, **_kwargs: _BoundaryReader(),
+    )
+
+    text = extract_cv_text(
+        filename="cv.pdf",
+        content_type="application/pdf",
+        data=b"%PDF-1.7",
+    )
+
+    assert len(text.split()) == MAX_CV_PDF_PAGES
+
+
+def test_extract_cv_text_rejects_docx_over_archive_entry_limit() -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", "<document />")
+        for index in range(MAX_DOCX_ARCHIVE_ENTRIES):
+            archive.writestr(f"word/extra-{index}.xml", "<extra />")
+
+    with pytest.raises(ValueError, match="DOCX CV exceeds safe archive limits"):
+        extract_cv_text(
+            filename="cv.docx",
+            content_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document"
+            ),
+            data=buffer.getvalue(),
+        )
+
+
+def test_extract_cv_text_accepts_docx_at_archive_entry_limit() -> None:
+    cv_text = " ".join(f"skill-{index}" for index in range(20))
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "word/document.xml",
+            (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<w:document xmlns:w="http://schemas.openxmlformats.org/'
+                'wordprocessingml/2006/main">'
+                f"<w:body><w:p><w:r><w:t>{cv_text}</w:t></w:r></w:p>"
+                "</w:body></w:document>"
+            ),
+        )
+        for index in range(MAX_DOCX_ARCHIVE_ENTRIES - 1):
+            archive.writestr(f"word/extra-{index}.xml", "<extra />")
+
+    text = extract_cv_text(
+        filename="cv.docx",
+        content_type=(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ),
+        data=buffer.getvalue(),
+    )
+
+    assert text == cv_text
+
+
+def test_extract_cv_text_rejects_docx_uncompressed_expansion_limit() -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "word/document.xml",
+            b"x" * (MAX_DOCX_UNCOMPRESSED_BYTES + 1),
+        )
+
+    with pytest.raises(ValueError, match="DOCX CV exceeds safe archive limits"):
+        extract_cv_text(
+            filename="cv.docx",
+            content_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document"
+            ),
+            data=buffer.getvalue(),
+        )
+
+
+def test_extract_cv_text_rejects_docx_text_over_character_limit() -> None:
+    with pytest.raises(ValueError, match="CV text exceeds the character limit"):
+        extract_cv_text(
+            filename="cv.docx",
+            content_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "wordprocessingml.document"
+            ),
+            data=_docx_bytes("x" * (MAX_CV_TEXT_CHARS + 1)),
         )
 
 

@@ -501,6 +501,14 @@ def _ensure_sql_schema_upgrades() -> None:
             )
         )
 
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ux_cv_documents_user_id_content_hash "
+                "ON cv_documents (user_id, content_hash)"
+            )
+        )
+
         # Stable workflow identity makes individual job-search audit writes
         # idempotent when LangGraph retries a node after a process interruption.
         conn.execute(

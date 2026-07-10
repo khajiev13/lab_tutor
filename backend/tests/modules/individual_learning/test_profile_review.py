@@ -236,7 +236,9 @@ def test_profile_review_normalizes_distinct_skills_and_omits_removed_skill(
                 "title": "Backend Engineer",
             }
         ],
-        market_skill_extractor=lambda _jobs: {},
+        market_skill_extractor=lambda jobs: {
+            jobs[0]["url"]: [{"name": "Docker", "category": "DevOps"}]
+        },
     )
     started = service.start_individual_graph(user.id, document.id)
 
@@ -285,6 +287,48 @@ def test_graph_start_rejects_cv_owned_by_another_individual(db_session) -> None:
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "CV document not found"
+
+
+def test_graph_start_rejects_owned_but_stale_cv_lifecycle(db_session) -> None:
+    user = _create_individual(db_session, email="stale-start@example.com")
+    stale_document, _ = _seed_completed_extraction(db_session, user_id=user.id)
+    repository = IndividualLearningRepository(db_session)
+    current_document = repository.upsert_cv_document(
+        user_id=user.id,
+        blob_path=f"users/{user.id}/cv/current/document",
+        original_filename="current.pdf",
+        content_type="application/pdf",
+        content_hash="f" * 64,
+        size_bytes=456,
+    )
+    current_extraction = repository.create_cv_extraction_run(
+        cv_document_id=current_document.id,
+        user_id=user.id,
+        model_provider="test-provider",
+        model_name="test-model",
+        raw_text_hash="e" * 64,
+    )
+    repository.complete_cv_extraction(
+        current_extraction,
+        extracted_profile={"summary": "Current", "skills": []},
+        target_title_suggestions=["Platform Engineer"],
+        confidence_summary={},
+    )
+    repository.complete_cv_document(current_document)
+    service = IndividualLearningService(
+        db_session,
+        DummyDriver(),
+        graph_checkpointer=InMemorySaver(),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.start_individual_graph(user.id, stale_document.id)
+
+    assert current_document.id != stale_document.id
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == (
+        "Workflow attempt is stale; reload the current profile"
+    )
 
 
 @pytest.mark.parametrize(

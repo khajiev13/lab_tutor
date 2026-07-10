@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import zipfile
 from collections.abc import Callable
 from typing import Any
 
@@ -18,6 +19,10 @@ PDF_CONTENT_TYPES = {"application/pdf"}
 DOCX_CONTENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 }
+MAX_CV_PDF_PAGES = 50
+MAX_CV_TEXT_CHARS = 200_000
+MAX_DOCX_ARCHIVE_ENTRIES = 256
+MAX_DOCX_UNCOMPRESSED_BYTES = 20 * 1024 * 1024
 
 _CV_EXTRACTION_PROMPT = """
 Extract a factual professional profile from the CV text below.
@@ -89,11 +94,35 @@ def is_supported_cv_file(*, filename: str, content_type: str | None) -> bool:
 def _extract_pdf_text(data: bytes) -> str:
     try:
         reader = pypdf.PdfReader(io.BytesIO(data))
-        pages = [(page.extract_text() or "").strip() for page in reader.pages]
+        if len(reader.pages) > MAX_CV_PDF_PAGES:
+            raise ValueError("PDF CV exceeds the page limit")
+        pages: list[str] = []
+        extracted_characters = 0
+        for page in reader.pages:
+            page_text = (page.extract_text() or "").strip()
+            extracted_characters += len(page_text)
+            if extracted_characters > MAX_CV_TEXT_CHARS:
+                raise ValueError("CV text exceeds the character limit")
+            if page_text:
+                pages.append(page_text)
     except pypdf.errors.PyPdfError as exc:
         raise ValueError("Invalid PDF CV file") from exc
 
-    return "\n\n".join(page for page in pages if page).strip()
+    return "\n\n".join(pages).strip()
+
+
+def _validate_docx_archive(data: bytes) -> None:
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            entries = archive.infolist()
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise ValueError("Invalid docx file (cannot read word/document.xml)") from exc
+
+    if (
+        len(entries) > MAX_DOCX_ARCHIVE_ENTRIES
+        or sum(entry.file_size for entry in entries) > MAX_DOCX_UNCOMPRESSED_BYTES
+    ):
+        raise ValueError("DOCX CV exceeds safe archive limits")
 
 
 def extract_cv_text(*, filename: str, content_type: str | None, data: bytes) -> str:
@@ -103,10 +132,13 @@ def extract_cv_text(*, filename: str, content_type: str | None, data: bytes) -> 
     if name.endswith(".pdf") or ct in PDF_CONTENT_TYPES:
         text = _extract_pdf_text(data)
     elif name.endswith(".docx") or ct in DOCX_CONTENT_TYPES:
+        _validate_docx_archive(data)
         text = handle_docx_bytes(data)
     else:
         raise ValueError("Only PDF and DOCX CV files are supported")
 
+    if len(text) > MAX_CV_TEXT_CHARS:
+        raise ValueError("CV text exceeds the character limit")
     if len(text.split()) < 20:
         raise ValueError("CV text is too short to analyze")
 

@@ -23,10 +23,19 @@ def upsert_cv_skills(
     cv_document_id: int,
     extraction_run_id: int,
 ) -> int | None:
-    skill_names = [skill.name for skill in skills]
+    normalized_skills: list[CVSkillExtraction] = []
+    seen_skill_names: set[str] = set()
+    for skill in skills:
+        name = " ".join(skill.name.split())
+        if not name or name.casefold() in seen_skill_names:
+            continue
+        seen_skill_names.add(name.casefold())
+        normalized_skills.append(skill.model_copy(update={"name": name}))
+    skill_names = [skill.name for skill in normalized_skills]
     result = session.run(
         """
-        MATCH (u:USER:INDIVIDUAL {id: $user_id})
+        MERGE (u:USER {id: $user_id})
+        SET u:INDIVIDUAL
         OPTIONAL MATCH (u)-[stale:HAS_SKILL]->(existing:SKILL:CV_SKILL)
         WITH u, [item IN collect({relationship: stale, name: existing.name})
                  WHERE item.relationship IS NOT NULL] AS current_skills
@@ -51,7 +60,7 @@ def upsert_cv_skills(
         """,
         user_id=user_id,
         skill_names=skill_names,
-        skills=[skill.model_dump() for skill in skills],
+        skills=[skill.model_dump() for skill in normalized_skills],
         cv_document_id=cv_document_id,
         extraction_run_id=extraction_run_id,
         now=datetime.now(UTC).isoformat(),
@@ -76,7 +85,11 @@ def upsert_job_postings_and_market_skills(
             jp.search_term = coalesce(job.search_term, ''),
             jp.country = coalesce(job.country, ''),
             jp.location = coalesce(job.location, ''),
-            jp.description = coalesce(job.description, '')
+            jp.description = coalesce(job.description, ''),
+            jp.skill_extraction_status = coalesce(
+                job.skill_extraction_status, 'completed'
+            ),
+            jp.skill_extraction_error = job.skill_extraction_error
         RETURN count(DISTINCT jp) AS written
         """,
         jobs=jobs,
@@ -121,8 +134,12 @@ def select_job_postings(
 ) -> int:
     result = session.run(
         """
-        UNWIND $posting_urls AS url
         MATCH (u:USER:INDIVIDUAL {id: $user_id})
+        OPTIONAL MATCH (u)-[stale:INTERESTED_IN]->(:JOB_POSTING)
+        WITH u, collect(stale) AS stale_relationships
+        FOREACH (relationship IN stale_relationships | DELETE relationship)
+        WITH u
+        UNWIND $posting_urls AS url
         MATCH (jp:JOB_POSTING {url: url})
         MERGE (u)-[r:INTERESTED_IN]->(jp)
         ON CREATE SET r.selected_at = datetime($now)
@@ -176,8 +193,12 @@ def select_candidate_market_skills(
 ) -> int:
     result = session.run(
         """
-        UNWIND $skill_names AS skill_name
         MATCH (u:USER:INDIVIDUAL {id: $user_id})
+        OPTIONAL MATCH (u)-[stale:SELECTED_SKILL]->(:SKILL:MARKET_SKILL)
+        WITH u, collect(stale) AS stale_relationships
+        FOREACH (relationship IN stale_relationships | DELETE relationship)
+        WITH u
+        UNWIND $skill_names AS skill_name
         MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(sk:SKILL:MARKET_SKILL {name: skill_name})
         WHERE jp.url IN $posting_urls
         WITH DISTINCT u, sk
@@ -385,11 +406,15 @@ def get_individual_skill_bank(
 
     bank_result = session.run(
         """
-        MATCH (jp:JOB_POSTING)<-[:SOURCED_FROM]-(ms:MARKET_SKILL)
-        WHERE jp.url IN $interested_urls
+        UNWIND $interested_urls AS url
+        MATCH (jp:JOB_POSTING {url: url})
+        OPTIONAL MATCH (jp)<-[:SOURCED_FROM]-(ms:MARKET_SKILL)
+        WITH jp, [skill IN collect(ms { .name, .description, .category })
+                  WHERE skill.name IS NOT NULL] AS market_skills
         RETURN jp {
             .url, .title, .company, .site, .search_term,
-            skills: collect(ms { .name, .description, .category })
+            .skill_extraction_status, .skill_extraction_error,
+            skills: market_skills
         } AS posting
         ORDER BY jp.title, jp.company, jp.url
         """,
