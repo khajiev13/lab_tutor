@@ -1,8 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import {
-  invalidateAuthSession,
-  rotateAuthSessionTokens,
-} from '@/features/auth/auth-session';
+import { invalidateAuthSession } from '@/features/auth/auth-session';
 
 // Production should never call localhost from the deployed site.
 // Prefer VITE_API_URL injected at build time; otherwise fall back to the known Azure backend FQDN.
@@ -124,7 +121,6 @@ api.interceptors.response.use(
           const tokens = await refreshingPromise;
           localStorage.setItem('access_token', tokens.access_token);
           localStorage.setItem('refresh_token', tokens.refresh_token);
-          rotateAuthSessionTokens();
 
           // Retry original request with new token
           originalRequest.headers.Authorization = `Bearer ${tokens.access_token}`;

@@ -53,7 +53,7 @@ describe('api.ts refresh interceptor', () => {
     vi.clearAllMocks();
   });
 
-  it('on 401 retries request once after refreshing token', async () => {
+  it('keeps an in-flight request current across a same-user 401 refresh retry', async () => {
     establishAuthSession(7);
     const sessionBeforeTokenRotation = captureAuthSession(7);
     localStorage.setItem('refresh_token', 'refresh-1');
@@ -83,9 +83,6 @@ describe('api.ts refresh interceptor', () => {
     expect(localStorage.getItem('refresh_token')).toBe('refresh-2');
     expect(api).toHaveBeenCalledTimes(1);
     expect(api).toHaveBeenCalledWith(expect.objectContaining({ url: '/courses/' }));
-    expect(() => assertAuthSessionCurrent(sessionBeforeTokenRotation)).toThrow(
-      /authenticated session changed/i,
-    );
+    expect(() => assertAuthSessionCurrent(sessionBeforeTokenRotation)).not.toThrow();
   });
 });
-

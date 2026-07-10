@@ -26,10 +26,6 @@ export function invalidateAuthSession(): void {
   activeUserId = null;
 }
 
-export function rotateAuthSessionTokens(): void {
-  generation += 1;
-}
-
 export function captureAuthSession(userId: number): AuthSessionSnapshot {
   if (activeUserId !== userId) {
     throw new StaleAuthSessionError();
