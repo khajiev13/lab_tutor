@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { LoginResponse } from '@/features/auth/types';
+import {
+  assertAuthSessionCurrent,
+  captureAuthSession,
+  establishAuthSession,
+  resetAuthSessionForTests,
+} from '@/features/auth/auth-session';
 
 type AxiosInstanceLike = ((config: unknown) => Promise<unknown>) & {
   interceptors: {
@@ -43,10 +49,13 @@ describe('api.ts refresh interceptor', () => {
     // Some existing tests stub `localStorage` without implementing `.clear()`.
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    resetAuthSessionForTests();
     vi.clearAllMocks();
   });
 
   it('on 401 retries request once after refreshing token', async () => {
+    establishAuthSession(7);
+    const sessionBeforeTokenRotation = captureAuthSession(7);
     localStorage.setItem('refresh_token', 'refresh-1');
     vi.mocked(authApi.refresh).mockResolvedValue({
       access_token: 'access-2',
@@ -74,7 +83,9 @@ describe('api.ts refresh interceptor', () => {
     expect(localStorage.getItem('refresh_token')).toBe('refresh-2');
     expect(api).toHaveBeenCalledTimes(1);
     expect(api).toHaveBeenCalledWith(expect.objectContaining({ url: '/courses/' }));
+    expect(() => assertAuthSessionCurrent(sessionBeforeTokenRotation)).toThrow(
+      /authenticated session changed/i,
+    );
   });
 });
-
 

@@ -2,17 +2,21 @@ import type { ReactNode } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const authState = vi.hoisted(() => ({
+  user: {
+    id: 1,
+    first_name: 'Test',
+    last_name: 'Student',
+    email: 'student@example.com',
+    role: 'student' as 'student' | 'teacher' | 'individual',
+    created_at: '2026-04-15T00:00:00Z',
+  },
+}));
+
 vi.mock('@/features/auth/context/AuthContext', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useAuth: () => ({
-    user: {
-      id: 1,
-      first_name: 'Test',
-      last_name: 'Student',
-      email: 'student@example.com',
-      role: 'student',
-      created_at: '2026-04-15T00:00:00Z',
-    },
+    user: authState.user,
     isAuthenticated: true,
     isLoading: false,
     isServerWakingUp: false,
@@ -100,6 +104,7 @@ function renderAppAt(pathname: string) {
 
 describe('App routing', () => {
   beforeEach(() => {
+    authState.user.role = 'student';
     window.history.pushState({}, '', '/');
   });
 
@@ -144,5 +149,23 @@ describe('App routing', () => {
     expect(screen.getByTestId('individual-recovery-gate')).toBeInTheDocument();
     expect(screen.getByText('Mock Sidebar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Toggle theme/i })).toBeInTheDocument();
+  });
+
+  it('routes an authenticated individual away from the public login route', () => {
+    authState.user.role = 'individual';
+
+    renderAppAt('/login');
+
+    expect(screen.getByText('Individual Profile')).toBeInTheDocument();
+    expect(screen.getByTestId('individual-recovery-gate')).toBeInTheDocument();
+  });
+
+  it('routes an individual who opens the shared home route into recovery', () => {
+    authState.user.role = 'individual';
+
+    renderAppAt('/home');
+
+    expect(screen.getByText('Individual Profile')).toBeInTheDocument();
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
   });
 });

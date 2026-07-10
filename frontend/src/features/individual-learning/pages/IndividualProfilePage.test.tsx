@@ -5,6 +5,11 @@ import { toast } from 'sonner';
 import * as individualLearningApi from '@/features/individual-learning/api';
 import { clearIndividualGraphSession } from '@/features/individual-learning/graph-session';
 import IndividualProfilePage from './IndividualProfilePage';
+import {
+  establishAuthSession,
+  invalidateAuthSession,
+  resetAuthSessionForTests,
+} from '@/features/auth/auth-session';
 
 vi.mock('@/features/individual-learning/api', () => ({
   getIndividualProfile: vi.fn(),
@@ -15,6 +20,7 @@ vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -28,6 +34,8 @@ describe('IndividualProfilePage', () => {
     vi.clearAllMocks();
     clearIndividualGraphSession();
     sessionStorage.clear();
+    resetAuthSessionForTests();
+    establishAuthSession(7);
     sessionStorage.setItem(
       'individual-learning.graph-session',
       JSON.stringify({
@@ -435,5 +443,48 @@ describe('IndividualProfilePage', () => {
       jobsInterrupt: { kind: 'choose_jobs_and_skills' },
     });
     expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('does not persist or navigate when profile approval resolves after logout', async () => {
+    let resolveResume!: (
+      value: Awaited<ReturnType<typeof individualLearningApi.resumeIndividualGraph>>,
+    ) => void;
+    vi.mocked(individualLearningApi.resumeIndividualGraph).mockReturnValue(
+      new Promise((resolve) => {
+        resolveResume = resolve;
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={['/individual/profile']}>
+        <Routes>
+          <Route path="/individual/profile" element={<><IndividualProfilePage /><LocationProbe /></>} />
+          <Route path="/individual/jobs" element={<div>Former user jobs</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByText('Built dashboards for operations teams.');
+    fireEvent.click(screen.getByRole('button', { name: /approve profile and find jobs/i }));
+    await waitFor(() => expect(individualLearningApi.resumeIndividualGraph).toHaveBeenCalled());
+
+    invalidateAuthSession();
+    clearIndividualGraphSession();
+    resolveResume({
+      thread_id: 'individual-7-cv-42',
+      status: 'interrupted',
+      interrupt: {
+        kind: 'choose_jobs_and_skills',
+        candidate_jobs: [],
+        skill_bank: [],
+      },
+      target_titles: ['Data Analyst'],
+      selected_posting_urls: [],
+      selected_skill_names: [],
+    });
+
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/individual/profile'));
+    expect(sessionStorage.getItem('individual-learning.graph-session')).toBeNull();
+    expect(screen.queryByText('Former user jobs')).not.toBeInTheDocument();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 });

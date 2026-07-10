@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { authApi } from '../api';
 import type { LoginCredentials, RegisterData, UserResponse } from '../types';
 import { isTokenExpired } from '../utils/token';
@@ -8,6 +8,11 @@ import {
 } from '@/features/individual-learning/graph-session';
 import { resetTeacherTwinSimulationTasks } from '@/features/arcd-agent/state/teacherTwinSimulationStore';
 import { resetTeacherTwinUiState } from '@/features/arcd-agent/state/teacherTwinUiStore';
+import {
+  establishAuthSession,
+  invalidateAuthSession,
+  StaleAuthSessionError,
+} from '@/features/auth/auth-session';
 
 // User type alias
 type User = UserResponse;
@@ -19,38 +24,64 @@ interface AuthContextType {
   isLoading: boolean;
   /** True when we're waiting on a cold-started backend (> 4s). */
   isServerWakingUp: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<UserResponse>;
   register: (data: RegisterData) => Promise<UserResponse>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getHttpStatus(error: unknown): number | null {
+  if (!error || typeof error !== 'object' || !('response' in error)) {
+    return null;
+  }
+  const response = (error as { response?: { status?: unknown } }).response;
+  return typeof response?.status === 'number' ? response.status : null;
+}
+
+function isConfirmedAuthenticationFailure(error: unknown): boolean {
+  const status = getHttpStatus(error);
+  return status === 401 || status === 403;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isServerWakingUp, setIsServerWakingUp] = useState(false);
+  const authAttemptRef = useRef(0);
+  const isMountedRef = useRef(true);
 
   const clearTokens = useCallback(() => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
   }, []);
 
-  const fetchUser = useCallback(async () => {
-    try {
-      const userData = await authApi.getMe();
-      clearIndividualGraphSessionForOtherUser(userData.id);
-      setUser(userData);
-    } catch (error: unknown) {
-      console.error('Failed to fetch user:', error);
-      clearTokens();
-      clearIndividualGraphSession();
+  const resetUserScopedState = useCallback(() => {
+    clearIndividualGraphSession();
+    resetTeacherTwinSimulationTasks();
+    resetTeacherTwinUiState();
+  }, []);
+
+  const clearConfirmedSession = useCallback(() => {
+    clearTokens();
+    invalidateAuthSession();
+    resetUserScopedState();
+    if (isMountedRef.current) {
       setUser(null);
-    } finally {
-      setIsLoading(false);
-      setIsServerWakingUp(false);
     }
-  }, [clearTokens]);
+  }, [clearTokens, resetUserScopedState]);
+
+  const fetchUser = useCallback(async (attempt: number): Promise<UserResponse> => {
+    const userData = await authApi.getMe();
+    if (attempt !== authAttemptRef.current || !isMountedRef.current) {
+      throw new StaleAuthSessionError();
+    }
+
+    clearIndividualGraphSessionForOtherUser(userData.id);
+    establishAuthSession(userData.id);
+    setUser(userData);
+    return userData;
+  }, []);
 
   /**
    * Try to restore the session from stored tokens.
@@ -61,12 +92,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * is cold-starting on Azure Container Apps.
    */
   const restoreSession = useCallback(async () => {
+    const attempt = ++authAttemptRef.current;
     const accessToken = localStorage.getItem('access_token');
     const refreshToken = localStorage.getItem('refresh_token');
 
     // Nothing stored → go straight to login.
     if (!accessToken) {
-      setIsLoading(false);
+      invalidateAuthSession();
+      resetUserScopedState();
+      if (isMountedRef.current && attempt === authAttemptRef.current) {
+        setUser(null);
+        setIsLoading(false);
+        setIsServerWakingUp(false);
+      }
       return;
     }
 
@@ -76,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Fast path: access token still valid → fetch user immediately.
       if (!isTokenExpired(accessToken)) {
-        await fetchUser();
+        await fetchUser(attempt);
         return;
       }
 
@@ -86,34 +124,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const tokens = await authApi.refresh(refreshToken);
           localStorage.setItem('access_token', tokens.access_token);
           localStorage.setItem('refresh_token', tokens.refresh_token);
-          await fetchUser();
+          await fetchUser(attempt);
           return;
-        } catch {
-          // Refresh failed — fall through to clear tokens.
+        } catch (error: unknown) {
+          if (error instanceof StaleAuthSessionError) {
+            return;
+          }
+          if (isConfirmedAuthenticationFailure(error)) {
+            clearConfirmedSession();
+          }
+          return;
         }
       }
 
       // Both tokens expired or refresh failed → clear & show login.
-      clearTokens();
-      clearIndividualGraphSession();
-      setUser(null);
+      clearConfirmedSession();
+    } catch (error: unknown) {
+      if (error instanceof StaleAuthSessionError) {
+        return;
+      }
+      if (isConfirmedAuthenticationFailure(error)) {
+        clearConfirmedSession();
+      }
     } finally {
       clearTimeout(wakingUpTimer);
-      setIsLoading(false);
-      setIsServerWakingUp(false);
+      if (isMountedRef.current && attempt === authAttemptRef.current) {
+        setIsLoading(false);
+        setIsServerWakingUp(false);
+      }
     }
-  }, [fetchUser, clearTokens]);
+  }, [clearConfirmedSession, fetchUser, resetUserScopedState]);
 
   useEffect(() => {
-    restoreSession();
+    isMountedRef.current = true;
+    void restoreSession();
+    return () => {
+      isMountedRef.current = false;
+      authAttemptRef.current += 1;
+    };
   }, [restoreSession]);
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== 'access_token' || event.oldValue === event.newValue) {
+        return;
+      }
+
+      authAttemptRef.current += 1;
+      invalidateAuthSession();
+      resetUserScopedState();
+      setUser(null);
+      setIsLoading(true);
+      setIsServerWakingUp(false);
+      void restoreSession();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [resetUserScopedState, restoreSession]);
+
+  const login = useCallback(async (credentials: LoginCredentials): Promise<UserResponse> => {
     const response = await authApi.login(credentials);
+    const attempt = ++authAttemptRef.current;
+    invalidateAuthSession();
+    resetUserScopedState();
+    setUser(null);
     localStorage.setItem('access_token', response.access_token);
     localStorage.setItem('refresh_token', response.refresh_token);
-    await fetchUser();
-  }, [fetchUser]);
+    try {
+      return await fetchUser(attempt);
+    } catch (error: unknown) {
+      if (isConfirmedAuthenticationFailure(error)) {
+        clearConfirmedSession();
+      }
+      throw error;
+    }
+  }, [clearConfirmedSession, fetchUser, resetUserScopedState]);
 
   const register = useCallback(async (data: RegisterData): Promise<UserResponse> => {
     const response = await authApi.register(data);
@@ -121,15 +207,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => {
+    authAttemptRef.current += 1;
     clearTokens();
-    clearIndividualGraphSession();
+    invalidateAuthSession();
+    resetUserScopedState();
     setUser(null);
     // Clear teacher-twin caches so the next teacher who logs in starts with
     // a fresh dashboard. The simulation store holds expensive results; the
     // UI store holds tab/filter/slider state. Both are session-scoped.
-    resetTeacherTwinSimulationTasks();
-    resetTeacherTwinUiState();
-  }, [clearTokens]);
+  }, [clearTokens, resetUserScopedState]);
 
   const value: AuthContextType = {
     user,

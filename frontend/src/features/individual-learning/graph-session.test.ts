@@ -7,6 +7,12 @@ import {
   readIndividualGraphSession,
   writeIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
+import {
+  captureAuthSession,
+  establishAuthSession,
+  invalidateAuthSession,
+  resetAuthSessionForTests,
+} from '@/features/auth/auth-session';
 
 const storedSession = {
   ownerUserId: 7,
@@ -40,9 +46,12 @@ const recoveredProfile = {
 describe('individual graph session', () => {
   beforeEach(() => {
     clearIndividualGraphSession();
+    resetAuthSessionForTests();
+    establishAuthSession(7);
   });
 
   afterEach(() => {
+    resetAuthSessionForTests();
     vi.restoreAllMocks();
   });
 
@@ -60,7 +69,12 @@ describe('individual graph session', () => {
         selected_posting_urls: [],
         selected_skill_names: [],
       },
-      { cvDocumentId: 42, ownerUserId: 7 },
+      {
+        cvDocumentId: 42,
+        ownerUserId: 7,
+        authSession: captureAuthSession(7),
+        replace: true,
+      },
     );
 
     expect(readIndividualGraphSession()).toMatchObject({
@@ -99,7 +113,12 @@ describe('individual graph session', () => {
         selected_posting_urls: [],
         selected_skill_names: [],
       },
-      { cvDocumentId: 42, ownerUserId: 7 },
+      {
+        cvDocumentId: 42,
+        ownerUserId: 7,
+        authSession: captureAuthSession(7),
+        replace: true,
+      },
     );
 
     expect(result.stored).toBe(false);
@@ -172,6 +191,7 @@ describe('individual graph session', () => {
           {
             url: 'https://example.test/jobs/data-analyst',
             title: 'Data Analyst',
+            skill_extraction_status: 'failed',
             skills: [{ name: 'SQL' }],
           },
         ],
@@ -180,7 +200,10 @@ describe('individual graph session', () => {
     });
 
     expect(session?.jobsInterrupt?.candidate_jobs).toEqual([
-      expect.objectContaining({ title: 'Data Analyst' }),
+      expect.objectContaining({
+        title: 'Data Analyst',
+        skill_extraction_status: 'failed',
+      }),
     ]);
   });
 
@@ -284,5 +307,76 @@ describe('individual graph session', () => {
     });
 
     expect(session).toBeNull();
+  });
+
+  it('rejects a response captured before the authenticated session was invalidated', () => {
+    const authSession = captureAuthSession(7);
+    writeIndividualGraphSession(storedSession);
+    invalidateAuthSession();
+
+    expect(() =>
+      persistIndividualGraphResponse(
+        {
+          thread_id: 'older-thread',
+          status: 'completed',
+          interrupt: null,
+          target_titles: ['Data Analyst'],
+          selected_posting_urls: [],
+          selected_skill_names: ['SQL'],
+        },
+        {
+          ownerUserId: 7,
+          authSession,
+          expectedThreadId: 'older-thread',
+        },
+      ),
+    ).toThrow(/authenticated session changed/i);
+    expect(readIndividualGraphSession()).toEqual(storedSession);
+  });
+
+  it('rejects a continuation when the expected thread is no longer current', () => {
+    const authSession = captureAuthSession(7);
+    writeIndividualGraphSession({ ...storedSession, threadId: 'newer-thread' });
+
+    expect(() =>
+      persistIndividualGraphResponse(
+        {
+          thread_id: 'older-thread',
+          status: 'completed',
+          interrupt: null,
+          target_titles: ['Data Analyst'],
+          selected_posting_urls: [],
+          selected_skill_names: ['SQL'],
+        },
+        {
+          ownerUserId: 7,
+          authSession,
+          expectedThreadId: 'older-thread',
+        },
+      ),
+    ).toThrow(/graph thread changed/i);
+    expect(readIndividualGraphSession()?.threadId).toBe('newer-thread');
+  });
+
+  it('requires an explicit owner instead of inferring it from mutable storage', () => {
+    const authSession = captureAuthSession(7);
+    writeIndividualGraphSession(storedSession);
+
+    expect(() =>
+      persistIndividualGraphResponse(
+        {
+          thread_id: 'older-thread',
+          status: 'completed',
+          interrupt: null,
+          target_titles: ['Data Analyst'],
+          selected_posting_urls: [],
+          selected_skill_names: [],
+        },
+        {
+          authSession,
+          expectedThreadId: 'older-thread',
+        } as never,
+      ),
+    ).toThrow(/explicit owner/i);
   });
 });

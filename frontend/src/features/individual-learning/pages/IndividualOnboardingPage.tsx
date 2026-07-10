@@ -20,11 +20,18 @@ import {
 import { Input } from '@/components/ui/input';
 import {
   getIndividualProfile,
+  retryCvExtraction,
   startIndividualGraph,
   type IndividualProfile,
   uploadCv,
 } from '@/features/individual-learning/api';
 import { persistIndividualGraphResponse } from '@/features/individual-learning/graph-session';
+import {
+  captureCurrentAuthSession,
+  isStaleAuthSessionError,
+  type AuthSessionSnapshot,
+} from '@/features/auth/auth-session';
+import { useAuthRequestGuard } from '@/features/individual-learning/use-auth-request-guard';
 
 const uploadSchema = z.object({
   file: z
@@ -40,11 +47,14 @@ function formatStatus(status: IndividualProfile['onboarding_status']) {
 
 export default function IndividualOnboardingPage() {
   const navigate = useNavigate();
+  const { assertRequestCurrent, isRequestCurrent } = useAuthRequestGuard();
   const [profile, setProfile] = useState<IndividualProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileLoadAttempt, setProfileLoadAttempt] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRetryingCv, setIsRetryingCv] = useState(false);
+  const [retryCvError, setRetryCvError] = useState<string | null>(null);
   const [lastUpload, setLastUpload] = useState<{
     id: number;
     original_filename: string;
@@ -59,20 +69,29 @@ export default function IndividualOnboardingPage() {
     let active = true;
 
     async function loadProfile() {
+      let authSession: AuthSessionSnapshot | null = null;
       try {
+        authSession = captureCurrentAuthSession();
         const nextProfile = await getIndividualProfile();
         if (active) {
+          assertRequestCurrent(authSession);
           setProfile(nextProfile);
           setProfileError(null);
         }
       } catch (error) {
+        if (
+          isStaleAuthSessionError(error) ||
+          (authSession && !isRequestCurrent(authSession))
+        ) {
+          return;
+        }
         console.error(error);
         if (active) {
           setProfileError('We could not load your current onboarding status.');
         }
         toast.error('Failed to load your onboarding status.');
       } finally {
-        if (active) {
+        if (active && authSession && isRequestCurrent(authSession)) {
           setIsLoadingProfile(false);
         }
       }
@@ -83,7 +102,7 @@ export default function IndividualOnboardingPage() {
     return () => {
       active = false;
     };
-  }, [profileLoadAttempt]);
+  }, [assertRequestCurrent, isRequestCurrent, profileLoadAttempt]);
 
   const retryProfileStatus = () => {
     setProfileError(null);
@@ -92,10 +111,16 @@ export default function IndividualOnboardingPage() {
   };
 
   const onSubmit = form.handleSubmit(async ({ file }) => {
+    let authSession: AuthSessionSnapshot | null = null;
     setIsUploading(true);
     let didUpload = false;
     try {
+      authSession = captureCurrentAuthSession();
       const uploadResponse = await uploadCv(file);
+      assertRequestCurrent(authSession);
+      if (uploadResponse.user_id !== authSession.userId) {
+        throw new Error('The uploaded CV belongs to another authenticated user.');
+      }
       didUpload = true;
       setLastUpload({
         id: uploadResponse.id,
@@ -104,9 +129,11 @@ export default function IndividualOnboardingPage() {
       });
 
       const graphResponse = await startIndividualGraph(uploadResponse.id);
+      assertRequestCurrent(authSession);
       const { stored } = persistIndividualGraphResponse(graphResponse, {
         cvDocumentId: uploadResponse.id,
         ownerUserId: uploadResponse.user_id,
+        authSession,
         replace: true,
       });
       if (!stored) {
@@ -119,6 +146,12 @@ export default function IndividualOnboardingPage() {
       });
       navigate('/individual/profile');
     } catch (error) {
+      if (
+        isStaleAuthSessionError(error) ||
+        (authSession && !isRequestCurrent(authSession))
+      ) {
+        return;
+      }
       console.error(error);
       toast.error(didUpload ? 'Could not start CV review' : 'CV upload failed', {
         description: didUpload
@@ -126,9 +159,59 @@ export default function IndividualOnboardingPage() {
           : 'Please try a PDF or DOCX file again.',
       });
     } finally {
-      setIsUploading(false);
+      if (authSession && isRequestCurrent(authSession)) {
+        setIsUploading(false);
+      }
     }
   });
+
+  const retryFailedCv = async () => {
+    if (!profile?.cv_document_id) {
+      setRetryCvError('The failed CV document is no longer available. Reload status and try again.');
+      return;
+    }
+
+    const authSession = captureCurrentAuthSession();
+    const cvDocumentId = profile.cv_document_id;
+    setIsRetryingCv(true);
+    setRetryCvError(null);
+    try {
+      const retriedDocument = await retryCvExtraction(cvDocumentId);
+      assertRequestCurrent(authSession);
+      if (retriedDocument.user_id !== authSession.userId) {
+        throw new Error('The retried CV belongs to another authenticated user.');
+      }
+      setLastUpload(retriedDocument);
+
+      const graphResponse = await startIndividualGraph(retriedDocument.id);
+      assertRequestCurrent(authSession);
+      const { stored } = persistIndividualGraphResponse(graphResponse, {
+        cvDocumentId: retriedDocument.id,
+        ownerUserId: retriedDocument.user_id,
+        authSession,
+        replace: true,
+      });
+      if (!stored) {
+        toast.warning('Review state is available for this page session only.', {
+          description: 'Avoid reloading until you finish profile review.',
+        });
+      }
+      toast.success('CV extraction recovered', {
+        description: 'Your extracted profile is ready for review.',
+      });
+      navigate('/individual/profile');
+    } catch (error) {
+      if (isStaleAuthSessionError(error) || !isRequestCurrent(authSession)) {
+        return;
+      }
+      setRetryCvError('Could not retry CV extraction. Your existing document is still available.');
+      toast.error('CV extraction retry failed.');
+    } finally {
+      if (isRequestCurrent(authSession)) {
+        setIsRetryingCv(false);
+      }
+    }
+  };
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -207,6 +290,33 @@ export default function IndividualOnboardingPage() {
                   <Button type="button" size="sm" variant="outline" onClick={retryProfileStatus}>
                     <RefreshCw className="size-4" />
                     Retry status
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {profile?.next_step === 'retry_cv' && profile.cv_document_id ? (
+              <Alert variant="destructive">
+                <RefreshCw className="size-4" />
+                <AlertTitle>CV extraction needs attention</AlertTitle>
+                <AlertDescription className="flex flex-col items-start gap-3">
+                  <span>
+                    Retry extraction for document #{profile.cv_document_id} without uploading the
+                    file again.
+                  </span>
+                  {retryCvError ? <span>{retryCvError}</span> : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={retryFailedCv}
+                    disabled={isRetryingCv}
+                  >
+                    {isRetryingCv ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-4" />
+                    )}
+                    Retry CV extraction
                   </Button>
                 </AlertDescription>
               </Alert>

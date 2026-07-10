@@ -41,6 +41,13 @@ import {
   getIndividualRecoveryPath,
   recoverIndividualWorkflow,
 } from '@/features/individual-learning/recovery';
+import {
+  captureAuthSession,
+  captureCurrentAuthSession,
+  isStaleAuthSessionError,
+  type AuthSessionSnapshot,
+} from '@/features/auth/auth-session';
+import { useAuthRequestGuard } from '@/features/individual-learning/use-auth-request-guard';
 
 const MAX_SELECTED_SKILLS = 20;
 
@@ -56,6 +63,8 @@ function toSkillBankPosting(
     search_term: posting.search_term,
     is_interested: true,
     match_score: posting.match_score,
+    skill_extraction_status: posting.skill_extraction_status,
+    skill_extraction_error: posting.skill_extraction_error,
     skills: (posting.skills ?? []).map((skill) => ({
       name: skill.name,
       description: skill.description,
@@ -120,10 +129,10 @@ function SkillChip({
 
 export default function IndividualSkillsPage() {
   const navigate = useNavigate();
+  const { assertRequestCurrent, isRequestCurrent } = useAuthRequestGuard();
   const [graphSession, setGraphSession] = useState(readIndividualGraphSession);
   const graphInterrupt = graphSession?.jobsInterrupt ?? null;
   const isGraphWorkflow = graphInterrupt !== null;
-  const isCompletedRecovery = graphSession?.graphStatus === 'completed' && !graphInterrupt;
   const graphSelectedSkills = new Set(graphSession?.selectedSkillNames ?? []);
   const [postings, setPostings] = useState<IndividualSkillBankJobPosting[]>(() =>
     (graphInterrupt?.candidate_jobs ?? []).map((posting) =>
@@ -138,6 +147,7 @@ export default function IndividualSkillsPage() {
   const [isLoading, setIsLoading] = useState(!isGraphWorkflow);
   const [isBuilding, setIsBuilding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [buildError, setBuildError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isGraphWorkflow) {
@@ -146,11 +156,14 @@ export default function IndividualSkillsPage() {
 
     let active = true;
     async function loadSkillBanks() {
+      let authSession: AuthSessionSnapshot | null = null;
       try {
+        authSession = captureCurrentAuthSession();
         const data = await getIndividualSkillBanks();
         if (!active) {
           return;
         }
+        assertRequestCurrent(authSession);
 
         const nextInterestedUrls = buildInterestedPostingUrls(
           data.market_skill_bank,
@@ -167,13 +180,19 @@ export default function IndividualSkillsPage() {
         setPersistedSkills(new Set(nextSelectedSkills));
         setError(null);
       } catch (loadError) {
+        if (
+          isStaleAuthSessionError(loadError) ||
+          (authSession && !isRequestCurrent(authSession))
+        ) {
+          return;
+        }
         console.error(loadError);
         if (active) {
           setError('We could not load market skills for your interested jobs.');
         }
         toast.error('Failed to load market skills.');
       } finally {
-        if (active) {
+        if (active && authSession && isRequestCurrent(authSession)) {
           setIsLoading(false);
         }
       }
@@ -183,7 +202,7 @@ export default function IndividualSkillsPage() {
     return () => {
       active = false;
     };
-  }, [isGraphWorkflow]);
+  }, [assertRequestCurrent, isGraphWorkflow, isRequestCurrent]);
 
   const interestedPostings = useMemo(
     () => postings.filter((posting) => interestedUrls.has(posting.url)),
@@ -199,10 +218,17 @@ export default function IndividualSkillsPage() {
       return;
     }
 
-    writeIndividualGraphSession({
-      ...graphSession,
-      selectedSkillNames: availableSkillNames.filter((name) => selectedSkills.has(name)),
-    });
+    try {
+      captureAuthSession(graphSession.ownerUserId);
+      writeIndividualGraphSession({
+        ...graphSession,
+        selectedSkillNames: availableSkillNames.filter((name) => selectedSkills.has(name)),
+      });
+    } catch (error) {
+      if (!isStaleAuthSessionError(error)) {
+        throw error;
+      }
+    }
   }, [availableSkillNames, graphSession, isGraphWorkflow, selectedSkills]);
 
   const allSkillsSelected =
@@ -210,9 +236,6 @@ export default function IndividualSkillsPage() {
     availableSkillNames.every((skillName) => selectedSkills.has(skillName));
 
   const toggleSkill = (skillName: string) => {
-    if (isCompletedRecovery) {
-      return;
-    }
     setSelectedSkills((current) => {
       const next = new Set(current);
       if (next.has(skillName)) {
@@ -225,9 +248,6 @@ export default function IndividualSkillsPage() {
   };
 
   const togglePostingSkills = (posting: IndividualSkillBankJobPosting) => {
-    if (isCompletedRecovery) {
-      return;
-    }
     const postingSkillNames = posting.skills.map((skill) => skill.name);
     const everySelected = postingSkillNames.every((name) => selectedSkills.has(name));
     setSelectedSkills((current) => {
@@ -244,9 +264,6 @@ export default function IndividualSkillsPage() {
   };
 
   const toggleAllSkills = () => {
-    if (isCompletedRecovery) {
-      return;
-    }
     setSelectedSkills((current) => {
       const next = new Set(current);
       availableSkillNames.forEach((name) => {
@@ -261,9 +278,6 @@ export default function IndividualSkillsPage() {
   };
 
   const handleBuild = async () => {
-    if (isCompletedRecovery) {
-      return;
-    }
     if (selectedSkills.size === 0 || selectedSkills.size > MAX_SELECTED_SKILLS) {
       toast.error(`Select between 1 and ${MAX_SELECTED_SKILLS} market skills before building.`);
       return;
@@ -274,7 +288,12 @@ export default function IndividualSkillsPage() {
     const removed = Array.from(persistedSkills).filter((name) => !selectedSkills.has(name));
 
     setIsBuilding(true);
+    setBuildError(null);
+    let authSession: AuthSessionSnapshot | null = null;
     try {
+      authSession = graphSession
+        ? captureAuthSession(graphSession.ownerUserId)
+        : captureCurrentAuthSession();
       if (
         isGraphWorkflow &&
         graphSession &&
@@ -284,10 +303,15 @@ export default function IndividualSkillsPage() {
           selected_posting_urls: Array.from(interestedUrls),
           selected_skill_names: orderedSelection,
         });
+        assertRequestCurrent(authSession);
         if (graphResponse.status !== 'completed') {
           throw new Error('The individual learning graph did not complete skill selection.');
         }
-        const persistedGraph = persistIndividualGraphResponse(graphResponse);
+        const persistedGraph = persistIndividualGraphResponse(graphResponse, {
+          ownerUserId: graphSession.ownerUserId,
+          authSession,
+          expectedThreadId: graphSession.threadId,
+        });
         setGraphSession(persistedGraph.session);
         if (!persistedGraph.stored) {
           toast.warning('Completed graph state is available for this page session only.');
@@ -295,13 +319,16 @@ export default function IndividualSkillsPage() {
 
         if (removed.length > 0) {
           await deselectIndividualSkills(removed);
+          assertRequestCurrent(authSession);
         }
       } else {
         if (added.length > 0) {
           await selectIndividualSkills(added);
+          assertRequestCurrent(authSession);
         }
         if (removed.length > 0) {
           await deselectIndividualSkills(removed);
+          assertRequestCurrent(authSession);
         }
 
         if (isGraphWorkflow && graphSession?.graphStatus === 'completed') {
@@ -318,12 +345,33 @@ export default function IndividualSkillsPage() {
       }
 
       const response = await buildIndividualLearningPath(orderedSelection);
+      assertRequestCurrent(authSession);
       setPersistedSkills(new Set(orderedSelection));
-      toast.success('Learning path built', {
-        description: `Backend status: ${response.status}.`,
-      });
+      if (response.status === 'failed') {
+        const failureMessage = response.error ?? 'No learning resources could be generated.';
+        setBuildError(failureMessage);
+        toast.error('Learning path build failed.', {
+          description: failureMessage,
+        });
+        return;
+      }
+      if (response.status === 'partial') {
+        toast.warning('Learning path partially built', {
+          description:
+            response.error ?? 'Some selected skills do not have learning resources yet.',
+        });
+        navigate('/individual/learning-path');
+        return;
+      }
+      toast.success('Learning path built');
       navigate('/individual/learning-path');
     } catch (buildError) {
+      if (
+        isStaleAuthSessionError(buildError) ||
+        (authSession && !isRequestCurrent(authSession))
+      ) {
+        return;
+      }
       if (getErrorStatus(buildError) === 409 && graphSession) {
         try {
           const recovery = await recoverIndividualWorkflow(graphSession.ownerUserId);
@@ -337,9 +385,12 @@ export default function IndividualSkillsPage() {
         }
       }
       console.error(buildError);
+      setBuildError('The learning path could not be built. Your skill selection is still saved.');
       toast.error('Learning path build failed.');
     } finally {
-      setIsBuilding(false);
+      if (authSession && isRequestCurrent(authSession)) {
+        setIsBuilding(false);
+      }
     }
   };
 
@@ -366,7 +417,7 @@ export default function IndividualSkillsPage() {
               type="button"
               variant="outline"
               onClick={toggleAllSkills}
-              disabled={isCompletedRecovery || isLoading || availableSkillNames.length === 0}
+              disabled={isLoading || availableSkillNames.length === 0}
             >
               <CheckCircle2 className="size-4" />
               {allSkillsSelected ? 'Clear all market skills' : 'Select all market skills'}
@@ -376,7 +427,6 @@ export default function IndividualSkillsPage() {
               disabled={
                 isLoading ||
                 isBuilding ||
-                isCompletedRecovery ||
                 selectedSkills.size === 0 ||
                 selectedSkills.size > MAX_SELECTED_SKILLS
               }
@@ -393,6 +443,16 @@ export default function IndividualSkillsPage() {
             <Badge variant="outline">{availableSkillNames.length} available market skill(s)</Badge>
             <span>Choose 1-{MAX_SELECTED_SKILLS} skills.</span>
           </div>
+
+          {buildError ? (
+            <Alert variant="destructive">
+              <ArrowRight className="size-4" />
+              <AlertTitle>Learning path build failed</AlertTitle>
+              <AlertDescription>
+                {buildError} Retry the build when you are ready; your selected skills remain here.
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           {isLoading ? (
             <div className="rounded-md border p-8 text-sm text-muted-foreground">
@@ -457,7 +517,7 @@ export default function IndividualSkillsPage() {
                         size="sm"
                         variant={everyPostingSkillSelected ? 'default' : 'outline'}
                         onClick={() => togglePostingSkills(posting)}
-                        disabled={isCompletedRecovery || posting.skills.length === 0}
+                        disabled={posting.skills.length === 0}
                         aria-label={`${
                           everyPostingSkillSelected ? 'Clear' : 'Select all'
                         } skills for ${posting.title}`}
@@ -486,7 +546,6 @@ export default function IndividualSkillsPage() {
                               key={`${posting.url}-${skill.name}`}
                               skill={skill}
                               selected={selectedSkills.has(skill.name)}
-                              disabled={isCompletedRecovery}
                               onToggle={() => toggleSkill(skill.name)}
                             />
                           ))}

@@ -24,6 +24,9 @@ describe('IndividualLearningPathPage', () => {
       user_id: 7,
       total_selected_skills: 2,
       skills_with_resources: 1,
+      build_status: 'completed',
+      build_run_id: 'learning-run-4',
+      build_error: null,
       selected_skills: [
         {
           name: 'Query relational databases using SQL',
@@ -86,6 +89,9 @@ describe('IndividualLearningPathPage', () => {
         user_id: 7,
         total_selected_skills: 1,
         skills_with_resources: 0,
+        build_status: 'completed',
+        build_run_id: 'learning-run-5',
+        build_error: null,
         selected_skills: [
           {
             name: 'Recovered SQL',
@@ -106,5 +112,40 @@ describe('IndividualLearningPathPage', () => {
 
     expect(await screen.findByText('Recovered SQL')).toBeInTheDocument();
     expect(individualLearningApi.getIndividualLearningPath).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['partial', 'Learning path partially built', 'Some providers were unavailable.'],
+    ['failed', 'Learning path build failed', 'No learning resources could be generated.'],
+  ] as const)('renders %s build guidance with its durable run metadata', async (
+    buildStatus,
+    title,
+    buildError,
+  ) => {
+    vi.mocked(individualLearningApi.getIndividualLearningPath).mockResolvedValue({
+      user_id: 7,
+      total_selected_skills: 1,
+      skills_with_resources: buildStatus === 'partial' ? 1 : 0,
+      build_status: buildStatus,
+      build_run_id: 'learning-run-status',
+      build_error: buildError,
+      selected_skills: buildStatus === 'partial'
+        ? [{ name: 'SQL', readings: [], videos: [], questions: [] }]
+        : [],
+    });
+
+    render(
+      <MemoryRouter>
+        <IndividualLearningPathPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(title)).toBeInTheDocument();
+    expect(screen.getByText(buildError)).toBeInTheDocument();
+    expect(screen.getByText(/learning-run-status/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /return to skill selection/i })).toHaveAttribute(
+      'href',
+      '/individual/skills',
+    );
   });
 });

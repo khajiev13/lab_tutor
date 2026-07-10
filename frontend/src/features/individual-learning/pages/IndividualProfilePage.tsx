@@ -46,6 +46,13 @@ import {
   getIndividualRecoveryPath,
   recoverIndividualWorkflow,
 } from '@/features/individual-learning/recovery';
+import {
+  captureAuthSession,
+  captureCurrentAuthSession,
+  isStaleAuthSessionError,
+  type AuthSessionSnapshot,
+} from '@/features/auth/auth-session';
+import { useAuthRequestGuard } from '@/features/individual-learning/use-auth-request-guard';
 
 const MAX_TARGET_TITLES = 10;
 
@@ -223,6 +230,7 @@ function ExtractedProfile({ profile }: { profile: IndividualCvProfileExtraction 
 
 export default function IndividualProfilePage() {
   const navigate = useNavigate();
+  const { assertRequestCurrent, isRequestCurrent } = useAuthRequestGuard();
   const [graphSession, setGraphSession] = useState(readIndividualGraphSession);
   const [profile, setProfile] = useState<IndividualProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -258,11 +266,14 @@ export default function IndividualProfilePage() {
     let active = true;
 
     async function loadProfile() {
+      let authSession: AuthSessionSnapshot | null = null;
       try {
+        authSession = captureCurrentAuthSession();
         const data = await getIndividualProfile();
         if (!active) {
           return;
         }
+        assertRequestCurrent(authSession);
         const recoveredSession = hydrateIndividualGraphSession(data);
         setProfile(data);
         setGraphSession(recoveredSession);
@@ -281,12 +292,18 @@ export default function IndividualProfilePage() {
           });
         }
       } catch (error) {
+        if (
+          isStaleAuthSessionError(error) ||
+          (authSession && !isRequestCurrent(authSession))
+        ) {
+          return;
+        }
         console.error(error);
         if (active) {
           setProfileError('We could not load your current profile status.');
         }
       } finally {
-        if (active) {
+        if (active && authSession && isRequestCurrent(authSession)) {
           setIsLoadingProfile(false);
         }
       }
@@ -296,7 +313,7 @@ export default function IndividualProfilePage() {
     return () => {
       active = false;
     };
-  }, [getFieldState, resetForm]);
+  }, [assertRequestCurrent, getFieldState, isRequestCurrent, resetForm]);
 
   const addSuggestion = (suggestion: string) => {
     const current = cleanTitles(form.getValues('targetTitles'));
@@ -319,12 +336,24 @@ export default function IndividualProfilePage() {
 
   const resumeProfile = async (threadId: string, targetTitles: string[]) => {
     setActionError(null);
+    const ownerUserId = graphSession?.ownerUserId ?? profile?.user_id;
+    if (!ownerUserId) {
+      setActionError('The current individual workflow has no owner.');
+      return;
+    }
+    let authSession: AuthSessionSnapshot | null = null;
     try {
+      authSession = captureAuthSession(ownerUserId);
       const response = await resumeIndividualGraph(threadId, {
         approved: true,
         target_titles: targetTitles,
       });
-      const persisted = persistIndividualGraphResponse(response);
+      assertRequestCurrent(authSession);
+      const persisted = persistIndividualGraphResponse(response, {
+        ownerUserId,
+        authSession,
+        expectedThreadId: threadId,
+      });
       setGraphSession(persisted.session);
       if (!persisted.stored) {
         toast.warning('Job review state is available for this page session only.', {
@@ -336,6 +365,12 @@ export default function IndividualProfilePage() {
       });
       navigate('/individual/jobs');
     } catch (error) {
+      if (
+        isStaleAuthSessionError(error) ||
+        (authSession && !isRequestCurrent(authSession))
+      ) {
+        return;
+      }
       if (getErrorStatus(error) === 409) {
         try {
           await recoverConflict();
@@ -370,9 +405,13 @@ export default function IndividualProfilePage() {
       setActionError('The durable job-search state is incomplete. Refresh recovery and try again.');
       return;
     }
+    const ownerUserId = profile.user_id;
+    const authSession = captureAuthSession(ownerUserId);
     setIsRetryingJobs(true);
     await resumeProfile(profile.active_thread_id, profile.target_titles);
-    setIsRetryingJobs(false);
+    if (isRequestCurrent(authSession)) {
+      setIsRetryingJobs(false);
+    }
   };
 
   return (

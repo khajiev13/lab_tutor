@@ -11,6 +11,11 @@ import {
   clearIndividualGraphSession,
   readIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
+import {
+  establishAuthSession,
+  invalidateAuthSession,
+  resetAuthSessionForTests,
+} from '@/features/auth/auth-session';
 
 vi.mock('@/features/auth/context/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -88,6 +93,8 @@ describe('individual recovery routing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearIndividualGraphSession();
+    resetAuthSessionForTests();
+    establishAuthSession(7);
     vi.mocked(useAuth).mockReturnValue({
       user: {
         id: 7,
@@ -224,6 +231,7 @@ describe('individual recovery routing', () => {
       user: null,
       isAuthenticated: false,
     });
+    invalidateAuthSession();
     view.rerender(<GateHarness pathname="/individual/profile" />);
 
     await act(async () => {
@@ -261,6 +269,8 @@ describe('individual recovery routing', () => {
         created_at: '2026-07-10T00:00:00Z',
       },
     });
+    invalidateAuthSession();
+    establishAuthSession(8);
     clearIndividualGraphSession();
     view.rerender(<GateHarness pathname="/individual/profile" />);
 

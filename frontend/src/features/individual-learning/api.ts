@@ -24,6 +24,14 @@ export interface IndividualProfile {
   pending_interrupt: IndividualGraphReviewInterrupt | IndividualGraphJobsInterrupt | null;
 }
 
+export interface IndividualCvDocument {
+  id: number;
+  user_id: number;
+  original_filename: string;
+  content_type?: string | null;
+  status: string;
+}
+
 export type IndividualNextStep =
   | 'upload_cv'
   | 'wait_for_extraction'
@@ -81,6 +89,8 @@ export interface IndividualGraphJobPosting {
   location?: string | null;
   description?: string | null;
   match_score?: number | null;
+  skill_extraction_status?: 'completed' | 'failed';
+  skill_extraction_error?: string | null;
   skills?: Array<{
     name: string;
     category?: string | null;
@@ -97,6 +107,8 @@ export interface IndividualSkillBankJobPosting {
   search_term?: string | null;
   is_interested: boolean;
   match_score?: number | null;
+  skill_extraction_status?: 'completed' | 'failed';
+  skill_extraction_error?: string | null;
   skills: IndividualSkillBankSkill[];
 }
 
@@ -166,6 +178,9 @@ export interface IndividualLearningPathSkill {
 
 export interface IndividualLearningPathResponse {
   user_id: number;
+  build_status: 'completed' | 'partial' | 'failed' | null;
+  build_run_id: string | null;
+  build_error: string | null;
   selected_skills: IndividualLearningPathSkill[];
   total_selected_skills: number;
   skills_with_resources: number;
@@ -176,19 +191,20 @@ export async function getIndividualProfile(): Promise<IndividualProfile> {
   return data;
 }
 
-export async function uploadCv(file: File): Promise<{
-  id: number;
-  user_id: number;
-  original_filename: string;
-  content_type?: string | null;
-  status: string;
-}> {
+export async function uploadCv(file: File): Promise<IndividualCvDocument> {
   const formData = new FormData();
   formData.append('file', file);
 
   const { data } = await api.post(`${BASE}/cv`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  return data;
+}
+
+export async function retryCvExtraction(
+  cvDocumentId: number,
+): Promise<IndividualCvDocument> {
+  const { data } = await api.post(`${BASE}/cv/${cvDocumentId}/retry`);
   return data;
 }
 
@@ -244,7 +260,11 @@ export async function deselectIndividualSkills(
 
 export async function buildIndividualLearningPath(
   skillNames: string[],
-): Promise<{ status: string; run_id: string }> {
+): Promise<{
+  status: 'completed' | 'partial' | 'failed';
+  run_id: string;
+  error?: string | null;
+}> {
   const { data } = await api.post(`${BASE}/build`, {
     skill_names: skillNames,
   });
@@ -259,6 +279,7 @@ export async function getIndividualLearningPath(): Promise<IndividualLearningPat
 export const individualLearningApi = {
   getProfile: getIndividualProfile,
   uploadCv,
+  retryCvExtraction,
   startGraph: startIndividualGraph,
   resumeGraph: resumeIndividualGraph,
   getSkillBanks: getIndividualSkillBanks,

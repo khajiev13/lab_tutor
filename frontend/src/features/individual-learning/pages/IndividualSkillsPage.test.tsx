@@ -1,8 +1,15 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as individualLearningApi from '@/features/individual-learning/api';
 import IndividualSkillsPage from './IndividualSkillsPage';
+import { toast } from 'sonner';
+import {
+  establishAuthSession,
+  invalidateAuthSession,
+  resetAuthSessionForTests,
+} from '@/features/auth/auth-session';
+import { clearIndividualGraphSession } from '@/features/individual-learning/graph-session';
 
 vi.mock('@/features/individual-learning/api', () => ({
   getIndividualProfile: vi.fn(),
@@ -17,6 +24,7 @@ vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -105,8 +113,11 @@ function renderPage() {
 
 describe('IndividualSkillsPage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    clearIndividualGraphSession();
     sessionStorage.clear();
+    resetAuthSessionForTests();
+    establishAuthSession(7);
     vi.mocked(individualLearningApi.getIndividualSkillBanks).mockResolvedValue(skillBanksResponse);
     vi.mocked(individualLearningApi.selectIndividualSkills).mockResolvedValue({ selected: 3 });
     vi.mocked(individualLearningApi.deselectIndividualSkills).mockResolvedValue({ deselected: 0 });
@@ -378,7 +389,7 @@ describe('IndividualSkillsPage', () => {
     ]);
   });
 
-  it('uses durable skill-bank selections for completed recovery without resuming the graph', async () => {
+  it('allows a durable completed graph to retry the downstream path build', async () => {
     sessionStorage.setItem(
       'individual-learning.graph-session',
       JSON.stringify({
@@ -406,8 +417,115 @@ describe('IndividualSkillsPage', () => {
     expect(
       await screen.findByRole('button', { name: /remove query relational databases using sql/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /select all market skills/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /build learning path/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /select all market skills/i })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+    await waitFor(() => expect(individualLearningApi.buildIndividualLearningPath).toHaveBeenCalled());
     expect(individualLearningApi.resumeIndividualGraph).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed build on skills with inline retry and no success notification', async () => {
+    vi.mocked(individualLearningApi.buildIndividualLearningPath)
+      .mockResolvedValueOnce({
+        status: 'failed',
+        run_id: 'learning-run-failed',
+        error: 'Resource providers were unavailable.',
+      })
+      .mockResolvedValueOnce({ status: 'completed', run_id: 'learning-run-retry' });
+    renderPage();
+    await screen.findByText('Data Analyst');
+    fireEvent.click(screen.getByRole('button', { name: /select all market skills/i }));
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+
+    expect(await screen.findByText('Learning path build failed')).toBeInTheDocument();
+    expect(screen.getByText(/Resource providers were unavailable\./i)).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('/individual/skills');
+    expect(toast.success).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+    expect(await screen.findByText('Learning path route')).toBeInTheDocument();
+    expect(individualLearningApi.buildIndividualLearningPath).toHaveBeenCalledTimes(2);
+  });
+
+  it('navigates after a partial build with an explicit warning', async () => {
+    vi.mocked(individualLearningApi.buildIndividualLearningPath).mockResolvedValue({
+      status: 'partial',
+      run_id: 'learning-run-partial',
+      error: 'One selected skill has no resources yet.',
+    });
+    renderPage();
+    await screen.findByText('Data Analyst');
+    fireEvent.click(screen.getByRole('button', { name: /select all market skills/i }));
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+
+    expect(await screen.findByText('Learning path route')).toBeInTheDocument();
+    expect(toast.warning).toHaveBeenCalledWith(
+      'Learning path partially built',
+      expect.objectContaining({ description: 'One selected skill has no resources yet.' }),
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('retries a failed downstream build without resuming an already completed graph again', async () => {
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({
+        cvDocumentId: 42,
+        ownerUserId: 7,
+        threadId: 'individual-7-cv-42',
+        graphStatus: 'interrupted',
+        reviewInterrupt: null,
+        jobsInterrupt: {
+          kind: 'choose_jobs_and_skills',
+          candidate_jobs: [skillBanksResponse.market_skill_bank[0]],
+          skill_bank: skillBanksResponse.market_skill_bank[0].skills,
+        },
+        targetTitles: ['Data Analyst'],
+        selectedPostingUrls: ['https://example.test/jobs/data-analyst'],
+        selectedSkillNames: [],
+      }),
+    );
+    vi.mocked(individualLearningApi.buildIndividualLearningPath)
+      .mockResolvedValueOnce({ status: 'failed', run_id: 'failed-run' })
+      .mockResolvedValueOnce({ status: 'completed', run_id: 'completed-run' });
+    renderPage();
+    await screen.findByText('Data Analyst');
+    fireEvent.click(screen.getByRole('button', { name: /select all market skills/i }));
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+
+    expect(await screen.findByText('Learning path build failed')).toBeInTheDocument();
+    expect(
+      JSON.parse(sessionStorage.getItem('individual-learning.graph-session') ?? '{}'),
+    ).toMatchObject({ graphStatus: 'completed' });
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+
+    expect(await screen.findByText('Learning path route')).toBeInTheDocument();
+    expect(individualLearningApi.resumeIndividualGraph).toHaveBeenCalledTimes(1);
+    expect(individualLearningApi.buildIndividualLearningPath).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not navigate or notify when a build resolves after logout', async () => {
+    let resolveBuild!: (
+      value: Awaited<ReturnType<typeof individualLearningApi.buildIndividualLearningPath>>,
+    ) => void;
+    vi.mocked(individualLearningApi.buildIndividualLearningPath).mockReturnValue(
+      new Promise((resolve) => {
+        resolveBuild = resolve;
+      }),
+    );
+    renderPage();
+    await screen.findByText('Data Analyst');
+    fireEvent.click(screen.getByRole('button', { name: /select all market skills/i }));
+    fireEvent.click(screen.getByRole('button', { name: /build learning path/i }));
+    await waitFor(() => expect(individualLearningApi.buildIndividualLearningPath).toHaveBeenCalled());
+
+    invalidateAuthSession();
+    clearIndividualGraphSession();
+    await act(async () => {
+      resolveBuild({ status: 'completed', run_id: 'former-user-run' });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/individual/skills');
+    expect(toast.success).not.toHaveBeenCalled();
   });
 });

@@ -9,6 +9,10 @@ import {
   persistIndividualGraphResponse,
   type IndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
+import {
+  assertAuthSessionCurrent,
+  captureAuthSession,
+} from '@/features/auth/auth-session';
 
 const INDIVIDUAL_ROUTE_STAGES: Record<string, number> = {
   '/individual/onboarding': 0,
@@ -92,7 +96,9 @@ export async function recoverIndividualWorkflow(
   ownerUserId: number,
   signal?: AbortSignal,
 ): Promise<IndividualRecovery> {
+  const authSession = captureAuthSession(ownerUserId);
   const profile = await getIndividualProfile();
+  assertAuthSessionCurrent(authSession);
   if (profile.user_id !== ownerUserId) {
     throw new Error('Recovered individual workflow belongs to another user.');
   }
@@ -106,6 +112,7 @@ export async function recoverIndividualWorkflow(
 
     const response = await startIndividualGraph(profile.cv_document_id);
     throwIfRecoveryWasCancelled(signal);
+    assertAuthSessionCurrent(authSession);
     if (
       response.status !== 'interrupted' ||
       response.interrupt?.kind !== 'review_profile_and_roles'
@@ -116,6 +123,7 @@ export async function recoverIndividualWorkflow(
       cvDocumentId: profile.cv_document_id,
       extractionRunId: profile.extraction_run_id ?? undefined,
       ownerUserId,
+      authSession,
       nextStep: 'review_profile',
       replace: true,
     }).session;
@@ -130,6 +138,7 @@ export async function recoverIndividualWorkflow(
     throw new Error('The recovered workflow state is incomplete.');
   }
 
+  assertAuthSessionCurrent(authSession);
   return { profile, session };
 }
 

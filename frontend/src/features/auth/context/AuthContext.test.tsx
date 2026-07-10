@@ -3,6 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
 import type { LoginResponse, UserResponse } from '../types';
+import {
+  assertAuthSessionCurrent,
+  captureAuthSession,
+  resetAuthSessionForTests,
+} from '@/features/auth/auth-session';
 
 vi.mock('../api', () => {
   return {
@@ -26,13 +31,41 @@ function Harness({ onReady }: { onReady: (ctx: ReturnType<typeof useAuth>) => vo
   return null;
 }
 
+function tokenFor(userId: number): string {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+  const payload = btoa(
+    JSON.stringify({ sub: String(userId), exp: Math.floor(Date.now() / 1000) + 3_600 }),
+  );
+  return `${header}.${payload}.signature`;
+}
+
+function userFor(id: number, role: UserResponse['role'] = 'individual'): UserResponse {
+  return {
+    id,
+    first_name: 'Test',
+    last_name: `User ${id}`,
+    email: `user-${id}@example.com`,
+    role,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolver) => {
+    resolve = resolver;
+  });
+  return { promise, resolve };
+}
+
 describe('AuthContext', () => {
   beforeEach(() => {
     // Some existing tests stub `localStorage` without implementing `.clear()`.
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     sessionStorage.removeItem('individual-learning.graph-session');
-    vi.clearAllMocks();
+    resetAuthSessionForTests();
+    vi.resetAllMocks();
   });
 
   it('login stores access_token + refresh_token and fetches /users/me', async () => {
@@ -136,5 +169,138 @@ describe('AuthContext', () => {
 
     expect(sessionStorage.getItem('individual-learning.graph-session')).toBeNull();
   });
-});
 
+  it('preserves valid tokens and individual drafts when /users/me has a transient failure', async () => {
+    const accessToken = tokenFor(7);
+    localStorage.setItem('access_token', accessToken);
+    localStorage.setItem('refresh_token', tokenFor(7));
+    const draft = JSON.stringify({
+      ownerUserId: 7,
+      threadId: 'thread-7',
+      graphStatus: 'interrupted',
+      targetTitles: ['Data Analyst'],
+      selectedPostingUrls: [],
+      selectedSkillNames: ['SQL'],
+    });
+    sessionStorage.setItem('individual-learning.graph-session', draft);
+    vi.mocked(authApi.getMe).mockRejectedValue({ response: { status: 503 } });
+
+    let ctx: ReturnType<typeof useAuth> | undefined;
+    render(
+      <AuthProvider>
+        <Harness onReady={(value) => { ctx = value; }} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.isLoading).toBe(false));
+    expect(localStorage.getItem('access_token')).toBe(accessToken);
+    expect(localStorage.getItem('refresh_token')).toBeTruthy();
+    expect(sessionStorage.getItem('individual-learning.graph-session')).toBe(draft);
+  });
+
+  it.each([401, 403])('clears credentials and drafts when /users/me returns %s', async (status) => {
+    localStorage.setItem('access_token', tokenFor(7));
+    localStorage.setItem('refresh_token', tokenFor(7));
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({ ownerUserId: 7, threadId: 'thread-7' }),
+    );
+    vi.mocked(authApi.getMe).mockRejectedValue({ response: { status } });
+
+    let ctx: ReturnType<typeof useAuth> | undefined;
+    render(
+      <AuthProvider>
+        <Harness onReady={(value) => { ctx = value; }} />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.isLoading).toBe(false));
+    expect(localStorage.getItem('access_token')).toBeNull();
+    expect(localStorage.getItem('refresh_token')).toBeNull();
+    expect(sessionStorage.getItem('individual-learning.graph-session')).toBeNull();
+  });
+
+  it('synchronizes an access-token account switch across tabs and invalidates old work', async () => {
+    const tokenA = tokenFor(7);
+    const tokenB = tokenFor(8);
+    localStorage.setItem('access_token', tokenA);
+    localStorage.setItem('refresh_token', tokenA);
+    sessionStorage.setItem(
+      'individual-learning.graph-session',
+      JSON.stringify({
+        ownerUserId: 7,
+        threadId: 'thread-7',
+        graphStatus: 'interrupted',
+        targetTitles: [],
+        selectedPostingUrls: [],
+        selectedSkillNames: ['Private skill'],
+      }),
+    );
+    vi.mocked(authApi.getMe)
+      .mockResolvedValueOnce(userFor(7))
+      .mockResolvedValueOnce(userFor(8));
+
+    let ctx: ReturnType<typeof useAuth> | undefined;
+    render(
+      <AuthProvider>
+        <Harness onReady={(value) => { ctx = value; }} />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(ctx?.user?.id).toBe(7));
+    const oldSession = captureAuthSession(7);
+
+    localStorage.setItem('access_token', tokenB);
+    localStorage.setItem('refresh_token', tokenB);
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'access_token',
+          oldValue: tokenA,
+          newValue: tokenB,
+        }),
+      );
+    });
+
+    await waitFor(() => expect(ctx?.user?.id).toBe(8));
+    expect(() => assertAuthSessionCurrent(oldSession)).toThrow(/authenticated session changed/i);
+    expect(sessionStorage.getItem('individual-learning.graph-session')).toBeNull();
+  });
+
+  it('ignores an older /users/me response after a cross-tab account switch', async () => {
+    const tokenA = tokenFor(7);
+    const tokenB = tokenFor(8);
+    localStorage.setItem('access_token', tokenA);
+    localStorage.setItem('refresh_token', tokenA);
+    const firstUser = deferred<UserResponse>();
+    vi.mocked(authApi.getMe)
+      .mockReturnValueOnce(firstUser.promise)
+      .mockResolvedValueOnce(userFor(8));
+
+    let ctx: ReturnType<typeof useAuth> | undefined;
+    render(
+      <AuthProvider>
+        <Harness onReady={(value) => { ctx = value; }} />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(authApi.getMe).toHaveBeenCalledTimes(1));
+
+    localStorage.setItem('access_token', tokenB);
+    localStorage.setItem('refresh_token', tokenB);
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'access_token',
+          oldValue: tokenA,
+          newValue: tokenB,
+        }),
+      );
+    });
+
+    await waitFor(() => expect(ctx?.user?.id).toBe(8));
+    firstUser.resolve(userFor(7));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(ctx?.user?.id).toBe(8);
+  });
+});

@@ -1,6 +1,6 @@
 import { ArrowRight, BriefcaseBusiness, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +25,13 @@ import {
   readIndividualGraphSession,
   writeIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
+import {
+  captureAuthSession,
+  captureCurrentAuthSession,
+  isStaleAuthSessionError,
+  type AuthSessionSnapshot,
+} from '@/features/auth/auth-session';
+import { useAuthRequestGuard } from '@/features/individual-learning/use-auth-request-guard';
 
 function toSkillBankPosting(
   posting: IndividualGraphJobPosting,
@@ -38,6 +45,8 @@ function toSkillBankPosting(
     search_term: posting.search_term,
     is_interested: selectedUrls.has(posting.url),
     match_score: posting.match_score,
+    skill_extraction_status: posting.skill_extraction_status,
+    skill_extraction_error: posting.skill_extraction_error,
     skills: (posting.skills ?? []).map((skill) => ({
       name: skill.name,
       category: skill.category,
@@ -90,6 +99,7 @@ function buildGraphDraftSession(
 
 export default function IndividualJobsPage() {
   const navigate = useNavigate();
+  const { assertRequestCurrent, isRequestCurrent } = useAuthRequestGuard();
   const [graphSession] = useState(readIndividualGraphSession);
   const graphInterrupt = graphSession?.jobsInterrupt ?? null;
   const isGraphWorkflow = graphInterrupt !== null;
@@ -107,6 +117,9 @@ export default function IndividualJobsPage() {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasIncompleteSkillExtraction = jobs.some(
+    (job) => job.skill_extraction_status === 'failed',
+  );
 
   useEffect(() => {
     if (isGraphWorkflow) {
@@ -115,11 +128,14 @@ export default function IndividualJobsPage() {
 
     let active = true;
     async function loadJobs() {
+      let authSession: AuthSessionSnapshot | null = null;
       try {
+        authSession = captureCurrentAuthSession();
         const data = await getIndividualSkillBanks();
         if (!active) {
           return;
         }
+        assertRequestCurrent(authSession);
 
         const selection = buildSelectionSet(
           data.market_skill_bank,
@@ -130,13 +146,19 @@ export default function IndividualJobsPage() {
         setPersistedUrls(new Set(selection));
         setError(null);
       } catch (loadError) {
+        if (
+          isStaleAuthSessionError(loadError) ||
+          (authSession && !isRequestCurrent(authSession))
+        ) {
+          return;
+        }
         console.error(loadError);
         if (active) {
           setError('We could not load your current job matches.');
         }
         toast.error('Failed to load job matches.');
       } finally {
-        if (active) {
+        if (active && authSession && isRequestCurrent(authSession)) {
           setIsLoading(false);
         }
       }
@@ -146,7 +168,7 @@ export default function IndividualJobsPage() {
     return () => {
       active = false;
     };
-  }, [isGraphWorkflow, loadAttempt]);
+  }, [assertRequestCurrent, isGraphWorkflow, isRequestCurrent, loadAttempt]);
 
   const retryLoadJobs = () => {
     setError(null);
@@ -159,7 +181,14 @@ export default function IndividualJobsPage() {
       return;
     }
 
-    writeIndividualGraphSession(buildGraphDraftSession(graphSession, jobs, selectedUrls));
+    try {
+      captureAuthSession(graphSession.ownerUserId);
+      writeIndividualGraphSession(buildGraphDraftSession(graphSession, jobs, selectedUrls));
+    } catch (draftError) {
+      if (!isStaleAuthSessionError(draftError)) {
+        throw draftError;
+      }
+    }
   }, [graphSession, isGraphSelectionActive, jobs, selectedUrls]);
 
   const handleToggle = (url: string, checked: boolean) => {
@@ -185,7 +214,11 @@ export default function IndividualJobsPage() {
     }
 
     setIsSaving(true);
+    let authSession: AuthSessionSnapshot | null = null;
     try {
+      authSession = graphSession
+        ? captureAuthSession(graphSession.ownerUserId)
+        : captureCurrentAuthSession();
       const nextUrls = jobs.filter((job) => selectedUrls.has(job.url)).map((job) => job.url);
 
       if (isGraphSelectionActive && graphSession) {
@@ -201,15 +234,24 @@ export default function IndividualJobsPage() {
         const addedUrls = nextUrls.filter((url) => !persistedUrls.has(url));
         if (addedUrls.length > 0) {
           await selectInterestedJobs(addedUrls);
+          assertRequestCurrent(authSession);
         }
       }
 
       navigate('/individual/skills');
     } catch (saveError) {
+      if (
+        isStaleAuthSessionError(saveError) ||
+        (authSession && !isRequestCurrent(authSession))
+      ) {
+        return;
+      }
       console.error(saveError);
       toast.error('Could not save interested jobs.');
     } finally {
-      setIsSaving(false);
+      if (authSession && isRequestCurrent(authSession)) {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -246,6 +288,22 @@ export default function IndividualJobsPage() {
             {isGraphSelectionActive ? <Badge variant="outline">Draft selection</Badge> : null}
             {isCompletedGraphWorkflow ? <Badge variant="outline">Selection complete</Badge> : null}
           </div>
+
+          {hasIncompleteSkillExtraction ? (
+            <Alert>
+              <BriefcaseBusiness className="size-4" />
+              <AlertTitle>Some job skills could not be extracted</AlertTitle>
+              <AlertDescription className="flex flex-col items-start gap-3">
+                <span>
+                  You can still select these postings. Edit target titles or retry job search if
+                  you need a more complete market-skill set.
+                </span>
+                <Button type="button" size="sm" variant="outline" asChild>
+                  <Link to="/individual/profile">Review titles and retry</Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
           {isLoading ? (
             <div className="rounded-md border p-8 text-sm text-muted-foreground">
@@ -311,6 +369,9 @@ export default function IndividualJobsPage() {
                                 </Badge>
                               ) : null}
                               {isLocked ? <Badge variant="secondary">Already saved</Badge> : null}
+                              {job.skill_extraction_status === 'failed' ? (
+                                <Badge variant="outline">Skill extraction incomplete</Badge>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -341,9 +402,12 @@ export default function IndividualJobsPage() {
                               </div>
                             ))
                           ) : (
-                            <span className="text-sm text-muted-foreground">
-                              No market skills were attached to this posting.
-                            </span>
+                            <div className="space-y-1 text-sm text-muted-foreground">
+                              <div>No market skills were attached to this posting.</div>
+                              {job.skill_extraction_status === 'failed' ? (
+                                <div>Retry from your profile to try skill extraction again.</div>
+                              ) : null}
+                            </div>
                           )}
                         </div>
                       </div>

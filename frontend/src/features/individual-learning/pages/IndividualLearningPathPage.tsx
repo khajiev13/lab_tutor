@@ -1,5 +1,14 @@
-import { BookOpen, CircleHelp, Clock3, ExternalLink, PlayCircle, RefreshCw } from 'lucide-react';
+import {
+  AlertTriangle,
+  BookOpen,
+  CircleHelp,
+  Clock3,
+  ExternalLink,
+  PlayCircle,
+  RefreshCw,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -118,6 +127,29 @@ export default function IndividualLearningPathPage() {
           Review the selected skills and the attached readings, videos, and questions.
         </p>
       </div>
+
+      {!isLoading && path && (path.build_status === 'partial' || path.build_status === 'failed') ? (
+        <Alert variant={path.build_status === 'failed' ? 'destructive' : 'default'}>
+          <AlertTriangle className="size-4" />
+          <AlertTitle>
+            {path.build_status === 'failed'
+              ? 'Learning path build failed'
+              : 'Learning path partially built'}
+          </AlertTitle>
+          <AlertDescription className="flex flex-col items-start gap-3">
+            <span>
+              {path.build_error ??
+                (path.build_status === 'failed'
+                  ? 'No learning resources were generated.'
+                  : 'Some selected skills do not have resources yet.')}
+            </span>
+            {path.build_run_id ? <Badge variant="outline">Run {path.build_run_id}</Badge> : null}
+            <Button type="button" size="sm" variant="outline" asChild>
+              <Link to="/individual/skills">Return to skill selection</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {isLoading ? (
         <div className="rounded-md border p-8 text-sm text-muted-foreground">Loading learning path...</div>

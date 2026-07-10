@@ -7,6 +7,10 @@ import {
   hydrateIndividualGraphSession,
 } from '@/features/individual-learning/graph-session';
 import IndividualJobsPage from './IndividualJobsPage';
+import {
+  establishAuthSession,
+  resetAuthSessionForTests,
+} from '@/features/auth/auth-session';
 
 vi.mock('@/features/individual-learning/api', () => ({
   getIndividualSkillBanks: vi.fn(),
@@ -17,6 +21,7 @@ vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -30,6 +35,8 @@ describe('IndividualJobsPage', () => {
     vi.clearAllMocks();
     clearIndividualGraphSession();
     sessionStorage.clear();
+    resetAuthSessionForTests();
+    establishAuthSession(7);
     sessionStorage.setItem(
       'individual-learning.graph-session',
       JSON.stringify({
@@ -274,5 +281,26 @@ describe('IndividualJobsPage', () => {
       await screen.findByRole('checkbox', { name: /mark durable data analyst as interested/i }),
     ).toBeDisabled();
     expect(screen.getByText('Selection complete')).toBeInTheDocument();
+  });
+
+  it('keeps a partial-success job selectable while explaining failed skill extraction', async () => {
+    const session = JSON.parse(
+      sessionStorage.getItem('individual-learning.graph-session') ?? '{}',
+    );
+    session.jobsInterrupt.candidate_jobs[0].skill_extraction_status = 'failed';
+    session.jobsInterrupt.candidate_jobs[0].skills = [];
+    sessionStorage.setItem('individual-learning.graph-session', JSON.stringify(session));
+
+    render(
+      <MemoryRouter>
+        <IndividualJobsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Skill extraction incomplete')).toBeInTheDocument();
+    expect(screen.getByText(/edit target titles or retry job search/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /mark data analyst as interested/i }),
+    ).toBeEnabled();
   });
 });

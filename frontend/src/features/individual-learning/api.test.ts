@@ -3,6 +3,7 @@ import api from '@/services/api';
 import {
   buildIndividualLearningPath,
   getIndividualProfile,
+  retryCvExtraction,
   resumeIndividualGraph,
   startIndividualGraph,
 } from '@/features/individual-learning/api';
@@ -62,6 +63,23 @@ describe('individual learning api', () => {
     const result = await buildIndividualLearningPath(['SQL']);
 
     expect(result).toEqual({ status: 'completed', run_id: 'learning-run-4' });
+  });
+
+  it('retries extraction for an existing CV document without uploading it again', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: {
+        id: 42,
+        user_id: 7,
+        original_filename: 'candidate-cv.pdf',
+        content_type: 'application/pdf',
+        status: 'completed',
+      },
+    });
+
+    const result = await retryCvExtraction(42);
+
+    expect(api.post).toHaveBeenCalledWith('/individual-learning/cv/42/retry');
+    expect(result).toMatchObject({ id: 42, user_id: 7, status: 'completed' });
   });
 
   it('starts and resumes an individual graph with the backend contract', async () => {

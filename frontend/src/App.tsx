@@ -25,6 +25,7 @@ import IndividualJobsPage from '@/features/individual-learning/pages/IndividualJ
 import IndividualSkillsPage from '@/features/individual-learning/pages/IndividualSkillsPage';
 import IndividualLearningPathPage from '@/features/individual-learning/pages/IndividualLearningPathPage';
 import { IndividualRecoveryGate } from '@/features/individual-learning/IndividualRecoveryGate';
+import { getAuthenticatedLandingPath } from '@/features/auth/landing';
 import { lazy, Suspense } from 'react';
 const ArcdAgentShell = lazy(() => import('@/features/arcd-agent/ArcdAgentShell'));
 
@@ -81,7 +82,7 @@ function ProtectedRoute({
 
 // Public Route component (redirects to home if already authenticated)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, isServerWakingUp } = useAuth();
+  const { user, isAuthenticated, isLoading, isServerWakingUp } = useAuth();
 
   if (isLoading) {
     return (
@@ -97,10 +98,20 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to={getAuthenticatedLandingPath(user)} replace />;
   }
 
   return <>{children}</>;
+}
+
+function RoleAwareHome() {
+  const { user } = useAuth();
+
+  if (user?.role === 'individual') {
+    return <Navigate to="/individual/profile" replace />;
+  }
+
+  return <Dashboard />;
 }
 
 function IndividualRoute({ children }: { children: React.ReactNode }) {
@@ -135,7 +146,7 @@ function AppRoutes() {
         path="/home"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <RoleAwareHome />
           </ProtectedRoute>
         }
       />

@@ -5,6 +5,11 @@ import {
   type IndividualGraphResponse,
   type IndividualGraphReviewInterrupt,
 } from '@/features/individual-learning/api';
+import {
+  assertAuthSessionCurrent,
+  type AuthSessionSnapshot,
+  StaleAuthSessionError,
+} from '@/features/auth/auth-session';
 
 export const INDIVIDUAL_GRAPH_SESSION_KEY = 'individual-learning.graph-session';
 
@@ -70,6 +75,8 @@ const jobsInterruptSchema = z.object({
       location: optionalText,
       description: optionalText,
       match_score: z.number().nullable().optional(),
+      skill_extraction_status: z.enum(['completed', 'failed']).optional(),
+      skill_extraction_error: optionalText,
       skills: z.array(graphSkillSchema).optional(),
     }),
   ),
@@ -129,6 +136,24 @@ export type PersistIndividualGraphResponseResult = {
   session: IndividualGraphSession;
   stored: boolean;
 };
+
+type PersistIndividualGraphResponseBaseOptions = {
+  cvDocumentId?: number;
+  extractionRunId?: number;
+  ownerUserId: number;
+  authSession: AuthSessionSnapshot;
+  nextStep?: IndividualNextStep;
+};
+
+export type PersistIndividualGraphResponseOptions =
+  | (PersistIndividualGraphResponseBaseOptions & {
+      replace: true;
+      expectedThreadId?: never;
+    })
+  | (PersistIndividualGraphResponseBaseOptions & {
+      replace?: false;
+      expectedThreadId: string;
+    });
 
 let inMemorySession: IndividualGraphSession | null = null;
 let inMemorySessionIsAuthoritative = false;
@@ -289,18 +314,29 @@ export function hydrateIndividualGraphSession(recovery: unknown): IndividualGrap
 
 export function persistIndividualGraphResponse(
   response: IndividualGraphResponse,
-  options: {
-    cvDocumentId?: number;
-    extractionRunId?: number;
-    ownerUserId?: number;
-    nextStep?: IndividualNextStep;
-    replace?: boolean;
-  } = {},
+  options: PersistIndividualGraphResponseOptions,
 ): PersistIndividualGraphResponseResult {
+  if (!options?.ownerUserId) {
+    throw new StaleAuthSessionError(
+      'An explicit owner is required to persist an individual graph session.',
+    );
+  }
+  if (options.authSession.userId !== options.ownerUserId) {
+    throw new StaleAuthSessionError();
+  }
+  assertAuthSessionCurrent(options.authSession);
+
   const current = options.replace ? null : readIndividualGraphSession();
-  const ownerUserId = options.ownerUserId ?? current?.ownerUserId;
-  if (!ownerUserId) {
-    throw new Error('An authenticated user is required to persist an individual graph session.');
+  if (
+    !options.replace &&
+    (!current ||
+      current.ownerUserId !== options.ownerUserId ||
+      current.threadId !== options.expectedThreadId ||
+      response.thread_id !== options.expectedThreadId)
+  ) {
+    throw new StaleAuthSessionError(
+      'The individual graph thread changed before the request completed.',
+    );
   }
   const interrupt = response.interrupt;
   const reviewInterrupt =
@@ -315,7 +351,7 @@ export function persistIndividualGraphResponse(
   const next: IndividualGraphSession = {
     cvDocumentId: options.cvDocumentId ?? current?.cvDocumentId,
     extractionRunId: options.extractionRunId ?? current?.extractionRunId,
-    ownerUserId,
+    ownerUserId: options.ownerUserId,
     threadId: response.thread_id,
     nextStep:
       options.nextStep ??
@@ -338,6 +374,7 @@ export function persistIndividualGraphResponse(
     selectedSkillNames: response.selected_skill_names,
   };
 
+  assertAuthSessionCurrent(options.authSession);
   return {
     session: next,
     stored: writeIndividualGraphSession(next),

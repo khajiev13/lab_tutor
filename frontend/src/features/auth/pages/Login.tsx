@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
+import { getAuthenticatedLandingPath } from '@/features/auth/landing';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,11 +52,11 @@ export default function Login() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      await login(data);
+      const authenticatedUser = await login(data);
       toast.success('Login successful!', {
         description: 'Welcome back!',
       });
-      navigate('/home');
+      navigate(getAuthenticatedLandingPath(authenticatedUser));
     } catch (error: unknown) {
       let errorMessage = 'Login failed. Please check your credentials.';
       
