@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -45,8 +45,8 @@ function LocationProbe() {
   return <span data-testid="location">{location.pathname}</span>;
 }
 
-function renderGate(pathname: string) {
-  return render(
+function GateHarness({ pathname }: { pathname: string }) {
+  return (
     <MemoryRouter initialEntries={[pathname]}>
       <Routes>
         <Route
@@ -68,8 +68,20 @@ function renderGate(pathname: string) {
           }
         />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
+}
+
+function renderGate(pathname: string) {
+  return render(<GateHarness pathname={pathname} />);
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 describe('individual recovery routing', () => {
@@ -99,6 +111,12 @@ describe('individual recovery routing', () => {
       '/individual/onboarding',
     );
     expect(getIndividualRecoveryRedirect('review_profile', '/individual/jobs', null)).toBe(
+      '/individual/profile',
+    );
+    expect(getIndividualRecoveryRedirect('review_profile', '/individual/jobs/', null)).toBe(
+      '/individual/profile',
+    );
+    expect(getIndividualRecoveryRedirect('review_profile', '/INDIVIDUAL/JOBS', null)).toBe(
       '/individual/profile',
     );
     expect(
@@ -194,5 +212,71 @@ describe('individual recovery routing', () => {
 
     expect(await screen.findByText('Home page')).toBeInTheDocument();
     expect(individualLearningApi.getIndividualProfile).not.toHaveBeenCalled();
+  });
+
+  it('does not hydrate a stale recovery response after logout', async () => {
+    const profileRequest = deferred<typeof reviewRecovery>();
+    vi.mocked(individualLearningApi.getIndividualProfile).mockReturnValue(profileRequest.promise);
+    const view = renderGate('/individual/profile');
+
+    vi.mocked(useAuth).mockReturnValue({
+      ...vi.mocked(useAuth).mock.results[0]?.value,
+      user: null,
+      isAuthenticated: false,
+    });
+    view.rerender(<GateHarness pathname="/individual/profile" />);
+
+    await act(async () => {
+      profileRequest.resolve(reviewRecovery);
+      await profileRequest.promise;
+    });
+
+    expect(await screen.findByText('Home page')).toBeInTheDocument();
+    expect(readIndividualGraphSession()).toBeNull();
+  });
+
+  it('does not persist a stale checkpoint response after an account switch', async () => {
+    const oldCheckpointRequest = deferred<Awaited<ReturnType<typeof individualLearningApi.startIndividualGraph>>>();
+    const newProfileRequest = deferred<typeof reviewRecovery>();
+    vi.mocked(individualLearningApi.getIndividualProfile)
+      .mockResolvedValueOnce({ ...reviewRecovery, pending_interrupt: null })
+      .mockReturnValueOnce(newProfileRequest.promise);
+    vi.mocked(individualLearningApi.startIndividualGraph).mockReturnValue(
+      oldCheckpointRequest.promise,
+    );
+    const view = renderGate('/individual/profile');
+
+    await waitFor(() => {
+      expect(individualLearningApi.startIndividualGraph).toHaveBeenCalledWith(42);
+    });
+
+    vi.mocked(useAuth).mockReturnValue({
+      ...vi.mocked(useAuth).mock.results[0]?.value,
+      user: {
+        id: 8,
+        first_name: 'New',
+        last_name: 'Learner',
+        email: 'new-learner@example.test',
+        role: 'individual',
+        created_at: '2026-07-10T00:00:00Z',
+      },
+    });
+    clearIndividualGraphSession();
+    view.rerender(<GateHarness pathname="/individual/profile" />);
+
+    await act(async () => {
+      oldCheckpointRequest.resolve({
+        thread_id: 'stale-thread-value',
+        status: 'interrupted',
+        interrupt: reviewRecovery.pending_interrupt,
+        target_titles: ['Data Analyst'],
+        selected_posting_urls: [],
+        selected_skill_names: [],
+      });
+      await oldCheckpointRequest.promise;
+    });
+
+    expect(readIndividualGraphSession()).toBeNull();
+    view.unmount();
   });
 });

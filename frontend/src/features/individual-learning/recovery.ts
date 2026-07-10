@@ -20,6 +20,17 @@ const INDIVIDUAL_ROUTE_STAGES: Record<string, number> = {
 
 type RecoveryDraft = Pick<IndividualGraphSession, 'selectedPostingUrls'>;
 
+function normalizeIndividualPathname(pathname: string): string {
+  const withoutTrailingSlashes = pathname.replace(/\/+$/, '');
+  return (withoutTrailingSlashes || '/').toLowerCase();
+}
+
+function throwIfRecoveryWasCancelled(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new DOMException('Individual workflow recovery was cancelled.', 'AbortError');
+  }
+}
+
 export function getIndividualRecoveryPath(nextStep: IndividualNextStep): string {
   if (
     nextStep === 'upload_cv' ||
@@ -46,7 +57,7 @@ export function getIndividualRecoveryRedirect(
     return null;
   }
 
-  const currentStage = INDIVIDUAL_ROUTE_STAGES[pathname];
+  const currentStage = INDIVIDUAL_ROUTE_STAGES[normalizeIndividualPathname(pathname)];
   if (currentStage == null) {
     return null;
   }
@@ -77,12 +88,16 @@ export type IndividualRecovery = {
   session: IndividualGraphSession | null;
 };
 
-export async function recoverIndividualWorkflow(ownerUserId: number): Promise<IndividualRecovery> {
+export async function recoverIndividualWorkflow(
+  ownerUserId: number,
+  signal?: AbortSignal,
+): Promise<IndividualRecovery> {
   const profile = await getIndividualProfile();
   if (profile.user_id !== ownerUserId) {
     throw new Error('Recovered individual workflow belongs to another user.');
   }
 
+  throwIfRecoveryWasCancelled(signal);
   let session = hydrateIndividualGraphSession(profile);
   if (profile.next_step === 'review_profile' && !profile.pending_interrupt) {
     if (!profile.cv_document_id) {
@@ -90,6 +105,7 @@ export async function recoverIndividualWorkflow(ownerUserId: number): Promise<In
     }
 
     const response = await startIndividualGraph(profile.cv_document_id);
+    throwIfRecoveryWasCancelled(signal);
     if (
       response.status !== 'interrupted' ||
       response.interrupt?.kind !== 'review_profile_and_roles'

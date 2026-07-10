@@ -33,7 +33,8 @@ export function IndividualRecoveryGate({ children }: { children: ReactNode }) {
     }
 
     let active = true;
-    recoverIndividualWorkflow(userId)
+    const controller = new AbortController();
+    recoverIndividualWorkflow(userId, controller.signal)
       .then(({ profile, session }) => {
         if (active) {
           setState({
@@ -48,8 +49,8 @@ export function IndividualRecoveryGate({ children }: { children: ReactNode }) {
         }
       })
       .catch((recoveryError) => {
-        console.error(recoveryError);
-        if (active) {
+        if (active && !controller.signal.aborted) {
+          console.error(recoveryError);
           setState({
             requestKey,
             error: 'We could not recover your progress. Check your connection and try again.',
@@ -60,6 +61,7 @@ export function IndividualRecoveryGate({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
+      controller.abort();
     };
   }, [location.pathname, requestKey, userId, userRole]);
 
