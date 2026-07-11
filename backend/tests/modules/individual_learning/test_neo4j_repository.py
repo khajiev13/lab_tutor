@@ -1,7 +1,42 @@
 from __future__ import annotations
 
+import ast
+import inspect
+
 from app.modules.individual_learning import neo4j_repository
 from app.modules.individual_learning.schemas import CVSkillExtraction
+
+
+def _static_cypher_queries() -> list[str]:
+    tree = ast.parse(inspect.getsource(neo4j_repository))
+    return [
+        call.args[0].value
+        for call in ast.walk(tree)
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Attribute)
+        and call.func.attr == "run"
+        and call.args
+        and isinstance(call.args[0], ast.Constant)
+        and isinstance(call.args[0].value, str)
+    ]
+
+
+def test_all_static_queries_declare_cypher_25() -> None:
+    queries = _static_cypher_queries()
+
+    assert queries
+    assert all(query.lstrip().startswith("CYPHER 25") for query in queries)
+
+
+def test_cv_skill_projection_scopes_user_before_optional_match() -> None:
+    query = next(
+        query
+        for query in _static_cypher_queries()
+        if "MERGE (u:USER" in query and "CV_SKILL" in query
+    )
+
+    normalized = " ".join(query.split())
+    assert "SET u:INDIVIDUAL WITH u OPTIONAL MATCH" in normalized
 
 
 class FakeResult:
