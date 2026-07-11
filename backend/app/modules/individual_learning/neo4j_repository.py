@@ -34,8 +34,10 @@ def upsert_cv_skills(
     skill_names = [skill.name for skill in normalized_skills]
     result = session.run(
         """
+        CYPHER 25
         MERGE (u:USER {id: $user_id})
         SET u:INDIVIDUAL
+        WITH u
         OPTIONAL MATCH (u)-[stale:HAS_SKILL]->(existing:SKILL:CV_SKILL)
         WITH u, [item IN collect({relationship: stale, name: existing.name})
                  WHERE item.relationship IS NOT NULL] AS current_skills
@@ -88,6 +90,7 @@ def upsert_job_postings_and_market_skills(
     ]
     result = session.run(
         """
+        CYPHER 25
         UNWIND $job_skill_sets AS item
         WITH item.job AS job, item.skills AS skills
         MERGE (jp:JOB_POSTING {url: job.url})
@@ -136,6 +139,7 @@ def select_job_postings(
 ) -> int:
     result = session.run(
         """
+        CYPHER 25
         MATCH (u:USER:INDIVIDUAL {id: $user_id})
         OPTIONAL MATCH (u)-[stale:INTERESTED_IN]->(:JOB_POSTING)
         WITH u, collect(stale) AS stale_relationships
@@ -167,6 +171,7 @@ def select_market_skills(
 ) -> int:
     result = session.run(
         """
+        CYPHER 25
         UNWIND $skill_names AS skill_name
         MATCH (u:USER:INDIVIDUAL {id: $user_id})
         MATCH (sk:SKILL:MARKET_SKILL {name: skill_name})
@@ -195,6 +200,7 @@ def select_candidate_market_skills(
 ) -> int:
     result = session.run(
         """
+        CYPHER 25
         MATCH (u:USER:INDIVIDUAL {id: $user_id})
         OPTIONAL MATCH (u)-[stale:SELECTED_SKILL]->(:SKILL:MARKET_SKILL)
         WITH u, collect(stale) AS stale_relationships
@@ -229,6 +235,7 @@ def get_selected_market_skill_names(
 ) -> list[str]:
     result = session.run(
         """
+        CYPHER 25
         MATCH (:USER:INDIVIDUAL {id: $user_id})-[:SELECTED_SKILL]->(sk:MARKET_SKILL)
         RETURN sk.name AS name
         ORDER BY sk.name
@@ -245,6 +252,7 @@ def resolve_market_skill_names(
 ) -> list[str]:
     result = session.run(
         """
+        CYPHER 25
         UNWIND $skill_names AS skill_name
         MATCH (sk:SKILL:MARKET_SKILL {name: skill_name})
         RETURN DISTINCT sk.name AS name
@@ -263,6 +271,7 @@ def resolve_interested_market_skill_names(
 ) -> list[str]:
     result = session.run(
         """
+        CYPHER 25
         MATCH (u:USER:INDIVIDUAL {id: $user_id})
         MATCH (u)-[:INTERESTED_IN]->(jp:JOB_POSTING)
         MATCH (sk:SKILL:MARKET_SKILL)-[:SOURCED_FROM]->(jp)
@@ -284,6 +293,7 @@ def deselect_market_skills(
 ) -> int:
     result = session.run(
         """
+        CYPHER 25
         UNWIND $skill_names AS skill_name
         MATCH (u:USER:INDIVIDUAL {id: $user_id})-[r:SELECTED_SKILL]->(sk:SKILL:MARKET_SKILL {name: skill_name})
         DELETE r
@@ -303,6 +313,7 @@ def get_market_skill_profiles(
 ) -> list[dict]:
     result = session.run(
         """
+        CYPHER 25
         UNWIND $skill_names AS skill_name
         MATCH (sk:SKILL:MARKET_SKILL {name: skill_name})
         RETURN sk {
@@ -362,6 +373,7 @@ def write_market_skill_questions(
 
     result = session.run(
         """
+        CYPHER 25
         MATCH (sk:SKILL:MARKET_SKILL {name: $skill_name})
         OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(existing:QUESTION)
         WITH sk, collect(existing) AS existing_questions
@@ -397,6 +409,7 @@ def get_individual_skill_bank(
 ) -> dict[str, list[dict] | list[str]]:
     interested_result = session.run(
         """
+        CYPHER 25
         MATCH (u:USER:INDIVIDUAL {id: $user_id})-[r:INTERESTED_IN]->(jp:JOB_POSTING)
         RETURN jp.url AS url
         """,
@@ -408,6 +421,7 @@ def get_individual_skill_bank(
 
     bank_result = session.run(
         """
+        CYPHER 25
         UNWIND $interested_urls AS url
         MATCH (jp:JOB_POSTING {url: url})
         OPTIONAL MATCH (jp)<-[:SOURCED_FROM]-(ms:MARKET_SKILL)
@@ -436,6 +450,7 @@ def get_individual_learning_path(
 ) -> dict[str, object]:
     result = session.run(
         """
+        CYPHER 25
         MATCH (u:USER:INDIVIDUAL {id: $user_id})-[sel:SELECTED_SKILL]->(sk:SKILL:MARKET_SKILL)
         OPTIONAL MATCH (sk)-[:HAS_READING]->(rr:READING_RESOURCE)
         OPTIONAL MATCH (sk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE)
