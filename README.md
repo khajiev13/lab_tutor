@@ -12,6 +12,8 @@ Lab Tutor's methodology is a teacher-governed evidence workflow: course material
 
 See [docs/METHODOLOGY.md](docs/METHODOLOGY.md) for the full eight-diagram methodology sequence.
 
+![Logic Architecture](docs/images/logic_architecture.png)
+
 ## Tech Stack
 
 | Layer | Technology |
