@@ -212,18 +212,38 @@ Use existing Compose environment loading. Protect local credential files, and
 recreate/restart the backend as required for newly loaded settings. No image,
 dependency, Azure, MinIO, or Neo4j changes are part of this feature.
 
-The browser now recognizes the existing HeadHunter account, but no application is
-registered. The registration form says job-seeker API support ended on December 15,
-2025 and requires a one/multiple-employer use case. Real employer details or provider
-confirmation are prerequisites to an accurate application. Registration and any
-approval or agreement needed by HeadHunter remain external prerequisites for live
-authenticated verification.
+The user submitted the research application on 2026-10-04. The HeadHunter portal
+shows request `#30269`, status `processing`, and registered URL
+`https://labtutor.app/`. Usable credentials are not shown. The registration form
+states that job-seeker API support ended on December 15, 2025 and requires a
+one/multiple-employer use case. The selected TashTech entry identifies the user's
+academic affiliation; approval covering the declared research remains an external
+prerequisite for live authenticated verification. Do not submit a duplicate.
 Do not configure a token for live curriculum analysis until the provider has
 confirmed the declared storage, normalization, derived-skill, and LLM usage. If
 approval imposes additional retention controls, implement and review those controls
 before enabling the provider; they cannot be assumed from successful HTTP access.
 Prepare the application details and inspect existing applications before creating
 a duplicate. Report this dependency separately from automated test results.
+
+Research application update (2026-10-04): the user supplied his affiliation as
+Rakhmonberdi Khajiev, Assistant Professor, Faculty of Energy Engineering,
+Tashkent University of Technology (TashTech). The developer portal's company
+selector returned `TashTech technical university`, which was selected in the
+prepared draft. The proposed use is solely his own academic research and
+development of higher education in Uzbekistan; do not speak for colleagues or
+claim institutional authorization. The draft discloses PostgreSQL snapshots,
+Neo4j posting/skill storage, external LLM/embedding processing, potential tracing,
+and absent automatic vacancy expiry/archive removal. A clear operation preserves
+knowledge-graph data. A working credential must not be treated as approval of
+this use. The user performed final submission himself, so the submission step is
+complete. Implementation-plan review remains pending separately.
+The draft's registered URL is `https://labtutor.app/`, the public deployment
+domain recorded in the repository. This is a project landing URL; application
+authorization uses `client_credentials` and needs no browser callback. End-user
+OAuth is outside scope. Chrome timed out reaching the domain on 2026-10-04, so
+current public reachability remains unconfirmed. The earlier localhost callback
+placeholder was removed at the user's correction; no callback route was added.
 
 ## Verification and acceptance
 
