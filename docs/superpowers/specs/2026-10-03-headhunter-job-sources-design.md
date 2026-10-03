@@ -1,7 +1,7 @@
 # HeadHunter and Teacher-Selected Job Sources
 
 Date: 2026-10-03
-Status: design approved in conversation; written spec awaiting review
+Status: written spec approved; implementation plan awaiting review
 
 ## Intended outcome
 
@@ -57,6 +57,16 @@ the documented application authorization flow. Registration approval can be an
 external dependency. The runtime reuses its token and does not generate or rotate
 one during each search. No applicant OAuth, resume access, or employer-account
 features are needed.
+
+The [HeadHunter API terms](https://dev.hh.uz/admin/developer_agreement) also affect
+the declared use case. They mention labor-market information, but restrict other
+uses, vacancy retention, redistribution, and passing API data to third-party
+services. Lab Tutor stores job snapshots and sends descriptions to its configured
+LLM for curriculum analysis. Disclose those behaviors accurately and obtain
+provider confirmation covering that use and its retention/archival requirements
+before configuring live access. An employer account or a token alone does not
+establish permission for these behaviors. Automated provider tests use synthetic
+data and do not depend on that approval.
 
 The [OLX Developer Hub](https://developer.olxgroup.com/) describes posting and
 managing adverts for users. A usable public Uzbekistan vacancy-search API was
@@ -202,9 +212,16 @@ Use existing Compose environment loading. Protect local credential files, and
 recreate/restart the backend as required for newly loaded settings. No image,
 dependency, Azure, MinIO, or Neo4j changes are part of this feature.
 
-The browser currently requires HeadHunter sign-in; no application key was available
-to inspect. Account sign-in/application registration and any approval or agreement
-needed by HeadHunter are external prerequisites for live authenticated verification.
+The browser now recognizes the existing HeadHunter account, but no application is
+registered. The registration form says job-seeker API support ended on December 15,
+2025 and requires a one/multiple-employer use case. Real employer details or provider
+confirmation are prerequisites to an accurate application. Registration and any
+approval or agreement needed by HeadHunter remain external prerequisites for live
+authenticated verification.
+Do not configure a token for live curriculum analysis until the provider has
+confirmed the declared storage, normalization, derived-skill, and LLM usage. If
+approval imposes additional retention controls, implement and review those controls
+before enabling the provider; they cannot be assumed from successful HTTP access.
 Prepare the application details and inspect existing applications before creating
 a duplicate. Report this dependency separately from automated test results.
 
