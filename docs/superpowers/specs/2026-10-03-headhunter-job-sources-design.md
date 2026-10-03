@@ -119,6 +119,15 @@ interface used by existing tools. Start each request from its own restored snaps
 copy the selected configuration into the fetch operation. Concurrent different
 threads must not share mutable state. Reject overlapping execution in the same
 thread with a clear conflict, and release that guard on completion or cancellation.
+Order each thread's snapshot writes and finish outstanding persistence before
+releasing its execution guard or deleting the thread. An older write must not
+overwrite a newer selection or recreate state after a clear operation. Executor
+workers receive captured configuration; they do not read the current state store.
+On cancellation, discard late executor mutations from the abandoned run; stopping
+the stream does not forcibly terminate synchronous tools. This work does not change
+existing Neo4j side-effect cancellation behavior. A process-local execution guard
+fits the current single-worker backend; coordination across replicas is outside
+this release. The existing terminal chat entrypoint is outside this feature scope.
 
 ## Country and source behavior
 
@@ -224,6 +233,7 @@ Required behavioral evidence:
    legacy restoration, clear behavior, and locked configuration are exercised.
 6. Concurrent distinct chats keep their source choices and jobs isolated; overlapping
    execution of the same thread is rejected and cancellation releases the guard.
+   Snapshot writes cannot reorder selections or resurrect a cleared thread.
 7. The frontend picker serializes choices from all send paths, restores them after
    reload, shows availability/errors, and follows the configuration lock.
 8. A normalized HeadHunter posting passes through real grouping/selection and the
