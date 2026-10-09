@@ -13,14 +13,13 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncGenerator
+from copy import deepcopy
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 from pydantic import BaseModel
-from sqlalchemy import delete, func
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -38,8 +37,21 @@ from app.modules.curricularalignmentarchitect.skill_prerequisites.service import
 
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .graph import get_graph
-from .models import MDAThreadState
-from .state import STATE_KEYS, restore_state, snapshot_state, tool_store
+from .repository import MarketReviewRepository, load_async_thread_state
+from .schemas import EvidenceSource, JobSource
+from .state import (
+    STATE_KEYS,
+    bind_tool_store,
+    restore_state,
+    snapshot_state,
+    tool_store,
+)
+from .thread_state_service import (
+    ThreadBusy,
+    ThreadLease,
+    ThreadStateService,
+    get_thread_state_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +68,12 @@ AGENT_META: dict[str, dict[str, str]] = {
 
 
 TeacherDep = Annotated[User, Depends(require_role(UserRole.TEACHER))]
+
+
+def get_market_review_repository(
+    db: Session = Depends(get_db),
+) -> MarketReviewRepository:
+    return MarketReviewRepository(db)
 
 
 def _sse(event: str, data: dict) -> str:
@@ -98,9 +116,8 @@ def _schedule_skill_prerequisite_rebuild(
         )
 
 
-# In-memory cache for persisted state (avoids 2-3s Azure PG round-trips on
-# every request). Invalidated on write in _persist_state / delete.
-_state_cache: dict[str, dict[str, Any] | None] = {}
+# Detached process-local snapshots; every load still reads authoritative SQL.
+_state_cache = get_thread_state_service().cache
 
 
 def _load_owned_course(session: Session, course_id: int, teacher_id: int) -> Course:
@@ -212,60 +229,40 @@ def _restore_thread_state(
     )
 
 
-async def _persist_state_to_db(thread_id: str, state: dict[str, Any]) -> None:
-    """Write state snapshot to PostgreSQL (background-safe)."""
-    t0 = time.perf_counter()
-    try:
-        async with AsyncSessionLocal() as session:
-            stmt = (
-                pg_insert(MDAThreadState)
-                .values(
-                    thread_id=thread_id,
-                    state_json=state,
-                )
-                .on_conflict_do_update(
-                    index_elements=["thread_id"],
-                    set_={"state_json": state, "updated_at": func.now()},
-                )
-            )
-            await session.execute(stmt)
-            await session.commit()
-        elapsed = (time.perf_counter() - t0) * 1000
-        logger.info(
-            "[PERF] _persist_state_to_db took %.1fms (thread=%s)", elapsed, thread_id
-        )
-    except Exception:
-        logger.exception("[PERF] _persist_state_to_db FAILED (thread=%s)", thread_id)
+def _persist_state(
+    thread_id: str,
+    state: dict | None = None,
+    *,
+    lease: ThreadLease | None = None,
+    service: ThreadStateService | None = None,
+) -> None:
+    """Queue detached snapshots in their execution's write order."""
+    service = service or get_thread_state_service()
+    snapshot = snapshot_state(state)
+    if lease is not None:
+        service.save(lease, snapshot)
+        return
 
+    async def persist():
+        claimed = await service.claim(thread_id)
+        try:
+            await service.save(claimed, snapshot)
+        finally:
+            await service.release(claimed)
 
-def _persist_state(thread_id: str) -> None:
-    """Snapshot state into cache and schedule a non-blocking DB write."""
-    state = snapshot_state()
-    _state_cache[thread_id] = state
-    asyncio.create_task(_persist_state_to_db(thread_id, state))
+    asyncio.create_task(persist())
 
 
 async def _load_persisted_state(thread_id: str) -> dict[str, Any] | None:
-    """Load persisted agent state, using in-memory cache when available."""
-    if thread_id in _state_cache:
-        logger.info("[PERF] _load_persisted_state cache HIT (thread=%s)", thread_id)
-        return _state_cache[thread_id]
-
+    """Read authoritative state and retain a detached snapshot for observers."""
     t0 = time.perf_counter()
     for attempt in range(2):
         try:
-            async with AsyncSessionLocal() as session:
-                row = await session.get(MDAThreadState, thread_id)
-                if row:
-                    _state_cache[thread_id] = row.state_json
-                    elapsed = (time.perf_counter() - t0) * 1000
-                    logger.info(
-                        "[PERF] _load_persisted_state took %.1fms (DB, thread=%s)",
-                        elapsed,
-                        thread_id,
-                    )
-                    return row.state_json
-                break
+            persisted = await load_async_thread_state(AsyncSessionLocal, thread_id)
+            if persisted is not None:
+                _state_cache[thread_id] = deepcopy(persisted)
+                return deepcopy(persisted)
+            break
         except Exception:
             if attempt == 0:
                 logger.warning(
@@ -275,8 +272,9 @@ async def _load_persisted_state(thread_id: str) -> dict[str, Any] | None:
                 )
                 continue
             logger.exception("_load_persisted_state failed for %s", thread_id)
-            _state_cache[thread_id] = None
-            return None
+            raise HTTPException(
+                status_code=503, detail="Database is temporarily unavailable"
+            ) from None
     _state_cache[thread_id] = None
     elapsed = (time.perf_counter() - t0) * 1000
     logger.info(
@@ -291,6 +289,10 @@ async def _sse_stream(
     graph: Any,
     input_data: dict,
     config: dict,
+    *,
+    bound_state: dict | None = None,
+    lease: ThreadLease | None = None,
+    state_service: ThreadStateService | None = None,
 ) -> AsyncGenerator[str, None]:
     """Stream the LangGraph swarm execution as SSE events.
 
@@ -312,7 +314,7 @@ async def _sse_stream(
     tool_call_args: dict[str, str] = {}
     # Map chunk index → tool call id (for chunks that omit the id)
     tool_index_to_id: dict[int, str] = {}
-    prev_state = snapshot_state()
+    prev_state = snapshot_state(bound_state)
     thread_id = config.get("configurable", {}).get("thread_id", "")
 
     stream_start = time.perf_counter()
@@ -328,19 +330,57 @@ async def _sse_stream(
 
     async def _graph_producer() -> None:
         try:
-            async for item in graph.astream(
-                input_data,
-                config=config,
-                stream_mode="messages",
-                subgraphs=True,
+            # Bind inside the producer: its tasks and synchronous LangChain tools
+            # inherit this execution's mapping rather than the request's context.
+            with bind_tool_store(
+                bound_state if bound_state is not None else tool_store._current(),
+                tool_tasks=lease.tool_tasks if lease is not None else None,
             ):
-                await _queue.put(item)
+                async for item in graph.astream(
+                    input_data,
+                    config=config,
+                    stream_mode="messages",
+                    subgraphs=True,
+                ):
+                    if (
+                        lease is not None
+                        and state_service is not None
+                        and isinstance(item[1][0], ToolMessage)
+                    ):
+                        await state_service.save(lease, snapshot_state(bound_state))
+                    await _queue.put(item)
         except Exception as exc:
             await _queue.put(exc)
         finally:
-            await _queue.put(None)
+
+            async def finalize():
+                try:
+                    if lease is not None and state_service is not None:
+                        try:
+                            # Shielded adapters retain actual executor tasks. Drain
+                            # them before capturing state or releasing SQL ownership.
+                            if lease.tool_tasks:
+                                await asyncio.gather(
+                                    *lease.tool_tasks, return_exceptions=True
+                                )
+                                lease.tool_tasks.clear()
+                            await state_service.save(lease, snapshot_state(bound_state))
+                        finally:
+                            await state_service.release(lease)
+                except Exception as exc:
+                    logger.exception("Failed to persist completed graph execution")
+                    await _queue.put(exc)
+                finally:
+                    await _queue.put(None)
+
+            finalizing = asyncio.create_task(finalize())
+            if lease is not None:
+                lease.finalizing = finalizing
+            await asyncio.shield(finalizing)
 
     _producer = asyncio.create_task(_graph_producer())
+    if lease is not None:
+        lease.producer = _producer
 
     try:
         logger.info("[PERF] SSE stream starting (thread=%s)", thread_id)
@@ -543,7 +583,7 @@ async def _sse_stream(
                 )
 
                 # Check for state changes after tool execution
-                new_state = snapshot_state()
+                new_state = snapshot_state(bound_state)
                 should_rebuild_prerequisites = False
                 for key in STATE_KEYS:
                     if new_state[key] != prev_state.get(key):
@@ -563,14 +603,40 @@ async def _sse_stream(
                             int(course_id),
                             "market_demand_insertion",
                         )
-                if new_state != prev_state and thread_id:
-                    _persist_state(thread_id)
+                if new_state != prev_state and thread_id and lease is None:
+                    _persist_state(thread_id, bound_state)
+                review_keys = (
+                    "run_id",
+                    "candidate_revision",
+                    "selection_revision",
+                    "publication_revision",
+                )
+                if new_state.get("run_id") and any(
+                    new_state.get(key) != prev_state.get(key) for key in review_keys
+                ):
+                    yield _sse(
+                        "skill_review_changed",
+                        {
+                            "run_id": new_state["run_id"],
+                            "candidate_revision": new_state.get("candidate_revision")
+                            or 0,
+                            "selection_revision": new_state.get("selection_revision")
+                            or 0,
+                            "publication_revision": new_state.get(
+                                "publication_revision"
+                            )
+                            or 0,
+                        },
+                    )
                 prev_state = new_state
 
     except Exception as exc:
         logger.exception("Graph stream error: %s", exc)
     finally:
-        _producer.cancel()
+        if lease is None:
+            _producer.cancel()
+        # Managed producers retain their execution lease through disconnects.
+        # Late sync tool results are persisted before their guard is released.
 
     # Final text_done if we were mid-stream
     if current_message_id:
@@ -589,6 +655,10 @@ async def _sse_stream(
 
 class ChatRequest(BaseModel):
     message: str = ""
+    sources: list[JobSource] | None = None
+    evidence_sources: list[EvidenceSource] | None = None
+    onet_release: str | None = None
+    onet_occupation_codes: list[str] | None = None
     country: str | None = None
     location: str | None = None  # Deprecated; old clients sent this as country.
 
@@ -599,6 +669,8 @@ async def market_demand_chat(
     body: ChatRequest,
     teacher: TeacherDep,
     db: Session = Depends(get_db),
+    state_service: ThreadStateService = Depends(get_thread_state_service),
+    review_repository: MarketReviewRepository = Depends(get_market_review_repository),
 ) -> StreamingResponse:
     """Stream a Market Demand Agent conversation turn.
 
@@ -625,52 +697,82 @@ async def market_demand_chat(
                 detail=str(exc),
             ) from exc
 
-    # Load persisted state and graph concurrently (both hit PostgreSQL)
-    t0 = time.perf_counter()
-    persisted, (graph, _llm) = await asyncio.gather(
-        _load_persisted_state(thread_id),
-        get_graph(),
-    )
-    parallel_ms = (time.perf_counter() - t0) * 1000
-    logger.info("[PERF] Parallel state+graph load took %.1fms", parallel_ms)
+    try:
+        lease = await state_service.claim(thread_id)
+    except ThreadBusy as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    try:
+        # Load persisted state and graph concurrently (both hit PostgreSQL)
+        t0 = time.perf_counter()
+        persisted, (graph, _llm) = await asyncio.gather(
+            _load_persisted_state(thread_id),
+            get_graph(),
+        )
+        parallel_ms = (time.perf_counter() - t0) * 1000
+        logger.info("[PERF] Parallel state+graph load took %.1fms", parallel_ms)
 
-    _restore_thread_state(persisted, course, requested_country)
-    if requested_country:
-        _persist_state(thread_id)
-
-    config = {"configurable": {"thread_id": thread_id}}
-    input_data = {
-        "messages": [HumanMessage(content=body.message)],
-        "course_id": course.id,
-        "course_title": course.title,
-        "course_description": course.description or "",
-    }
-
-    # Pre-warm: read the checkpoint with retry so stale SSL connections in the
-    # pool are discarded *before* we enter the SSE generator (where retry is
-    # harder because we may have already yielded events).
-    t0 = time.perf_counter()
-    for attempt in range(2):
-        try:
-            await graph.aget_state(config)
-            break
-        except Exception:
-            if attempt == 0:
-                logger.warning(
-                    "Chat pre-warm checkpoint read failed (attempt 1), retrying…"
-                )
-                continue
-            logger.warning(
-                "Chat pre-warm checkpoint read failed twice, proceeding anyway"
+        bound_state: dict = {}
+        with bind_tool_store(bound_state):
+            _restore_thread_state(persisted, course, requested_country)
+        if not bound_state.get("run_id"):
+            run = review_repository.create_run(
+                course.id,
+                teacher.id,
+                {
+                    "country": bound_state.get("job_search_country"),
+                    "sources": bound_state.get("sources") or ["indeed", "linkedin"],
+                    "evidence_sources": bound_state.get("evidence_sources") or ["jobs"],
+                },
             )
-    prewarm_ms = (time.perf_counter() - t0) * 1000
-    logger.info("[PERF] Checkpoint pre-warm took %.1fms", prewarm_ms)
+            db.commit()
+            bound_state["run_id"] = str(run.id)
+            bound_state["candidate_revision"] = 0
+        await state_service.save(lease, snapshot_state(bound_state))
 
-    setup_ms = (time.perf_counter() - chat_start) * 1000
-    logger.info("[PERF] /chat setup total %.1fms before SSE stream", setup_ms)
+        config = {"configurable": {"thread_id": thread_id}}
+        input_data = {
+            "messages": [HumanMessage(content=body.message)],
+            "course_id": course.id,
+            "course_title": course.title,
+            "course_description": course.description or "",
+        }
+
+        # Pre-warm: read the checkpoint with retry so stale SSL connections in the
+        # pool are discarded *before* we enter the SSE generator (where retry is
+        # harder because we may have already yielded events).
+        t0 = time.perf_counter()
+        for attempt in range(2):
+            try:
+                await graph.aget_state(config)
+                break
+            except Exception:
+                if attempt == 0:
+                    logger.warning(
+                        "Chat pre-warm checkpoint read failed (attempt 1), retrying…"
+                    )
+                    continue
+                logger.warning(
+                    "Chat pre-warm checkpoint read failed twice, proceeding anyway"
+                )
+        prewarm_ms = (time.perf_counter() - t0) * 1000
+        logger.info("[PERF] Checkpoint pre-warm took %.1fms", prewarm_ms)
+
+        setup_ms = (time.perf_counter() - chat_start) * 1000
+        logger.info("[PERF] /chat setup total %.1fms before SSE stream", setup_ms)
+
+    except BaseException:
+        await state_service.release(lease)
+        raise
 
     return StreamingResponse(
-        _sse_stream(graph, input_data, config),
+        _sse_stream(
+            graph,
+            input_data,
+            config,
+            bound_state=bound_state,
+            lease=lease,
+            state_service=state_service,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -690,8 +792,9 @@ async def get_agent_state(
     course = _get_owned_course(course_id, teacher, db)
     thread_id = _get_thread_id(teacher.id, course.id)
     persisted = await _load_persisted_state(thread_id)
-    _restore_thread_state(persisted, course)
-    return snapshot_state()
+    with bind_tool_store({}):
+        _restore_thread_state(persisted, course)
+        return snapshot_state()
 
 
 @router.get("/{course_id}/market-demand/history")
@@ -743,8 +846,9 @@ async def get_conversation_history(
     checkpoint_ms = (time.perf_counter() - t0) * 1000
     logger.info("[PERF] /history parallel checkpoint+state took %.1fms", checkpoint_ms)
 
-    # Restore tool_store from persisted state so pipeline stages are correct
-    _restore_thread_state(persisted, course)
+    # History reads do not mutate another running analysis.
+    with bind_tool_store({}):
+        _restore_thread_state(persisted, course)
 
     if not state or not state.values:
         return {"messages": [], "threadId": thread_id}
@@ -848,6 +952,7 @@ async def delete_conversation(
     course_id: int,
     teacher: TeacherDep,
     db: Session = Depends(get_db),
+    state_service: ThreadStateService = Depends(get_thread_state_service),
 ) -> dict[str, str]:
     """Delete the conversation thread and all associated state.
 
@@ -861,24 +966,19 @@ async def delete_conversation(
     course = _get_owned_course(course_id, teacher, db)
     thread_id = _get_thread_id(teacher.id, course.id)
 
-    # 1. Delete persisted agent state
-    async with AsyncSessionLocal() as session:
-        await session.execute(
-            delete(MDAThreadState).where(MDAThreadState.thread_id == thread_id)
-        )
-        await session.commit()
-
-    # 2. Delete LangGraph checkpoint
-    graph, _ = await get_graph()
-    checkpointer = graph.checkpointer
-    if checkpointer and hasattr(checkpointer, "adelete_thread"):
-        try:
+    try:
+        lease = await state_service.claim(thread_id)
+    except ThreadBusy as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    try:
+        # Keep deletion's guard across checkpoint removal too; a new chat cannot
+        # recreate a checkpoint in the gap between the two deletions.
+        await state_service.delete(thread_id, lease=lease)
+        graph, _ = await get_graph()
+        checkpointer = graph.checkpointer
+        if checkpointer and hasattr(checkpointer, "adelete_thread"):
             await checkpointer.adelete_thread(thread_id)
-        except Exception:
-            logger.exception("Failed to delete checkpoint for thread %s", thread_id)
-
-    # 3. Clear in-memory tool_store and state cache
-    tool_store.clear()
-    _state_cache.pop(thread_id, None)
+    finally:
+        await state_service.release(lease)
 
     return {"status": "deleted", "threadId": thread_id}

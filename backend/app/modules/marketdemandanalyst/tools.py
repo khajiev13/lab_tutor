@@ -12,7 +12,7 @@ from langgraph.types import Command
 
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .extractor import _get_extraction_llm
-from .state import mapping_breakdown, tool_store
+from .state import mapping_breakdown, owned_sync_execution, tool_store
 
 logger = logging.getLogger(__name__)
 
@@ -2114,3 +2114,19 @@ ALL_TOOLS = (
     + SKILL_CLEANER_TOOLS
     + CONCEPT_LINKER_TOOLS
 )
+
+
+def owned_sync_tools(tools):
+    """Preserve StructuredTool schemas while retaining actual worker execution."""
+    adapted = []
+    for original in tools:
+        if original.coroutine is not None or original.func is None:
+            adapted.append(original)
+            continue
+
+        adapted.append(
+            original.model_copy(
+                update={"coroutine": owned_sync_execution(original.func)}
+            )
+        )
+    return adapted

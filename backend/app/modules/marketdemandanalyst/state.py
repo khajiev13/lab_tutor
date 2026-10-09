@@ -1,12 +1,85 @@
+import asyncio
+from collections.abc import Callable, Iterator, MutableMapping
+from contextlib import contextmanager
+from contextvars import ContextVar
+from copy import deepcopy
+from functools import wraps
 from typing import Annotated, Any, TypedDict
 
 from langgraph.graph.message import add_messages
 
-# Module-level store shared between tools — persisted to DB per thread
-tool_store: dict = {}
+# Bound mappings propagate through asyncio tasks and LangChain's copied worker context.
+# The fallback supports standalone CLI tools; HTTP requests always bind explicitly.
+_tool_context: ContextVar[dict | None] = ContextVar("market_tool_store", default=None)
+_cli_store: dict = {}
+_tool_tasks: ContextVar[set[asyncio.Task] | None] = ContextVar(
+    "market_tool_tasks", default=None
+)
+
+
+def owned_sync_execution(func: Callable) -> Callable:
+    """Keep actual worker completion owned when its async waiter is cancelled."""
+
+    @wraps(func)
+    async def execute(*args, **kwargs):
+        task = asyncio.create_task(asyncio.to_thread(func, *args, **kwargs))
+        owned = _tool_tasks.get()
+        if owned is not None:
+            # Register before yielding to either the executor or cancellation.
+            owned.add(task)
+        return await asyncio.shield(task)
+
+    return execute
+
+
+class ToolStore(MutableMapping):
+    def _current(self) -> dict:
+        bound = _tool_context.get()
+        return _cli_store if bound is None else bound
+
+    def __getitem__(self, key):
+        return self._current()[key]
+
+    def __setitem__(self, key, value):
+        self._current()[key] = value
+
+    def __delitem__(self, key):
+        del self._current()[key]
+
+    def __iter__(self) -> Iterator:
+        return iter(self._current())
+
+    def __len__(self) -> int:
+        return len(self._current())
+
+
+tool_store = ToolStore()
+
+
+@contextmanager
+def bind_tool_store(state: dict, *, tool_tasks: set[asyncio.Task] | None = None):
+    """Bind one execution's mutable state; reset safely on failure/cancellation."""
+    token = _tool_context.set(state)
+    tasks_token = _tool_tasks.set(tool_tasks)
+    try:
+        yield state
+    finally:
+        _tool_context.reset(token)
+        _tool_tasks.reset(tasks_token)
+
 
 # Keys we track for persistence and state_update SSE events
 STATE_KEYS: list[str] = [
+    "sources",
+    "evidence_sources",
+    "onet_release",
+    "selected_onet_occupations",
+    "onet_selection_confirmed",
+    "run_id",
+    "candidate_revision",
+    "source_outcomes",
+    "selection_revision",
+    "publication_revision",
     "course_id",
     "course_title",
     "course_description",
@@ -85,15 +158,15 @@ def mapping_breakdown() -> dict[str, int | bool]:
     }
 
 
-def snapshot_state() -> dict[str, Any]:
+def snapshot_state(state: dict | None = None) -> dict[str, Any]:
     """Take a JSON-serializable snapshot of all tracked tool_store keys."""
     result: dict[str, Any] = {}
     for key in STATE_KEYS:
-        val = tool_store.get(key)
+        val = (tool_store if state is None else state).get(key)
         if val is None:
             result[key] = None
         elif isinstance(val, (list, dict, str, int, float, bool)):
-            result[key] = val
+            result[key] = deepcopy(val)
         else:
             result[key] = str(val)
     return result
@@ -104,7 +177,7 @@ def restore_state(state_json: dict[str, Any]) -> None:
     tool_store.clear()
     for key in STATE_KEYS:
         if key in state_json and state_json[key] is not None:
-            tool_store[key] = state_json[key]
+            tool_store[key] = deepcopy(state_json[key])
 
 
 def pipeline_summary() -> str:

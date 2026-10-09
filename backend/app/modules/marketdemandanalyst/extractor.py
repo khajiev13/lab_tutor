@@ -18,7 +18,7 @@ from langgraph.constants import START
 from langgraph.graph import StateGraph
 from langgraph.types import Command, Send
 
-from .state import tool_store
+from .state import owned_sync_execution, tool_store
 
 logger = logging.getLogger(__name__)
 
@@ -596,10 +596,12 @@ def normalize_skills_by_embedding(state: ExtractorState) -> Command:
 # ── Assemble the subgraph ──────────────────────────────────────
 
 _builder = StateGraph(ExtractorState)
-_builder.add_node("extract_one", extract_one)
-_builder.add_node("synthesize_skills", synthesize_skills)
-_builder.add_node("merge_similar_skills", merge_similar_skills)
-_builder.add_node("normalize_skills_by_embedding", normalize_skills_by_embedding)
+_builder.add_node("extract_one", owned_sync_execution(extract_one))
+_builder.add_node("synthesize_skills", owned_sync_execution(synthesize_skills))
+_builder.add_node("merge_similar_skills", owned_sync_execution(merge_similar_skills))
+_builder.add_node(
+    "normalize_skills_by_embedding", owned_sync_execution(normalize_skills_by_embedding)
+)
 _builder.add_conditional_edges(START, fan_out, ["extract_one"])
 _builder.add_edge("extract_one", "synthesize_skills")
 _builder.add_edge("synthesize_skills", "merge_similar_skills")

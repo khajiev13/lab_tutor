@@ -25,6 +25,7 @@ from .tools import (
     SKILL_CLEANER_TOOLS,
     SKILL_FINDER_TOOLS,
     SUPERVISOR_TOOLS,
+    owned_sync_tools,
 )
 
 logger = logging.getLogger(__name__)
@@ -240,7 +241,7 @@ async def get_graph():
     supervisor = create_react_agent(
         llm,
         tools=[
-            *SUPERVISOR_TOOLS,
+            *owned_sync_tools(SUPERVISOR_TOOLS),
             handoff_to_skill_finder,
             handoff_to_curriculum_mapper,
             handoff_to_skill_cleaner,
@@ -254,7 +255,7 @@ async def get_graph():
     skill_finder = create_react_agent(
         llm,
         tools=[
-            *SKILL_FINDER_TOOLS,
+            *owned_sync_tools(SKILL_FINDER_TOOLS),
             handoff_to_curriculum_mapper,
             handoff_to_supervisor,
         ],
@@ -265,7 +266,7 @@ async def get_graph():
     curriculum_mapper = create_react_agent(
         llm,
         tools=[
-            *CURRICULUM_MAPPER_TOOLS,
+            *owned_sync_tools(CURRICULUM_MAPPER_TOOLS),
             handoff_to_skill_cleaner,
             handoff_to_supervisor,
         ],
@@ -275,14 +276,18 @@ async def get_graph():
 
     skill_cleaner = create_react_agent(
         llm,
-        tools=[*SKILL_CLEANER_TOOLS, handoff_to_concept_linker, handoff_to_supervisor],
+        tools=[
+            *owned_sync_tools(SKILL_CLEANER_TOOLS),
+            handoff_to_concept_linker,
+            handoff_to_supervisor,
+        ],
         prompt=_make_prompt(SKILL_CLEANER_PROMPT),
         name="skill_cleaner",
     )
 
     concept_linker = create_react_agent(
         llm,
-        tools=[*CONCEPT_LINKER_TOOLS, handoff_to_supervisor],
+        tools=[*owned_sync_tools(CONCEPT_LINKER_TOOLS), handoff_to_supervisor],
         prompt=_make_prompt(CONCEPT_LINKER_PROMPT),
         name="concept_linker",
     )

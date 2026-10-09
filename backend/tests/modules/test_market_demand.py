@@ -859,7 +859,12 @@ class TestDeleteEndpoint:
             f"/courses/{course_id}/market-demand/history",
             headers=teacher_auth_headers,
         )
-        assert len(state_mod.tool_store) == 0
+        persisted = client.get(
+            f"/courses/{course_id}/market-demand/state", headers=teacher_auth_headers
+        ).json()
+        assert persisted["fetched_jobs"] is None
+        # The endpoint cannot clear a standalone tool caller's unrelated context.
+        assert state_mod.tool_store["fetched_jobs"] == [{"title": "Dev"}]
 
 
 class TestSelectJobsByGroup:
@@ -1061,8 +1066,6 @@ class TestCourseScopedContext:
     def test_chat_seeds_course_context(
         self, mock_get_graph, client, teacher_auth_headers
     ):
-        import app.modules.marketdemandanalyst.state as state_mod
-
         course_id = _create_course(client, teacher_auth_headers, title="Big Data")
         mock_g = MagicMock()
         mock_g.astream = _mock_astream([])
@@ -1075,11 +1078,12 @@ class TestCourseScopedContext:
         )
 
         assert resp.status_code == 200
-        assert state_mod.tool_store["course_id"] == course_id
-        assert state_mod.tool_store["course_title"] == "Big Data"
-        assert state_mod.tool_store["course_description"] == (
-            "Course used by market demand tests"
-        )
+        persisted = client.get(
+            f"/courses/{course_id}/market-demand/state", headers=teacher_auth_headers
+        ).json()
+        assert persisted["course_id"] == course_id
+        assert persisted["course_title"] == "Big Data"
+        assert persisted["course_description"] == "Course used by market demand tests"
 
     def test_restore_allows_country_change_before_jobs_are_fetched(self):
         import app.modules.marketdemandanalyst.routes as routes_mod
@@ -1159,8 +1163,6 @@ class TestCourseScopedContext:
     def test_chat_seeds_job_search_country_from_request(
         self, mock_get_graph, client, teacher_auth_headers
     ):
-        import app.modules.marketdemandanalyst.state as state_mod
-
         course_id = _create_course(client, teacher_auth_headers)
         mock_g = MagicMock()
         mock_g.astream = _mock_astream([])
@@ -1173,9 +1175,12 @@ class TestCourseScopedContext:
         )
 
         assert resp.status_code == 200
-        assert state_mod.tool_store["job_search_country"] == "China"
-        assert state_mod.tool_store["job_search_location"] == "China"
-        assert state_mod.tool_store["job_search_country_confirmed"] is True
+        persisted = client.get(
+            f"/courses/{course_id}/market-demand/state", headers=teacher_auth_headers
+        ).json()
+        assert persisted["job_search_country"] == "China"
+        assert persisted["job_search_location"] == "China"
+        assert persisted["job_search_country_confirmed"] is True
 
     def test_other_teacher_cannot_access_course(self, client, teacher_auth_headers):
         course_id = _create_course(client, teacher_auth_headers)
@@ -1423,7 +1428,7 @@ class TestDatabaseResilience:
         retry_db.close.assert_called_once()
 
     @pytest.mark.anyio
-    async def test_load_persisted_state_returns_none_after_retries(self, monkeypatch):
+    async def test_load_persisted_state_fails_closed_after_retries(self, monkeypatch):
         import app.modules.marketdemandanalyst.routes as routes_mod
 
         routes_mod._state_cache.clear()
@@ -1439,10 +1444,14 @@ class TestDatabaseResilience:
             routes_mod, "AsyncSessionLocal", lambda: BrokenAsyncSession()
         )
 
-        result = await routes_mod._load_persisted_state("thread-xyz")
+        from fastapi import HTTPException
 
-        assert result is None
-        assert routes_mod._state_cache["thread-xyz"] is None
+        routes_mod._state_cache["thread-xyz"] = {"run_id": "existing-run"}
+        with pytest.raises(HTTPException) as error:
+            await routes_mod._load_persisted_state("thread-xyz")
+
+        assert error.value.status_code == 503
+        assert routes_mod._state_cache["thread-xyz"] == {"run_id": "existing-run"}
 
 
 class TestCurriculumMappingValidation:
