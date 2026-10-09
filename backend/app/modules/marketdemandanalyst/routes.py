@@ -37,8 +37,9 @@ from app.modules.curricularalignmentarchitect.skill_prerequisites.service import
 
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .graph import get_graph
+from .job_sources import JobSourceService, get_job_source_service
 from .repository import MarketReviewRepository, load_async_thread_state
-from .schemas import EvidenceSource, JobSource
+from .schemas import EvidenceSource, JobSource, JobSourceOption, VacancyEvidence
 from .state import (
     STATE_KEYS,
     bind_tool_store,
@@ -661,6 +662,53 @@ class ChatRequest(BaseModel):
     onet_occupation_codes: list[str] | None = None
     country: str | None = None
     location: str | None = None  # Deprecated; old clients sent this as country.
+
+
+@router.get("/{course_id}/market-demand/sources", response_model=list[JobSourceOption])
+def market_demand_sources(
+    course_id: int,
+    teacher: TeacherDep,
+    country: str = DEFAULT_JOB_SEARCH_COUNTRY,
+    db: Session = Depends(get_db),
+    service: JobSourceService = Depends(get_job_source_service),
+):
+    _get_owned_course(course_id, teacher, db)
+    try:
+        selected_country = normalize_job_search_country(country)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return service.catalog(selected_country)
+
+
+@router.get(
+    "/{course_id}/market-demand/skill-review/postings/{snapshot_id}",
+    response_model=VacancyEvidence,
+)
+def market_vacancy_evidence(
+    course_id: int,
+    snapshot_id: uuid.UUID,
+    teacher: TeacherDep,
+    db: Session = Depends(get_db),
+    repository: MarketReviewRepository = Depends(get_market_review_repository),
+):
+    _get_owned_course(course_id, teacher, db)
+    snapshot = repository.get_vacancy_snapshot(snapshot_id, course_id, teacher.id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Vacancy evidence not found")
+    return VacancyEvidence(
+        snapshot_id=snapshot.id,
+        provider=snapshot.provider,
+        native_id=snapshot.native_id,
+        original_url=snapshot.original_url,
+        title=snapshot.title,
+        company=snapshot.company,
+        description_text=snapshot.description_text,
+        original_description=snapshot.original_description,
+        raw_payload=snapshot.raw_payload,
+        retrieved_at=snapshot.retrieved_at,
+        status=snapshot.status,
+        purged_at=snapshot.purged_at,
+    )
 
 
 @router.post("/{course_id}/market-demand/chat")

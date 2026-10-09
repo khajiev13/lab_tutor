@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from copy import deepcopy
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -10,7 +11,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from .models import MarketAnalysisRun, MDAThreadState
+from .models import MarketAnalysisRun, MarketVacancySnapshot, MDAThreadState
+from .schemas import ProviderVacancy, safe_provider_payload
 
 
 class RevisionConflict(ValueError):
@@ -49,6 +51,155 @@ class MarketReviewRepository:
         if for_update:
             query = query.with_for_update().execution_options(populate_existing=True)
         return self._db.scalar(query)
+
+    def lock_vacancy_lifecycle(self) -> None:
+        """Serialize short evidence write/purge transactions until commit/rollback.
+
+        Acquire before run row locks when combining snapshot and manifest writes.
+        Provider, LLM and embedding work must stay outside this transaction.
+        """
+        self._db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:scope, 0))"),
+            {"scope": "marketdemandanalyst:vacancy_lifecycle"},
+        )
+
+    def upsert_vacancy_snapshot(
+        self, run_id: UUID, record: ProviderVacancy
+    ) -> MarketVacancySnapshot:
+        from .job_sources import vacancy_content_hash, vacancy_identity
+
+        # One lifecycle lock remains held across every snapshot in this batch.
+        self.lock_vacancy_lifecycle()
+        identity = vacancy_identity(record)
+        run = self._db.scalar(
+            select(MarketAnalysisRun)
+            .where(MarketAnalysisRun.id == run_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if run is None:
+            raise LookupError("Analysis run not found")
+        if "jobs" not in run.config.get(
+            "evidence_sources", ["jobs"]
+        ) or record.provider not in run.config.get("sources", ["indeed", "linkedin"]):
+            raise ValueError("Vacancy provider was not selected for this analysis")
+        digest = vacancy_content_hash(record)
+        snapshot = self._db.scalar(
+            select(MarketVacancySnapshot)
+            .where(
+                MarketVacancySnapshot.run_id == run_id,
+                MarketVacancySnapshot.provider == record.provider,
+                MarketVacancySnapshot.identity == identity,
+                MarketVacancySnapshot.content_hash == digest,
+            )
+            .execution_options(populate_existing=True)
+        )
+        tombstone = self._db.scalar(
+            select(MarketVacancySnapshot)
+            .where(
+                MarketVacancySnapshot.provider == record.provider,
+                MarketVacancySnapshot.identity == identity,
+                MarketVacancySnapshot.purged_at.is_not(None),
+            )
+            .limit(1)
+            .execution_options(populate_existing=True)
+        )
+        if snapshot is not None:
+            snapshot.query_membership = list(
+                dict.fromkeys([*snapshot.query_membership, *record.query_membership])
+            )
+            snapshot.source_urls = list(
+                dict.fromkeys(
+                    [*snapshot.source_urls, *record.source_urls, record.original_url]
+                )
+            )
+            snapshot.last_observed_at = record.retrieved_at
+            self._db.flush()
+            return snapshot
+        snapshot = MarketVacancySnapshot(
+            run_id=run_id,
+            provider=record.provider,
+            native_id=record.native_id,
+            identity=identity,
+            content_hash=digest,
+            original_url=record.original_url,
+            source_urls=list(dict.fromkeys([*record.source_urls, record.original_url])),
+            title=record.title,
+            company=record.company,
+            raw_payload={} if tombstone else safe_provider_payload(record.raw_payload),
+            original_description=None if tombstone else record.original_description,
+            description_text=None if tombstone else record.description_text,
+            skill_tags=[] if tombstone else record.skill_tags,
+            returned_dates=record.returned_dates,
+            status="purged" if tombstone else record.status,
+            retrieved_at=record.retrieved_at,
+            last_observed_at=record.retrieved_at,
+            query_membership=record.query_membership,
+            demand_identity=record.demand_identity or f"{record.provider}:{identity}",
+            purged_at=tombstone.purged_at if tombstone else None,
+            purge_reason=tombstone.purge_reason if tombstone else None,
+        )
+        self._db.add(snapshot)
+        run.integration_review = None
+        self._db.flush()
+        return snapshot
+
+    def get_vacancy_snapshot(
+        self, snapshot_id: UUID, course_id: int, teacher_id: int
+    ) -> MarketVacancySnapshot | None:
+        return self._db.scalar(
+            select(MarketVacancySnapshot)
+            .join(MarketAnalysisRun)
+            .where(
+                MarketVacancySnapshot.id == snapshot_id,
+                MarketAnalysisRun.course_id == course_id,
+                MarketAnalysisRun.teacher_id == teacher_id,
+            )
+            .execution_options(populate_existing=True)
+        )
+
+    def purge_vacancy_content(self, snapshot_id: UUID, *, reason: str) -> int:
+        if not reason.strip():
+            raise ValueError("A provider lifecycle removal reason is required")
+        self.lock_vacancy_lifecycle()
+        snapshot = self._db.get(
+            MarketVacancySnapshot, snapshot_id, populate_existing=True
+        )
+        if snapshot is None:
+            raise LookupError("Vacancy snapshot not found")
+        copies = list(
+            self._db.scalars(
+                select(MarketVacancySnapshot)
+                .where(
+                    MarketVacancySnapshot.provider == snapshot.provider,
+                    MarketVacancySnapshot.identity == snapshot.identity,
+                )
+                .execution_options(populate_existing=True)
+            )
+        )
+        run_ids = sorted({item.run_id for item in copies})
+        runs = list(
+            self._db.scalars(
+                select(MarketAnalysisRun)
+                .where(MarketAnalysisRun.id.in_(run_ids))
+                .order_by(MarketAnalysisRun.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        )
+        for run in runs:
+            run.integration_review = None
+        now = datetime.now(UTC)
+        for item in copies:
+            item.raw_payload = {}
+            item.original_description = None
+            item.description_text = None
+            item.skill_tags = []
+            item.status = "purged"
+            item.purged_at = item.purged_at or now
+            item.purge_reason = reason
+        self._db.flush()
+        return len(copies)
 
     def update_manifest(
         self,

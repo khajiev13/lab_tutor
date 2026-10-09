@@ -4,13 +4,20 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class JobSearchCountry:
     label: str
-    jobspy_country: str
+    jobspy_country: str | None
     location: str
+
+    @property
+    def key(self) -> str:
+        return self.jobspy_country or "Uzbekistan"
 
 
 DEFAULT_JOB_SEARCH_COUNTRY = "USA"
 
 SUPPORTED_JOB_SEARCH_COUNTRIES: dict[str, JobSearchCountry] = {
+    "Uzbekistan": JobSearchCountry(
+        label="Uzbekistan", jobspy_country=None, location="Uzbekistan"
+    ),
     "USA": JobSearchCountry(
         label="United States",
         jobspy_country="USA",
@@ -44,6 +51,11 @@ SUPPORTED_JOB_SEARCH_COUNTRIES: dict[str, JobSearchCountry] = {
 }
 
 COUNTRY_ALIASES: dict[str, str] = {
+    "uz": "Uzbekistan",
+    "uzbekistan": "Uzbekistan",
+    "o‘zbekiston": "Uzbekistan",
+    "oʻzbekiston": "Uzbekistan",
+    "o'zbekiston": "Uzbekistan",
     "": DEFAULT_JOB_SEARCH_COUNTRY,
     "us": "USA",
     "u.s.": "USA",

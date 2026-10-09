@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Text, func
+from sqlalchemy import DateTime, ForeignKey, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -62,3 +62,46 @@ class MarketAnalysisRun(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class MarketVacancySnapshot(Base):
+    """Complete safe provider evidence, separated from extraction input limits."""
+
+    __tablename__ = "market_vacancy_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "provider",
+            "identity",
+            "content_hash",
+            name="uq_market_vacancy_observation",
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("market_analysis_runs.id"), index=True
+    )
+    provider: Mapped[str] = mapped_column(Text)
+    native_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    identity: Mapped[str] = mapped_column(Text, index=True)
+    content_hash: Mapped[str] = mapped_column(Text)
+    original_url: Mapped[str] = mapped_column(Text)
+    source_urls: Mapped[list] = mapped_column(JSONB, default=list)
+    title: Mapped[str] = mapped_column(Text)
+    company: Mapped[str] = mapped_column(Text, default="")
+    raw_payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    original_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    skill_tags: Mapped[list] = mapped_column(JSONB, default=list)
+    returned_dates: Mapped[dict] = mapped_column(JSONB, default=dict)
+    status: Mapped[str] = mapped_column(Text)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    query_membership: Mapped[list] = mapped_column(JSONB, default=list)
+    demand_identity: Mapped[str] = mapped_column(Text, index=True)
+    purged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    purge_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -1,4 +1,4 @@
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -78,6 +78,13 @@ class Settings(BaseSettings):
     llm_max_completion_tokens: int = Field(
         default=4096,
         description="Max completion tokens for extraction responses",
+    )
+
+    hh_user_agent: str | None = Field(
+        default=None, description="Identifying HeadHunter API User-Agent"
+    )
+    hh_access_token: SecretStr | None = Field(
+        default=None, description="HeadHunter application token", exclude=True
     )
 
     # Search APIs
