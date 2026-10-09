@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deleteConversation, fetchAgentState, fetchConversationHistory, streamMarketDemandChat } from "../api";
-import { DEFAULT_MARKET_DEMAND_COUNTRY } from "../countries";
+import { deleteConversation, fetchAgentState, fetchConversationHistory, streamMarketDemandChat, fetchSkillReview } from "@/features/market-demand/api";
+import { DEFAULT_MARKET_DEMAND_COUNTRY } from "@/features/market-demand/countries";
 import type {
   AgentName,
   AgentState,
@@ -9,7 +9,9 @@ import type {
   StageStatus,
   StreamEvent,
   ToolCall,
-} from "../types";
+  SourceConfiguration,
+  SkillReview,
+} from "@/features/market-demand/types";
 
 const EMPTY_STATE: AgentState = {
   course_id: null,
@@ -32,38 +34,13 @@ const EMPTY_STATE: AgentState = {
   skill_job_urls: null,
 };
 
-function derivePipelineStages(state: AgentState): Record<PipelineStageId, StageStatus> {
-  const stages: Record<PipelineStageId, StageStatus> = {
-    fetch: "pending",
-    select: "pending",
-    extract: "pending",
-    map: "pending",
-    approve: "pending",
-    link: "pending",
-    insert: "pending",
-  };
-
-  if (state.fetched_jobs) stages.fetch = "complete";
-  if (state.selected_jobs) stages.select = "complete";
-  if (state.extracted_skills) stages.extract = "complete";
-  if (state.curriculum_mapping) stages.map = "complete";
-  if (state.selected_for_insertion) stages.approve = "complete";
-  if (state.skill_concepts) stages.link = "complete";
-  if (state.insertion_results) stages.insert = "complete";
-
-  // Find first pending to mark active
-  const order: PipelineStageId[] = ["fetch", "select", "extract", "map", "approve", "link", "insert"];
-  for (const id of order) {
-    if (stages[id] === "pending") {
-      stages[id] = "active";
-      break;
-    }
-  }
-
-  return stages;
-}
+import { derivePipelineStages } from "@/features/market-demand/pipeline";
 
 export interface UseAgentStreamReturn {
+  isRestored: boolean;
+  retryRestoration: () => void;
+  skillReview: SkillReview | null;
+  refreshSkillReview: () => Promise<void>;
   messages: ChatMessage[];
   isStreaming: boolean;
   isLoadingHistory: boolean;
@@ -79,20 +56,56 @@ export interface UseAgentStreamReturn {
 
 export function useAgentStream(
   courseId: number,
-  countryOverride: string | null = null
+  countryOverride: string | null = null,
+  configurationOverride: SourceConfiguration | null = null
 ): UseAgentStreamReturn {
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
+  const [isRestored, setIsRestored] = useState(false);
+  const reviewAbortRef = useRef<AbortController | null>(null);
+  const [skillReview, setSkillReview] = useState<SkillReview | null>(null);
+  const courseRef = useRef(courseId);
+  const generationRef = useRef(0);
+  const restoredRef = useRef(false);
+  const reviewRequestRef = useRef(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<AgentName | null>(null);
   const [agentState, setAgentState] = useState<AgentState>(EMPTY_STATE);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
   // Refs for mutable state during streaming
   const messagesRef = useRef<ChatMessage[]>([]);
   const agentStateRef = useRef<AgentState>(EMPTY_STATE);
+
+  const refreshSkillReview = useCallback(async () => {
+    reviewAbortRef.current?.abort();
+    const abort = new AbortController();
+    reviewAbortRef.current = abort;
+    const request = ++reviewRequestRef.current;
+    const activeCourse = courseId;
+    try {
+      const snapshot = await fetchSkillReview(courseId, abort.signal);
+      if (
+        !abort.signal.aborted &&
+        courseRef.current === activeCourse &&
+        request === reviewRequestRef.current
+      ) {
+        setSkillReview(snapshot);
+      }
+    } catch (cause) {
+      if (
+        !abort.signal.aborted &&
+        courseRef.current === activeCourse &&
+        request === reviewRequestRef.current
+      ) {
+        setError(cause instanceof Error ? cause.message : "Failed to refresh skill review");
+      }
+      throw cause;
+    }
+  }, [courseId]);
 
   const handleEvent = useCallback((event: StreamEvent) => {
     switch (event.type) {
@@ -213,17 +226,33 @@ export function useAgentStream(
         break;
       }
 
+      case "skill_review_changed": {
+        void refreshSkillReview().catch(() => {});
+        break;
+      }
+
       case "stream_end": {
         setIsStreaming(false);
         setCurrentAgent(null);
         break;
       }
     }
-  }, []);
+  }, [refreshSkillReview]);
 
   // Load course-scoped conversation history whenever the course changes.
   useEffect(() => {
     let cancelled = false;
+    const restoreAbort = new AbortController();
+    courseRef.current = courseId;
+    restoredRef.current = false;
+    setIsRestored(false);
+    reviewAbortRef.current?.abort();
+    generationRef.current += 1;
+    reviewRequestRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setIsStreaming(false);
+    setSkillReview(null);
     setIsLoadingHistory(true);
     messagesRef.current = [];
     setMessages([]);
@@ -233,8 +262,12 @@ export function useAgentStream(
     setCurrentAgent(null);
     setError(null);
 
-    Promise.all([fetchConversationHistory(courseId), fetchAgentState(courseId)])
-      .then(([historyData, stateData]) => {
+    Promise.all([
+      fetchConversationHistory(courseId),
+      fetchAgentState(courseId),
+      fetchSkillReview(courseId, restoreAbort.signal),
+    ])
+      .then(([historyData, stateData, reviewData]) => {
         if (cancelled) return;
         if (historyData.messages.length > 0) {
           messagesRef.current = historyData.messages;
@@ -244,12 +277,15 @@ export function useAgentStream(
           setThreadId(historyData.threadId);
         }
         // Restore agent state (pipeline progress, jobs, skills, etc.)
+        setSkillReview(reviewData);
+        restoredRef.current = true;
+        setIsRestored(true);
         agentStateRef.current = stateData;
         setAgentState(stateData);
       })
       .catch((err) => {
         if (!cancelled) {
-          console.error("Failed to load history:", err);
+          setError(err instanceof Error ? err.message : "Failed to restore conversation");
         }
       })
       .finally(() => {
@@ -258,11 +294,26 @@ export function useAgentStream(
 
     return () => {
       cancelled = true;
+      restoreAbort.abort();
+      reviewAbortRef.current?.abort();
+      restoredRef.current = false;
+      generationRef.current += 1;
+      reviewRequestRef.current += 1;
+      abortRef.current?.abort();
     };
-  }, [courseId]);
+  }, [courseId, restoreAttempt]);
+
+  const retryRestoration = useCallback(() => {
+    setRestoreAttempt((attempt) => attempt + 1);
+  }, []);
 
   const send = useCallback(
     async (text: string) => {
+      if (!restoredRef.current || courseRef.current !== courseId) return;
+      abortRef.current?.abort();
+      reviewAbortRef.current?.abort();
+      reviewRequestRef.current += 1;
+      const generation = ++generationRef.current;
       setError(null);
 
       // Add user message (skip for initial empty greeting)
@@ -288,13 +339,21 @@ export function useAgentStream(
           (agentStateRef.current.job_search_country_confirmed
             ? agentStateRef.current.job_search_country
             : null);
+        const configuration: SourceConfiguration = configurationOverride ?? {
+          sources: agentStateRef.current.sources ?? ["indeed", "linkedin"],
+          evidence_sources: agentStateRef.current.evidence_sources ?? ["jobs"],
+          onet_release: agentStateRef.current.onet_release ?? null,
+          onet_occupation_codes: agentStateRef.current.selected_onet_occupations ?? [],
+        };
+        const isCurrent = () => !abort.signal.aborted && generation === generationRef.current && courseRef.current === courseId;
         await streamMarketDemandChat({
+          ...configuration,
           courseId,
           message: text,
           country,
           signal: abort.signal,
-          onThreadId: (id) => setThreadId(id),
-          onEvent: handleEvent,
+          onThreadId: (id) => {if (isCurrent()) setThreadId(id);},
+          onEvent: (event) => {if (isCurrent()) handleEvent(event);},
           onError: (err) => {
             console.error("Stream event error:", err);
           },
@@ -305,28 +364,38 @@ export function useAgentStream(
           e !== null &&
           "name" in e &&
           (e as { name: string }).name === "AbortError";
-        if (!isAbort) {
+        if (!isAbort && generation === generationRef.current && courseRef.current === courseId) {
           const msg = e instanceof Error ? e.message : "Stream failed";
           setError(msg);
           console.error("Stream error:", e);
         }
       } finally {
-        setIsStreaming(false);
-        setCurrentAgent(null);
+        if (generation === generationRef.current && courseRef.current === courseId) {
+          setIsStreaming(false);
+          setCurrentAgent(null);
+          abortRef.current = null;
+        }
       }
     },
-    [courseId, countryOverride, handleEvent]
+    [courseId, countryOverride, configurationOverride, handleEvent]
   );
 
   const stop = useCallback(() => {
+    generationRef.current += 1;
+    reviewRequestRef.current += 1;
+    reviewAbortRef.current?.abort();
     abortRef.current?.abort();
     setIsStreaming(false);
     setCurrentAgent(null);
   }, []);
 
   const clearConversation = useCallback(async () => {
+    stop();
+    const generation = generationRef.current;
     try {
       await deleteConversation(courseId);
+      if (generation !== generationRef.current || courseRef.current !== courseId) return;
+      setSkillReview(null);
       messagesRef.current = [];
       setMessages([]);
       agentStateRef.current = EMPTY_STATE;
@@ -334,15 +403,20 @@ export function useAgentStream(
       setThreadId(null);
       setError(null);
     } catch (e) {
+      if (generation !== generationRef.current || courseRef.current !== courseId) return;
       const msg = e instanceof Error ? e.message : "Failed to clear conversation";
       setError(msg);
       console.error("Clear conversation error:", e);
     }
-  }, [courseId]);
+  }, [courseId, stop]);
 
   const pipelineStages = derivePipelineStages(agentState);
 
   return {
+    isRestored,
+    retryRestoration,
+    skillReview,
+    refreshSkillReview,
     messages,
     isStreaming,
     isLoadingHistory,

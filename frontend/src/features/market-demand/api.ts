@@ -1,4 +1,14 @@
-import type { AgentState, ChatMessage, StreamEvent } from "./types";
+import type {
+  AgentState,
+  ChatMessage,
+  StreamEvent,
+  SourceConfiguration,
+  JobSourceAvailability,
+  OnetRelease,
+  OnetOccupation,
+  SkillReview,
+  SkillReviewDraft,
+} from "@/features/market-demand/types";
 import api from "@/services/api";
 
 const DEFAULT_PROD_API_URL = "";
@@ -12,7 +22,7 @@ function getAccessToken(): string | null {
   return localStorage.getItem("access_token");
 }
 
-interface StreamChatArgs {
+interface StreamChatArgs extends Partial<SourceConfiguration> {
   courseId: number;
   message: string;
   country: string | null;
@@ -78,6 +88,10 @@ export async function streamMarketDemandChat({
   courseId,
   message,
   country,
+  sources,
+  evidence_sources,
+  onet_release,
+  onet_occupation_codes,
   onEvent,
   onThreadId,
   onError,
@@ -89,7 +103,14 @@ export async function streamMarketDemandChat({
   }
 
   const url = `${API_URL}/courses/${courseId}/market-demand/chat`;
-  const body = JSON.stringify(country ? { message, country } : { message });
+  const body = JSON.stringify({
+    message,
+    ...(country ? { country } : {}),
+    ...(sources !== undefined ? { sources } : {}),
+    ...(evidence_sources !== undefined ? { evidence_sources } : {}),
+    ...(onet_release !== undefined ? { onet_release } : {}),
+    ...(onet_occupation_codes !== undefined ? { onet_occupation_codes } : {}),
+  });
   const res = await fetchWithAuth(url, body, token, signal);
 
   if (!res.ok) {
@@ -188,4 +209,69 @@ export async function fetchAgentState(courseId: number): Promise<AgentState> {
 
 export async function deleteConversation(courseId: number): Promise<void> {
   await api.delete(`/courses/${courseId}/market-demand/history`);
+}
+
+export async function fetchJobSources(
+  courseId: number,
+  country: string,
+  signal?: AbortSignal,
+): Promise<JobSourceAvailability[]> {
+  const { data } = await api.get<JobSourceAvailability[]>(
+    `/courses/${courseId}/market-demand/sources`,
+    { params: { country }, signal },
+  );
+  return data;
+}
+
+export async function fetchOnetReleases(
+  courseId: number,
+  signal?: AbortSignal,
+): Promise<{ items: OnetRelease[] }> {
+  const { data } = await api.get<{ items: OnetRelease[] }>(
+    `/courses/${courseId}/occupation-reference/releases`,
+    { signal },
+  );
+  return data;
+}
+
+export async function searchOnetOccupations(
+  courseId: number,
+  release: string,
+  q: string,
+  offset = 0,
+  limit = 20,
+  signal?: AbortSignal,
+): Promise<{ items: OnetOccupation[]; total: number; release: string }> {
+  const { data } = await api.get<{ items: OnetOccupation[]; total: number; release: string }>(
+    `/courses/${courseId}/occupation-reference/occupations`,
+    { params: { release, q, offset, limit }, signal },
+  );
+  return data;
+}
+
+export async function confirmOnetOccupations(
+  courseId: number,
+  body: { run_id: string; expected_candidate_revision: number; release: string; soc_codes: string[] },
+): Promise<SkillReview> {
+  const { data } = await api.post<SkillReview>(
+    `/courses/${courseId}/market-demand/occupations`,
+    body,
+  );
+  return data;
+}
+
+export async function fetchSkillReview(courseId: number, signal?: AbortSignal): Promise<SkillReview> {
+  const { data } = await api.get<SkillReview>(
+    `/courses/${courseId}/market-demand/skill-review`,
+    { signal },
+  );
+  return data;
+}
+
+export async function saveSkillReviewDraft(courseId: number, body: SkillReviewDraft): Promise<SkillReview> {
+  const { data } = await api.put<SkillReview>(
+    `/courses/${courseId}/market-demand/skill-review/draft`,
+    body,
+  );
+  return data;
 }

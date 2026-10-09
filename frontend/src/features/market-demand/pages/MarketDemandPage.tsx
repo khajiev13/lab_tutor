@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { BrainCircuit, Globe2, Loader2, PanelRightClose, PanelRightOpen, Trash2 } from "lucide-react";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,15 +41,19 @@ import {
   useCourseDetail,
 } from "@/features/courses/context/CourseDetailContext";
 import { getAgentById } from "@/features/agents/config";
-import { DEFAULT_MARKET_DEMAND_COUNTRY, MARKET_DEMAND_COUNTRIES } from "../countries";
-import { useAgentStream } from "../hooks/useAgentStream";
-import { AgentMessage } from "../components/AgentMessage";
-import { UserMessage } from "../components/UserMessage";
-import { ChatInput } from "../components/ChatInput";
-import { ConnectionStatus } from "../components/ConnectionStatus";
-import { StatePanel } from "../components/StatePanel";
-import { SelectionCard, type SelectionItem } from "../components/SelectionPanel";
-import type { AgentState, ChatMessage, SkillEntry } from "../types";
+import { DEFAULT_MARKET_DEMAND_COUNTRY, MARKET_DEMAND_COUNTRIES } from "@/features/market-demand/countries";
+import { useAgentStream } from "@/features/market-demand/hooks/useAgentStream";
+import { AgentMessage } from "@/features/market-demand/components/AgentMessage";
+import { UserMessage } from "@/features/market-demand/components/UserMessage";
+import { ChatInput } from "@/features/market-demand/components/ChatInput";
+import { ConnectionStatus } from "@/features/market-demand/components/ConnectionStatus";
+import { StatePanel } from "@/features/market-demand/components/StatePanel";
+import { SelectionCard, type SelectionItem } from "@/features/market-demand/components/SelectionPanel";
+import type { AgentState, ChatMessage, SkillEntry, SourceConfiguration, JobSourceAvailability } from "@/features/market-demand/types";
+
+import { JobSourcePicker } from "@/features/market-demand/components/JobSourcePicker";
+import { OnetOccupationPicker } from "@/features/market-demand/components/OnetOccupationPicker";
+import { fetchJobSources, confirmOnetOccupations } from "@/features/market-demand/api";
 
 const PROMPT_SUGGESTIONS = [
   "Analyze the job market for this course and find relevant postings",
@@ -179,7 +183,7 @@ export default function MarketDemandPage() {
 
   return (
     <CourseDetailProvider courseId={courseId}>
-      <MarketDemandContent />
+      <MarketDemandContent key={courseId} />
     </CourseDetailProvider>
   );
 }
@@ -189,18 +193,32 @@ export default function MarketDemandPage() {
 function MarketDemandContent() {
   const { course, courseId } = useCourseDetail();
   const agent = getAgentById("market-analyst");
+  const [sourceOverride, setSourceOverride] = useState<SourceConfiguration | null>(null);
+  const [sourceCatalog, setSourceCatalog] = useState<JobSourceAvailability[]>([]);
+  const [catalogCountry, setCatalogCountry] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [occupationError, setOccupationError] = useState<string | null>(null);
+  const [occupationConfirming, setOccupationConfirming] = useState(false);
+  const occupationGeneration = useRef(0);
+  useEffect(() => () => {
+    occupationGeneration.current += 1;
+  }, []);
   const [selectedCountryOverride, setSelectedCountryOverride] = useState<string | null>(null);
   const {
     messages,
     isStreaming,
     isLoadingHistory,
+    isRestored,
+    retryRestoration,
     agentState,
     pipelineStages,
+    skillReview,
+    refreshSkillReview,
     send,
     stop,
     clearConversation,
     error,
-  } = useAgentStream(courseId, selectedCountryOverride);
+  } = useAgentStream(courseId, selectedCountryOverride, sourceOverride);
 
   const [panelOpen, setPanelOpen] = useState(true);
   const selectedCountry =
@@ -209,6 +227,97 @@ function MarketDemandContent() {
       ? agentState.job_search_country ?? DEFAULT_MARKET_DEMAND_COUNTRY
       : "");
 
+  const configuration = useMemo<SourceConfiguration>(() => sourceOverride ?? {
+    sources: agentState.sources ?? ["indeed", "linkedin"],
+    evidence_sources: agentState.evidence_sources ?? ["jobs"],
+    onet_release: agentState.onet_release ?? null,
+    onet_occupation_codes: agentState.selected_onet_occupations ?? [],
+  }, [
+    sourceOverride,
+    agentState.sources,
+    agentState.evidence_sources,
+    agentState.onet_release,
+    agentState.selected_onet_occupations,
+  ]);
+  const configurationRef = useRef(configuration);
+  useEffect(() => {
+    configurationRef.current = configuration;
+  }, [configuration]);
+  const handleConfigurationChange = (next: SourceConfiguration) => {
+    occupationGeneration.current += 1;
+    setSourceOverride(next);
+  };
+  const catalogMarket = selectedCountry || DEFAULT_MARKET_DEMAND_COUNTRY;
+  useEffect(() => {
+    if (isLoadingHistory) return;
+    const abort = new AbortController();
+    setCatalogError(null);
+    fetchJobSources(courseId, catalogMarket, abort.signal)
+      .then((items) => {
+        if (abort.signal.aborted) return;
+        setSourceCatalog(items);
+        setCatalogCountry(catalogMarket);
+      })
+      .catch((cause) => {
+        if (abort.signal.aborted) return;
+        setCatalogError(cause instanceof Error ? cause.message : "Source catalog unavailable");
+        setCatalogCountry(null);
+      });
+    return () => abort.abort();
+  }, [courseId, catalogMarket, isLoadingHistory]);
+  const configurationStarted = hasItems(agentState.fetched_jobs) ||
+    Object.values(agentState.source_outcomes ?? {}).some((outcome) => outcome.status !== "idle");
+  const settingsDisabled = !isRestored || isLoadingHistory || isStreaming ||
+    occupationConfirming || configurationStarted;
+  const hasUnavailableProvider = configuration.sources.some(
+    (source) => !sourceCatalog.some((item) => item.id === source && item.availability === "available")
+  );
+  const jobConfigurationInvalid = !configurationStarted && (
+    catalogCountry !== catalogMarket ||
+    !!catalogError ||
+    configuration.sources.length === 0 ||
+    hasUnavailableProvider
+  );
+  const onetConfigurationInvalid = !configuration.onet_release ||
+    configuration.onet_occupation_codes.length === 0;
+  const sourceInputDisabled = !isRestored || isLoadingHistory || occupationConfirming ||
+    configuration.evidence_sources.length === 0 ||
+    (configuration.evidence_sources.includes("jobs") && jobConfigurationInvalid) ||
+    (configuration.evidence_sources.includes("onet") && onetConfigurationInvalid);
+  const handleOccupationConfirm = async (release: string, codes: string[]) => {
+    const generation = ++occupationGeneration.current;
+    const isCurrent = () => generation === occupationGeneration.current;
+    setOccupationError(null);
+    setOccupationConfirming(true);
+    const runId = skillReview?.run_id ?? agentState.run_id;
+    try {
+      if (runId) {
+        await confirmOnetOccupations(courseId, {
+          run_id: runId,
+          expected_candidate_revision: skillReview?.candidate_revision ?? agentState.candidate_revision ?? 0,
+          release,
+          soc_codes: codes,
+        });
+        if (!isCurrent()) return;
+        await refreshSkillReview();
+        if (!isCurrent()) return;
+      }
+      if (isCurrent()) {
+        setSourceOverride({
+          ...configurationRef.current,
+          onet_release: release,
+          onet_occupation_codes: codes,
+        });
+      }
+    } catch (cause) {
+      if (isCurrent()) {
+        setOccupationError(cause instanceof Error ? cause.message : "Occupation confirmation failed");
+      }
+    } finally {
+      if (isCurrent()) setOccupationConfirming(false);
+    }
+  };
+
   // Track confirmed selections so the card flips to a summary
   const [confirmedSelection, setConfirmedSelection] = useState<{
     kind: string;
@@ -216,16 +325,22 @@ function MarketDemandContent() {
   } | null>(null);
 
   const handleSend = (text: string) => {
-    send(text);
+    if (!sourceInputDisabled) void send(text);
   };
 
   const handleCountryChange = useCallback((country: string) => {
+    occupationGeneration.current += 1;
     setSelectedCountryOverride(country);
   }, []);
 
   const handleClear = useCallback(async () => {
+    occupationGeneration.current += 1;
+    setOccupationConfirming(false);
+    setOccupationError(null);
     await clearConversation();
     setConfirmedSelection(null);
+    setSourceOverride(null);
+    setSelectedCountryOverride(null);
   }, [clearConversation]);
 
   const handleSearchQueryConfirm = useCallback(
@@ -257,8 +372,7 @@ function MarketDemandContent() {
   );
 
   const isEmpty = messages.length === 0 && !isLoadingHistory;
-  const hasFetchedJobs = hasItems(agentState.fetched_jobs);
-  const countrySelectorDisabled = isLoadingHistory || isStreaming || hasFetchedJobs;
+  const countrySelectorDisabled = settingsDisabled;
 
   // Derive pending selection from state + messages
   const pending = detectPendingSelection(agentState, messages);
@@ -355,8 +469,8 @@ function MarketDemandContent() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete all messages and analysis data from this conversation.
-                    This action cannot be undone.
+                    This clears the conversation and resets the current analysis.
+                    Saved evidence and approved skills remain.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -382,6 +496,55 @@ function MarketDemandContent() {
         </div>
       </div>
 
+      {error && (
+        <div role="alert" className="flex items-center gap-3 border-b px-4 py-2 text-sm text-destructive">
+          <p>{error}</p>
+          {!isRestored && !isLoadingHistory && (
+            <Button variant="outline" size="sm" onClick={retryRestoration}>
+              Retry restoration
+            </Button>
+          )}
+        </div>
+      )}
+      <div className="shrink-0 max-h-72 overflow-y-auto border-b px-4 py-3 space-y-3">
+        <JobSourcePicker
+          sources={configuration.sources}
+          evidenceSources={configuration.evidence_sources}
+          catalog={sourceCatalog}
+          disabled={settingsDisabled}
+          onSourcesChange={(sources) => handleConfigurationChange({ ...configuration, sources })}
+          onEvidenceChange={(evidence_sources) => handleConfigurationChange({ ...configuration, evidence_sources })}
+        />
+        {catalogError && (
+          <p role="alert" className="text-xs text-destructive">
+            Source catalog unavailable: {catalogError}
+          </p>
+        )}
+        {!configurationStarted && configuration.evidence_sources.includes("jobs") && hasUnavailableProvider && (
+          <p className="text-xs text-muted-foreground">
+            Remove unavailable providers and explicitly select an available provider for this market.
+          </p>
+        )}
+        {configurationStarted && (
+          <p className="text-xs text-muted-foreground">
+            Source settings are fixed for this analysis. Start a new analysis to change sources,
+            market, or occupations.
+          </p>
+        )}
+        {configuration.evidence_sources.includes("onet") && (
+          <OnetOccupationPicker
+            courseId={courseId}
+            release={configuration.onet_release}
+            selectedCodes={configuration.onet_occupation_codes}
+            disabled={settingsDisabled}
+            onReleaseChange={(onet_release) =>
+              handleConfigurationChange({ ...configuration, onet_release, onet_occupation_codes: [] })
+            }
+            onConfirm={handleOccupationConfirm}
+          />
+        )}
+        {occupationError && <p role="alert" className="text-xs text-destructive">{occupationError}</p>}
+      </div>
       {/* Main layout: Chat + State Panel */}
       <div className="flex flex-1 min-h-0">
         {/* Chat column */}
@@ -393,7 +556,7 @@ function MarketDemandContent() {
                 <p className="mt-2 text-sm text-muted-foreground">Restoring conversation...</p>
               </div>
             ) : isEmpty ? (
-              <EmptyState onSuggestionClick={handleSend} />
+              <EmptyState onSuggestionClick={handleSend} disabled={sourceInputDisabled} />
             ) : (
               <>
                 {messages.map((msg) =>
@@ -411,7 +574,7 @@ function MarketDemandContent() {
                     subtitle={selectionConfig[pending.kind].subtitle}
                     items={pending.items}
                     onConfirm={selectionConfig[pending.kind].onConfirm}
-                    disabled={isStreaming}
+                    disabled={isStreaming || sourceInputDisabled}
                   />
                 )}
 
@@ -443,7 +606,7 @@ function MarketDemandContent() {
                 onSend={handleSend}
                 onStop={stop}
                 isStreaming={isStreaming}
-                disabled={isLoadingHistory}
+                disabled={sourceInputDisabled}
               />
             </div>
           </div>
@@ -462,7 +625,7 @@ function MarketDemandContent() {
 
 // ── Empty State ──
 
-function EmptyState({ onSuggestionClick }: { onSuggestionClick: (text: string) => void }) {
+function EmptyState({ onSuggestionClick, disabled }: { onSuggestionClick: (text: string) => void; disabled: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="mb-4 rounded-full bg-emerald-50 p-4 dark:bg-emerald-950">
@@ -475,7 +638,7 @@ function EmptyState({ onSuggestionClick }: { onSuggestionClick: (text: string) =
       </p>
       <div className="flex flex-wrap items-center justify-center gap-2 max-w-lg">
         {PROMPT_SUGGESTIONS.map((s) => (
-          <PromptSuggestion key={s} onClick={() => onSuggestionClick(s)}>
+          <PromptSuggestion key={s} disabled={disabled} onClick={() => onSuggestionClick(s)}>
             {s}
           </PromptSuggestion>
         ))}

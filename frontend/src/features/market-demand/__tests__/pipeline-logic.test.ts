@@ -1,39 +1,7 @@
 import { describe, it, expect } from "vitest";
-import type { AgentState, PipelineStageId, StageStatus } from "../types";
+import type { AgentState, PipelineStageId } from "@/features/market-demand/types";
 
-// Import and test derivePipelineStages directly by re-implementing
-// the same logic (it's not exported, so we test the contract).
-// This tests the pure function logic that the hook depends on.
-
-function derivePipelineStages(state: AgentState): Record<PipelineStageId, StageStatus> {
-  const stages: Record<PipelineStageId, StageStatus> = {
-    fetch: "pending",
-    select: "pending",
-    extract: "pending",
-    map: "pending",
-    approve: "pending",
-    link: "pending",
-    insert: "pending",
-  };
-
-  if (state.fetched_jobs) stages.fetch = "complete";
-  if (state.selected_jobs) stages.select = "complete";
-  if (state.extracted_skills) stages.extract = "complete";
-  if (state.curriculum_mapping) stages.map = "complete";
-  if (state.selected_for_insertion) stages.approve = "complete";
-  if (state.skill_concepts) stages.link = "complete";
-  if (state.insertion_results) stages.insert = "complete";
-
-  const order: PipelineStageId[] = ["fetch", "select", "extract", "map", "approve", "link", "insert"];
-  for (const id of order) {
-    if (stages[id] === "pending") {
-      stages[id] = "active";
-      break;
-    }
-  }
-
-  return stages;
-}
+import { derivePipelineStages } from "@/features/market-demand/pipeline";
 
 const EMPTY_STATE: AgentState = {
   course_id: null,
@@ -160,4 +128,9 @@ describe("StreamEvent type contracts", () => {
     expect(keys).toContain("insertion_results");
     expect(keys).toContain("skill_job_urls");
   });
+});
+
+it("does not call source errors or empty legacy arrays complete", () => {
+  expect(derivePipelineStages({...EMPTY_STATE, fetched_jobs: []}).fetch).toBe("active");
+  expect(derivePipelineStages({...EMPTY_STATE, fetched_jobs: [{}], source_outcomes: {headhunter: {status:"error", received_count:0, usable_count:0, warnings:["Unavailable"]}}}).fetch).toBe("active");
 });

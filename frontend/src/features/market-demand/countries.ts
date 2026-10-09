@@ -6,6 +6,7 @@ export interface MarketDemandCountry {
 export const DEFAULT_MARKET_DEMAND_COUNTRY = "USA";
 
 export const MARKET_DEMAND_COUNTRIES: MarketDemandCountry[] = [
+  { label: "Uzbekistan", value: "Uzbekistan" },
   { label: "United States", value: "USA" },
   { label: "China", value: "China" },
   { label: "United Kingdom", value: "UK" },

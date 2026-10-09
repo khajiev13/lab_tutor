@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { streamMarketDemandChat } from "../api";
+import { streamMarketDemandChat } from "@/features/market-demand/api";
 
 function emptySseResponse() {
   return new Response(
@@ -45,4 +45,14 @@ describe("streamMarketDemandChat", () => {
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(body).toEqual({ message: "Analyze the job market", country: "China" });
   });
+});
+
+it("serializes only explicitly selected providers and O*NET on every reply", async () => {
+  localStorage.setItem("access_token", "token");
+  vi.stubGlobal("fetch", vi.fn(async () => emptySseResponse()));
+  for (const message of ["Analyze", '"data analyst"', "1, 2"]) {
+    await streamMarketDemandChat({courseId: 1, message, country: "Uzbekistan", sources: ["headhunter"], evidence_sources: ["jobs", "onet"], onet_release: "31.0", onEvent: vi.fn()});
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls.at(-1)?.[1]?.body));
+    expect(body).toEqual({message, country: "Uzbekistan", sources: ["headhunter"], evidence_sources: ["jobs", "onet"], onet_release: "31.0"});
+  }
 });

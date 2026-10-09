@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { PipelineStepper } from "./PipelineStepper";
-import { getMarketDemandCountryLabel } from "../countries";
-import type { AgentState, PipelineStageId, StageStatus } from "../types";
+import { PipelineStepper } from "@/features/market-demand/components/PipelineStepper";
+import { getMarketDemandCountryLabel } from "@/features/market-demand/countries";
+import type { AgentState, PipelineStageId, StageStatus } from "@/features/market-demand/types";
 
 interface StatePanelProps {
   agentState: AgentState;
@@ -26,6 +26,24 @@ export function StatePanel({ agentState, pipelineStages }: StatePanelProps) {
         <PipelineStepper stages={pipelineStages} />
       </div>
 
+      {Object.keys(agentState.source_outcomes ?? {}).length > 0 && (
+        <div className="space-y-2 border-b p-3 text-xs" aria-label="Source progress">
+          {Object.entries(agentState.source_outcomes ?? {}).map(([source, outcome]) => (
+            <div key={source}>
+              <p className="font-medium">{source}: {outcome.status}</p>
+              <p className="text-muted-foreground">
+                {outcome.received_count} received · {outcome.usable_count} usable
+              </p>
+              {outcome.warnings.map((warning, index) => (
+                <p key={index} className="text-muted-foreground">{warning}</p>
+              ))}
+            </div>
+          ))}
+          <p className="text-muted-foreground">
+            Results represent the collected sample, not complete market coverage.
+          </p>
+        </div>
+      )}
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <TabsList className="w-full bg-muted/50 border-b rounded-none shrink-0">
           <TabsTrigger value="jobs" className="flex-1 text-xs">

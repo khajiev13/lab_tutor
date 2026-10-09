@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
@@ -18,7 +18,7 @@ vi.mock("@/features/courses/context/CourseDetailContext", () => ({
   }),
 }));
 
-vi.mock("../hooks/useAgentStream", () => ({
+vi.mock("@/features/market-demand/hooks/useAgentStream", () => ({
   useAgentStream: vi.fn(),
 }));
 
@@ -39,13 +39,17 @@ import type {
   ChatMessage,
   PipelineStageId,
   StageStatus,
-} from "../types";
-import type { UseAgentStreamReturn } from "../hooks/useAgentStream";
-import { useAgentStream } from "../hooks/useAgentStream";
-import { ChatInput } from "../components/ChatInput";
-import { ConnectionStatus } from "../components/ConnectionStatus";
-import { PipelineStepper } from "../components/PipelineStepper";
-import { UserMessage } from "../components/UserMessage";
+} from "@/features/market-demand/types";
+import type { UseAgentStreamReturn } from "@/features/market-demand/hooks/useAgentStream";
+import { useAgentStream } from "@/features/market-demand/hooks/useAgentStream";
+vi.mock("@/features/market-demand/api", () => ({fetchJobSources: vi.fn(async () => [{id:"indeed",label:"Indeed",availability:"available",reason:null},{id:"linkedin",label:"LinkedIn",availability:"available",reason:null}]), confirmOnetOccupations:vi.fn(), fetchOnetReleases:vi.fn(async()=>({items:[{version:"31.0",active:true,attribution:"O*NET"}]})), searchOnetOccupations:vi.fn(async()=>({items:[{soc_code:"15-2051.00",title:"Data Scientists",description:"Analyze data"}],total:1,release:"31.0"}))}));
+
+import { confirmOnetOccupations } from "@/features/market-demand/api";
+
+import { ChatInput } from "@/features/market-demand/components/ChatInput";
+import { ConnectionStatus } from "@/features/market-demand/components/ConnectionStatus";
+import { PipelineStepper } from "@/features/market-demand/components/PipelineStepper";
+import { UserMessage } from "@/features/market-demand/components/UserMessage";
 
 // ── Shared constants ────────────────────────────────────────
 
@@ -82,6 +86,10 @@ const ALL_PENDING: Record<PipelineStageId, StageStatus> = {
 
 function mockStreamReturn(overrides: Partial<UseAgentStreamReturn> = {}): UseAgentStreamReturn {
   return {
+    isRestored: true,
+    retryRestoration: vi.fn(),
+    skillReview: null,
+    refreshSkillReview: vi.fn(),
     messages: [],
     isStreaming: false,
     isLoadingHistory: false,
@@ -96,6 +104,11 @@ function mockStreamReturn(overrides: Partial<UseAgentStreamReturn> = {}): UseAge
     ...overrides,
   };
 }
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
+});
 
 // ── ChatInput ───────────────────────────────────────────────
 
@@ -197,33 +210,30 @@ describe("UserMessage", () => {
 // ── MarketDemandPage ────────────────────────────────────────
 
 describe("MarketDemandPage", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
-  });
-
   it("passes the route course id into the market-demand hook", async () => {
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
       <MemoryRouter>
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
 
-    expect(useAgentStream).toHaveBeenCalledWith(1, null);
+    expect(useAgentStream).toHaveBeenCalledWith(1, null, null);
   });
 
   it("renders an unconfirmed market country placeholder", async () => {
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
       <MemoryRouter>
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
 
     expect(screen.getByRole("combobox", { name: /market country/i })).toHaveTextContent(
       "Choose country"
@@ -232,7 +242,7 @@ describe("MarketDemandPage", () => {
 
   it("passes the selected market country into the market-demand hook", async () => {
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     const user = userEvent.setup();
     render(
@@ -240,11 +250,12 @@ describe("MarketDemandPage", () => {
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
 
     await user.click(screen.getByRole("combobox", { name: /market country/i }));
     await user.click(await screen.findByRole("option", { name: "China" }));
 
-    expect(useAgentStream).toHaveBeenLastCalledWith(1, "China");
+    expect(useAgentStream).toHaveBeenLastCalledWith(1, "China", null);
   });
 
   it("disables input while restoring conversation state", async () => {
@@ -252,13 +263,14 @@ describe("MarketDemandPage", () => {
       mockStreamReturn({ isLoadingHistory: true })
     );
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
       <MemoryRouter>
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
 
     expect(screen.getByPlaceholderText("Type your response...")).toBeDisabled();
     expect(screen.getByRole("combobox", { name: /market country/i })).toHaveAttribute(
@@ -278,13 +290,14 @@ describe("MarketDemandPage", () => {
       })
     );
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
       <MemoryRouter>
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
 
     expect(
       await screen.findByRole("combobox", { name: /market country/i })
@@ -293,13 +306,14 @@ describe("MarketDemandPage", () => {
 
   it("renders without crashing", async () => {
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
       <MemoryRouter>
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
     // Both breadcrumb and empty state heading contain the text
     const els = screen.getAllByText(/market demand analyst/i);
     expect(els.length).toBeGreaterThanOrEqual(1);
@@ -307,13 +321,14 @@ describe("MarketDemandPage", () => {
 
   it("shows prompt suggestions on empty state", async () => {
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
       <MemoryRouter>
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
     expect(
       screen.getByText(/analyze the job market/i)
     ).toBeInTheDocument();
@@ -324,7 +339,7 @@ describe("MarketDemandPage", () => {
     vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({ send }));
 
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     const user = userEvent.setup();
     render(
@@ -332,8 +347,10 @@ describe("MarketDemandPage", () => {
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
 
     const suggestion = screen.getByText(/analyze the job market/i);
+    await screen.findByRole("checkbox", {name:"Indeed"});
     await user.click(suggestion);
     expect(send).toHaveBeenCalledTimes(1);
   });
@@ -363,13 +380,14 @@ describe("MarketDemandPage", () => {
     );
 
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
       <MemoryRouter>
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
 
     expect(screen.getByText("Hello agent")).toBeInTheDocument();
     expect(screen.getByText("I found some jobs")).toBeInTheDocument();
@@ -388,14 +406,113 @@ describe("MarketDemandPage", () => {
     );
 
     const { default: MarketDemandPage } = await import(
-      "../pages/MarketDemandPage"
+      "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
       <MemoryRouter>
         <MarketDemandPage />
       </MemoryRouter>
     );
+    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
 
     expect(screen.getByText(/market: China/i)).toBeInTheDocument();
   });
+});
+
+it("renders Uzbekistan as a supported market choice", async()=>{
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
+ const {default:Page}=await import("@/features/market-demand/pages/MarketDemandPage");
+ render(<MemoryRouter><Page/></MemoryRouter>);
+ const user=userEvent.setup();
+ await user.click(screen.getByRole("combobox",{name:/Market country/}));
+ expect(await screen.findByRole("option",{name:"Uzbekistan"})).toBeInTheDocument();
+});
+
+it("shows source failures separately from successful empty collections",async()=>{
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({agentState:{...EMPTY_STATE,source_outcomes:{headhunter:{status:"error",received_count:0,usable_count:0,warnings:["Provider unavailable"]},linkedin:{status:"empty",received_count:0,usable_count:0,warnings:[]}}}}));
+ const {default:Page}=await import("@/features/market-demand/pages/MarketDemandPage");
+ render(<MemoryRouter><Page/></MemoryRouter>);
+ expect(screen.getByText(/headhunter: error/i)).toBeInTheDocument();
+ expect(screen.getByText(/linkedin: empty/i)).toBeInTheDocument();
+ expect(screen.getByText("Provider unavailable")).toBeInTheDocument();
+});
+
+it("keeps input disabled when restoring saved source choices fails", async () => {
+  const retry = vi.fn();
+  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({
+    isRestored: false,
+    error: "State unavailable",
+    retryRestoration: retry,
+  }));
+  const {default: Page} = await import("@/features/market-demand/pages/MarketDemandPage");
+  render(<MemoryRouter><Page/></MemoryRouter>);
+  await screen.findByRole("checkbox", {name: "Indeed"});
+  expect(screen.getByPlaceholderText("Type your response...")).toBeDisabled();
+  expect(screen.getByText("State unavailable")).toBeInTheDocument();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", {name: "Retry restoration"}));
+  expect(retry).toHaveBeenCalled();
+});
+
+
+it("does not restore an old occupation confirmation after clearing the analysis", async () => {
+  let finish!: (value: never) => void;
+  vi.mocked(confirmOnetOccupations).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  const clear = vi.fn(async () => undefined);
+  const refresh = vi.fn(async () => undefined);
+  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({
+    clearConversation: clear,
+    refreshSkillReview: refresh,
+    messages: [{id:"u1",role:"user",content:"Previous analysis",toolCalls:[],isStreaming:false}],
+    agentState: {...EMPTY_STATE,run_id:"run-1",sources:["headhunter"],evidence_sources:["onet"],onet_release:"31.0",selected_onet_occupations:["15-2051.00"]},
+  }));
+  const {default: Page} = await import("@/features/market-demand/pages/MarketDemandPage");
+  const {rerender} = render(<MemoryRouter><Page/></MemoryRouter>);
+  await waitFor(() => {
+    const release = screen.getByRole("combobox", { name: "O*NET release" }) as HTMLSelectElement;
+    const loading = !!screen.queryByText("Loading O*NET catalog…");
+    const selected = !!screen.queryByText(/1 selected/);
+    expect(
+      screen.getByRole("button", { name: "Confirm occupations" }),
+      `Picker readiness: release=${release.value}, loading=${loading}, selected=${selected}`
+    ).toBeEnabled();
+  }, { timeout: 10000 });
+  fireEvent.click(screen.getByRole("button", {name:"Confirm occupations"}));
+  await waitFor(() => expect(confirmOnetOccupations).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", {name:"Clear"}));
+  fireEvent.click(screen.getByRole("button", {name:"Delete"}));
+  await waitFor(() => expect(clear).toHaveBeenCalled());
+  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
+  rerender(<MemoryRouter><Page/></MemoryRouter>);
+  await act(async () => {finish(null as never);});
+  expect(refresh).not.toHaveBeenCalled();
+  expect(vi.mocked(useAgentStream)).toHaveBeenLastCalledWith(1, null, null);
+  expect(screen.queryByRole("button", {name:"Confirm occupations"})).not.toBeInTheDocument();
+});
+
+it("locks market and source settings during occupation confirmation", async () => {
+  let finish!: (value: never) => void;
+  vi.mocked(confirmOnetOccupations).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({
+    agentState: {...EMPTY_STATE, run_id:"run-1", evidence_sources:["onet"], onet_release:"31.0", selected_onet_occupations:["15-2051.00"]},
+  }));
+  const {default: Page} = await import("@/features/market-demand/pages/MarketDemandPage");
+  render(<MemoryRouter><Page/></MemoryRouter>);
+  await waitFor(() => {
+    const release = screen.getByRole("combobox", { name: "O*NET release" }) as HTMLSelectElement;
+    const loading = !!screen.queryByText("Loading O*NET catalog…");
+    const selected = !!screen.queryByText(/1 selected/);
+    expect(
+      screen.getByRole("button", { name: "Confirm occupations" }),
+      `Picker readiness: release=${release.value}, loading=${loading}, selected=${selected}`
+    ).toBeEnabled();
+  }, { timeout: 10000 });
+  fireEvent.click(screen.getByRole("button", {name:"Confirm occupations"}));
+  await waitFor(() => expect(confirmOnetOccupations).toHaveBeenCalled());
+  try {
+    expect(screen.getByRole("combobox", {name:"Market country"})).toBeDisabled();
+    expect(screen.getByRole("checkbox", {name:"Job postings"})).toBeDisabled();
+  } finally {
+    await act(async () => { finish(null as never); });
+  }
 });
