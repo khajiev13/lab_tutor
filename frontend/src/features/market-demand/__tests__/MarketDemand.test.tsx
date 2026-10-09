@@ -90,6 +90,7 @@ function mockStreamReturn(overrides: Partial<UseAgentStreamReturn> = {}): UseAge
     retryRestoration: vi.fn(),
     skillReview: null,
     refreshSkillReview: vi.fn(),
+    applySkillReview: vi.fn(),
     messages: [],
     isStreaming: false,
     isLoadingHistory: false,

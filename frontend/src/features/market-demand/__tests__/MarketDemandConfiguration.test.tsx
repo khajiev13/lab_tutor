@@ -122,3 +122,14 @@ describe("shared teacher source configuration", () => {
     expect(screen.queryByRole("checkbox", {name:"Old course provider"})).not.toBeInTheDocument();
   });
 });
+
+it("renders the durable nested review without treating extracted category prose as skill approval", async () => {
+  const {reviewFixture} = await import("@/features/market-demand/__tests__/review-fixtures");
+  vi.mocked(fetchSkillReview).mockResolvedValue(reviewFixture());
+  vi.mocked(fetchAgentState).mockResolvedValue({...restored,extracted_skills:[{name:"Legacy Python",category:"legacy",frequency:1,pct:100}]});
+  render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+  expect(await screen.findByRole("checkbox",{name:"Select Python"})).toBeInTheDocument();
+  expect(screen.queryByText("Select Skill Categories")).not.toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("checkbox",{name:"Select Python"}));
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});

@@ -8,8 +8,13 @@ import type {
   OnetOccupation,
   SkillReview,
   SkillReviewDraft,
+  SkillReviewRevision,
+  IntegrationApproval,
+  IntegrationApprovalResponse,
+  PostingEvidence,
 } from "@/features/market-demand/types";
 import api from "@/services/api";
+import { isAxiosError } from "axios";
 
 const DEFAULT_PROD_API_URL = "";
 const DEV_HOST = typeof window !== "undefined" ? window.location.hostname : "localhost";
@@ -274,4 +279,41 @@ export async function saveSkillReviewDraft(courseId: number, body: SkillReviewDr
     body,
   );
   return data;
+}
+
+export async function confirmSkillReviewSelection(courseId: number, body: SkillReviewRevision): Promise<SkillReview> {
+  const { data } = await api.post<SkillReview>(
+    `/courses/${courseId}/market-demand/skill-review/selection-confirmation`, body,
+  );
+  return data;
+}
+
+export async function continueWithAvailableEvidence(courseId: number, body: SkillReviewRevision): Promise<SkillReview> {
+  const { data } = await api.post<SkillReview>(
+    `/courses/${courseId}/market-demand/skill-review/continue-with-available-evidence`, body,
+  );
+  return data;
+}
+
+export async function approveSkillIntegration(courseId: number, body: IntegrationApproval): Promise<IntegrationApprovalResponse> {
+  const { data } = await api.post<IntegrationApprovalResponse>(
+    `/courses/${courseId}/market-demand/integration-approval`, body,
+  );
+  return data;
+}
+
+export async function fetchPostingEvidence(courseId: number, snapshotId: string, signal?: AbortSignal): Promise<PostingEvidence> {
+  const { data } = await api.get<PostingEvidence>(
+    `/courses/${courseId}/market-demand/skill-review/postings/${encodeURIComponent(snapshotId)}`, { signal },
+  );
+  return data;
+}
+
+export function skillReviewErrorMessage(cause: unknown, fallback: string): string {
+  if (isAxiosError(cause)) {
+    const detail = cause.response?.data?.detail;
+    if (typeof detail === "string") return detail;
+    if (detail) return JSON.stringify(detail);
+  }
+  return cause instanceof Error ? cause.message : fallback;
 }

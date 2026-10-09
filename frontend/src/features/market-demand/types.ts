@@ -136,9 +136,9 @@ export interface SkillCandidate {
   category_id: string;
   original_labels: string[];
   aliases: string[];
-  evidence_references: Record<string, unknown>[];
-  job_metrics: Record<string, unknown>;
-  onet_associations: Record<string, unknown>[];
+  evidence_references: VacancyEvidenceReference[];
+  job_metrics: JobMetrics;
+  onet_associations: OnetAssociation[];
   recommendation_reasons: string[];
   posting_support: "supported" | "missing";
   qualifying_posting_links: string[];
@@ -159,10 +159,10 @@ export interface SkillReview {
   excluded_candidate_ids: string[];
   recommendations: RecommendationProposal[];
   source_outcomes: Record<string, SourceOutcome>;
-  extraction_coverage: Record<string, unknown>;
-  integration_review: Record<string, unknown> | null;
+  extraction_coverage: ExtractionCoverage;
+  integration_review: IntegrationReviewPayload | null;
   publication_revision: number;
-  approved_references: Record<string, unknown>[];
+  approved_references: ApprovedSkillReference[];
 }
 export interface SkillReviewDraft {
   run_id: string;
@@ -170,4 +170,117 @@ export interface SkillReviewDraft {
   expected_selection_revision: number;
   selected_candidate_ids: string[];
   excluded_candidate_ids: string[];
+}
+
+export type CoverageStatus = "full" | "partial" | "failed" | "pending";
+export interface JobMetrics {
+  supporting_posting_count?: number;
+  assessed_posting_count?: number;
+  selected_posting_count?: number;
+  percentage?: number | null;
+  coverage_status?: CoverageStatus;
+}
+export interface VacancyEvidenceReference {
+  snapshot_id: string;
+  provider: JobSource;
+  original_url: string;
+  original_phrase: string;
+  evidence_kind: "provider_tag" | "extracted_text";
+  excerpt: string | null;
+  excerpt_start: number | null;
+  excerpt_end: number | null;
+  retrieved_at: string;
+  status: string;
+}
+export interface OnetMetric {
+  scale_id: string;
+  value: number | null;
+  minimum: number;
+  maximum: number;
+  status: "reported" | "missing" | "suppressed" | "not_relevant";
+  date: string | null;
+  quality: Record<string, unknown>;
+}
+export interface OnetEvidence {
+  id: string;
+  release: string;
+  soc_code: string;
+  occupation_title: string;
+  family: "essential" | "transferable" | "software";
+  element_id: string;
+  label: string;
+  definition: string;
+  workplace_example: string | null;
+  ratings: Partial<Record<"IM" | "LV", OnetMetric>>;
+  flags: Record<string, boolean | null>;
+  source_url: string;
+  attribution: string;
+}
+export interface OnetAssociation {
+  evidence: OnetEvidence;
+  relation: "equivalent" | "broader" | "related" | "unmatched";
+  mapping_method: string;
+  rationale: string;
+}
+export interface ExtractionCoverage {
+  status?: CoverageStatus;
+  selected_postings?: number;
+  assessed_postings?: number;
+  failed_postings?: number;
+  total_chunks?: number;
+  assessed_chunks?: number;
+  warnings?: string[];
+  acknowledged?: boolean;
+}
+export interface IntegrationReviewPayload {
+  review_digest: string;
+  candidate_revision: number;
+  selection_revision: number;
+  items: {
+    candidate_id: string;
+    target: {identity: string; label: string; source: "book" | "market"; origin: string};
+    chapters: {chapter_id: string; title: string}[];
+    disposition: "new" | "covered" | "merged";
+    qualifying_posting_links: string[];
+    evidence_snapshot_ids: string[];
+  }[];
+  omissions: string[];
+  omissions_acknowledged: boolean;
+}
+export interface ApprovedSkillReference {
+  reference_id: string;
+  label: string;
+  category: string;
+  source: "book" | "market";
+  origin: string;
+  qualifying_posting_links: string[];
+  projection_status: "pending" | "projected" | "error";
+  available_for_new_selection: boolean;
+}
+export interface SkillReviewRevision {
+  run_id: string;
+  expected_candidate_revision: number;
+  expected_selection_revision: number;
+}
+export interface IntegrationApproval extends SkillReviewRevision {
+  review_digest: string;
+  approved_candidate_ids: string[];
+}
+export interface IntegrationApprovalResponse {
+  review: SkillReview;
+  projection_status: "pending" | "projected" | "error";
+}
+export interface PostingEvidence {
+  snapshot_id: string;
+  provider: JobSource;
+  native_id: string | null;
+  original_url: string;
+  title: string | null;
+  company: string | null;
+  description_text: string | null;
+  original_description: string | null;
+  raw_payload: Record<string, unknown> | null;
+  retrieved_at: string;
+  status: string;
+  purged_at: string | null;
 }

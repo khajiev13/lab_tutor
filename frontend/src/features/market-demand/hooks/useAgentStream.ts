@@ -41,6 +41,7 @@ export interface UseAgentStreamReturn {
   retryRestoration: () => void;
   skillReview: SkillReview | null;
   refreshSkillReview: () => Promise<void>;
+  applySkillReview: (review: SkillReview) => void;
   messages: ChatMessage[];
   isStreaming: boolean;
   isLoadingHistory: boolean;
@@ -105,6 +106,19 @@ export function useAgentStream(
       }
       throw cause;
     }
+  }, [courseId]);
+
+  const applySkillReview = useCallback((snapshot: SkillReview) => {
+    if (courseRef.current !== courseId || !restoredRef.current) return;
+    reviewAbortRef.current?.abort();
+    reviewRequestRef.current += 1;
+    setSkillReview(current => {
+      if (!current || snapshot.run_id !== current.run_id ||
+        snapshot.candidate_revision < current.candidate_revision ||
+        snapshot.selection_revision < current.selection_revision ||
+        snapshot.publication_revision < current.publication_revision) return current;
+      return snapshot;
+    });
   }, [courseId]);
 
   const handleEvent = useCallback((event: StreamEvent) => {
@@ -417,6 +431,7 @@ export function useAgentStream(
     retryRestoration,
     skillReview,
     refreshSkillReview,
+    applySkillReview,
     messages,
     isStreaming,
     isLoadingHistory,

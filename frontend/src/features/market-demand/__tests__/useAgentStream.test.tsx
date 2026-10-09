@@ -222,3 +222,19 @@ it("ignores an old clear rejection after switching courses", async () => {
   });
   expect(result.current.error).toBeNull();
 });
+
+it("accepts acknowledged review mutations but rejects older revisions and previous-course acknowledgements", async () => {
+  const review = {run_id:"run-1",candidate_revision:1,selection_revision:2,categories:[],candidates:[],selected_candidate_ids:[],excluded_candidate_ids:[],recommendations:[],source_outcomes:{},extraction_coverage:{},integration_review:null,publication_revision:0,approved_references:[]};
+  vi.mocked(fetchSkillReview).mockResolvedValue(review);
+  const {result,rerender} = renderHook(({courseId})=>useAgentStream(courseId),{initialProps:{courseId:1}});
+  await waitFor(()=>expect(result.current.isRestored).toBe(true));
+  const oldApply = result.current.applySkillReview;
+  act(()=>result.current.applySkillReview({...review,selection_revision:3,selected_candidate_ids:["python"]}));
+  expect(result.current.skillReview?.selected_candidate_ids).toEqual(["python"]);
+  act(()=>result.current.applySkillReview(review));
+  expect(result.current.skillReview?.selection_revision).toBe(3);
+  rerender({courseId:2});
+  await waitFor(()=>expect(result.current.isRestored).toBe(true));
+  act(()=>oldApply({...review,selection_revision:99}));
+  expect(result.current.skillReview?.selection_revision).toBe(2);
+});

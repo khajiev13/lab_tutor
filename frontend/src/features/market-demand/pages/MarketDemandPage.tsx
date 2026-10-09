@@ -49,8 +49,9 @@ import { ChatInput } from "@/features/market-demand/components/ChatInput";
 import { ConnectionStatus } from "@/features/market-demand/components/ConnectionStatus";
 import { StatePanel } from "@/features/market-demand/components/StatePanel";
 import { SelectionCard, type SelectionItem } from "@/features/market-demand/components/SelectionPanel";
-import type { AgentState, ChatMessage, SkillEntry, SourceConfiguration, JobSourceAvailability } from "@/features/market-demand/types";
+import type { AgentState, ChatMessage, SourceConfiguration, JobSourceAvailability } from "@/features/market-demand/types";
 
+import { SkillReviewPanel } from "@/features/market-demand/components/SkillReviewPanel";
 import { JobSourcePicker } from "@/features/market-demand/components/JobSourcePicker";
 import { OnetOccupationPicker } from "@/features/market-demand/components/OnetOccupationPicker";
 import { fetchJobSources, confirmOnetOccupations } from "@/features/market-demand/api";
@@ -75,7 +76,6 @@ function hasItems(v: unknown): boolean {
 type PendingSelection =
   | { kind: "search_queries"; items: SelectionItem[] }
   | { kind: "job_groups"; items: SelectionItem[] }
-  | { kind: "skill_categories"; items: SelectionItem[] }
   | null;
 
 /** Extract quoted search terms from agent message text */
@@ -143,31 +143,6 @@ function detectPendingSelection(state: AgentState, messages: ChatMessage[]): Pen
     }
   }
 
-  // Skill category selection: skills extracted but no mapping yet
-  if (hasItems(state.extracted_skills) && !hasItems(state.curriculum_mapping)) {
-    const skills = state.extracted_skills!;
-    const byCategory = new Map<string, SkillEntry[]>();
-    for (const s of skills) {
-      const list = byCategory.get(s.category) || [];
-      list.push(s);
-      byCategory.set(s.category, list);
-    }
-
-    const items: SelectionItem[] = Array.from(byCategory.entries())
-      .sort((a, b) => b[1].length - a[1].length)
-      .map(([category, catSkills]) => ({
-        id: category,
-        label: category.replace(/_/g, " "),
-        description: catSkills
-          .slice(0, 2)
-          .map((s) => s.name)
-          .join(", "),
-        badge: `${catSkills.length} skills`,
-      }));
-
-    return { kind: "skill_categories", items };
-  }
-
   return null;
 }
 
@@ -214,6 +189,7 @@ function MarketDemandContent() {
     pipelineStages,
     skillReview,
     refreshSkillReview,
+    applySkillReview,
     send,
     stop,
     clearConversation,
@@ -363,14 +339,6 @@ function MarketDemandContent() {
     [agentState.job_groups, send]
   );
 
-  const handleSkillConfirm = useCallback(
-    (selectedIds: string[]) => {
-      setConfirmedSelection({ kind: "skill_categories", ids: selectedIds });
-      send(selectedIds.join(", "));
-    },
-    [send]
-  );
-
   const isEmpty = messages.length === 0 && !isLoadingHistory;
   const countrySelectorDisabled = settingsDisabled;
 
@@ -395,11 +363,6 @@ function MarketDemandContent() {
       title: "Select Job Groups",
       subtitle: "Choose which groups to analyze for skills",
       onConfirm: handleJobGroupConfirm,
-    },
-    skill_categories: {
-      title: "Select Skill Categories",
-      subtitle: "Choose categories to map against your curriculum",
-      onConfirm: handleSkillConfirm,
     },
   };
 
@@ -592,6 +555,16 @@ function MarketDemandContent() {
                   />
                 )}
               </>
+            )}
+            {isRestored && skillReview?.run_id && skillReview.candidates.length > 0 && (
+              <SkillReviewPanel
+                key={skillReview.run_id}
+                courseId={courseId}
+                review={skillReview}
+                onReviewChange={applySkillReview}
+                onRefresh={refreshSkillReview}
+                disabled={isStreaming || occupationConfirming}
+              />
             )}
             <ChatContainerScrollAnchor />
           </ChatContainerContent>
