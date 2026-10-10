@@ -1,10 +1,35 @@
 import type {
   BookSkillBankBook,
+  CareerSkillBankSkill,
   MarketSkillBankJobPosting,
   SkillBankDisplayBook,
   SkillBankDisplayJobPosting,
   TeacherStudentInsightDetail,
+  TeacherStudentSkillBankSkill,
 } from '@/features/curriculum/types';
+
+export function skillBankKey(skill: { name: string; skill_reference_id?: string | null; source?: string | null }, source: string) {
+  return skill.skill_reference_id ? `reference:${skill.skill_reference_id}` : `legacy:${skill.source ?? source}:${skill.name}`;
+}
+
+function selectionOverlay(skill: TeacherStudentSkillBankSkill, detail: TeacherStudentInsightDetail) {
+  if (skill.skill_reference_id) {
+    return {
+      isSelected: detail.skill_banks.selected_skill_reference_ids !== undefined
+        ? detail.skill_banks.selected_skill_reference_ids.includes(skill.skill_reference_id)
+        : Boolean(skill.is_selected),
+      peerCount: detail.skill_banks.peer_selection_counts_by_reference?.[skill.skill_reference_id] ?? skill.peer_count ?? 0,
+    };
+  }
+  return { isSelected: Boolean(skill.is_selected), peerCount: skill.peer_count ?? 0 };
+}
+
+export function adaptCareerSkillBank(skills: CareerSkillBankSkill[], detail: TeacherStudentInsightDetail | null = null): CareerSkillBankSkill[] {
+  const overlay = new Map(detail?.skill_banks.career_skill_bank?.map((skill) => [skill.skill_reference_id, skill]));
+  const all = new Map(skills.map((skill) => [skill.skill_reference_id, skill]));
+  for (const [id, skill] of overlay) if (!all.has(id)) all.set(id, skill);
+  return [...all.values()].map((skill) => ({...skill, ...(detail ? {overlay: selectionOverlay({...overlay.get(skill.skill_reference_id), ...skill, name: skill.label}, detail)} : {})}));
+}
 
 export function adaptTeacherBookSkillBanks(
   books: BookSkillBankBook[],
@@ -18,6 +43,7 @@ export function adaptTeacherBookSkillBanks(
       title: chapter.title ?? `Chapter ${chapter.chapter_index}`,
       chapter_index: chapter.chapter_index,
       skills: chapter.skills.map((skill) => ({
+        ...skill,
         name: skill.name,
         description: skill.description ?? null,
       })),
@@ -35,6 +61,7 @@ export function adaptTeacherMarketSkillBank(
     site: posting.site ?? null,
     search_term: posting.search_term ?? null,
       skills: posting.skills.map((skill) => ({
+        ...skill,
         name: skill.name,
         description: null,
         category: skill.category ?? null,
@@ -60,12 +87,10 @@ export function adaptStudentOverlayBookSkillBanks(
       title: chapter.title,
       chapter_index: chapter.chapter_index,
       skills: chapter.skills.map((skill) => ({
+        ...skill,
         name: skill.name,
         description: skill.description ?? null,
-        overlay: {
-          isSelected: Boolean(skill.is_selected),
-          peerCount: skill.peer_count ?? 0,
-        },
+        overlay: selectionOverlay(skill, detail),
       })),
     })),
   }));
@@ -89,13 +114,11 @@ export function adaptStudentOverlayMarketSkillBank(
         isInterested: posting.is_interested,
       },
       skills: posting.skills.map((skill) => ({
+        ...skill,
         name: skill.name,
         description: skill.description ?? null,
         category: skill.category ?? null,
-        overlay: {
-          isSelected: Boolean(skill.is_selected),
-          peerCount: skill.peer_count ?? 0,
-        },
+        overlay: selectionOverlay(skill, detail),
       })),
     }))
     .sort((left, right) => {
@@ -139,14 +162,14 @@ export function adaptTeacherBookSkillBanksWithOverlay(
         }
 
         const overlaySkills = new Map(
-          overlayChapter.skills.map((skill) => [skill.name, skill.overlay]),
+          overlayChapter.skills.map((skill) => [skillBankKey(skill, 'book'), skill.overlay]),
         );
 
         return {
           ...chapter,
           skills: chapter.skills.map((skill) => ({
             ...skill,
-            overlay: overlaySkills.get(skill.name) ?? skill.overlay,
+            overlay: overlaySkills.get(skillBankKey(skill, 'book')) ?? skill.overlay,
           })),
         };
       }),
@@ -178,7 +201,7 @@ export function adaptTeacherMarketSkillBankWithOverlay(
     }
 
     const overlaySkills = new Map(
-      overlayPosting.skills.map((skill) => [skill.name, skill.overlay]),
+      overlayPosting.skills.map((skill) => [skillBankKey(skill, 'market'), skill.overlay]),
     );
 
     return {
@@ -186,7 +209,7 @@ export function adaptTeacherMarketSkillBankWithOverlay(
       overlay: overlayPosting.overlay,
       skills: posting.skills.map((skill) => ({
         ...skill,
-        overlay: overlaySkills.get(skill.name) ?? skill.overlay,
+        overlay: overlaySkills.get(skillBankKey(skill, 'market')) ?? skill.overlay,
       })),
     };
   });

@@ -1,8 +1,9 @@
 import api from '@/services/api';
+import type { CareerSkillBankSkill, SkillEvidenceFields } from '@/features/curriculum/types';
 
 const BASE = '/student-learning-path';
 
-export interface StudentSkillBankSkill {
+export interface StudentSkillBankSkill extends SkillEvidenceFields {
   name: string;
   description?: string | null;
   category?: string | null;
@@ -42,6 +43,8 @@ export interface SkillSelectionRange {
 }
 
 export interface PrerequisiteEdge {
+  prerequisite_skill_reference_id?: string | null;
+  dependent_skill_reference_id?: string | null;
   prerequisite_name: string;
   dependent_name: string;
   confidence: 'high' | 'medium' | 'low';
@@ -49,6 +52,9 @@ export interface PrerequisiteEdge {
 }
 
 export interface SkillBanksResponse {
+  career_skill_bank?: CareerSkillBankSkill[];
+  selected_skill_reference_ids?: string[];
+  peer_selection_counts_by_reference?: Record<string, number>;
   book_skill_banks: StudentSkillBankBook[];
   market_skill_bank: StudentSkillBankJobPosting[];
   selected_skill_names: string[];
@@ -93,7 +99,7 @@ export interface LearningPathVideoResource {
   concepts_covered: string[];
 }
 
-export interface LearningPathSkill {
+export interface LearningPathSkill extends SkillEvidenceFields {
   name: string;
   source: string;
   description: string | null;
@@ -208,24 +214,24 @@ export async function getSkillBanks(courseId: number): Promise<SkillBanksRespons
   return data;
 }
 
+export function selectSkills(courseId: number, skillNames: string[], source: 'book' | 'market'): Promise<{ selected: number }>;
+export function selectSkills(courseId: number, selection: { skill_reference_ids: string[] }): Promise<{ selected: number }>;
 export async function selectSkills(
   courseId: number,
-  skillNames: string[],
-  source: 'book' | 'market',
+  skillNames: string[] | { skill_reference_ids: string[] },
+  source?: 'book' | 'market',
 ): Promise<{ selected: number }> {
-  const { data } = await api.post(`${BASE}/${courseId}/select-skills`, {
-    skill_names: skillNames,
-    source,
-  });
+  const payload = Array.isArray(skillNames) ? { skill_names: skillNames, source } : skillNames;
+  const { data } = await api.post(`${BASE}/${courseId}/select-skills`, payload);
   return data;
 }
 
 export async function deselectSkills(
   courseId: number,
-  skillNames: string[],
+  skillNames: string[] | { skill_reference_ids: string[] },
 ): Promise<{ deselected: number }> {
   const { data } = await api.delete(`${BASE}/${courseId}/deselect-skills`, {
-    data: { skill_names: skillNames },
+    data: Array.isArray(skillNames) ? { skill_names: skillNames } : skillNames,
   });
   return data;
 }
@@ -253,8 +259,11 @@ export async function deselectJobPosting(
 export async function buildLearningPath(
   courseId: number,
   selectedSkills: BuildSelectedSkillInput[] = [],
+  skillReferenceIds: string[] = [],
 ): Promise<{ run_id: string; status: string }> {
-  const payload = selectedSkills.length > 0 ? { selected_skills: selectedSkills } : undefined;
+  const payload = selectedSkills.length > 0 || skillReferenceIds.length > 0
+    ? { selected_skills: selectedSkills, ...(skillReferenceIds.length > 0 ? { skill_reference_ids: skillReferenceIds } : {}) }
+    : undefined;
   const { data } = await api.post(`${BASE}/${courseId}/build`, payload);
   return data;
 }

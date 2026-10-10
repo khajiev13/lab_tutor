@@ -1,3 +1,37 @@
+import type { JobMetrics, OnetAssociation, VacancyEvidenceReference } from '@/features/market-demand/types';
+
+export interface SkillEvidenceFields {
+  skill_reference_id?: string | null;
+  origin?: string;
+  qualifying_posting_links?: string[];
+  evidence_references?: VacancyEvidenceReference[];
+  onet_associations?: OnetAssociation[];
+  job_metrics?: JobMetrics | null;
+  projection_status?: 'pending' | 'projected' | 'error';
+  available_for_new_selection?: boolean;
+  availability_reason?: string | null;
+}
+
+export interface CareerSkillBankSkill extends SkillEvidenceFields {
+  skill_reference_id: string;
+  label: string;
+  description: string | null;
+  category: string | null;
+  source: 'book' | 'market';
+  origin: string;
+  chapters: { chapter_id: string; title: string }[];
+  qualifying_posting_links: string[];
+  evidence_references: VacancyEvidenceReference[];
+  onet_associations: OnetAssociation[];
+  job_metrics: JobMetrics | null;
+  projection_status: 'pending' | 'projected' | 'error';
+  available_for_new_selection: boolean;
+  availability_reason: string | null;
+  is_selected: boolean;
+  peer_count: number;
+  overlay?: { isSelected: boolean; peerCount: number };
+}
+
 export interface TranscriptDocument {
   topic: string;
   source_filename: string | null;
@@ -11,7 +45,8 @@ export interface CourseChapter {
   documents: TranscriptDocument[];
 }
 
-export interface BookSkillBankSkill {
+export interface BookSkillBankSkill extends SkillEvidenceFields {
+  source?: 'book' | 'market';
   name: string;
   description: string | null;
 }
@@ -30,7 +65,8 @@ export interface BookSkillBankBook {
   chapters: BookSkillBankChapter[];
 }
 
-export interface MarketSkillBankSkill {
+export interface MarketSkillBankSkill extends SkillEvidenceFields {
+  source?: 'book' | 'market';
   name: string;
   category: string | null;
   status: string | null;
@@ -54,6 +90,7 @@ export interface SkillSelectionRange {
 }
 
 export interface SkillBanksResponse {
+  career_skill_bank?: CareerSkillBankSkill[];
   course_chapters: CourseChapter[];
   book_skill_bank: BookSkillBankBook[];
   market_skill_bank: MarketSkillBankJobPosting[];
@@ -94,7 +131,7 @@ export interface StudentInsightsOverview {
   students: StudentInsightStudent[];
 }
 
-export interface TeacherStudentSkillBankSkill {
+export interface TeacherStudentSkillBankSkill extends SkillEvidenceFields {
   name: string;
   description?: string | null;
   category?: string | null;
@@ -128,6 +165,9 @@ export interface TeacherStudentSkillBankJobPosting {
 }
 
 export interface TeacherSkillBanksOverlay {
+  career_skill_bank?: CareerSkillBankSkill[];
+  selected_skill_reference_ids?: string[];
+  peer_selection_counts_by_reference?: Record<string, number>;
   book_skill_banks: TeacherStudentSkillBankBook[];
   market_skill_bank: TeacherStudentSkillBankJobPosting[];
   selected_skill_names: string[];
@@ -162,7 +202,8 @@ export interface TeacherStudentInsightDetail {
   learning_path_summary: LearningPathSummary;
 }
 
-export interface SkillBankDisplaySkill {
+export interface SkillBankDisplaySkill extends SkillEvidenceFields {
+  source?: string | null;
   name: string;
   description: string | null;
   category?: string | null;

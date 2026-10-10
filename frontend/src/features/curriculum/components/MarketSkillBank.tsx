@@ -19,6 +19,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import type { SkillBankDisplayJobPosting } from '@/features/curriculum/types';
+import { skillBankKey } from '@/features/curriculum/skill-bank-display';
+import { SkillAvailability, SkillEvidence } from '@/features/curriculum/components/SkillEvidence';
 
 const PRIORITY_COLORS: Record<string, string> = {
   high: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
@@ -129,7 +131,7 @@ export function MarketSkillBank({
                 <div className="grid gap-2">
                   {posting.skills.map((skill) => (
                     <MarketSkillRow
-                      key={`${posting.url}-${skill.name}`}
+                      key={`${posting.url}-${skillBankKey(skill, 'market')}`}
                       skill={skill}
                       selectedStudentName={selectedStudentName}
                     />
@@ -190,6 +192,7 @@ function MarketSkillRow({
           <p className="text-right text-[9px] text-muted-foreground">{skill.demand_pct.toFixed(0)}%</p>
         </div>
       )}
+      <div className="w-full space-y-2"><SkillAvailability skill={skill} /><SkillEvidence skill={skill} /></div>
     </div>
   );
 }

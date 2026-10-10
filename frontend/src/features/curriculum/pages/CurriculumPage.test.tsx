@@ -4,6 +4,7 @@ import { vi, type Mock } from 'vitest';
 
 import { coursesApi } from '@/features/courses/api';
 import CurriculumPage from '@/features/curriculum/pages/CurriculumPage';
+import { postingUrl, referenceB, task9Banks } from '@/features/curriculum/__tests__/task9-fixtures';
 
 vi.mock('@/features/courses/api', () => ({
   coursesApi: {
@@ -297,6 +298,23 @@ describe('CurriculumPage', () => {
     vi.clearAllMocks();
     (coursesApi.getCourse as Mock).mockResolvedValue(courseResponse);
     (coursesApi.updateSkillSelectionRange as Mock).mockResolvedValue(teacherSkillBanks.selection_range);
+  });
+
+  it('shows an additive career bank with real posting links, separate O*NET context and reference overlay', async () => {
+    const banks = task9Banks();
+    (coursesApi.getSkillBanks as Mock).mockResolvedValue({...teacherSkillBanks, book_skill_bank: banks.book_skill_banks, market_skill_bank: banks.market_skill_bank, career_skill_bank: banks.career_skill_bank});
+    (coursesApi.getStudentInsights as Mock).mockResolvedValue(studentInsightsOverview);
+    (coursesApi.getStudentInsightDetail as Mock).mockResolvedValue({...danaDetail, skill_banks: {...banks, selected_skill_reference_ids: [referenceB]}});
+    renderCurriculumPage();
+    fireEvent.mouseDown(await screen.findByRole('tab', {name: /Career Skills/i}));
+    fireEvent.click(screen.getByRole('tab', {name: /Career Skills/i}));
+    expect(await screen.findAllByRole('link', {name: /Supporting job posting/i})).toHaveLength(4);
+    expect(screen.getAllByRole('link', {name: /Supporting job posting/i})[0]).toHaveAttribute('href', postingUrl);
+    expect(screen.getAllByRole('link', {name: /O\*NET reference/i})).toHaveLength(4);
+    expect(screen.getAllByText(/Job demand unavailable/i)).toHaveLength(4);
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Pick Dana Demostudent'}));
+    await waitFor(() => expect(screen.getAllByText('Selected by Dana Demostudent')).toHaveLength(1));
   });
 
   it('renders a course-first shell with transcript-first stats', async () => {

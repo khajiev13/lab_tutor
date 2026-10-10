@@ -2,11 +2,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { vi, type Mock } from 'vitest';
 import { toast } from 'sonner';
+import { careerSkill, postingUrl, referenceA, referenceB, referencePending, referenceWithdrawn, task9Banks } from '@/features/curriculum/__tests__/task9-fixtures';
 
-import StudentLearningPathPage from './StudentLearningPathPage';
-import * as studentLearningPathApi from '../api';
+import StudentLearningPathPage from '@/features/student-learning-path/pages/StudentLearningPathPage';
+import * as studentLearningPathApi from '@/features/student-learning-path/api';
+import { buildPrerequisiteIndex, collectStudentSkills } from '@/features/student-learning-path/selection';
 
-vi.mock('../api', () => ({
+vi.mock('@/features/student-learning-path/api', () => ({
   getSkillBanks: vi.fn(),
   getLearningPath: vi.fn(),
   getChapterQuiz: vi.fn(),
@@ -880,5 +882,172 @@ describe('StudentLearningPathPage', () => {
 
     expect(await screen.findByText('Course Page')).toBeInTheDocument();
     expect(toast.error).toHaveBeenCalledWith('Join the course before opening the learning path.');
+  });
+});
+
+describe('Task9 stable reference student flow', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (studentLearningPathApi.streamBuildProgress as Mock).mockReturnValue(() => {});
+    (studentLearningPathApi.buildLearningPath as Mock).mockResolvedValue({run_id: 'run-9', status: 'started'});
+  });
+
+  it('selects distinct same-label references and builds each ID once across career/book/posting views', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(task9Banks());
+    renderPage();
+    fireEvent.click(await screen.findByRole('checkbox', {name: 'Select Batch Processing · Foundations'}));
+    expect(screen.getByRole('checkbox', {name: 'Select Batch Processing · Streaming'})).not.toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', {name: 'Select Batch Processing · Streaming'}));
+    expect(screen.getByText('2 of 1-35 skills selected')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: /Build My Learning Path/i}));
+    await waitFor(() => expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledWith(1, [], [referenceA, referenceB]));
+  });
+
+  it('filters posting bulk selection by eligibility using unfiltered members and preserves covered-book identity', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(task9Banks());
+    renderPage();
+    await screen.findByText('Book Skill Banks');
+    fireEvent.change(screen.getByPlaceholderText(/Search books/i), {target: {value: 'Batch'}});
+    fireEvent.click(screen.getByRole('button', {name: /Select all.*skills/i}));
+    expect(screen.getByText('2 of 1-35 skills selected')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: /Build My Learning Path/i}));
+    await waitFor(() => expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledWith(1, [], [referenceA, referenceB]));
+  });
+
+  it('cannot select pending or withdrawn references through career or posting chips', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(task9Banks());
+    renderPage();
+    expect(await screen.findByRole('checkbox', {name: 'Select Pending skill · Foundations'})).toBeDisabled();
+    expect(screen.getByRole('checkbox', {name: 'Select Withdrawn skill · Foundations'})).toBeDisabled();
+    expect(screen.getByRole('button', {name: /^Pending skill/})).toBeDisabled();
+    expect(screen.getByRole('button', {name: /^Withdrawn skill/})).toBeDisabled();
+    expect(screen.getByText('0 of 1-35 skills selected')).toBeInTheDocument();
+  });
+
+  it('keeps an individual reference exclusion when another posting is selected', async () => {
+    const banks = task9Banks();
+    banks.market_skill_bank.push({...banks.market_skill_bank[0]!, url: 'https://hh.uz/vacancy/102', title: 'Second posting'});
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(banks);
+    renderPage();
+    const selectButtons = await screen.findAllByRole('button', {name: /Select all.*skills/i});
+    fireEvent.click(selectButtons[0]!);
+    fireEvent.click(screen.getByRole('checkbox', {name: 'Select Batch Processing · Foundations'}));
+    fireEvent.click(selectButtons[1]!);
+    expect(screen.getByText('1 of 1-35 skills selected')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: /Build My Learning Path/i}));
+    await waitFor(() => expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledWith(1, [], [referenceB]));
+  });
+
+  it('preserves an unavailable draft after a typed build rejection and requires explicit removal', async () => {
+    const banks = task9Banks();
+    const withdrawn = task9Banks();
+    withdrawn.career_skill_bank[0] = careerSkill(referenceA, {available_for_new_selection: false, availability_reason: 'Offering withdrawn'});
+    withdrawn.book_skill_banks[0]!.chapters[0]!.skills[0] = {...withdrawn.career_skill_bank[0], name: 'Batch Processing'};
+    withdrawn.market_skill_bank[0]!.skills[0] = {...withdrawn.career_skill_bank[0], name: 'Batch Processing'};
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValueOnce(banks).mockResolvedValue(withdrawn);
+    (studentLearningPathApi.buildLearningPath as Mock).mockRejectedValue({response: {status: 409, data: {detail: {
+      code: 'skill_unavailable', message: 'Offering withdrawn', skill_reference_ids: [referenceA], skill_names: [],
+    }}}});
+    renderPage();
+    fireEvent.click(await screen.findByRole('checkbox', {name: 'Select Batch Processing · Foundations'}));
+    fireEvent.click(screen.getByRole('button', {name: /Build My Learning Path/i}));
+    await waitFor(() => expect(studentLearningPathApi.getSkillBanks).toHaveBeenCalledTimes(2));
+    expect(toast.error).toHaveBeenCalledWith('Offering withdrawn');
+    expect(screen.getByRole('checkbox', {name: 'Select Batch Processing · Foundations'})).toBeChecked();
+    expect(screen.getByRole('checkbox', {name: 'Select Batch Processing · Foundations'})).toBeEnabled();
+    expect(screen.getByRole('button', {name: /Build My Learning Path/i})).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', {name: 'Select Batch Processing · Foundations'}));
+    expect(screen.getByText('0 of 1-35 skills selected')).toBeInTheDocument();
+  });
+
+  it('recovers saved reference-only selections after withdrawal with a bodyless build', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue({...task9Banks(), selected_skill_reference_ids: [referenceWithdrawn]});
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue(emptyLearningPathResponse);
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', {name: /Build Learning Path/i}));
+    await waitFor(() => expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledWith(1, []));
+    expect(screen.queryByText('Book Skill Banks')).not.toBeInTheDocument();
+  });
+
+  it.each(['unchanged', 'failed'] as const)('keeps a reconciliation barrier after an unidentified typed rejection and %s bank refresh', async (refresh) => {
+    const banks = task9Banks();
+    const rejection = {response: {status: 409, data: {detail: {
+      code: 'ambiguous_skill_name', message: 'Selection identity needs reconciliation', skill_reference_ids: [], skill_names: [],
+    }}}};
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValueOnce(banks);
+    if (refresh === 'failed') (studentLearningPathApi.getSkillBanks as Mock).mockRejectedValue(new Error('Refresh unavailable'));
+    else (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue(banks);
+    (studentLearningPathApi.buildLearningPath as Mock).mockRejectedValueOnce(rejection);
+
+    try {
+      renderPage();
+      fireEvent.click(await screen.findByRole('checkbox', {name: 'Select Batch Processing · Foundations'}));
+      fireEvent.click(screen.getByRole('button', {name: /Build My Learning Path/i}));
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Selection identity needs reconciliation'));
+      expect(screen.getByRole('checkbox', {name: 'Select Batch Processing · Foundations'})).toBeChecked();
+      const buildButton = screen.getByRole('button', {name: /Build My Learning Path/i});
+      expect(buildButton).toBeDisabled();
+      expect(screen.getByText('Review unavailable draft selections before building.')).toBeInTheDocument();
+      fireEvent.click(buildButton);
+      expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByRole('button', {name: /Remove unavailable selection/i}));
+      expect(screen.getByText('0 of 1-35 skills selected')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('checkbox', {name: 'Select Batch Processing · Foundations'}));
+      expect(screen.getByRole('button', {name: /Build My Learning Path/i})).toBeEnabled();
+      expect(consoleError).toHaveBeenCalledWith(rejection);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('shows ambiguous dependent identity and prevents automatic prerequisite addition for a name-only edge', async () => {
+    const banks = task9Banks();
+    banks.career_skill_bank[2] = careerSkill(referencePending, {label: 'Data foundations'});
+    const prerequisiteEdges: studentLearningPathApi.PrerequisiteEdge[] = [{
+      prerequisite_name: 'Data foundations', dependent_name: 'Batch Processing',
+      prerequisite_skill_reference_id: referencePending,
+      confidence: 'high', reasoning: 'Legacy name-only dependent edge',
+    }];
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue({...banks, prerequisite_edges: prerequisiteEdges});
+    renderPage();
+    fireEvent.click(await screen.findByRole('checkbox', {name: 'Select Batch Processing · Streaming'}));
+    fireEvent.click(screen.getByRole('button', {name: /Build My Learning Path/i}));
+    expect(await screen.findByText('Review prerequisites')).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: /Add to learning path/i})).toBeDisabled();
+    expect(screen.getByText(/dependent identity.*ambiguous/i)).toBeInTheDocument();
+    expect(screen.getByText('1 of 1-35 skills selected')).toBeInTheDocument();
+    expect(studentLearningPathApi.buildLearningPath).not.toHaveBeenCalled();
+    const index = buildPrerequisiteIndex(prerequisiteEdges, collectStudentSkills(banks));
+    expect(index.get(`reference:${referenceB}`)?.[0]?.dependent_key).toBe('ambiguous:Batch Processing');
+  });
+
+  it('resolves prerequisites by reference and prevents adding the unavailable same-label target', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue({...task9Banks(), prerequisite_edges: [{
+      prerequisite_name: 'Batch Processing', dependent_name: 'Batch Processing',
+      prerequisite_skill_reference_id: referencePending, dependent_skill_reference_id: referenceB,
+      confidence: 'high', reasoning: 'Reference-specific foundation',
+    }]});
+    renderPage();
+    fireEvent.click(await screen.findByRole('checkbox', {name: 'Select Batch Processing · Streaming'}));
+    fireEvent.click(screen.getByRole('button', {name: /Build My Learning Path/i}));
+    expect(await screen.findByText('Review prerequisites')).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: /Add to learning path/i})).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', {name: /I already know this/i}));
+    fireEvent.click(screen.getByRole('button', {name: /Continue build/i}));
+    await waitFor(() => expect(studentLearningPathApi.buildLearningPath).toHaveBeenCalledWith(1, [], [referenceB]));
+    expect(studentLearningPathApi.submitChapterQuiz).not.toHaveBeenCalled();
+  });
+
+  it('exposes supporting job links in saved learning content without changing quiz mastery or resources', async () => {
+    (studentLearningPathApi.getSkillBanks as Mock).mockResolvedValue({...task9Banks(), selected_skill_reference_ids: [referenceA]});
+    (studentLearningPathApi.getLearningPath as Mock).mockResolvedValue({...learningPathResponse, chapters: [
+      {...learningPathResponse.chapters[0], selected_skills: [{...learningPathResponse.chapters[0]!.selected_skills[0], ...careerSkill(), name: 'Batch Processing', is_known: true}]},
+    ]});
+    renderPage();
+    expect(await screen.findByRole('link', {name: /Supporting job posting/i})).toHaveAttribute('href', postingUrl);
+    fireEvent.click(screen.getByRole('button', {name: /Batch Processing/i}));
+    expect(screen.getByText('Known · Review anyway')).toBeInTheDocument();
+    expect(screen.getByText('Batch Systems Guide')).toBeInTheDocument();
   });
 });

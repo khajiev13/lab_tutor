@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/collapsible';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import type { SkillBankDisplayBook } from '@/features/curriculum/types';
+import { skillBankKey } from '@/features/curriculum/skill-bank-display';
+import { SkillAvailability, SkillEvidence } from '@/features/curriculum/components/SkillEvidence';
 
 export function BookSkillBank({
   books,
@@ -126,7 +128,7 @@ function BookCard({
                   <div className="flex flex-wrap gap-1.5 pl-7">
                     {chapter.skills.map((skill) => (
                       <ReadOnlySkillChip
-                        key={`${chapter.chapter_id}-${skill.name}`}
+                        key={`${chapter.chapter_id}-${skillBankKey(skill, 'book')}`}
                         skill={skill}
                         selectedStudentName={selectedStudentName}
                       />
@@ -190,6 +192,7 @@ function ReadOnlySkillChip({
           {skill.overlay?.peerCount}
         </Badge>
       )}
+      <div className="w-full space-y-2"><SkillAvailability skill={skill} /><SkillEvidence skill={skill} /></div>
     </div>
   );
 }

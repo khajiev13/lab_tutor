@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { coursesApi } from '@/features/courses/api';
 import type { Course } from '@/features/courses/types';
 import { BookSkillBank } from '@/features/curriculum/components/BookSkillBank';
+import { CareerSkillBank } from '@/features/curriculum/components/CareerSkillBank';
 import { CurriculumStats } from '@/features/curriculum/components/CurriculumStats';
 import { MarketSkillBank } from '@/features/curriculum/components/MarketSkillBank';
 import { SkillSelectionRangeCard } from '@/features/curriculum/components/SkillSelectionRangeCard';
@@ -39,6 +40,8 @@ import { StudentInsightSidebarCard } from '@/features/curriculum/components/Stud
 import { TranscriptChapters } from '@/features/curriculum/components/TranscriptChapters';
 import {
   adaptTeacherBookSkillBanks,
+  adaptCareerSkillBank,
+  skillBankKey,
   adaptTeacherBookSkillBanksWithOverlay,
   adaptTeacherMarketSkillBank,
   adaptTeacherMarketSkillBankWithOverlay,
@@ -65,19 +68,15 @@ function SectionAlert({
 }
 
 function countBookSkills<
-  TBook extends { chapters: Array<{ skills: Array<unknown> }> },
+  TBook extends { chapters: Array<{ skills: Array<{ name: string; skill_reference_id?: string | null }> }> },
 >(books: TBook[]) {
-  return books.reduce(
-    (total, book) =>
-      total + book.chapters.reduce((chapterTotal, chapter) => chapterTotal + chapter.skills.length, 0),
-    0,
-  );
+  return new Set(books.flatMap((book) => book.chapters.flatMap((chapter) => chapter.skills.map((skill) => skillBankKey(skill, 'book'))))).size;
 }
 
 function countUniqueMarketSkills<
-  TPosting extends { skills: Array<{ name: string }> },
+  TPosting extends { skills: Array<{ name: string; skill_reference_id?: string | null }> },
 >(jobPostings: TPosting[]) {
-  return new Set(jobPostings.flatMap((posting) => posting.skills.map((skill) => skill.name))).size;
+  return new Set(jobPostings.flatMap((posting) => posting.skills.map((skill) => skillBankKey(skill, 'market')))).size;
 }
 
 export default function CurriculumPage() {
@@ -235,7 +234,7 @@ export default function CurriculumPage() {
   const hasTranscripts = (skillBanks?.course_chapters.length ?? 0) > 0;
   const hasBookSkills = (skillBanks?.book_skill_bank.length ?? 0) > 0;
   const hasMarketSkills = (skillBanks?.market_skill_bank.length ?? 0) > 0;
-  const hasCoreTeacherData = hasTranscripts || hasBookSkills || hasMarketSkills;
+  const hasCoreTeacherData = hasTranscripts || hasBookSkills || hasMarketSkills || (skillBanks?.career_skill_bank?.length ?? 0) > 0;
   const showFullPageEmptyState =
     !skillBanksLoading && !skillBanksError && !hasCoreTeacherData;
 
@@ -263,6 +262,7 @@ export default function CurriculumPage() {
   }, [selectedStudentDetail, skillBanks?.market_skill_bank]);
 
   const courseChapterCount = skillBanks?.course_chapters.length ?? 0;
+  const displayCareerSkills = adaptCareerSkillBank(skillBanks?.career_skill_bank ?? [], selectedStudentDetail);
   const transcriptFileCount =
     skillBanks?.course_chapters.reduce((sum, chapter) => sum + chapter.documents.length, 0) ?? 0;
   const displayBookSkillCount = countBookSkills(displayBookBanks);
@@ -445,6 +445,7 @@ export default function CurriculumPage() {
                     <span className="ml-1 rounded-full bg-muted px-1.5 text-[10px]">{displayMarketSkillCount}</span>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="career-skills">Career Skills {displayCareerSkills.length > 0 && <span className="ml-1">{displayCareerSkills.length}</span>}</TabsTrigger>
               </TabsList>
 
               <TabsContent value="transcripts" className="space-y-4">
@@ -472,6 +473,11 @@ export default function CurriculumPage() {
                     selectedStudentName={selectedStudentName}
                   />
                 )}
+              </TabsContent>
+              <TabsContent value="career-skills" className="space-y-4">
+                {skillBanksError && !selectedStudentDetail
+                  ? <SectionAlert title="Career skill bank unavailable" description={skillBanksError} />
+                  : <CareerSkillBank skills={displayCareerSkills} selectedStudentName={selectedStudentName} />}
               </TabsContent>
             </Tabs>
           </div>

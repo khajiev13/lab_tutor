@@ -45,30 +45,38 @@ import {
 import {
   buildLearningPath,
   type BuildProgressEvent,
-  type BuildSelectedSkillInput,
   getLearningPath,
   getSkillBanks,
   streamBuildProgress,
   trackResourceOpen,
   type LearningPathChapter,
   type LearningPathResponse,
-  type PrerequisiteEdge,
   type SkillBanksResponse,
   type StudentSkillBankBook,
   type StudentSkillBankJobPosting,
   type StudentSkillBankSkill,
-} from '../api';
+} from '@/features/student-learning-path/api';
 import {
   PrerequisiteReviewDialog,
-  type PrerequisiteReviewItem,
-} from '../components/PrerequisiteReviewDialog';
+} from '@/features/student-learning-path/components/PrerequisiteReviewDialog';
 import {
   type ActiveLearningPathResource,
   buildLearningPathStudyRoute,
   getVisibleReadingResources,
   toActiveReadingResource,
   toActiveVideoResource,
-} from '../resource-utils';
+} from '@/features/student-learning-path/resource-utils';
+
+import { CareerSkillBank } from '@/features/curriculum/components/CareerSkillBank';
+import { SkillAvailability, SkillEvidence } from '@/features/curriculum/components/SkillEvidence';
+import { skillBankKey } from '@/features/curriculum/skill-bank-display';
+import {
+  buildPrerequisiteIndex, buildPrerequisiteReviewItems, buildSelectionPayload,
+  collectStudentSkills, collectTransitivePrerequisites, hasSavedSelections,
+  isSkillAvailable, mergeDraftSelectedSkills, persistedStudentSelections,
+  postingSkillChoices, selectionError, studentPeerCount,
+  type ResolvedPrerequisiteEdge, type SkillSource,
+} from '@/features/student-learning-path/selection';
 
 const DEFAULT_SELECTION_RANGE = {
   min_skills: 20,
@@ -96,6 +104,8 @@ export default function StudentLearningPathPage() {
     new Map(),
   );
   const [interestedPostings, setInterestedPostings] = useState<Set<string>>(new Set());
+  const [draftPostingSkills, setDraftPostingSkills] = useState<Map<string, Map<string, SkillSource>>>(new Map());
+  const [rejectedSkillKeys, setRejectedSkillKeys] = useState<Set<string>>(new Set());
   const [excludedPostingSkills, setExcludedPostingSkills] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
@@ -118,8 +128,10 @@ export default function StudentLearningPathPage() {
       const nextInterestedPostings = new Set(data.interested_posting_urls);
 
       setSkillBanks(data);
-      if (!preserveDraftInterestedPostings || data.selected_skill_names.length > 0) {
+      if (!preserveDraftInterestedPostings || hasSavedSelections(data)) {
         setInterestedPostings(nextInterestedPostings);
+        const choices = collectStudentSkills(data);
+        setDraftPostingSkills(new Map(data.market_skill_bank.filter((posting) => nextInterestedPostings.has(posting.url)).map((posting) => [posting.url, postingSkillChoices(posting, choices)])));
       }
       return data;
     } catch (err) {
@@ -152,7 +164,7 @@ export default function StudentLearningPathPage() {
     async function init() {
       setLoading(true);
       const nextSkillBanks = await loadSkillBanks();
-      if ((nextSkillBanks?.selected_skill_names.length ?? 0) > 0) {
+      if (hasSavedSelections(nextSkillBanks)) {
         await loadLearningPath();
       } else {
         setLearningPath(null);
@@ -163,15 +175,18 @@ export default function StudentLearningPathPage() {
     init();
   }, [loadLearningPath, loadSkillBanks]);
 
+  const skillChoices = useMemo(() => collectStudentSkills(skillBanks), [skillBanks]);
   const persistedSelectedSkills = useMemo(
-    () => new Set(skillBanks?.selected_skill_names ?? []),
-    [skillBanks?.selected_skill_names],
+    () => persistedStudentSelections(skillBanks, skillChoices), [skillBanks, skillChoices],
   );
-  const selectionLocked = persistedSelectedSkills.size > 0;
-  const postingSelectedSkills = useMemo(
-    () => buildInterestedPostingSkillMap(skillBanks?.market_skill_bank ?? [], interestedPostings),
-    [interestedPostings, skillBanks?.market_skill_bank],
-  );
+  const selectionLocked = hasSavedSelections(skillBanks) || persistedSelectedSkills.size > 0;
+  const postingSelectedSkills = useMemo(() => {
+    const selected = new Map<string, SkillSource>();
+    for (const [url, skills] of draftPostingSkills) if (interestedPostings.has(url)) {
+      for (const [key, source] of skills) selected.set(key, source);
+    }
+    return selected;
+  }, [draftPostingSkills, interestedPostings]);
   const draftSelectedSkillSources = useMemo(
     () => mergeDraftSelectedSkills(draftSelectedSkills, postingSelectedSkills, excludedPostingSkills),
     [draftSelectedSkills, excludedPostingSkills, postingSelectedSkills],
@@ -185,10 +200,11 @@ export default function StudentLearningPathPage() {
       ),
     [draftSelectedSkillSources, persistedSelectedSkills, selectionLocked],
   );
+  const unavailableDraftKeys = selectionLocked ? [] : [...draftSelectedSkillSources.keys()].filter((key) => !isSkillAvailable(skillChoices.get(key)) || rejectedSkillKeys.has(key));
   const selectionRange = skillBanks?.selection_range ?? DEFAULT_SELECTION_RANGE;
   const directPrerequisiteIndex = useMemo(
-    () => buildPrerequisiteIndex(skillBanks?.prerequisite_edges ?? []),
-    [skillBanks?.prerequisite_edges],
+    () => buildPrerequisiteIndex(skillBanks?.prerequisite_edges ?? [], skillChoices),
+    [skillBanks?.prerequisite_edges, skillChoices],
   );
   const prerequisiteClosure = useMemo(
     () => collectTransitivePrerequisites(selectedSkills, directPrerequisiteIndex),
@@ -215,105 +231,65 @@ export default function StudentLearningPathPage() {
     [activeAcknowledgedKnownSkills, directPrerequisiteIndex, selectedSkills],
   );
   const toggleSkill = useCallback(
-    (skillName: string, source: 'book' | 'market') => {
-      const selectedViaPosting = postingSelectedSkills.has(skillName);
-      const isSelected = selectedSkills.has(skillName);
-
-      if (selectedViaPosting) {
-        setDraftSelectedSkills((prev) => {
-          if (!prev.has(skillName)) {
-            return prev;
-          }
-          const next = new Map(prev);
-          next.delete(skillName);
-          return next;
-        });
-
+    (skill: StudentSkillBankSkill, fallback: SkillSource) => {
+      const key = skillBankKey(skill, fallback);
+      const choice = skillChoices.get(key);
+      const isSelected = selectedSkills.has(key);
+      if (!isSelected && !isSkillAvailable(choice)) return;
+      if (isSelected) setRejectedSkillKeys((prev) => { const next = new Set(prev); next.delete(key); return next; });
+      if (postingSelectedSkills.has(key)) {
+        setDraftSelectedSkills((prev) => { const next = new Map(prev); next.delete(key); return next; });
         setExcludedPostingSkills((prev) => {
           const next = new Set(prev);
-          if (isSelected) {
-            next.add(skillName);
-          } else if (source === 'market') {
-            next.delete(skillName);
-          }
+          if (isSelected) next.add(key); else next.delete(key);
           return next;
         });
-
-        if (!isSelected && source === 'book') {
-          setDraftSelectedSkills((prev) => {
-            const next = new Map(prev);
-            next.set(skillName, source);
-            return next;
-          });
+        // Preserve the old explicit-book override only for unbound legacy rows.
+        if (!isSelected && !skill.skill_reference_id && fallback === 'book') {
+          setDraftSelectedSkills((prev) => new Map(prev).set(key, 'book'));
         }
         return;
       }
-
       setDraftSelectedSkills((prev) => {
         const next = new Map(prev);
-        if (next.has(skillName)) {
-          next.delete(skillName);
-        } else {
-          next.set(skillName, source);
-        }
+        if (next.has(key)) next.delete(key);
+        else if (choice) next.set(key, choice.source);
         return next;
       });
-    },
-    [postingSelectedSkills, selectedSkills],
+    }, [postingSelectedSkills, selectedSkills, skillChoices],
   );
 
-  const toggleJobPosting = useCallback(
-    (posting: StudentSkillBankJobPosting) => {
-      const isInterested = interestedPostings.has(posting.url);
-
-      setDraftSelectedSkills((prev) => {
-        if (posting.skills.length === 0) {
-          return prev;
-        }
-
-        let changed = false;
-        const next = new Map(prev);
-        for (const skill of posting.skills) {
-          if (next.delete(skill.name)) {
-            changed = true;
-          }
-        }
-
-        return changed ? next : prev;
-      });
-
-      setInterestedPostings((prev) => {
-        const next = new Set(prev);
-        if (isInterested) {
-          next.delete(posting.url);
-        } else {
-          next.add(posting.url);
-        }
-        return next;
-      });
-
-      setExcludedPostingSkills((prev) => {
-        if (posting.skills.length === 0) {
-          return prev;
-        }
-
-        const next = new Set(prev);
-        for (const skill of posting.skills) {
-          next.delete(skill.name);
-        }
-        return next;
-      });
-    },
-    [interestedPostings],
-  );
+  const toggleJobPosting = useCallback((posting: StudentSkillBankJobPosting) => {
+    const isInterested = interestedPostings.has(posting.url);
+    const originalPosting = skillBanks?.market_skill_bank.find((item) => item.url === posting.url) ?? posting;
+    const skills = postingSkillChoices(originalPosting, skillChoices);
+    setDraftSelectedSkills((prev) => {
+      const next = new Map(prev);
+      // Keep explicit reference selections independent of posting ownership.
+      for (const skill of originalPosting.skills) if (!skill.skill_reference_id) next.delete(skillBankKey(skill, 'market'));
+      return next;
+    });
+    setInterestedPostings((prev) => {
+      const next = new Set(prev);
+      if (isInterested) next.delete(posting.url); else next.add(posting.url);
+      return next;
+    });
+    setDraftPostingSkills((prev) => {
+      const next = new Map(prev);
+      if (isInterested) next.delete(posting.url); else next.set(posting.url, skills);
+      return next;
+    });
+    setExcludedPostingSkills((prev) => {
+      const next = new Set(prev);
+      // Existing legacy bulk behavior remains unchanged; reference exclusions persist.
+      for (const skill of originalPosting.skills) if (!skill.skill_reference_id) next.delete(skillBankKey(skill, 'market'));
+      return next;
+    });
+  }, [interestedPostings, skillBanks?.market_skill_bank, skillChoices]);
 
   const buildDraftSelection = useCallback(
-    (): BuildSelectedSkillInput[] =>
-      Array.from(draftSelectedSkillSources, ([name, source]) => ({
-        name,
-        source,
-      })),
-    [draftSelectedSkillSources],
+    () => buildSelectionPayload(draftSelectedSkillSources, skillChoices),
+    [draftSelectedSkillSources, skillChoices],
   );
 
   const validateSelectionCount = useCallback(
@@ -330,7 +306,7 @@ export default function StudentLearningPathPage() {
   );
 
   const startBuild = useCallback(
-    async (stagedSelectedSkills: BuildSelectedSkillInput[]) => {
+    async (stagedSelection: ReturnType<typeof buildSelectionPayload>) => {
       setIsBuilding(true);
       setBuildProgress([]);
       setBuildPercent(0);
@@ -338,10 +314,11 @@ export default function StudentLearningPathPage() {
       buildCompletedSkillsRef.current = 0;
 
       try {
-        const { run_id } = await buildLearningPath(
-          numericCourseId,
-          selectionLocked ? [] : stagedSelectedSkills,
-        );
+        const { run_id } = selectionLocked
+          ? await buildLearningPath(numericCourseId, [])
+          : stagedSelection.skillReferenceIds.length
+            ? await buildLearningPath(numericCourseId, stagedSelection.selectedSkills, stagedSelection.skillReferenceIds)
+            : await buildLearningPath(numericCourseId, stagedSelection.selectedSkills);
 
         streamBuildProgress(
           numericCourseId,
@@ -367,12 +344,12 @@ export default function StudentLearningPathPage() {
             setAcknowledgedKnownSkills(new Set());
             setPrerequisiteReviewOpen(false);
             const updatedSkillBanks = await loadSkillBanks();
-            if ((updatedSkillBanks?.selected_skill_names.length ?? 0) > 0) {
+            if (hasSavedSelections(updatedSkillBanks)) {
               setDraftSelectedSkills(new Map());
               setExcludedPostingSkills(new Set());
             }
             const updatedLearningPath =
-              (updatedSkillBanks?.selected_skill_names.length ?? 0) > 0
+              hasSavedSelections(updatedSkillBanks)
                 ? await loadLearningPath()
                 : null;
             const skillsMissingQuestions =
@@ -402,7 +379,7 @@ export default function StudentLearningPathPage() {
             const updatedSkillBanks = await loadSkillBanks({
               preserveDraftInterestedPostings: true,
             });
-            if ((updatedSkillBanks?.selected_skill_names.length ?? 0) > 0) {
+            if (hasSavedSelections(updatedSkillBanks)) {
               await loadLearningPath();
             } else {
               setLearningPath(null);
@@ -413,24 +390,26 @@ export default function StudentLearningPathPage() {
       } catch (err) {
         setIsBuilding(false);
         console.error(err);
-        const detail =
-          err &&
-          typeof err === 'object' &&
-          'response' in err &&
-          typeof (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail ===
-            'string'
-            ? (err as { response: { data: { detail: string } } }).response.data.detail
-            : 'Failed to start build';
-        toast.error(detail);
+        const error = selectionError(err);
+        if (error.reconcile) {
+          const attemptedKeys = [...draftSelectedSkillSources.keys()];
+          const affectedKeys = attemptedKeys.filter((key) =>
+            error.referenceIds.includes(key.slice('reference:'.length)) || error.names.includes(skillChoices.get(key)?.name ?? ''),
+          );
+          setRejectedSkillKeys(new Set(affectedKeys.length ? affectedKeys : attemptedKeys));
+          await loadSkillBanks({preserveDraftInterestedPostings: true});
+        }
+        toast.error(error.message);
       }
     },
-    [loadLearningPath, loadSkillBanks, numericCourseId, selectionLocked],
+    [draftSelectedSkillSources, loadLearningPath, loadSkillBanks, numericCourseId, selectionLocked, skillChoices],
   );
 
   const handleBuild = async () => {
     const stagedSelectedSkills = buildDraftSelection();
+    if (!selectionLocked && unavailableDraftKeys.length) return;
 
-    if (!selectionLocked && stagedSelectedSkills.length === 0) {
+    if (!selectionLocked && (stagedSelectedSkills.selectedSkills.length + stagedSelectedSkills.skillReferenceIds.length) === 0) {
       toast.warning('Select at least one skill first');
       return;
     }
@@ -440,48 +419,38 @@ export default function StudentLearningPathPage() {
       return;
     }
 
-    if (!selectionLocked && !validateSelectionCount(stagedSelectedSkills.length)) {
+    if (!selectionLocked && !validateSelectionCount(stagedSelectedSkills.selectedSkills.length + stagedSelectedSkills.skillReferenceIds.length)) {
       return;
     }
 
     await startBuild(stagedSelectedSkills);
   };
 
-  const handleAddPrerequisiteToSelection = useCallback((skillName: string) => {
-    const inferredSource = inferPrerequisiteSource(skillName, skillBanks);
-    setDraftSelectedSkills((prev) => {
-      const next = new Map(prev);
-      next.set(skillName, inferredSource);
-      return next;
-    });
-    setAcknowledgedKnownSkills((prev) => {
-      if (!prev.has(skillName)) {
-        return prev;
-      }
-      const next = new Set(prev);
-      next.delete(skillName);
-      return next;
-    });
-  }, [skillBanks]);
+  const handleAddPrerequisiteToSelection = useCallback((key: string) => {
+    const choice = skillChoices.get(key);
+    if (!choice || !isSkillAvailable(choice)) return;
+    setDraftSelectedSkills((prev) => new Map(prev).set(key, choice.source));
+    setAcknowledgedKnownSkills((prev) => { const next = new Set(prev); next.delete(key); return next; });
+  }, [skillChoices]);
 
   const handleAcknowledgeKnownPrerequisite = useCallback((skillName: string) => {
     setAcknowledgedKnownSkills((prev) => new Set(prev).add(skillName));
   }, []);
 
   const handleContinueBuildAfterPrerequisiteReview = useCallback(async () => {
-    if (unresolvedPrerequisiteItems.length > 0) {
+    if (unresolvedPrerequisiteItems.length > 0 || unavailableDraftKeys.length > 0) {
       return;
     }
 
     const stagedSelectedSkills = buildDraftSelection();
-    if (!validateSelectionCount(stagedSelectedSkills.length)) {
+    if (!validateSelectionCount(stagedSelectedSkills.selectedSkills.length + stagedSelectedSkills.skillReferenceIds.length)) {
       setPrerequisiteReviewOpen(false);
       return;
     }
 
     setPrerequisiteReviewOpen(false);
     await startBuild(stagedSelectedSkills);
-  }, [buildDraftSelection, startBuild, unresolvedPrerequisiteItems.length, validateSelectionCount]);
+  }, [buildDraftSelection, startBuild, unresolvedPrerequisiteItems.length, unavailableDraftKeys.length, validateSelectionCount]);
 
   if (loading) {
     return (
@@ -491,8 +460,13 @@ export default function StudentLearningPathPage() {
     );
   }
 
-  const allBooks = skillBanks?.book_skill_banks ?? [];
+  const allBooks = (skillBanks?.book_skill_banks ?? []).map((book) => ({...book, chapters: book.chapters.map((chapter) => ({...chapter, skills: chapter.skills.map((skill) => ({...skill, peer_count: studentPeerCount(skill, skillBanks)}))}))}));
   const allMarketPostings = skillBanks?.market_skill_bank ?? [];
+  const allCareerSkills = (skillBanks?.career_skill_bank ?? []).map((skill) => ({...skill, peer_count: studentPeerCount({...skill, name: skill.label}, skillBanks)}));
+  const filteredCareerSkills = allCareerSkills.filter((skill) =>
+    (!showSelectedOnly || selectedSkills.has(`reference:${skill.skill_reference_id}`)) &&
+    (!deferredSearchQuery || matchesSearch(deferredSearchQuery, skill.label, skill.description, skill.category, ...skill.chapters.map((chapter) => chapter.title))),
+  );
 
   const filteredBookBanks = filterBookSkillBanks(
     allBooks,
@@ -510,29 +484,18 @@ export default function StudentLearningPathPage() {
 
   const totalBookCount = allBooks.length;
   const totalBookChapterCount = allBooks.reduce((total, book) => total + book.chapters.length, 0);
-  const totalBookSkillCount = allBooks.reduce(
-    (total, book) =>
-      total + book.chapters.reduce((chapterTotal, chapter) => chapterTotal + chapter.skills.length, 0),
-    0,
-  );
-  const totalMarketSkillCount = allMarketPostings.reduce(
-    (total, posting) => total + posting.skills.length,
-    0,
-  );
+  const totalBookSkillCount = new Set(allBooks.flatMap((book) => book.chapters.flatMap((chapter) => chapter.skills.map((skill) => skillBankKey(skill, 'book'))))).size;
+  const totalMarketSkillCount = new Set(allMarketPostings.flatMap((posting) => posting.skills.map((skill) => skillBankKey(skill, 'market')))).size;
 
   const visibleBookChapterCount = filteredBookBanks.reduce(
     (total, book) => total + book.chapters.length,
     0,
   );
-  const visibleBookSkillCount = filteredBookBanks.reduce(
-    (total, book) =>
-      total + book.chapters.reduce((chapterTotal, chapter) => chapterTotal + chapter.skills.length, 0),
-    0,
-  );
-  const visibleMarketSkillCount = filteredMarketSkillBank.reduce(
-    (total, posting) => total + posting.skills.length,
-    0,
-  );
+  const visibleBookKeys = filteredBookBanks.flatMap((book) => book.chapters.flatMap((chapter) => chapter.skills.map((skill) => skillBankKey(skill, 'book'))));
+  const visibleMarketKeys = filteredMarketSkillBank.flatMap((posting) => posting.skills.map((skill) => skillBankKey(skill, 'market')));
+  const visibleBookSkillCount = new Set(visibleBookKeys).size;
+  const visibleMarketSkillCount = new Set(visibleMarketKeys).size;
+  const visibleSkillCount = new Set([...visibleBookKeys, ...visibleMarketKeys, ...filteredCareerSkills.map((skill) => `reference:${skill.skill_reference_id}`)]).size;
   const hasLearningPathChapters = (learningPath?.chapters.length ?? 0) > 0;
   const showHeroBuildButton = !selectionLocked || !hasLearningPathChapters;
 
@@ -590,7 +553,7 @@ export default function StudentLearningPathPage() {
               {showHeroBuildButton && (
                 <Button
                   onClick={handleBuild}
-                  disabled={isBuilding || (!selectionLocked && selectedSkills.size === 0)}
+                  disabled={isBuilding || (!selectionLocked && (selectedSkills.size === 0 || unavailableDraftKeys.length > 0))}
                   size="lg"
                   className="gap-2 shadow-sm"
                 >
@@ -687,6 +650,17 @@ export default function StudentLearningPathPage() {
         onContinueBuild={() => void handleContinueBuildAfterPrerequisiteReview()}
       />
 
+      {unavailableDraftKeys.length > 0 && <div role="status" className="space-y-2 rounded-lg border p-4">
+        <p>Review unavailable draft selections before building.</p>
+        {unavailableDraftKeys.map((key) => <div key={key} className="flex items-center justify-between gap-3">
+          <span>{skillChoices.get(key)?.name ?? 'Unavailable selected skill'} · {skillChoices.get(key)?.availability_reason ?? 'Selection needs reconciliation'}</span>
+          <Button variant="outline" size="sm" onClick={() => {
+            setDraftSelectedSkills((prev) => {const next = new Map(prev); next.delete(key); return next;});
+            setExcludedPostingSkills((prev) => new Set(prev).add(key));
+            setRejectedSkillKeys((prev) => {const next = new Set(prev); next.delete(key); return next;});
+          }}>Remove unavailable selection</Button>
+        </div>)}
+      </div>}
       {!selectionLocked ? (
         <section className="space-y-4">
           <Card className="border-border/60 bg-card/70 shadow-none">
@@ -713,7 +687,7 @@ export default function StudentLearningPathPage() {
                     {showSelectedOnly ? 'Showing selected only' : 'Show selected only'}
                   </Button>
                   <Badge variant="outline" className="rounded-full">
-                    {visibleBookSkillCount + visibleMarketSkillCount} visible skills
+                    {visibleSkillCount} visible skills
                   </Badge>
                 </div>
               </div>
@@ -738,6 +712,11 @@ export default function StudentLearningPathPage() {
               </div>
             </CardContent>
           </Card>
+
+          {allCareerSkills.length > 0 && <Card className="shadow-none">
+            <CardHeader><CardTitle className="text-base">Career Skill Bank</CardTitle><CardDescription>Approved skills with supporting job evidence.</CardDescription></CardHeader>
+            <CardContent><CareerSkillBank skills={filteredCareerSkills} selectedKeys={selectedSkills} onToggle={(skill) => toggleSkill({...skill, name: skill.label}, skill.source)} /></CardContent>
+          </Card>}
 
           <div className="grid gap-4 xl:grid-cols-2">
             <Card className="min-w-0 border-border/60 shadow-none">
@@ -806,6 +785,8 @@ export default function StudentLearningPathPage() {
                   >
                     {filteredMarketSkillBank.map((posting) => {
                       const isInterested = interestedPostings.has(posting.url);
+                      const originalPosting = allMarketPostings.find((item) => item.url === posting.url) ?? posting;
+                      const eligibleCount = postingSkillChoices(originalPosting, skillChoices).size;
 
                       return (
                         <AccordionItem
@@ -859,10 +840,12 @@ export default function StudentLearningPathPage() {
                               variant={isInterested ? 'default' : 'outline'}
                               className="gap-1.5 self-start lg:shrink-0"
                               onClick={() => void toggleJobPosting(posting)}
+                              disabled={!isInterested && eligibleCount === 0}
                             >
                               <Sparkles className="h-3.5 w-3.5" />
                               {isInterested ? 'Remove draft selection' : 'Select all skills'}
                             </Button>
+                            {originalPosting.skills.some((skill) => skill.skill_reference_id) && <p className="text-xs text-muted-foreground">{eligibleCount} eligible skills · {originalPosting.skills.length - eligibleCount} unavailable</p>}
                           </div>
                           <AccordionContent className="px-4 pb-4 pt-0">
                             <div className="space-y-3 border-t border-border/60 pt-4">
@@ -884,12 +867,12 @@ export default function StudentLearningPathPage() {
                                 <div className="flex flex-wrap gap-2">
                                   {posting.skills.map((skill) => (
                                     <SkillChip
-                                      key={skill.name}
+                                      key={skillBankKey(skill, 'market')}
                                       skill={skill}
-                                      isSelected={selectedSkills.has(skill.name)}
-                                      peerCount={skill.peer_count ?? 0}
-                                      directPrerequisites={directPrerequisiteIndex.get(skill.name) ?? []}
-                                      onClick={() => toggleSkill(skill.name, 'market')}
+                                      isSelected={selectedSkills.has(skillBankKey(skill, 'market'))}
+                                      peerCount={studentPeerCount(skill, skillBanks)}
+                                      directPrerequisites={directPrerequisiteIndex.get(skillBankKey(skill, 'market')) ?? []}
+                                      onClick={() => toggleSkill(skill, 'market')}
                                     />
                                   ))}
                                 </div>
@@ -988,8 +971,8 @@ function BookBankCard({
 }: {
   book: StudentSkillBankBook;
   selectedSkills: Set<string>;
-  prerequisiteIndex: Map<string, PrerequisiteEdge[]>;
-  onSkillClick: (skillName: string, source: 'book' | 'market') => void;
+  prerequisiteIndex: Map<string, ResolvedPrerequisiteEdge[]>;
+  onSkillClick: (skill: StudentSkillBankSkill, source: 'book' | 'market') => void;
 }) {
   const skillCount = book.chapters.reduce((total, chapter) => total + chapter.skills.length, 0);
 
@@ -1040,12 +1023,12 @@ function BookBankCard({
                   <div className="flex flex-wrap gap-2 pl-11 pt-1">
                     {chapter.skills.map((skill) => (
                       <SkillChip
-                        key={`${chapter.chapter_id}-${skill.name}`}
+                        key={`${chapter.chapter_id}-${skillBankKey(skill, 'book')}`}
                         skill={skill}
-                        isSelected={selectedSkills.has(skill.name)}
+                        isSelected={selectedSkills.has(skillBankKey(skill, 'book'))}
                         peerCount={skill.peer_count ?? 0}
-                        directPrerequisites={prerequisiteIndex.get(skill.name) ?? []}
-                        onClick={() => onSkillClick(skill.name, 'book')}
+                        directPrerequisites={prerequisiteIndex.get(skillBankKey(skill, 'book')) ?? []}
+                        onClick={() => onSkillClick(skill, 'book')}
                       />
                     ))}
                   </div>
@@ -1073,7 +1056,7 @@ function SkillChip({
   skill: StudentSkillBankSkill;
   isSelected: boolean;
   peerCount: number;
-  directPrerequisites: PrerequisiteEdge[];
+  directPrerequisites: ResolvedPrerequisiteEdge[];
   onClick: () => void;
 }) {
   const hasDirectPrerequisites = directPrerequisites.length > 0;
@@ -1086,6 +1069,7 @@ function SkillChip({
         size="sm"
         className="h-auto min-h-9 rounded-full px-3 py-1.5 transition-all"
         onClick={onClick}
+        disabled={!isSelected && !isSkillAvailable(skill)}
         title={skill.description || ''}
       >
         {isSelected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
@@ -1117,7 +1101,7 @@ function SkillChip({
             </PopoverHeader>
             <div className="mt-3 space-y-3">
               {directPrerequisites.map((prerequisite) => (
-                <div key={`${skill.name}-${prerequisite.prerequisite_name}`} className="space-y-2">
+                <div key={prerequisite.prerequisite_key} className="space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                       Must learn first
@@ -1146,6 +1130,7 @@ function SkillChip({
           </PopoverContent>
         </Popover>
       )}
+      <div className="w-full space-y-2"><SkillAvailability skill={skill} /><SkillEvidence skill={skill} /></div>
     </div>
   );
 }
@@ -1189,7 +1174,7 @@ function LearningPathChapterCard({
       };
   const skillAccordionDefaultValue = chapter.selected_skills
     .filter((skill) => !skill.is_known)
-    .map((skill) => skill.name);
+    .map((skill) => skillBankKey(skill, skill.source));
 
   return (
     <Card className="border-border/60 shadow-none">
@@ -1260,8 +1245,8 @@ function LearningPathChapterCard({
 
                 return (
                   <AccordionItem
-                    key={skill.name}
-                    value={skill.name}
+                    key={skillBankKey(skill, skill.source)}
+                    value={skillBankKey(skill, skill.source)}
                     className="rounded-2xl border border-border/60 px-0"
                   >
                     <AccordionTrigger className="px-4 py-4 hover:no-underline">
@@ -1290,6 +1275,7 @@ function LearningPathChapterCard({
                         </div>
                       </div>
                     </AccordionTrigger>
+                    <div className="px-4 pb-3"><SkillEvidence skill={skill} /></div>
                     <AccordionContent>
                       <div className="space-y-4 pl-4 pr-2">
                         {visibleReadings.length > 0 && (
@@ -1524,130 +1510,6 @@ function formatPrerequisiteConfidence(confidence: 'high' | 'medium' | 'low') {
   return `${confidence[0]!.toUpperCase()}${confidence.slice(1)} confidence`;
 }
 
-function buildPrerequisiteIndex(edges: PrerequisiteEdge[]) {
-  return edges.reduce<Map<string, PrerequisiteEdge[]>>((index, edge) => {
-    const existing = index.get(edge.dependent_name) ?? [];
-    existing.push(edge);
-    index.set(edge.dependent_name, existing);
-    return index;
-  }, new Map());
-}
-
-function collectTransitivePrerequisites(
-  selectedSkills: Set<string>,
-  prerequisiteIndex: Map<string, PrerequisiteEdge[]>,
-) {
-  const visited = new Set<string>();
-  const queue = Array.from(selectedSkills);
-
-  while (queue.length > 0) {
-    const skillName = queue.shift();
-    if (!skillName) {
-      continue;
-    }
-    for (const edge of prerequisiteIndex.get(skillName) ?? []) {
-      if (visited.has(edge.prerequisite_name)) {
-        continue;
-      }
-      visited.add(edge.prerequisite_name);
-      queue.push(edge.prerequisite_name);
-    }
-  }
-
-  return visited;
-}
-
-function buildPrerequisiteReviewItems(
-  selectedSkills: Set<string>,
-  acknowledgedKnownSkills: Set<string>,
-  prerequisiteIndex: Map<string, PrerequisiteEdge[]>,
-): PrerequisiteReviewItem[] {
-  const itemMap = new Map<string, PrerequisiteReviewItem>();
-  const queue = Array.from(selectedSkills);
-  const visitedDependents = new Set<string>();
-
-  while (queue.length > 0) {
-    const skillName = queue.shift();
-    if (!skillName || visitedDependents.has(skillName)) {
-      continue;
-    }
-    visitedDependents.add(skillName);
-
-    for (const edge of prerequisiteIndex.get(skillName) ?? []) {
-      if (!selectedSkills.has(edge.prerequisite_name) && !acknowledgedKnownSkills.has(edge.prerequisite_name)) {
-        const existing = itemMap.get(edge.prerequisite_name);
-        if (existing) {
-          if (!existing.dependentSkillNames.includes(skillName)) {
-            existing.dependentSkillNames.push(skillName);
-          }
-          if (!existing.reasoning && edge.reasoning) {
-            existing.reasoning = edge.reasoning;
-          }
-        } else {
-          itemMap.set(edge.prerequisite_name, {
-            name: edge.prerequisite_name,
-            dependentSkillNames: [skillName],
-            reasoning: edge.reasoning,
-            confidence: edge.confidence,
-          });
-        }
-      }
-      queue.push(edge.prerequisite_name);
-    }
-  }
-
-  return Array.from(itemMap.values()).sort((left, right) => left.name.localeCompare(right.name));
-}
-
-function inferPrerequisiteSource(
-  skillName: string,
-  skillBanks: SkillBanksResponse | null,
-): 'book' | 'market' {
-  const isBookSkill = skillBanks?.book_skill_banks.some((book) =>
-    book.chapters.some((chapter) => chapter.skills.some((skill) => skill.name === skillName)),
-  );
-  return isBookSkill ? 'book' : 'market';
-}
-
-function buildInterestedPostingSkillMap(
-  postings: StudentSkillBankJobPosting[],
-  interestedPostings: Set<string>,
-): Map<string, 'market'> {
-  const selectedSkills = new Map<string, 'market'>();
-
-  for (const posting of postings) {
-    if (!interestedPostings.has(posting.url)) {
-      continue;
-    }
-
-    for (const skill of posting.skills) {
-      if (selectedSkills.has(skill.name)) {
-        continue;
-      }
-      selectedSkills.set(skill.name, 'market');
-    }
-  }
-
-  return selectedSkills;
-}
-
-function mergeDraftSelectedSkills(
-  explicitSelections: Map<string, 'book' | 'market'>,
-  postingSelections: Map<string, 'market'>,
-  excludedPostingSkills: Set<string>,
-): Map<string, 'book' | 'market'> {
-  const mergedSelections = new Map(explicitSelections);
-
-  for (const [skillName, source] of postingSelections) {
-    if (excludedPostingSkills.has(skillName) || mergedSelections.has(skillName)) {
-      continue;
-    }
-    mergedSelections.set(skillName, source);
-  }
-
-  return mergedSelections;
-}
-
 function matchesSearch(query: string, ...values: Array<string | null | undefined>): boolean {
   if (!query) {
     return false;
@@ -1673,7 +1535,7 @@ function filterBookSkillBanks(
         (hasQuery && matchesSearch(query, chapter.title, `chapter ${chapter.chapter_index}`));
 
       const skills = chapter.skills.filter((skill) => {
-        const isSelected = selectedSkills.has(skill.name);
+        const isSelected = selectedSkills.has(skillBankKey(skill, 'book'));
         if (showSelectedOnly && !isSelected) {
           return false;
         }
@@ -1714,7 +1576,7 @@ function filterMarketSkillBank(
         matchesSearch(query, posting.title, posting.company, posting.site, posting.search_term);
 
       const skills = posting.skills.filter((skill) => {
-        const isSelected = selectedSkills.has(skill.name);
+        const isSelected = selectedSkills.has(skillBankKey(skill, 'market'));
         if (showSelectedOnly && !isSelected) {
           return false;
         }

@@ -3,10 +3,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { BookSkillBank } from '@/features/curriculum/components/BookSkillBank';
 import { MarketSkillBank } from '@/features/curriculum/components/MarketSkillBank';
 import {
+  adaptTeacherBookSkillBanks,
   adaptStudentOverlayMarketSkillBank,
   adaptTeacherMarketSkillBankWithOverlay,
 } from '@/features/curriculum/skill-bank-display';
 import type { TeacherStudentInsightDetail } from '@/features/curriculum/types';
+import { postingUrl, referenceA, referenceB, task9Banks } from '@/features/curriculum/__tests__/task9-fixtures';
 
 const overlayDetail: TeacherStudentInsightDetail = {
   student: {
@@ -200,5 +202,27 @@ describe('read-only skill bank overlays', () => {
     expect(postings[0]?.skills[0]?.name).toBe('Kafka');
     expect(postings[0]?.overlay?.isInterested).toBeUndefined();
     expect(postings[0]?.skills[0]?.overlay?.isSelected).toBeUndefined();
+  });
+});
+
+describe('Task9 approved bank enrichment', () => {
+  it('preserves supporting links on covered book and posting skills', () => {
+    const banks = task9Banks();
+    render(<BookSkillBank books={adaptTeacherBookSkillBanks(banks.book_skill_banks)} />);
+    fireEvent.click(screen.getByText('Chapter 1: Foundations'));
+    expect(screen.getByRole('link', {name: /Supporting job posting/i})).toHaveAttribute('href', postingUrl);
+  });
+
+  it('joins a same-label teacher overlay by reference and reference peer count', () => {
+    const banks = task9Banks();
+    const posting = {...banks.market_skill_bank[0]!, skills: banks.market_skill_bank[0]!.skills.slice(0, 2).map((skill) => ({...skill, status: 'covered', priority: null, demand_pct: null}))};
+    const detail = {...overlayDetail, skill_banks: {...overlayDetail.skill_banks,
+      selected_skill_reference_ids: [referenceB], peer_selection_counts_by_reference: {[referenceA]: 2, [referenceB]: 5},
+      market_skill_bank: [{...posting, skills: posting.skills.map((skill) => ({...skill, is_selected: skill.skill_reference_id === referenceB}))}],
+    }};
+    const rows = adaptTeacherMarketSkillBankWithOverlay([posting], detail)[0]!.skills;
+    expect(rows.map((skill) => skill.overlay)).toEqual([{isSelected: false, peerCount: 2}, {isSelected: true, peerCount: 5}]);
+    render(<MarketSkillBank jobPostings={adaptTeacherMarketSkillBankWithOverlay([posting], detail)} />);
+    expect(screen.getAllByRole('link', {name: /Supporting job posting/i})).toHaveLength(2);
   });
 });
