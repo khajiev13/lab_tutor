@@ -12,6 +12,11 @@ from app.core.database import SessionLocal
 from app.modules.occupation_reference.repository import OccupationReferenceRepository
 from app.modules.occupation_reference.service import OccupationReferenceService
 
+from .associations import (
+    enrich_observations,
+    map_associations,
+    normalized_competency,
+)
 from .countries import normalize_job_search_country
 from .evidence import (
     calculate_job_metrics,
@@ -20,7 +25,7 @@ from .evidence import (
     reference_fingerprint,
 )
 from .job_sources import get_job_source_service
-from .repository import MarketReviewRepository
+from .repository import MarketReviewRepository, RevisionConflict
 from .schemas import SourceOutcome
 
 
@@ -328,8 +333,11 @@ class MarketSourceService:
             if (
                 snapshot is None
                 or snapshot.run_id != run.id
+                or "jobs" not in run.config.get("evidence_sources", ["jobs"])
                 or snapshot.purged_at
+                or snapshot.status == "archived"
                 or snapshot.provider not in run.config.get("sources", [])
+                or ref.get("provider") != snapshot.provider
                 or ref.get("original_url") != snapshot.original_url
             ):
                 continue
@@ -366,6 +374,7 @@ class MarketSourceService:
                     run.candidate_manifest = manifest
         return {
             **deepcopy(item),
+            "onet_associations": [],
             "evidence_references": refs,
             "supporting_identities": list(dict.fromkeys(identities)),
         }
@@ -398,6 +407,36 @@ class MarketSourceService:
     def save_extraction(
         self, config: dict, observations: list[dict], assessments: list[dict]
     ) -> dict:
+        # Prepare detached, validated inputs; no SQL session spans external work.
+        with self._sessions() as db:
+            repo = MarketReviewRepository(db)
+            run = repo.get_run(
+                UUID(config["run_id"]), config["course_id"], config["teacher_id"]
+            )
+            if run is None:
+                raise LookupError("Analysis run not found")
+            authoritative = {
+                **deepcopy(run.config),
+                "run_id": str(run.id),
+                "course_id": run.course_id,
+                "teacher_id": run.teacher_id,
+            }
+            prepared_config = deepcopy(run.config)
+            use_onet = "onet" in run.config.get("evidence_sources", ["jobs"])
+            if use_onet:
+                self._require_active_run(repo, run)
+            revisions = (run.candidate_revision, run.selection_revision)
+            prepared = [
+                self._validated_observation(repo, run, item) for item in observations
+            ]
+            prepared = [item for item in prepared if item["evidence_references"]]
+        rows, outcome = self._onet(authoritative) if use_onet else ([], {})
+        decisions, association_coverage = (
+            map_associations(prepared, rows) if use_onet else ([], None)
+        )
+        if use_onet and outcome.get("status") == "error":
+            association_coverage["status"] = "partial"
+            association_coverage["warnings"].extend(outcome["warnings"])
         with self._sessions() as db:
             repo = MarketReviewRepository(db)
             repo.lock_vacancy_lifecycle()
@@ -409,10 +448,71 @@ class MarketSourceService:
             )
             if run is None:
                 raise LookupError("Analysis run not found")
+            if (
+                run.config != prepared_config
+                or (run.candidate_revision, run.selection_revision) != revisions
+            ):
+                raise RevisionConflict(
+                    "Analysis changed during source association; retry extraction"
+                )
+            if use_onet:
+                self._require_active_run(repo, run)
+            if use_onet and outcome.get("status") != "error":
+                # Immutable catalog lookup is SQL-only and selected configuration
+                # is still authoritative. Never trust model-returned source rows.
+                current = OccupationReferenceService(
+                    OccupationReferenceRepository(db)
+                ).get_skill_evidence(
+                    run.course_id,
+                    run.teacher_id,
+                    run.config["onet_release"],
+                    [
+                        item["soc_code"]
+                        for item in run.config.get("selected_onet_occupations", [])
+                    ],
+                )
+                current_rows = [
+                    item.model_dump(mode="json")
+                    if hasattr(item, "model_dump")
+                    else deepcopy(item)
+                    for item in current
+                ]
+                if sorted(rows, key=lambda row: row["id"]) != sorted(
+                    current_rows, key=lambda row: row["id"]
+                ):
+                    raise RevisionConflict(
+                        "Selected O*NET evidence changed; retry extraction"
+                    )
             validated = [
                 self._validated_observation(repo, run, item, trusted_extraction=True)
-                for item in observations
+                for item in prepared
             ]
+            # Keep the prepared indexes until the mapping has been applied.
+            unchanged_indexes = {
+                index
+                for index, (current, original) in enumerate(
+                    zip(validated, prepared, strict=True)
+                )
+                if current["evidence_references"] == original["evidence_references"]
+            }
+            if use_onet:
+                validated = enrich_observations(
+                    validated,
+                    rows,
+                    [
+                        decision
+                        for decision in decisions
+                        if decision["observation_index"] in unchanged_indexes
+                    ],
+                )
+            if use_onet and any(
+                current["evidence_references"] != original["evidence_references"]
+                for current, original in zip(validated, prepared, strict=True)
+            ):
+                association_coverage["status"] = "partial"
+                association_coverage["warnings"].append(
+                    "Posting content changed or was removed during O*NET association; invalidated references were discarded."
+                )
             validated = [item for item in validated if item["evidence_references"]]
             selected = {a["demand_identity"] for a in assessments}
             assessed = {
@@ -441,16 +541,48 @@ class MarketSourceService:
                 "acknowledged": False,
                 "assessments": deepcopy(assessments),
             }
+            if association_coverage is not None:
+                coverage["association_coverage"] = association_coverage
+                coverage["warnings"] = sorted(
+                    set(coverage["warnings"] + association_coverage["warnings"])
+                )
+                if association_coverage["status"] != "full" and status == "full":
+                    coverage["status"] = status = "partial"
             previous = deepcopy(run.candidate_manifest)
             previous.update(
                 selected_candidate_ids=run.selected_candidate_ids,
                 excluded_candidate_ids=run.excluded_candidate_ids,
             )
-            references = [
-                self._observation(c)
-                for c in previous.get("candidates", [])
-                if c.get("onet_associations") and not c.get("evidence_references")
-            ]
+            references = onet_candidates(rows) if use_onet else []
+            for reference in references:
+                matching = []
+                for item in validated:
+                    matching.extend(
+                        ref
+                        for ref in item["evidence_references"]
+                        if (
+                            (
+                                ref["evidence_kind"] == "extracted_text"
+                                and normalized_competency(item["name"])
+                                == normalized_competency(reference["name"])
+                            )
+                            or (
+                                ref["evidence_kind"] == "provider_tag"
+                                and normalized_competency(ref["original_phrase"])
+                                == normalized_competency(reference["name"])
+                            )
+                        )
+                    )
+                if not matching:
+                    continue
+                checked = self._validated_observation(
+                    repo,
+                    run,
+                    {**reference, "evidence_references": matching},
+                    trusted_extraction=True,
+                )
+                reference["evidence_references"] = checked["evidence_references"]
+                reference["supporting_identities"] = checked["supporting_identities"]
             manifest = reconcile_candidates(validated + references, previous)
             for c in manifest["candidates"]:
                 c["job_metrics"] = calculate_job_metrics(
@@ -467,6 +599,14 @@ class MarketSourceService:
                 "candidate_revision": run.candidate_revision,
                 "extraction_coverage": coverage,
             }
+
+    @staticmethod
+    def _require_active_run(repo, run) -> None:
+        snapshot = repo.load_active_snapshot(
+            f"mda-{run.teacher_id}-course-{run.course_id}"
+        )
+        if not snapshot or snapshot.get("run_id") != str(run.id):
+            raise RevisionConflict("Review must belong to the active analysis")
 
 
 def get_market_source_service() -> MarketSourceService:

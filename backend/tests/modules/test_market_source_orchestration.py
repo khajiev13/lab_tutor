@@ -219,18 +219,33 @@ def test_chat_applies_and_locks_explicit_sources(
         assert run.config["sources"] == ["linkedin"]
 
 
-def test_model_cannot_publish_new_run_before_teacher_final_approval():
+def test_model_cannot_publish_new_run_before_teacher_final_approval(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+    from app.modules.marketdemandanalyst.review_service import SkillReviewService
     from app.modules.marketdemandanalyst.tools import insert_market_skills_to_neo4j
 
+    course, run = owned_run(db_session, client, teacher_auth_headers)
+    repo = MarketReviewRepository(db_session)
+    repo.save_configuration_snapshot(
+        SkillReviewService.thread_id(course["id"], course["teacher_id"]),
+        {"run_id": str(run.id)},
+    )
+    db_session.commit()
     with bind_tool_store(
         {
-            "run_id": str(UUID(int=1)),
+            "run_id": str(run.id),
             "selected_for_insertion": [{"name": "Programming"}],
-            "course_id": 1,
+            "course_id": course["id"],
+            "teacher_id": course["teacher_id"],
         }
     ):
         result = insert_market_skills_to_neo4j.invoke({})
     assert "approval" in result.lower()
+    db_session.refresh(run)
+    assert run.publication_revision == 0
+    assert run.approved_references == []
 
 
 def test_purge_refetch_never_sends_erased_content_to_extraction(
@@ -574,25 +589,33 @@ def test_partial_extraction_can_retry_without_acknowledging_failed_extraction(
     assert isinstance(result, Command) and result.goto == "skill_extractor"
 
 
-def test_id_pass_through_mapping_retains_exact_candidate_evidence(monkeypatch):
+def test_id_pass_through_mapping_retains_exact_candidate_evidence(
+    db_session, client, teacher_auth_headers, monkeypatch
+):
     import json
 
-    from app.modules.marketdemandanalyst import tools
+    from sqlalchemy.orm import Session
 
-    candidate = {
-        "candidate_id": "00000000-0000-0000-0000-000000000001",
-        "name": "Explain results",
-        "category": "communication",
-        "evidence_references": [{"snapshot_id": "one"}],
-        "onet_associations": [],
-    }
+    from app.modules.marketdemandanalyst import tools
+    from tests.market_skill_fixtures import seed_review
+
+    course, _, candidates, service, revision = seed_review(
+        db_session, client, teacher_auth_headers, labels=("Explain results",)
+    )
+    candidate = candidates[0]
+    monkeypatch.setattr(
+        tools, "SessionLocal", lambda: Session(bind=db_session.get_bind())
+    )
+    fields = service.load_confirmed_selection(
+        course["id"], course["teacher_id"], revision
+    )
     state = {
-        "run_id": "00000000-0000-0000-0000-000000000002",
-        "curated_skills": [candidate],
-        "extracted_skills": [candidate],
+        **fields,
+        "course_id": course["id"],
+        "teacher_id": course["teacher_id"],
     }
     with bind_tool_store(state):
-        tools.save_curriculum_mapping.invoke(
+        result = tools.save_curriculum_mapping.invoke(
             {
                 "mapping_json": json.dumps(
                     [
@@ -600,15 +623,17 @@ def test_id_pass_through_mapping_retains_exact_candidate_evidence(monkeypatch):
                             "candidate_id": candidate["candidate_id"],
                             "name": "Explain results",
                             "status": "covered",
-                            "category": "communication",
+                            "category": candidate["category_id"],
                         }
                     ]
                 )
             }
         )
-    assert state["curriculum_mapping"][0]["evidence_references"] == [
-        {"snapshot_id": "one"}
-    ]
+    assert "Saved" in result
+    assert (
+        state["curriculum_mapping"][0]["evidence_references"]
+        == candidate["evidence_references"]
+    )
     assert state["curriculum_mapping"][0]["candidate_id"] == candidate["candidate_id"]
 
 
