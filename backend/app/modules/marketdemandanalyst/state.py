@@ -70,6 +70,9 @@ def bind_tool_store(state: dict, *, tool_tasks: set[asyncio.Task] | None = None)
 
 # Keys we track for persistence and state_update SSE events
 STATE_KEYS: list[str] = [
+    "teacher_id",
+    "extraction_coverage",
+    "onet_evidence",
     "sources",
     "evidence_sources",
     "onet_release",

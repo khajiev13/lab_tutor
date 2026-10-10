@@ -11,6 +11,8 @@ import logging
 import operator
 import os
 from collections import Counter
+from hashlib import sha256
+from threading import BoundedSemaphore
 from typing import Annotated, TypedDict
 
 from langchain_openai import ChatOpenAI
@@ -18,6 +20,7 @@ from langgraph.constants import START
 from langgraph.graph import StateGraph
 from langgraph.types import Command, Send
 
+from .evidence import make_extraction_chunks, validated_passage
 from .state import owned_sync_execution, tool_store
 
 logger = logging.getLogger(__name__)
@@ -28,6 +31,7 @@ logger = logging.getLogger(__name__)
 class ExtractorState(TypedDict):
     job: dict  # single job dict (populated by Send for each fan-out)
     skills: Annotated[list[dict], operator.add]  # reducer: accumulates across branches
+    assessments: Annotated[list[dict], operator.add]
 
 
 # ── LLM factory ─────────────────────────────────────────────────
@@ -103,6 +107,8 @@ Return ONLY a valid JSON array, nothing else."""
 def extract_one(state: ExtractorState) -> dict:
     """Extract skills from a single job listing via LLM."""
     job = state["job"]
+    if tool_store.get("run_id"):
+        return _extract_evidenced_job(job)
     title = job.get("title", "N/A")
     company = job.get("company", "N/A")
     description = job.get("description", "")[:4000]
@@ -138,12 +144,164 @@ def extract_one(state: ExtractorState) -> dict:
     return {"skills": []}
 
 
+# Bound active model calls across all runs; per-posting chunks remain sequential.
+_EXTRACTION_SLOTS = BoundedSemaphore(8)
+_EVIDENCE_PROMPT = """Extract explicit teachable competencies from this vacancy passage.
+Use an action verb and task for the name. Include teachable communication/social
+competencies when explicitly supported (explaining results, negotiation, mentoring).
+Exclude vague personality traits and unsupported assumptions. Return a JSON array:
+[{{"name":"Explain technical results", "category":"communication",
+"original_phrase":"explain results", "excerpt":"explain results to stakeholders",
+"evidence_kind":"extracted_text"}}]
+The original_phrase and excerpt MUST be exact substrings of the provided cleaned
+passage. For an explicit provider tag, return evidence_kind="provider_tag" and the
+exact tag as original_phrase. Do not invent ratings or frequency counts.
+Title: {title}
+Provider tags: {tags}
+Passage (offset {offset}):
+{passage}
+"""
+
+
+def _extract_evidenced_job(job: dict) -> dict:
+    text = job.get("description") or ""
+    chunks = make_extraction_chunks(text)
+    observations, warnings = [], []
+    assessed = 0
+    llm = _get_extraction_llm(timeout_seconds=90)
+    for chunk in chunks:
+        try:
+            prompt = _EVIDENCE_PROMPT.format(
+                title=job.get("title", ""),
+                tags=json.dumps(job.get("skill_tags", [])),
+                offset=chunk["start"],
+                passage=chunk["text"],
+            )
+            with _EXTRACTION_SLOTS:
+                response = llm.invoke(prompt, config={"callbacks": []})
+            content = str(response.content).strip()
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+            rows = json.loads(content)
+            if not isinstance(rows, list) or any(
+                not isinstance(row, dict) for row in rows
+            ):
+                raise ValueError("Invalid extraction shape")
+            assessed += 1
+            for row in rows:
+                name = row.get("name")
+                phrase = row.get("original_phrase")
+                if (
+                    not isinstance(name, str)
+                    or not name.strip()
+                    or not isinstance(phrase, str)
+                    or not phrase.strip()
+                ):
+                    continue
+                kind = row.get("evidence_kind", "extracted_text")
+                if kind == "provider_tag" and phrase in job.get("skill_tags", []):
+                    passage = {
+                        "excerpt": None,
+                        "excerpt_start": None,
+                        "excerpt_end": None,
+                    }
+                elif kind == "extracted_text":
+                    passage = validated_passage(
+                        text, row.get("excerpt"), chunk["start"]
+                    )
+                    if (
+                        passage is None
+                        or passage["excerpt_end"] > chunk["end"]
+                        or phrase not in passage["excerpt"]
+                    ):
+                        continue
+                else:
+                    continue
+                ref = {
+                    "snapshot_id": job["snapshot_id"],
+                    "provider": job.get("site"),
+                    "original_url": job.get("url", ""),
+                    "original_phrase": phrase,
+                    "evidence_kind": kind,
+                    **passage,
+                    "retrieved_at": job.get("retrieved_at"),
+                    "status": job.get("status"),
+                }
+                category = row.get("category") or "unknown"
+                observations.append(
+                    {
+                        "name": name.strip(),
+                        "category": category,
+                        "identity_key": "jobs:"
+                        + sha256(
+                            json.dumps(
+                                [
+                                    category,
+                                    name.strip().casefold(),
+                                    phrase.strip().casefold(),
+                                    (passage["excerpt"] or "").casefold(),
+                                ],
+                                ensure_ascii=False,
+                            ).encode()
+                        ).hexdigest(),
+                        "supporting_identities": [job["demand_identity"]],
+                        "evidence_references": [ref],
+                    }
+                )
+        except Exception:
+            warnings.append(
+                f"Posting {job.get('snapshot_id')}: chunk {chunk['start']}:{chunk['end']} failed; retry or acknowledge partial coverage."
+            )
+    uncovered = chunks[-1]["uncovered_chars"] if chunks else len(text)
+    if uncovered:
+        warnings.append(
+            f"Posting {job.get('snapshot_id')}: {uncovered} trailing characters were not assessed (16-chunk limit)."
+        )
+    status = (
+        "full"
+        if chunks and assessed == len(chunks) and not uncovered
+        else "partial"
+        if assessed
+        else "failed"
+    )
+    return {
+        "skills": observations,
+        "assessments": [
+            {
+                "snapshot_id": job.get("snapshot_id"),
+                "demand_identity": job.get("demand_identity"),
+                "status": status,
+                "total_chunks": len(chunks),
+                "assessed_chunks": assessed,
+                "uncovered_chars": uncovered,
+                "warnings": warnings,
+            }
+        ],
+    }
+
+
 # ── Conditional edge: fan-out one Send per job ──────────────────
 
 
 def fan_out(state: ExtractorState) -> list[Send]:
     """Read selected jobs from tool_store and fan out one Send per job."""
     jobs = tool_store.get("selected_jobs", [])
+    if tool_store.get("run_id"):
+        from .service import get_market_source_service
+
+        jobs, skipped = get_market_source_service().prepare_extraction_jobs(
+            dict(tool_store), jobs
+        )
+        tool_store["selected_jobs"] = jobs
+        tool_store["_skipped_extraction_assessments"] = skipped
+        unavailable_ids = {a["snapshot_id"] for a in skipped}
+        tool_store["fetched_jobs"] = [
+            j
+            for j in tool_store.get("fetched_jobs", [])
+            if j.get("snapshot_id") not in unavailable_ids
+        ]
+        if not jobs:
+            return [Send("synthesize_skills", {"skills": [], "assessments": []})]
     if not jobs:
         logger.warning("fan_out: no selected_jobs in tool_store")
         return []
@@ -156,6 +314,13 @@ def fan_out(state: ExtractorState) -> list[Send]:
 
 def synthesize_skills(state: ExtractorState) -> dict:
     """Deduplicate, count frequency, store in tool_store. Routes to merge_similar_skills."""
+    if tool_store.get("run_id"):
+        tool_store["_evidence_observations"] = state.get("skills", [])
+        tool_store["_extraction_assessments"] = [
+            *state.get("assessments", []),
+            *tool_store.get("_skipped_extraction_assessments", []),
+        ]
+        return {"skills": []}
     all_skills: list[dict] = state.get("skills", [])
     total_jobs = len(tool_store.get("selected_jobs", []))
 
@@ -267,6 +432,10 @@ def merge_similar_skills(state: ExtractorState) -> dict:
     Clusters similar skills, picks canonical names, sums frequencies.
     Stores result in tool_store for the next node (normalize_skills_by_embedding).
     """
+    if tool_store.get("run_id"):
+        # Evidence identities preserve distinct competencies; semantic grouping is
+        # a teacher-reviewed proposal, never an automatic transfer of eligibility.
+        return {"skills": []}
     raw_skills = tool_store.get("_raw_extracted_skills", [])
     raw_urls: dict[str, list[str]] = tool_store.get("_raw_skill_urls", {})
     total_jobs = tool_store.get("total_jobs_for_extraction", 1)
@@ -475,6 +644,41 @@ def normalize_skills_by_embedding(state: ExtractorState) -> Command:
     This catches near-duplicates the LLM merge missed, like:
     - "Query and analyze data using SQL"  vs  "Query and manipulate data using SQL"
     """
+    if tool_store.get("run_id"):
+        from .service import get_market_source_service
+
+        service = get_market_source_service()
+        config = service.load_config(dict(tool_store))
+        result = service.save_extraction(
+            config,
+            tool_store.get("_evidence_observations", []),
+            tool_store.get("_extraction_assessments", []),
+        )
+        skills = [
+            {
+                **c,
+                "name": c["display_name"],
+                "category": c["category_id"],
+                "frequency": c["job_metrics"]["supporting_posting_count"],
+                "pct": c["job_metrics"]["percentage"],
+            }
+            for c in result["candidates"]
+        ]
+        tool_store["extracted_skills"] = skills
+        tool_store["candidate_revision"] = result["candidate_revision"]
+        tool_store["extraction_coverage"] = result["extraction_coverage"]
+        tool_store["total_jobs_for_extraction"] = result["extraction_coverage"][
+            "assessed_postings"
+        ]
+        tool_store["skill_job_urls"] = {
+            c["candidate_id"]: c["qualifying_posting_links"] for c in skills
+        }
+        return Command(
+            goto="skill_finder",
+            graph=Command.PARENT,
+            update={"active_agent": "skill_finder"},
+        )
+
     import time as _time
 
     t0 = _time.perf_counter()
@@ -602,7 +806,9 @@ _builder.add_node("merge_similar_skills", owned_sync_execution(merge_similar_ski
 _builder.add_node(
     "normalize_skills_by_embedding", owned_sync_execution(normalize_skills_by_embedding)
 )
-_builder.add_conditional_edges(START, fan_out, ["extract_one"])
+_builder.add_conditional_edges(
+    START, owned_sync_execution(fan_out), ["extract_one", "synthesize_skills"]
+)
 _builder.add_edge("extract_one", "synthesize_skills")
 _builder.add_edge("synthesize_skills", "merge_similar_skills")
 _builder.add_edge("merge_similar_skills", "normalize_skills_by_embedding")

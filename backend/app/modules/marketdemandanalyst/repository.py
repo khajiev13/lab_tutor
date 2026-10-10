@@ -40,6 +40,21 @@ class MarketReviewRepository:
         self._db.flush()
         return run
 
+    def update_configuration(self, run: MarketAnalysisRun, config: dict) -> None:
+        run.config = deepcopy(config)
+        self._db.flush()
+
+    def save_configuration_snapshot(self, thread_id: str, snapshot: dict) -> None:
+        """Save the active run pointer/state in the configuration transaction."""
+        self._db.execute(
+            insert(MDAThreadState)
+            .values(thread_id=thread_id, state_json=deepcopy(snapshot))
+            .on_conflict_do_update(
+                index_elements=["thread_id"],
+                set_={"state_json": deepcopy(snapshot), "updated_at": func.now()},
+            )
+        )
+
     def get_run(
         self, run_id: UUID, course_id: int, teacher_id: int, *, for_update: bool = False
     ) -> MarketAnalysisRun | None:

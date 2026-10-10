@@ -34,12 +34,17 @@ from app.modules.curricularalignmentarchitect.skill_prerequisites.review_reposit
 from app.modules.curricularalignmentarchitect.skill_prerequisites.service import (
     schedule_skill_prerequisite_rebuild as schedule_prerequisite_rebuild,
 )
+from app.modules.occupation_reference.service import (
+    OccupationReferenceService,
+    get_occupation_reference_service,
+)
 
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .graph import get_graph
 from .job_sources import JobSourceService, get_job_source_service
 from .repository import MarketReviewRepository, load_async_thread_state
 from .schemas import EvidenceSource, JobSource, JobSourceOption, VacancyEvidence
+from .service import MarketConfigurationService
 from .state import (
     STATE_KEYS,
     bind_tool_store,
@@ -75,6 +80,14 @@ def get_market_review_repository(
     db: Session = Depends(get_db),
 ) -> MarketReviewRepository:
     return MarketReviewRepository(db)
+
+
+def get_market_configuration_service(
+    repository: MarketReviewRepository = Depends(get_market_review_repository),
+    jobs: JobSourceService = Depends(get_job_source_service),
+    occupations: OccupationReferenceService = Depends(get_occupation_reference_service),
+) -> MarketConfigurationService:
+    return MarketConfigurationService(repository, jobs, occupations)
 
 
 def _sse(event: str, data: dict) -> str:
@@ -181,7 +194,7 @@ def _seed_course_context(
     tool_store["course_description"] = course.description or ""
     # Preserve existing search settings if already set (don't overwrite mid-session).
     if "job_search_country" not in tool_store:
-        tool_store["job_search_country"] = selected_country.jobspy_country
+        tool_store["job_search_country"] = selected_country.key
     if "job_search_location" not in tool_store:
         tool_store["job_search_location"] = selected_country.location
     if "job_search_country_confirmed" not in tool_store:
@@ -199,7 +212,7 @@ def _restore_thread_state(
     requested_country = country.strip() if isinstance(country, str) else None
     if requested_country and not has_fetched_jobs:
         selected_country = normalize_job_search_country(requested_country)
-        tool_store["job_search_country"] = selected_country.jobspy_country
+        tool_store["job_search_country"] = selected_country.key
         tool_store["job_search_location"] = selected_country.location
         tool_store["job_search_country_confirmed"] = True
     elif not has_fetched_jobs:
@@ -209,7 +222,7 @@ def _restore_thread_state(
             or DEFAULT_JOB_SEARCH_COUNTRY
         )
         selected_country = normalize_job_search_country(raw_country)
-        tool_store["job_search_country"] = selected_country.jobspy_country
+        tool_store["job_search_country"] = selected_country.key
         tool_store["job_search_location"] = selected_country.location
         tool_store.setdefault("job_search_country_confirmed", False)
     elif "job_search_country" not in tool_store and "job_search_location" in tool_store:
@@ -718,7 +731,9 @@ async def market_demand_chat(
     teacher: TeacherDep,
     db: Session = Depends(get_db),
     state_service: ThreadStateService = Depends(get_thread_state_service),
-    review_repository: MarketReviewRepository = Depends(get_market_review_repository),
+    configuration_service: MarketConfigurationService = Depends(
+        get_market_configuration_service
+    ),
 ) -> StreamingResponse:
     """Stream a Market Demand Agent conversation turn.
 
@@ -750,33 +765,34 @@ async def market_demand_chat(
     except ThreadBusy as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     try:
-        # Load persisted state and graph concurrently (both hit PostgreSQL)
+        # Restore and validate durable configuration before graph work.
         t0 = time.perf_counter()
-        persisted, (graph, _llm) = await asyncio.gather(
-            _load_persisted_state(thread_id),
-            get_graph(),
-        )
+        persisted = await _load_persisted_state(thread_id)
         parallel_ms = (time.perf_counter() - t0) * 1000
-        logger.info("[PERF] Parallel state+graph load took %.1fms", parallel_ms)
+        logger.info("[PERF] Persisted state load took %.1fms", parallel_ms)
 
         bound_state: dict = {}
         with bind_tool_store(bound_state):
             _restore_thread_state(persisted, course, requested_country)
-        if not bound_state.get("run_id"):
-            run = review_repository.create_run(
-                course.id,
-                teacher.id,
-                {
-                    "country": bound_state.get("job_search_country"),
-                    "sources": bound_state.get("sources") or ["indeed", "linkedin"],
-                    "evidence_sources": bound_state.get("evidence_sources") or ["jobs"],
-                    "onet_release": bound_state.get("onet_release"),
-                },
+        try:
+            configuration_service.configure(
+                course.id, teacher.id, bound_state, body.model_dump(exclude_unset=True)
             )
+            configuration_service.save_snapshot(thread_id, snapshot_state(bound_state))
             db.commit()
-            bound_state["run_id"] = str(run.id)
-            bound_state["candidate_revision"] = 0
-        await state_service.save(lease, snapshot_state(bound_state))
+        except LookupError as exc:
+            db.rollback()
+            raise HTTPException(404, str(exc)) from exc
+        except ValueError as exc:
+            db.rollback()
+            raise HTTPException(
+                409 if "new analysis" in str(exc) or "locked" in str(exc) else 422,
+                str(exc),
+            ) from exc
+        except BaseException:
+            db.rollback()
+            raise
+        graph, _llm = await get_graph()
 
         config = {"configurable": {"thread_id": thread_id}}
         input_data = {

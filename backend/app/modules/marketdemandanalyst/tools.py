@@ -12,6 +12,7 @@ from langgraph.types import Command
 
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .extractor import _get_extraction_llm
+from .service import get_market_source_service
 from .state import mapping_breakdown, owned_sync_execution, tool_store
 
 logger = logging.getLogger(__name__)
@@ -194,6 +195,11 @@ def _fetch_existing_chapter_skill_rows(
 def set_job_search_country(country: str) -> str:
     """Set the teacher-confirmed country for job crawling before fetching jobs."""
     selected_country = normalize_job_search_country(country)
+    if (
+        tool_store.get("run_id")
+        and str(tool_store.get("job_search_country")) != selected_country.key
+    ):
+        return "Change the source configuration before collection or start a new analysis to change the market."
     existing_jobs = tool_store.get("fetched_jobs")
     existing_country = str(tool_store.get("job_search_country", "")).strip()
 
@@ -225,11 +231,18 @@ def fetch_jobs(
     IMPORTANT: Always use ONE call with all search terms. Never call this tool multiple times."""
 
     explicit_country = country.strip() or location.strip()
+    if tool_store.get("run_id") and "jobs" not in tool_store.get(
+        "evidence_sources", ["jobs"]
+    ):
+        return _fetch_selected_sources(search_terms, explicit_country, results_per_site)
     if not explicit_country and not tool_store.get("job_search_country_confirmed"):
         return (
             "Select a job market country before fetching jobs. "
             "Ask the teacher to choose a country, then call set_job_search_country."
         )
+
+    if tool_store.get("run_id"):
+        return _fetch_selected_sources(search_terms, explicit_country, results_per_site)
 
     from jobspy import scrape_jobs
 
@@ -374,6 +387,78 @@ def fetch_jobs(
     return "\n".join(lines)
 
 
+def _fetch_selected_sources(search_terms: str, explicit_country: str, cap: int) -> str:
+    service = get_market_source_service()
+    try:
+        config = service.load_config(dict(tool_store))
+        if (
+            explicit_country
+            and normalize_job_search_country(explicit_country).key != config["country"]
+        ):
+            return "Start a new analysis to change the configured market."
+        result = service.collect_sources(
+            config,
+            [term.strip() for term in search_terms.split(",") if term.strip()],
+            results_per_source=cap,
+        )
+    except (ValueError, LookupError) as exc:
+        return str(exc)
+    jobs = result["jobs"]
+    tool_store["fetched_jobs"] = jobs
+    tool_store["selected_jobs"] = []
+    tool_store["source_outcomes"] = result["source_outcomes"]
+    tool_store["candidate_revision"] = result["candidate_revision"]
+    tool_store["onet_evidence"] = result["onet_evidence"]
+    if result["candidates"]:
+        tool_store["extracted_skills"] = [
+            {**c, "name": c["display_name"], "category": c["category_id"]}
+            for c in result["candidates"]
+        ]
+    groups = {}
+    for i, job in enumerate(jobs):
+        title = (
+            re.sub(
+                r"^(senior|sr\.?|junior|jr\.?|lead|principal|staff)\s+",
+                "",
+                job["title"],
+                flags=re.IGNORECASE,
+            )
+            .strip()
+            .title()
+        )
+        groups.setdefault(title, []).append(i)
+    tool_store["job_groups"] = dict(
+        sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
+    )
+    statuses = "; ".join(
+        f"{source}: {outcome['status']} ({outcome['received_count']} received, {outcome['usable_count']} usable)"
+        for source, outcome in result["source_outcomes"].items()
+    )
+    lines = [
+        f"Selected evidence sources: {statuses}",
+        f"Fetched {len(jobs)} extraction-eligible jobs.",
+    ]
+    lines.extend(
+        f"[{i}] {name} ({len(indices)} jobs)"
+        for i, (name, indices) in enumerate(tool_store["job_groups"].items(), 1)
+    )
+    if any(
+        o["status"] in {"partial", "error"} for o in result["source_outcomes"].values()
+    ):
+        lines.append(
+            "Retry or use Continue with available evidence before advancing. Supporting postings remain required for publication."
+        )
+    if "jobs" not in config["evidence_sources"]:
+        lines.append(
+            "O*NET draft references need supporting job postings. Start a new analysis with explicitly selected job providers to collect support."
+        )
+    elif jobs:
+        lines.append(
+            "Ask the teacher which job groups to select before extracting vacancies."
+        )
+    return "\n".join(lines)
+
+
 @tool
 def save_skills_for_insertion(skills_json: str) -> str:
     """Save a list of skills the teacher approved for future insertion into the knowledge graph.
@@ -422,6 +507,11 @@ def select_jobs_by_group(group_names: str) -> str:
     Accepts group names, numbers, or "all" intents (comma-separated).
     Examples: "1, 2, 5", "Bioinformatics, Genetics", or "all".
     """
+    if tool_store.get("run_id"):
+        try:
+            get_market_source_service().require_available_evidence(dict(tool_store))
+        except (ValueError, LookupError) as exc:
+            return str(exc)
     groups = tool_store.get("job_groups", {})
     jobs = tool_store.get("fetched_jobs", [])
     if not groups:
@@ -509,13 +599,20 @@ def start_extraction() -> Command | str:
     control back to Skill Finder for teacher skill selection."""
     # Guard: if extraction already ran, do NOT re-run.
     existing = tool_store.get("extracted_skills", [])
-    if existing:
+    if existing and not tool_store.get("run_id"):
         count = len(existing)
         return (
             f"⚠️ Extraction already complete: {count} merged skills are ready. "
             "Call get_skills_by_category to review them. "
             "Do NOT call select_jobs_by_group or start_extraction again."
         )
+    if tool_store.get("run_id"):
+        try:
+            get_market_source_service().require_available_evidence(
+                dict(tool_store), include_extraction=False
+            )
+        except (ValueError, LookupError) as exc:
+            return str(exc)
     jobs = tool_store.get("selected_jobs", [])
     if not jobs:
         return Command(
@@ -954,6 +1051,48 @@ def save_curriculum_mapping(mapping_json: str) -> str:
     if not curated:
         return "No curated skills found. Teacher must approve a skill selection first."
 
+    if tool_store.get("run_id"):
+        by_id = {str(c["candidate_id"]): c for c in curated}
+        by_name = {}
+        for c in curated:
+            by_name.setdefault(c["name"].casefold(), []).append(c)
+        resolved = []
+        for row in mapping:
+            if not isinstance(row, dict):
+                return "Each curriculum mapping entry must be an object."
+            candidate = (
+                by_id.get(str(row.get("candidate_id")))
+                if row.get("candidate_id")
+                else None
+            )
+            matches = by_name.get(str(row.get("name", "")).casefold(), [])
+            if candidate is None and len(matches) == 1:
+                candidate = matches[0]
+            if candidate is None:
+                return "Mapping needs a current candidate_id; ambiguous names cannot carry evidence."
+            resolved.append(
+                {
+                    **row,
+                    "candidate_id": candidate["candidate_id"],
+                    "name": candidate["name"],
+                    "evidence_references": candidate.get("evidence_references", []),
+                    "onet_associations": candidate.get("onet_associations", []),
+                    "job_metrics": candidate.get("job_metrics", {}),
+                    "qualifying_posting_links": candidate.get(
+                        "qualifying_posting_links", []
+                    ),
+                }
+            )
+        if len({r["candidate_id"] for r in resolved}) != len(resolved) or {
+            r["candidate_id"] for r in resolved
+        } != set(by_id):
+            return "Map every curated candidate_id exactly once."
+        tool_store["curriculum_mapping"] = resolved
+        # These remain proposals. Task6 validates verified targets and carries
+        # covered/merged bindings through Cleaner/Linker before final review.
+        tool_store["mapped_skills"] = _build_mapped_skills(resolved)
+        return f"Saved mapping proposals for {len(resolved)} candidates with evidence retained."
+
     # Auto-correct skill names: match each entry's name against the actual
     # extracted_skills list. The LLM sometimes simplifies names (e.g. writes
     # "SQL Querying and Analysis" instead of the canonical
@@ -1350,6 +1489,9 @@ def insert_market_skills_to_neo4j() -> str:
     Creates: MARKET_SKILL nodes with full provenance, JOB_POSTING provenance nodes,
     RELEVANT_TO_CHAPTER, SOURCED_FROM, and REQUIRES_CONCEPT relationships.
     New concepts are embedded and deduplicated against existing concepts."""
+    if tool_store.get("run_id"):
+        return "Final teacher integration approval through the review API is required before publication. Model tools cannot grant approval."
+
     from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
     skill_concepts = tool_store.get("skill_concepts")
@@ -1718,6 +1860,9 @@ def approve_skill_selection(selection_json: str) -> str:
             Or a JSON object with category-based selection:
             {"categories": ["cloud", "database"], "specific": ["Train ML models"], "top_n_per_category": 3}
     """
+    if tool_store.get("run_id"):
+        return "Use the skill review draft and teacher selection confirmation API. Agent advice cannot change saved selections or exclusions."
+
     try:
         selection = json.loads(selection_json)
     except json.JSONDecodeError as e:
@@ -2050,6 +2195,7 @@ def finalize_cleaned_skills() -> str:
         map_data = mapping_lookup.get(name.lower(), {})
         enriched.append(
             {
+                **skill_data,
                 "name": name,
                 "category": skill_data.get("category", "unknown"),
                 "target_chapter": map_data.get("target_chapter", ""),

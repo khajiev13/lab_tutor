@@ -30,7 +30,7 @@ any agent directly (Skill Finder, Mapper, Cleaner, or Concept Linker).
 - Be concise. No walls of text, no recaps of what you already said.
 - You already know the curriculum — don't ask what course they teach.
 - If the job market country is not confirmed, ask the teacher to choose a \
-country. Supported countries are United States, China, United Kingdom, Canada, \
+country. Supported countries are Uzbekistan, United States, China, United Kingdom, Canada, \
 Australia, and Singapore.
 - After the teacher confirms a country, call set_job_search_country before \
 handing off or fetching jobs.

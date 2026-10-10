@@ -18,7 +18,7 @@ from .prompts import (
     SKILL_FINDER_PROMPT,
     SUPERVISOR_PROMPT,
 )
-from .state import pipeline_summary
+from .state import pipeline_summary, tool_store
 from .tools import (
     CONCEPT_LINKER_TOOLS,
     CURRICULUM_MAPPER_TOOLS,
@@ -141,6 +141,30 @@ def _make_prompt(
             full_prompt += "\n\n# Current Course Context\n" + "\n".join(course_lines)
         if ctx:
             full_prompt += f"\n\n# Current Pipeline State\n{ctx}"
+        if tool_store.get("run_id"):
+            full_prompt += (
+                "\n\n# Durable source and review contract\n"
+                f"Evidence sources: {tool_store.get('evidence_sources', ['jobs'])}; "
+                f"job providers: {tool_store.get('sources', [])}. "
+                "Use only those providers; never add a fallback. O*NET references "
+                "are local lookup work in fetch_jobs, not an autonomous agent. "
+                "Require confirmed occupations before O*NET collection. "
+                "For O*NET-only analysis call fetch_jobs with empty search_terms "
+                "after occupation confirmation; skip job queries/group approval. "
+                "In mixed mode collect both sources, then await teacher job-group "
+                "approval before start_extraction. Reference candidates in state "
+                "do not mean vacancy extraction is complete. "
+                "Incomplete extraction may be retried with start_extraction. "
+                "Partial/error sources and partial extraction require the teacher "
+                "Continue with available evidence action before review advances. "
+                "Report assessed/selected sample counts and coverage separately "
+                "from O*NET ratings and recommendations. Teachable communication "
+                "and social competencies are valid when explicitly supported. "
+                "Use candidate IDs and preserve evidence during all handoffs. "
+                "Saved draft selection and final integration approval are teacher "
+                "API decisions. Model tools cannot grant final approval or publish. "
+                "O*NET-only candidates need supporting job postings before publication."
+            )
 
         # Trim to last N messages
         messages: list[BaseMessage] = list(state.get("messages", []))
