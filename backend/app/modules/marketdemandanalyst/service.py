@@ -277,7 +277,6 @@ class MarketSourceService:
                     outcomes[source]["warnings"].append(
                         f"{purged_counts[source]} posting(s) have unavailable retained content and were excluded from extraction."
                     )
-            run.source_outcomes = outcomes
             previous = deepcopy(run.candidate_manifest)
             previous.update(
                 selected_candidate_ids=run.selected_candidate_ids,
@@ -296,6 +295,7 @@ class MarketSourceService:
                         [], [], coverage_status="pending"
                     )
                 self._save_manifest(repo, run, manifest)
+            run.source_outcomes = outcomes
             run.extraction_coverage = {
                 "status": "pending",
                 "sample_limits": {

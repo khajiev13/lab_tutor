@@ -309,8 +309,9 @@ def test_purge_refetch_never_sends_erased_content_to_extraction(
     assert state["fetched_jobs"] == [] and state["selected_jobs"] == []
 
 
+@pytest.mark.parametrize("autoflush", [True, False])
 def test_mixed_sources_overlap_before_coordinator_commit(
-    db_session, client, teacher_auth_headers, monkeypatch
+    db_session, client, teacher_auth_headers, monkeypatch, autoflush
 ):
     from threading import Barrier
 
@@ -360,7 +361,7 @@ def test_mixed_sources_overlap_before_coordinator_commit(
     monkeypatch.setattr(OccupationReferenceService, "get_skill_evidence", lookup)
     svc = MarketSourceService(
         jobs=JobSourceService(jobspy_scraper=scrape),
-        session_factory=sessionmaker(bind=db_session.get_bind()),
+        session_factory=sessionmaker(bind=db_session.get_bind(), autoflush=autoflush),
     )
     result = svc.collect_sources(
         {
@@ -374,6 +375,16 @@ def test_mixed_sources_overlap_before_coordinator_commit(
     assert result["source_outcomes"]["linkedin"]["status"] == "success"
     assert result["source_outcomes"]["onet"]["status"] == "success"
     assert result["candidates"][0]["posting_support"] == "missing"
+
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+
+    with sessionmaker(bind=db_session.get_bind(), autoflush=False)() as readback:
+        stored = MarketReviewRepository(readback).get_run(
+            run.id, course["id"], course["teacher_id"]
+        )
+        assert stored is not None
+        assert stored.source_outcomes == result["source_outcomes"]
+        assert stored.candidate_revision == result["candidate_revision"]
 
 
 def test_source_failure_requires_exact_ack_and_never_waives_posting_support(
