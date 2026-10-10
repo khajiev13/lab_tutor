@@ -283,8 +283,9 @@ At execution, baseline the touched suites and report unrelated failures. Final s
 - [ ] Run the combined new backend suites serially plus affected existing MDA/curriculum/student/resource suites. Run all changed frontend feature tests, backend Ruff check/format-check and frontend lint/build. Separate unrelated WIP failures from this feature.
 - [x] Headless browser with a disposable teacher/course exercises: combined source selection; per-source failure and explicit continuation; category selection with one exclusion; agent proposal preserving it; evidence links and long-description access; an O*NET-only candidate blocking final approval until supported or explicitly removed; selection confirmation; covered/merged review; final approval; reload; a genuine supporting posting link on every published skill; student selection and resource recovery; withdrawal blocking only new selections. Verify actual persisted readback, not only displayed success text.
 - [x] Validate/import the pinned O*NET release inside Docker and activate only after complete manifest/attribution checks.
-- [ ] Resolve any source-retention requirements against the approved HeadHunter research use before unattended runs. Store the existing application token only in ignored protected local environment configuration and recreate the backend to load it; no token rotation and no contact with provider support without explicit instruction.
-- [ ] Fetch a small authenticated Uzbekistan sample through the implemented HeadHunter service and verify native ID, original URL, full description, metadata and provider selection. Source-fetch validation is separate from any live LLM/graph run; report exactly what was exercised.
+- [x] Store the existing application token only in ignored protected local environment configuration and recreate the backend to load it; no token rotation and no contact with provider support without explicit instruction.
+- [ ] Before any future unattended runs, resolve source-retention requirements against the approved HeadHunter research use.
+- [x] Fetch a small authenticated Uzbekistan sample through the implemented HeadHunter service and verify native ID, original URL, full description, metadata and provider selection. Source-fetch validation is separate from any live LLM/graph run; report exactly what was exercised.
 - [x] Exercise real parallel source start using barrier tests and record configured bounds. Demonstrate SQL approval survives a failed graph write and retry produces one set of references. Check approved evidence survives chat clear.
 - [x] Run a fresh whole-change review, resolve findings and rerun affected checks. Save desktop/mobile screenshots and an HTML handoff showing actual sources/coverage/limits. Commit only scoped work; do not merge, deploy or push without the corresponding task authorization.
 
@@ -309,9 +310,10 @@ The coordinator checked coverage, matching DTO names, six Review Focus cases and
 
 ## Execution status — 10 October 2026
 
-Tasks 1–9 are implemented and committed. Task 10 remains open for protected HeadHunter backend configuration and a
-direct live backend collection check; the grouped-suite timeout qualifications
-remain explicit in the verification record.
+Tasks 1–9 are implemented and committed. Local HeadHunter credential configuration
+and the direct live backend provider fetch were completed on 11 October. The
+grouped-suite timeout qualifications remain explicit in the verification record;
+future unattended operation still has a separate retention prerequisite.
 The controlled teacher-to-student workflow completed 11 browser scenarios with
 43 checks, three recovery checks and final PostgreSQL/graph readback. Official
 O*NET 31.0 was imported and activated in labtutor, independently confirmed as
@@ -327,3 +329,21 @@ fresh-checkpoint startup limitations remain in the HTML report. Primary result:
 output/headhunter-explorer/implementation-status.html.
 
 The final narrow CLI projection regression passed on retry (1 passed in 43.46s, child/Docker exit 0), keeping both original 90-second subprocess limits. This closes that individual timeout; it does not turn the interrupted grouped runs into a clean combined suite. Temporary test services, graph volume/network and the task-created source-regression database were removed. The five previously stopped O*NET containers were restored. Main O*NET data and the existing playground connection were preserved.
+
+## Local HeadHunter configuration — 11 October 2026
+
+User provided the existing application credentials and authorized local `.env`
+storage. The application token and existing playground User-Agent were written
+to ignored root `.env` with mode 0600; only the backend was recreated. Its actual
+source-service factory fetched two live Python vacancies in Uzbekistan (72-hour
+window, cap two), both usable and without provider warnings. IDs 138247416 and
+137836933 preserved their original URLs, full HTML (992 and 5511 characters),
+cleaned text, provider tags and raw payloads (60 and 59 fields). This was real
+network access, independent of the earlier captured-response replay. It did not
+run a live model/graph workflow. No Azure or GitHub secret changes were made.
+
+Both fetched records passed SQL repository save/readback with exact payload,
+HTML, URLs, native IDs and tags retained. An initial probe found no existing
+courses and rolled back before writing. The final probe created a disabled
+temporary teacher/course with explicit negative IDs inside one transaction,
+then rolled back all records and verified their absence from a fresh session.

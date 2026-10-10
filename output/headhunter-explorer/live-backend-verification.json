@@ -1,0 +1,63 @@
+{
+  "checked_at": "2026-10-10T23:09:56.142642+00:00",
+  "kind": "live backend provider fetch",
+  "selected_sources": [
+    "headhunter"
+  ],
+  "query": "Python",
+  "country": "Uzbekistan",
+  "hours_old": 72,
+  "cap": 2,
+  "configuration": {
+    "token_present": true,
+    "user_agent_present": true,
+    "catalog_availability": "available"
+  },
+  "outcome": {
+    "status": "success",
+    "received_count": 2,
+    "usable_count": 2,
+    "warnings": []
+  },
+  "records": [
+    {
+      "native_id": "138247416",
+      "title": "Cтажер отдела обработки данных",
+      "original_url": "https://hh.uz/vacancy/138247416?tech_source=api",
+      "original_html_characters": 992,
+      "clean_text_characters": 790,
+      "provider_skill_tags": [],
+      "raw_payload_fields": 60,
+      "status": "active"
+    },
+    {
+      "native_id": "137836933",
+      "title": "Junior Data Analyst / Младший аналитик данных",
+      "original_url": "https://hh.uz/vacancy/137836933?tech_source=api",
+      "original_html_characters": 5511,
+      "clean_text_characters": 4203,
+      "provider_skill_tags": [],
+      "raw_payload_fields": 59,
+      "status": "active"
+    }
+  ],
+  "checks": [
+    "Backend loaded both HeadHunter settings",
+    "Uzbekistan source catalog reports available",
+    "Actual selected-provider service fetched two live vacancies",
+    "Native IDs, original posting links, full returned HTML, cleaned text and tags match raw provider payloads"
+  ],
+  "status": "passed",
+  "sql_readback": {
+    "status": "passed",
+    "records": 2,
+    "database": "labtutor",
+    "transaction": "rolled back",
+    "checks": [
+      "Live provider records saved through the production vacancy repository",
+      "Fresh SQL readback preserved full raw payloads, original HTML, URLs, native IDs, skill tags and metadata",
+      "Verification run and snapshots absent after rollback; no course changes committed"
+    ],
+    "limit": "SQL serialization/readback check inside a rolled-back transaction; not a committed production analysis or live model/graph run"
+  }
+}

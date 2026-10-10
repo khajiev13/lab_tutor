@@ -9,8 +9,8 @@ are operating instructions, not evidence that activation has occurred.
 
 The backend reads these settings from its protected local environment:
 
-- `LAB_TUTOR_HH_USER_AGENT`: the identifying application User-Agent registered
-  for HeadHunter access.
+- `LAB_TUTOR_HH_USER_AGENT`: an identifying application User-Agent containing the application
+  name and developer contact email.
 - `LAB_TUTOR_HH_ACCESS_TOKEN`: the existing application access token.
 
 Keep credentials out of tracked files, command output, screenshots, response
@@ -241,3 +241,20 @@ changed by the integration.
 See the HTML report for screenshots, individual results, prior timeout limits and
 the distinction between controlled workflow checks and the two earlier live
 HeadHunter samples. No scheduled collection or live model-quality claim is made.
+
+## Local live connection — 11 October 2026
+
+The existing application token and the already configured playground User-Agent
+were saved to the Git-ignored root `.env` with mode 0600. Only the local backend
+was recreated to load them. Its production source-service factory reported
+HeadHunter available for Uzbekistan and fetched two live Python vacancies
+(72-hour window, result cap two), with no provider warnings. Original URLs,
+native IDs, complete HTML, cleaned text and provider tags matched the raw
+payloads. The HTML report links to credential-free verification metadata.
+This does not assert that Azure or GitHub Secrets have been configured.
+
+Both real records also passed repository SQL save/readback in a dedicated
+transaction. A temporary disabled teacher and course used explicit negative IDs
+to avoid sequence changes. All temporary user/course/run/snapshot rows were
+rolled back, with absence verified from a fresh session. This checks database
+serialization; it is not a committed course analysis or live model/graph run.
