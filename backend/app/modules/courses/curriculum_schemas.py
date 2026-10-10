@@ -4,7 +4,11 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.modules.student_learning_path.schemas import StudentSkillBankResponse
+from app.modules.student_learning_path.schemas import (
+    CareerSkillBankSkill,
+    SkillReferenceDisplay,
+    StudentSkillBankResponse,
+)
 
 
 class SkillSource(StrEnum):
@@ -116,7 +120,7 @@ class CourseChapterRead(BaseModel):
     documents: list[TranscriptDocumentRead] = []
 
 
-class BookSkillBankSkill(BaseModel):
+class BookSkillBankSkill(SkillReferenceDisplay):
     name: str
     description: str | None = None
 
@@ -135,7 +139,7 @@ class BookSkillBankBook(BaseModel):
     chapters: list[BookSkillBankChapter] = []
 
 
-class MarketSkillBankSkill(BaseModel):
+class MarketSkillBankSkill(SkillReferenceDisplay):
     name: str
     category: str | None = None
     status: str | None = None
@@ -170,6 +174,7 @@ class SkillSelectionRangeUpdate(BaseModel):
 
 
 class SkillBanksResponse(BaseModel):
+    career_skill_bank: list[CareerSkillBankSkill] = Field(default_factory=list)
     course_chapters: list[CourseChapterRead] = []
     book_skill_bank: list[BookSkillBankBook] = []
     market_skill_bank: list[MarketSkillBankJobPosting] = []

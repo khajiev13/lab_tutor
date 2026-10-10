@@ -144,6 +144,17 @@ def find_and_merge_dupes(state: SkillPrerequisiteState) -> dict:
         driver.close()
         return {"merged_skill_names": []}
 
+    protected_names = {s["name"] for s in skills if s.get("reference_bound")}
+    if protected_names:
+        write(
+            {
+                "type": "prerequisite_progress",
+                "phase": "dedup",
+                "detail": "Preserving durable skill identities; ambiguous names require explicit review",
+                "protected_skill_names": sorted(protected_names),
+            }
+        )
+        skills = [s for s in skills if s["name"] not in protected_names]
     skill_by_name = {s["name"]: s for s in skills}
     parent = _make_union_find(list(skill_by_name))
 

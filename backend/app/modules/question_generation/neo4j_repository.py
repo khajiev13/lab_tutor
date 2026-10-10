@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 
 from neo4j import Session as Neo4jSession
 
+from app.core.skill_identity import target_match
+
 from .schemas import GeneratedQuestion
 
 logger = logging.getLogger(__name__)
@@ -20,6 +22,9 @@ def write_questions(
     session: Neo4jSession,
     skill_name: str,
     questions: list[GeneratedQuestion],
+    *,
+    target_identity: str | None = None,
+    course_id: int | None = None,
 ) -> int:
     """Replace QUESTION nodes for a skill and link via HAS_QUESTION."""
     now = datetime.now(UTC).isoformat()
@@ -39,8 +44,8 @@ def write_questions(
     ]
 
     result = session.run(
-        """
-        MATCH (sk:SKILL {name: $skill_name})
+        (target_match() if target_identity else "MATCH (sk:SKILL {name: $skill_name}) ")
+        + """
         OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(existing:QUESTION)
         WITH sk, collect(existing) AS existing_questions
         FOREACH (node IN existing_questions | DETACH DELETE node)
@@ -60,6 +65,8 @@ def write_questions(
         RETURN count(qn) AS written
         """,
         skill_name=skill_name,
+        target_identity=target_identity,
+        course_id=course_id,
         questions=question_dicts,
     )
     record = result.single()
@@ -68,11 +75,17 @@ def write_questions(
     return count
 
 
-def has_questions(session: Neo4jSession, skill_name: str) -> bool:
+def has_questions(
+    session: Neo4jSession,
+    skill_name: str,
+    *,
+    target_identity: str | None = None,
+    course_id: int | None = None,
+) -> bool:
     """Check if a skill already has a complete multiple-choice question set."""
     result = session.run(
-        """
-        MATCH (sk:SKILL {name: $skill_name})
+        (target_match() if target_identity else "MATCH (sk:SKILL {name: $skill_name}) ")
+        + """
         OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION)
         WITH count(q) AS total_questions,
              count(CASE
@@ -83,6 +96,8 @@ def has_questions(session: Neo4jSession, skill_name: str) -> bool:
         RETURN total_questions = 3 AND mcq_questions = 3 AS has_questions
         """,
         skill_name=skill_name,
+        target_identity=target_identity,
+        course_id=course_id,
         options_key=QUESTION_OPTIONS_KEY,
         correct_option_key=QUESTION_CORRECT_OPTION_KEY,
     )

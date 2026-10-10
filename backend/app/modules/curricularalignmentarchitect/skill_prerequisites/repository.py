@@ -1,8 +1,34 @@
 from __future__ import annotations
 
 from neo4j import Driver
+from sqlalchemy import select
 
+from app.core.database import SessionLocal
 from app.core.settings import settings
+from app.core.skill_identity import TARGET_IDENTITY
+from app.modules.marketdemandanalyst.models import CourseSkillReference
+
+
+def reference_bound_names(driver: Driver) -> set[str]:
+    # Protect actual durable graph targets globally, including withdrawn references.
+    # Keep SQL labels too: a stale display label must not make name-based merging safe.
+    with SessionLocal() as db:
+        references = list(
+            db.execute(
+                select(CourseSkillReference.label, CourseSkillReference.target_identity)
+            )
+        )
+    protected = {ref.label for ref in references}
+    with driver.session(database=settings.neo4j_database) as session:
+        protected.update(
+            record["name"]
+            for record in session.run(
+                f"MATCH (sk:SKILL) WHERE ({TARGET_IDENTITY}) IN $targets RETURN sk.name AS name",
+                targets=[ref.target_identity for ref in references],
+            )
+            if record["name"]
+        )
+    return protected
 
 
 def load_skills_without_embeddings(driver: Driver, course_id: int) -> list[dict]:
@@ -55,10 +81,12 @@ def load_all_skills_for_course(driver: Driver, course_id: int) -> list[dict]:
                 coalesce(mapped_cc[0].title, ch.title, '') AS chapter_title,
                 coalesce(mapped_cc[0].chapter_index, ch.chapter_index, 0) AS chapter_index,
                 'book' AS skill_type,
+                'book:' + toString(s.id) AS target_identity,
                 s.name_embedding AS name_embedding
             UNION
             MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)
-                  <-[:MAPPED_TO]-(s:MARKET_SKILL)
+                  <-[:MAPPED_TO]-(s:SKILL)
+            WHERE s:MARKET_SKILL OR s:CAREER_SKILL
             RETURN
                 s.name AS name,
                 coalesce(s.description, '') AS description,
@@ -66,16 +94,36 @@ def load_all_skills_for_course(driver: Driver, course_id: int) -> list[dict]:
                 coalesce(cc.title, '') AS chapter_title,
                 coalesce(cc.chapter_index, 0) AS chapter_index,
                 'market' AS skill_type,
+                CASE WHEN s:CAREER_SKILL THEN 'career:' + toString(s.id) ELSE 'market:' + s.evidence_target_id END AS target_identity,
                 s.name_embedding AS name_embedding
             """,
             course_id=course_id,
         )
-        return [record.data() for record in result]
+        rows = [record.data() for record in result]
+    with SessionLocal() as db:
+        references = list(db.scalars(select(CourseSkillReference)))
+    protected = reference_bound_names(driver)
+    published = {
+        ref.target_identity
+        for ref in references
+        if ref.course_id == course_id
+        and ref.available_for_new_selection
+        and ref.projection_status == "projected"
+        and ref.projection_revision == ref.approved_revision
+    }
+    return [
+        {**row, "reference_bound": row["name"] in protected}
+        for row in rows
+        if not (row.get("target_identity") or "").startswith("career:")
+        or row["target_identity"] in published
+    ]
 
 
 def merge_skill_into_canonical(
     driver: Driver, canonical_name: str, dupe_names: list[str]
 ) -> None:
+    if reference_bound_names(driver) & {canonical_name, *dupe_names}:
+        return
     with driver.session(database=settings.neo4j_database) as session:
         session.run(
             """

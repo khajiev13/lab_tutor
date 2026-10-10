@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
@@ -29,6 +28,7 @@ from .schemas import (
     ResourceOpenRequest,
     StudentSkillBankResponse,
 )
+from .skill_catalog_service import SkillCatalogService
 
 logger = logging.getLogger(__name__)
 
@@ -79,19 +79,6 @@ class StudentLearningPathService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Student is not enrolled in this course",
             )
-
-    def _group_selected_skills_by_source(
-        self,
-        selected_skills: list[BuildSelectedSkillRequest],
-    ) -> dict[str, list[str]]:
-        selected_by_name: dict[str, str] = {}
-        for skill in selected_skills:
-            selected_by_name[skill.name] = skill.source
-
-        grouped: dict[str, list[str]] = defaultdict(list)
-        for skill_name, source in selected_by_name.items():
-            grouped[source].append(skill_name)
-        return grouped
 
     @staticmethod
     def _build_fallback_summary(resource: dict) -> str:
@@ -206,34 +193,69 @@ class StudentLearningPathService:
         return None
 
     def select_skills(
-        self, student_id: int, course_id: int, skill_names: list[str], source: str
+        self,
+        student_id: int,
+        course_id: int,
+        skill_names: list[str],
+        source: str | None = None,
+        skill_reference_ids: list[str] | None = None,
     ) -> int:
         self._validate_enrollment(student_id, course_id)
-        driver = self._require_neo4j()
-        with driver.session(database=settings.neo4j_database) as session:
-            return neo4j_repository.select_skills(
-                session, student_id, course_id, skill_names, source
+        with self._require_neo4j().session(database=settings.neo4j_database) as session:
+            rows = SkillCatalogService(self._db, session).resolve(
+                course_id,
+                ids=skill_reference_ids,
+                choices=[{"name": name, "source": source} for name in skill_names],
+            )
+            return neo4j_repository.select_skill_targets(
+                session, student_id, course_id, rows
             )
 
     def deselect_skills(
-        self, student_id: int, course_id: int, skill_names: list[str]
+        self,
+        student_id: int,
+        course_id: int,
+        skill_names: list[str],
+        skill_reference_ids: list[str] | None = None,
     ) -> int:
         self._validate_enrollment(student_id, course_id)
-        driver = self._require_neo4j()
-        with driver.session(database=settings.neo4j_database) as session:
-            return neo4j_repository.deselect_skills(
-                session, student_id, course_id, skill_names
+        with self._require_neo4j().session(database=settings.neo4j_database) as session:
+            rows = SkillCatalogService(self._db, session).resolve(
+                course_id,
+                ids=skill_reference_ids,
+                choices=[{"name": name} for name in skill_names],
+                require_available=False,
+            )
+            return neo4j_repository.deselect_skill_targets(
+                session, student_id, course_id, rows
             )
 
     def select_job_postings(
         self, student_id: int, course_id: int, posting_urls: list[str]
     ) -> int:
         self._validate_enrollment(student_id, course_id)
-        driver = self._require_neo4j()
-        with driver.session(database=settings.neo4j_database) as session:
-            return neo4j_repository.select_job_postings(
-                session, student_id, course_id, posting_urls
+        with self._require_neo4j().session(database=settings.neo4j_database) as session:
+            rows = [
+                row
+                for row in SkillCatalogService(self._db, session).catalog(course_id)
+                if row["available_for_new_selection"]
+                and set(posting_urls)
+                & (
+                    set(row["qualifying_posting_links"])
+                    | set(row.get("posting_urls", []) if row.get("legacy") else [])
+                )
+            ]
+            eligible = {
+                url
+                for row in rows
+                for url in row["qualifying_posting_links"]
+                + (row.get("posting_urls", []) if row.get("legacy") else [])
+            }
+            urls = [url for url in dict.fromkeys(posting_urls) if url in eligible]
+            neo4j_repository.select_skill_targets(
+                session, student_id, course_id, rows, posting_urls=urls
             )
+            return len(urls)
 
     def deselect_job_posting(
         self, student_id: int, course_id: int, posting_url: str
@@ -267,15 +289,21 @@ class StudentLearningPathService:
         self._validate_enrollment(student_id, course_id)
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
-            return neo4j_repository.get_student_skill_banks(
+            bank = neo4j_repository.get_student_skill_banks(
                 session, student_id, course_id
+            )
+            return SkillCatalogService(self._db, session).enrich_banks(
+                course_id, bank, student_id=student_id
             )
 
     def get_learning_path(self, student_id: int, course_id: int) -> dict:
         self._validate_enrollment(student_id, course_id)
         driver = self._require_neo4j()
         with driver.session(database=settings.neo4j_database) as session:
-            return neo4j_repository.get_learning_path(session, student_id, course_id)
+            return SkillCatalogService(self._db, session).enrich_path(
+                course_id,
+                neo4j_repository.get_learning_path(session, student_id, course_id),
+            )
 
     async def get_reading_content(
         self,
@@ -637,58 +665,39 @@ class StudentLearningPathService:
         student_id: int,
         course_id: int,
         selected_skills: list[BuildSelectedSkillRequest] | None = None,
+        skill_reference_ids: list[str] | None = None,
     ) -> tuple[str, asyncio.Queue]:
-        """Launch the LangGraph pipeline. Returns (run_id, progress_queue)."""
+        """Validate every explicit choice before atomically replacing selections."""
         self._validate_enrollment(student_id, course_id)
         driver = self._require_neo4j()
-
         with driver.session(database=settings.neo4j_database) as session:
-            persisted_selected_skills = neo4j_repository.get_selected_skills(
-                session,
-                student_id,
-                course_id,
-            )
-            if not persisted_selected_skills:
-                grouped_selected_skills = self._group_selected_skills_by_source(
-                    selected_skills or []
+            explicit = selected_skills is not None or skill_reference_ids is not None
+            if explicit:
+                rows = SkillCatalogService(self._db, session).resolve(
+                    course_id,
+                    ids=skill_reference_ids,
+                    choices=[skill.model_dump() for skill in selected_skills or []],
                 )
-                if not grouped_selected_skills:
+                if not rows:
                     raise ValueError("Select at least one skill before building")
-
                 selection_range = CourseGraphRepository(
                     session
                 ).get_skill_selection_range(course_id=course_id)
-                selected_skill_count = sum(
-                    len(skill_names) for skill_names in grouped_selected_skills.values()
-                )
-                min_skills = int(selection_range["min_skills"])
-                max_skills = int(selection_range["max_skills"])
                 if (
-                    selected_skill_count < min_skills
-                    or selected_skill_count > max_skills
+                    not selection_range["min_skills"]
+                    <= len(rows)
+                    <= selection_range["max_skills"]
                 ):
                     raise ValueError(
-                        f"Select between {min_skills} and {max_skills} skills before building"
+                        f"Select between {selection_range['min_skills']} and {selection_range['max_skills']} skills before building"
                     )
-
-                for source in ("book", "market"):
-                    skill_names = grouped_selected_skills.get(source, [])
-                    if skill_names:
-                        neo4j_repository.select_skills(
-                            session,
-                            student_id,
-                            course_id,
-                            skill_names,
-                            source,
-                        )
-
-                persisted_selected_skills = neo4j_repository.get_selected_skills(
-                    session,
-                    student_id,
-                    course_id,
+                neo4j_repository.select_skill_targets(
+                    session, student_id, course_id, rows, replace=True
                 )
-                if not persisted_selected_skills:
-                    raise ValueError("Select at least one valid skill before building")
+            elif not neo4j_repository.get_selected_skills(
+                session, student_id, course_id
+            ):
+                raise ValueError("Select at least one skill before building")
 
         run_id = str(uuid.uuid4())
         queue: asyncio.Queue = asyncio.Queue()

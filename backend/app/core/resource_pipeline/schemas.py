@@ -56,6 +56,11 @@ class SkillProfile:
 
     name: str
     skill_type: str  # "book" or "market"
+    skill_reference_id: str | None = None
+    target_identity: str | None = None
+    course_id: int | None = None
+    evidence_references: list[dict] = field(default_factory=list)
+    onet_associations: list[dict] = field(default_factory=list)
     description: str = ""
     chapter_title: str = ""
     chapter_summary: str = ""

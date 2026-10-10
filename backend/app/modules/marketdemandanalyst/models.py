@@ -188,6 +188,9 @@ class MarketSkillApproval(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     projection_status: Mapped[str] = mapped_column(Text, default="pending")
     projection_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    readiness_applied: Mapped[bool] = mapped_column(
+        default=False, server_default="false"
+    )
     approved_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now().astimezone()
     )

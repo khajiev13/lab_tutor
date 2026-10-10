@@ -149,32 +149,13 @@ ORDER BY b.title
 _MARKET_SKILL_BANK_QUERY = """
 MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
       <-[:MAPPED_TO]-(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp:JOB_POSTING)
-WHERE ms.course_id = $course_id OR ms.course_id IS NULL
-WITH DISTINCT jp
-RETURN jp {
-    .title,
-    .company,
-    .site,
-    .url,
-    .search_term,
-    skills: COLLECT {
-        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
-              <-[:MAPPED_TO]-(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp)
-        WHERE ms.course_id = $course_id OR ms.course_id IS NULL
-        WITH ms
-        ORDER BY ms.name, CASE WHEN ms.course_id = $course_id THEN 0 ELSE 1 END
-        WITH ms.name AS skill_name, collect(ms {
-            .name,
-            .category,
-            .status,
-            .priority,
-            .demand_pct
-        }) AS candidates
-        RETURN head(candidates) AS skill
-        ORDER BY skill.name
-    }
-} AS job_posting
-ORDER BY jp.title, jp.company, jp.url
+WHERE ms.course_id=$course_id OR ms.course_id IS NULL
+WITH DISTINCT jp, ms
+ORDER BY ms.name, CASE WHEN ms.course_id=$course_id THEN 0 ELSE 1 END
+WITH jp, ms.name AS skill_name, collect(ms { .name,.category,.status,.priority,.demand_pct }) AS candidates
+WITH jp, collect(head(candidates)) AS skills
+RETURN jp { .title,.company,.site,.url,.search_term, skills:skills } AS job_posting
+ORDER BY job_posting.title, job_posting.company, job_posting.url
 """
 
 

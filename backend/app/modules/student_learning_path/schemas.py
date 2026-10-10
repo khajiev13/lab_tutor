@@ -5,18 +5,34 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
 # ── Request schemas ──────────────────────────────────────────
 
 
 class SelectSkillsRequest(BaseModel):
-    skill_names: list[str] = Field(..., min_length=1)
-    source: Literal["book", "market"]
+    skill_names: list[str] = Field(default_factory=list)
+    source: Literal["book", "market"] | None = None
+    skill_reference_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def require_selection(self):
+        if not self.skill_reference_ids and not self.skill_names:
+            raise ValueError("Choose skill references or names")
+        if self.skill_names and self.source is None:
+            raise ValueError("Name-based selection requires source")
+        return self
 
 
 class DeselectSkillsRequest(BaseModel):
-    skill_names: list[str] = Field(..., min_length=1)
+    skill_names: list[str] = Field(default_factory=list)
+    skill_reference_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def require_selection(self):
+        if not self.skill_reference_ids and not self.skill_names:
+            raise ValueError("Choose skill references or names")
+        return self
 
 
 class SelectJobPostingsRequest(BaseModel):
@@ -38,6 +54,7 @@ class BuildSelectedSkillRequest(BaseModel):
 
 
 class BuildLearningPathRequest(BaseModel):
+    skill_reference_ids: list[str] = Field(default_factory=list)
     selected_skills: list[BuildSelectedSkillRequest] = Field(default_factory=list)
 
 
@@ -147,7 +164,34 @@ class ConceptRead(BaseModel):
     description: str | None = None
 
 
-class LearningPathSkill(BaseModel):
+class SkillReferenceDisplay(BaseModel):
+    skill_reference_id: str | None = None
+    source: str | None = None
+    origin: str | None = None
+    qualifying_posting_links: list[str] = Field(default_factory=list)
+    evidence_references: list[dict] = Field(default_factory=list)
+    onet_associations: list[dict] = Field(default_factory=list)
+    job_metrics: dict | None = None
+    projection_status: Literal["pending", "projected", "error"] | None = None
+    available_for_new_selection: bool | None = None
+    availability_reason: str | None = None
+    is_selected: bool = False
+    peer_count: int = 0
+
+
+class CareerSkillBankSkill(SkillReferenceDisplay):
+    skill_reference_id: str
+    label: str
+    description: str | None = None
+    category: str | None = None
+    source: Literal["book", "market"]
+    origin: str
+    chapters: list[dict] = Field(default_factory=list)
+    projection_status: Literal["pending", "projected", "error"]
+    available_for_new_selection: bool
+
+
+class LearningPathSkill(SkillReferenceDisplay):
     name: str
     source: str  # "book" | "market" | "job_posting"
     description: str | None = None
@@ -190,7 +234,7 @@ class ReadingContentResponse(BaseModel):
     error_message: str | None = None
 
 
-class StudentSkillBankSkill(BaseModel):
+class StudentSkillBankSkill(SkillReferenceDisplay):
     name: str
     description: str | None = None
     category: str | None = None
@@ -230,6 +274,8 @@ class SkillSelectionRange(BaseModel):
 
 
 class PrerequisiteEdge(BaseModel):
+    prerequisite_skill_reference_id: str | None = None
+    dependent_skill_reference_id: str | None = None
     prerequisite_name: str
     dependent_name: str
     confidence: Literal["high", "medium", "low"] = "medium"
@@ -237,6 +283,9 @@ class PrerequisiteEdge(BaseModel):
 
 
 class StudentSkillBankResponse(BaseModel):
+    career_skill_bank: list[CareerSkillBankSkill] = Field(default_factory=list)
+    selected_skill_reference_ids: list[str] = Field(default_factory=list)
+    peer_selection_counts_by_reference: dict[str, int] = Field(default_factory=dict)
     book_skill_banks: list[StudentSkillBankBook] = []
     market_skill_bank: list[StudentSkillBankJobPosting] = []
     selected_skill_names: list[str] = []

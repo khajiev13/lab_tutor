@@ -106,6 +106,26 @@ def _ensure_sql_schema_upgrades() -> None:
         # Fail fast when another session holds conflicting locks (e.g. during
         # tests where previous TestClient instances leave zombie connections).
         conn.execute(text("SET lock_timeout = '30s'"))
+        readiness_marker_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns WHERE table_name='market_skill_approvals' AND column_name='readiness_applied'"
+            )
+        ).fetchone()
+        if not readiness_marker_exists:
+            conn.execute(
+                text(
+                    "ALTER TABLE market_skill_approvals ADD COLUMN readiness_applied BOOLEAN NOT NULL DEFAULT false"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE market_skill_approvals AS approval SET readiness_applied=true "
+                    "WHERE approval.projection_status='projected' AND EXISTS ("
+                    "SELECT 1 FROM courses AS course WHERE course.id=approval.course_id "
+                    "AND course.market_gate_status IN ('completed','waived'))"
+                )
+            )
+
         # Idempotent ALTER: add `level` column if missing.
         col_exists = conn.execute(
             text(

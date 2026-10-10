@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.neo4j import require_neo4j_session
 from app.modules.auth.models import User
 from app.modules.student_learning_path import neo4j_repository as student_path_neo4j
+from app.modules.student_learning_path.skill_catalog_service import SkillCatalogService
 
 from .curriculum_neo4j_repository import CurriculumNeo4jRepository
 from .curriculum_schemas import (
@@ -329,11 +330,14 @@ class CurriculumService:
             self._course_graph_repo.get_skill_selection_range(course_id=course_id)
         )
 
-        return SkillBanksResponse(
+        bank = SkillBanksResponse(
             course_chapters=course_chapters,
             book_skill_bank=book_skill_bank,
             market_skill_bank=market_skill_bank,
             selection_range=selection_range,
+        )
+        return SkillCatalogService(self._repo.db, self._neo4j_session).enrich_banks(
+            course_id, bank
         )
 
     def get_student_insights(
@@ -477,10 +481,11 @@ class CurriculumService:
             course_id,
             include_inferred_selected_postings=True,
         )
+        skill_banks = SkillCatalogService(
+            self._repo.db, self._neo4j_session
+        ).enrich_banks(course_id, skill_banks, student_id=student.id)
         learning_path = student_path_neo4j.get_learning_path(
-            self._neo4j_session,
-            student.id,
-            course_id,
+            self._neo4j_session, student.id, course_id
         )
 
         return StudentInsightDetailResponse(

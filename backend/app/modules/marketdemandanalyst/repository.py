@@ -906,6 +906,23 @@ class MarketReviewRepository:
         )
         return references, approvals, bindings
 
+    def complete_projection_readiness(self, approval: MarketSkillApproval) -> None:
+        """Persist gate/review invalidation alongside this revision's projection."""
+        from app.modules.courses.models import Course, CourseMarketGateStatus
+        from app.modules.curricularalignmentarchitect.skill_prerequisites.review_repository import (
+            PrerequisiteReviewRepository,
+        )
+
+        course = self._db.scalar(
+            select(Course).where(Course.id == approval.course_id).with_for_update()
+        )
+        if course is None:
+            raise ValueError("Projection course no longer exists")
+        course.market_gate_status = CourseMarketGateStatus.COMPLETED
+        PrerequisiteReviewRepository(self._db).mark_stale(approval.course_id)
+        approval.readiness_applied = True
+        self._db.flush()
+
     def finish_projection(
         self,
         approval: MarketSkillApproval,

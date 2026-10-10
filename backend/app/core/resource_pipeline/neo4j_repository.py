@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 
 from neo4j import Session as Neo4jSession
 
+from app.core.skill_identity import target_match
+
 from .schemas import CandidateResource, ResourceScore, SkillProfile
 
 logger = logging.getLogger(__name__)
@@ -108,6 +110,9 @@ def write_resources(
     resources: list[tuple[CandidateResource, ResourceScore, float]],
     resource_label: str,
     relationship: str,
+    *,
+    target_identity: str | None = None,
+    course_id: int | None = None,
 ) -> int:
     """Write resource nodes and link them to the skill. Returns count written."""
     skill_label = "BOOK_SKILL" if skill_type == "book" else "MARKET_SKILL"
@@ -117,8 +122,12 @@ def write_resources(
         resource_id = str(uuid.uuid4())
         # Use raw Cypher with MERGE on URL to be idempotent
         session.run(
-            f"MATCH (sk:{skill_label} {{name: $skill_name}}) "
-            f"MERGE (r:{resource_label} {{url: $url}}) "
+            (
+                target_match()
+                if target_identity
+                else f"MATCH (sk:{skill_label} {{name: $skill_name}}) "
+            )
+            + f"MERGE (r:{resource_label} {{url: $url}}) "
             f"ON CREATE SET r.id = $id, r.title = $title, r.domain = $domain, "
             f"  r.snippet = $snippet, r.search_content = $search_content, "
             f"  r.video_id = $video_id, r.search_result_url = $search_result_url, "
@@ -138,6 +147,8 @@ def write_resources(
             f"  r.final_score = $final_score, r.concepts_covered = $concepts_covered "
             f"MERGE (sk)-[:{relationship}]->(r)",
             skill_name=skill_name,
+            target_identity=target_identity,
+            course_id=course_id,
             id=resource_id,
             url=candidate.url,
             title=candidate.title,
@@ -167,8 +178,13 @@ def get_resources_for_course(
 ) -> list[dict]:
     """Read all resources grouped by skill for a course."""
     result = session.run(
-        f"MATCH (cl:CLASS {{id: $course_id}})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->"
-        f"(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk)-[:{relationship}]->(r:{resource_label}) "
+        "MATCH (cl:CLASS {id: $course_id}) "
+        "CALL { WITH cl "
+        "MATCH (cl)-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)<-[:MAPPED_TO]-(sk:SKILL) "
+        "RETURN sk, ch UNION WITH cl "
+        "MATCH (cl)-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:SKILL) "
+        "RETURN sk, ch } "
+        f"MATCH (sk)-[:{relationship}]->(r:{resource_label}) "
         f"WITH sk, ch, r ORDER BY r.final_score DESC "
         f"WITH sk, ch, collect(r {{"
         f"  .title, .url, "

@@ -85,7 +85,9 @@ def select_skills(
 ) -> dict:
     """Select book or market skills."""
     service = _get_service(db, driver)
-    count = service.select_skills(student.id, course_id, body.skill_names, body.source)
+    count = service.select_skills(
+        student.id, course_id, body.skill_names, body.source, body.skill_reference_ids
+    )
     return {"selected": count}
 
 
@@ -99,7 +101,9 @@ def deselect_skills(
 ) -> dict:
     """Deselect skills."""
     service = _get_service(db, driver)
-    count = service.deselect_skills(student.id, course_id, body.skill_names)
+    count = service.deselect_skills(
+        student.id, course_id, body.skill_names, body.skill_reference_ids
+    )
     return {"deselected": count}
 
 
@@ -165,7 +169,8 @@ async def build_learning_path(
         run_id, _ = await service.build_learning_path(
             student.id,
             course_id,
-            body.selected_skills if body else [],
+            body.selected_skills if body else None,
+            body.skill_reference_ids if body else None,
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

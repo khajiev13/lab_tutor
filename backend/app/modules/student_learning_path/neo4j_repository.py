@@ -68,29 +68,12 @@ _MARKET_SKILL_BANK_QUERY = """
 MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
       <-[:MAPPED_TO]-(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp:JOB_POSTING)
 WHERE ms.course_id = $course_id OR ms.course_id IS NULL
-WITH DISTINCT jp
-RETURN jp {
-    .url,
-    .title,
-    .company,
-    .site,
-    .search_term,
-    skills: COLLECT {
-        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
-              <-[:MAPPED_TO]-(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp)
-        WHERE ms.course_id = $course_id OR ms.course_id IS NULL
-        WITH ms
-        ORDER BY ms.name, CASE WHEN ms.course_id = $course_id THEN 0 ELSE 1 END
-        WITH ms.name AS skill_name, collect(ms {
-            .name,
-            .description,
-            .category
-        }) AS candidates
-        RETURN head(candidates) AS skill
-        ORDER BY skill.name
-    }
-} AS job_posting
-ORDER BY jp.title, jp.company, jp.url
+WITH DISTINCT jp, ms
+ORDER BY ms.name, CASE WHEN ms.course_id = $course_id THEN 0 ELSE 1 END
+WITH jp, ms.name AS skill_name, collect(ms { .name, .description, .category }) AS candidates
+WITH jp, collect(head(candidates)) AS skills
+RETURN jp { .url, .title, .company, .site, .search_term, skills: skills } AS job_posting
+ORDER BY job_posting.title, job_posting.company, job_posting.url
 """
 
 _INTERESTED_JOB_POSTING_URLS_QUERY = """
@@ -288,25 +271,32 @@ def deselect_job_posting(
     """Remove INTERESTED_IN and orphaned SELECTED_SKILL relationships."""
     result = session.run(
         """
-        MATCH (u:USER:STUDENT {id: $student_id})-[r]->(jp:JOB_POSTING {url: $url})
-        WHERE type(r) = $relationship_type
+        MATCH (u:USER:STUDENT {id: $student_id})-[r:INTERESTED_IN]->(jp:JOB_POSTING {url: $url})
+        WHERE r.course_id=$course_id OR r.course_id IS NULL
         DELETE r
-        WITH u, jp
-        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
-              <-[:MAPPED_TO]-(ms:MARKET_SKILL)-[:SOURCED_FROM]->(jp)
-        WHERE ms.course_id = $course_id OR ms.course_id IS NULL
-        MATCH (u)-[r2:SELECTED_SKILL {source: 'job_posting'}]->(ms)
-        WHERE NOT EXISTS {
-            MATCH (u)-[ri]->(:JOB_POSTING)<-[:SOURCED_FROM]-(ms)
-            WHERE type(ri) = $relationship_type
-        }
-        DELETE r2
-        RETURN count(r2) AS orphans_deleted
+        WITH DISTINCT u
+        MATCH (u)-[selection:SELECTED_SKILL]->(sk:SKILL)
+        WHERE (selection.course_id=$course_id OR selection.course_id IS NULL)
+          AND (selection.selection_origin='job_posting' OR selection.source='job_posting')
+          AND ($url IN coalesce(selection.posting_urls, []) OR EXISTS {
+              MATCH (sk)-[:SOURCED_FROM]->(:JOB_POSTING {url:$url})
+          })
+        WITH u, sk, selection, COLLECT {
+            MATCH (u)-[interest:INTERESTED_IN]->(remaining:JOB_POSTING)
+            WHERE (interest.course_id=$course_id OR interest.course_id IS NULL)
+              AND (remaining.url IN coalesce(selection.posting_urls, []) OR EXISTS {
+                  MATCH (sk)-[:SOURCED_FROM]->(remaining)
+              })
+            RETURN remaining.url
+        } AS remaining_urls
+        SET selection.posting_urls=remaining_urls
+        WITH selection WHERE size(remaining_urls)=0
+        DELETE selection
+        RETURN count(selection) AS orphans_deleted
         """,
         student_id=student_id,
         course_id=course_id,
         url=posting_url,
-        relationship_type=INTERESTED_IN_REL_TYPE,
     )
     record = result.single()
     return record["orphans_deleted"] if record else 0
@@ -471,9 +461,12 @@ def get_selected_skills(
         """
         MATCH (u:USER:STUDENT {id: $student_id})-[r:SELECTED_SKILL]->(sk:SKILL)
         MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)<-[:MAPPED_TO]-(sk)
+        WHERE r.course_id=$course_id OR r.course_id IS NULL
         RETURN sk {
             .name, .description,
-            source: r.source,
+            target_identity: CASE WHEN sk:CAREER_SKILL THEN 'career:' + toString(sk.id) WHEN sk:BOOK_SKILL THEN 'book:' + toString(sk.id) ELSE 'market:' + sk.evidence_target_id END,
+            skill_reference_id: r.skill_reference_id,
+            source: CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
             selected_at: toString(r.selected_at),
             chapter_title: ch.title,
             chapter_index: ch.chapter_index,
@@ -563,10 +556,12 @@ def get_chapter_easy_questions(
     result = session.run(
         """
         MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER {chapter_index: $chapter_index})
-        MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
+        MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[selection:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
+        WHERE selection.course_id=$course_id OR selection.course_id IS NULL
+        WITH DISTINCT ch, sk, u
         MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION {difficulty: 'easy'})
         OPTIONAL MATCH (u)-[a:ANSWERED]->(q)
-        RETURN ch.title AS chapter_title,
+        RETURN DISTINCT ch.title AS chapter_title,
                q.id AS id,
                q.text AS text,
                sk.name AS skill_name,
@@ -626,10 +621,11 @@ def submit_chapter_answers(
         UNWIND $submissions AS sub
         MATCH (q:QUESTION {id: sub.question_id, difficulty: 'easy'})
         MATCH (sk:SKILL)-[:HAS_QUESTION]->(q)
-        MATCH (u)-[:SELECTED_SKILL]->(sk)
+        MATCH (u)-[selection:SELECTED_SKILL]->(sk)
+        WHERE selection.course_id=$course_id OR selection.course_id IS NULL
         MATCH (sk)-[:MAPPED_TO]->(ch:COURSE_CHAPTER {chapter_index: $chapter_index})
         MATCH (:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch)
-        WITH u, q, sk, sub,
+        WITH DISTINCT u, q, sk, sub,
              (sub.selected_option = q[$correct_option_key]) AS correct
         MERGE (u)-[a:ANSWERED]->(q)
         ON CREATE SET
@@ -749,10 +745,9 @@ def get_chapter_quiz_progress(
     result = session.run(
         """
         MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
-        WHERE EXISTS {
-            MATCH (ch)<-[:MAPPED_TO]-(:SKILL)<-[:SELECTED_SKILL]-(:USER:STUDENT {id: $student_id})
-        }
-        OPTIONAL MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
+        MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[selection:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
+        WHERE selection.course_id=$course_id OR selection.course_id IS NULL
+        WITH DISTINCT ch, sk, u
         OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION {difficulty: 'easy'})
         OPTIONAL MATCH (u)-[a:ANSWERED]->(q)
         RETURN ch.chapter_index AS chapter_index,
@@ -791,11 +786,15 @@ def get_learning_path(
             .chapter_index,
             description: ch.description,
             selected_skills: COLLECT {
-                MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[sel:SELECTED_SKILL]-(:USER:STUDENT {id: $student_id})
+                MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[sel:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
+                WHERE sel.course_id=$course_id OR sel.course_id IS NULL
+                WITH DISTINCT ch, sk, u
                 RETURN sk {
                     .name,
                     .description,
-                    source: sel.source,
+                    target_identity: CASE WHEN sk:CAREER_SKILL THEN 'career:' + toString(sk.id) WHEN sk:BOOK_SKILL THEN 'book:' + toString(sk.id) ELSE 'market:' + sk.evidence_target_id END,
+                    skill_reference_id: head([(u)-[choice:SELECTED_SKILL]->(sk) WHERE choice.course_id=$course_id OR choice.course_id IS NULL | choice.skill_reference_id]),
+                    source: CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
                     skill_type: CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
                     is_known: EXISTS {
                         MATCH (:USER:STUDENT {id: $student_id})-[a:ANSWERED {answered_right: true}]->(:QUESTION {difficulty: 'easy'})<-[:HAS_QUESTION]-(sk)
@@ -1067,3 +1066,182 @@ def get_student_skill_banks(
         selection_range=selection_range,
         prerequisite_edges=prerequisite_edges,
     )
+
+
+# Stable course identities consumed by the SQL catalog and resource pipeline.
+def get_course_targets(session, course_id: int) -> list[dict]:
+    from app.core.skill_identity import COURSE_MEMBERSHIP, TARGET_IDENTITY
+
+    result = session.run(
+        f"""
+        MATCH (course:CLASS {{id:$course_id}}), (sk)
+        WHERE (sk:BOOK_SKILL OR sk:MARKET_SKILL OR sk:CAREER_SKILL)
+            AND {COURSE_MEMBERSHIP}
+            AND (sk:BOOK_SKILL OR sk.course_id=$course_id OR sk.course_id IS NULL)
+        SET sk:SKILL
+        FOREACH (ignored IN CASE WHEN sk:BOOK_SKILL AND sk.id IS NULL THEN [1] ELSE [] END | SET sk.id=randomUUID())
+        FOREACH (ignored IN CASE WHEN sk:MARKET_SKILL AND NOT sk:CAREER_SKILL AND sk.evidence_target_id IS NULL THEN [1] ELSE [] END | SET sk.evidence_target_id=randomUUID())
+        RETURN sk {{.name,.description,.category,.status,.priority,.demand_pct,
+            target_identity:{TARGET_IDENTITY},
+            source:CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
+            origin:CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE coalesce(sk.origin,'market_demand') END,
+            legacy:NOT sk:CAREER_SKILL,
+            chapters:COLLECT {{ MATCH (course)-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER) WHERE EXISTS {{ MATCH (sk)-[:MAPPED_TO|RELEVANT_TO_CHAPTER]->(ch) }} RETURN ch {{chapter_id:toString(ch.id),.title,.chapter_index,.summary}} }},
+            posting_urls:[(sk)-[:SOURCED_FROM]->(jp:JOB_POSTING) | jp.url],
+            projected_reference_id:head(COLLECT {{ MATCH (course)-[:HAS_COURSE_SKILL_REFERENCE]->(r:COURSE_SKILL_REFERENCE)-[:FOR_SKILL]->(sk) RETURN r.id }}),
+            projection_revision:head(COLLECT {{ MATCH (course)-[:HAS_COURSE_SKILL_REFERENCE]->(r:COURSE_SKILL_REFERENCE)-[:FOR_SKILL]->(sk) RETURN r.projection_revision }})
+        }} AS target
+        """,
+        course_id=course_id,
+    )
+    return [row["target"] for row in result]
+
+
+def get_book_bank_target_identities(session, course_id):
+    from app.core.skill_identity import TARGET_IDENTITY
+
+    rows = session.run(
+        f"MATCH (:CLASS {{id:$course_id}})-[:CANDIDATE_BOOK]->(:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(sk:BOOK_SKILL) RETURN toString(ch.id) AS chapter_id, {TARGET_IDENTITY} AS target_identity",
+        course_id=course_id,
+    )
+    result = {}
+    for row in rows:
+        result.setdefault(row["chapter_id"], []).append(
+            {"target_identity": row["target_identity"]}
+        )
+    return result
+
+
+def get_selection_target_counts(session, course_id, student_id=None):
+    from app.core.skill_identity import COURSE_MEMBERSHIP, TARGET_IDENTITY
+
+    rows = session.run(
+        f"""
+        MATCH (course:CLASS {{id:$course_id}}), (sk:SKILL)
+        WHERE {COURSE_MEMBERSHIP}
+        OPTIONAL MATCH (s:STUDENT)-[r:SELECTED_SKILL]->(sk)
+        WHERE r.course_id=$course_id OR r.course_id IS NULL
+        RETURN {TARGET_IDENTITY} AS target_identity, count(DISTINCT s) AS peer_count,
+            count(CASE WHEN s.id=$student_id THEN r END)>0 AS selected
+    """,
+        course_id=course_id,
+        student_id=student_id,
+    )
+    return {row["target_identity"]: dict(row) for row in rows}
+
+
+def _scope_legacy_selections(tx, student_id: int) -> None:
+    from app.core.skill_identity import COURSE_MEMBERSHIP
+
+    # A legacy edge was effective in every reachable course. Preserve that state
+    # before turning a selection/deselection into a course-specific operation.
+    tx.run(
+        f"""
+        MATCH (u:STUDENT {{id:$student_id}})-[legacy:SELECTED_SKILL]->(sk:SKILL)
+        WHERE legacy.course_id IS NULL
+        MATCH (course:CLASS) WHERE {COURSE_MEMBERSHIP}
+        MERGE (u)-[scoped:SELECTED_SKILL {{course_id:course.id}}]->(sk)
+        ON CREATE SET scoped=properties(legacy), scoped.course_id=course.id,
+            scoped.selection_origin=CASE WHEN legacy.source='job_posting' THEN 'job_posting' ELSE 'manual' END
+        WITH DISTINCT legacy DELETE legacy
+        """,
+        student_id=student_id,
+    ).consume()
+
+
+def select_skill_targets(
+    session, student_id, course_id, rows, *, replace=False, posting_urls=None
+):
+    from app.core.skill_identity import COURSE_MEMBERSHIP, TARGET_IDENTITY
+
+    def write(tx):
+        matched = list(
+            tx.run(
+                f"UNWIND $rows AS row MATCH (course:CLASS {{id:$course_id}}),(sk:SKILL) WHERE {COURSE_MEMBERSHIP} AND ({TARGET_IDENTITY})=row.target_identity RETURN row.target_identity AS id",
+                rows=rows,
+                course_id=course_id,
+            )
+        )
+        if {row["id"] for row in matched} != {row["target_identity"] for row in rows}:
+            raise ValueError("Selected targets changed; no selections were saved")
+        _scope_legacy_selections(tx, student_id)
+        if replace:
+            tx.run(
+                f"MATCH (u:STUDENT {{id:$student_id}})-[r:SELECTED_SKILL]->(sk),(course:CLASS {{id:$course_id}}) WHERE (r.course_id=$course_id OR r.course_id IS NULL) AND {COURSE_MEMBERSHIP} DELETE r",
+                student_id=student_id,
+                course_id=course_id,
+            ).consume()
+        result = tx.run(
+            f"""
+            UNWIND $rows AS row
+            MATCH (u:USER:STUDENT {{id:$student_id}}),(course:CLASS {{id:$course_id}}),(sk:SKILL)
+            WHERE {COURSE_MEMBERSHIP} AND ({TARGET_IDENTITY})=row.target_identity
+            MERGE (u)-[r:SELECTED_SKILL {{course_id:$course_id}}]->(sk)
+            ON CREATE SET r.selected_at=datetime(), r.selection_origin=CASE WHEN $from_posting THEN 'job_posting' ELSE 'manual' END
+            SET r.source=row.source,r.skill_reference_id=row.skill_reference_id,
+                r.selection_origin=CASE WHEN $from_posting THEN coalesce(r.selection_origin,'manual') ELSE 'manual' END,
+                r.posting_urls=CASE WHEN $from_posting THEN
+                    coalesce(r.posting_urls,[]) + [url IN $posting_urls WHERE NOT url IN coalesce(r.posting_urls,[]) AND (url IN row.qualifying_posting_links OR url IN coalesce(row.posting_urls,[]))]
+                    ELSE [] END
+            RETURN count(DISTINCT sk) AS written
+        """,
+            rows=rows,
+            student_id=student_id,
+            course_id=course_id,
+            from_posting=bool(posting_urls),
+            posting_urls=posting_urls or [],
+        ).single()
+        count = result["written"] if result else 0
+        if count != len(rows):
+            raise ValueError("Selected targets changed; no selections were saved")
+        if posting_urls:
+            tx.run(
+                "UNWIND $urls AS url MATCH (u:USER:STUDENT {id:$student_id}) MERGE (jp:JOB_POSTING {url:url}) MERGE (u)-[r:INTERESTED_IN {course_id:$course_id}]->(jp) ON CREATE SET r.selected_at=datetime()",
+                urls=posting_urls,
+                student_id=student_id,
+                course_id=course_id,
+            ).consume()
+        return count
+
+    return session.execute_write(write)
+
+
+def deselect_skill_targets(session, student_id, course_id, rows):
+    from app.core.skill_identity import TARGET_IDENTITY
+
+    def write(tx):
+        _scope_legacy_selections(tx, student_id)
+        result = tx.run(
+            f"UNWIND $rows AS row MATCH (u:STUDENT {{id:$student_id}})-[r:SELECTED_SKILL]->(sk:SKILL) WHERE ({TARGET_IDENTITY})=row.target_identity AND r.course_id=$course_id DELETE r RETURN count(r) AS deleted",
+            rows=rows,
+            student_id=student_id,
+            course_id=course_id,
+        ).single()
+        return result["deleted"] if result else 0
+
+    return session.execute_write(write)
+
+
+def get_target_resource_status(session, rows, course_id):
+    from app.core.skill_identity import COURSE_MEMBERSHIP, TARGET_IDENTITY
+
+    result = session.run(
+        f"""
+        UNWIND $rows AS row
+        MATCH (course:CLASS {{id:$course_id}}), (sk:SKILL)
+        WHERE {COURSE_MEMBERSHIP} AND ({TARGET_IDENTITY})=row.target_identity
+        RETURN row.target_identity AS id,
+            size([(sk)-[:HAS_READING]->(:READING_RESOURCE) | 1])>0 AS has_readings,
+            size([(sk)-[:HAS_VIDEO]->(:VIDEO_RESOURCE) | 1])>0 AS has_videos,
+            size([(sk)-[:HAS_QUESTION]->(:QUESTION) | 1])=3 AND
+            size([(sk)-[:HAS_QUESTION]->(q:QUESTION) WHERE size(coalesce(q.options,[]))=4 AND q.correct_option IN ['A','B','C','D'] | 1])=3 AS has_questions
+    """,
+        rows=rows,
+        course_id=course_id,
+    )
+    return {
+        r["id"]: {
+            key: r[key] for key in ("has_readings", "has_videos", "has_questions")
+        }
+        for r in result
+    }

@@ -115,6 +115,8 @@ class SkillEvidenceProjector:
             if current.id != approval_id or not current.is_active:
                 raise ValueError("Approval changed during graph projection")
             self._repo.finish_projection(current, reference_ids, "projected", available)
+            if not current.readiness_applied:
+                self._repo.complete_projection_readiness(current)
             self._repo.commit()
             return "projected"
         except Exception as exc:

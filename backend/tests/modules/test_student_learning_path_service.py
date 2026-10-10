@@ -39,6 +39,24 @@ def _build_service(
             }
         ),
     )
+
+    def resolve(_self, course_id, *, ids=None, choices=None, require_available=True):
+        # Isolate range/build coordination; real SQL/graph eligibility is covered
+        # by test_market_skill_student_access.
+        rows = [
+            {
+                "name": choice["name"],
+                "source": choice["source"],
+                "target_identity": choice["source"] + ":" + choice["name"],
+                "skill_reference_id": choice["name"],
+            }
+            for choice in choices or []
+        ]
+        return list({row["target_identity"]: row for row in rows}.values())
+
+    monkeypatch.setattr(
+        "app.modules.student_learning_path.service.SkillCatalogService.resolve", resolve
+    )
     return service
 
 
@@ -57,7 +75,7 @@ def _stub_background_task(monkeypatch):
 def test_build_learning_path_persists_first_time_selected_skills(monkeypatch):
     service = _build_service(monkeypatch)
     scheduled = _stub_background_task(monkeypatch)
-    select_calls: list[tuple[list[str], str]] = []
+    select_calls = []
 
     market_skills = [f"Kafka {index}" for index in range(1, 20)]
     requested_skills = [
@@ -81,10 +99,11 @@ def test_build_learning_path_persists_first_time_selected_skills(monkeypatch):
     )
     monkeypatch.setattr(
         neo4j_repository,
-        "select_skills",
-        lambda _session, _student_id, _course_id, skill_names, source: (
-            select_calls.append((skill_names, source)) or len(skill_names)
-        ),
+        "select_skill_targets",
+        lambda _session, _student_id, _course_id, rows, **kwargs: select_calls.append(
+            (rows, kwargs)
+        )
+        or len(rows),
     )
 
     run_id, queue = asyncio.run(
@@ -97,14 +116,20 @@ def test_build_learning_path_persists_first_time_selected_skills(monkeypatch):
 
     assert run_id
     assert queue is not None
-    assert select_calls == [
-        (["Batch Processing"], "book"),
-        (market_skills, "market"),
+    assert len(select_calls) == 1
+    selected_rows, options = select_calls[0]
+    assert [row["name"] for row in selected_rows] == [
+        "Batch Processing",
+        *market_skills,
     ]
+    assert [row["source"] for row in selected_rows] == ["book", *["market"] * 19]
+    assert options == {"replace": True}
     assert len(scheduled) == 1
 
 
-def test_build_learning_path_reuses_locked_selection_without_rewriting(monkeypatch):
+def test_bodyless_build_learning_path_reuses_saved_selection_without_rewriting(
+    monkeypatch,
+):
     service = _build_service(monkeypatch)
     scheduled = _stub_background_task(monkeypatch)
     select_skills = MagicMock()
@@ -114,13 +139,13 @@ def test_build_learning_path_reuses_locked_selection_without_rewriting(monkeypat
         "get_selected_skills",
         MagicMock(side_effect=[[{"name": "Persisted Skill", "source": "book"}]]),
     )
-    monkeypatch.setattr(neo4j_repository, "select_skills", select_skills)
+    monkeypatch.setattr(neo4j_repository, "select_skill_targets", select_skills)
 
     run_id, queue = asyncio.run(
         service.build_learning_path(
             11,
             2,
-            [BuildSelectedSkillRequest(name="Kafka", source="market")],
+            None,
         )
     )
 
