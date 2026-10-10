@@ -31,7 +31,7 @@ function importance(candidate: SkillCandidate, occupation: string): number | nul
 }
 
 export function SkillReviewPanel({courseId, review, onReviewChange, onRefresh, disabled}: Props) {
-  const [model, setModel] = useState(() => ({incoming: review, snapshot: review, draft: {selected_candidate_ids:review.selected_candidate_ids,excluded_candidate_ids:review.excluded_candidate_ids}, reconciliation:""}));
+  const [model, setModel] = useState(() => ({incoming: review, snapshot: review, draft: {selected_candidate_ids:review.selected_candidate_ids,excluded_candidate_ids:review.excluded_candidate_ids}, reconciliation:"", reconciliationIds:[] as string[]}));
   const [undo, setUndo] = useState<SelectionDraft | null>(null);
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState("name");
@@ -45,10 +45,12 @@ export function SkillReviewPanel({courseId, review, onReviewChange, onRefresh, d
   if (model.incoming !== review) {
     const acknowledged = model.snapshot === review;
     const sameRun = model.snapshot.run_id === review.run_id;
+    const sameRevision = sameRun && model.snapshot.candidate_revision === review.candidate_revision && model.snapshot.selection_revision === review.selection_revision;
     const previousDirty = !sameDraft(model.draft, model.snapshot);
     const reconciled = reconcileDraft(model.draft, review.candidates.map(item => item.candidate_id));
     const names = reconciled.removed_ids.map(id => model.snapshot.candidates.find(item => item.candidate_id === id)?.display_name ?? id);
-    setModel({incoming:review,snapshot:review,draft:sameRun && previousDirty ? reconciled.draft : {selected_candidate_ids:review.selected_candidate_ids,excluded_candidate_ids:review.excluded_candidate_ids},reconciliation:sameRun && names.length ? `Candidates removed or merged: ${names.join(", ")}. Review replacements explicitly; selections were not transferred.` : ""});
+    const reconciliationIds = sameRevision ? model.reconciliationIds.filter(id => review.reconciliations?.some(record => record.reconciliation_id === id && !record.resolved)) : [];
+    setModel({incoming:review,snapshot:review,draft:sameRun && previousDirty ? reconciled.draft : {selected_candidate_ids:review.selected_candidate_ids,excluded_candidate_ids:review.excluded_candidate_ids},reconciliation:sameRun && names.length ? `Candidates removed or merged: ${names.join(", ")}. Review replacements explicitly; selections were not transferred.` : "",reconciliationIds});
     setUndo(null);
     setSuggestions([]);
     setBusy(false);
@@ -60,7 +62,10 @@ export function SkillReviewPanel({courseId, review, onReviewChange, onRefresh, d
     return () => {generation.current += 1;};
   }, [courseId, review]);
   const {snapshot, draft} = model;
-  const dirty = !sameDraft(draft, snapshot);
+  const reconciliations = snapshot.reconciliations ?? [];
+  const unresolvedReconciliations = reconciliations.filter(record => !record.resolved);
+  const pendingReconciliationIds = model.reconciliationIds.filter(id => unresolvedReconciliations.some(record => record.reconciliation_id === id));
+  const dirty = !sameDraft(draft, snapshot) || pendingReconciliationIds.length > 0;
   const locked = !!disabled || busy;
   const missingCount = snapshot.candidates.filter(item => draft.selected_candidate_ids.includes(item.candidate_id) && item.posting_support === "missing").length;
   const coverage = snapshot.extraction_coverage;
@@ -85,12 +90,12 @@ export function SkillReviewPanel({courseId, review, onReviewChange, onRefresh, d
     setSuccess(null);
     try {
       const response = action === "save"
-        ? await saveSkillReviewDraft(courseId, {...revision(),...draft})
+        ? await saveSkillReviewDraft(courseId, {...revision(),...draft,...(pendingReconciliationIds.length ? {resolved_reconciliation_ids:pendingReconciliationIds} : {})})
         : action === "confirm"
           ? await confirmSkillReviewSelection(courseId, revision())
           : await continueWithAvailableEvidence(courseId, revision());
       if (request !== generation.current) return;
-      setModel({...model,snapshot:response,draft:{selected_candidate_ids:response.selected_candidate_ids,excluded_candidate_ids:response.excluded_candidate_ids}});
+      setModel({...model,snapshot:response,draft:{selected_candidate_ids:response.selected_candidate_ids,excluded_candidate_ids:response.excluded_candidate_ids},reconciliationIds:[]});
       setUndo(null);
       onReviewChange(response);
       setSuccess(action === "save" ? "Draft saved" : action === "confirm" ? "Selection confirmed for mapping" : "Evidence omissions acknowledged; supporting postings are still required");
@@ -126,6 +131,28 @@ export function SkillReviewPanel({courseId, review, onReviewChange, onRefresh, d
       {coverage.warnings?.map((warning,index) => <p key={index} className="text-xs">{warning}</p>)}
       {needsAcknowledgement && <Button size="sm" variant="outline" disabled={locked || dirty} onClick={() => void perform("continue")}>Continue with available evidence</Button>}
       {model.reconciliation && <p role="alert" className="text-xs text-destructive">{model.reconciliation}</p>}
+      {reconciliations.length > 0 && <section aria-label="Candidate reconciliation" className="space-y-2 rounded-md border p-3 text-xs">
+        <h3 className="font-medium">Candidate reconciliation</h3>
+        {unresolvedReconciliations.length > 0 && <p>Review each changed candidate and save explicit acknowledgements before confirming for mapping.</p>}
+        {reconciliations.map(record => {
+          const replacement = snapshot.candidates.find(candidate => candidate.candidate_id === record.candidate_id);
+          const previousNames = record.previous_candidates.map(candidate => candidate.display_name);
+          const label = previousNames.join(", ") || replacement?.display_name || record.reconciliation_id;
+          return <div key={record.reconciliation_id} className="space-y-1 rounded-md border p-2">
+            {record.previous_candidates.map(candidate => <p key={candidate.candidate_id}>{candidate.display_name}</p>)}
+            {replacement && <p>Replacement: {replacement.display_name}</p>}
+            <p>{record.reason.replaceAll("_", " ")}</p>
+            {record.resolved ? <p>Reconciliation resolved</p> : <label className="flex items-center gap-2">
+              <Checkbox aria-label={`Acknowledge reconciliation for ${label}`} checked={pendingReconciliationIds.includes(record.reconciliation_id)} disabled={locked} onCheckedChange={checked => {
+                setModel({...model,reconciliationIds:checked === true ? [...model.reconciliationIds,record.reconciliation_id] : model.reconciliationIds.filter(id => id !== record.reconciliation_id)});
+                setError(null);
+                setSuccess(null);
+              }}/>
+              Acknowledge this reconciliation with Save draft
+            </label>}
+          </div>;
+        })}
+      </section>}
       {snapshot.categories.map(category => {
         const members = snapshot.candidates.filter(item => item.category_id === category.category_id);
         const memberIds = members.map(item => item.candidate_id);
@@ -234,9 +261,9 @@ export function SkillReviewPanel({courseId, review, onReviewChange, onRefresh, d
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" disabled={locked || !undo} onClick={() => {if (undo) {setModel({...model,draft:undo});setUndo(null);setSuccess(null);}}}>Undo local change</Button>
         <Button size="sm" disabled={locked || !dirty} onClick={() => void perform("save")}>Save draft</Button>
-        <Button size="sm" disabled={locked || dirty || needsAcknowledgement || !draft.selected_candidate_ids.length} onClick={() => void perform("confirm")}>Confirm selection for mapping</Button>
+        <Button size="sm" disabled={locked || dirty || needsAcknowledgement || unresolvedReconciliations.length > 0 || !draft.selected_candidate_ids.length} onClick={() => void perform("confirm")}>Confirm selection for mapping</Button>
       </div>
-      <IntegrationReview courseId={courseId} review={snapshot} onReviewChange={onReviewChange} disabled={locked || dirty || needsAcknowledgement}/>
+      <IntegrationReview courseId={courseId} review={snapshot} onReviewChange={onReviewChange} disabled={locked || dirty || needsAcknowledgement || unresolvedReconciliations.length > 0}/>
     </section>
   );
 }

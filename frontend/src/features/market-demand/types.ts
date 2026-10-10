@@ -149,6 +149,16 @@ export interface RecommendationProposal {
   base_selection_revision: number;
   changes: { candidate_id: string; action: "add" | "remove"; reason: string }[];
 }
+export interface CandidateReconciliation {
+  reconciliation_id: string;
+  candidate_id?: string | null;
+  previous_candidate_ids: string[];
+  reason: string;
+  previous_candidates: { candidate_id: string; display_name: string }[];
+  previous_selected_candidate_ids: string[];
+  previous_excluded_candidate_ids: string[];
+  resolved: boolean;
+}
 export interface SkillReview {
   run_id: string | null;
   candidate_revision: number;
@@ -158,6 +168,7 @@ export interface SkillReview {
   selected_candidate_ids: string[];
   excluded_candidate_ids: string[];
   recommendations: RecommendationProposal[];
+  reconciliations?: CandidateReconciliation[];
   source_outcomes: Record<string, SourceOutcome>;
   extraction_coverage: ExtractionCoverage;
   integration_review: IntegrationReviewPayload | null;
@@ -170,6 +181,7 @@ export interface SkillReviewDraft {
   expected_selection_revision: number;
   selected_candidate_ids: string[];
   excluded_candidate_ids: string[];
+  resolved_reconciliation_ids?: string[];
 }
 
 export type CoverageStatus = "full" | "partial" | "failed" | "pending";

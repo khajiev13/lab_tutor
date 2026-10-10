@@ -1,4 +1,4 @@
-import type { SkillReview } from "@/features/market-demand/types";
+import type { CandidateReconciliation, SkillReview } from "@/features/market-demand/types";
 
 export function reviewFixture(): SkillReview {
   return {
@@ -17,4 +17,25 @@ export function reviewFixture(): SkillReview {
 export function integrationFixture(): SkillReview {
   const review = reviewFixture();
   return {...review,selected_candidate_ids:["python"],integration_review:{review_digest:"digest-1",candidate_revision:1,selection_revision:2,items:[{candidate_id:"python",target:{identity:"target-1",label:"Python programming",source:"market",origin:"jobs"},chapters:[{chapter_id:"chapter-1",title:"Programming"}],disposition:"new",qualifying_posting_links:["https://hh.uz/vacancy/123"],evidence_snapshot_ids:["snapshot-1"]}],omissions:[],omissions_acknowledged:true}};
+}
+
+export const reconciliationA = "11111111-1111-4111-8111-111111111111";
+export const reconciliationB = "22222222-2222-4222-8222-222222222222";
+
+export type ReconciledReview = SkillReview & {reconciliations: CandidateReconciliation[]};
+
+export function reconciliationFixture(): ReconciledReview {
+  return {
+    ...reviewFixture(),
+    selected_candidate_ids: ["python"],
+    excluded_candidate_ids: ["sql"],
+    reconciliations: [
+      {reconciliation_id: reconciliationA, candidate_id: "python", previous_candidate_ids: ["old-python"],
+        reason: "ambiguous_equivalent_merge", previous_candidates: [{candidate_id: "old-python", display_name: "Prior Python"}],
+        previous_selected_candidate_ids: ["old-python"], previous_excluded_candidate_ids: [], resolved: false},
+      {reconciliation_id: reconciliationB, candidate_id: null, previous_candidate_ids: ["old-sql"],
+        reason: "candidate_removed", previous_candidates: [{candidate_id: "old-sql", display_name: "Removed SQL"}],
+        previous_selected_candidate_ids: [], previous_excluded_candidate_ids: ["old-sql"], resolved: false},
+    ],
+  };
 }

@@ -3,8 +3,9 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { SkillReviewPanel } from "@/features/market-demand/components/SkillReviewPanel";
-import { integrationFixture, reviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
+import { integrationFixture, reconciliationA, reconciliationB, reconciliationFixture, reviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
 import type { SkillReview, OnetEvidence, OnetMetric, OnetAssociation } from "@/features/market-demand/types";
+import type { ReconciledReview } from "@/features/market-demand/__tests__/review-fixtures";
 
 vi.mock("@/features/market-demand/api", async () => ({...await vi.importActual("@/features/market-demand/api"),saveSkillReviewDraft:vi.fn(),confirmSkillReviewSelection:vi.fn(),continueWithAvailableEvidence:vi.fn(),fetchPostingEvidence:vi.fn(),approveSkillIntegration:vi.fn()}));
 import { saveSkillReviewDraft, confirmSkillReviewSelection, fetchPostingEvidence, continueWithAvailableEvidence, approveSkillIntegration } from "@/features/market-demand/api";
@@ -224,4 +225,114 @@ it("allows mapping after successful continuation without publishing an O*NET-onl
   await user.click(screen.getByRole("button", {name: "Approve integration"}));
   expect(approveSkillIntegration).not.toHaveBeenCalled();
   expect(screen.getByText("Published Python")).toBeInTheDocument();
+});
+
+it("durable reconciliation survives a fresh reload after its candidates disappear", () => {
+  const review = reconciliationFixture();
+  const {unmount} = render(<SkillReviewPanel courseId={1} review={review} onReviewChange={vi.fn()}/>);
+  const history = screen.getByRole("region", {name: "Candidate reconciliation"});
+  expect(within(history).getByText("Prior Python")).toBeInTheDocument();
+  expect(within(history).getByText(/Replacement: Python/)).toBeInTheDocument();
+  expect(within(history).getByText("Removed SQL")).toBeInTheDocument();
+  expect(screen.queryByRole("checkbox", {name: "Select Prior Python"})).not.toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+  unmount();
+  render(<SkillReviewPanel courseId={1} review={review} onReviewChange={vi.fn()}/>);
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).not.toBeChecked();
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Removed SQL"})).not.toBeChecked();
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+});
+
+it("durable reconciliation saves only explicit records and requires server resolution before mapping", async () => {
+  const review = reconciliationFixture();
+  let finish!: (response: ReconciledReview) => void;
+  vi.mocked(saveSkillReviewDraft).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  render(<ReviewParent initialReview={review}/>);
+  const user = userEvent.setup();
+  expect(screen.getByRole("button", {name: "Save draft"})).toBeDisabled();
+  await user.click(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"}));
+  expect(screen.getByRole("button", {name: "Save draft"})).toBeEnabled();
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+  expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", {name: "Save draft"}));
+  expect(saveSkillReviewDraft).toHaveBeenCalledWith(1, {
+    run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 2,
+    selected_candidate_ids: ["python"], excluded_candidate_ids: ["sql"], resolved_reconciliation_ids: [reconciliationA],
+  });
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+  await act(async () => finish({...review, selection_revision: 3, reconciliations: [
+    {...review.reconciliations[0], resolved: true}, review.reconciliations[1],
+  ]}));
+  expect(await screen.findByText("Draft saved")).toBeInTheDocument();
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Removed SQL"})).not.toBeChecked();
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+  const resolved = {...review, selection_revision: 4, reconciliations: review.reconciliations.map(record => ({...record, resolved: true}))};
+  vi.mocked(saveSkillReviewDraft).mockResolvedValueOnce(resolved);
+  await user.click(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Removed SQL"}));
+  await user.click(screen.getByRole("button", {name: "Save draft"}));
+  expect(saveSkillReviewDraft).toHaveBeenLastCalledWith(1, {
+    run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 3,
+    selected_candidate_ids: ["python"], excluded_candidate_ids: ["sql"], resolved_reconciliation_ids: [reconciliationB],
+  });
+  await waitFor(() => expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeEnabled());
+});
+
+it("durable reconciliation remains unresolved on ordinary save while category selection and exclusions survive", async () => {
+  const review = reconciliationFixture();
+  vi.mocked(saveSkillReviewDraft).mockResolvedValueOnce({...review, selection_revision: 3, selected_candidate_ids: ["python", "reference"], excluded_candidate_ids: ["sql"]});
+  render(<ReviewParent initialReview={review}/>);
+  const user = userEvent.setup();
+  await user.type(screen.getByRole("textbox", {name: "Filter skills"}), "Python");
+  await user.click(screen.getByRole("checkbox", {name: /Select category Tools/}));
+  await user.clear(screen.getByRole("textbox", {name: "Filter skills"}));
+  await user.click(screen.getByRole("checkbox", {name: "Select SQL"}));
+  await user.click(screen.getByRole("button", {name: "Save draft"}));
+  expect(await screen.findByText("Draft saved")).toBeInTheDocument();
+  const body = vi.mocked(saveSkillReviewDraft).mock.calls[0][1];
+  expect(body.selected_candidate_ids).toEqual(["python", "reference"]);
+  expect(body.excluded_candidate_ids).toEqual(["sql"]);
+  expect("resolved_reconciliation_ids" in body ? body.resolved_reconciliation_ids : []).toEqual([]);
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).not.toBeChecked();
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Removed SQL"})).not.toBeChecked();
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+});
+
+it.each(["Connection lost", "Stale reconciliation revision"])("durable reconciliation retains explicit acknowledgement after %s", async message => {
+  const review = reconciliationFixture();
+  vi.mocked(saveSkillReviewDraft).mockRejectedValueOnce(new Error(message));
+  render(<SkillReviewPanel courseId={1} review={review} onReviewChange={vi.fn()}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"}));
+  await user.click(screen.getByRole("button", {name: "Save draft"}));
+  expect(await screen.findByRole("alert")).toHaveTextContent(message);
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).toBeChecked();
+  expect(screen.getByRole("button", {name: "Save draft"})).toBeEnabled();
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+  expect(screen.queryByText("Draft saved")).not.toBeInTheDocument();
+});
+
+it.each(["candidate", "selection", "run"] as const)("durable reconciliation resets acknowledgements on a new %s and ignores stale save completion", async change => {
+  const review = reconciliationFixture();
+  let finish!: (response: ReconciledReview) => void;
+  vi.mocked(saveSkillReviewDraft).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  const changed = vi.fn();
+  const {rerender} = render(<SkillReviewPanel courseId={1} review={review} onReviewChange={changed}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"}));
+  await user.click(screen.getByRole("button", {name: "Save draft"}));
+  const next = {
+    ...review,
+    candidate_revision: change === "candidate" ? 2 : 1,
+    selection_revision: change === "selection" ? 3 : 2,
+    run_id: change === "run" ? "run-2" : "run-1",
+    reconciliations: change === "run" ? [{...review.reconciliations[0], reconciliation_id: reconciliationB}] : review.reconciliations,
+  };
+  rerender(<SkillReviewPanel courseId={1} review={next} onReviewChange={changed}/>);
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).not.toBeChecked();
+  expect(screen.getByRole("button", {name: "Save draft"})).toBeDisabled();
+  await act(async () => finish({...review, selection_revision: 3, reconciliations: review.reconciliations.map(record => ({...record, resolved: true}))}));
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.queryByText("Draft saved")).not.toBeInTheDocument();
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).not.toBeChecked();
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
 });
