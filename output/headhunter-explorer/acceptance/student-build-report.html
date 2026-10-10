@@ -1,0 +1,459 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Task 10 student-build</title><style>body{font:16px system-ui;max-width:1100px;margin:32px auto;padding:0 20px}img{width:100%;border:1px solid #bbb}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#1451a3}</style><h1>Task 10: student-build</h1><p>Status: passed-with-skips. Real isolated API: http://127.0.0.1:18769.</p><p><a href="student-build-student-draft-desktop.png">student-build-student-draft-desktop.png</a></p><img src="student-build-student-draft-desktop.png" alt="student-build-student-draft-desktop.png"><p><a href="student-build-student-draft-mobile.png">student-build-student-draft-mobile.png</a></p><img src="student-build-student-draft-mobile.png" alt="student-build-student-draft-mobile.png"><p><a href="student-build-student-built-desktop.png">student-build-student-built-desktop.png</a></p><img src="student-build-student-built-desktop.png" alt="student-build-student-built-desktop.png"><p><a href="student-build-student-built-mobile.png">student-build-student-built-mobile.png</a></p><img src="student-build-student-built-mobile.png" alt="student-build-student-built-mobile.png"><h2>Assertions and explicit coverage limits</h2><pre>{
+  &quot;phase&quot;: &quot;student-build&quot;,
+  &quot;courseId&quot;: 1,
+  &quot;runId&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+  &quot;startedAt&quot;: &quot;2026-10-10T11:19:09.544Z&quot;,
+  &quot;status&quot;: &quot;passed-with-skips&quot;,
+  &quot;checks&quot;: [
+    {
+      &quot;name&quot;: &quot;studentA real isolated login&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;userId&quot;: 2
+    },
+    {
+      &quot;name&quot;: &quot;posting bulk exclusion survives removal/reselection locally before the same real build&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;career reference choice stays local until build&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;real build sends each selected reference once and persists selection via real SSE&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    }
+  ],
+  &quot;skipped&quot;: [
+    {
+      &quot;name&quot;: &quot;resource/quiz provider recovery&quot;,
+      &quot;reason&quot;: &quot;Requires explicit isolated external provider failure and real bodyless build; no production setup endpoint invented&quot;
+    }
+  ],
+  &quot;network&quot;: [
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/auth/jwt/login&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/build&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/build/stream/df4710f8-70aa-4bd4-8bf2-9c6a20a2e844?token=[REDACTED]&quot;,
+      &quot;kind&quot;: &quot;eventsource&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    }
+  ],
+  &quot;screenshots&quot;: [
+    &quot;student-build-student-draft-desktop.png&quot;,
+    &quot;student-build-student-draft-mobile.png&quot;,
+    &quot;student-build-student-built-desktop.png&quot;,
+    &quot;student-build-student-built-mobile.png&quot;
+  ],
+  &quot;postingBulk&quot;: {
+    &quot;postingUrl&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+    &quot;excludedReferenceId&quot;: &quot;cc716afb-b196-4bca-98da-c17227a31962&quot;,
+    &quot;eligibleReferenceIds&quot;: [
+      &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;,
+      &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;,
+      &quot;cc716afb-b196-4bca-98da-c17227a31962&quot;
+    ]
+  },
+  &quot;buildRunId&quot;: &quot;df4710f8-70aa-4bd4-8bf2-9c6a20a2e844&quot;,
+  &quot;path&quot;: {
+    &quot;course_id&quot;: 1,
+    &quot;course_title&quot;: &quot;Isolated acceptance 5f5d97205d4a&quot;,
+    &quot;chapters&quot;: [
+      {
+        &quot;title&quot;: &quot;Programming&quot;,
+        &quot;chapter_index&quot;: 1,
+        &quot;description&quot;: null,
+        &quot;learning_objectives&quot;: [],
+        &quot;selected_skills&quot;: [
+          {
+            &quot;skill_reference_id&quot;: &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;,
+            &quot;source&quot;: &quot;market&quot;,
+            &quot;origin&quot;: &quot;market_demand&quot;,
+            &quot;qualifying_posting_links&quot;: [
+              &quot;https://hh.uz/vacancy/900000001&quot;
+            ],
+            &quot;evidence_references&quot;: [
+              {
+                &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+                &quot;provider&quot;: &quot;headhunter&quot;,
+                &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+                &quot;original_phrase&quot;: &quot;explain results to stakeholders&quot;,
+                &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+                &quot;excerpt&quot;: &quot;explain results to stakeholders&quot;,
+                &quot;excerpt_start&quot;: 109,
+                &quot;excerpt_end&quot;: 140,
+                &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+                &quot;status&quot;: &quot;active&quot;
+              }
+            ],
+            &quot;onet_associations&quot;: [
+              {
+                &quot;evidence&quot;: {
+                  &quot;id&quot;: &quot;fed6b063-1594-58b2-aea7-6095305efb3f&quot;,
+                  &quot;release&quot;: &quot;31.0&quot;,
+                  &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+                  &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+                  &quot;family&quot;: &quot;transferable&quot;,
+                  &quot;element_id&quot;: &quot;2.B.1.a&quot;,
+                  &quot;label&quot;: &quot;Social Perceptiveness&quot;,
+                  &quot;definition&quot;: &quot;Understand people.&quot;,
+                  &quot;workplace_example&quot;: null,
+                  &quot;ratings&quot;: {
+                    &quot;IM&quot;: {
+                      &quot;date&quot;: &quot;08/2026&quot;,
+                      &quot;value&quot;: 2.4,
+                      &quot;status&quot;: &quot;suppressed&quot;,
+                      &quot;maximum&quot;: 5,
+                      &quot;minimum&quot;: 1,
+                      &quot;quality&quot;: {
+                        &quot;N&quot;: &quot;10&quot;,
+                        &quot;Not Relevant&quot;: &quot;N&quot;,
+                        &quot;Domain Source&quot;: &quot;Analyst&quot;,
+                        &quot;Lower CI Bound&quot;: &quot;2&quot;,
+                        &quot;Standard Error&quot;: &quot;0.3&quot;,
+                        &quot;Upper CI Bound&quot;: &quot;3&quot;,
+                        &quot;Recommend Suppress&quot;: &quot;Y&quot;
+                      },
+                      &quot;scale_id&quot;: &quot;IM&quot;
+                    },
+                    &quot;LV&quot;: {
+                      &quot;date&quot;: &quot;08/2026&quot;,
+                      &quot;value&quot;: 0,
+                      &quot;status&quot;: &quot;not_relevant&quot;,
+                      &quot;maximum&quot;: 7,
+                      &quot;minimum&quot;: 0,
+                      &quot;quality&quot;: {
+                        &quot;N&quot;: &quot;10&quot;,
+                        &quot;Not Relevant&quot;: &quot;Y&quot;,
+                        &quot;Domain Source&quot;: &quot;Analyst&quot;,
+                        &quot;Lower CI Bound&quot;: &quot;&quot;,
+                        &quot;Standard Error&quot;: &quot;&quot;,
+                        &quot;Upper CI Bound&quot;: &quot;&quot;,
+                        &quot;Recommend Suppress&quot;: &quot;N&quot;
+                      },
+                      &quot;scale_id&quot;: &quot;LV&quot;
+                    }
+                  },
+                  &quot;flags&quot;: {},
+                  &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv&quot;,
+                  &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;
+                },
+                &quot;relation&quot;: &quot;related&quot;,
+                &quot;mapping_method&quot;: &quot;model_context&quot;,
+                &quot;rationale&quot;: &quot;Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.&quot;
+              }
+            ],
+            &quot;job_metrics&quot;: {
+              &quot;supporting_posting_count&quot;: 1,
+              &quot;assessed_posting_count&quot;: 1,
+              &quot;selected_posting_count&quot;: 1,
+              &quot;percentage&quot;: 100,
+              &quot;coverage_status&quot;: &quot;full&quot;
+            },
+            &quot;projection_status&quot;: &quot;projected&quot;,
+            &quot;available_for_new_selection&quot;: true,
+            &quot;availability_reason&quot;: null,
+            &quot;is_selected&quot;: false,
+            &quot;peer_count&quot;: 0,
+            &quot;name&quot;: &quot;Explain technical results&quot;,
+            &quot;description&quot;: null,
+            &quot;concepts&quot;: [
+              {
+                &quot;name&quot;: &quot;Relational query planning&quot;,
+                &quot;description&quot;: &quot;Acceptance fixture concept&quot;
+              }
+            ],
+            &quot;readings&quot;: [],
+            &quot;videos&quot;: [],
+            &quot;questions&quot;: [
+              {
+                &quot;id&quot;: &quot;7503e075-fa1f-42ac-b852-2a3cb918883e&quot;,
+                &quot;text&quot;: &quot;Synthetic easy diagnostic for Explain technical results: which option is correct?&quot;,
+                &quot;difficulty&quot;: &quot;easy&quot;,
+                &quot;options&quot;: [
+                  &quot;Fixture correct answer&quot;,
+                  &quot;Fixture distractor B&quot;,
+                  &quot;Fixture distractor C&quot;,
+                  &quot;Fixture distractor D&quot;
+                ]
+              },
+              {
+                &quot;id&quot;: &quot;2f8a5f47-fa0e-4b64-ad34-86ef948d6f6e&quot;,
+                &quot;text&quot;: &quot;Synthetic medium diagnostic for Explain technical results: which option is correct?&quot;,
+                &quot;difficulty&quot;: &quot;medium&quot;,
+                &quot;options&quot;: [
+                  &quot;Fixture correct answer&quot;,
+                  &quot;Fixture distractor B&quot;,
+                  &quot;Fixture distractor C&quot;,
+                  &quot;Fixture distractor D&quot;
+                ]
+              },
+              {
+                &quot;id&quot;: &quot;8aac4431-b9d4-4049-9632-621e49ed3f44&quot;,
+                &quot;text&quot;: &quot;Synthetic hard diagnostic for Explain technical results: which option is correct?&quot;,
+                &quot;difficulty&quot;: &quot;hard&quot;,
+                &quot;options&quot;: [
+                  &quot;Fixture correct answer&quot;,
+                  &quot;Fixture distractor B&quot;,
+                  &quot;Fixture distractor C&quot;,
+                  &quot;Fixture distractor D&quot;
+                ]
+              }
+            ],
+            &quot;resource_status&quot;: &quot;pending&quot;,
+            &quot;is_known&quot;: false
+          },
+          {
+            &quot;skill_reference_id&quot;: &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;,
+            &quot;source&quot;: &quot;book&quot;,
+            &quot;origin&quot;: &quot;book&quot;,
+            &quot;qualifying_posting_links&quot;: [
+              &quot;https://hh.uz/vacancy/900000001&quot;
+            ],
+            &quot;evidence_references&quot;: [
+              {
+                &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+                &quot;provider&quot;: &quot;headhunter&quot;,
+                &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+                &quot;original_phrase&quot;: &quot;query relational databases using SQL&quot;,
+                &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+                &quot;excerpt&quot;: &quot;query relational databases using SQL&quot;,
+                &quot;excerpt_start&quot;: 71,
+                &quot;excerpt_end&quot;: 107,
+                &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+                &quot;status&quot;: &quot;active&quot;
+              }
+            ],
+            &quot;onet_associations&quot;: [
+              {
+                &quot;evidence&quot;: {
+                  &quot;id&quot;: &quot;3091b4dd-bbac-5e2d-b3eb-622cd26d2409&quot;,
+                  &quot;release&quot;: &quot;31.0&quot;,
+                  &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+                  &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+                  &quot;family&quot;: &quot;software&quot;,
+                  &quot;element_id&quot;: &quot;2.E.6.f&quot;,
+                  &quot;label&quot;: &quot;Database software&quot;,
+                  &quot;definition&quot;: &quot;Database tools.&quot;,
+                  &quot;workplace_example&quot;: &quot;MySQL&quot;,
+                  &quot;ratings&quot;: {},
+                  &quot;flags&quot;: {
+                    &quot;In Demand&quot;: true,
+                    &quot;Hot Technology&quot;: null
+                  },
+                  &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv&quot;,
+                  &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;
+                },
+                &quot;relation&quot;: &quot;related&quot;,
+                &quot;mapping_method&quot;: &quot;model_context&quot;,
+                &quot;rationale&quot;: &quot;Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.&quot;
+              },
+              {
+                &quot;evidence&quot;: {
+                  &quot;id&quot;: &quot;9f2f63da-4436-52b8-8edf-6954e49d84d1&quot;,
+                  &quot;release&quot;: &quot;31.0&quot;,
+                  &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+                  &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+                  &quot;family&quot;: &quot;software&quot;,
+                  &quot;element_id&quot;: &quot;2.E.6.f&quot;,
+                  &quot;label&quot;: &quot;Database software&quot;,
+                  &quot;definition&quot;: &quot;Database tools.&quot;,
+                  &quot;workplace_example&quot;: &quot;PostgreSQL&quot;,
+                  &quot;ratings&quot;: {},
+                  &quot;flags&quot;: {
+                    &quot;In Demand&quot;: false,
+                    &quot;Hot Technology&quot;: true
+                  },
+                  &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv&quot;,
+                  &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;
+                },
+                &quot;relation&quot;: &quot;related&quot;,
+                &quot;mapping_method&quot;: &quot;model_context&quot;,
+                &quot;rationale&quot;: &quot;Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.&quot;
+              }
+            ],
+            &quot;job_metrics&quot;: {
+              &quot;supporting_posting_count&quot;: 1,
+              &quot;assessed_posting_count&quot;: 1,
+              &quot;selected_posting_count&quot;: 1,
+              &quot;percentage&quot;: 100,
+              &quot;coverage_status&quot;: &quot;full&quot;
+            },
+            &quot;projection_status&quot;: &quot;projected&quot;,
+            &quot;available_for_new_selection&quot;: true,
+            &quot;availability_reason&quot;: null,
+            &quot;is_selected&quot;: false,
+            &quot;peer_count&quot;: 0,
+            &quot;name&quot;: &quot;Query relational databases&quot;,
+            &quot;description&quot;: null,
+            &quot;concepts&quot;: [
+              {
+                &quot;name&quot;: &quot;Relational query planning&quot;,
+                &quot;description&quot;: &quot;Acceptance fixture concept&quot;
+              }
+            ],
+            &quot;readings&quot;: [],
+            &quot;videos&quot;: [],
+            &quot;questions&quot;: [
+              {
+                &quot;id&quot;: &quot;0e7dc09c-1b4d-48eb-8a52-5b271b8b887e&quot;,
+                &quot;text&quot;: &quot;Synthetic easy diagnostic for Query relational databases: which option is correct?&quot;,
+                &quot;difficulty&quot;: &quot;easy&quot;,
+                &quot;options&quot;: [
+                  &quot;Fixture correct answer&quot;,
+                  &quot;Fixture distractor B&quot;,
+                  &quot;Fixture distractor C&quot;,
+                  &quot;Fixture distractor D&quot;
+                ]
+              },
+              {
+                &quot;id&quot;: &quot;7f92d37c-0b12-4272-a413-7d034bf337e9&quot;,
+                &quot;text&quot;: &quot;Synthetic medium diagnostic for Query relational databases: which option is correct?&quot;,
+                &quot;difficulty&quot;: &quot;medium&quot;,
+                &quot;options&quot;: [
+                  &quot;Fixture correct answer&quot;,
+                  &quot;Fixture distractor B&quot;,
+                  &quot;Fixture distractor C&quot;,
+                  &quot;Fixture distractor D&quot;
+                ]
+              },
+              {
+                &quot;id&quot;: &quot;7897063b-a959-45f2-8081-8136ae07db9d&quot;,
+                &quot;text&quot;: &quot;Synthetic hard diagnostic for Query relational databases: which option is correct?&quot;,
+                &quot;difficulty&quot;: &quot;hard&quot;,
+                &quot;options&quot;: [
+                  &quot;Fixture correct answer&quot;,
+                  &quot;Fixture distractor B&quot;,
+                  &quot;Fixture distractor C&quot;,
+                  &quot;Fixture distractor D&quot;
+                ]
+              }
+            ],
+            &quot;resource_status&quot;: &quot;pending&quot;,
+            &quot;is_known&quot;: false
+          }
+        ],
+        &quot;quiz_status&quot;: &quot;quiz_required&quot;,
+        &quot;easy_question_count&quot;: 2,
+        &quot;answered_count&quot;: 0,
+        &quot;correct_count&quot;: 0
+      }
+    ],
+    &quot;total_selected_skills&quot;: 2,
+    &quot;skills_with_resources&quot;: 0
+  },
+  &quot;identity&quot;: [
+    {
+      &quot;chapter_index&quot;: 1,
+      &quot;title&quot;: &quot;Programming&quot;,
+      &quot;quiz_status&quot;: &quot;quiz_required&quot;,
+      &quot;answered_count&quot;: 0,
+      &quot;correct_count&quot;: 0,
+      &quot;selected_skills&quot;: [
+        {
+          &quot;name&quot;: &quot;Explain technical results&quot;,
+          &quot;source&quot;: &quot;market&quot;,
+          &quot;skill_reference_id&quot;: &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;,
+          &quot;is_known&quot;: false,
+          &quot;readings&quot;: [],
+          &quot;videos&quot;: [],
+          &quot;questions&quot;: [
+            &quot;7503e075-fa1f-42ac-b852-2a3cb918883e&quot;,
+            &quot;2f8a5f47-fa0e-4b64-ad34-86ef948d6f6e&quot;,
+            &quot;8aac4431-b9d4-4049-9632-621e49ed3f44&quot;
+          ]
+        },
+        {
+          &quot;name&quot;: &quot;Query relational databases&quot;,
+          &quot;source&quot;: &quot;book&quot;,
+          &quot;skill_reference_id&quot;: &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;,
+          &quot;is_known&quot;: false,
+          &quot;readings&quot;: [],
+          &quot;videos&quot;: [],
+          &quot;questions&quot;: [
+            &quot;0e7dc09c-1b4d-48eb-8a52-5b271b8b887e&quot;,
+            &quot;7f92d37c-0b12-4272-a413-7d034bf337e9&quot;,
+            &quot;7897063b-a959-45f2-8081-8136ae07db9d&quot;
+          ]
+        }
+      ]
+    }
+  ],
+  &quot;finishedAt&quot;: &quot;2026-10-10T11:19:57.914Z&quot;
+}</pre></html>

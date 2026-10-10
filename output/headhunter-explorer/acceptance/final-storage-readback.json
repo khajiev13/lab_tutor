@@ -1,0 +1,97 @@
+{
+  "fixture_kind": "synthetic-external-provider-and-model; imported-bounded-onet-fixture",
+  "course_id": 1,
+  "checks": [
+    "SQL preserves every reference, original posting support, complete source snapshot and projected withdrawal history after chat clear",
+    "Graph preserves saved student references and chapter snapshots; withdrawn career targets have no current mappings and failed fresh selection remains atomic"
+  ],
+  "references": [
+    {
+      "id": "cc716afb-b196-4bca-98da-c17227a31962",
+      "target_identity": "book:task10-book-5f5d97205d4a-1",
+      "label": "Design database schemas",
+      "source": "book",
+      "projection_status": "projected",
+      "available_for_new_selection": false
+    },
+    {
+      "id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+      "target_identity": "career:645cb2fe-9d80-567a-bfa9-b4efa0ba4427",
+      "label": "Explain technical results",
+      "source": "market",
+      "projection_status": "projected",
+      "available_for_new_selection": false
+    },
+    {
+      "id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+      "target_identity": "book:task10-book-5f5d97205d4a-0",
+      "label": "Query relational databases",
+      "source": "book",
+      "projection_status": "projected",
+      "available_for_new_selection": false
+    }
+  ],
+  "snapshot": {
+    "native_id": "900000001",
+    "original_url": "https://hh.uz/vacancy/900000001",
+    "original_description_chars": 6403,
+    "cleaned_description_chars": 6396,
+    "raw_field_count": 9,
+    "tail_and_metadata_retained": true
+  },
+  "posting_bindings": [
+    {
+      "skill_reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+      "posting_bindings": 1
+    },
+    {
+      "skill_reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+      "posting_bindings": 1
+    },
+    {
+      "skill_reference_id": "cc716afb-b196-4bca-98da-c17227a31962",
+      "posting_bindings": 1
+    }
+  ],
+  "approvals": [
+    {
+      "revision": 1,
+      "withdrawal": false,
+      "is_active": false,
+      "projection_status": "projected",
+      "item_count": 3
+    },
+    {
+      "revision": 2,
+      "withdrawal": true,
+      "is_active": true,
+      "projection_status": "projected",
+      "item_count": 0
+    }
+  ],
+  "saved_selections": [
+    {
+      "reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+      "name": "Query relational databases",
+      "labels": [
+        "BOOK_SKILL",
+        "SKILL"
+      ],
+      "saved_chapter_ids": null
+    },
+    {
+      "reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+      "name": "Explain technical results",
+      "labels": [
+        "CAREER_SKILL",
+        "SKILL"
+      ],
+      "saved_chapter_ids": [
+        "chapter-1"
+      ]
+    }
+  ],
+  "fresh_student_selection_count": 0,
+  "current_career_mapping_count": 0,
+  "status": "passed"
+}

@@ -1,0 +1,792 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Task 10 proposal</title><style>body{font:16px system-ui;max-width:1100px;margin:32px auto;padding:0 20px}img{width:100%;border:1px solid #bbb}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#1451a3}</style><h1>Task 10: proposal</h1><p>Status: passed-with-skips. Real isolated API: http://127.0.0.1:18769.</p><p><a href="proposal-proposal-desktop.png">proposal-proposal-desktop.png</a></p><img src="proposal-proposal-desktop.png" alt="proposal-proposal-desktop.png"><p><a href="proposal-proposal-mobile.png">proposal-proposal-mobile.png</a></p><img src="proposal-proposal-mobile.png" alt="proposal-proposal-mobile.png"><h2>Assertions and explicit coverage limits</h2><pre>{
+  &quot;phase&quot;: &quot;proposal&quot;,
+  &quot;courseId&quot;: 1,
+  &quot;runId&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+  &quot;startedAt&quot;: &quot;2026-10-10T11:14:37.556Z&quot;,
+  &quot;status&quot;: &quot;passed-with-skips&quot;,
+  &quot;checks&quot;: [
+    {
+      &quot;name&quot;: &quot;teacher real isolated login&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;userId&quot;: 1
+    },
+    {
+      &quot;name&quot;: &quot;proposal cannot re-add explicit exclusion and actionable change saves&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    }
+  ],
+  &quot;skipped&quot;: [
+    {
+      &quot;name&quot;: &quot;live proposal orchestration&quot;,
+      &quot;reason&quot;: &quot;Proposal produced by real coordinator tool transition; no UI chat/model claim&quot;
+    }
+  ],
+  &quot;network&quot;: [
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/auth/jwt/login&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/occupation-reference/releases&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;PUT&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review/draft&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    }
+  ],
+  &quot;screenshots&quot;: [
+    &quot;proposal-proposal-desktop.png&quot;,
+    &quot;proposal-proposal-mobile.png&quot;
+  ],
+  &quot;readback&quot;: {
+    &quot;run_id&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+    &quot;candidate_revision&quot;: 3,
+    &quot;selection_revision&quot;: 2,
+    &quot;categories&quot;: [
+      {
+        &quot;category_id&quot;: &quot;database&quot;,
+        &quot;label&quot;: &quot;Database&quot;
+      },
+      {
+        &quot;category_id&quot;: &quot;essential&quot;,
+        &quot;label&quot;: &quot;Essential&quot;
+      },
+      {
+        &quot;category_id&quot;: &quot;software&quot;,
+        &quot;label&quot;: &quot;Software&quot;
+      },
+      {
+        &quot;category_id&quot;: &quot;transferable&quot;,
+        &quot;label&quot;: &quot;Transferable&quot;
+      }
+    ],
+    &quot;candidates&quot;: [
+      {
+        &quot;candidate_id&quot;: &quot;8a711980-f7d1-4e24-97a9-abf65467e2e5&quot;,
+        &quot;display_name&quot;: &quot;Query relational databases&quot;,
+        &quot;category_id&quot;: &quot;database&quot;,
+        &quot;original_labels&quot;: [
+          &quot;Query relational databases&quot;
+        ],
+        &quot;aliases&quot;: [],
+        &quot;evidence_references&quot;: [
+          {
+            &quot;status&quot;: &quot;active&quot;,
+            &quot;excerpt&quot;: &quot;query relational databases using SQL&quot;,
+            &quot;provider&quot;: &quot;headhunter&quot;,
+            &quot;excerpt_end&quot;: 107,
+            &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+            &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+            &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+            &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+            &quot;excerpt_start&quot;: 71,
+            &quot;original_phrase&quot;: &quot;query relational databases using SQL&quot;
+          }
+        ],
+        &quot;job_metrics&quot;: {
+          &quot;percentage&quot;: 100,
+          &quot;coverage_status&quot;: &quot;full&quot;,
+          &quot;assessed_posting_count&quot;: 1,
+          &quot;selected_posting_count&quot;: 1,
+          &quot;supporting_posting_count&quot;: 1
+        },
+        &quot;onet_associations&quot;: [
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;3091b4dd-bbac-5e2d-b3eb-622cd26d2409&quot;,
+              &quot;flags&quot;: {
+                &quot;In Demand&quot;: true,
+                &quot;Hot Technology&quot;: null
+              },
+              &quot;label&quot;: &quot;Database software&quot;,
+              &quot;family&quot;: &quot;software&quot;,
+              &quot;ratings&quot;: {},
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Database tools.&quot;,
+              &quot;element_id&quot;: &quot;2.E.6.f&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: &quot;MySQL&quot;
+            },
+            &quot;relation&quot;: &quot;related&quot;,
+            &quot;rationale&quot;: &quot;Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.&quot;,
+            &quot;mapping_method&quot;: &quot;model_context&quot;
+          },
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;9f2f63da-4436-52b8-8edf-6954e49d84d1&quot;,
+              &quot;flags&quot;: {
+                &quot;In Demand&quot;: false,
+                &quot;Hot Technology&quot;: true
+              },
+              &quot;label&quot;: &quot;Database software&quot;,
+              &quot;family&quot;: &quot;software&quot;,
+              &quot;ratings&quot;: {},
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Database tools.&quot;,
+              &quot;element_id&quot;: &quot;2.E.6.f&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: &quot;PostgreSQL&quot;
+            },
+            &quot;relation&quot;: &quot;related&quot;,
+            &quot;rationale&quot;: &quot;Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.&quot;,
+            &quot;mapping_method&quot;: &quot;model_context&quot;
+          }
+        ],
+        &quot;recommendation_reasons&quot;: [],
+        &quot;posting_support&quot;: &quot;supported&quot;,
+        &quot;qualifying_posting_links&quot;: [
+          &quot;https://hh.uz/vacancy/900000001&quot;
+        ]
+      },
+      {
+        &quot;candidate_id&quot;: &quot;ae052899-b4b2-4168-9701-c56279d3083c&quot;,
+        &quot;display_name&quot;: &quot;Explain technical results&quot;,
+        &quot;category_id&quot;: &quot;database&quot;,
+        &quot;original_labels&quot;: [
+          &quot;Explain technical results&quot;
+        ],
+        &quot;aliases&quot;: [],
+        &quot;evidence_references&quot;: [
+          {
+            &quot;status&quot;: &quot;active&quot;,
+            &quot;excerpt&quot;: &quot;explain results to stakeholders&quot;,
+            &quot;provider&quot;: &quot;headhunter&quot;,
+            &quot;excerpt_end&quot;: 140,
+            &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+            &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+            &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+            &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+            &quot;excerpt_start&quot;: 109,
+            &quot;original_phrase&quot;: &quot;explain results to stakeholders&quot;
+          }
+        ],
+        &quot;job_metrics&quot;: {
+          &quot;percentage&quot;: 100,
+          &quot;coverage_status&quot;: &quot;full&quot;,
+          &quot;assessed_posting_count&quot;: 1,
+          &quot;selected_posting_count&quot;: 1,
+          &quot;supporting_posting_count&quot;: 1
+        },
+        &quot;onet_associations&quot;: [
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;fed6b063-1594-58b2-aea7-6095305efb3f&quot;,
+              &quot;flags&quot;: {},
+              &quot;label&quot;: &quot;Social Perceptiveness&quot;,
+              &quot;family&quot;: &quot;transferable&quot;,
+              &quot;ratings&quot;: {
+                &quot;IM&quot;: {
+                  &quot;date&quot;: &quot;08/2026&quot;,
+                  &quot;value&quot;: 2.4,
+                  &quot;status&quot;: &quot;suppressed&quot;,
+                  &quot;maximum&quot;: 5,
+                  &quot;minimum&quot;: 1,
+                  &quot;quality&quot;: {
+                    &quot;N&quot;: &quot;10&quot;,
+                    &quot;Not Relevant&quot;: &quot;N&quot;,
+                    &quot;Domain Source&quot;: &quot;Analyst&quot;,
+                    &quot;Lower CI Bound&quot;: &quot;2&quot;,
+                    &quot;Standard Error&quot;: &quot;0.3&quot;,
+                    &quot;Upper CI Bound&quot;: &quot;3&quot;,
+                    &quot;Recommend Suppress&quot;: &quot;Y&quot;
+                  },
+                  &quot;scale_id&quot;: &quot;IM&quot;
+                },
+                &quot;LV&quot;: {
+                  &quot;date&quot;: &quot;08/2026&quot;,
+                  &quot;value&quot;: 0,
+                  &quot;status&quot;: &quot;not_relevant&quot;,
+                  &quot;maximum&quot;: 7,
+                  &quot;minimum&quot;: 0,
+                  &quot;quality&quot;: {
+                    &quot;N&quot;: &quot;10&quot;,
+                    &quot;Not Relevant&quot;: &quot;Y&quot;,
+                    &quot;Domain Source&quot;: &quot;Analyst&quot;,
+                    &quot;Lower CI Bound&quot;: &quot;&quot;,
+                    &quot;Standard Error&quot;: &quot;&quot;,
+                    &quot;Upper CI Bound&quot;: &quot;&quot;,
+                    &quot;Recommend Suppress&quot;: &quot;N&quot;
+                  },
+                  &quot;scale_id&quot;: &quot;LV&quot;
+                }
+              },
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Understand people.&quot;,
+              &quot;element_id&quot;: &quot;2.B.1.a&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: null
+            },
+            &quot;relation&quot;: &quot;related&quot;,
+            &quot;rationale&quot;: &quot;Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.&quot;,
+            &quot;mapping_method&quot;: &quot;model_context&quot;
+          }
+        ],
+        &quot;recommendation_reasons&quot;: [],
+        &quot;posting_support&quot;: &quot;supported&quot;,
+        &quot;qualifying_posting_links&quot;: [
+          &quot;https://hh.uz/vacancy/900000001&quot;
+        ]
+      },
+      {
+        &quot;candidate_id&quot;: &quot;deb7529f-e25f-4b03-8867-a08fded224f9&quot;,
+        &quot;display_name&quot;: &quot;Design database schemas&quot;,
+        &quot;category_id&quot;: &quot;database&quot;,
+        &quot;original_labels&quot;: [
+          &quot;Design database schemas&quot;
+        ],
+        &quot;aliases&quot;: [],
+        &quot;evidence_references&quot;: [
+          {
+            &quot;status&quot;: &quot;active&quot;,
+            &quot;excerpt&quot;: &quot;design database schemas for reporting&quot;,
+            &quot;provider&quot;: &quot;headhunter&quot;,
+            &quot;excerpt_end&quot;: 179,
+            &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+            &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+            &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+            &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+            &quot;excerpt_start&quot;: 142,
+            &quot;original_phrase&quot;: &quot;design database schemas for reporting&quot;
+          }
+        ],
+        &quot;job_metrics&quot;: {
+          &quot;percentage&quot;: 100,
+          &quot;coverage_status&quot;: &quot;full&quot;,
+          &quot;assessed_posting_count&quot;: 1,
+          &quot;selected_posting_count&quot;: 1,
+          &quot;supporting_posting_count&quot;: 1
+        },
+        &quot;onet_associations&quot;: [
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;3091b4dd-bbac-5e2d-b3eb-622cd26d2409&quot;,
+              &quot;flags&quot;: {
+                &quot;In Demand&quot;: true,
+                &quot;Hot Technology&quot;: null
+              },
+              &quot;label&quot;: &quot;Database software&quot;,
+              &quot;family&quot;: &quot;software&quot;,
+              &quot;ratings&quot;: {},
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Database tools.&quot;,
+              &quot;element_id&quot;: &quot;2.E.6.f&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: &quot;MySQL&quot;
+            },
+            &quot;relation&quot;: &quot;related&quot;,
+            &quot;rationale&quot;: &quot;Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.&quot;,
+            &quot;mapping_method&quot;: &quot;model_context&quot;
+          },
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;9f2f63da-4436-52b8-8edf-6954e49d84d1&quot;,
+              &quot;flags&quot;: {
+                &quot;In Demand&quot;: false,
+                &quot;Hot Technology&quot;: true
+              },
+              &quot;label&quot;: &quot;Database software&quot;,
+              &quot;family&quot;: &quot;software&quot;,
+              &quot;ratings&quot;: {},
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Database tools.&quot;,
+              &quot;element_id&quot;: &quot;2.E.6.f&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: &quot;PostgreSQL&quot;
+            },
+            &quot;relation&quot;: &quot;related&quot;,
+            &quot;rationale&quot;: &quot;Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.&quot;,
+            &quot;mapping_method&quot;: &quot;model_context&quot;
+          }
+        ],
+        &quot;recommendation_reasons&quot;: [],
+        &quot;posting_support&quot;: &quot;supported&quot;,
+        &quot;qualifying_posting_links&quot;: [
+          &quot;https://hh.uz/vacancy/900000001&quot;
+        ]
+      },
+      {
+        &quot;candidate_id&quot;: &quot;940f0e2b-39a8-490d-8211-e0f22d82ff95&quot;,
+        &quot;display_name&quot;: &quot;Validate query results&quot;,
+        &quot;category_id&quot;: &quot;database&quot;,
+        &quot;original_labels&quot;: [
+          &quot;Validate query results&quot;
+        ],
+        &quot;aliases&quot;: [],
+        &quot;evidence_references&quot;: [
+          {
+            &quot;status&quot;: &quot;active&quot;,
+            &quot;excerpt&quot;: &quot;validate query results against source records&quot;,
+            &quot;provider&quot;: &quot;headhunter&quot;,
+            &quot;excerpt_end&quot;: 226,
+            &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+            &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+            &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+            &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+            &quot;excerpt_start&quot;: 181,
+            &quot;original_phrase&quot;: &quot;validate query results against source records&quot;
+          }
+        ],
+        &quot;job_metrics&quot;: {
+          &quot;percentage&quot;: 100,
+          &quot;coverage_status&quot;: &quot;full&quot;,
+          &quot;assessed_posting_count&quot;: 1,
+          &quot;selected_posting_count&quot;: 1,
+          &quot;supporting_posting_count&quot;: 1
+        },
+        &quot;onet_associations&quot;: [],
+        &quot;recommendation_reasons&quot;: [
+          &quot;No O*NET association was established for this competency.&quot;
+        ],
+        &quot;posting_support&quot;: &quot;supported&quot;,
+        &quot;qualifying_posting_links&quot;: [
+          &quot;https://hh.uz/vacancy/900000001&quot;
+        ]
+      },
+      {
+        &quot;candidate_id&quot;: &quot;aa93aae8-90f6-433a-978a-f5961258992c&quot;,
+        &quot;display_name&quot;: &quot;Reading Comprehension&quot;,
+        &quot;category_id&quot;: &quot;essential&quot;,
+        &quot;original_labels&quot;: [
+          &quot;Reading Comprehension&quot;
+        ],
+        &quot;aliases&quot;: [],
+        &quot;evidence_references&quot;: [],
+        &quot;job_metrics&quot;: {
+          &quot;percentage&quot;: 0,
+          &quot;coverage_status&quot;: &quot;full&quot;,
+          &quot;assessed_posting_count&quot;: 1,
+          &quot;selected_posting_count&quot;: 1,
+          &quot;supporting_posting_count&quot;: 0
+        },
+        &quot;onet_associations&quot;: [
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;7b7f63bb-5ab2-51c6-a098-2ff2a8c39d9c&quot;,
+              &quot;flags&quot;: {},
+              &quot;label&quot;: &quot;Reading Comprehension&quot;,
+              &quot;family&quot;: &quot;essential&quot;,
+              &quot;ratings&quot;: {
+                &quot;IM&quot;: {
+                  &quot;date&quot;: &quot;08/2026&quot;,
+                  &quot;value&quot;: 4.2,
+                  &quot;status&quot;: &quot;reported&quot;,
+                  &quot;maximum&quot;: 5,
+                  &quot;minimum&quot;: 1,
+                  &quot;quality&quot;: {
+                    &quot;N&quot;: &quot;10&quot;,
+                    &quot;Not Relevant&quot;: &quot;&quot;,
+                    &quot;Domain Source&quot;: &quot;Analyst&quot;,
+                    &quot;Lower CI Bound&quot;: &quot;4&quot;,
+                    &quot;Standard Error&quot;: &quot;0.1&quot;,
+                    &quot;Upper CI Bound&quot;: &quot;4.4&quot;,
+                    &quot;Recommend Suppress&quot;: &quot;N&quot;
+                  },
+                  &quot;scale_id&quot;: &quot;IM&quot;
+                },
+                &quot;LV&quot;: {
+                  &quot;date&quot;: &quot;08/2026&quot;,
+                  &quot;value&quot;: null,
+                  &quot;status&quot;: &quot;missing&quot;,
+                  &quot;maximum&quot;: 7,
+                  &quot;minimum&quot;: 0,
+                  &quot;quality&quot;: {
+                    &quot;N&quot;: &quot;10&quot;,
+                    &quot;Not Relevant&quot;: &quot;&quot;,
+                    &quot;Domain Source&quot;: &quot;Analyst&quot;,
+                    &quot;Lower CI Bound&quot;: &quot;&quot;,
+                    &quot;Standard Error&quot;: &quot;&quot;,
+                    &quot;Upper CI Bound&quot;: &quot;&quot;,
+                    &quot;Recommend Suppress&quot;: &quot;N&quot;
+                  },
+                  &quot;scale_id&quot;: &quot;LV&quot;
+                }
+              },
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Understand text.&quot;,
+              &quot;element_id&quot;: &quot;2.A.1.a&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: null
+            },
+            &quot;relation&quot;: &quot;equivalent&quot;,
+            &quot;rationale&quot;: &quot;Candidate is the original occupation descriptor.&quot;,
+            &quot;mapping_method&quot;: &quot;official_descriptor&quot;
+          }
+        ],
+        &quot;recommendation_reasons&quot;: [],
+        &quot;posting_support&quot;: &quot;missing&quot;,
+        &quot;qualifying_posting_links&quot;: []
+      },
+      {
+        &quot;candidate_id&quot;: &quot;69da36f2-3af2-43a0-9905-f15a38346e61&quot;,
+        &quot;display_name&quot;: &quot;MySQL&quot;,
+        &quot;category_id&quot;: &quot;software&quot;,
+        &quot;original_labels&quot;: [
+          &quot;Database software&quot;,
+          &quot;MySQL&quot;
+        ],
+        &quot;aliases&quot;: [],
+        &quot;evidence_references&quot;: [],
+        &quot;job_metrics&quot;: {
+          &quot;percentage&quot;: 0,
+          &quot;coverage_status&quot;: &quot;full&quot;,
+          &quot;assessed_posting_count&quot;: 1,
+          &quot;selected_posting_count&quot;: 1,
+          &quot;supporting_posting_count&quot;: 0
+        },
+        &quot;onet_associations&quot;: [
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;3091b4dd-bbac-5e2d-b3eb-622cd26d2409&quot;,
+              &quot;flags&quot;: {
+                &quot;In Demand&quot;: true,
+                &quot;Hot Technology&quot;: null
+              },
+              &quot;label&quot;: &quot;Database software&quot;,
+              &quot;family&quot;: &quot;software&quot;,
+              &quot;ratings&quot;: {},
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Database tools.&quot;,
+              &quot;element_id&quot;: &quot;2.E.6.f&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: &quot;MySQL&quot;
+            },
+            &quot;relation&quot;: &quot;equivalent&quot;,
+            &quot;rationale&quot;: &quot;Candidate is the original software example.&quot;,
+            &quot;mapping_method&quot;: &quot;official_software_example&quot;
+          }
+        ],
+        &quot;recommendation_reasons&quot;: [],
+        &quot;posting_support&quot;: &quot;missing&quot;,
+        &quot;qualifying_posting_links&quot;: []
+      },
+      {
+        &quot;candidate_id&quot;: &quot;b31e6549-9d7c-4ca6-b8d4-9fa9f36409b0&quot;,
+        &quot;display_name&quot;: &quot;PostgreSQL&quot;,
+        &quot;category_id&quot;: &quot;software&quot;,
+        &quot;original_labels&quot;: [
+          &quot;Database software&quot;,
+          &quot;PostgreSQL&quot;
+        ],
+        &quot;aliases&quot;: [],
+        &quot;evidence_references&quot;: [],
+        &quot;job_metrics&quot;: {
+          &quot;percentage&quot;: 0,
+          &quot;coverage_status&quot;: &quot;full&quot;,
+          &quot;assessed_posting_count&quot;: 1,
+          &quot;selected_posting_count&quot;: 1,
+          &quot;supporting_posting_count&quot;: 0
+        },
+        &quot;onet_associations&quot;: [
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;9f2f63da-4436-52b8-8edf-6954e49d84d1&quot;,
+              &quot;flags&quot;: {
+                &quot;In Demand&quot;: false,
+                &quot;Hot Technology&quot;: true
+              },
+              &quot;label&quot;: &quot;Database software&quot;,
+              &quot;family&quot;: &quot;software&quot;,
+              &quot;ratings&quot;: {},
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Database tools.&quot;,
+              &quot;element_id&quot;: &quot;2.E.6.f&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: &quot;PostgreSQL&quot;
+            },
+            &quot;relation&quot;: &quot;equivalent&quot;,
+            &quot;rationale&quot;: &quot;Candidate is the original software example.&quot;,
+            &quot;mapping_method&quot;: &quot;official_software_example&quot;
+          }
+        ],
+        &quot;recommendation_reasons&quot;: [],
+        &quot;posting_support&quot;: &quot;missing&quot;,
+        &quot;qualifying_posting_links&quot;: []
+      },
+      {
+        &quot;candidate_id&quot;: &quot;53897bfc-2673-4076-b2e3-d4c3fd0fe042&quot;,
+        &quot;display_name&quot;: &quot;Social Perceptiveness&quot;,
+        &quot;category_id&quot;: &quot;transferable&quot;,
+        &quot;original_labels&quot;: [
+          &quot;Social Perceptiveness&quot;
+        ],
+        &quot;aliases&quot;: [],
+        &quot;evidence_references&quot;: [],
+        &quot;job_metrics&quot;: {
+          &quot;percentage&quot;: 0,
+          &quot;coverage_status&quot;: &quot;full&quot;,
+          &quot;assessed_posting_count&quot;: 1,
+          &quot;selected_posting_count&quot;: 1,
+          &quot;supporting_posting_count&quot;: 0
+        },
+        &quot;onet_associations&quot;: [
+          {
+            &quot;evidence&quot;: {
+              &quot;id&quot;: &quot;fed6b063-1594-58b2-aea7-6095305efb3f&quot;,
+              &quot;flags&quot;: {},
+              &quot;label&quot;: &quot;Social Perceptiveness&quot;,
+              &quot;family&quot;: &quot;transferable&quot;,
+              &quot;ratings&quot;: {
+                &quot;IM&quot;: {
+                  &quot;date&quot;: &quot;08/2026&quot;,
+                  &quot;value&quot;: 2.4,
+                  &quot;status&quot;: &quot;suppressed&quot;,
+                  &quot;maximum&quot;: 5,
+                  &quot;minimum&quot;: 1,
+                  &quot;quality&quot;: {
+                    &quot;N&quot;: &quot;10&quot;,
+                    &quot;Not Relevant&quot;: &quot;N&quot;,
+                    &quot;Domain Source&quot;: &quot;Analyst&quot;,
+                    &quot;Lower CI Bound&quot;: &quot;2&quot;,
+                    &quot;Standard Error&quot;: &quot;0.3&quot;,
+                    &quot;Upper CI Bound&quot;: &quot;3&quot;,
+                    &quot;Recommend Suppress&quot;: &quot;Y&quot;
+                  },
+                  &quot;scale_id&quot;: &quot;IM&quot;
+                },
+                &quot;LV&quot;: {
+                  &quot;date&quot;: &quot;08/2026&quot;,
+                  &quot;value&quot;: 0,
+                  &quot;status&quot;: &quot;not_relevant&quot;,
+                  &quot;maximum&quot;: 7,
+                  &quot;minimum&quot;: 0,
+                  &quot;quality&quot;: {
+                    &quot;N&quot;: &quot;10&quot;,
+                    &quot;Not Relevant&quot;: &quot;Y&quot;,
+                    &quot;Domain Source&quot;: &quot;Analyst&quot;,
+                    &quot;Lower CI Bound&quot;: &quot;&quot;,
+                    &quot;Standard Error&quot;: &quot;&quot;,
+                    &quot;Upper CI Bound&quot;: &quot;&quot;,
+                    &quot;Recommend Suppress&quot;: &quot;N&quot;
+                  },
+                  &quot;scale_id&quot;: &quot;LV&quot;
+                }
+              },
+              &quot;release&quot;: &quot;31.0&quot;,
+              &quot;soc_code&quot;: &quot;15-2051.00&quot;,
+              &quot;definition&quot;: &quot;Understand people.&quot;,
+              &quot;element_id&quot;: &quot;2.B.1.a&quot;,
+              &quot;source_url&quot;: &quot;https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv&quot;,
+              &quot;attribution&quot;: &quot;Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.&quot;,
+              &quot;occupation_title&quot;: &quot;Data Scientists&quot;,
+              &quot;workplace_example&quot;: null
+            },
+            &quot;relation&quot;: &quot;equivalent&quot;,
+            &quot;rationale&quot;: &quot;Candidate is the original occupation descriptor.&quot;,
+            &quot;mapping_method&quot;: &quot;official_descriptor&quot;
+          }
+        ],
+        &quot;recommendation_reasons&quot;: [],
+        &quot;posting_support&quot;: &quot;missing&quot;,
+        &quot;qualifying_posting_links&quot;: []
+      }
+    ],
+    &quot;selected_candidate_ids&quot;: [
+      &quot;8a711980-f7d1-4e24-97a9-abf65467e2e5&quot;,
+      &quot;ae052899-b4b2-4168-9701-c56279d3083c&quot;,
+      &quot;deb7529f-e25f-4b03-8867-a08fded224f9&quot;,
+      &quot;aa93aae8-90f6-433a-978a-f5961258992c&quot;
+    ],
+    &quot;excluded_candidate_ids&quot;: [
+      &quot;940f0e2b-39a8-490d-8211-e0f22d82ff95&quot;
+    ],
+    &quot;recommendations&quot;: [
+      {
+        &quot;id&quot;: &quot;63323991-54a0-44d4-859a-2eb263559ef8&quot;,
+        &quot;candidate_revision&quot;: 3,
+        &quot;base_selection_revision&quot;: 1,
+        &quot;changes&quot;: [
+          {
+            &quot;candidate_id&quot;: &quot;940f0e2b-39a8-490d-8211-e0f22d82ff95&quot;,
+            &quot;action&quot;: &quot;add&quot;,
+            &quot;reason&quot;: &quot;Synthetic suggestion attempts the explicit exclusion; teacher UI must refuse it.&quot;
+          },
+          {
+            &quot;candidate_id&quot;: &quot;aa93aae8-90f6-433a-978a-f5961258992c&quot;,
+            &quot;action&quot;: &quot;add&quot;,
+            &quot;reason&quot;: &quot;Synthetic reference suggestion lacks job support and must remain unpublishable.&quot;
+          }
+        ]
+      }
+    ],
+    &quot;reconciliations&quot;: [],
+    &quot;source_outcomes&quot;: {
+      &quot;onet&quot;: {
+        &quot;status&quot;: &quot;success&quot;,
+        &quot;received_count&quot;: 4,
+        &quot;usable_count&quot;: 4,
+        &quot;warnings&quot;: []
+      },
+      &quot;linkedin&quot;: {
+        &quot;status&quot;: &quot;error&quot;,
+        &quot;received_count&quot;: 0,
+        &quot;usable_count&quot;: 0,
+        &quot;warnings&quot;: [
+          &quot;The selected job provider could not complete this query.&quot;
+        ]
+      },
+      &quot;headhunter&quot;: {
+        &quot;status&quot;: &quot;success&quot;,
+        &quot;received_count&quot;: 1,
+        &quot;usable_count&quot;: 1,
+        &quot;warnings&quot;: []
+      }
+    },
+    &quot;extraction_coverage&quot;: {
+      &quot;status&quot;: &quot;full&quot;,
+      &quot;warnings&quot;: [],
+      &quot;assessments&quot;: [
+        {
+          &quot;status&quot;: &quot;full&quot;,
+          &quot;warnings&quot;: [],
+          &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+          &quot;total_chunks&quot;: 2,
+          &quot;assessed_chunks&quot;: 2,
+          &quot;demand_identity&quot;: &quot;headhunter:id:900000001&quot;,
+          &quot;uncovered_chars&quot;: 0
+        }
+      ],
+      &quot;acknowledged&quot;: true,
+      &quot;total_chunks&quot;: 2,
+      &quot;sample_limits&quot;: {
+        &quot;scope&quot;: &quot;selected provider sample, not complete market coverage&quot;,
+        &quot;queries&quot;: [
+          &quot;database analyst&quot;
+        ],
+        &quot;hours_old&quot;: 72,
+        &quot;results_per_query_provider&quot;: 1
+      },
+      &quot;assessed_chunks&quot;: 2,
+      &quot;failed_postings&quot;: 0,
+      &quot;assessed_postings&quot;: 1,
+      &quot;selected_postings&quot;: 1,
+      &quot;association_coverage&quot;: {
+        &quot;status&quot;: &quot;full&quot;,
+        &quot;warnings&quot;: [],
+        &quot;call_count&quot;: 1,
+        &quot;failed_calls&quot;: 0,
+        &quot;exact_matches&quot;: 0,
+        &quot;assessed_pairs&quot;: 16,
+        &quot;rejected_mappings&quot;: 0,
+        &quot;omitted_catalog_rows&quot;: 0,
+        &quot;omitted_observations&quot;: 0,
+        &quot;selected_catalog_rows&quot;: 4,
+        &quot;selected_observations&quot;: 4,
+        &quot;inference_catalog_rows&quot;: 4,
+        &quot;inference_observations&quot;: 4
+      }
+    },
+    &quot;integration_review&quot;: null,
+    &quot;publication_revision&quot;: 0,
+    &quot;approved_references&quot;: []
+  },
+  &quot;finishedAt&quot;: &quot;2026-10-10T11:14:53.676Z&quot;
+}</pre></html>

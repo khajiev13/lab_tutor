@@ -1,0 +1,223 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Task 10 prerequisite-review</title><style>body{font:16px system-ui;max-width:1100px;margin:32px auto;padding:0 20px}img{width:100%;border:1px solid #bbb}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#1451a3}</style><h1>Task 10: prerequisite-review</h1><p>Status: passed. Real isolated API: http://127.0.0.1:18769.</p><p><a href="prerequisite-review-prerequisite-draft-reviewed-desktop.png">prerequisite-review-prerequisite-draft-reviewed-desktop.png</a></p><img src="prerequisite-review-prerequisite-draft-reviewed-desktop.png" alt="prerequisite-review-prerequisite-draft-reviewed-desktop.png"><p><a href="prerequisite-review-prerequisite-draft-reviewed-mobile.png">prerequisite-review-prerequisite-draft-reviewed-mobile.png</a></p><img src="prerequisite-review-prerequisite-draft-reviewed-mobile.png" alt="prerequisite-review-prerequisite-draft-reviewed-mobile.png"><p><a href="prerequisite-review-prerequisite-approved-desktop.png">prerequisite-review-prerequisite-approved-desktop.png</a></p><img src="prerequisite-review-prerequisite-approved-desktop.png" alt="prerequisite-review-prerequisite-approved-desktop.png"><p><a href="prerequisite-review-prerequisite-approved-mobile.png">prerequisite-review-prerequisite-approved-mobile.png</a></p><img src="prerequisite-review-prerequisite-approved-mobile.png" alt="prerequisite-review-prerequisite-approved-mobile.png"><h2>Assertions and explicit coverage limits</h2><pre>{
+  &quot;phase&quot;: &quot;prerequisite-review&quot;,
+  &quot;courseId&quot;: 1,
+  &quot;runId&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+  &quot;startedAt&quot;: &quot;2026-10-10T11:17:48.234Z&quot;,
+  &quot;status&quot;: &quot;passed&quot;,
+  &quot;checks&quot;: [
+    {
+      &quot;name&quot;: &quot;teacher real isolated login&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;userId&quot;: 1
+    },
+    {
+      &quot;name&quot;: &quot;teacher regeneration UI starts actual rebuild and waits for fresh completed generation&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;teacher reviews real draft edges, isolated skills and graph before UI approval&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    }
+  ],
+  &quot;skipped&quot;: [],
+  &quot;network&quot;: [
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/auth/jwt/login&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/regenerate&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;PUT&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/approve&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/book-selection/courses/1/skill-prerequisites/review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    }
+  ],
+  &quot;screenshots&quot;: [
+    &quot;prerequisite-review-prerequisite-draft-reviewed-desktop.png&quot;,
+    &quot;prerequisite-review-prerequisite-draft-reviewed-mobile.png&quot;,
+    &quot;prerequisite-review-prerequisite-approved-desktop.png&quot;,
+    &quot;prerequisite-review-prerequisite-approved-mobile.png&quot;
+  ],
+  &quot;prerequisiteGeneration&quot;: {
+    &quot;previousGeneratedAt&quot;: null,
+    &quot;generatedAt&quot;: &quot;2026-10-10T11:18:02.816915Z&quot;
+  },
+  &quot;prerequisiteReview&quot;: {
+    &quot;course_id&quot;: 1,
+    &quot;status&quot;: &quot;approved&quot;,
+    &quot;is_rebuilding&quot;: false,
+    &quot;skills&quot;: [
+      {
+        &quot;name&quot;: &quot;Design database schemas&quot;,
+        &quot;source&quot;: &quot;book&quot;,
+        &quot;chapter_title&quot;: &quot;Programming&quot;
+      },
+      {
+        &quot;name&quot;: &quot;Explain technical results&quot;,
+        &quot;source&quot;: &quot;market&quot;,
+        &quot;chapter_title&quot;: &quot;Programming&quot;
+      },
+      {
+        &quot;name&quot;: &quot;Query relational databases&quot;,
+        &quot;source&quot;: &quot;book&quot;,
+        &quot;chapter_title&quot;: &quot;Programming&quot;
+      }
+    ],
+    &quot;draft_edges&quot;: [],
+    &quot;isolated_skills&quot;: [
+      &quot;Design database schemas&quot;,
+      &quot;Explain technical results&quot;,
+      &quot;Query relational databases&quot;
+    ],
+    &quot;validation&quot;: {
+      &quot;is_valid&quot;: true,
+      &quot;errors&quot;: [],
+      &quot;cycle_path&quot;: []
+    },
+    &quot;metadata&quot;: {
+      &quot;edge_count&quot;: 0,
+      &quot;generated_edge_count&quot;: 0,
+      &quot;added_edge_count&quot;: 0,
+      &quot;removed_edge_count&quot;: 0,
+      &quot;isolated_skill_count&quot;: 3,
+      &quot;last_generated_at&quot;: &quot;2026-10-10T11:18:02.816915Z&quot;,
+      &quot;last_invalidated_at&quot;: &quot;2026-10-10T11:17:01.515153Z&quot;,
+      &quot;approved_at&quot;: &quot;2026-10-10T11:18:09.671935Z&quot;
+    }
+  },
+  &quot;finishedAt&quot;: &quot;2026-10-10T11:18:17.385Z&quot;
+}</pre></html>

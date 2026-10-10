@@ -1,0 +1,792 @@
+{
+  "phase": "confirm",
+  "courseId": 1,
+  "runId": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+  "startedAt": "2026-10-10T11:14:55.135Z",
+  "status": "passed-with-skips",
+  "checks": [
+    {
+      "name": "teacher real isolated login",
+      "status": "passed",
+      "userId": 1
+    },
+    {
+      "name": "shortlist confirmation persists actual selected IDs",
+      "status": "passed"
+    }
+  ],
+  "skipped": [
+    {
+      "name": "mapping",
+      "reason": "Run real compiled mapping/tool pipeline now; confirmation does not map"
+    }
+  ],
+  "network": [
+    {
+      "role": "teacher",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/auth/jwt/login",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/occupation-reference/releases",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review/selection-confirmation",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review",
+      "kind": "fetch"
+    }
+  ],
+  "screenshots": [
+    "confirm-confirmed-desktop.png",
+    "confirm-confirmed-mobile.png"
+  ],
+  "readback": {
+    "run_id": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+    "candidate_revision": 3,
+    "selection_revision": 2,
+    "categories": [
+      {
+        "category_id": "database",
+        "label": "Database"
+      },
+      {
+        "category_id": "essential",
+        "label": "Essential"
+      },
+      {
+        "category_id": "software",
+        "label": "Software"
+      },
+      {
+        "category_id": "transferable",
+        "label": "Transferable"
+      }
+    ],
+    "candidates": [
+      {
+        "candidate_id": "8a711980-f7d1-4e24-97a9-abf65467e2e5",
+        "display_name": "Query relational databases",
+        "category_id": "database",
+        "original_labels": [
+          "Query relational databases"
+        ],
+        "aliases": [],
+        "evidence_references": [
+          {
+            "status": "active",
+            "excerpt": "query relational databases using SQL",
+            "provider": "headhunter",
+            "excerpt_end": 107,
+            "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+            "original_url": "https://hh.uz/vacancy/900000001",
+            "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+            "evidence_kind": "extracted_text",
+            "excerpt_start": 71,
+            "original_phrase": "query relational databases using SQL"
+          }
+        ],
+        "job_metrics": {
+          "percentage": 100,
+          "coverage_status": "full",
+          "assessed_posting_count": 1,
+          "selected_posting_count": 1,
+          "supporting_posting_count": 1
+        },
+        "onet_associations": [
+          {
+            "evidence": {
+              "id": "3091b4dd-bbac-5e2d-b3eb-622cd26d2409",
+              "flags": {
+                "In Demand": true,
+                "Hot Technology": null
+              },
+              "label": "Database software",
+              "family": "software",
+              "ratings": {},
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Database tools.",
+              "element_id": "2.E.6.f",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": "MySQL"
+            },
+            "relation": "related",
+            "rationale": "Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.",
+            "mapping_method": "model_context"
+          },
+          {
+            "evidence": {
+              "id": "9f2f63da-4436-52b8-8edf-6954e49d84d1",
+              "flags": {
+                "In Demand": false,
+                "Hot Technology": true
+              },
+              "label": "Database software",
+              "family": "software",
+              "ratings": {},
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Database tools.",
+              "element_id": "2.E.6.f",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": "PostgreSQL"
+            },
+            "relation": "related",
+            "rationale": "Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.",
+            "mapping_method": "model_context"
+          }
+        ],
+        "recommendation_reasons": [],
+        "posting_support": "supported",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/900000001"
+        ]
+      },
+      {
+        "candidate_id": "ae052899-b4b2-4168-9701-c56279d3083c",
+        "display_name": "Explain technical results",
+        "category_id": "database",
+        "original_labels": [
+          "Explain technical results"
+        ],
+        "aliases": [],
+        "evidence_references": [
+          {
+            "status": "active",
+            "excerpt": "explain results to stakeholders",
+            "provider": "headhunter",
+            "excerpt_end": 140,
+            "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+            "original_url": "https://hh.uz/vacancy/900000001",
+            "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+            "evidence_kind": "extracted_text",
+            "excerpt_start": 109,
+            "original_phrase": "explain results to stakeholders"
+          }
+        ],
+        "job_metrics": {
+          "percentage": 100,
+          "coverage_status": "full",
+          "assessed_posting_count": 1,
+          "selected_posting_count": 1,
+          "supporting_posting_count": 1
+        },
+        "onet_associations": [
+          {
+            "evidence": {
+              "id": "fed6b063-1594-58b2-aea7-6095305efb3f",
+              "flags": {},
+              "label": "Social Perceptiveness",
+              "family": "transferable",
+              "ratings": {
+                "IM": {
+                  "date": "08/2026",
+                  "value": 2.4,
+                  "status": "suppressed",
+                  "maximum": 5,
+                  "minimum": 1,
+                  "quality": {
+                    "N": "10",
+                    "Not Relevant": "N",
+                    "Domain Source": "Analyst",
+                    "Lower CI Bound": "2",
+                    "Standard Error": "0.3",
+                    "Upper CI Bound": "3",
+                    "Recommend Suppress": "Y"
+                  },
+                  "scale_id": "IM"
+                },
+                "LV": {
+                  "date": "08/2026",
+                  "value": 0,
+                  "status": "not_relevant",
+                  "maximum": 7,
+                  "minimum": 0,
+                  "quality": {
+                    "N": "10",
+                    "Not Relevant": "Y",
+                    "Domain Source": "Analyst",
+                    "Lower CI Bound": "",
+                    "Standard Error": "",
+                    "Upper CI Bound": "",
+                    "Recommend Suppress": "N"
+                  },
+                  "scale_id": "LV"
+                }
+              },
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Understand people.",
+              "element_id": "2.B.1.a",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": null
+            },
+            "relation": "related",
+            "rationale": "Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.",
+            "mapping_method": "model_context"
+          }
+        ],
+        "recommendation_reasons": [],
+        "posting_support": "supported",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/900000001"
+        ]
+      },
+      {
+        "candidate_id": "deb7529f-e25f-4b03-8867-a08fded224f9",
+        "display_name": "Design database schemas",
+        "category_id": "database",
+        "original_labels": [
+          "Design database schemas"
+        ],
+        "aliases": [],
+        "evidence_references": [
+          {
+            "status": "active",
+            "excerpt": "design database schemas for reporting",
+            "provider": "headhunter",
+            "excerpt_end": 179,
+            "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+            "original_url": "https://hh.uz/vacancy/900000001",
+            "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+            "evidence_kind": "extracted_text",
+            "excerpt_start": 142,
+            "original_phrase": "design database schemas for reporting"
+          }
+        ],
+        "job_metrics": {
+          "percentage": 100,
+          "coverage_status": "full",
+          "assessed_posting_count": 1,
+          "selected_posting_count": 1,
+          "supporting_posting_count": 1
+        },
+        "onet_associations": [
+          {
+            "evidence": {
+              "id": "3091b4dd-bbac-5e2d-b3eb-622cd26d2409",
+              "flags": {
+                "In Demand": true,
+                "Hot Technology": null
+              },
+              "label": "Database software",
+              "family": "software",
+              "ratings": {},
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Database tools.",
+              "element_id": "2.E.6.f",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": "MySQL"
+            },
+            "relation": "related",
+            "rationale": "Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.",
+            "mapping_method": "model_context"
+          },
+          {
+            "evidence": {
+              "id": "9f2f63da-4436-52b8-8edf-6954e49d84d1",
+              "flags": {
+                "In Demand": false,
+                "Hot Technology": true
+              },
+              "label": "Database software",
+              "family": "software",
+              "ratings": {},
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Database tools.",
+              "element_id": "2.E.6.f",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": "PostgreSQL"
+            },
+            "relation": "related",
+            "rationale": "Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted.",
+            "mapping_method": "model_context"
+          }
+        ],
+        "recommendation_reasons": [],
+        "posting_support": "supported",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/900000001"
+        ]
+      },
+      {
+        "candidate_id": "940f0e2b-39a8-490d-8211-e0f22d82ff95",
+        "display_name": "Validate query results",
+        "category_id": "database",
+        "original_labels": [
+          "Validate query results"
+        ],
+        "aliases": [],
+        "evidence_references": [
+          {
+            "status": "active",
+            "excerpt": "validate query results against source records",
+            "provider": "headhunter",
+            "excerpt_end": 226,
+            "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+            "original_url": "https://hh.uz/vacancy/900000001",
+            "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+            "evidence_kind": "extracted_text",
+            "excerpt_start": 181,
+            "original_phrase": "validate query results against source records"
+          }
+        ],
+        "job_metrics": {
+          "percentage": 100,
+          "coverage_status": "full",
+          "assessed_posting_count": 1,
+          "selected_posting_count": 1,
+          "supporting_posting_count": 1
+        },
+        "onet_associations": [],
+        "recommendation_reasons": [
+          "No O*NET association was established for this competency."
+        ],
+        "posting_support": "supported",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/900000001"
+        ]
+      },
+      {
+        "candidate_id": "aa93aae8-90f6-433a-978a-f5961258992c",
+        "display_name": "Reading Comprehension",
+        "category_id": "essential",
+        "original_labels": [
+          "Reading Comprehension"
+        ],
+        "aliases": [],
+        "evidence_references": [],
+        "job_metrics": {
+          "percentage": 0,
+          "coverage_status": "full",
+          "assessed_posting_count": 1,
+          "selected_posting_count": 1,
+          "supporting_posting_count": 0
+        },
+        "onet_associations": [
+          {
+            "evidence": {
+              "id": "7b7f63bb-5ab2-51c6-a098-2ff2a8c39d9c",
+              "flags": {},
+              "label": "Reading Comprehension",
+              "family": "essential",
+              "ratings": {
+                "IM": {
+                  "date": "08/2026",
+                  "value": 4.2,
+                  "status": "reported",
+                  "maximum": 5,
+                  "minimum": 1,
+                  "quality": {
+                    "N": "10",
+                    "Not Relevant": "",
+                    "Domain Source": "Analyst",
+                    "Lower CI Bound": "4",
+                    "Standard Error": "0.1",
+                    "Upper CI Bound": "4.4",
+                    "Recommend Suppress": "N"
+                  },
+                  "scale_id": "IM"
+                },
+                "LV": {
+                  "date": "08/2026",
+                  "value": null,
+                  "status": "missing",
+                  "maximum": 7,
+                  "minimum": 0,
+                  "quality": {
+                    "N": "10",
+                    "Not Relevant": "",
+                    "Domain Source": "Analyst",
+                    "Lower CI Bound": "",
+                    "Standard Error": "",
+                    "Upper CI Bound": "",
+                    "Recommend Suppress": "N"
+                  },
+                  "scale_id": "LV"
+                }
+              },
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Understand text.",
+              "element_id": "2.A.1.a",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": null
+            },
+            "relation": "equivalent",
+            "rationale": "Candidate is the original occupation descriptor.",
+            "mapping_method": "official_descriptor"
+          }
+        ],
+        "recommendation_reasons": [],
+        "posting_support": "missing",
+        "qualifying_posting_links": []
+      },
+      {
+        "candidate_id": "69da36f2-3af2-43a0-9905-f15a38346e61",
+        "display_name": "MySQL",
+        "category_id": "software",
+        "original_labels": [
+          "Database software",
+          "MySQL"
+        ],
+        "aliases": [],
+        "evidence_references": [],
+        "job_metrics": {
+          "percentage": 0,
+          "coverage_status": "full",
+          "assessed_posting_count": 1,
+          "selected_posting_count": 1,
+          "supporting_posting_count": 0
+        },
+        "onet_associations": [
+          {
+            "evidence": {
+              "id": "3091b4dd-bbac-5e2d-b3eb-622cd26d2409",
+              "flags": {
+                "In Demand": true,
+                "Hot Technology": null
+              },
+              "label": "Database software",
+              "family": "software",
+              "ratings": {},
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Database tools.",
+              "element_id": "2.E.6.f",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": "MySQL"
+            },
+            "relation": "equivalent",
+            "rationale": "Candidate is the original software example.",
+            "mapping_method": "official_software_example"
+          }
+        ],
+        "recommendation_reasons": [],
+        "posting_support": "missing",
+        "qualifying_posting_links": []
+      },
+      {
+        "candidate_id": "b31e6549-9d7c-4ca6-b8d4-9fa9f36409b0",
+        "display_name": "PostgreSQL",
+        "category_id": "software",
+        "original_labels": [
+          "Database software",
+          "PostgreSQL"
+        ],
+        "aliases": [],
+        "evidence_references": [],
+        "job_metrics": {
+          "percentage": 0,
+          "coverage_status": "full",
+          "assessed_posting_count": 1,
+          "selected_posting_count": 1,
+          "supporting_posting_count": 0
+        },
+        "onet_associations": [
+          {
+            "evidence": {
+              "id": "9f2f63da-4436-52b8-8edf-6954e49d84d1",
+              "flags": {
+                "In Demand": false,
+                "Hot Technology": true
+              },
+              "label": "Database software",
+              "family": "software",
+              "ratings": {},
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Database tools.",
+              "element_id": "2.E.6.f",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": "PostgreSQL"
+            },
+            "relation": "equivalent",
+            "rationale": "Candidate is the original software example.",
+            "mapping_method": "official_software_example"
+          }
+        ],
+        "recommendation_reasons": [],
+        "posting_support": "missing",
+        "qualifying_posting_links": []
+      },
+      {
+        "candidate_id": "53897bfc-2673-4076-b2e3-d4c3fd0fe042",
+        "display_name": "Social Perceptiveness",
+        "category_id": "transferable",
+        "original_labels": [
+          "Social Perceptiveness"
+        ],
+        "aliases": [],
+        "evidence_references": [],
+        "job_metrics": {
+          "percentage": 0,
+          "coverage_status": "full",
+          "assessed_posting_count": 1,
+          "selected_posting_count": 1,
+          "supporting_posting_count": 0
+        },
+        "onet_associations": [
+          {
+            "evidence": {
+              "id": "fed6b063-1594-58b2-aea7-6095305efb3f",
+              "flags": {},
+              "label": "Social Perceptiveness",
+              "family": "transferable",
+              "ratings": {
+                "IM": {
+                  "date": "08/2026",
+                  "value": 2.4,
+                  "status": "suppressed",
+                  "maximum": 5,
+                  "minimum": 1,
+                  "quality": {
+                    "N": "10",
+                    "Not Relevant": "N",
+                    "Domain Source": "Analyst",
+                    "Lower CI Bound": "2",
+                    "Standard Error": "0.3",
+                    "Upper CI Bound": "3",
+                    "Recommend Suppress": "Y"
+                  },
+                  "scale_id": "IM"
+                },
+                "LV": {
+                  "date": "08/2026",
+                  "value": 0,
+                  "status": "not_relevant",
+                  "maximum": 7,
+                  "minimum": 0,
+                  "quality": {
+                    "N": "10",
+                    "Not Relevant": "Y",
+                    "Domain Source": "Analyst",
+                    "Lower CI Bound": "",
+                    "Standard Error": "",
+                    "Upper CI Bound": "",
+                    "Recommend Suppress": "N"
+                  },
+                  "scale_id": "LV"
+                }
+              },
+              "release": "31.0",
+              "soc_code": "15-2051.00",
+              "definition": "Understand people.",
+              "element_id": "2.B.1.a",
+              "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv",
+              "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+              "occupation_title": "Data Scientists",
+              "workplace_example": null
+            },
+            "relation": "equivalent",
+            "rationale": "Candidate is the original occupation descriptor.",
+            "mapping_method": "official_descriptor"
+          }
+        ],
+        "recommendation_reasons": [],
+        "posting_support": "missing",
+        "qualifying_posting_links": []
+      }
+    ],
+    "selected_candidate_ids": [
+      "8a711980-f7d1-4e24-97a9-abf65467e2e5",
+      "ae052899-b4b2-4168-9701-c56279d3083c",
+      "deb7529f-e25f-4b03-8867-a08fded224f9",
+      "aa93aae8-90f6-433a-978a-f5961258992c"
+    ],
+    "excluded_candidate_ids": [
+      "940f0e2b-39a8-490d-8211-e0f22d82ff95"
+    ],
+    "recommendations": [
+      {
+        "id": "63323991-54a0-44d4-859a-2eb263559ef8",
+        "candidate_revision": 3,
+        "base_selection_revision": 1,
+        "changes": [
+          {
+            "candidate_id": "940f0e2b-39a8-490d-8211-e0f22d82ff95",
+            "action": "add",
+            "reason": "Synthetic suggestion attempts the explicit exclusion; teacher UI must refuse it."
+          },
+          {
+            "candidate_id": "aa93aae8-90f6-433a-978a-f5961258992c",
+            "action": "add",
+            "reason": "Synthetic reference suggestion lacks job support and must remain unpublishable."
+          }
+        ]
+      }
+    ],
+    "reconciliations": [],
+    "source_outcomes": {
+      "onet": {
+        "status": "success",
+        "received_count": 4,
+        "usable_count": 4,
+        "warnings": []
+      },
+      "linkedin": {
+        "status": "error",
+        "received_count": 0,
+        "usable_count": 0,
+        "warnings": [
+          "The selected job provider could not complete this query."
+        ]
+      },
+      "headhunter": {
+        "status": "success",
+        "received_count": 1,
+        "usable_count": 1,
+        "warnings": []
+      }
+    },
+    "extraction_coverage": {
+      "status": "full",
+      "warnings": [],
+      "assessments": [
+        {
+          "status": "full",
+          "warnings": [],
+          "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+          "total_chunks": 2,
+          "assessed_chunks": 2,
+          "demand_identity": "headhunter:id:900000001",
+          "uncovered_chars": 0
+        }
+      ],
+      "acknowledged": true,
+      "total_chunks": 2,
+      "sample_limits": {
+        "scope": "selected provider sample, not complete market coverage",
+        "queries": [
+          "database analyst"
+        ],
+        "hours_old": 72,
+        "results_per_query_provider": 1
+      },
+      "assessed_chunks": 2,
+      "failed_postings": 0,
+      "assessed_postings": 1,
+      "selected_postings": 1,
+      "association_coverage": {
+        "status": "full",
+        "warnings": [],
+        "call_count": 1,
+        "failed_calls": 0,
+        "exact_matches": 0,
+        "assessed_pairs": 16,
+        "rejected_mappings": 0,
+        "omitted_catalog_rows": 0,
+        "omitted_observations": 0,
+        "selected_catalog_rows": 4,
+        "selected_observations": 4,
+        "inference_catalog_rows": 4,
+        "inference_observations": 4
+      }
+    },
+    "integration_review": null,
+    "publication_revision": 0,
+    "approved_references": []
+  },
+  "finishedAt": "2026-10-10T11:15:14.531Z"
+}

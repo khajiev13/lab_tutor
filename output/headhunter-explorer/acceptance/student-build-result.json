@@ -1,0 +1,459 @@
+{
+  "phase": "student-build",
+  "courseId": 1,
+  "runId": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+  "startedAt": "2026-10-10T11:19:09.544Z",
+  "status": "passed-with-skips",
+  "checks": [
+    {
+      "name": "studentA real isolated login",
+      "status": "passed",
+      "userId": 2
+    },
+    {
+      "name": "posting bulk exclusion survives removal/reselection locally before the same real build",
+      "status": "passed"
+    },
+    {
+      "name": "career reference choice stays local until build",
+      "status": "passed"
+    },
+    {
+      "name": "real build sends each selected reference once and persists selection via real SSE",
+      "status": "passed"
+    }
+  ],
+  "skipped": [
+    {
+      "name": "resource/quiz provider recovery",
+      "reason": "Requires explicit isolated external provider failure and real bodyless build; no production setup endpoint invented"
+    }
+  ],
+  "network": [
+    {
+      "role": "studentA",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/auth/jwt/login",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/build",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/build/stream/df4710f8-70aa-4bd4-8bf2-9c6a20a2e844?token=[REDACTED]",
+      "kind": "eventsource"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "fetch"
+    }
+  ],
+  "screenshots": [
+    "student-build-student-draft-desktop.png",
+    "student-build-student-draft-mobile.png",
+    "student-build-student-built-desktop.png",
+    "student-build-student-built-mobile.png"
+  ],
+  "postingBulk": {
+    "postingUrl": "https://hh.uz/vacancy/900000001",
+    "excludedReferenceId": "cc716afb-b196-4bca-98da-c17227a31962",
+    "eligibleReferenceIds": [
+      "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+      "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+      "cc716afb-b196-4bca-98da-c17227a31962"
+    ]
+  },
+  "buildRunId": "df4710f8-70aa-4bd4-8bf2-9c6a20a2e844",
+  "path": {
+    "course_id": 1,
+    "course_title": "Isolated acceptance 5f5d97205d4a",
+    "chapters": [
+      {
+        "title": "Programming",
+        "chapter_index": 1,
+        "description": null,
+        "learning_objectives": [],
+        "selected_skills": [
+          {
+            "skill_reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+            "source": "market",
+            "origin": "market_demand",
+            "qualifying_posting_links": [
+              "https://hh.uz/vacancy/900000001"
+            ],
+            "evidence_references": [
+              {
+                "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+                "provider": "headhunter",
+                "original_url": "https://hh.uz/vacancy/900000001",
+                "original_phrase": "explain results to stakeholders",
+                "evidence_kind": "extracted_text",
+                "excerpt": "explain results to stakeholders",
+                "excerpt_start": 109,
+                "excerpt_end": 140,
+                "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+                "status": "active"
+              }
+            ],
+            "onet_associations": [
+              {
+                "evidence": {
+                  "id": "fed6b063-1594-58b2-aea7-6095305efb3f",
+                  "release": "31.0",
+                  "soc_code": "15-2051.00",
+                  "occupation_title": "Data Scientists",
+                  "family": "transferable",
+                  "element_id": "2.B.1.a",
+                  "label": "Social Perceptiveness",
+                  "definition": "Understand people.",
+                  "workplace_example": null,
+                  "ratings": {
+                    "IM": {
+                      "date": "08/2026",
+                      "value": 2.4,
+                      "status": "suppressed",
+                      "maximum": 5,
+                      "minimum": 1,
+                      "quality": {
+                        "N": "10",
+                        "Not Relevant": "N",
+                        "Domain Source": "Analyst",
+                        "Lower CI Bound": "2",
+                        "Standard Error": "0.3",
+                        "Upper CI Bound": "3",
+                        "Recommend Suppress": "Y"
+                      },
+                      "scale_id": "IM"
+                    },
+                    "LV": {
+                      "date": "08/2026",
+                      "value": 0,
+                      "status": "not_relevant",
+                      "maximum": 7,
+                      "minimum": 0,
+                      "quality": {
+                        "N": "10",
+                        "Not Relevant": "Y",
+                        "Domain Source": "Analyst",
+                        "Lower CI Bound": "",
+                        "Standard Error": "",
+                        "Upper CI Bound": "",
+                        "Recommend Suppress": "N"
+                      },
+                      "scale_id": "LV"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv",
+                  "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/."
+                },
+                "relation": "related",
+                "mapping_method": "model_context",
+                "rationale": "Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted."
+              }
+            ],
+            "job_metrics": {
+              "supporting_posting_count": 1,
+              "assessed_posting_count": 1,
+              "selected_posting_count": 1,
+              "percentage": 100,
+              "coverage_status": "full"
+            },
+            "projection_status": "projected",
+            "available_for_new_selection": true,
+            "availability_reason": null,
+            "is_selected": false,
+            "peer_count": 0,
+            "name": "Explain technical results",
+            "description": null,
+            "concepts": [
+              {
+                "name": "Relational query planning",
+                "description": "Acceptance fixture concept"
+              }
+            ],
+            "readings": [],
+            "videos": [],
+            "questions": [
+              {
+                "id": "7503e075-fa1f-42ac-b852-2a3cb918883e",
+                "text": "Synthetic easy diagnostic for Explain technical results: which option is correct?",
+                "difficulty": "easy",
+                "options": [
+                  "Fixture correct answer",
+                  "Fixture distractor B",
+                  "Fixture distractor C",
+                  "Fixture distractor D"
+                ]
+              },
+              {
+                "id": "2f8a5f47-fa0e-4b64-ad34-86ef948d6f6e",
+                "text": "Synthetic medium diagnostic for Explain technical results: which option is correct?",
+                "difficulty": "medium",
+                "options": [
+                  "Fixture correct answer",
+                  "Fixture distractor B",
+                  "Fixture distractor C",
+                  "Fixture distractor D"
+                ]
+              },
+              {
+                "id": "8aac4431-b9d4-4049-9632-621e49ed3f44",
+                "text": "Synthetic hard diagnostic for Explain technical results: which option is correct?",
+                "difficulty": "hard",
+                "options": [
+                  "Fixture correct answer",
+                  "Fixture distractor B",
+                  "Fixture distractor C",
+                  "Fixture distractor D"
+                ]
+              }
+            ],
+            "resource_status": "pending",
+            "is_known": false
+          },
+          {
+            "skill_reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+            "source": "book",
+            "origin": "book",
+            "qualifying_posting_links": [
+              "https://hh.uz/vacancy/900000001"
+            ],
+            "evidence_references": [
+              {
+                "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+                "provider": "headhunter",
+                "original_url": "https://hh.uz/vacancy/900000001",
+                "original_phrase": "query relational databases using SQL",
+                "evidence_kind": "extracted_text",
+                "excerpt": "query relational databases using SQL",
+                "excerpt_start": 71,
+                "excerpt_end": 107,
+                "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+                "status": "active"
+              }
+            ],
+            "onet_associations": [
+              {
+                "evidence": {
+                  "id": "3091b4dd-bbac-5e2d-b3eb-622cd26d2409",
+                  "release": "31.0",
+                  "soc_code": "15-2051.00",
+                  "occupation_title": "Data Scientists",
+                  "family": "software",
+                  "element_id": "2.E.6.f",
+                  "label": "Database software",
+                  "definition": "Database tools.",
+                  "workplace_example": "MySQL",
+                  "ratings": {},
+                  "flags": {
+                    "In Demand": true,
+                    "Hot Technology": null
+                  },
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+                  "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/."
+                },
+                "relation": "related",
+                "mapping_method": "model_context",
+                "rationale": "Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted."
+              },
+              {
+                "evidence": {
+                  "id": "9f2f63da-4436-52b8-8edf-6954e49d84d1",
+                  "release": "31.0",
+                  "soc_code": "15-2051.00",
+                  "occupation_title": "Data Scientists",
+                  "family": "software",
+                  "element_id": "2.E.6.f",
+                  "label": "Database software",
+                  "definition": "Database tools.",
+                  "workplace_example": "PostgreSQL",
+                  "ratings": {},
+                  "flags": {
+                    "In Demand": false,
+                    "Hot Technology": true
+                  },
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+                  "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/."
+                },
+                "relation": "related",
+                "mapping_method": "model_context",
+                "rationale": "Synthetic external model fixture: related occupational context only; no equivalence, posting support or tool-specific rating is asserted."
+              }
+            ],
+            "job_metrics": {
+              "supporting_posting_count": 1,
+              "assessed_posting_count": 1,
+              "selected_posting_count": 1,
+              "percentage": 100,
+              "coverage_status": "full"
+            },
+            "projection_status": "projected",
+            "available_for_new_selection": true,
+            "availability_reason": null,
+            "is_selected": false,
+            "peer_count": 0,
+            "name": "Query relational databases",
+            "description": null,
+            "concepts": [
+              {
+                "name": "Relational query planning",
+                "description": "Acceptance fixture concept"
+              }
+            ],
+            "readings": [],
+            "videos": [],
+            "questions": [
+              {
+                "id": "0e7dc09c-1b4d-48eb-8a52-5b271b8b887e",
+                "text": "Synthetic easy diagnostic for Query relational databases: which option is correct?",
+                "difficulty": "easy",
+                "options": [
+                  "Fixture correct answer",
+                  "Fixture distractor B",
+                  "Fixture distractor C",
+                  "Fixture distractor D"
+                ]
+              },
+              {
+                "id": "7f92d37c-0b12-4272-a413-7d034bf337e9",
+                "text": "Synthetic medium diagnostic for Query relational databases: which option is correct?",
+                "difficulty": "medium",
+                "options": [
+                  "Fixture correct answer",
+                  "Fixture distractor B",
+                  "Fixture distractor C",
+                  "Fixture distractor D"
+                ]
+              },
+              {
+                "id": "7897063b-a959-45f2-8081-8136ae07db9d",
+                "text": "Synthetic hard diagnostic for Query relational databases: which option is correct?",
+                "difficulty": "hard",
+                "options": [
+                  "Fixture correct answer",
+                  "Fixture distractor B",
+                  "Fixture distractor C",
+                  "Fixture distractor D"
+                ]
+              }
+            ],
+            "resource_status": "pending",
+            "is_known": false
+          }
+        ],
+        "quiz_status": "quiz_required",
+        "easy_question_count": 2,
+        "answered_count": 0,
+        "correct_count": 0
+      }
+    ],
+    "total_selected_skills": 2,
+    "skills_with_resources": 0
+  },
+  "identity": [
+    {
+      "chapter_index": 1,
+      "title": "Programming",
+      "quiz_status": "quiz_required",
+      "answered_count": 0,
+      "correct_count": 0,
+      "selected_skills": [
+        {
+          "name": "Explain technical results",
+          "source": "market",
+          "skill_reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+          "is_known": false,
+          "readings": [],
+          "videos": [],
+          "questions": [
+            "7503e075-fa1f-42ac-b852-2a3cb918883e",
+            "2f8a5f47-fa0e-4b64-ad34-86ef948d6f6e",
+            "8aac4431-b9d4-4049-9632-621e49ed3f44"
+          ]
+        },
+        {
+          "name": "Query relational databases",
+          "source": "book",
+          "skill_reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+          "is_known": false,
+          "readings": [],
+          "videos": [],
+          "questions": [
+            "0e7dc09c-1b4d-48eb-8a52-5b271b8b887e",
+            "7f92d37c-0b12-4272-a413-7d034bf337e9",
+            "7897063b-a959-45f2-8081-8136ae07db9d"
+          ]
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-10-10T11:19:57.914Z"
+}

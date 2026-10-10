@@ -1,0 +1,349 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Task 10 source-config</title><style>body{font:16px system-ui;max-width:1100px;margin:32px auto;padding:0 20px}img{width:100%;border:1px solid #bbb}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#1451a3}</style><h1>Task 10: source-config</h1><p>Status: passed-with-skips. Real isolated API: http://127.0.0.1:18769.</p><p><a href="source-config-source-choices-desktop.png">source-config-source-choices-desktop.png</a></p><img src="source-config-source-choices-desktop.png" alt="source-config-source-choices-desktop.png"><p><a href="source-config-source-choices-mobile.png">source-config-source-choices-mobile.png</a></p><img src="source-config-source-choices-mobile.png" alt="source-config-source-choices-mobile.png"><p><a href="source-config-source-chat-restored-desktop.png">source-config-source-chat-restored-desktop.png</a></p><img src="source-config-source-chat-restored-desktop.png" alt="source-config-source-chat-restored-desktop.png"><p><a href="source-config-source-chat-restored-mobile.png">source-config-source-chat-restored-mobile.png</a></p><img src="source-config-source-chat-restored-mobile.png" alt="source-config-source-chat-restored-mobile.png"><h2>Assertions and explicit coverage limits</h2><pre>{
+  &quot;phase&quot;: &quot;source-config&quot;,
+  &quot;courseId&quot;: 1,
+  &quot;runId&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+  &quot;startedAt&quot;: &quot;2026-10-10T11:05:29.814Z&quot;,
+  &quot;status&quot;: &quot;passed-with-skips&quot;,
+  &quot;checks&quot;: [
+    {
+      &quot;name&quot;: &quot;teacher real isolated login&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;userId&quot;: 1
+    },
+    {
+      &quot;name&quot;: &quot;real source catalog enables selected country/providers and combined evidence choices&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;actual chat forwards selected configuration and real clean SSE completion&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;server configuration survives real state/review readback and page reload&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    }
+  ],
+  &quot;skipped&quot;: [
+    {
+      &quot;name&quot;: &quot;live source collection&quot;,
+      &quot;reason&quot;: &quot;Configuration/chat persisted, but actual stream dispatched no tool; no collection claim&quot;
+    }
+  ],
+  &quot;network&quot;: [
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/auth/jwt/login&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/sources?country=USA&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/chat&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/occupation-reference/releases&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/occupation-reference/occupations?release=31.0&amp;q=Data+Scientists&amp;offset=0&amp;limit=20&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/occupation-reference/occupations?release=31.0&amp;q=Data%20Scientists&amp;offset=0&amp;limit=20&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/chat&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/occupation-reference/releases&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    }
+  ],
+  &quot;screenshots&quot;: [
+    &quot;source-config-source-choices-desktop.png&quot;,
+    &quot;source-config-source-choices-mobile.png&quot;,
+    &quot;source-config-source-chat-restored-desktop.png&quot;,
+    &quot;source-config-source-chat-restored-mobile.png&quot;
+  ],
+  &quot;preCollectionJobsOnlyRunId&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+  &quot;chatEvents&quot;: [
+    {
+      &quot;type&quot;: &quot;stream_end&quot;
+    }
+  ],
+  &quot;submittedConfiguration&quot;: {
+    &quot;country&quot;: &quot;Uzbekistan&quot;,
+    &quot;sources&quot;: [
+      &quot;linkedin&quot;,
+      &quot;headhunter&quot;
+    ],
+    &quot;evidence_sources&quot;: [
+      &quot;jobs&quot;,
+      &quot;onet&quot;
+    ],
+    &quot;onet_release&quot;: &quot;31.0&quot;,
+    &quot;onet_occupation_codes&quot;: [
+      &quot;15-2051.00&quot;
+    ]
+  },
+  &quot;configurationState&quot;: {
+    &quot;country&quot;: &quot;Uzbekistan&quot;,
+    &quot;sources&quot;: [
+      &quot;linkedin&quot;,
+      &quot;headhunter&quot;
+    ],
+    &quot;evidence_sources&quot;: [
+      &quot;jobs&quot;,
+      &quot;onet&quot;
+    ],
+    &quot;onet_release&quot;: &quot;31.0&quot;,
+    &quot;selected_onet_occupations&quot;: [
+      &quot;15-2051.00&quot;
+    ],
+    &quot;source_outcomes&quot;: {}
+  },
+  &quot;reviewState&quot;: {
+    &quot;run_id&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+    &quot;candidate_revision&quot;: 0,
+    &quot;selection_revision&quot;: 0,
+    &quot;source_outcomes&quot;: {},
+    &quot;candidate_count&quot;: 0
+  },
+  &quot;finishedAt&quot;: &quot;2026-10-10T11:06:19.684Z&quot;
+}</pre></html>

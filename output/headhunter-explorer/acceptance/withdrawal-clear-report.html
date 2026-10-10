@@ -1,0 +1,767 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Task 10 withdrawal-clear</title><style>body{font:16px system-ui;max-width:1100px;margin:32px auto;padding:0 20px}img{width:100%;border:1px solid #bbb}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#1451a3}</style><h1>Task 10: withdrawal-clear</h1><p>Status: passed-with-skips. Real isolated API: http://127.0.0.1:18769.</p><p><a href="withdrawal-clear-withdrawal-review-desktop.png">withdrawal-clear-withdrawal-review-desktop.png</a></p><img src="withdrawal-clear-withdrawal-review-desktop.png" alt="withdrawal-clear-withdrawal-review-desktop.png"><p><a href="withdrawal-clear-withdrawal-review-mobile.png">withdrawal-clear-withdrawal-review-mobile.png</a></p><img src="withdrawal-clear-withdrawal-review-mobile.png" alt="withdrawal-clear-withdrawal-review-mobile.png"><p><a href="withdrawal-clear-fresh-student-disabled-desktop.png">withdrawal-clear-fresh-student-disabled-desktop.png</a></p><img src="withdrawal-clear-fresh-student-disabled-desktop.png" alt="withdrawal-clear-fresh-student-disabled-desktop.png"><p><a href="withdrawal-clear-fresh-student-disabled-mobile.png">withdrawal-clear-fresh-student-disabled-mobile.png</a></p><img src="withdrawal-clear-fresh-student-disabled-mobile.png" alt="withdrawal-clear-fresh-student-disabled-mobile.png"><p><a href="withdrawal-clear-retained-study-desktop.png">withdrawal-clear-retained-study-desktop.png</a></p><img src="withdrawal-clear-retained-study-desktop.png" alt="withdrawal-clear-retained-study-desktop.png"><p><a href="withdrawal-clear-retained-study-mobile.png">withdrawal-clear-retained-study-mobile.png</a></p><img src="withdrawal-clear-retained-study-mobile.png" alt="withdrawal-clear-retained-study-mobile.png"><p><a href="withdrawal-clear-cleared-desktop.png">withdrawal-clear-cleared-desktop.png</a></p><img src="withdrawal-clear-cleared-desktop.png" alt="withdrawal-clear-cleared-desktop.png"><p><a href="withdrawal-clear-cleared-mobile.png">withdrawal-clear-cleared-mobile.png</a></p><img src="withdrawal-clear-cleared-mobile.png" alt="withdrawal-clear-cleared-mobile.png"><h2>Assertions and explicit coverage limits</h2><pre>{
+  &quot;phase&quot;: &quot;withdrawal-clear&quot;,
+  &quot;courseId&quot;: 1,
+  &quot;runId&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+  &quot;startedAt&quot;: &quot;2026-10-10T11:21:34.755Z&quot;,
+  &quot;status&quot;: &quot;passed-with-skips&quot;,
+  &quot;checks&quot;: [
+    {
+      &quot;name&quot;: &quot;teacher real isolated login&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;userId&quot;: 1
+    },
+    {
+      &quot;name&quot;: &quot;studentA real isolated login&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;userId&quot;: 2
+    },
+    {
+      &quot;name&quot;: &quot;real prepare and concrete withdrawal approval&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;studentB real isolated login&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;userId&quot;: 3
+    },
+    {
+      &quot;name&quot;: &quot;fresh student sees explicitly withdrawn references disabled and independent prior offerings still available&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;real mixed selection and build refuse atomically with only expected unavailable IDs&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;saved student choices/resources/questions/mastery retained after withdrawal&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;retained saved study direct link and reload preserve actual resource ID/source&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;teacher clear conversation retains published historical bank evidence&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    }
+  ],
+  &quot;skipped&quot;: [
+    {
+      &quot;name&quot;: &quot;withdrawn saved bodyless recovery&quot;,
+      &quot;reason&quot;: &quot;Real API recovery requires coordinator-controlled provider response/run completion; retention GET alone is not recovery&quot;
+    }
+  ],
+  &quot;network&quot;: [
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/auth/jwt/login&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/state&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/occupation-reference/releases&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/auth/jwt/login&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/skill-review/withdrawal-review&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/integration-approval&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/auth/jwt/login&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/select-skills&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;status&quot;: 409,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/select-skills&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/build&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;status&quot;: 409,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/build&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentB&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;failure&quot;: &quot;net::ERR_ABORTED&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;failure&quot;: &quot;net::ERR_ABORTED&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;DELETE&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/history&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/market-demand/sources?country=USA&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;teacher&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/courses/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    }
+  ],
+  &quot;screenshots&quot;: [
+    &quot;withdrawal-clear-withdrawal-review-desktop.png&quot;,
+    &quot;withdrawal-clear-withdrawal-review-mobile.png&quot;,
+    &quot;withdrawal-clear-fresh-student-disabled-desktop.png&quot;,
+    &quot;withdrawal-clear-fresh-student-disabled-mobile.png&quot;,
+    &quot;withdrawal-clear-retained-study-desktop.png&quot;,
+    &quot;withdrawal-clear-retained-study-mobile.png&quot;,
+    &quot;withdrawal-clear-cleared-desktop.png&quot;,
+    &quot;withdrawal-clear-cleared-mobile.png&quot;
+  ],
+  &quot;withdrawalReadiness&quot;: {
+    &quot;unavailableReferenceIds&quot;: [
+      &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;
+    ],
+    &quot;independentlyAvailableReferenceIds&quot;: [
+      &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;
+    ]
+  },
+  &quot;studyResource&quot;: {
+    &quot;id&quot;: &quot;3a6cce5e-4e1d-495f-8a91-ab5d24e55d12&quot;,
+    &quot;kind&quot;: &quot;reading&quot;,
+    &quot;title&quot;: &quot;Synthetic acceptance reading&quot;,
+    &quot;url&quot;: &quot;https://example.org/isolated-acceptance/41afd79945&quot;
+  },
+  &quot;teacherBanks&quot;: {
+    &quot;career_skill_bank&quot;: [
+      {
+        &quot;skill_reference_id&quot;: &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;,
+        &quot;source&quot;: &quot;market&quot;,
+        &quot;origin&quot;: &quot;market_demand&quot;,
+        &quot;qualifying_posting_links&quot;: [
+          &quot;https://hh.uz/vacancy/900000001&quot;
+        ],
+        &quot;evidence_references&quot;: [
+          {
+            &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+            &quot;provider&quot;: &quot;headhunter&quot;,
+            &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+            &quot;original_phrase&quot;: &quot;explain results to stakeholders&quot;,
+            &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+            &quot;excerpt&quot;: &quot;explain results to stakeholders&quot;,
+            &quot;excerpt_start&quot;: 109,
+            &quot;excerpt_end&quot;: 140,
+            &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+            &quot;status&quot;: &quot;active&quot;
+          }
+        ],
+        &quot;onet_associations&quot;: [],
+        &quot;job_metrics&quot;: null,
+        &quot;projection_status&quot;: &quot;projected&quot;,
+        &quot;available_for_new_selection&quot;: false,
+        &quot;availability_reason&quot;: &quot;No active qualifying job-backed approval&quot;,
+        &quot;is_selected&quot;: false,
+        &quot;peer_count&quot;: 0,
+        &quot;label&quot;: &quot;Explain technical results&quot;,
+        &quot;description&quot;: null,
+        &quot;category&quot;: &quot;database&quot;,
+        &quot;chapters&quot;: []
+      },
+      {
+        &quot;skill_reference_id&quot;: &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;,
+        &quot;source&quot;: &quot;book&quot;,
+        &quot;origin&quot;: &quot;book&quot;,
+        &quot;qualifying_posting_links&quot;: [
+          &quot;https://hh.uz/vacancy/900000001&quot;
+        ],
+        &quot;evidence_references&quot;: [
+          {
+            &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+            &quot;provider&quot;: &quot;headhunter&quot;,
+            &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+            &quot;original_phrase&quot;: &quot;query relational databases using SQL&quot;,
+            &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+            &quot;excerpt&quot;: &quot;query relational databases using SQL&quot;,
+            &quot;excerpt_start&quot;: 71,
+            &quot;excerpt_end&quot;: 107,
+            &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+            &quot;status&quot;: &quot;active&quot;
+          }
+        ],
+        &quot;onet_associations&quot;: [],
+        &quot;job_metrics&quot;: null,
+        &quot;projection_status&quot;: &quot;projected&quot;,
+        &quot;available_for_new_selection&quot;: true,
+        &quot;availability_reason&quot;: null,
+        &quot;is_selected&quot;: false,
+        &quot;peer_count&quot;: 0,
+        &quot;label&quot;: &quot;Query relational databases&quot;,
+        &quot;description&quot;: null,
+        &quot;category&quot;: &quot;database&quot;,
+        &quot;chapters&quot;: [
+          {
+            &quot;chapter_id&quot;: &quot;chapter-1&quot;,
+            &quot;title&quot;: &quot;Programming&quot;
+          }
+        ]
+      },
+      {
+        &quot;skill_reference_id&quot;: &quot;cc716afb-b196-4bca-98da-c17227a31962&quot;,
+        &quot;source&quot;: &quot;book&quot;,
+        &quot;origin&quot;: &quot;book&quot;,
+        &quot;qualifying_posting_links&quot;: [
+          &quot;https://hh.uz/vacancy/900000001&quot;
+        ],
+        &quot;evidence_references&quot;: [
+          {
+            &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+            &quot;provider&quot;: &quot;headhunter&quot;,
+            &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+            &quot;original_phrase&quot;: &quot;design database schemas for reporting&quot;,
+            &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+            &quot;excerpt&quot;: &quot;design database schemas for reporting&quot;,
+            &quot;excerpt_start&quot;: 142,
+            &quot;excerpt_end&quot;: 179,
+            &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+            &quot;status&quot;: &quot;active&quot;
+          }
+        ],
+        &quot;onet_associations&quot;: [],
+        &quot;job_metrics&quot;: null,
+        &quot;projection_status&quot;: &quot;projected&quot;,
+        &quot;available_for_new_selection&quot;: true,
+        &quot;availability_reason&quot;: null,
+        &quot;is_selected&quot;: false,
+        &quot;peer_count&quot;: 0,
+        &quot;label&quot;: &quot;Design database schemas&quot;,
+        &quot;description&quot;: null,
+        &quot;category&quot;: &quot;database&quot;,
+        &quot;chapters&quot;: [
+          {
+            &quot;chapter_id&quot;: &quot;chapter-1&quot;,
+            &quot;title&quot;: &quot;Programming&quot;
+          }
+        ]
+      }
+    ],
+    &quot;course_chapters&quot;: [
+      {
+        &quot;chapter_index&quot;: 1,
+        &quot;title&quot;: &quot;Programming&quot;,
+        &quot;description&quot;: null,
+        &quot;learning_objectives&quot;: [],
+        &quot;documents&quot;: []
+      }
+    ],
+    &quot;book_skill_bank&quot;: [
+      {
+        &quot;book_id&quot;: &quot;task10-prior-book-5f5d97205d4a&quot;,
+        &quot;title&quot;: &quot;Synthetic prior curriculum book&quot;,
+        &quot;authors&quot;: null,
+        &quot;chapters&quot;: [
+          {
+            &quot;chapter_index&quot;: 1,
+            &quot;chapter_id&quot;: &quot;task10-prior-book-chapter-5f5d97205d4a&quot;,
+            &quot;title&quot;: &quot;Relational databases&quot;,
+            &quot;skills&quot;: [
+              {
+                &quot;skill_reference_id&quot;: &quot;cc716afb-b196-4bca-98da-c17227a31962&quot;,
+                &quot;source&quot;: &quot;book&quot;,
+                &quot;origin&quot;: &quot;book&quot;,
+                &quot;qualifying_posting_links&quot;: [
+                  &quot;https://hh.uz/vacancy/900000001&quot;
+                ],
+                &quot;evidence_references&quot;: [
+                  {
+                    &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+                    &quot;provider&quot;: &quot;headhunter&quot;,
+                    &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+                    &quot;original_phrase&quot;: &quot;design database schemas for reporting&quot;,
+                    &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+                    &quot;excerpt&quot;: &quot;design database schemas for reporting&quot;,
+                    &quot;excerpt_start&quot;: 142,
+                    &quot;excerpt_end&quot;: 179,
+                    &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+                    &quot;status&quot;: &quot;active&quot;
+                  }
+                ],
+                &quot;onet_associations&quot;: [],
+                &quot;job_metrics&quot;: null,
+                &quot;projection_status&quot;: &quot;projected&quot;,
+                &quot;available_for_new_selection&quot;: true,
+                &quot;availability_reason&quot;: null,
+                &quot;is_selected&quot;: false,
+                &quot;peer_count&quot;: 0,
+                &quot;name&quot;: &quot;Design database schemas&quot;,
+                &quot;description&quot;: null
+              },
+              {
+                &quot;skill_reference_id&quot;: &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;,
+                &quot;source&quot;: &quot;book&quot;,
+                &quot;origin&quot;: &quot;book&quot;,
+                &quot;qualifying_posting_links&quot;: [
+                  &quot;https://hh.uz/vacancy/900000001&quot;
+                ],
+                &quot;evidence_references&quot;: [
+                  {
+                    &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+                    &quot;provider&quot;: &quot;headhunter&quot;,
+                    &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+                    &quot;original_phrase&quot;: &quot;query relational databases using SQL&quot;,
+                    &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+                    &quot;excerpt&quot;: &quot;query relational databases using SQL&quot;,
+                    &quot;excerpt_start&quot;: 71,
+                    &quot;excerpt_end&quot;: 107,
+                    &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+                    &quot;status&quot;: &quot;active&quot;
+                  }
+                ],
+                &quot;onet_associations&quot;: [],
+                &quot;job_metrics&quot;: null,
+                &quot;projection_status&quot;: &quot;projected&quot;,
+                &quot;available_for_new_selection&quot;: true,
+                &quot;availability_reason&quot;: null,
+                &quot;is_selected&quot;: false,
+                &quot;peer_count&quot;: 0,
+                &quot;name&quot;: &quot;Query relational databases&quot;,
+                &quot;description&quot;: null
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    &quot;market_skill_bank&quot;: [
+      {
+        &quot;title&quot;: &quot;Job posting&quot;,
+        &quot;company&quot;: &quot;&quot;,
+        &quot;site&quot;: null,
+        &quot;url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+        &quot;search_term&quot;: null,
+        &quot;skills&quot;: [
+          {
+            &quot;skill_reference_id&quot;: &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;,
+            &quot;source&quot;: &quot;market&quot;,
+            &quot;origin&quot;: &quot;market_demand&quot;,
+            &quot;qualifying_posting_links&quot;: [
+              &quot;https://hh.uz/vacancy/900000001&quot;
+            ],
+            &quot;evidence_references&quot;: [
+              {
+                &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+                &quot;provider&quot;: &quot;headhunter&quot;,
+                &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+                &quot;original_phrase&quot;: &quot;explain results to stakeholders&quot;,
+                &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+                &quot;excerpt&quot;: &quot;explain results to stakeholders&quot;,
+                &quot;excerpt_start&quot;: 109,
+                &quot;excerpt_end&quot;: 140,
+                &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+                &quot;status&quot;: &quot;active&quot;
+              }
+            ],
+            &quot;onet_associations&quot;: [],
+            &quot;job_metrics&quot;: null,
+            &quot;projection_status&quot;: &quot;projected&quot;,
+            &quot;available_for_new_selection&quot;: false,
+            &quot;availability_reason&quot;: &quot;No active qualifying job-backed approval&quot;,
+            &quot;is_selected&quot;: false,
+            &quot;peer_count&quot;: 0,
+            &quot;name&quot;: &quot;Explain technical results&quot;,
+            &quot;category&quot;: &quot;database&quot;,
+            &quot;status&quot;: null,
+            &quot;priority&quot;: null,
+            &quot;demand_pct&quot;: null
+          },
+          {
+            &quot;skill_reference_id&quot;: &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;,
+            &quot;source&quot;: &quot;book&quot;,
+            &quot;origin&quot;: &quot;book&quot;,
+            &quot;qualifying_posting_links&quot;: [
+              &quot;https://hh.uz/vacancy/900000001&quot;
+            ],
+            &quot;evidence_references&quot;: [
+              {
+                &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+                &quot;provider&quot;: &quot;headhunter&quot;,
+                &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+                &quot;original_phrase&quot;: &quot;query relational databases using SQL&quot;,
+                &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+                &quot;excerpt&quot;: &quot;query relational databases using SQL&quot;,
+                &quot;excerpt_start&quot;: 71,
+                &quot;excerpt_end&quot;: 107,
+                &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+                &quot;status&quot;: &quot;active&quot;
+              }
+            ],
+            &quot;onet_associations&quot;: [],
+            &quot;job_metrics&quot;: null,
+            &quot;projection_status&quot;: &quot;projected&quot;,
+            &quot;available_for_new_selection&quot;: true,
+            &quot;availability_reason&quot;: null,
+            &quot;is_selected&quot;: false,
+            &quot;peer_count&quot;: 0,
+            &quot;name&quot;: &quot;Query relational databases&quot;,
+            &quot;category&quot;: &quot;database&quot;,
+            &quot;status&quot;: null,
+            &quot;priority&quot;: null,
+            &quot;demand_pct&quot;: null
+          },
+          {
+            &quot;skill_reference_id&quot;: &quot;cc716afb-b196-4bca-98da-c17227a31962&quot;,
+            &quot;source&quot;: &quot;book&quot;,
+            &quot;origin&quot;: &quot;book&quot;,
+            &quot;qualifying_posting_links&quot;: [
+              &quot;https://hh.uz/vacancy/900000001&quot;
+            ],
+            &quot;evidence_references&quot;: [
+              {
+                &quot;snapshot_id&quot;: &quot;35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb&quot;,
+                &quot;provider&quot;: &quot;headhunter&quot;,
+                &quot;original_url&quot;: &quot;https://hh.uz/vacancy/900000001&quot;,
+                &quot;original_phrase&quot;: &quot;design database schemas for reporting&quot;,
+                &quot;evidence_kind&quot;: &quot;extracted_text&quot;,
+                &quot;excerpt&quot;: &quot;design database schemas for reporting&quot;,
+                &quot;excerpt_start&quot;: 142,
+                &quot;excerpt_end&quot;: 179,
+                &quot;retrieved_at&quot;: &quot;2026-10-10T11:06:45.372565+00:00&quot;,
+                &quot;status&quot;: &quot;active&quot;
+              }
+            ],
+            &quot;onet_associations&quot;: [],
+            &quot;job_metrics&quot;: null,
+            &quot;projection_status&quot;: &quot;projected&quot;,
+            &quot;available_for_new_selection&quot;: true,
+            &quot;availability_reason&quot;: null,
+            &quot;is_selected&quot;: false,
+            &quot;peer_count&quot;: 0,
+            &quot;name&quot;: &quot;Design database schemas&quot;,
+            &quot;category&quot;: &quot;database&quot;,
+            &quot;status&quot;: null,
+            &quot;priority&quot;: null,
+            &quot;demand_pct&quot;: null
+          }
+        ]
+      }
+    ],
+    &quot;selection_range&quot;: {
+      &quot;min_skills&quot;: 2,
+      &quot;max_skills&quot;: 3,
+      &quot;is_default&quot;: false
+    }
+  },
+  &quot;finishedAt&quot;: &quot;2026-10-10T11:22:20.314Z&quot;
+}</pre></html>

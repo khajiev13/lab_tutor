@@ -266,6 +266,18 @@ Create a `.env` file in the project root. All backend variables use the `LAB_TUT
 | `LAB_TUTOR_EMBEDDING_API_KEY` | ← LLM key | Separate embedding key |
 | `LAB_TUTOR_EMBEDDING_BASE_URL` | ← LLM URL | Separate embedding endpoint |
 
+### Job sources and O*NET
+
+| Variable | Description |
+|----------|-------------|
+| `LAB_TUTOR_HH_USER_AGENT` | Registered application's identifying HeadHunter User-Agent |
+| `LAB_TUTOR_HH_ACCESS_TOKEN` | Existing application access token, stored only in ignored protected local configuration |
+
+O*NET uses a versioned bulk catalog and needs no API credential. See the
+[multi-source operations guide](docs/operations/multi-source-skills.md) for
+source setup, teacher approval, evidence removal and graph recovery, and the
+[O*NET import guide](docs/operations/onet-import.md) for validation and activation.
+
 ### Neo4j
 
 | Variable | Default | Description |
@@ -375,6 +387,8 @@ lab_tutor/
 | Document | Description |
 |----------|-------------|
 | [MARKET_DEMAND_ANALYST.md](docs/MARKET_DEMAND_ANALYST.md) | 3-agent LangGraph swarm, SSE protocol, tool inventory, Neo4j schema |
+| [Multi-source skill operations](docs/operations/multi-source-skills.md) | HeadHunter setup, evidence requirements, teacher decisions, student continuity and recovery |
+| [O*NET catalog operations](docs/operations/onet-import.md) | Versioned imports, attribution, metric interpretation and activation |
 | [CURRICULAR_ALIGNMENT_ARCHITECT.md](docs/CURRICULAR_ALIGNMENT_ARCHITECT.md) | Book discovery, scoring, download workflows, HITL interrupts |
 | [CONCEPT_NORMALIZATION.md](docs/CONCEPT_NORMALIZATION.md) | Iterative merge workflow, APOC operations, review pipeline |
 | [DOCUMENT_EXTRACTION_AND_EMBEDDINGS.md](docs/DOCUMENT_EXTRACTION_AND_EMBEDDINGS.md) | PDF parsing, LLM extraction, vector embedding pipeline |

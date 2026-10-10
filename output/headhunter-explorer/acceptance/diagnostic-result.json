@@ -1,0 +1,249 @@
+{
+  "phase": "diagnostic",
+  "courseId": 1,
+  "runId": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+  "startedAt": "2026-10-10T11:20:57.258Z",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "studentA real isolated login",
+      "status": "passed",
+      "userId": 2
+    },
+    {
+      "name": "saved learning path opens fresh real diagnostic through its chapter UI",
+      "status": "passed"
+    },
+    {
+      "name": "real radio controls submit every diagnostic answer and API computes incorrect outcomes",
+      "status": "passed"
+    },
+    {
+      "name": "real saved diagnostic answers leave selected skill unmastered and resource viewer choice accessible",
+      "status": "passed"
+    }
+  ],
+  "skipped": [],
+  "network": [
+    {
+      "role": "studentA",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/auth/jwt/login",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/chapters/1/quiz",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/chapters/1/quiz",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/chapters/1/quiz/submit",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/chapters/1/quiz",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "fetch"
+    }
+  ],
+  "screenshots": [
+    "diagnostic-diagnostic-answered-desktop.png",
+    "diagnostic-diagnostic-answered-mobile.png",
+    "diagnostic-diagnostic-result-desktop.png",
+    "diagnostic-diagnostic-result-mobile.png",
+    "diagnostic-diagnostic-learning-desktop.png",
+    "diagnostic-diagnostic-learning-mobile.png"
+  ],
+  "diagnostic": {
+    "courseId": 1,
+    "selectedReferenceIds": [
+      "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+      "0c840bdc-b22f-442a-96c8-b3c57a09e93a"
+    ],
+    "chapterIndex": 1,
+    "resourceOwnerReferenceId": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+    "submission": {
+      "chapter_index": 1,
+      "results": [
+        {
+          "question_id": "7503e075-fa1f-42ac-b852-2a3cb918883e",
+          "skill_name": "Explain technical results",
+          "selected_option": "B",
+          "answered_right": false,
+          "correct_option": "A"
+        },
+        {
+          "question_id": "0e7dc09c-1b4d-48eb-8a52-5b271b8b887e",
+          "skill_name": "Query relational databases",
+          "selected_option": "B",
+          "answered_right": false,
+          "correct_option": "A"
+        }
+      ],
+      "skills_known": [],
+      "chapter_status_after_submit": "learning",
+      "correct_count_after_submit": 0,
+      "easy_question_count": 2,
+      "next_chapter_unlocked": false
+    },
+    "studyResource": {
+      "id": "3a6cce5e-4e1d-495f-8a91-ab5d24e55d12",
+      "kind": "reading",
+      "title": "Synthetic acceptance reading",
+      "url": "https://example.org/isolated-acceptance/41afd79945"
+    },
+    "identity": [
+      {
+        "chapter_index": 1,
+        "title": "Programming",
+        "quiz_status": "learning",
+        "answered_count": 2,
+        "correct_count": 0,
+        "selected_skills": [
+          {
+            "name": "Explain technical results",
+            "source": "market",
+            "skill_reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+            "is_known": false,
+            "readings": [
+              {
+                "id": "3a6cce5e-4e1d-495f-8a91-ab5d24e55d12",
+                "url": "https://example.org/isolated-acceptance/41afd79945"
+              }
+            ],
+            "videos": [
+              {
+                "id": "084e44a8-15f0-417e-9917-b3148ae32875",
+                "url": "https://www.youtube.com/watch?v=fixture41afd79945"
+              }
+            ],
+            "questions": [
+              "7503e075-fa1f-42ac-b852-2a3cb918883e",
+              "2f8a5f47-fa0e-4b64-ad34-86ef948d6f6e",
+              "8aac4431-b9d4-4049-9632-621e49ed3f44"
+            ]
+          },
+          {
+            "name": "Query relational databases",
+            "source": "book",
+            "skill_reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+            "is_known": false,
+            "readings": [
+              {
+                "id": "097f5232-14e3-453b-913d-db2eab59cfd8",
+                "url": "https://example.org/isolated-acceptance/b5e2180fe3"
+              }
+            ],
+            "videos": [
+              {
+                "id": "cc9c5723-2d95-435b-bf73-6f49a7a56c1b",
+                "url": "https://www.youtube.com/watch?v=fixtureb5e2180fe3"
+              }
+            ],
+            "questions": [
+              "0e7dc09c-1b4d-48eb-8a52-5b271b8b887e",
+              "7f92d37c-0b12-4272-a413-7d034bf337e9",
+              "7897063b-a959-45f2-8081-8136ae07db9d"
+            ]
+          }
+        ]
+      }
+    ],
+    "note": "Actual incorrect submission opens learning resources; no mastered-skill or next-chapter-unlock claim"
+  },
+  "finishedAt": "2026-10-10T11:21:14.636Z"
+}

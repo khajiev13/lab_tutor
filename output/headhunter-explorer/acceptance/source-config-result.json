@@ -1,0 +1,349 @@
+{
+  "phase": "source-config",
+  "courseId": 1,
+  "runId": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+  "startedAt": "2026-10-10T11:05:29.814Z",
+  "status": "passed-with-skips",
+  "checks": [
+    {
+      "name": "teacher real isolated login",
+      "status": "passed",
+      "userId": 1
+    },
+    {
+      "name": "real source catalog enables selected country/providers and combined evidence choices",
+      "status": "passed"
+    },
+    {
+      "name": "actual chat forwards selected configuration and real clean SSE completion",
+      "status": "passed"
+    },
+    {
+      "name": "server configuration survives real state/review readback and page reload",
+      "status": "passed"
+    }
+  ],
+  "skipped": [
+    {
+      "name": "live source collection",
+      "reason": "Configuration/chat persisted, but actual stream dispatched no tool; no collection claim"
+    }
+  ],
+  "network": [
+    {
+      "role": "teacher",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/auth/jwt/login",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/sources?country=USA",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/chat",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/occupation-reference/releases",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/occupation-reference/occupations?release=31.0&q=Data+Scientists&offset=0&limit=20",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/occupation-reference/occupations?release=31.0&q=Data%20Scientists&offset=0&limit=20",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/chat",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/occupation-reference/releases",
+      "kind": "xhr"
+    }
+  ],
+  "screenshots": [
+    "source-config-source-choices-desktop.png",
+    "source-config-source-choices-mobile.png",
+    "source-config-source-chat-restored-desktop.png",
+    "source-config-source-chat-restored-mobile.png"
+  ],
+  "preCollectionJobsOnlyRunId": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+  "chatEvents": [
+    {
+      "type": "stream_end"
+    }
+  ],
+  "submittedConfiguration": {
+    "country": "Uzbekistan",
+    "sources": [
+      "linkedin",
+      "headhunter"
+    ],
+    "evidence_sources": [
+      "jobs",
+      "onet"
+    ],
+    "onet_release": "31.0",
+    "onet_occupation_codes": [
+      "15-2051.00"
+    ]
+  },
+  "configurationState": {
+    "country": "Uzbekistan",
+    "sources": [
+      "linkedin",
+      "headhunter"
+    ],
+    "evidence_sources": [
+      "jobs",
+      "onet"
+    ],
+    "onet_release": "31.0",
+    "selected_onet_occupations": [
+      "15-2051.00"
+    ],
+    "source_outcomes": {}
+  },
+  "reviewState": {
+    "run_id": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+    "candidate_revision": 0,
+    "selection_revision": 0,
+    "source_outcomes": {},
+    "candidate_count": 0
+  },
+  "finishedAt": "2026-10-10T11:06:19.684Z"
+}

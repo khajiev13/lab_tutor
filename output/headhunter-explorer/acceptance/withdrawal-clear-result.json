@@ -1,0 +1,767 @@
+{
+  "phase": "withdrawal-clear",
+  "courseId": 1,
+  "runId": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+  "startedAt": "2026-10-10T11:21:34.755Z",
+  "status": "passed-with-skips",
+  "checks": [
+    {
+      "name": "teacher real isolated login",
+      "status": "passed",
+      "userId": 1
+    },
+    {
+      "name": "studentA real isolated login",
+      "status": "passed",
+      "userId": 2
+    },
+    {
+      "name": "real prepare and concrete withdrawal approval",
+      "status": "passed"
+    },
+    {
+      "name": "studentB real isolated login",
+      "status": "passed",
+      "userId": 3
+    },
+    {
+      "name": "fresh student sees explicitly withdrawn references disabled and independent prior offerings still available",
+      "status": "passed"
+    },
+    {
+      "name": "real mixed selection and build refuse atomically with only expected unavailable IDs",
+      "status": "passed"
+    },
+    {
+      "name": "saved student choices/resources/questions/mastery retained after withdrawal",
+      "status": "passed"
+    },
+    {
+      "name": "retained saved study direct link and reload preserve actual resource ID/source",
+      "status": "passed"
+    },
+    {
+      "name": "teacher clear conversation retains published historical bank evidence",
+      "status": "passed"
+    }
+  ],
+  "skipped": [
+    {
+      "name": "withdrawn saved bodyless recovery",
+      "reason": "Real API recovery requires coordinator-controlled provider response/run completion; retention GET alone is not recovery"
+    }
+  ],
+  "network": [
+    {
+      "role": "teacher",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/auth/jwt/login",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/state",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/sources?country=Uzbekistan",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/occupation-reference/releases",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/auth/jwt/login",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/skill-review/withdrawal-review",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/integration-approval",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentB",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/auth/jwt/login",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentB",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentB",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentB",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentB",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentB",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentB",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentB",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/select-skills",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentB",
+      "status": 409,
+      "url": "http://127.0.0.1:18769/student-learning-path/1/select-skills"
+    },
+    {
+      "role": "studentB",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentB",
+      "method": "POST",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/build",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentB",
+      "status": 409,
+      "url": "http://127.0.0.1:18769/student-learning-path/1/build"
+    },
+    {
+      "role": "studentB",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/skill-banks",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "failure": "net::ERR_ABORTED",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable"
+    },
+    {
+      "role": "studentA",
+      "failure": "net::ERR_ABORTED",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/users/me",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable",
+      "kind": "xhr"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/readings/3a6cce5e-4e1d-495f-8a91-ab5d24e55d12/embeddable",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/skill-banks",
+      "kind": "fetch"
+    },
+    {
+      "role": "teacher",
+      "method": "DELETE",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/history",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/market-demand/sources?country=USA",
+      "kind": "xhr"
+    },
+    {
+      "role": "teacher",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/courses/1/skill-banks",
+      "kind": "fetch"
+    },
+    {
+      "role": "studentA",
+      "method": "GET",
+      "url": "http://127.0.0.1:18769/student-learning-path/1/path",
+      "kind": "fetch"
+    }
+  ],
+  "screenshots": [
+    "withdrawal-clear-withdrawal-review-desktop.png",
+    "withdrawal-clear-withdrawal-review-mobile.png",
+    "withdrawal-clear-fresh-student-disabled-desktop.png",
+    "withdrawal-clear-fresh-student-disabled-mobile.png",
+    "withdrawal-clear-retained-study-desktop.png",
+    "withdrawal-clear-retained-study-mobile.png",
+    "withdrawal-clear-cleared-desktop.png",
+    "withdrawal-clear-cleared-mobile.png"
+  ],
+  "withdrawalReadiness": {
+    "unavailableReferenceIds": [
+      "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23"
+    ],
+    "independentlyAvailableReferenceIds": [
+      "0c840bdc-b22f-442a-96c8-b3c57a09e93a"
+    ]
+  },
+  "studyResource": {
+    "id": "3a6cce5e-4e1d-495f-8a91-ab5d24e55d12",
+    "kind": "reading",
+    "title": "Synthetic acceptance reading",
+    "url": "https://example.org/isolated-acceptance/41afd79945"
+  },
+  "teacherBanks": {
+    "career_skill_bank": [
+      {
+        "skill_reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+        "source": "market",
+        "origin": "market_demand",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/900000001"
+        ],
+        "evidence_references": [
+          {
+            "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+            "provider": "headhunter",
+            "original_url": "https://hh.uz/vacancy/900000001",
+            "original_phrase": "explain results to stakeholders",
+            "evidence_kind": "extracted_text",
+            "excerpt": "explain results to stakeholders",
+            "excerpt_start": 109,
+            "excerpt_end": 140,
+            "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+            "status": "active"
+          }
+        ],
+        "onet_associations": [],
+        "job_metrics": null,
+        "projection_status": "projected",
+        "available_for_new_selection": false,
+        "availability_reason": "No active qualifying job-backed approval",
+        "is_selected": false,
+        "peer_count": 0,
+        "label": "Explain technical results",
+        "description": null,
+        "category": "database",
+        "chapters": []
+      },
+      {
+        "skill_reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+        "source": "book",
+        "origin": "book",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/900000001"
+        ],
+        "evidence_references": [
+          {
+            "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+            "provider": "headhunter",
+            "original_url": "https://hh.uz/vacancy/900000001",
+            "original_phrase": "query relational databases using SQL",
+            "evidence_kind": "extracted_text",
+            "excerpt": "query relational databases using SQL",
+            "excerpt_start": 71,
+            "excerpt_end": 107,
+            "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+            "status": "active"
+          }
+        ],
+        "onet_associations": [],
+        "job_metrics": null,
+        "projection_status": "projected",
+        "available_for_new_selection": true,
+        "availability_reason": null,
+        "is_selected": false,
+        "peer_count": 0,
+        "label": "Query relational databases",
+        "description": null,
+        "category": "database",
+        "chapters": [
+          {
+            "chapter_id": "chapter-1",
+            "title": "Programming"
+          }
+        ]
+      },
+      {
+        "skill_reference_id": "cc716afb-b196-4bca-98da-c17227a31962",
+        "source": "book",
+        "origin": "book",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/900000001"
+        ],
+        "evidence_references": [
+          {
+            "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+            "provider": "headhunter",
+            "original_url": "https://hh.uz/vacancy/900000001",
+            "original_phrase": "design database schemas for reporting",
+            "evidence_kind": "extracted_text",
+            "excerpt": "design database schemas for reporting",
+            "excerpt_start": 142,
+            "excerpt_end": 179,
+            "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+            "status": "active"
+          }
+        ],
+        "onet_associations": [],
+        "job_metrics": null,
+        "projection_status": "projected",
+        "available_for_new_selection": true,
+        "availability_reason": null,
+        "is_selected": false,
+        "peer_count": 0,
+        "label": "Design database schemas",
+        "description": null,
+        "category": "database",
+        "chapters": [
+          {
+            "chapter_id": "chapter-1",
+            "title": "Programming"
+          }
+        ]
+      }
+    ],
+    "course_chapters": [
+      {
+        "chapter_index": 1,
+        "title": "Programming",
+        "description": null,
+        "learning_objectives": [],
+        "documents": []
+      }
+    ],
+    "book_skill_bank": [
+      {
+        "book_id": "task10-prior-book-5f5d97205d4a",
+        "title": "Synthetic prior curriculum book",
+        "authors": null,
+        "chapters": [
+          {
+            "chapter_index": 1,
+            "chapter_id": "task10-prior-book-chapter-5f5d97205d4a",
+            "title": "Relational databases",
+            "skills": [
+              {
+                "skill_reference_id": "cc716afb-b196-4bca-98da-c17227a31962",
+                "source": "book",
+                "origin": "book",
+                "qualifying_posting_links": [
+                  "https://hh.uz/vacancy/900000001"
+                ],
+                "evidence_references": [
+                  {
+                    "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+                    "provider": "headhunter",
+                    "original_url": "https://hh.uz/vacancy/900000001",
+                    "original_phrase": "design database schemas for reporting",
+                    "evidence_kind": "extracted_text",
+                    "excerpt": "design database schemas for reporting",
+                    "excerpt_start": 142,
+                    "excerpt_end": 179,
+                    "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+                    "status": "active"
+                  }
+                ],
+                "onet_associations": [],
+                "job_metrics": null,
+                "projection_status": "projected",
+                "available_for_new_selection": true,
+                "availability_reason": null,
+                "is_selected": false,
+                "peer_count": 0,
+                "name": "Design database schemas",
+                "description": null
+              },
+              {
+                "skill_reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+                "source": "book",
+                "origin": "book",
+                "qualifying_posting_links": [
+                  "https://hh.uz/vacancy/900000001"
+                ],
+                "evidence_references": [
+                  {
+                    "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+                    "provider": "headhunter",
+                    "original_url": "https://hh.uz/vacancy/900000001",
+                    "original_phrase": "query relational databases using SQL",
+                    "evidence_kind": "extracted_text",
+                    "excerpt": "query relational databases using SQL",
+                    "excerpt_start": 71,
+                    "excerpt_end": 107,
+                    "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+                    "status": "active"
+                  }
+                ],
+                "onet_associations": [],
+                "job_metrics": null,
+                "projection_status": "projected",
+                "available_for_new_selection": true,
+                "availability_reason": null,
+                "is_selected": false,
+                "peer_count": 0,
+                "name": "Query relational databases",
+                "description": null
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "market_skill_bank": [
+      {
+        "title": "Job posting",
+        "company": "",
+        "site": null,
+        "url": "https://hh.uz/vacancy/900000001",
+        "search_term": null,
+        "skills": [
+          {
+            "skill_reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+            "source": "market",
+            "origin": "market_demand",
+            "qualifying_posting_links": [
+              "https://hh.uz/vacancy/900000001"
+            ],
+            "evidence_references": [
+              {
+                "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+                "provider": "headhunter",
+                "original_url": "https://hh.uz/vacancy/900000001",
+                "original_phrase": "explain results to stakeholders",
+                "evidence_kind": "extracted_text",
+                "excerpt": "explain results to stakeholders",
+                "excerpt_start": 109,
+                "excerpt_end": 140,
+                "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+                "status": "active"
+              }
+            ],
+            "onet_associations": [],
+            "job_metrics": null,
+            "projection_status": "projected",
+            "available_for_new_selection": false,
+            "availability_reason": "No active qualifying job-backed approval",
+            "is_selected": false,
+            "peer_count": 0,
+            "name": "Explain technical results",
+            "category": "database",
+            "status": null,
+            "priority": null,
+            "demand_pct": null
+          },
+          {
+            "skill_reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+            "source": "book",
+            "origin": "book",
+            "qualifying_posting_links": [
+              "https://hh.uz/vacancy/900000001"
+            ],
+            "evidence_references": [
+              {
+                "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+                "provider": "headhunter",
+                "original_url": "https://hh.uz/vacancy/900000001",
+                "original_phrase": "query relational databases using SQL",
+                "evidence_kind": "extracted_text",
+                "excerpt": "query relational databases using SQL",
+                "excerpt_start": 71,
+                "excerpt_end": 107,
+                "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+                "status": "active"
+              }
+            ],
+            "onet_associations": [],
+            "job_metrics": null,
+            "projection_status": "projected",
+            "available_for_new_selection": true,
+            "availability_reason": null,
+            "is_selected": false,
+            "peer_count": 0,
+            "name": "Query relational databases",
+            "category": "database",
+            "status": null,
+            "priority": null,
+            "demand_pct": null
+          },
+          {
+            "skill_reference_id": "cc716afb-b196-4bca-98da-c17227a31962",
+            "source": "book",
+            "origin": "book",
+            "qualifying_posting_links": [
+              "https://hh.uz/vacancy/900000001"
+            ],
+            "evidence_references": [
+              {
+                "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+                "provider": "headhunter",
+                "original_url": "https://hh.uz/vacancy/900000001",
+                "original_phrase": "design database schemas for reporting",
+                "evidence_kind": "extracted_text",
+                "excerpt": "design database schemas for reporting",
+                "excerpt_start": 142,
+                "excerpt_end": 179,
+                "retrieved_at": "2026-10-10T11:06:45.372565+00:00",
+                "status": "active"
+              }
+            ],
+            "onet_associations": [],
+            "job_metrics": null,
+            "projection_status": "projected",
+            "available_for_new_selection": true,
+            "availability_reason": null,
+            "is_selected": false,
+            "peer_count": 0,
+            "name": "Design database schemas",
+            "category": "database",
+            "status": null,
+            "priority": null,
+            "demand_pct": null
+          }
+        ]
+      }
+    ],
+    "selection_range": {
+      "min_skills": 2,
+      "max_skills": 3,
+      "is_default": false
+    }
+  },
+  "finishedAt": "2026-10-10T11:22:20.314Z"
+}

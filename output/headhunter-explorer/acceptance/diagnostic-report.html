@@ -1,0 +1,249 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Task 10 diagnostic</title><style>body{font:16px system-ui;max-width:1100px;margin:32px auto;padding:0 20px}img{width:100%;border:1px solid #bbb}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#1451a3}</style><h1>Task 10: diagnostic</h1><p>Status: passed. Real isolated API: http://127.0.0.1:18769.</p><p><a href="diagnostic-diagnostic-answered-desktop.png">diagnostic-diagnostic-answered-desktop.png</a></p><img src="diagnostic-diagnostic-answered-desktop.png" alt="diagnostic-diagnostic-answered-desktop.png"><p><a href="diagnostic-diagnostic-answered-mobile.png">diagnostic-diagnostic-answered-mobile.png</a></p><img src="diagnostic-diagnostic-answered-mobile.png" alt="diagnostic-diagnostic-answered-mobile.png"><p><a href="diagnostic-diagnostic-result-desktop.png">diagnostic-diagnostic-result-desktop.png</a></p><img src="diagnostic-diagnostic-result-desktop.png" alt="diagnostic-diagnostic-result-desktop.png"><p><a href="diagnostic-diagnostic-result-mobile.png">diagnostic-diagnostic-result-mobile.png</a></p><img src="diagnostic-diagnostic-result-mobile.png" alt="diagnostic-diagnostic-result-mobile.png"><p><a href="diagnostic-diagnostic-learning-desktop.png">diagnostic-diagnostic-learning-desktop.png</a></p><img src="diagnostic-diagnostic-learning-desktop.png" alt="diagnostic-diagnostic-learning-desktop.png"><p><a href="diagnostic-diagnostic-learning-mobile.png">diagnostic-diagnostic-learning-mobile.png</a></p><img src="diagnostic-diagnostic-learning-mobile.png" alt="diagnostic-diagnostic-learning-mobile.png"><h2>Assertions and explicit coverage limits</h2><pre>{
+  &quot;phase&quot;: &quot;diagnostic&quot;,
+  &quot;courseId&quot;: 1,
+  &quot;runId&quot;: &quot;9bba33b3-6633-4e74-b40a-1486ffd3d2d0&quot;,
+  &quot;startedAt&quot;: &quot;2026-10-10T11:20:57.258Z&quot;,
+  &quot;status&quot;: &quot;passed&quot;,
+  &quot;checks&quot;: [
+    {
+      &quot;name&quot;: &quot;studentA real isolated login&quot;,
+      &quot;status&quot;: &quot;passed&quot;,
+      &quot;userId&quot;: 2
+    },
+    {
+      &quot;name&quot;: &quot;saved learning path opens fresh real diagnostic through its chapter UI&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;real radio controls submit every diagnostic answer and API computes incorrect outcomes&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    },
+    {
+      &quot;name&quot;: &quot;real saved diagnostic answers leave selected skill unmastered and resource viewer choice accessible&quot;,
+      &quot;status&quot;: &quot;passed&quot;
+    }
+  ],
+  &quot;skipped&quot;: [],
+  &quot;network&quot;: [
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/auth/jwt/login&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/users/me&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/chapters/1/quiz&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/chapters/1/quiz&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;POST&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/chapters/1/quiz/submit&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/skill-banks&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;xhr&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/chapters/1/quiz&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    },
+    {
+      &quot;role&quot;: &quot;studentA&quot;,
+      &quot;method&quot;: &quot;GET&quot;,
+      &quot;url&quot;: &quot;http://127.0.0.1:18769/student-learning-path/1/path&quot;,
+      &quot;kind&quot;: &quot;fetch&quot;
+    }
+  ],
+  &quot;screenshots&quot;: [
+    &quot;diagnostic-diagnostic-answered-desktop.png&quot;,
+    &quot;diagnostic-diagnostic-answered-mobile.png&quot;,
+    &quot;diagnostic-diagnostic-result-desktop.png&quot;,
+    &quot;diagnostic-diagnostic-result-mobile.png&quot;,
+    &quot;diagnostic-diagnostic-learning-desktop.png&quot;,
+    &quot;diagnostic-diagnostic-learning-mobile.png&quot;
+  ],
+  &quot;diagnostic&quot;: {
+    &quot;courseId&quot;: 1,
+    &quot;selectedReferenceIds&quot;: [
+      &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;,
+      &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;
+    ],
+    &quot;chapterIndex&quot;: 1,
+    &quot;resourceOwnerReferenceId&quot;: &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;,
+    &quot;submission&quot;: {
+      &quot;chapter_index&quot;: 1,
+      &quot;results&quot;: [
+        {
+          &quot;question_id&quot;: &quot;7503e075-fa1f-42ac-b852-2a3cb918883e&quot;,
+          &quot;skill_name&quot;: &quot;Explain technical results&quot;,
+          &quot;selected_option&quot;: &quot;B&quot;,
+          &quot;answered_right&quot;: false,
+          &quot;correct_option&quot;: &quot;A&quot;
+        },
+        {
+          &quot;question_id&quot;: &quot;0e7dc09c-1b4d-48eb-8a52-5b271b8b887e&quot;,
+          &quot;skill_name&quot;: &quot;Query relational databases&quot;,
+          &quot;selected_option&quot;: &quot;B&quot;,
+          &quot;answered_right&quot;: false,
+          &quot;correct_option&quot;: &quot;A&quot;
+        }
+      ],
+      &quot;skills_known&quot;: [],
+      &quot;chapter_status_after_submit&quot;: &quot;learning&quot;,
+      &quot;correct_count_after_submit&quot;: 0,
+      &quot;easy_question_count&quot;: 2,
+      &quot;next_chapter_unlocked&quot;: false
+    },
+    &quot;studyResource&quot;: {
+      &quot;id&quot;: &quot;3a6cce5e-4e1d-495f-8a91-ab5d24e55d12&quot;,
+      &quot;kind&quot;: &quot;reading&quot;,
+      &quot;title&quot;: &quot;Synthetic acceptance reading&quot;,
+      &quot;url&quot;: &quot;https://example.org/isolated-acceptance/41afd79945&quot;
+    },
+    &quot;identity&quot;: [
+      {
+        &quot;chapter_index&quot;: 1,
+        &quot;title&quot;: &quot;Programming&quot;,
+        &quot;quiz_status&quot;: &quot;learning&quot;,
+        &quot;answered_count&quot;: 2,
+        &quot;correct_count&quot;: 0,
+        &quot;selected_skills&quot;: [
+          {
+            &quot;name&quot;: &quot;Explain technical results&quot;,
+            &quot;source&quot;: &quot;market&quot;,
+            &quot;skill_reference_id&quot;: &quot;c3fbde2a-7c40-4f4a-91c8-e5462bddcb23&quot;,
+            &quot;is_known&quot;: false,
+            &quot;readings&quot;: [
+              {
+                &quot;id&quot;: &quot;3a6cce5e-4e1d-495f-8a91-ab5d24e55d12&quot;,
+                &quot;url&quot;: &quot;https://example.org/isolated-acceptance/41afd79945&quot;
+              }
+            ],
+            &quot;videos&quot;: [
+              {
+                &quot;id&quot;: &quot;084e44a8-15f0-417e-9917-b3148ae32875&quot;,
+                &quot;url&quot;: &quot;https://www.youtube.com/watch?v=fixture41afd79945&quot;
+              }
+            ],
+            &quot;questions&quot;: [
+              &quot;7503e075-fa1f-42ac-b852-2a3cb918883e&quot;,
+              &quot;2f8a5f47-fa0e-4b64-ad34-86ef948d6f6e&quot;,
+              &quot;8aac4431-b9d4-4049-9632-621e49ed3f44&quot;
+            ]
+          },
+          {
+            &quot;name&quot;: &quot;Query relational databases&quot;,
+            &quot;source&quot;: &quot;book&quot;,
+            &quot;skill_reference_id&quot;: &quot;0c840bdc-b22f-442a-96c8-b3c57a09e93a&quot;,
+            &quot;is_known&quot;: false,
+            &quot;readings&quot;: [
+              {
+                &quot;id&quot;: &quot;097f5232-14e3-453b-913d-db2eab59cfd8&quot;,
+                &quot;url&quot;: &quot;https://example.org/isolated-acceptance/b5e2180fe3&quot;
+              }
+            ],
+            &quot;videos&quot;: [
+              {
+                &quot;id&quot;: &quot;cc9c5723-2d95-435b-bf73-6f49a7a56c1b&quot;,
+                &quot;url&quot;: &quot;https://www.youtube.com/watch?v=fixtureb5e2180fe3&quot;
+              }
+            ],
+            &quot;questions&quot;: [
+              &quot;0e7dc09c-1b4d-48eb-8a52-5b271b8b887e&quot;,
+              &quot;7f92d37c-0b12-4272-a413-7d034bf337e9&quot;,
+              &quot;7897063b-a959-45f2-8081-8136ae07db9d&quot;
+            ]
+          }
+        ]
+      }
+    ],
+    &quot;note&quot;: &quot;Actual incorrect submission opens learning resources; no mastered-skill or next-chapter-unlock claim&quot;
+  },
+  &quot;finishedAt&quot;: &quot;2026-10-10T11:21:14.636Z&quot;
+}</pre></html>

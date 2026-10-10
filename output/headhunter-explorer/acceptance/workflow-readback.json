@@ -1,0 +1,285 @@
+{
+  "fixtureKind": "synthetic-external-provider-and-model; imported-bounded-onet-fixture",
+  "courseId": 1,
+  "userIds": {
+    "teacher": 1,
+    "studentA": 2,
+    "studentB": 3
+  },
+  "apiSourceOrigins": [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "http://host.docker.internal:8000"
+  ],
+  "sourceConfiguration": {
+    "country": "Uzbekistan",
+    "countryLabel": "Uzbekistan",
+    "providerIds": [
+      "headhunter",
+      "linkedin"
+    ],
+    "evidenceSources": [
+      "jobs",
+      "onet"
+    ],
+    "onetRelease": "31.0",
+    "occupationQuery": "Data Scientists",
+    "occupationCodes": [
+      "15-2051.00"
+    ],
+    "message": "Please acknowledge these source choices for this isolated acceptance course."
+  },
+  "initialPublicationRevision": 0,
+  "tailSentinel": "Acceptance tail: preserve the complete returned vacancy description.",
+  "originalDescriptionSentinel": "Acceptance tail: preserve the complete returned vacancy description.",
+  "rawMetadataSentinel": "task10-full-provider-metadata",
+  "expectPrerequisiteDialog": false,
+  "fixtureProvenance": [
+    {
+      "kind": "old-curriculum-and-book-and-zero-edge-prerequisite",
+      "source": "standalone task10 seed, explicitly synthetic prior state",
+      "suffix": "5f5d97205d4a"
+    },
+    {
+      "kind": "onet-import",
+      "directory": "/app/tests/fixtures/onet/31.0",
+      "release": "31.0",
+      "manifest": {
+        "version": "31.0",
+        "files": {
+          "occupation_data.csv": {
+            "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/occupation_data.csv",
+            "sha256": "00f35cb5a96646e3110f80f2616761e46af08d898ea92d73aec3062c79298669",
+            "bytes": 127,
+            "row_count": 2
+          },
+          "job_titles.csv": {
+            "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/job_titles.csv",
+            "sha256": "a9669f2792bec637699d86a317dfc8fa3f1049678a459be1628b0a56f000f1e5",
+            "bytes": 113,
+            "row_count": 1
+          },
+          "content_model_reference.csv": {
+            "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/content_model_reference.csv",
+            "sha256": "05bd71b55d0a2d6eea7e307c7179b34e5198fb16f779354fbdef8c0da8dfb4fc",
+            "bytes": 181,
+            "row_count": 3
+          },
+          "essential_skills.csv": {
+            "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+            "sha256": "a109cc8b99a2ccfa584422f4b980bb7987fccdefff7abeec1aa69807e476f3dc",
+            "bytes": 379,
+            "row_count": 2
+          },
+          "transferable_skills.csv": {
+            "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv",
+            "sha256": "58812d87a4438bdf1f8dd2f67295384bd7a540ca410ad23ee5ca52a2c0b2e5a3",
+            "bytes": 380,
+            "row_count": 2
+          },
+          "software_skills.csv": {
+            "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv",
+            "sha256": "6bb335ff0a26767785d25dda850c89b802bd51aaa0fdf95de214385cd267d647",
+            "bytes": 224,
+            "row_count": 2
+          },
+          "scales_reference.csv": {
+            "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/scales_reference.csv",
+            "sha256": "9feec0457baa86aedf47ae56bdf08f6055b9a9fe41efe4876483a5bbe8a6283c",
+            "bytes": 73,
+            "row_count": 2
+          }
+        },
+        "source_url": "https://www.onetcenter.org/database.html",
+        "license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "attribution": "Contains information from O*NET\u00ae Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/."
+      },
+      "note": "Bounded repository fixture, active only in isolated lab_tutor_test; not a full official release"
+    }
+  ],
+  "priorBookTargets": {
+    "Query relational databases": "task10-book-5f5d97205d4a-0",
+    "Design database schemas": "task10-book-5f5d97205d4a-1"
+  },
+  "priorChapterId": "chapter-1",
+  "runId": "9bba33b3-6633-4e74-b40a-1486ffd3d2d0",
+  "categoryId": "database",
+  "excludedCandidateId": "940f0e2b-39a8-490d-8211-e0f22d82ff95",
+  "unsupportedCandidateId": "aa93aae8-90f6-433a-978a-f5961258992c",
+  "evidenceCandidateId": "8a711980-f7d1-4e24-97a9-abf65467e2e5",
+  "snapshotId": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+  "mixedEnrichmentObserved": true,
+  "sourceOutcomeReadback": {
+    "onet": {
+      "status": "success",
+      "received_count": 4,
+      "usable_count": 4,
+      "warnings": []
+    },
+    "linkedin": {
+      "status": "error",
+      "received_count": 0,
+      "usable_count": 0,
+      "warnings": [
+        "The selected job provider could not complete this query."
+      ]
+    },
+    "headhunter": {
+      "status": "success",
+      "received_count": 1,
+      "usable_count": 1,
+      "warnings": []
+    }
+  },
+  "extractionCoverageReadback": {
+    "status": "full",
+    "warnings": [],
+    "assessments": [
+      {
+        "status": "full",
+        "warnings": [],
+        "snapshot_id": "35eb4974-8f2c-4c6b-b53e-0b39f9ec0afb",
+        "total_chunks": 2,
+        "assessed_chunks": 2,
+        "demand_identity": "headhunter:id:900000001",
+        "uncovered_chars": 0
+      }
+    ],
+    "acknowledged": false,
+    "total_chunks": 2,
+    "sample_limits": {
+      "scope": "selected provider sample, not complete market coverage",
+      "queries": [
+        "database analyst"
+      ],
+      "hours_old": 72,
+      "results_per_query_provider": 1
+    },
+    "assessed_chunks": 2,
+    "failed_postings": 0,
+    "assessed_postings": 1,
+    "selected_postings": 1,
+    "association_coverage": {
+      "status": "full",
+      "warnings": [],
+      "call_count": 1,
+      "failed_calls": 0,
+      "exact_matches": 0,
+      "assessed_pairs": 16,
+      "rejected_mappings": 0,
+      "omitted_catalog_rows": 0,
+      "omitted_observations": 0,
+      "selected_catalog_rows": 4,
+      "selected_observations": 4,
+      "inference_catalog_rows": 4,
+      "inference_observations": 4
+    }
+  },
+  "candidateByLabel": {
+    "Query relational databases": "8a711980-f7d1-4e24-97a9-abf65467e2e5",
+    "Explain technical results": "ae052899-b4b2-4168-9701-c56279d3083c",
+    "Design database schemas": "deb7529f-e25f-4b03-8867-a08fded224f9",
+    "Validate query results": "940f0e2b-39a8-490d-8211-e0f22d82ff95",
+    "Reading Comprehension": "aa93aae8-90f6-433a-978a-f5961258992c",
+    "MySQL": "69da36f2-3af2-43a0-9905-f15a38346e61",
+    "PostgreSQL": "b31e6549-9d7c-4ca6-b8d4-9fa9f36409b0",
+    "Social Perceptiveness": "53897bfc-2673-4076-b2e3-d4c3fd0fe042"
+  },
+  "expectedIntegrationItems": [
+    {
+      "candidateId": "8a711980-f7d1-4e24-97a9-abf65467e2e5",
+      "disposition": "covered",
+      "source": "book",
+      "targetIdentity": "book:task10-book-5f5d97205d4a-0",
+      "chapterIds": [
+        "chapter-1"
+      ]
+    },
+    {
+      "candidateId": "deb7529f-e25f-4b03-8867-a08fded224f9",
+      "disposition": "merged",
+      "source": "book",
+      "targetIdentity": "book:task10-book-5f5d97205d4a-1",
+      "chapterIds": [
+        "chapter-1"
+      ]
+    }
+  ],
+  "mappingReadback": {
+    "candidate_revision": 3,
+    "selection_revision": 3,
+    "review_digest": "891f2769696c513e9768ad8f52f587b9d352d3e8ae9caa66bf6f7dfd0e2068d6"
+  },
+  "selectReferenceIds": [
+    "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+    "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23"
+  ],
+  "postingBulk": {
+    "postingUrl": "https://hh.uz/vacancy/900000001",
+    "excludedReferenceId": "cc716afb-b196-4bca-98da-c17227a31962"
+  },
+  "withdrawalUnavailableReferenceIds": [
+    "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23"
+  ],
+  "prerequisiteReview": {
+    "expectedDraftEdges": []
+  },
+  "diagnostic": {
+    "selectedOption": "B",
+    "expectedCorrectOption": "A",
+    "expectedOptions": [
+      "Fixture correct answer",
+      "Fixture distractor B",
+      "Fixture distractor C",
+      "Fixture distractor D"
+    ]
+  },
+  "readinessAfterPublication": {
+    "market": {
+      "id": "market",
+      "label": "Market skill bank",
+      "status": "complete",
+      "route": "/courses/1/market-analyst",
+      "detail": "Market skill bank is complete or waived."
+    },
+    "prerequisites": "stale"
+  },
+  "publicationReadback": [
+    {
+      "label": "Query relational databases",
+      "origin": "book",
+      "source": "book",
+      "category": "database",
+      "reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+      "projection_status": "projected",
+      "qualifying_posting_links": [
+        "https://hh.uz/vacancy/900000001"
+      ],
+      "available_for_new_selection": true
+    },
+    {
+      "label": "Explain technical results",
+      "origin": "market_demand",
+      "source": "market",
+      "category": "database",
+      "reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+      "projection_status": "projected",
+      "qualifying_posting_links": [
+        "https://hh.uz/vacancy/900000001"
+      ],
+      "available_for_new_selection": true
+    },
+    {
+      "label": "Design database schemas",
+      "origin": "book",
+      "source": "book",
+      "category": "database",
+      "reference_id": "cc716afb-b196-4bca-98da-c17227a31962",
+      "projection_status": "projected",
+      "qualifying_posting_links": [
+        "https://hh.uz/vacancy/900000001"
+      ],
+      "available_for_new_selection": true
+    }
+  ]
+}

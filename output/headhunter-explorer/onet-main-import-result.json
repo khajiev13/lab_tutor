@@ -1,0 +1,65 @@
+{
+  "active": true,
+  "evidence": 63671,
+  "families": {
+    "essential": 9100,
+    "software": 31821,
+    "transferable": 22750
+  },
+  "files": {
+    "content_model_reference.csv": {
+      "bytes": 235856,
+      "row_count": 3006,
+      "sha256": "370033744006dbd5df048431d42a402f6741a00a229b6d0f4e4f4249b6399c04",
+      "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/content_model_reference.csv"
+    },
+    "essential_skills.csv": {
+      "bytes": 2328135,
+      "row_count": 18200,
+      "sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+      "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv"
+    },
+    "job_titles.csv": {
+      "bytes": 4504432,
+      "row_count": 54269,
+      "sha256": "75a3b46d6edc5996117c10c9ed488c9a06f7495d02969e9d12873ab14a21540c",
+      "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/job_titles.csv"
+    },
+    "occupation_data.csv": {
+      "bytes": 268030,
+      "row_count": 1016,
+      "sha256": "a09eae1d6609686e44e05b7290993a1c8b523d8ca224bc0eedc194c855c3ee02",
+      "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/occupation_data.csv"
+    },
+    "scales_reference.csv": {
+      "bytes": 1006,
+      "row_count": 33,
+      "sha256": "bcba23858ce21ecaacbde303a8993e35d46724b4afb8c9ec2b10e04f42adcfc9",
+      "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/scales_reference.csv"
+    },
+    "software_skills.csv": {
+      "bytes": 3557545,
+      "row_count": 31821,
+      "sha256": "6aabb96b464288db849580e6510530efff3f80e25dde2bb23f1fc36bb526b016",
+      "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/software_skills.csv"
+    },
+    "transferable_skills.csv": {
+      "bytes": 6081245,
+      "row_count": 45500,
+      "sha256": "f17d0419e818a3bf2f55076510c76c4aef01cc8f5aee2670d2f44f6f44ac60f7",
+      "url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv"
+    }
+  },
+  "metric_statuses": {
+    "not_relevant": 3504,
+    "reported": 60039,
+    "suppressed": 157
+  },
+  "occupations": 1016,
+  "software_flags": {
+    "Hot Technology": 11571,
+    "In Demand": 2425
+  },
+  "validated_only": false,
+  "version": "31.0"
+}

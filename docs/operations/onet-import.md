@@ -31,7 +31,11 @@ The default download cache is `/app/data/onet`, outside tracked source code.
 
 The current importer validated the cached official 31.0 files in Docker on
 10 October 2026. All seven source URLs, byte lengths and SHA256 values matched
-the download manifest. This check made no SQL writes or activation changes.
+the download manifest. The initial validation made no SQL writes or activation changes. After isolated
+integration acceptance, the same official files were imported and activated in
+`lab_tutor_postgres/labtutor` on 10 October 2026 at 11:23 UTC. The CLI exited 0;
+independent SQL readback confirmed release 31.0 ready/active, 1,016 occupations
+and 63,671 evidence records.
 
 | Parsed data | Count |
 | --- | ---: |
@@ -49,8 +53,8 @@ future releases need their own validation instead of matching these totals.
 
 ## Import and activate
 
-After integration acceptance, import into the database configured for the
-target backend. Check that environment before running this command:
+For future installations, import into the database configured for the target
+backend after integration acceptance. Check that environment before running this command:
 
 ```bash
 docker exec lab_tutor_backend /app/.venv/bin/python scripts/import_onet.py --release 31.0 --from-dir /tmp/onet-31.0-validation --activate

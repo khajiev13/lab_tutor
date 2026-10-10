@@ -1,0 +1,45 @@
+{
+  "phase": "verify-failure",
+  "external_inputs": "Synthetic search, model and embedding fixtures",
+  "checks": [
+    "Actual saved path/questions survived both external search failures"
+  ],
+  "provider_failure_count": 4,
+  "status": "passed",
+  "before": [
+    {
+      "chapter": 1,
+      "quiz_status": "quiz_required",
+      "answered_count": 0,
+      "correct_count": 0,
+      "reference_id": "0c840bdc-b22f-442a-96c8-b3c57a09e93a",
+      "name": "Query relational databases",
+      "source": "book",
+      "is_known": false,
+      "readings": [],
+      "videos": [],
+      "questions": [
+        "0e7dc09c-1b4d-48eb-8a52-5b271b8b887e",
+        "7897063b-a959-45f2-8081-8136ae07db9d",
+        "7f92d37c-0b12-4272-a413-7d034bf337e9"
+      ]
+    },
+    {
+      "chapter": 1,
+      "quiz_status": "quiz_required",
+      "answered_count": 0,
+      "correct_count": 0,
+      "reference_id": "c3fbde2a-7c40-4f4a-91c8-e5462bddcb23",
+      "name": "Explain technical results",
+      "source": "market",
+      "is_known": false,
+      "readings": [],
+      "videos": [],
+      "questions": [
+        "2f8a5f47-fa0e-4b64-ad34-86ef948d6f6e",
+        "7503e075-fa1f-42ac-b852-2a3cb918883e",
+        "8aac4431-b9d4-4049-9632-621e49ed3f44"
+      ]
+    }
+  ]
+}
