@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { SkillReviewPanel } from "@/features/market-demand/components/SkillReviewPanel";
@@ -10,6 +10,33 @@ import { integrationFixture, reconciliationFixture, withdrawalFixture } from "@/
 vi.mock("@/features/market-demand/api",async()=>({...await vi.importActual("@/features/market-demand/api"),approveSkillIntegration:vi.fn(),prepareSkillWithdrawal:vi.fn()}));
 import { approveSkillIntegration, prepareSkillWithdrawal } from "@/features/market-demand/api";
 beforeEach(()=>vi.resetAllMocks());
+
+it("reviewed concepts displays normalized server names and nullable descriptions as safe text before approval", () => {
+  const review = integrationFixture();
+  const item = {...review.integration_review!.items[0], concepts: [
+    {name: "Normalized Python functions", description: "Call functions with <script>alert('description')</script> arguments"},
+    {name: "<img src=x onerror=alert('name')>", description: null},
+  ]};
+  review.integration_review!.items[0] = item;
+  render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
+  const target = screen.getByText("Python programming").closest("div")!;
+  expect(within(target).getByText("Chapters: Programming")).toBeInTheDocument();
+  expect(within(target).getByText("Normalized Python functions")).toBeInTheDocument();
+  expect(within(target).getByText("Call functions with <script>alert('description')</script> arguments")).toBeInTheDocument();
+  expect(within(target).getByText("<img src=x onerror=alert('name')>")).toBeInTheDocument();
+  expect(target.querySelector("script, img")).toBeNull();
+  expect(within(target).queryByText("null")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Approve integration"})).toBeEnabled();
+  expect(approveSkillIntegration).not.toHaveBeenCalled();
+});
+
+it("reviewed concepts keeps an absent concepts field compatible with target/chapter review and approval", () => {
+  render(<IntegrationReview courseId={1} review={integrationFixture()} onReviewChange={vi.fn()}/>);
+  expect(screen.getByText("Python programming")).toBeInTheDocument();
+  expect(screen.getByText("Chapters: Programming")).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Approve integration"})).toBeEnabled();
+  expect(approveSkillIntegration).not.toHaveBeenCalled();
+});
 
 it("shows reviewed targets/chapters and blocks final approval without every proposed posting", () => {
   const review = integrationFixture();

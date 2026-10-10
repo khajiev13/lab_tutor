@@ -253,6 +253,7 @@ export interface IntegrationReviewPayload {
     candidate_id: string;
     target: {identity: string; label: string; source: "book" | "market"; origin: string};
     chapters: {chapter_id: string; title: string}[];
+    concepts?: {name: string; description: string | null}[];
     disposition: "new" | "covered" | "merged";
     qualifying_posting_links: string[];
     evidence_snapshot_ids: string[];

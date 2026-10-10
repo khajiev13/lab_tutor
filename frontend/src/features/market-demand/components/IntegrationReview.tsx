@@ -105,6 +105,13 @@ export function IntegrationReview({courseId, review, onReviewChange, disabled, p
           <p className="font-medium">{item.target.label}</p>
           <p className="text-xs">{item.disposition} · {item.target.source} · {item.target.origin} · target {item.target.identity}</p>
           <p className="text-xs">Chapters: {item.chapters.map(chapter => chapter.title).join(", ") || "No chapter relationship"}</p>
+          {!!item.concepts?.length && <div className="space-y-1 text-xs">
+            <p className="font-medium">Proposed concepts</p>
+            {item.concepts.map((concept, index) => <div key={index}>
+              <p>{concept.name}</p>
+              {concept.description !== null && <p>{concept.description}</p>}
+            </div>)}
+          </div>}
           {item.qualifying_posting_links.map(url => <p key={url} className="text-xs"><EvidenceLink url={url} label="Original job posting"/></p>)}
           {missing.some(value => value.candidate_id === item.candidate_id) && <p className="text-xs text-destructive">Needs supporting job posting</p>}
         </div>
