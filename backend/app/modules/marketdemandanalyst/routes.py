@@ -24,6 +24,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.database import AsyncSessionLocal, SessionLocal, get_db
+from app.core.neo4j import get_neo4j_driver
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
 from app.modules.courses.models import Course
@@ -42,10 +43,14 @@ from app.modules.occupation_reference.service import (
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .graph import get_graph
 from .job_sources import JobSourceService, get_job_source_service
+from .neo4j_repository import MarketSkillGraphRepository
+from .projection_service import SkillEvidenceProjector
 from .repository import MarketReviewRepository, load_async_thread_state
 from .review_service import SkillReviewService
 from .schemas import (
     EvidenceSource,
+    IntegrationApproval,
+    IntegrationApprovalResult,
     JobSource,
     JobSourceOption,
     SkillReview,
@@ -95,6 +100,15 @@ def get_skill_review_service(
     repository: MarketReviewRepository = Depends(get_market_review_repository),
 ) -> SkillReviewService:
     return SkillReviewService(repository)
+
+
+def get_skill_evidence_projector(
+    repository: MarketReviewRepository = Depends(get_market_review_repository),
+    driver=Depends(get_neo4j_driver),
+) -> SkillEvidenceProjector:
+    return SkillEvidenceProjector(
+        repository, MarketSkillGraphRepository(driver) if driver is not None else None
+    )
 
 
 def get_market_configuration_service(
@@ -827,6 +841,49 @@ async def continue_skill_review(
         state_service,
         service.continue_with_available_evidence,
     )
+
+
+@router.post(
+    "/{course_id}/market-demand/skill-review/withdrawal-review",
+    response_model=SkillReview,
+)
+async def prepare_skill_withdrawal(
+    course_id: int,
+    body: SkillReviewRevision,
+    teacher: TeacherDep,
+    service: SkillReviewService = Depends(get_skill_review_service),
+    state_service: ThreadStateService = Depends(get_thread_state_service),
+):
+    return await _teacher_review_write(
+        course_id,
+        teacher.id,
+        body,
+        service,
+        state_service,
+        service.prepare_withdrawal_review,
+    )
+
+
+@router.post(
+    "/{course_id}/market-demand/integration-approval",
+    response_model=IntegrationApprovalResult,
+)
+async def approve_skill_integration(
+    course_id: int,
+    body: IntegrationApproval,
+    teacher: TeacherDep,
+    service: SkillReviewService = Depends(get_skill_review_service),
+    state_service: ThreadStateService = Depends(get_thread_state_service),
+    projector: SkillEvidenceProjector = Depends(get_skill_evidence_projector),
+):
+    result = await _teacher_review_write(
+        course_id, teacher.id, body, service, state_service, service.approve_integration
+    )
+    result.projection_status = projector.project(
+        course_id, result.review.publication_revision, run_id=body.run_id
+    )
+    result.review = service.get_review(course_id, teacher.id)
+    return result
 
 
 @router.post("/{course_id}/market-demand/chat")

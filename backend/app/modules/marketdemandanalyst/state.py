@@ -107,6 +107,7 @@ STATE_KEYS: list[str] = [
     "final_skills",
     "selected_for_insertion",
     "skill_concepts",
+    "_cleaned_results",
     "insertion_results",
     "skill_job_urls",
     "_raw_skill_urls",
@@ -123,12 +124,16 @@ def mapping_breakdown() -> dict[str, int | bool]:
     mapping = tool_store.get("curriculum_mapping") or []
 
     curated_names = {
-        _skill_name_key(str(item.get("name", "")))
+        str(item.get("candidate_id", ""))
+        if tool_store.get("run_id")
+        else _skill_name_key(str(item.get("name", "")))
         for item in curated
         if isinstance(item, dict) and item.get("name")
     }
     mapping_names_list = [
-        _skill_name_key(str(item.get("name", "")))
+        str(item.get("candidate_id", ""))
+        if tool_store.get("run_id")
+        else _skill_name_key(str(item.get("name", "")))
         for item in mapping
         if isinstance(item, dict) and item.get("name")
     ]

@@ -1,0 +1,33 @@
+# Disposable test graph; never mount a preview/application graph volume.
+services:
+  market-projection-test:
+    image: neo4j:5.26@sha256:d9cfe82983d27f5a75b3aaae8f316d04f9a698a3b7f6103a508f7caf8362f255
+    container_name: lab_tutor_market_projection_test
+    environment:
+      NEO4J_AUTH: ${MARKET_SKILL_TEST_NEO4J_AUTH:?Provide protected disposable test credentials}
+      NEO4J_server_memory_heap_initial__size: 128m
+      NEO4J_server_memory_heap_max__size: 256m
+      NEO4J_server_memory_pagecache_size: 64m
+    mem_limit: 1g
+    networks:
+      - lab-test
+    volumes:
+      - market-projection-test-data:/data
+    tmpfs:
+      - /logs
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          wget --quiet --spider http://localhost:7474/
+      interval: 10s
+      timeout: 5s
+      retries: 24
+networks:
+  lab-test:
+    name: lab_tutor_market_projection_test_network
+    internal: true
+
+volumes:
+  market-projection-test-data:
+    name: lab_tutor_market_projection_test_data

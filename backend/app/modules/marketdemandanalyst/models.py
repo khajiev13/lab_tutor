@@ -3,7 +3,15 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, Text, UniqueConstraint, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -105,3 +113,122 @@ class MarketVacancySnapshot(Base):
         DateTime(timezone=True), nullable=True
     )
     purge_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class MarketEvidenceRedaction(Base):
+    """Durable cleanup intent for one removed original source, retried explicitly."""
+
+    __tablename__ = "market_evidence_redactions"
+
+    snapshot_id: Mapped[UUID] = mapped_column(
+        ForeignKey("market_vacancy_snapshots.id"), primary_key=True
+    )
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), index=True)
+    evidence_payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    reference_states: Mapped[list] = mapped_column(JSONB, default=list)
+    inactive_binding_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    projection_status: Mapped[str] = mapped_column(Text, default="pending")
+    projection_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class CourseSkillReference(Base):
+    """Stable course-owned identity; course metrics never live on shared graph nodes."""
+
+    __tablename__ = "course_skill_references"
+    __table_args__ = (
+        UniqueConstraint("course_id", "target_identity", name="uq_course_skill_target"),
+        UniqueConstraint("course_id", "id", name="uq_course_skill_reference_course"),
+        CheckConstraint(
+            "source IN ('book', 'market')", name="ck_course_skill_reference_source"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), index=True)
+    target_identity: Mapped[str] = mapped_column(Text)
+    label: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(Text)
+    origin: Mapped[str] = mapped_column(Text)
+    display_data: Mapped[dict] = mapped_column(JSONB, default=dict)
+    chapters: Mapped[list] = mapped_column(JSONB, default=list)
+    approved_revision: Mapped[int] = mapped_column(default=0)
+    projection_revision: Mapped[int] = mapped_column(default=0)
+    projection_status: Mapped[str] = mapped_column(Text, default="pending")
+    available_for_new_selection: Mapped[bool] = mapped_column(default=False)
+
+
+class MarketSkillApproval(Base):
+    """Immutable SQL intent; later revisions supersede offerings, never audit data."""
+
+    __tablename__ = "market_skill_approvals"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id", "revision", name="uq_market_skill_approval_revision"
+        ),
+        UniqueConstraint(
+            "run_id", "review_digest", name="uq_market_skill_approval_digest"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), index=True)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("market_analysis_runs.id"), index=True
+    )
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    revision: Mapped[int] = mapped_column()
+    review_digest: Mapped[str] = mapped_column(Text)
+    items: Mapped[list] = mapped_column(JSONB, default=list)
+    affected_reference_ids: Mapped[list] = mapped_column(JSONB, default=list)
+    withdrawal: Mapped[bool] = mapped_column(default=False)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    projection_status: Mapped[str] = mapped_column(Text, default="pending")
+    projection_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now().astimezone()
+    )
+
+
+class CourseSkillEvidence(Base):
+    """One generic immutable binding to exactly one original SQL evidence source."""
+
+    __tablename__ = "course_skill_evidence"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["course_id", "skill_reference_id"],
+            ["course_skill_references.course_id", "course_skill_references.id"],
+            name="fk_course_skill_evidence_reference",
+        ),
+        CheckConstraint(
+            "(vacancy_snapshot_id IS NOT NULL) <> (onet_evidence_id IS NOT NULL)",
+            name="ck_course_skill_evidence_source",
+        ),
+        UniqueConstraint("binding_key", name="uq_course_skill_evidence_binding"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id"), index=True)
+    skill_reference_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), index=True)
+    approval_id: Mapped[UUID] = mapped_column(
+        ForeignKey("market_skill_approvals.id"), index=True
+    )
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("market_analysis_runs.id"), index=True
+    )
+    candidate_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True))
+    mapping_relation: Mapped[str] = mapped_column(Text)
+    rationale: Mapped[str] = mapped_column(Text, default="")
+    provenance: Mapped[dict] = mapped_column(JSONB, default=dict)
+    binding_key: Mapped[str] = mapped_column(Text)
+    vacancy_snapshot_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("market_vacancy_snapshots.id"), nullable=True
+    )
+    onet_evidence_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("onet_evidence.id"), nullable=True
+    )

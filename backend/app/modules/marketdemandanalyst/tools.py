@@ -5,6 +5,8 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from copy import deepcopy
+from uuid import UUID, uuid4
 
 import pandas as pd
 from langchain.tools import tool
@@ -163,14 +165,14 @@ def _fetch_existing_chapter_skill_rows(
         "RETURN ch.title AS chapter, "
         "  COLLECT { "
         "    MATCH (ch)<-[:MAPPED_TO]-(sk:BOOK_SKILL) "
-        "    RETURN sk { .name, .description, skill_type: 'book', "
+        "    RETURN sk { .id, .name, .description, skill_type: 'book', origin: 'book', graph_target_id: toString(sk.id), "
         "      concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] "
         "    } AS skill "
         "    ORDER BY sk.name "
         "  } AS book_skills, "
         "  COLLECT { "
-        "    MATCH (ch)<-[:MAPPED_TO]-(sk:MARKET_SKILL) "
-        "    RETURN sk { .name, .description, skill_type: 'market', "
+        "    MATCH (ch)<-[:MAPPED_TO]-(sk) WHERE sk:MARKET_SKILL OR sk:CAREER_SKILL "
+        "    RETURN sk { .id, .name, .description, skill_type: 'market', origin: coalesce(sk.origin, 'market_demand'), graph_target_id: coalesce(toString(sk.id), sk.evidence_target_id, sk.name), "
         "      concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c.name] "
         "    } AS skill "
         "    ORDER BY sk.name "
@@ -1053,6 +1055,10 @@ def save_curriculum_mapping(mapping_json: str) -> str:
     if not isinstance(mapping, list):
         return "Expected a JSON array."
 
+    if tool_store.get("run_id"):
+        confirmation_result = _durable_selection_tool()
+        if not tool_store.get("curated_skills"):
+            return confirmation_result
     curated = tool_store.get("curated_skills", [])
     if not curated:
         return "No curated skills found. Teacher must approve a skill selection first."
@@ -1072,10 +1078,12 @@ def save_curriculum_mapping(mapping_json: str) -> str:
                 else None
             )
             matches = by_name.get(str(row.get("name", "")).casefold(), [])
-            if candidate is None and len(matches) == 1:
+            if candidate is None and not row.get("candidate_id") and len(matches) == 1:
                 candidate = matches[0]
             if candidate is None:
                 return "Mapping needs a current candidate_id; ambiguous names cannot carry evidence."
+            if row.get("status") not in {"covered", "gap", "new_topic_needed"}:
+                return "Mapping status must be covered, gap, or new_topic_needed."
             resolved.append(
                 {
                     **row,
@@ -1093,10 +1101,17 @@ def save_curriculum_mapping(mapping_json: str) -> str:
             r["candidate_id"] for r in resolved
         } != set(by_id):
             return "Map every curated candidate_id exactly once."
-        tool_store["curriculum_mapping"] = resolved
-        # These remain proposals. Task6 validates verified targets and carries
-        # covered/merged bindings through Cleaner/Linker before final review.
-        tool_store["mapped_skills"] = _build_mapped_skills(resolved)
+        fields = {
+            "curriculum_mapping": resolved,
+            "mapped_skills": _build_mapped_skills(resolved),
+            "_cleaned_results": None,
+            "selected_for_insertion": None,
+            "final_skills": None,
+            "skill_concepts": None,
+        }
+        error = _persist_durable_mapping(fields)
+        if error:
+            return error
         return f"Saved mapping proposals for {len(resolved)} candidates with evidence retained."
 
     # Auto-correct skill names: match each entry's name against the actual
@@ -1359,6 +1374,8 @@ def extract_concepts_for_skills() -> str:
     Reads from tool_store: selected_for_insertion, curriculum_mapping, extracted_skills, selected_jobs.
     For each skill, queries Neo4j for chapter concepts, finds job description evidence,
     and uses LLM to match existing concepts and propose new ones."""
+    if tool_store.get("run_id"):
+        return _prepare_durable_concepts()
     approved = tool_store.get("selected_for_insertion", [])
     if not approved:
         return "No approved skills found. Teacher must approve skills first."
@@ -1496,18 +1513,23 @@ def insert_market_skills_to_neo4j() -> str:
     RELEVANT_TO_CHAPTER, SOURCED_FROM, and REQUIRES_CONCEPT relationships.
     New concepts are embedded and deduplicated against existing concepts."""
     if tool_store.get("run_id"):
-        return "Final teacher integration approval through the review API is required before publication. Model tools cannot grant approval."
+        return _project_durable_approval()
+
+    from .repository import MarketReviewRepository
+
+    try:
+        course_id = _require_course_id()
+    except ValueError as exc:
+        return str(exc)
+    with SessionLocal() as db:
+        if MarketReviewRepository(db).has_analysis_run(course_id):
+            return "Durable analysis requires its current run and committed teacher approval. Restore the analysis context before insertion."
 
     from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
     skill_concepts = tool_store.get("skill_concepts")
     if not skill_concepts:
         return "No concept data found. Run extract_concepts_for_skills first."
-
-    try:
-        course_id = _require_course_id()
-    except ValueError as exc:
-        return str(exc)
 
     t0 = time.perf_counter()
     jobs = tool_store.get("selected_jobs", [])
@@ -1754,13 +1776,24 @@ def delete_market_skills(skill_names: str) -> str:
     """
     from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
-    names = _parse_string_list(skill_names)
-    delete_all = len(names) == 1 and names[0].lower() == "all"
+    from .repository import MarketReviewRepository
 
+    withdrawal_message = (
+        "Durable analysis targets and resources are preserved. "
+        "Prepare withdrawal in the teacher review and approve its server digest."
+    )
+    if tool_store.get("run_id"):
+        return withdrawal_message
     try:
         course_id = _require_course_id()
     except ValueError as exc:
         return str(exc)
+    with SessionLocal() as db:
+        if MarketReviewRepository(db).has_analysis_run(course_id):
+            return withdrawal_message
+
+    names = _parse_string_list(skill_names)
+    delete_all = len(names) == 1 and names[0].lower() == "all"
 
     try:
         with _neo4j_session() as session:
@@ -2141,6 +2174,8 @@ def compare_and_clean(chapter_title: str) -> str:
     Args:
         chapter_title: the course chapter to clean.
     Returns kept/dropped skill lists with reasoning."""
+    if tool_store.get("run_id"):
+        return _compare_durable_candidates(chapter_title)
     mapped = tool_store.get("mapped_skills", {})
     market_skills = mapped.get(chapter_title, [])
     if not market_skills:
@@ -2263,6 +2298,8 @@ def _update_cleaned_results(result_data: dict) -> None:
 def finalize_cleaned_skills() -> str:
     """Save the final cleaned skill list to tool_store and hand off to Concept Linker.
     Aggregates all per-chapter cleaning results into a flat list of surviving skills."""
+    if tool_store.get("run_id"):
+        return _finalize_durable_candidates()
     cleaned = tool_store.get("_cleaned_results", [])
     if not cleaned:
         return "No cleaning results found. Run compare_and_clean first."
@@ -2310,6 +2347,283 @@ def finalize_cleaned_skills() -> str:
         f"Finalized {len(deduped)} clean skills (dropped {total_dropped} redundant). "
         f"Ready for Concept Linker."
     )
+
+
+def _review_revision():
+    from .schemas import SkillReviewRevision
+
+    return SkillReviewRevision(
+        run_id=tool_store["run_id"],
+        expected_candidate_revision=tool_store["candidate_revision"],
+        expected_selection_revision=tool_store["selection_revision"],
+    )
+
+
+def _persist_durable_mapping(fields: dict) -> str | None:
+    from .repository import MarketReviewRepository
+    from .review_service import SkillReviewService
+
+    with SessionLocal() as db:
+        service = SkillReviewService(MarketReviewRepository(db))
+        try:
+            committed = service.save_mapping_state(
+                tool_store["course_id"],
+                tool_store["teacher_id"],
+                _review_revision(),
+                fields,
+            )
+        except Exception as exc:
+            service.rollback()
+            return (
+                f"Mapping change refused: {getattr(exc, 'detail', type(exc).__name__)}"
+            )
+    tool_store.update(committed)
+    return None
+
+
+def _finalize_durable_candidates() -> str:
+    result = _durable_selection_tool()
+    curated = {row["candidate_id"]: row for row in tool_store.get("curated_skills", [])}
+    if not curated:
+        return result
+    mapping = tool_store.get("curriculum_mapping") or []
+    if {row.get("candidate_id") for row in mapping} != set(curated) or len(
+        mapping
+    ) != len(curated):
+        return "Map every confirmed candidate_id before cleaning."
+    decisions = {}
+    for chapter in tool_store.get("_cleaned_results") or []:
+        for decision in (chapter.get("details") or {}).get("kept", []):
+            decisions[decision.get("candidate_id")] = {"disposition": "new"}
+        for decision in (chapter.get("details") or {}).get("dropped", []):
+            decisions[decision.get("candidate_id")] = {
+                **decision,
+                "disposition": "merged",
+            }
+        # The no-existing-skills branch also stores explicit ID decisions.
+        for candidate_id in chapter.get("kept", []):
+            decisions.setdefault(candidate_id, {"disposition": "new"})
+    prepared = []
+    for row in mapping:
+        candidate_id = row["candidate_id"]
+        decision = (
+            {"disposition": "covered"}
+            if row["status"] == "covered"
+            else decisions.get(candidate_id)
+        )
+        if decision is None:
+            return f"Clean candidate_id {candidate_id} before finalizing."
+        if (
+            decision["disposition"] == "merged"
+            and not decision.get("graph_target_id")
+            and not decision.get("overlaps_with")
+        ):
+            return "Merged candidates require an existing target; evidence cannot be dropped."
+        prepared.append(
+            {
+                **deepcopy(row),
+                **deepcopy(decision),
+                **deepcopy(curated[candidate_id]),
+                "disposition": decision["disposition"],
+                "rationale": decision.get("reason") or row.get("reasoning", ""),
+            }
+        )
+    fields = {
+        "selected_for_insertion": prepared,
+        "final_skills": [row["name"] for row in prepared],
+        "skill_concepts": None,
+    }
+    error = _persist_durable_mapping(fields)
+    return (
+        error
+        or f"Finalized {len(prepared)} candidate IDs with covered and merged evidence retained. Ready for Concept Linker."
+    )
+
+
+def _compare_durable_candidates(chapter_title: str) -> str:
+    result = _durable_selection_tool()
+    if not tool_store.get("curated_skills"):
+        return result
+    candidates = [
+        deepcopy(row)
+        for row in tool_store.get("curriculum_mapping") or []
+        if row.get("target_chapter") == chapter_title
+        and row.get("status") in {"gap", "new_topic_needed"}
+    ]
+    if not candidates:
+        return f"No new candidate IDs mapped to chapter: {chapter_title}"
+    try:
+        with _neo4j_session() as session:
+            rows = _fetch_existing_chapter_skill_rows(
+                session, course_id=_require_course_id(), chapter_titles=[chapter_title]
+            )
+            existing = rows[0]["skills"] if rows else []
+        if not existing:
+            parsed = {
+                "kept": [{"candidate_id": row["candidate_id"]} for row in candidates],
+                "dropped": [],
+            }
+        else:
+            prompt = (
+                "Compare candidate skills with existing course skills. Keep each candidate_id once in kept or dropped. A drop means merge into the same supported competency, never discard evidence. Each dropped entry must name overlaps_with, graph_target_id and origin from the existing target. Return JSON {kept:[{candidate_id,reason}],dropped:[{candidate_id,overlaps_with,graph_target_id,origin,reason}]}. Candidates: "
+                + json.dumps(
+                    [
+                        {"candidate_id": row["candidate_id"], "name": row["name"]}
+                        for row in candidates
+                    ]
+                )
+                + " Existing targets: "
+                + json.dumps(existing)
+            )
+            text = str(
+                _get_extraction_llm().invoke(prompt, config={"callbacks": []}).content
+            ).strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            parsed = json.loads(text)
+        ids = [
+            str(row.get("candidate_id"))
+            for group in ("kept", "dropped")
+            for row in parsed.get(group, [])
+        ]
+        if len(set(ids)) != len(ids) or set(ids) != {
+            row["candidate_id"] for row in candidates
+        }:
+            return "Cleaner must account for each candidate_id exactly once."
+        for decision in parsed.get("dropped", []):
+            matches = [
+                target
+                for target in existing
+                if str(target.get("graph_target_id"))
+                == str(decision.get("graph_target_id"))
+                and target.get("origin") == decision.get("origin")
+            ]
+            if len(matches) != 1:
+                return (
+                    "Cleaner merge target must be an existing target in this chapter."
+                )
+            decision["overlaps_with"] = matches[0]["name"]
+        cleaned = [
+            row
+            for row in tool_store.get("_cleaned_results") or []
+            if row["chapter"] != chapter_title
+        ]
+        cleaned.append(
+            {
+                "chapter": chapter_title,
+                "kept": [row["candidate_id"] for row in parsed.get("kept", [])],
+                "dropped": [row["candidate_id"] for row in parsed.get("dropped", [])],
+                "details": parsed,
+            }
+        )
+        error = _persist_durable_mapping(
+            {
+                "_cleaned_results": cleaned,
+                "selected_for_insertion": None,
+                "final_skills": None,
+                "skill_concepts": None,
+            }
+        )
+        return (
+            error
+            or f"Reviewed {len(ids)} candidate IDs for {chapter_title}; all evidence retained."
+        )
+    except Exception as exc:
+        return f"Cleaner unavailable: {type(exc).__name__}. Retry before finalizing."
+
+
+def _prepare_durable_concepts() -> str:
+    from .neo4j_repository import MarketSkillGraphRepository
+    from .repository import MarketReviewRepository
+    from .review_service import SkillReviewService
+
+    result = _durable_selection_tool()
+    if not tool_store.get("curated_skills"):
+        return result
+    approved = tool_store.get("selected_for_insertion") or []
+    if not approved:
+        return "Finalize cleaned candidate IDs before preparing the integration review."
+    proposals = []
+    try:
+        for row in approved:
+            chapter_title = row.get("target_chapter", "")
+            concepts = _fetch_chapter_concepts(chapter_title) if chapter_title else []
+            # Only validated candidate passages enter the model context; graph
+            # and model work happen before opening an approval transaction.
+            snippets = "\n".join(
+                ref.get("excerpt") or ref.get("original_phrase", "")
+                for ref in row.get("evidence_references", [])
+            )
+            prompt = _CONCEPT_EXTRACTION_PROMPT.format(
+                skill_name=row["name"],
+                skill_category=row.get("category", "unknown"),
+                chapter_title=chapter_title,
+                rationale=row.get("rationale", ""),
+                frequency=row.get("job_metrics", {}).get("supporting_posting_count", 0),
+                total_jobs=row.get("job_metrics", {}).get("assessed_posting_count", 0),
+                demand_pct=row.get("job_metrics", {}).get("percentage"),
+                concept_list="\n".join(concepts) or "(no concepts)",
+                job_snippets=snippets,
+            )
+            text = str(
+                _get_extraction_llm().invoke(prompt, config={"callbacks": []}).content
+            ).strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            parsed = json.loads(text)
+            concept_rows = [
+                {"name": name} if isinstance(name, str) else name
+                for name in parsed.get("existing_concepts", [])
+            ] + parsed.get("new_concepts", [])
+            proposals.append({**deepcopy(row), "concepts": concept_rows})
+        error = _persist_durable_mapping(
+            {"skill_concepts": {row["candidate_id"]: row for row in proposals}}
+        )
+        if error:
+            return error
+        with SessionLocal() as db:
+            service = SkillReviewService(MarketReviewRepository(db))
+            try:
+                review = service.prepare_integration_review(
+                    tool_store["course_id"],
+                    tool_store["teacher_id"],
+                    _review_revision(),
+                    proposals,
+                    graph=MarketSkillGraphRepository(_get_neo4j_driver()),
+                )
+            except Exception:
+                service.rollback()
+                raise
+        tool_store["skill_review_change_id"] = str(uuid4())
+        return f"Prepared final teacher review for {len(review.integration_review['items'])} candidate IDs. Review targets/evidence and approve explicitly in the teacher panel."
+    except Exception as exc:
+        return f"Integration review preparation failed: {getattr(exc, 'detail', type(exc).__name__)}. Retry; no skill was published."
+
+
+def _project_durable_approval() -> str:
+    from .neo4j_repository import MarketSkillGraphRepository
+    from .projection_service import SkillEvidenceProjector
+    from .repository import MarketReviewRepository
+    from .review_service import SkillReviewService
+
+    with SessionLocal() as db:
+        repo = MarketReviewRepository(db)
+        service = SkillReviewService(repo)
+        review = service.get_review(tool_store["course_id"], tool_store["teacher_id"])
+        if (
+            str(review.run_id) != tool_store.get("run_id")
+            or not review.approved_references
+        ):
+            return "Final teacher integration approval through the review API is required before publication. Model tools cannot grant approval."
+        revision = review.publication_revision
+        repo.rollback()
+        status = SkillEvidenceProjector(
+            repo, MarketSkillGraphRepository(_get_neo4j_driver())
+        ).project(tool_store["course_id"], revision, run_id=UUID(tool_store["run_id"]))
+        tool_store["publication_revision"] = revision
+        tool_store["insertion_results"] = {"projection_status": status}
+        tool_store["skill_review_change_id"] = str(uuid4())
+        return f"Approved SQL evidence projection: {status}."
 
 
 # ═══════════════════════════════════════════════════════════════════

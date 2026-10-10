@@ -13,7 +13,12 @@ from app.modules.occupation_reference.repository import OccupationReferenceRepos
 from app.modules.occupation_reference.service import OccupationReferenceService
 
 from .countries import normalize_job_search_country
-from .evidence import calculate_job_metrics, onet_candidates, reconcile_candidates
+from .evidence import (
+    calculate_job_metrics,
+    onet_candidates,
+    reconcile_candidates,
+    reference_fingerprint,
+)
 from .job_sources import get_job_source_service
 from .repository import MarketReviewRepository
 from .schemas import SourceOutcome
@@ -312,7 +317,9 @@ class MarketSourceService:
             }
 
     @staticmethod
-    def _validated_observation(repo, run, item: dict) -> dict:
+    def _validated_observation(
+        repo, run, item: dict, *, trusted_extraction=False
+    ) -> dict:
         refs, identities = [], []
         for ref in item.get("evidence_references", []):
             snapshot = repo.get_vacancy_snapshot(
@@ -328,18 +335,35 @@ class MarketSourceService:
                 continue
             if ref.get("evidence_kind") == "provider_tag":
                 valid = ref.get("original_phrase") in snapshot.skill_tags
-            else:
+            elif ref.get("evidence_kind") == "extracted_text":
                 start, end = ref.get("excerpt_start"), ref.get("excerpt_end")
                 valid = (
                     isinstance(start, int)
+                    and not isinstance(start, bool)
                     and isinstance(end, int)
+                    and not isinstance(end, bool)
                     and 0 <= start < end <= len(snapshot.description_text or "")
                     and snapshot.description_text[start:end] == ref.get("excerpt")
+                    and isinstance(ref.get("original_phrase"), str)
+                    and bool(ref["original_phrase"].strip())
                     and ref.get("original_phrase", "") in ref.get("excerpt", "")
                 )
+            else:
+                valid = False
             if valid:
                 refs.append(deepcopy(ref))
                 identities.append(snapshot.demand_identity)
+                if trusted_extraction and ref.get("evidence_kind") == "extracted_text":
+                    observation = {
+                        "reference_hash": reference_fingerprint(ref),
+                        "competency": item["name"],
+                        "identity_key": item.get("identity_key"),
+                    }
+                    manifest = deepcopy(run.candidate_manifest)
+                    registry = manifest.setdefault("validated_observations", [])
+                    if observation not in registry:
+                        registry.append(observation)
+                    run.candidate_manifest = manifest
         return {
             **deepcopy(item),
             "evidence_references": refs,
@@ -356,6 +380,9 @@ class MarketSourceService:
 
     @staticmethod
     def _save_manifest(repo, run, manifest):
+        manifest["validated_observations"] = deepcopy(
+            run.candidate_manifest.get("validated_observations", [])
+        )
         repo.update_manifest(
             run.id,
             run.course_id,
@@ -383,7 +410,8 @@ class MarketSourceService:
             if run is None:
                 raise LookupError("Analysis run not found")
             validated = [
-                self._validated_observation(repo, run, item) for item in observations
+                self._validated_observation(repo, run, item, trusted_extraction=True)
+                for item in observations
             ]
             validated = [item for item in validated if item["evidence_references"]]
             selected = {a["demand_identity"] for a in assessments}

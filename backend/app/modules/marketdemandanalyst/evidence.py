@@ -1,7 +1,65 @@
 """Pure extraction provenance and conservative run-local candidate reconciliation."""
 
+import json
 from copy import deepcopy
+from hashlib import sha256
 from uuid import uuid4
+
+
+def reference_fingerprint(ref: dict) -> str:
+    """Hash exact validated source/passage identity without duplicating its text."""
+    keys = (
+        "snapshot_id",
+        "provider",
+        "original_url",
+        "evidence_kind",
+        "original_phrase",
+        "excerpt",
+        "excerpt_start",
+        "excerpt_end",
+    )
+    return sha256(
+        json.dumps(
+            {key: ref.get(key) for key in keys}, sort_keys=True, ensure_ascii=False
+        ).encode()
+    ).hexdigest()
+
+
+def snapshot_ids(value) -> set[str]:
+    if isinstance(value, list):
+        return set().union(*(snapshot_ids(item) for item in value))
+    if not isinstance(value, dict):
+        return set()
+    result = {str(value["snapshot_id"])} if value.get("snapshot_id") else set()
+    return result.union(*(snapshot_ids(item) for item in value.values()))
+
+
+def redact_snapshot_content(value, removed_ids: set[str]):
+    """Only source-linked objects are redacted; derived labels/audit IDs remain."""
+    if isinstance(value, list):
+        return [redact_snapshot_content(item, removed_ids) for item in value]
+    if not isinstance(value, dict):
+        return deepcopy(value)
+    result = {
+        key: redact_snapshot_content(item, removed_ids) for key, item in value.items()
+    }
+    if str(value.get("snapshot_id", "")) in removed_ids:
+        for key in (
+            "original_phrase",
+            "excerpt",
+            "original_description",
+            "description_text",
+            "description",
+        ):
+            if key in result:
+                result[key] = None
+        if "raw_payload" in result:
+            result["raw_payload"] = {}
+        if "skill_tags" in result:
+            result["skill_tags"] = []
+        result["content_removed"] = True
+        result["status"] = "purged"
+    return result
 
 
 def make_extraction_chunks(

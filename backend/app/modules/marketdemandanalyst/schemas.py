@@ -200,3 +200,13 @@ class VacancyEvidence(BaseModel):
     retrieved_at: datetime
     status: str
     purged_at: datetime | None
+
+
+class IntegrationApproval(SkillReviewRevision):
+    review_digest: str = Field(min_length=64, max_length=64)
+    approved_candidate_ids: list[UUID]
+
+
+class IntegrationApprovalResult(BaseModel):
+    review: SkillReview
+    projection_status: Literal["pending", "projected", "error"]
