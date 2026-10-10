@@ -5,9 +5,9 @@ from uuid import uuid4
 import pytest
 
 
-def _owned_course(client, teacher_auth_headers):
+def _owned_course(client, teacher_auth_headers, title="Review course"):
     response = client.post(
-        "/courses", json={"title": "Review course"}, headers=teacher_auth_headers
+        "/courses", json={"title": title}, headers=teacher_auth_headers
     )
     assert response.status_code == 201
     return response.json()
@@ -151,6 +151,7 @@ def test_empty_review_dto_is_coherent_and_detached():
         "selected_candidate_ids": [],
         "excluded_candidate_ids": [],
         "recommendations": [],
+        "reconciliations": [],
         "source_outcomes": {},
         "extraction_coverage": {},
         "integration_review": None,
@@ -228,3 +229,611 @@ def test_concurrent_draft_writers_cannot_both_commit_same_revision(
         assert set(
             restored.selected_candidate_ids + restored.excluded_candidate_ids
         ) == {candidate_id}
+
+
+def active_review(db_session, client, headers):
+    """Persist an owned two-candidate run and its real disposable pointer."""
+    from app.modules.marketdemandanalyst.models import MDAThreadState
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+
+    course = _owned_course(client, headers)
+    repo = MarketReviewRepository(db_session)
+    run = repo.create_run(
+        course["id"],
+        course["teacher_id"],
+        {"sources": ["headhunter"], "evidence_sources": ["jobs", "onet"]},
+    )
+    ids = [str(uuid4()), str(uuid4())]
+    repo.update_manifest(
+        run.id,
+        course["id"],
+        course["teacher_id"],
+        expected_candidate_revision=0,
+        candidates=[
+            {
+                "candidate_id": ids[0],
+                "display_name": "Python",
+                "category_id": "technical",
+                "identity_key": "private",
+                "onet_associations": [
+                    {
+                        "relation": "broader",
+                        "evidence": {
+                            "ratings": {"IM": {"value": 4.2, "status": "suppressed"}}
+                        },
+                    }
+                ],
+            },
+            {
+                "candidate_id": ids[1],
+                "display_name": "Communication",
+                "category_id": "transferable",
+            },
+        ],
+        categories=[
+            {"category_id": "technical", "label": "Technical"},
+            {"category_id": "transferable", "label": "Transferable"},
+        ],
+    )
+    db_session.add(
+        MDAThreadState(
+            thread_id=f"mda-{course['teacher_id']}-course-{course['id']}",
+            state_json={
+                "run_id": str(run.id),
+                "course_id": course["id"],
+                "teacher_id": course["teacher_id"],
+                "candidate_revision": 1,
+            },
+        )
+    )
+    db_session.commit()
+    return course, run.id, ids
+
+
+def draft_body(run_id, selected, excluded, revision=0, candidate_revision=1):
+    return {
+        "run_id": str(run_id),
+        "expected_candidate_revision": candidate_revision,
+        "expected_selection_revision": revision,
+        "selected_candidate_ids": selected,
+        "excluded_candidate_ids": excluded,
+    }
+
+
+def review_url(course):
+    return f"/courses/{course['id']}/market-demand/skill-review"
+
+
+def test_review_reload_acknowledges_empty_and_pending_draft(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun, MDAThreadState
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    base = review_url(course)
+    empty = client.get(base, headers=teacher_auth_headers)
+    assert empty.status_code == 200
+    assert empty.json()["selected_candidate_ids"] == []
+    saved = client.put(
+        base + "/draft", headers=teacher_auth_headers, json=draft_body(run_id, ids, [])
+    )
+    assert saved.status_code == 200
+    assert saved.json()["selected_candidate_ids"] == ids
+    assert saved.json()["candidates"][0]["posting_support"] == "missing"
+    assert "identity_key" not in saved.json()["candidates"][0]
+    assert saved.json()["candidates"][0]["onet_associations"][0]["evidence"]["ratings"][
+        "IM"
+    ] == {"value": 4.2, "status": "suppressed"}
+    assert client.get(base, headers=teacher_auth_headers).json() == saved.json()
+    db_session.expire_all()
+    snapshot = db_session.get(
+        MDAThreadState, f"mda-{course['teacher_id']}-course-{course['id']}"
+    ).state_json
+    assert snapshot["selected_candidate_ids"] == ids
+    assert snapshot["selection_revision"] == 1
+    cleared = client.put(
+        base + "/draft",
+        headers=teacher_auth_headers,
+        json=draft_body(run_id, [], [], 1),
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["selected_candidate_ids"] == []
+    db_session.expire_all()
+    assert db_session.get(MarketAnalysisRun, run_id).publication_revision == 0
+
+
+@pytest.mark.parametrize(
+    "kind,status",
+    [
+        ("overlap", 422),
+        ("foreign", 422),
+        ("duplicate", 422),
+        ("candidate_revision", 409),
+        ("selection_revision", 409),
+    ],
+)
+def test_review_draft_validation_is_atomic(
+    db_session, client, teacher_auth_headers, kind, status
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    body = draft_body(run_id, [ids[0]], [ids[1]])
+    if kind == "overlap":
+        body["excluded_candidate_ids"] = [ids[0]]
+    if kind == "foreign":
+        body["selected_candidate_ids"] = [str(uuid4())]
+    if kind == "duplicate":
+        body["selected_candidate_ids"] = [ids[0], ids[0]]
+    if kind == "candidate_revision":
+        body["expected_candidate_revision"] = 0
+    if kind == "selection_revision":
+        body["expected_selection_revision"] = 10
+    response = client.put(
+        review_url(course) + "/draft", json=body, headers=teacher_auth_headers
+    )
+    assert response.status_code == status
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    assert run.selected_candidate_ids == []
+    assert run.selection_revision == 0
+
+
+def test_confirmation_requires_nonempty_exact_current_draft(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    base = review_url(course)
+    revisions = {
+        "run_id": str(run_id),
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 0,
+    }
+    assert (
+        client.post(
+            base + "/selection-confirmation",
+            json=revisions,
+            headers=teacher_auth_headers,
+        ).status_code
+        == 422
+    )
+    saved = client.put(
+        base + "/draft",
+        json=draft_body(run_id, [ids[0]], [ids[1]]),
+        headers=teacher_auth_headers,
+    )
+    assert saved.status_code == 200
+    revisions["expected_selection_revision"] = 1
+    # Confirmation is a shortlist for mapping, including pending references.
+    assert (
+        client.post(
+            base + "/selection-confirmation",
+            json=revisions,
+            headers=teacher_auth_headers,
+        ).status_code
+        == 200
+    )
+    db_session.expire_all()
+    confirmation = db_session.get(MarketAnalysisRun, run_id).selection_confirmation
+    assert confirmation["selected_candidate_ids"] == [ids[0]]
+    assert confirmation["teacher_id"] == course["teacher_id"]
+    changed = client.put(
+        base + "/draft",
+        json=draft_body(run_id, [], ids, 1),
+        headers=teacher_auth_headers,
+    )
+    assert changed.status_code == 200
+    db_session.expire_all()
+    assert db_session.get(MarketAnalysisRun, run_id).selection_confirmation is None
+
+
+@pytest.mark.parametrize("operation", ["draft", "selection-confirmation"])
+def test_failed_snapshot_write_rolls_back_draft_and_confirmation(
+    db_session, client, teacher_auth_headers, monkeypatch, operation
+):
+    from sqlalchemy import event
+
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    base = review_url(course)
+
+    def fail_snapshot(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().startswith("UPDATE mda_thread_state"):
+            raise RuntimeError("simulated snapshot write failure")
+
+    if operation == "selection-confirmation":
+        assert (
+            client.put(
+                base + "/draft",
+                json=draft_body(run_id, [ids[0]], []),
+                headers=teacher_auth_headers,
+            ).status_code
+            == 200
+        )
+    event.listen(db_session.get_bind(), "before_cursor_execute", fail_snapshot)
+    try:
+        with pytest.raises(RuntimeError, match="snapshot write failure"):
+            if operation == "draft":
+                client.put(
+                    base + "/draft",
+                    json=draft_body(run_id, [ids[0]], []),
+                    headers=teacher_auth_headers,
+                )
+            else:
+                client.post(
+                    base + "/selection-confirmation",
+                    json={
+                        "run_id": str(run_id),
+                        "expected_candidate_revision": 1,
+                        "expected_selection_revision": 1,
+                    },
+                    headers=teacher_auth_headers,
+                )
+    finally:
+        event.remove(db_session.get_bind(), "before_cursor_execute", fail_snapshot)
+    db_session.rollback()
+    run = db_session.get(MarketAnalysisRun, run_id, populate_existing=True)
+    assert run.selected_candidate_ids == ([] if operation == "draft" else [ids[0]])
+    assert run.selection_revision == (0 if operation == "draft" else 1)
+    assert run.selection_confirmation is None
+    retry = client.put(
+        base + "/draft",
+        json=draft_body(run_id, [ids[0]], [], run.selection_revision),
+        headers=teacher_auth_headers,
+    )
+    assert retry.status_code == 200
+
+
+def test_clear_history_never_reactivates_old_review_and_wrong_course_rejected(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun, MDAThreadState
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    other = _owned_course(client, teacher_auth_headers, title="Other review course")
+    assert (
+        client.put(
+            review_url(other) + "/draft",
+            json=draft_body(run_id, ids, []),
+            headers=teacher_auth_headers,
+        ).status_code
+        == 422
+    )
+    db_session.delete(
+        db_session.get(
+            MDAThreadState, f"mda-{course['teacher_id']}-course-{course['id']}"
+        )
+    )
+    db_session.commit()
+    empty = client.get(review_url(course), headers=teacher_auth_headers)
+    assert empty.status_code == 200
+    assert empty.json()["run_id"] is None
+    assert (
+        client.put(
+            review_url(course) + "/draft",
+            json=draft_body(run_id, ids, []),
+            headers=teacher_auth_headers,
+        ).status_code
+        == 409
+    )
+    assert db_session.get(MarketAnalysisRun, run_id).selected_candidate_ids == []
+
+
+def test_reconciliations_reload_resolve_only_explicit_teacher_ids(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    old_id, reconciliation_id = str(uuid4()), str(uuid4())
+    run.candidate_manifest = {
+        **run.candidate_manifest,
+        "reconciliation_required": True,
+        "candidate_history": [
+            {
+                "candidate_id": old_id,
+                "identity_key": "private",
+                "display_name": "Prior Python",
+                "selected": False,
+                "excluded": True,
+                "superseded_by_candidate_id": ids[0],
+            }
+        ],
+        "reconciliations": [
+            {
+                "reconciliation_id": reconciliation_id,
+                "candidate_id": ids[0],
+                "previous_candidate_ids": [old_id],
+                "reason": "ambiguous_equivalent_merge",
+                "historical_candidates": [
+                    {
+                        "candidate_id": old_id,
+                        "identity_key": "private",
+                        "display_name": "Prior Python",
+                        "excerpt": "secret content",
+                    }
+                ],
+                "previous_selected_candidate_ids": [],
+                "previous_excluded_candidate_ids": [old_id],
+                "resolved": False,
+            }
+        ],
+    }
+    db_session.commit()
+    base = review_url(course)
+    loaded = client.get(base, headers=teacher_auth_headers)
+    assert loaded.status_code == 200
+    record = loaded.json()["reconciliations"][0]
+    assert record["previous_candidates"] == [
+        {"candidate_id": old_id, "display_name": "Prior Python"}
+    ]
+    assert "private" not in str(record) and "secret content" not in str(record)
+    saved = client.put(
+        base + "/draft",
+        json=draft_body(run_id, [ids[0]], []),
+        headers=teacher_auth_headers,
+    )
+    assert saved.status_code == 200
+    assert not saved.json()["reconciliations"][0]["resolved"]
+    blocked = client.post(
+        base + "/selection-confirmation",
+        json={
+            "run_id": str(run_id),
+            "expected_candidate_revision": 1,
+            "expected_selection_revision": 1,
+        },
+        headers=teacher_auth_headers,
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "reconciliation_required"
+    body = {
+        **draft_body(run_id, [ids[0]], [], 1),
+        "resolved_reconciliation_ids": [str(uuid4())],
+    }
+    assert (
+        client.put(base + "/draft", json=body, headers=teacher_auth_headers).status_code
+        == 422
+    )
+    body["resolved_reconciliation_ids"] = [reconciliation_id]
+    resolved = client.put(base + "/draft", json=body, headers=teacher_auth_headers)
+    assert resolved.status_code == 200
+    assert resolved.json()["reconciliations"][0]["resolved"]
+    db_session.expire_all()
+    history = db_session.get(MarketAnalysisRun, run_id).candidate_manifest[
+        "candidate_history"
+    ]
+    prior = next(item for item in history if item["candidate_id"] == old_id)
+    assert prior["selected"] is True and prior["excluded"] is False
+
+
+def test_continuation_acknowledges_exact_omissions_and_stale_changes_block(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    run.source_outcomes = {
+        "headhunter": {"status": "error", "warnings": ["rate limited"]},
+        "onet": {"status": "success"},
+    }
+    run.extraction_coverage = {"status": "partial", "warnings": ["tail uncovered"]}
+    db_session.commit()
+    body = {
+        "run_id": str(run_id),
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 0,
+    }
+    response = client.post(
+        review_url(course) + "/continue-with-available-evidence",
+        json=body,
+        headers=teacher_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["extraction_coverage"]["acknowledged"]
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    assert run.candidate_manifest["acknowledged_omissions"] == [
+        "extraction: partial",
+        "headhunter: error",
+        "headhunter: rate limited",
+        "tail uncovered",
+    ]
+    assert run.selected_candidate_ids == [] and run.selection_confirmation is None
+    run.extraction_coverage = {"status": "failed", "warnings": ["new failure"]}
+    db_session.commit()
+    assert not client.get(review_url(course), headers=teacher_auth_headers).json()[
+        "extraction_coverage"
+    ]["acknowledged"]
+
+
+def test_confirmation_requires_current_omissions_acknowledgement(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    base = review_url(course)
+    assert (
+        client.put(
+            base + "/draft",
+            json=draft_body(run_id, [ids[0]], []),
+            headers=teacher_auth_headers,
+        ).status_code
+        == 200
+    )
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    run.source_outcomes = {"headhunter": {"status": "error", "warnings": ["timeout"]}}
+    db_session.commit()
+    body = {
+        "run_id": str(run_id),
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+    }
+    blocked = client.post(
+        base + "/selection-confirmation", json=body, headers=teacher_auth_headers
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "omissions_acknowledgement_required"
+    assert (
+        client.post(
+            base + "/continue-with-available-evidence",
+            json=body,
+            headers=teacher_auth_headers,
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            base + "/selection-confirmation", json=body, headers=teacher_auth_headers
+        ).status_code
+        == 200
+    )
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    assert run.publication_revision == 0 and run.approved_references == []
+    run.source_outcomes = {
+        "headhunter": {"status": "error", "warnings": ["new failure"]}
+    }
+    db_session.commit()
+    assert (
+        client.post(
+            base + "/selection-confirmation", json=body, headers=teacher_auth_headers
+        ).status_code
+        == 409
+    )
+
+
+def test_resolved_history_retry_preserves_explicit_decisions_and_late_candidates(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.evidence import reconcile_candidates
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    old_id, record_id = str(uuid4()), str(uuid4())
+    run.candidate_manifest = {
+        **run.candidate_manifest,
+        "candidate_history": [
+            {
+                "candidate_id": old_id,
+                "identity_key": "private",
+                "display_name": "Prior Python",
+                "selected": True,
+                "excluded": False,
+                "superseded_by_candidate_id": ids[0],
+            }
+        ],
+        "reconciliations": [
+            {
+                "reconciliation_id": record_id,
+                "candidate_id": ids[0],
+                "previous_candidate_ids": [old_id],
+                "reason": "ambiguous_equivalent_merge",
+                "resolved": False,
+            }
+        ],
+    }
+    db_session.commit()
+    body = {
+        **draft_body(run_id, [ids[1]], [ids[0]]),
+        "resolved_reconciliation_ids": [record_id],
+    }
+    assert (
+        client.put(
+            review_url(course) + "/draft", json=body, headers=teacher_auth_headers
+        ).status_code
+        == 200
+    )
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    observations = [
+        {"identity_key": "private", "name": "Python", "category": "technical"},
+        {
+            "identity_key": "communication",
+            "name": "Communication",
+            "category": "transferable",
+        },
+        {"identity_key": "late", "name": "SQL", "category": "technical"},
+    ]
+    # Give the unchanged candidate the production extractor's identity key.
+    manifest = dict(run.candidate_manifest)
+    manifest["candidates"][1]["identity_key"] = "communication"
+    retried = reconcile_candidates(
+        observations,
+        {
+            **manifest,
+            "selected_candidate_ids": run.selected_candidate_ids,
+            "excluded_candidate_ids": run.excluded_candidate_ids,
+        },
+    )
+    assert retried["selected_candidate_ids"] == [ids[1]]
+    assert retried["excluded_candidate_ids"] == [ids[0]]
+    assert not retried["reconciliation_required"]
+    prior = next(h for h in retried["candidate_history"] if h["candidate_id"] == old_id)
+    assert prior["excluded"] is True and prior["selected"] is False
+    # Reappearance after an empty retry must use those current choices, not stale historical approval.
+    absent = reconcile_candidates([], retried)
+    run.candidate_manifest = absent
+    run.selected_candidate_ids = []
+    run.excluded_candidate_ids = []
+    run.candidate_revision += 1
+    db_session.commit()
+    pending = [
+        r["reconciliation_id"] for r in absent["reconciliations"] if not r["resolved"]
+    ]
+    response = client.put(
+        review_url(course) + "/draft",
+        json={
+            **draft_body(run_id, [], [], 1, 2),
+            "resolved_reconciliation_ids": pending,
+        },
+        headers=teacher_auth_headers,
+    )
+    assert response.status_code == 200
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    restored = reconcile_candidates(observations, run.candidate_manifest)
+    assert (
+        restored["selected_candidate_ids"] == []
+        and restored["excluded_candidate_ids"] == []
+    )
+
+
+def test_unresolved_reconciliation_blocks_even_empty_shortlist_confirmation(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    run.candidate_manifest = {
+        **run.candidate_manifest,
+        "reconciliations": [
+            {
+                "reconciliation_id": str(uuid4()),
+                "candidate_id": None,
+                "previous_candidate_ids": [],
+                "reason": "candidate_no_longer_observed",
+                "resolved": False,
+            }
+        ],
+    }
+    db_session.commit()
+    response = client.post(
+        review_url(course) + "/selection-confirmation",
+        json={
+            "run_id": str(run_id),
+            "expected_candidate_revision": 1,
+            "expected_selection_revision": 0,
+        },
+        headers=teacher_auth_headers,
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "reconciliation_required"

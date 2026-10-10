@@ -12,7 +12,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from copy import deepcopy
 from typing import Annotated, Any
 
@@ -43,7 +43,16 @@ from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .graph import get_graph
 from .job_sources import JobSourceService, get_job_source_service
 from .repository import MarketReviewRepository, load_async_thread_state
-from .schemas import EvidenceSource, JobSource, JobSourceOption, VacancyEvidence
+from .review_service import SkillReviewService
+from .schemas import (
+    EvidenceSource,
+    JobSource,
+    JobSourceOption,
+    SkillReview,
+    SkillReviewDraft,
+    SkillReviewRevision,
+    VacancyEvidence,
+)
 from .service import MarketConfigurationService
 from .state import (
     STATE_KEYS,
@@ -80,6 +89,12 @@ def get_market_review_repository(
     db: Session = Depends(get_db),
 ) -> MarketReviewRepository:
     return MarketReviewRepository(db)
+
+
+def get_skill_review_service(
+    repository: MarketReviewRepository = Depends(get_market_review_repository),
+) -> SkillReviewService:
+    return SkillReviewService(repository)
 
 
 def get_market_configuration_service(
@@ -600,6 +615,14 @@ async def _sse_stream(
                 new_state = snapshot_state(bound_state)
                 should_rebuild_prerequisites = False
                 for key in STATE_KEYS:
+                    if new_state.get("run_id") and key in {
+                        "selected_candidate_ids",
+                        "excluded_candidate_ids",
+                        "selection_confirmation",
+                        "review_stage",
+                        "skill_review_change_id",
+                    }:
+                        continue
                     if new_state[key] != prev_state.get(key):
                         yield _sse(
                             "state_update",
@@ -624,6 +647,7 @@ async def _sse_stream(
                     "candidate_revision",
                     "selection_revision",
                     "publication_revision",
+                    "skill_review_change_id",
                 )
                 if new_state.get("run_id") and any(
                     new_state.get(key) != prev_state.get(key) for key in review_keys
@@ -721,6 +745,87 @@ def market_vacancy_evidence(
         retrieved_at=snapshot.retrieved_at,
         status=snapshot.status,
         purged_at=snapshot.purged_at,
+    )
+
+
+@router.get("/{course_id}/market-demand/skill-review", response_model=SkillReview)
+def get_skill_review(
+    course_id: int,
+    teacher: TeacherDep,
+    service: SkillReviewService = Depends(get_skill_review_service),
+):
+    return service.get_review(course_id, teacher.id)
+
+
+async def _teacher_review_write(
+    course_id: int,
+    teacher_id: int,
+    body: SkillReviewRevision,
+    service: SkillReviewService,
+    state_service: ThreadStateService,
+    write: Callable,
+) -> SkillReview:
+    service.require_teacher(course_id, teacher_id)
+    try:
+        lease = await state_service.claim(service.thread_id(course_id, teacher_id))
+    except ThreadBusy as exc:
+        raise HTTPException(409, str(exc)) from exc
+    try:
+        return write(course_id, teacher_id, body)
+    except BaseException:
+        service.rollback()
+        raise
+    finally:
+        await state_service.release(lease)
+
+
+@router.put("/{course_id}/market-demand/skill-review/draft", response_model=SkillReview)
+async def save_skill_review_draft(
+    course_id: int,
+    body: SkillReviewDraft,
+    teacher: TeacherDep,
+    service: SkillReviewService = Depends(get_skill_review_service),
+    state_service: ThreadStateService = Depends(get_thread_state_service),
+):
+    return await _teacher_review_write(
+        course_id, teacher.id, body, service, state_service, service.save_draft
+    )
+
+
+@router.post(
+    "/{course_id}/market-demand/skill-review/selection-confirmation",
+    response_model=SkillReview,
+)
+async def confirm_skill_review_selection(
+    course_id: int,
+    body: SkillReviewRevision,
+    teacher: TeacherDep,
+    service: SkillReviewService = Depends(get_skill_review_service),
+    state_service: ThreadStateService = Depends(get_thread_state_service),
+):
+    return await _teacher_review_write(
+        course_id, teacher.id, body, service, state_service, service.confirm_selection
+    )
+
+
+@router.post(
+    "/{course_id}/market-demand/skill-review/continue-with-available-evidence",
+    response_model=SkillReview,
+)
+async def continue_skill_review(
+    course_id: int,
+    body: SkillReviewRevision,
+    teacher: TeacherDep,
+    service: SkillReviewService = Depends(get_skill_review_service),
+    state_service: ThreadStateService = Depends(get_thread_state_service),
+):
+    return await _teacher_review_write(
+        course_id,
+        teacher.id,
+        body,
+        service,
+        state_service,
+        service.continue_with_available_evidence,
     )
 
 

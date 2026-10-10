@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
@@ -26,6 +26,67 @@ class InvalidCandidateIds(ValueError):
 class MarketReviewRepository:
     def __init__(self, db: Session):
         self._db = db
+
+    def owns_course(self, course_id: int, teacher_id: int) -> bool:
+        from app.modules.courses.models import Course
+
+        return (
+            self._db.scalar(
+                select(Course.id).where(
+                    Course.id == course_id, Course.teacher_id == teacher_id
+                )
+            )
+            is not None
+        )
+
+    def load_active_snapshot(self, thread_id: str) -> dict | None:
+        return deepcopy(
+            self._db.scalar(
+                select(MDAThreadState.state_json).where(
+                    MDAThreadState.thread_id == thread_id
+                )
+            )
+        )
+
+    def save_active_snapshot(
+        self, thread_id: str, run_id: UUID, snapshot: dict
+    ) -> None:
+        result = self._db.execute(
+            update(MDAThreadState)
+            .where(
+                MDAThreadState.thread_id == thread_id,
+                MDAThreadState.state_json["run_id"].astext == str(run_id),
+            )
+            .values(state_json=deepcopy(snapshot), updated_at=func.now())
+        )
+        if result.rowcount != 1:
+            raise RevisionConflict("Review must belong to the active analysis")
+
+    def commit(self) -> None:
+        self._db.commit()
+
+    def rollback(self) -> None:
+        self._db.rollback()
+
+    def save_confirmation(self, run: MarketAnalysisRun, confirmation: dict) -> None:
+        run.selection_confirmation = deepcopy(confirmation)
+        run.integration_review = None
+        self._db.flush()
+
+    def acknowledge_omissions(
+        self, run: MarketAnalysisRun, omissions: list[str]
+    ) -> None:
+        run.candidate_manifest = {
+            **deepcopy(run.candidate_manifest),
+            "acknowledged_omissions": omissions,
+        }
+        run.selection_confirmation = None
+        run.integration_review = None
+        self._db.flush()
+
+    def append_recommendation(self, run: MarketAnalysisRun, proposal: dict) -> None:
+        run.recommendations = [*deepcopy(run.recommendations), deepcopy(proposal)]
+        self._db.flush()
 
     def create_run(
         self, course_id: int, teacher_id: int, config: dict
@@ -58,10 +119,14 @@ class MarketReviewRepository:
     def get_run(
         self, run_id: UUID, course_id: int, teacher_id: int, *, for_update: bool = False
     ) -> MarketAnalysisRun | None:
-        query = select(MarketAnalysisRun).where(
-            MarketAnalysisRun.id == run_id,
-            MarketAnalysisRun.course_id == course_id,
-            MarketAnalysisRun.teacher_id == teacher_id,
+        query = (
+            select(MarketAnalysisRun)
+            .where(
+                MarketAnalysisRun.id == run_id,
+                MarketAnalysisRun.course_id == course_id,
+                MarketAnalysisRun.teacher_id == teacher_id,
+            )
+            .execution_options(populate_existing=True)
         )
         if for_update:
             query = query.with_for_update().execution_options(populate_existing=True)
@@ -253,6 +318,7 @@ class MarketReviewRepository:
         expected_selection_revision: int,
         selected_candidate_ids: list[str],
         excluded_candidate_ids: list[str],
+        resolved_reconciliation_ids: list[str] | None = None,
     ) -> MarketAnalysisRun:
         run = self._locked_run(
             run_id,
@@ -276,6 +342,31 @@ class MarketReviewRepository:
             raise InvalidCandidateIds(
                 "Selection IDs must be current, unique, and disjoint"
             )
+        resolved_ids = [str(value) for value in resolved_reconciliation_ids or []]
+        manifest = deepcopy(run.candidate_manifest)
+        records = manifest.get("reconciliations", [])
+        owned_ids = {r["reconciliation_id"] for r in records}
+        if len(set(resolved_ids)) != len(resolved_ids) or set(resolved_ids) - owned_ids:
+            raise InvalidCandidateIds("Reconciliation IDs must be current and unique")
+        decisions = {candidate_id: candidate_id for candidate_id in candidates}
+        for record in records:
+            if record["reconciliation_id"] not in resolved_ids:
+                continue
+            record["resolved"] = True
+            for old_id in record.get("previous_candidate_ids", []):
+                decisions[old_id] = record.get("candidate_id")
+        for item in manifest.get("candidate_history", []):
+            candidate_id = str(item["candidate_id"])
+            if candidate_id in decisions:
+                target_id = decisions[candidate_id]
+                item["selected"] = target_id in selected
+                item["excluded"] = target_id in excluded
+        manifest["reconciliation_required"] = any(
+            not r.get("resolved") for r in records
+        )
+        manifest["selected_candidate_ids"] = selected
+        manifest["excluded_candidate_ids"] = excluded
+        run.candidate_manifest = manifest
         run.selected_candidate_ids = selected
         run.excluded_candidate_ids = excluded
         run.selection_revision += 1

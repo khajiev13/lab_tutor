@@ -10,6 +10,8 @@ import pandas as pd
 from langchain.tools import tool
 from langgraph.types import Command
 
+from app.core.database import SessionLocal
+
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .extractor import _get_extraction_llm
 from .service import get_market_source_service
@@ -1010,6 +1012,10 @@ def get_extracted_skills() -> str:
 @tool
 def get_curated_skills() -> str:
     """Retrieve the exact curated skill set the teacher approved for mapping."""
+    if tool_store.get("run_id"):
+        result = _durable_selection_tool()
+        if not tool_store.get("curated_skills"):
+            return result
     skills = tool_store.get("curated_skills", [])
     if not skills:
         return "No curated skills found. Teacher must approve a skill selection first."
@@ -1820,8 +1826,35 @@ def delete_market_skills(skill_names: str) -> str:
 
 @tool
 def get_skills_by_category() -> str:
-    """Return extracted skills grouped by category with frequency counts.
+    """Return current candidate IDs, categories and saved decisions for advice.
+    Durable analyses return safe versioned JSON summaries. Legacy standalone
+    runs return extracted skills grouped by category with frequency counts.
     Call this after extraction completes to present skills to the teacher."""
+    if tool_store.get("run_id"):
+        from .repository import MarketReviewRepository
+        from .review_service import SkillReviewService
+
+        with SessionLocal() as db:
+            service = SkillReviewService(MarketReviewRepository(db))
+            try:
+                review = service.get_review(
+                    tool_store["course_id"], tool_store["teacher_id"]
+                )
+                if str(review.run_id) != tool_store["run_id"]:
+                    return "Review must belong to the active analysis."
+                summary = review.model_dump(
+                    mode="json",
+                    exclude={
+                        "integration_review",
+                        "approved_references",
+                        "recommendations",
+                    },
+                )
+                for candidate in summary["candidates"]:
+                    candidate.pop("evidence_references", None)
+                return json.dumps(summary)
+            except Exception as exc:
+                return f"Candidate review unavailable: {exc}"
     skills = tool_store.get("extracted_skills", [])
     if not skills:
         return "No extracted skills found. Run start_extraction first."
@@ -1851,9 +1884,77 @@ def get_skills_by_category() -> str:
     return "\n".join(lines)
 
 
+def _durable_selection_tool(changes: list[dict] | None = None) -> str:
+    """Reuse the graph execution's lease; never claim it again from a worker."""
+    from .repository import MarketReviewRepository
+    from .review_service import SkillReviewService
+    from .schemas import SkillReviewRevision
+
+    with SessionLocal() as db:
+        service = SkillReviewService(MarketReviewRepository(db))
+        try:
+            course_id, teacher_id = tool_store["course_id"], tool_store["teacher_id"]
+            current = service.get_review(course_id, teacher_id)
+            if str(current.run_id) != tool_store.get("run_id"):
+                raise ValueError("Review must belong to the active analysis")
+            revisions = SkillReviewRevision(
+                run_id=current.run_id,
+                expected_candidate_revision=current.candidate_revision,
+                expected_selection_revision=current.selection_revision,
+            )
+            if changes is None:
+                fields = service.load_confirmed_selection(
+                    course_id, teacher_id, revisions
+                )
+                result = f"Loaded {len(fields['curated_skills'])} exact teacher-confirmed skills for mapping."
+            else:
+                review, fields = service.create_recommendation(
+                    course_id, teacher_id, revisions, changes
+                )
+                result = f"Saved proposal {review.recommendations[-1].id}. The teacher must explicitly apply changes through Save draft."
+        except Exception as exc:
+            service.rollback()
+            if changes is None:
+                _clear_tool_store_keys(
+                    "selection_confirmation",
+                    "curated_skills",
+                    "curriculum_mapping",
+                    "mapped_skills",
+                    "final_skills",
+                    "selected_for_insertion",
+                    "skill_concepts",
+                )
+                tool_store["review_stage"] = "draft"
+            return f"Selection {'confirmation' if changes is None else 'proposal'} failed: {exc}"
+        # Durable run and matching snapshot committed before any SSE state changes.
+        tool_store.update(fields)
+        return result
+
+
+@tool
+def propose_skill_selection(changes_json: str) -> str:
+    """Propose immutable add/remove diffs with candidate IDs and concrete reasons.
+
+    Does not edit drafts, override exclusions, confirm choices or publish skills.
+    changes_json is a nonempty JSON list of candidate_id, action and reason.
+    """
+    if not tool_store.get("run_id"):
+        return "A current durable analysis is required for a selection proposal."
+    try:
+        changes = json.loads(changes_json)
+        if not isinstance(changes, list):
+            return "Proposal failed: provide a JSON list of changes."
+    except json.JSONDecodeError:
+        return "Proposal failed: provide valid JSON changes."
+    return _durable_selection_tool(changes)
+
+
 @tool
 def approve_skill_selection(selection_json: str) -> str:
-    """Save the teacher's curated skill selection for downstream processing.
+    """Load the exact server-confirmed teacher shortlist for downstream mapping.
+
+    Current durable analyses ignore selection_json; only the teacher API can
+    save and confirm choices. Legacy standalone runs retain name-based selection.
     Args:
         selection_json: JSON array of skill names the teacher wants to keep.
             Example: ["Query data using SQL", "Deploy apps using Kubernetes"]
@@ -1861,7 +1962,7 @@ def approve_skill_selection(selection_json: str) -> str:
             {"categories": ["cloud", "database"], "specific": ["Train ML models"], "top_n_per_category": 3}
     """
     if tool_store.get("run_id"):
-        return "Use the skill review draft and teacher selection confirmation API. Agent advice cannot change saved selections or exclusions."
+        return _durable_selection_tool()
 
     try:
         selection = json.loads(selection_json)
@@ -2228,6 +2329,7 @@ SKILL_FINDER_TOOLS = [
     select_jobs_by_group,
     start_extraction,
     get_skills_by_category,
+    propose_skill_selection,
     approve_skill_selection,
 ]
 

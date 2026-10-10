@@ -50,6 +50,22 @@ class RecommendationProposal(BaseModel):
     changes: list[RecommendationChange]
 
 
+class PreviousCandidate(BaseModel):
+    candidate_id: UUID
+    display_name: str
+
+
+class CandidateReconciliation(BaseModel):
+    reconciliation_id: UUID
+    candidate_id: UUID | None = None
+    previous_candidate_ids: list[UUID] = Field(default_factory=list)
+    reason: str
+    previous_candidates: list[PreviousCandidate] = Field(default_factory=list)
+    previous_selected_candidate_ids: list[UUID] = Field(default_factory=list)
+    previous_excluded_candidate_ids: list[UUID] = Field(default_factory=list)
+    resolved: bool = False
+
+
 class SkillReview(BaseModel):
     run_id: UUID | None = None
     candidate_revision: int = 0
@@ -59,6 +75,7 @@ class SkillReview(BaseModel):
     selected_candidate_ids: list[UUID] = Field(default_factory=list)
     excluded_candidate_ids: list[UUID] = Field(default_factory=list)
     recommendations: list[RecommendationProposal] = Field(default_factory=list)
+    reconciliations: list[CandidateReconciliation] = Field(default_factory=list)
     source_outcomes: dict[str, SourceOutcome] = Field(default_factory=dict)
     extraction_coverage: dict[str, Any] = Field(default_factory=dict)
     integration_review: dict[str, Any] | None = None
@@ -66,12 +83,16 @@ class SkillReview(BaseModel):
     approved_references: list[dict[str, Any]] = Field(default_factory=list)
 
 
-class SkillReviewDraft(BaseModel):
+class SkillReviewRevision(BaseModel):
     run_id: UUID
     expected_candidate_revision: int = Field(ge=0)
     expected_selection_revision: int = Field(ge=0)
+
+
+class SkillReviewDraft(SkillReviewRevision):
     selected_candidate_ids: list[UUID]
     excluded_candidate_ids: list[UUID]
+    resolved_reconciliation_ids: list[UUID] = Field(default_factory=list)
 
 
 class JobSourceOption(BaseModel):

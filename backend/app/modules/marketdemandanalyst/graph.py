@@ -163,6 +163,11 @@ def _make_prompt(
                 "Use candidate IDs and preserve evidence during all handoffs. "
                 "Saved draft selection and final integration approval are teacher "
                 "API decisions. Model tools cannot grant final approval or publish. "
+                "For advice use propose_skill_selection with candidate IDs, add/remove "
+                "actions and specific reasons. Recommendations are immutable diffs; "
+                "they never change a saved draft or override exclusions. "
+                "approve_skill_selection ignores model-provided choices for this run "
+                "and loads only the exact server-confirmed teacher shortlist. "
                 "O*NET-only candidates need supporting job postings before publication."
             )
 

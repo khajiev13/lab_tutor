@@ -83,6 +83,11 @@ STATE_KEYS: list[str] = [
     "source_outcomes",
     "selection_revision",
     "publication_revision",
+    "selected_candidate_ids",
+    "excluded_candidate_ids",
+    "selection_confirmation",
+    "review_stage",
+    "skill_review_change_id",
     "course_id",
     "course_title",
     "course_description",
@@ -219,6 +224,13 @@ def pipeline_summary() -> str:
             "confirmed" if job_search_country_confirmed else "not confirmed"
         )
         parts.append(f"Job market country: {job_search_country} ({country_status})")
+
+    if tool_store.get("run_id"):
+        parts.append(
+            f"Teacher review: {tool_store.get('review_stage') or 'draft'}; "
+            f"{len(tool_store.get('selected_candidate_ids') or [])} selected, "
+            f"{len(tool_store.get('excluded_candidate_ids') or [])} explicitly excluded"
+        )
 
     if inserted:
         parts.append(f"Pipeline COMPLETE. Insertion results: {inserted}")
