@@ -36,8 +36,9 @@ def load_skills_without_embeddings(driver: Driver, course_id: int) -> list[dict]
         result = session.run(
             """
             MATCH (cl:CLASS {id: $course_id})
-            MATCH (cl)-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)<-[:MAPPED_TO]-(s:SKILL)
+            MATCH (cl)-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)<-[mapping:MAPPED_TO]-(s:SKILL)
             WHERE s.name_embedding IS NULL
+                AND (NOT s:CAREER_SKILL OR coalesce(mapping.current_for_new_selection, true))
             RETURN s.name AS name, labels(s) AS labels
             UNION
             MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(b:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(s:SKILL)
@@ -85,8 +86,9 @@ def load_all_skills_for_course(driver: Driver, course_id: int) -> list[dict]:
                 s.name_embedding AS name_embedding
             UNION
             MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)
-                  <-[:MAPPED_TO]-(s:SKILL)
-            WHERE s:MARKET_SKILL OR s:CAREER_SKILL
+                  <-[mapping:MAPPED_TO]-(s:SKILL)
+            WHERE (s:MARKET_SKILL OR s:CAREER_SKILL)
+                AND (NOT s:CAREER_SKILL OR coalesce(mapping.current_for_new_selection, true))
             RETURN
                 s.name AS name,
                 coalesce(s.description, '') AS description,
@@ -218,7 +220,8 @@ def get_skill_prerequisites(driver: Driver, course_id: int) -> list[dict]:
         result = session.run(
             """
             MATCH (cl:CLASS {id: $course_id})
-            MATCH (cl)-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)<-[:MAPPED_TO]-(a:SKILL)-[r:PREREQUISITE]->(b:SKILL)
+            MATCH (cl)-[:HAS_COURSE_CHAPTER]->(cc:COURSE_CHAPTER)<-[mapping:MAPPED_TO]-(a:SKILL)-[r:PREREQUISITE]->(b:SKILL)
+            WHERE NOT a:CAREER_SKILL OR coalesce(mapping.current_for_new_selection, true)
             RETURN a.name AS from_skill, b.name AS to_skill, r.confidence AS confidence, r.reasoning AS reasoning
             UNION
             MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(bk:BOOK)-[:HAS_CHAPTER]->(ch:BOOK_CHAPTER)-[:HAS_SKILL]->(a:SKILL)-[r:PREREQUISITE]->(b:SKILL)

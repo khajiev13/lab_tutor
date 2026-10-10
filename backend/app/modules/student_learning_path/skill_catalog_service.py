@@ -5,6 +5,10 @@ from uuid import UUID
 
 from fastapi import HTTPException
 
+from app.modules.courses.curriculum_schemas import (
+    MarketSkillBankJobPosting,
+    MarketSkillBankSkill,
+)
 from app.modules.marketdemandanalyst.review_service import qualifying_vacancy_bindings
 
 from . import neo4j_repository as graph
@@ -373,6 +377,11 @@ class SkillCatalogService:
                 if replacements:
                     chapter.skills = replacements
         postings = {p.url: p for p in bank.market_skill_bank}
+        student_bank = hasattr(bank, "book_skill_banks")
+        posting_class = (
+            StudentSkillBankJobPosting if student_bank else MarketSkillBankJobPosting
+        )
+        skill_class = StudentSkillBankSkill if student_bank else MarketSkillBankSkill
         for posting in bank.market_skill_bank:
             posting.skills = []
         metadata = graph.get_job_posting_metadata_by_urls(
@@ -390,20 +399,13 @@ class SkillCatalogService:
             for url in urls:
                 if url not in postings:
                     info = metadata.get(url, {})
-                    postings[url] = StudentSkillBankJobPosting(
+                    postings[url] = posting_class(
                         url=url,
                         title=info.get("title") or "Job posting",
                         company=info.get("company") or "",
                     )
                 posting = postings[url]
-                from app.modules.courses.curriculum_schemas import MarketSkillBankSkill
-
-                cls = (
-                    StudentSkillBankSkill
-                    if hasattr(bank, "book_skill_banks")
-                    else MarketSkillBankSkill
-                )
-                posting.skills.append(cls.model_validate(row))
+                posting.skills.append(skill_class.model_validate(row))
         bank.market_skill_bank = list(postings.values())
         bank.career_skill_bank = [
             CareerSkillBankSkill.model_validate(row) for row in catalog if row["career"]

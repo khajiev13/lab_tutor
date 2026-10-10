@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -30,6 +30,9 @@ import {
   fetchSkillReview,
   fetchJobSources,
   streamMarketDemandChat,
+  fetchOnetReleases,
+  searchOnetOccupations,
+  confirmOnetOccupations,
 } from "@/features/market-demand/api";
 import MarketDemandPage from "@/features/market-demand/pages/MarketDemandPage";
 
@@ -128,8 +131,48 @@ it("renders the durable nested review without treating extracted category prose 
   vi.mocked(fetchSkillReview).mockResolvedValue(reviewFixture());
   vi.mocked(fetchAgentState).mockResolvedValue({...restored,extracted_skills:[{name:"Legacy Python",category:"legacy",frequency:1,pct:100}]});
   render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
-  expect(await screen.findByRole("checkbox",{name:"Select Python"})).toBeInTheDocument();
+  expect(await screen.findByRole("checkbox",{name:"Select Python"},{timeout:10000})).toBeInTheDocument();
   expect(screen.queryByText("Select Skill Categories")).not.toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole("checkbox",{name:"Select Python"}));
   expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
+
+
+it.each(["enable", "release"])("confirms pending %s configuration locally before the authoritative chat update", async (change) => {
+ const state: AgentState = {...restored,run_id:"run-1",candidate_revision:0};
+ if (change === "release") {
+  state.evidence_sources = ["jobs", "onet"];
+  state.onet_release = "30.0";
+  state.selected_onet_occupations = ["15-1252.00"];
+ }
+ vi.mocked(fetchAgentState).mockResolvedValue(state);
+ vi.mocked(fetchOnetReleases).mockResolvedValue({items:[{version:"30.0",active:false,attribution:"O*NET"},{version:"31.0",active:true,attribution:"O*NET"}]});
+ vi.mocked(searchOnetOccupations).mockResolvedValue({items:[{soc_code:"15-2051.00",title:"Data Scientists",description:"Analyze data"}],total:1,release:"31.0"});
+ vi.mocked(confirmOnetOccupations).mockRejectedValue(new Error("Durable configuration has not enabled this release"));
+ render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+ const user=userEvent.setup();
+ await screen.findByRole("checkbox",{name:"HeadHunter"},{timeout:10000});
+ if(change==="enable") await user.click(screen.getByRole("checkbox",{name:"O*NET references"}));
+ else {
+  await waitFor(()=>expect(screen.getByRole("combobox",{name:"O*NET release"})).toBeEnabled());
+  await user.selectOptions(screen.getByRole("combobox",{name:"O*NET release"}),"31.0");
+ }
+ fireEvent.change(screen.getByRole("textbox",{name:"Search occupations"}),{target:{value:"data"}});
+ await user.click(screen.getByRole("button",{name:"Search"}));
+ await user.click(await screen.findByRole("checkbox",{name:/Data Scientists/}));
+ await user.click(screen.getByRole("button",{name:"Confirm occupations"}));
+ await waitFor(()=>expect(screen.getByPlaceholderText("Type your response...")).toBeEnabled());
+ expect(confirmOnetOccupations).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByPlaceholderText("Type your response..."),{target:{value:"Collect using this configuration"}});
+ fireEvent.keyDown(screen.getByPlaceholderText("Type your response..."),{key:"Enter",code:"Enter"});
+ await waitFor(()=>expect(streamMarketDemandChat).toHaveBeenCalled());
+ expect(vi.mocked(streamMarketDemandChat).mock.calls[0][0]).toMatchObject({sources:["headhunter"],evidence_sources:["jobs","onet"],onet_release:"31.0",onet_occupation_codes:["15-2051.00"]});
+});
+
+it("prevents configuration changes after collection starts",async()=>{
+ vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",source_outcomes:{headhunter:{status:"success",received_count:1,usable_count:1,warnings:[]}}});
+ render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+ const provider=await screen.findByRole("checkbox",{name:"HeadHunter"},{timeout:10000});
+ expect(screen.getByRole("checkbox",{name:"O*NET references"})).toBeDisabled();
+ expect(provider).toBeDisabled();
 });

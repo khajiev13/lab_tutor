@@ -8,7 +8,9 @@ def test_process_skill_emits_question_error_event(monkeypatch):
 
     monkeypatch.setattr(learning_path_graph, "get_stream_writer", lambda: events.append)
     monkeypatch.setattr(
-        learning_path_graph, "has_questions", lambda session, skill_name: False
+        learning_path_graph,
+        "has_questions",
+        lambda session, skill_name, *, target_identity, course_id: False,
     )
     monkeypatch.setattr(
         learning_path_graph,
@@ -28,6 +30,7 @@ def test_process_skill_emits_question_error_event(monkeypatch):
                 "name": "Distributed systems trade-offs",
                 "description": "Understand distributed systems trade-offs.",
                 "skill_type": "book",
+                "target_identity": "book:book-1",
                 "concepts": [{"name": "CAP theorem", "description": "Trade-off model"}],
             },
             "course_id": 1,
@@ -60,7 +63,9 @@ def test_process_skill_emits_question_error_when_persistence_writes_too_few(
 
     monkeypatch.setattr(learning_path_graph, "get_stream_writer", lambda: events.append)
     monkeypatch.setattr(
-        learning_path_graph, "has_questions", lambda session, skill_name: False
+        learning_path_graph,
+        "has_questions",
+        lambda session, skill_name, *, target_identity, course_id: False,
     )
     monkeypatch.setattr(
         learning_path_graph,
@@ -83,6 +88,7 @@ def test_process_skill_emits_question_error_when_persistence_writes_too_few(
                 "name": "Distributed systems trade-offs",
                 "description": "Understand distributed systems trade-offs.",
                 "skill_type": "book",
+                "target_identity": "book:book-1",
                 "concepts": [{"name": "CAP theorem", "description": "Trade-off model"}],
             },
             "course_id": 1,

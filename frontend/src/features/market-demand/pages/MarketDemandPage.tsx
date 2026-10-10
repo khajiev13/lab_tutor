@@ -267,7 +267,9 @@ function MarketDemandContent() {
     setOccupationConfirming(true);
     const runId = skillReview?.run_id ?? agentState.run_id;
     try {
-      if (runId) {
+      // Pending settings are validated together by the authoritative chat update.
+      // The occupation endpoint only accepts the run's already-persisted config.
+      if (runId && !sourceOverride && !selectedCountryOverride) {
         await confirmOnetOccupations(courseId, {
           run_id: runId,
           expected_candidate_revision: skillReview?.candidate_revision ?? agentState.candidate_revision ?? 0,

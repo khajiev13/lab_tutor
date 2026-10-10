@@ -30,6 +30,15 @@ QUESTION_OPTIONS_KEY = "options"
 QUESTION_CORRECT_OPTION_KEY = "correct_option"
 INTERESTED_IN_REL_TYPE = "INTERESTED_IN"
 
+
+def _selected_chapter_predicate(selection: str) -> str:
+    """Saved career choices retain their chapters; unsaved choices use current maps."""
+    return f"""({selection}.course_id=$course_id OR {selection}.course_id IS NULL)
+        AND (NOT sk:CAREER_SKILL OR CASE
+            WHEN {selection}.chapter_ids IS NULL THEN coalesce(mapping.current_for_new_selection, true)
+            ELSE toString(ch.id) IN {selection}.chapter_ids END)"""
+
+
 _BOOK_SKILL_BANKS_QUERY = """
 MATCH (cl:CLASS {id: $course_id})-[:CANDIDATE_BOOK]->(b:BOOK)
 WITH b ORDER BY b.title
@@ -359,17 +368,18 @@ def get_accessible_reading_resource(
     """Return a reading resource only when it belongs to the student's path."""
 
     result = session.run(
-        """
-        MATCH (:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
-        MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[:SELECTED_SKILL]-(:USER:STUDENT {id: $student_id})
-        MATCH (sk)-[:HAS_READING]->(rr:READING_RESOURCE {id: $resource_id})
+        f"""
+        MATCH (:CLASS {{id: $course_id}})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
+        MATCH (ch)<-[mapping:MAPPED_TO]-(sk:SKILL)<-[selection:SELECTED_SKILL]-(:USER:STUDENT {{id: $student_id}})
+        WHERE {_selected_chapter_predicate("selection")}
+        MATCH (sk)-[:HAS_READING]->(rr:READING_RESOURCE {{id: $resource_id}})
         WHERE NOT (
             toLower(coalesce(rr.resource_type, '')) CONTAINS 'pdf'
             OR toLower(coalesce(rr.url, '')) CONTAINS '.pdf'
             OR toLower(coalesce(rr.search_result_url, '')) CONTAINS '.pdf'
         )
         WITH DISTINCT rr
-        RETURN rr {
+        RETURN rr {{
             id: coalesce(rr.id, ''),
             title: coalesce(rr.title, 'Untitled reading'),
             url: coalesce(rr.url, ''),
@@ -383,7 +393,7 @@ def get_accessible_reading_resource(
             iframe_embeddable: rr.iframe_embeddable,
             iframe_probe_reason: coalesce(rr.iframe_probe_reason, ''),
             iframe_probed_at: toString(rr.iframe_probed_at)
-        } AS resource
+        }} AS resource
         LIMIT 1
         """,
         student_id=student_id,
@@ -458,11 +468,11 @@ def get_selected_skills(
 ) -> list[dict]:
     """Return selected skills for a student in a course."""
     result = session.run(
-        """
-        MATCH (u:USER:STUDENT {id: $student_id})-[r:SELECTED_SKILL]->(sk:SKILL)
-        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)<-[:MAPPED_TO]-(sk)
-        WHERE r.course_id=$course_id OR r.course_id IS NULL
-        RETURN sk {
+        f"""
+        MATCH (u:USER:STUDENT {{id: $student_id}})-[r:SELECTED_SKILL]->(sk:SKILL)
+        MATCH (cl:CLASS {{id: $course_id}})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)<-[mapping:MAPPED_TO]-(sk)
+        WHERE {_selected_chapter_predicate("r")}
+        RETURN sk {{
             .name, .description,
             target_identity: CASE WHEN sk:CAREER_SKILL THEN 'career:' + toString(sk.id) WHEN sk:BOOK_SKILL THEN 'book:' + toString(sk.id) ELSE 'market:' + sk.evidence_target_id END,
             skill_reference_id: r.skill_reference_id,
@@ -471,8 +481,8 @@ def get_selected_skills(
             chapter_title: ch.title,
             chapter_index: ch.chapter_index,
             skill_type: CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
-            concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c { .name, .description }]
-        } AS skill
+            concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c {{ .name, .description }}]
+        }} AS skill
         ORDER BY ch.chapter_index, sk.name
         """,
         student_id=student_id,
@@ -554,12 +564,12 @@ def get_chapter_easy_questions(
 ) -> dict:
     """Return easy quiz questions for the student's selected skills in a chapter."""
     result = session.run(
-        """
-        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER {chapter_index: $chapter_index})
-        MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[selection:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
-        WHERE selection.course_id=$course_id OR selection.course_id IS NULL
+        f"""
+        MATCH (cl:CLASS {{id: $course_id}})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER {{chapter_index: $chapter_index}})
+        MATCH (ch)<-[mapping:MAPPED_TO]-(sk:SKILL)<-[selection:SELECTED_SKILL]-(u:USER:STUDENT {{id: $student_id}})
+        WHERE {_selected_chapter_predicate("selection")}
         WITH DISTINCT ch, sk, u
-        MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION {difficulty: 'easy'})
+        MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION {{difficulty: 'easy'}})
         OPTIONAL MATCH (u)-[a:ANSWERED]->(q)
         RETURN DISTINCT ch.title AS chapter_title,
                q.id AS id,
@@ -568,11 +578,11 @@ def get_chapter_easy_questions(
                coalesce(q[$options_key], []) AS options,
                CASE
                    WHEN a IS NULL THEN NULL
-                   ELSE {
+                   ELSE {{
                        selected_option: a.selected_option,
                        answered_right: a.answered_right,
                        answered_at: toString(a.answered_at)
-                   }
+                   }}
                END AS previous_answer
         ORDER BY sk.name
         """,
@@ -616,15 +626,15 @@ def submit_chapter_answers(
 ) -> list[dict]:
     """Persist entry-quiz answers for the student's selected skills in a chapter."""
     result = session.run(
-        """
-        MATCH (u:USER:STUDENT {id: $student_id})
+        f"""
+        MATCH (u:USER:STUDENT {{id: $student_id}})
         UNWIND $submissions AS sub
-        MATCH (q:QUESTION {id: sub.question_id, difficulty: 'easy'})
+        MATCH (q:QUESTION {{id: sub.question_id, difficulty: 'easy'}})
         MATCH (sk:SKILL)-[:HAS_QUESTION]->(q)
         MATCH (u)-[selection:SELECTED_SKILL]->(sk)
-        WHERE selection.course_id=$course_id OR selection.course_id IS NULL
-        MATCH (sk)-[:MAPPED_TO]->(ch:COURSE_CHAPTER {chapter_index: $chapter_index})
-        MATCH (:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch)
+        MATCH (sk)-[mapping:MAPPED_TO]->(ch:COURSE_CHAPTER {{chapter_index: $chapter_index}})
+        MATCH (:CLASS {{id: $course_id}})-[:HAS_COURSE_CHAPTER]->(ch)
+        WHERE {_selected_chapter_predicate("selection")}
         WITH DISTINCT u, q, sk, sub,
              (sub.selected_option = q[$correct_option_key]) AS correct
         MERGE (u)-[a:ANSWERED]->(q)
@@ -743,12 +753,12 @@ def get_chapter_quiz_progress(
 ) -> list[dict]:
     """Return easy-question counts and answer counts for selected-skill chapters."""
     result = session.run(
-        """
-        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
-        MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[selection:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
-        WHERE selection.course_id=$course_id OR selection.course_id IS NULL
+        f"""
+        MATCH (cl:CLASS {{id: $course_id}})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
+        MATCH (ch)<-[mapping:MAPPED_TO]-(sk:SKILL)<-[selection:SELECTED_SKILL]-(u:USER:STUDENT {{id: $student_id}})
+        WHERE {_selected_chapter_predicate("selection")}
         WITH DISTINCT ch, sk, u
-        OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION {difficulty: 'easy'})
+        OPTIONAL MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION {{difficulty: 'easy'}})
         OPTIONAL MATCH (u)-[a:ANSWERED]->(q)
         RETURN ch.chapter_index AS chapter_index,
                count(DISTINCT q) AS easy_question_count,
@@ -778,34 +788,34 @@ def get_learning_path(
     # Get every course chapter. Chapters without selected skills should still
     # render in the UI with an empty selected_skills list.
     result = session.run(
-        """
-        MATCH (cl:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
+        f"""
+        MATCH (cl:CLASS {{id: $course_id}})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
         WITH ch ORDER BY ch.chapter_index
-        RETURN ch {
+        RETURN ch {{
             .title,
             .chapter_index,
             description: ch.description,
-            selected_skills: COLLECT {
-                MATCH (ch)<-[:MAPPED_TO]-(sk:SKILL)<-[sel:SELECTED_SKILL]-(u:USER:STUDENT {id: $student_id})
-                WHERE sel.course_id=$course_id OR sel.course_id IS NULL
+            selected_skills: COLLECT {{
+                MATCH (ch)<-[mapping:MAPPED_TO]-(sk:SKILL)<-[sel:SELECTED_SKILL]-(u:USER:STUDENT {{id: $student_id}})
+                WHERE {_selected_chapter_predicate("sel")}
                 WITH DISTINCT ch, sk, u
-                RETURN sk {
+                RETURN sk {{
                     .name,
                     .description,
                     target_identity: CASE WHEN sk:CAREER_SKILL THEN 'career:' + toString(sk.id) WHEN sk:BOOK_SKILL THEN 'book:' + toString(sk.id) ELSE 'market:' + sk.evidence_target_id END,
                     skill_reference_id: head([(u)-[choice:SELECTED_SKILL]->(sk) WHERE choice.course_id=$course_id OR choice.course_id IS NULL | choice.skill_reference_id]),
                     source: CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
                     skill_type: CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
-                    is_known: EXISTS {
-                        MATCH (:USER:STUDENT {id: $student_id})-[a:ANSWERED {answered_right: true}]->(:QUESTION {difficulty: 'easy'})<-[:HAS_QUESTION]-(sk)
-                    },
-                    concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c { .name, .description }],
+                    is_known: EXISTS {{
+                        MATCH (:USER:STUDENT {{id: $student_id}})-[a:ANSWERED {{answered_right: true}}]->(:QUESTION {{difficulty: 'easy'}})<-[:HAS_QUESTION]-(sk)
+                    }},
+                    concepts: [(sk)-[:REQUIRES_CONCEPT]->(c:CONCEPT) | c {{ .name, .description }}],
                     readings: [(sk)-[:HAS_READING]->(rr:READING_RESOURCE)
                         WHERE NOT (
                             toLower(coalesce(rr.resource_type, '')) CONTAINS 'pdf'
                             OR toLower(coalesce(rr.url, '')) CONTAINS '.pdf'
                             OR toLower(coalesce(rr.search_result_url, '')) CONTAINS '.pdf'
-                        ) | rr {
+                        ) | rr {{
                         id: coalesce(rr.id, ''),
                         .title, .url,
                         domain: coalesce(rr.domain, ''),
@@ -818,8 +828,8 @@ def get_learning_path(
                         search_metadata_json: coalesce(rr.search_metadata_json, '[]'),
                         .resource_type, .final_score,
                         concepts_covered: coalesce(rr.concepts_covered, [])
-                    }],
-                    videos: [(sk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr {
+                    }}],
+                    videos: [(sk)-[:HAS_VIDEO]->(vr:VIDEO_RESOURCE) | vr {{
                         id: coalesce(vr.id, ''),
                         .title, .url,
                         domain: coalesce(vr.domain, ''),
@@ -833,25 +843,25 @@ def get_learning_path(
                         search_metadata_json: coalesce(vr.search_metadata_json, '[]'),
                         .resource_type, .final_score,
                         concepts_covered: coalesce(vr.concepts_covered, [])
-                    }],
-                    questions: COLLECT {
+                    }}],
+                    questions: COLLECT {{
                         MATCH (sk)-[:HAS_QUESTION]->(q:QUESTION)
-                        RETURN q {
+                        RETURN q {{
                             .id,
                             .text,
                             .difficulty,
                             options: coalesce(q[$options_key], [])
-                        } AS question
+                        }} AS question
                         ORDER BY CASE q.difficulty
                             WHEN 'easy' THEN 0
                             WHEN 'medium' THEN 1
                             WHEN 'hard' THEN 2
                         END
-                    }
-                } AS skill
+                    }}
+                }} AS skill
                 ORDER BY sk.name
-            }
-        } AS chapter
+            }}
+        }} AS chapter
         """,
         student_id=student_id,
         course_id=course_id,
@@ -925,7 +935,8 @@ def get_prerequisite_edges(
         """
         MATCH (cl:CLASS {id: $course_id})
         MATCH (cl)-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER)
-              <-[:MAPPED_TO]-(prerequisite:SKILL)-[r:PREREQUISITE]->(dependent:SKILL)
+              <-[mapping:MAPPED_TO]-(prerequisite:SKILL)-[r:PREREQUISITE]->(dependent:SKILL)
+        WHERE NOT prerequisite:CAREER_SKILL OR coalesce(mapping.current_for_new_selection, true)
         RETURN
             prerequisite.name AS prerequisite_name,
             dependent.name AS dependent_name,
@@ -1086,7 +1097,7 @@ def get_course_targets(session, course_id: int) -> list[dict]:
             source:CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE 'market' END,
             origin:CASE WHEN sk:BOOK_SKILL THEN 'book' ELSE coalesce(sk.origin,'market_demand') END,
             legacy:NOT sk:CAREER_SKILL,
-            chapters:COLLECT {{ MATCH (course)-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER) WHERE EXISTS {{ MATCH (sk)-[:MAPPED_TO|RELEVANT_TO_CHAPTER]->(ch) }} RETURN ch {{chapter_id:toString(ch.id),.title,.chapter_index,.summary}} }},
+            chapters:COLLECT {{ MATCH (course)-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER) WHERE EXISTS {{ MATCH (sk)-[mapping:MAPPED_TO|RELEVANT_TO_CHAPTER]->(ch) WHERE NOT sk:CAREER_SKILL OR coalesce(mapping.current_for_new_selection, true) }} RETURN ch {{chapter_id:toString(ch.id),.title,.chapter_index,.summary}} }},
             posting_urls:[(sk)-[:SOURCED_FROM]->(jp:JOB_POSTING) | jp.url],
             projected_reference_id:head(COLLECT {{ MATCH (course)-[:HAS_COURSE_SKILL_REFERENCE]->(r:COURSE_SKILL_REFERENCE)-[:FOR_SKILL]->(sk) RETURN r.id }}),
             projection_revision:head(COLLECT {{ MATCH (course)-[:HAS_COURSE_SKILL_REFERENCE]->(r:COURSE_SKILL_REFERENCE)-[:FOR_SKILL]->(sk) RETURN r.projection_revision }})
@@ -1178,6 +1189,13 @@ def select_skill_targets(
             WHERE {COURSE_MEMBERSHIP} AND ({TARGET_IDENTITY})=row.target_identity
             MERGE (u)-[r:SELECTED_SKILL {{course_id:$course_id}}]->(sk)
             ON CREATE SET r.selected_at=datetime(), r.selection_origin=CASE WHEN $from_posting THEN 'job_posting' ELSE 'manual' END
+            FOREACH (ignored IN CASE WHEN sk:CAREER_SKILL AND r.chapter_ids IS NULL THEN [1] ELSE [] END |
+                SET r.chapter_ids=COLLECT {{
+                    MATCH (course)-[:HAS_COURSE_CHAPTER]->(chapter:COURSE_CHAPTER)<-[mapping:MAPPED_TO]-(sk)
+                    WHERE coalesce(mapping.current_for_new_selection, true)
+                    RETURN toString(chapter.id) AS id
+                }}
+            )
             SET r.source=row.source,r.skill_reference_id=row.skill_reference_id,
                 r.selection_origin=CASE WHEN $from_posting THEN coalesce(r.selection_origin,'manual') ELSE 'manual' END,
                 r.posting_urls=CASE WHEN $from_posting THEN

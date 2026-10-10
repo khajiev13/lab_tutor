@@ -9,7 +9,7 @@ import { fetchOnetReleases, searchOnetOccupations } from "@/features/market-dema
 import type { OnetOccupation, OnetRelease } from "@/features/market-demand/types";
 
 const schema = z.object({
-  q: z.string().max(200),
+  q: z.string().trim().max(120, "Search must contain 2–120 characters."),
   codes: z.array(z.string()).min(1).max(5),
 });
 type FormValues = z.infer<typeof schema>;
@@ -35,6 +35,7 @@ export function OnetOccupationPicker({
   const [occupations, setOccupations] = useState<OnetOccupation[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const {
@@ -62,9 +63,9 @@ export function OnetOccupationPicker({
       .then((data) => {
         if (abort.signal.aborted) return;
         setReleases(data.items);
+        setLoading(false);
         if (!data.items.length) {
           setError("O*NET catalog unavailable: no imported release is ready.");
-          setLoading(false);
         }
       })
       .catch((cause) => {
@@ -76,7 +77,10 @@ export function OnetOccupationPicker({
   }, [courseId]);
 
   useEffect(() => {
-    if (!activeRelease || releases.length === 0) return;
+    if (!activeRelease || releases.length === 0 || !query) {
+      setOccupations([]);
+      return;
+    }
     const abort = new AbortController();
     setLoading(true);
     setError(null);
@@ -110,19 +114,31 @@ export function OnetOccupationPicker({
           value={activeRelease ?? ""}
           onChange={(event) => {
             setValue("codes", []);
+            setQuery("");
+            setSearchError(null);
             onReleaseChange(event.target.value);
           }}
         >
+          {!activeRelease && <option value="">Choose an imported release</option>}
           {releases.map((item) => (
             <option key={item.version} value={item.version}>{item.version}</option>
           ))}
         </select>
       </label>
       {attribution && <p className="text-xs text-muted-foreground">{attribution}</p>}
+      {!activeRelease && releases.length > 0 && (
+        <p className="text-xs text-muted-foreground">Choose an imported O*NET release; none is active.</p>
+      )}
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          setQuery(getValues("q").trim());
+          const value = getValues("q").trim();
+          if (value.length < 2 || value.length > 120) {
+            setSearchError("Search must contain 2–120 characters.");
+            return;
+          }
+          setSearchError(null);
+          setQuery(value);
         }}
         className="flex gap-2"
       >
@@ -132,8 +148,11 @@ export function OnetOccupationPicker({
           disabled={disabled || confirming}
           placeholder="Search occupations"
         />
-        <Button type="submit" variant="outline" disabled={disabled || loading || confirming}>Search</Button>
+        <Button type="submit" variant="outline" disabled={disabled || loading || confirming || !activeRelease}>Search</Button>
       </form>
+      {(searchError || errors.q) && (
+        <p role="alert" className="text-xs text-destructive">{searchError || errors.q?.message}</p>
+      )}
       {error ? (
         <p role="alert" className="text-xs text-destructive">{error}</p>
       ) : loading ? (
@@ -165,7 +184,10 @@ export function OnetOccupationPicker({
               </label>
             ))}
           </div>
-          {occupations.length === 0 && (
+          {!query && activeRelease && (
+            <p className="text-xs text-muted-foreground">Enter 2–120 characters to search occupations.</p>
+          )}
+          {query && occupations.length === 0 && (
             <p className="text-xs text-muted-foreground">No matching occupations.</p>
           )}
           {hiddenCodes.map((code) => (

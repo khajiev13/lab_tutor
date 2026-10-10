@@ -687,7 +687,10 @@ class MarketConfigurationService:
             current_codes = [
                 o["soc_code"] for o in config.get("selected_onet_occupations", [])
             ]
-            if codes is not None and codes != current_codes:
+            if codes is not None and (
+                codes != current_codes
+                or config["onet_release"] != original.get("onet_release")
+            ):
                 if started:
                     raise ValueError(
                         "Occupation changes require a new analysis after collection starts"

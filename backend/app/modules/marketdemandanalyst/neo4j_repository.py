@@ -39,7 +39,10 @@ RETURN CASE WHEN skill:BOOK_SKILL THEN 'book' WHEN skill:CAREER_SKILL THEN 'care
     CASE WHEN skill:BOOK_SKILL THEN 'book' ELSE coalesce(skill.origin, 'market_demand') END AS origin,
     COLLECT {
         MATCH (course)-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
-        WHERE EXISTS { MATCH (skill)-[:MAPPED_TO|RELEVANT_TO_CHAPTER]->(ch) }
+        WHERE EXISTS {
+            MATCH (skill)-[mapping:MAPPED_TO|RELEVANT_TO_CHAPTER]->(ch)
+            WHERE NOT skill:CAREER_SKILL OR coalesce(mapping.current_for_new_selection, true)
+        }
         RETURN toString(ch.id) AS id
     } AS chapter_ids
 """
@@ -47,6 +50,28 @@ RETURN CASE WHEN skill:BOOK_SKILL THEN 'book' WHEN skill:CAREER_SKILL THEN 'care
 _NEW_TARGET = """
 MATCH (skill:CAREER_SKILL {id: $id})
 RETURN skill.course_id AS course_id, skill.name AS label
+"""
+
+_RECONCILE_CAREER_CHAPTERS = """
+UNWIND $records AS row
+MATCH (course:CLASS {id: row.course_id})
+MATCH (skill:CAREER_SKILL {id: row.graph_target_id, course_id: row.course_id})
+WHERE row.target_kind = 'career'
+CALL {
+    WITH course, skill, row
+    MATCH (:STUDENT)-[selection:SELECTED_SKILL]->(skill)
+    WHERE selection.chapter_ids IS NULL
+        AND (selection.course_id = row.course_id OR selection.course_id IS NULL)
+    SET selection.chapter_ids = COLLECT {
+        MATCH (course)-[:HAS_COURSE_CHAPTER]->(chapter:COURSE_CHAPTER)<-[mapping:MAPPED_TO]-(skill)
+        WHERE coalesce(mapping.current_for_new_selection, true)
+        RETURN toString(chapter.id) AS id
+    }, selection.course_id = coalesce(selection.course_id, row.course_id)
+    RETURN count(selection) AS saved
+}
+WITH course, skill, row
+MATCH (course)-[:HAS_COURSE_CHAPTER]->(chapter:COURSE_CHAPTER)<-[mapping:MAPPED_TO]-(skill)
+SET mapping.current_for_new_selection = row.available AND toString(chapter.id) IN row.chapter_ids
 """
 
 _PROJECT_REFERENCES = """
@@ -81,11 +106,18 @@ CALL {
 WITH course, row, skill,
     CASE WHEN valueType(skill.name) STARTS WITH 'STRING' THEN skill.name ELSE head(skill.name) END AS actual_label
 WHERE actual_label = row.label
-MATCH (course)-[:HAS_COURSE_CHAPTER]->(chapter:COURSE_CHAPTER)
-WHERE toString(chapter.id) IN row.chapter_ids
-WITH course, row, skill, collect(DISTINCT chapter) AS chapters
-WHERE size(chapters) = size(row.chapter_ids) AND size(chapters) > 0
-FOREACH (chapter IN chapters | MERGE (skill)-[:MAPPED_TO]->(chapter))
+WITH course, row, skill, COLLECT {
+    MATCH (course)-[:HAS_COURSE_CHAPTER]->(chapter:COURSE_CHAPTER)
+    WHERE toString(chapter.id) IN row.chapter_ids
+    RETURN DISTINCT chapter
+} AS chapters
+WHERE size(chapters) = size(row.chapter_ids)
+    AND (size(chapters) > 0 OR (row.target_kind = 'career' AND NOT row.available))
+FOREACH (chapter IN chapters |
+    MERGE (skill)-[mapping:MAPPED_TO]->(chapter)
+    SET mapping.current_for_new_selection = CASE WHEN row.target_kind = 'career'
+        THEN row.available ELSE mapping.current_for_new_selection END
+)
 MERGE (reference:COURSE_SKILL_REFERENCE {id: row.reference_id})
 ON CREATE SET reference.course_id = row.course_id, reference.target_identity = row.target_identity
 WITH course, row, skill, reference
@@ -257,6 +289,10 @@ class MarketSkillGraphRepository:
     @staticmethod
     def _redact(tx, records: list[dict]) -> None:
         tx.run(
+            _RECONCILE_CAREER_CHAPTERS,
+            records=[state for row in records for state in row["reference_states"]],
+        ).consume()
+        tx.run(
             """
             UNWIND $records AS row
             MATCH (e:CAREER_EVIDENCE {id: row.evidence_id})
@@ -286,6 +322,7 @@ class MarketSkillGraphRepository:
     @staticmethod
     def _project(tx, references: list[dict], bindings: list[dict]) -> None:
         ids = [row["reference_id"] for row in references]
+        tx.run(_RECONCILE_CAREER_CHAPTERS, records=references).consume()
         tx.run(
             "UNWIND $ids AS id MATCH (r:COURSE_SKILL_REFERENCE {id: id})-[:HAS_SKILL_EVIDENCE]->(b:SKILL_EVIDENCE_BINDING) SET b.active = false",
             ids=ids,

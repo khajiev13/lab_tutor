@@ -971,3 +971,98 @@ async def test_cancelled_snapshot_hydration_drains_before_final_state_capture(
         await asyncio.wait_for(lease.finished.wait(), 5)
         await asyncio.wait_for(consumer, 5)
         assert await asyncio.to_thread(completed.wait, 3)
+
+
+def test_chat_validates_pending_onet_enable_and_same_soc_release_change(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun, MDAThreadState
+    from app.modules.occupation_reference.models import OnetOccupation, OnetRelease
+
+    for release in ("30.0", "31.0"):
+        db_session.add(OnetRelease(version=release, manifest={}, attribution="O*NET"))
+        db_session.flush()
+        db_session.add(
+            OnetOccupation(
+                release=release,
+                soc_code="15-2051.00",
+                title=f"Data Scientists {release}",
+                description=f"Description {release}",
+            )
+        )
+    db_session.commit()
+    graph = AsyncMock()
+
+    async def stream(*args, **kwargs):
+        if False:
+            yield None
+
+    graph.astream = stream
+    course = client.post(
+        "/courses",
+        json={"title": "Pending configuration"},
+        headers=teacher_auth_headers,
+    ).json()
+    url = f"/courses/{course['id']}/market-demand/chat"
+    with patch(
+        "app.modules.marketdemandanalyst.routes.get_graph", return_value=(graph, None)
+    ):
+        response = client.post(
+            url,
+            json={
+                "country": "Uzbekistan",
+                "sources": ["linkedin"],
+                "evidence_sources": ["jobs"],
+            },
+            headers=teacher_auth_headers,
+        )
+        assert response.status_code == 200
+        run = db_session.scalar(select(MarketAnalysisRun))
+        original_run_id = run.id
+        for release in ("30.0", "31.0"):
+            response = client.post(
+                url,
+                json={
+                    "sources": ["linkedin"],
+                    "evidence_sources": ["jobs", "onet"],
+                    "onet_release": release,
+                    "onet_occupation_codes": ["15-2051.00"],
+                },
+                headers=teacher_auth_headers,
+            )
+            assert response.status_code == 200
+            db_session.expire_all()
+            assert run.id == original_run_id
+            assert run.config["onet_release"] == release
+            assert run.config["onet_selection_confirmed"]
+            assert run.config["selected_onet_occupations"] == [
+                {
+                    "soc_code": "15-2051.00",
+                    "title": f"Data Scientists {release}",
+                    "description": f"Description {release}",
+                }
+            ]
+        durable = dict(run.config)
+        snapshot = db_session.scalar(select(MDAThreadState)).state_json.copy()
+        # Same SOC must be checked in the new release, not carried from 31.0.
+        db_session.add(OnetRelease(version="32.0", manifest={}, attribution="O*NET"))
+        db_session.commit()
+        response = client.post(
+            url,
+            json={"onet_release": "32.0", "onet_occupation_codes": ["15-2051.00"]},
+            headers=teacher_auth_headers,
+        )
+        assert response.status_code == 422
+        db_session.expire_all()
+        assert run.config == durable
+        assert db_session.scalar(select(MDAThreadState)).state_json == snapshot
+        run.source_outcomes = {"linkedin": {"status": "empty", "received_count": 0}}
+        db_session.commit()
+        response = client.post(
+            url,
+            json={"onet_release": "30.0", "onet_occupation_codes": ["15-2051.00"]},
+            headers=teacher_auth_headers,
+        )
+        assert response.status_code == 409
+        db_session.expire_all()
+        assert run.config == durable

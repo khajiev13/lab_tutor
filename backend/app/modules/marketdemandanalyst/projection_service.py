@@ -36,11 +36,14 @@ class SkillEvidenceProjector:
                 ):
                     raise ValueError("Redaction requires a current SQL tombstone")
                 reference_ids = [row["reference_id"] for row in job.reference_states]
-                references, _, _ = self._repo.active_projection_items(
+                references, approvals, bindings = self._repo.active_projection_items(
                     course_id, reference_ids
                 )
                 if {str(r.id) for r in references} != set(reference_ids):
                     raise ValueError("Redaction references belong to another course")
+                reference_rows, _, _ = self._records(
+                    course_id, references, approvals, bindings
+                )
                 records.append(
                     {
                         "evidence_id": f"jobs:{job.snapshot_id}",
@@ -50,10 +53,14 @@ class SkillEvidenceProjector:
                         "course_id": course_id,
                         "reference_states": [
                             {
-                                "reference_id": str(r.id),
-                                "available": r.available_for_new_selection,
+                                **row,
+                                "available": next(
+                                    r.available_for_new_selection
+                                    for r in references
+                                    if str(r.id) == row["reference_id"]
+                                ),
                             }
-                            for r in references
+                            for row in reference_rows
                         ],
                         "binding_ids": job.inactive_binding_ids,
                     }
@@ -291,7 +298,9 @@ class SkillEvidenceProjector:
             # Union mappings for the same verified target across active runs.
             chapters = {
                 chapter["chapter_id"] for item in items for chapter in item["chapters"]
-            } or {chapter["chapter_id"] for chapter in reference.chapters}
+            }
+            if not chapters and kind != "career":
+                chapters = {chapter["chapter_id"] for chapter in reference.chapters}
             reference_records.append(
                 {
                     "reference_id": ref_id,

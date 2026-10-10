@@ -1,6 +1,6 @@
 """Student publication consumers against real SQL and disposable graph."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select
@@ -1052,3 +1052,293 @@ def test_additive_banks_retain_legacy_market_metadata_without_new_metrics(
         skill["demand_pct"],
     ) == ("programming", "uncovered", "high", 42.5)
     assert skill["job_metrics"] is None
+
+
+def test_teacher_posting_dto_serializes_with_teacher_skill_type(db_session, offering):
+    import json
+
+    from app.modules.courses.curriculum_schemas import (
+        MarketSkillBankJobPosting,
+        MarketSkillBankSkill,
+        SkillBanksResponse,
+        SkillSelectionRange,
+    )
+    from app.modules.student_learning_path.skill_catalog_service import (
+        SkillCatalogService,
+    )
+
+    o = offering
+    publish(o)
+    with o["driver"].session(database="neo4j") as session:
+        result = SkillCatalogService(db_session, session).enrich_banks(
+            o["course"]["id"],
+            SkillBanksResponse(
+                selection_range=SkillSelectionRange(
+                    min_skills=1, max_skills=20, is_default=False
+                )
+            ),
+        )
+    posting = result.market_skill_bank[0]
+    assert isinstance(posting, MarketSkillBankJobPosting)
+    assert isinstance(posting.skills[0], MarketSkillBankSkill)
+    payload = json.loads(result.model_dump_json(warnings="error"))
+    assert (
+        payload["market_skill_bank"][0]["skills"][0]["skill_reference_id"]
+        == payload["career_skill_bank"][0]["skill_reference_id"]
+    )
+
+
+def test_career_remap_current_union_preserves_saved_path_chapters_and_recovery(
+    client, db_session, teacher_auth_headers, offering, monkeypatch
+):
+    from app.modules.curricularalignmentarchitect.skill_prerequisites import (
+        repository as prerequisites,
+    )
+    from app.modules.student_learning_path import neo4j_repository as student_graph
+    from app.modules.student_learning_path import service as student_service
+    from app.modules.student_learning_path.skill_catalog_service import (
+        SkillCatalogService,
+    )
+
+    o = offering
+    course, first = o["course"], o["run"]
+    a, b = f"chapter-{course['id']}", f"chapter-b-{course['id']}"
+    publish(o)
+    ref = bank(client, o)["career_skill_bank"][0]["skill_reference_id"]
+    assert select_id(client, o, [ref]).status_code == 200
+    with o["driver"].session(database="neo4j") as session:
+        session.run(
+            "MATCH (course:CLASS {id:$course}) MERGE (b:COURSE_CHAPTER {id:$b}) SET b.title='Advanced', b.chapter_index=2 MERGE (course)-[:HAS_COURSE_CHAPTER]->(b)",
+            course=course["id"],
+            b=b,
+        ).consume()
+        session.run(
+            "MATCH (a:COURSE_CHAPTER {id:$a}) MERGE (s:MARKET_SKILL:SKILL {name:'Independent legacy market'}) SET s.course_id=$course MERGE (s)-[:MAPPED_TO]->(a)",
+            a=a,
+            course=course["id"],
+        ).consume()
+        # Simulate a saved selection created before chapter snapshots existed.
+        session.run(
+            "MATCH (u:STUDENT {id:$student})-[choice:SELECTED_SKILL]->(s:CAREER_SKILL) REMOVE choice.chapter_ids SET choice.course_id=null "
+            "MERGE (r:READING_RESOURCE {id:'remap-reading'}) SET r.url='https://example.org/retained', r.resource_type='article' MERGE (s)-[:HAS_READING]->(r) "
+            "MERGE (q:QUESTION {id:'remap-question'}) SET q.text='Variables?',q.difficulty='easy',q.options=['a','b','c','d'],q.correct_option='A' MERGE (s)-[:HAS_QUESTION]->(q)",
+            student=o["student"].id,
+        ).consume()
+        assert student_graph.submit_chapter_answers(
+            session,
+            o["student"].id,
+            course["id"],
+            1,
+            [{"question_id": "remap-question", "selected_option": "A"}],
+        )[0]["answered_right"]
+    review = prepare(
+        o["review_service"],
+        course,
+        o["revision"],
+        o["candidates"],
+        graph=graph_repo(o["driver"]),
+        chapter_ids=[b],
+    )
+    approve_sql(o["review_service"], course, first, review, o["candidates"])
+    assert o["projector"].project(course["id"], 2, run_id=first.id) == "projected"
+    reference = db_session.get(CourseSkillReference, UUID(ref))
+    assert [ch["chapter_id"] for ch in reference.chapters] == [b]
+    rows = prerequisites.load_all_skills_for_course(o["driver"], course["id"])
+    assert [
+        row["chapter_title"]
+        for row in rows
+        if (row.get("target_identity") or "").startswith("career:")
+    ] == ["Advanced"]
+    with o["driver"].session(database="neo4j") as session:
+        selected = SkillCatalogService(db_session, session).resolve(
+            course["id"], ids=[ref]
+        )
+        session.run("MERGE (:USER:STUDENT {id:70002})").consume()
+        student_graph.select_skill_targets(session, 70002, course["id"], selected)
+        assert [
+            row["chapter_index"]
+            for row in student_graph.get_selected_skills(session, 70002, course["id"])
+        ] == [2]
+        assert [
+            row["chapter_index"]
+            for row in student_graph.get_selected_skills(
+                session, o["student"].id, course["id"]
+            )
+        ] == [1]
+        saved = student_graph.get_learning_path(session, o["student"].id, course["id"])
+        assert saved["chapters"][0]["selected_skills"][0]["is_known"]
+        assert (
+            saved["chapters"][0]["selected_skills"][0]["readings"][0]["id"]
+            == "remap-reading"
+        )
+        assert saved["chapters"][1]["selected_skills"] == []
+        assert [
+            question["id"]
+            for question in student_graph.get_chapter_easy_questions(
+                session, o["student"].id, course["id"], 1
+            )["questions"]
+        ] == ["remap-question"]
+        assert (
+            student_graph.get_chapter_easy_questions(session, 70002, course["id"], 1)[
+                "questions"
+            ]
+            == []
+        )
+        assert [
+            question["id"]
+            for question in student_graph.get_chapter_easy_questions(
+                session, 70002, course["id"], 2
+            )["questions"]
+        ] == ["remap-question"]
+        assert (
+            student_graph.get_chapter_easy_questions(
+                session, o["student"].id, course["id"], 2
+            )["questions"]
+            == []
+        )
+        assert (
+            student_graph.get_chapter_quiz_progress(
+                session, o["student"].id, course["id"]
+            )[0]["correct_count"]
+            == 1
+        )
+        assert student_graph.get_accessible_reading_resource(
+            session,
+            student_id=o["student"].id,
+            course_id=course["id"],
+            resource_id="remap-reading",
+        )
+    _, second, candidates, service, revision = seed_review(
+        db_session, client, teacher_auth_headers, course=course
+    )
+    second_review = prepare(
+        service,
+        course,
+        revision,
+        candidates,
+        graph=graph_repo(o["driver"]),
+        chapter_ids=[a],
+    )
+    approve_sql(service, course, second, second_review, candidates)
+    assert o["projector"].project(course["id"], 1, run_id=second.id) == "projected"
+    rows = prerequisites.load_all_skills_for_course(o["driver"], course["id"])
+    assert sorted(
+        row["chapter_title"]
+        for row in rows
+        if (row.get("target_identity") or "").startswith("career:")
+    ) == ["Advanced", "Programming"]
+    withdrawal = service.prepare_withdrawal_review(
+        course["id"], course["teacher_id"], revision
+    )
+    approve_sql(service, course, second, withdrawal, [])
+    assert o["projector"].project(course["id"], 2, run_id=second.id) == "projected"
+    rows = prerequisites.load_all_skills_for_course(o["driver"], course["id"])
+    assert [
+        row["chapter_title"]
+        for row in rows
+        if (row.get("target_identity") or "").startswith("career:")
+    ] == ["Advanced"]
+    repo = MarketReviewRepository(db_session)
+    repo.save_configuration_snapshot(
+        service.thread_id(course["id"], course["teacher_id"]), {"run_id": str(first.id)}
+    )
+    repo.commit()
+    withdrawal = o["review_service"].prepare_withdrawal_review(
+        course["id"], course["teacher_id"], o["revision"]
+    )
+    approve_sql(o["review_service"], course, first, withdrawal, [])
+    assert o["projector"].project(course["id"], 3, run_id=first.id) == "projected"
+    with o["driver"].session(database="neo4j") as session:
+        assert (
+            len(
+                student_graph.get_selected_skills(
+                    session, o["student"].id, course["id"]
+                )
+            )
+            == 1
+        )
+        assert len(student_graph.get_selected_skills(session, 70002, course["id"])) == 1
+        assert (
+            session.run(
+                "MATCH (s:CAREER_SKILL)-[mapping:MAPPED_TO]->() WHERE mapping.current_for_new_selection=true RETURN count(mapping) AS n"
+            ).single()["n"]
+            == 0
+        )
+        assert (
+            session.run(
+                "MATCH (s:BOOK_SKILL)-[:MAPPED_TO]->(ch) RETURN ch.id AS id"
+            ).single()["id"]
+            == a
+        )
+        assert session.run(
+            "MATCH (s:MARKET_SKILL {name:'Independent legacy market'})-[m:MAPPED_TO]->(ch) RETURN ch.id AS id,m.current_for_new_selection AS current"
+        ).single().data() == {"id": a, "current": None}
+
+    async def recovered(self, run_id, *args):
+        student_service._active_runs.pop(run_id, None)
+
+    monkeypatch.setattr(
+        student_service.StudentLearningPathService, "_run_pipeline", recovered
+    )
+    response = client.post(
+        f"/student-learning-path/{course['id']}/build", headers=o["headers"]
+    )
+    assert response.status_code == 202
+
+
+def test_redaction_reconciles_current_chapters_without_moving_saved_selection(
+    client, db_session, teacher_auth_headers, offering
+):
+    from app.modules.curricularalignmentarchitect.skill_prerequisites import (
+        repository as prerequisites,
+    )
+    from app.modules.student_learning_path import neo4j_repository as student_graph
+
+    o = offering
+    course = o["course"]
+    publish(o)
+    ref = bank(client, o)["career_skill_bank"][0]["skill_reference_id"]
+    assert select_id(client, o, [ref]).status_code == 200
+    b = f"redaction-b-{course['id']}"
+    with o["driver"].session(database="neo4j") as session:
+        session.run(
+            "MATCH (c:CLASS {id:$course}) MERGE (b:COURSE_CHAPTER {id:$b}) SET b.title='Surviving', b.chapter_index=2 MERGE (c)-[:HAS_COURSE_CHAPTER]->(b)",
+            course=course["id"],
+            b=b,
+        ).consume()
+    _, second, candidates, service, revision = seed_review(
+        db_session, client, teacher_auth_headers, course=course
+    )
+    review = prepare(
+        service,
+        course,
+        revision,
+        candidates,
+        graph=graph_repo(o["driver"]),
+        chapter_ids=[b],
+    )
+    approve_sql(service, course, second, review, candidates)
+    assert o["projector"].project(course["id"], 1, run_id=second.id) == "projected"
+    repo = MarketReviewRepository(db_session)
+    repo.purge_vacancy_content(
+        o["candidates"][0]["evidence_references"][0]["snapshot_id"],
+        reason="Remove first run evidence",
+    )
+    repo.commit()
+    assert o["projector"].redact(course["id"]) == "projected"
+    rows = prerequisites.load_all_skills_for_course(o["driver"], course["id"])
+    assert [
+        row["chapter_title"]
+        for row in rows
+        if (row.get("target_identity") or "").startswith("career:")
+    ] == ["Surviving"]
+    assert [
+        ch["chapter_id"] for ch in bank(client, o)["career_skill_bank"][0]["chapters"]
+    ] == [b]
+    with o["driver"].session(database="neo4j") as session:
+        assert [
+            r["chapter_index"]
+            for r in student_graph.get_selected_skills(
+                session, o["student"].id, course["id"]
+            )
+        ] == [1]
