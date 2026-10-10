@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { approveSkillIntegration, skillReviewErrorMessage } from "@/features/market-demand/api";
+import { approveSkillIntegration, prepareSkillWithdrawal, skillReviewErrorMessage } from "@/features/market-demand/api";
 import { isUsablePostingUrl } from "@/features/market-demand/selection";
 import { EvidenceLink } from "@/features/market-demand/components/SkillEvidencePanel";
 import type { SkillReview } from "@/features/market-demand/types";
@@ -10,9 +10,10 @@ interface Props {
   review: SkillReview;
   onReviewChange: (review: SkillReview) => void;
   disabled?: boolean;
+  publicationDisabled?: boolean;
 }
 
-export function IntegrationReview({courseId, review, onReviewChange, disabled}: Props) {
+export function IntegrationReview({courseId, review, onReviewChange, disabled, publicationDisabled}: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -30,19 +31,41 @@ export function IntegrationReview({courseId, review, onReviewChange, disabled}: 
     return () => { generation.current += 1; };
   }, [courseId, review]);
   const proposal = review.integration_review;
-  if (!proposal) return success ? <p role="status" className="text-xs">{success}</p> : null;
-  const ids = proposal.items.map(item => item.candidate_id);
-  const missing = proposal.items.filter(item => {
+  const hasOffering = !!review.run_id && review.approved_references.length > 0;
+  const withdrawal = proposal?.withdrawal === true;
+  const ids = proposal?.items.map(item => item.candidate_id) ?? [];
+  const missing = proposal?.items.filter(item => {
     const candidate = review.candidates.find(value => value.candidate_id === item.candidate_id);
     return candidate?.posting_support !== "supported" || !candidate.qualifying_posting_links.some(isUsablePostingUrl) || !item.qualifying_posting_links.some(isUsablePostingUrl) || !item.evidence_snapshot_ids.length;
-  });
-  const current = proposal.candidate_revision === review.candidate_revision &&
+  }) ?? [];
+  const current = !!proposal && proposal.candidate_revision === review.candidate_revision &&
     proposal.selection_revision === review.selection_revision && !!proposal.review_digest &&
-    ids.length === review.selected_candidate_ids.length && ids.every(id => review.selected_candidate_ids.includes(id));
-  const canApprove = !!review.run_id && current && ids.length > 0 && !missing.length &&
-    (!proposal.omissions.length || proposal.omissions_acknowledged);
+    (withdrawal ? ids.length === 0 : ids.length === review.selected_candidate_ids.length && ids.every(id => review.selected_candidate_ids.includes(id)));
+  const canApprove = !!review.run_id && !!proposal && current && (withdrawal ? hasOffering : !publicationDisabled && ids.length > 0 && !missing.length &&
+    (!proposal.omissions.length || proposal.omissions_acknowledged));
+  const prepare = async () => {
+    if (!hasOffering || disabled || busy || !review.run_id) return;
+    const request = ++generation.current;
+    setBusy(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await prepareSkillWithdrawal(courseId, {
+        run_id: review.run_id,
+        expected_candidate_revision: review.candidate_revision,
+        expected_selection_revision: review.selection_revision,
+      });
+      if (request !== generation.current) return;
+      setAcknowledged(response);
+      onReviewChange(response);
+    } catch (cause) {
+      if (request === generation.current) setError(skillReviewErrorMessage(cause, "Withdrawal preparation failed"));
+    } finally {
+      if (request === generation.current) setBusy(false);
+    }
+  };
   const approve = async () => {
-    if (!canApprove || disabled || busy || !review.run_id) return;
+    if (!canApprove || disabled || busy || !review.run_id || !proposal) return;
     const request = ++generation.current;
     setBusy(true);
     setError(null);
@@ -58,17 +81,25 @@ export function IntegrationReview({courseId, review, onReviewChange, disabled}: 
       if (request !== generation.current) return;
       setAcknowledged(response.review);
       onReviewChange(response.review);
-      setSuccess(response.projection_status === "projected" ? "Approval saved; publication projected" : response.projection_status === "error" ? "Approval saved; projection failed" : "Approval saved; publication waiting for projection");
+      setSuccess(withdrawal
+        ? response.projection_status === "projected" ? "Withdrawal saved; removal projected" : response.projection_status === "error" ? "Withdrawal saved; projection failed" : "Withdrawal saved; removal waiting for projection"
+        : response.projection_status === "projected" ? "Approval saved; publication projected" : response.projection_status === "error" ? "Approval saved; projection failed" : "Approval saved; publication waiting for projection");
     } catch (cause) {
-      if (request === generation.current) setError(skillReviewErrorMessage(cause, "Integration approval failed"));
+      if (request === generation.current) setError(skillReviewErrorMessage(cause, withdrawal ? "Withdrawal approval failed" : "Integration approval failed"));
     } finally {
       if (request === generation.current) setBusy(false);
     }
   };
+  if (!proposal && !hasOffering) return success ? <p role="status" className="text-xs">{success}</p> : null;
   return (
     <section className="space-y-3 rounded-lg border p-3 text-sm" aria-label="Final integration review">
       <h3 className="font-semibold">Final integration review</h3>
-      <p className="text-xs text-muted-foreground">Review the exact targets and chapter relationships before publishing. Draft changes leave the previous offering available.</p>
+      {hasOffering && <>
+        <p className="text-xs text-muted-foreground">Withdrawal stops this analysis's offering from authorizing new selections. Saved learning paths and resources are preserved. Other approvals can keep a skill available.</p>
+        <Button size="sm" variant="outline" disabled={disabled || busy} onClick={() => void prepare()}>Prepare withdrawal</Button>
+      </>}
+      {proposal && <>
+      <p className="text-xs text-muted-foreground">{withdrawal ? "Review withdrawal of the current offering before confirming removal." : "Review the exact targets and chapter relationships before publishing. Draft changes leave the previous offering available."}</p>
       {proposal.items.map(item => (
         <div key={item.candidate_id} className="space-y-1 rounded-md border p-2">
           <p className="font-medium">{item.target.label}</p>
@@ -79,12 +110,13 @@ export function IntegrationReview({courseId, review, onReviewChange, disabled}: 
         </div>
       ))}
       {proposal.omissions.map((omission, index) => <p key={index} className="text-xs">{omission}</p>)}
-      {!current && <p className="text-xs text-destructive">Review revisions changed. Confirm the current selection for a new mapping review.</p>}
-      {!!proposal.omissions.length && !proposal.omissions_acknowledged && <p className="text-xs text-destructive">Acknowledge the current evidence omissions before approval.</p>}
+      {!current && <p className="text-xs text-destructive">{withdrawal ? "Review revisions changed or withdrawal review is invalid. Prepare withdrawal again." : "Review revisions changed. Confirm the current selection for a new mapping review."}</p>}
+      {!withdrawal && !!proposal.omissions.length && !proposal.omissions_acknowledged && <p className="text-xs text-destructive">Acknowledge the current evidence omissions before approval.</p>}
       {review.approved_references.length > 0 && <div className="text-xs"><p className="font-medium">Previously published offering</p>{review.approved_references.map(item => <p key={item.reference_id}>{item.label}</p>)}</div>}
+      <Button size="sm" disabled={!canApprove || disabled || busy || !!success} onClick={() => void approve()}>{busy ? "Approving…" : withdrawal ? "Withdraw approval" : "Approve integration"}</Button>
+      </>}
       {error && <p role="alert" className="text-destructive">{error}</p>}
       {success && <p role="status">{success}</p>}
-      <Button size="sm" disabled={!canApprove || disabled || busy || !!success} onClick={() => void approve()}>{busy ? "Approving…" : "Approve integration"}</Button>
     </section>
   );
 }

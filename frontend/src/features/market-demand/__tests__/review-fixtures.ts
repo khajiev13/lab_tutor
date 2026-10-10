@@ -1,4 +1,4 @@
-import type { CandidateReconciliation, SkillReview } from "@/features/market-demand/types";
+import type { CandidateReconciliation, IntegrationReviewPayload, SkillReview } from "@/features/market-demand/types";
 
 export function reviewFixture(): SkillReview {
   return {
@@ -38,4 +38,14 @@ export function reconciliationFixture(): ReconciledReview {
         previous_selected_candidate_ids: [], previous_excluded_candidate_ids: ["old-sql"], resolved: false},
     ],
   };
+}
+
+export type WithdrawalReview = SkillReview & {integration_review: IntegrationReviewPayload & {withdrawal: true}};
+
+export function withdrawalFixture(): WithdrawalReview {
+  const review = reconciliationFixture();
+  return {...review, integration_review: {
+    review_digest: "withdrawal-digest-1", candidate_revision: 1, selection_revision: 2,
+    withdrawal: true, items: [], omissions: ["Posting evidence unavailable"], omissions_acknowledged: false,
+  }};
 }

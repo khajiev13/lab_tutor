@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { streamMarketDemandChat } from "@/features/market-demand/api";
+import * as marketDemandApi from "@/features/market-demand/api";
+import api from "@/services/api";
+import { withdrawalFixture } from "@/features/market-demand/__tests__/review-fixtures";
 
 function emptySseResponse() {
   return new Response(
@@ -54,5 +57,22 @@ it("serializes only explicitly selected providers and O*NET on every reply", asy
     await streamMarketDemandChat({courseId: 1, message, country: "Uzbekistan", sources: ["headhunter"], evidence_sources: ["jobs", "onet"], onet_release: "31.0", onEvent: vi.fn()});
     const body = JSON.parse(String(vi.mocked(fetch).mock.calls.at(-1)?.[1]?.body));
     expect(body).toEqual({message, country: "Uzbekistan", sources: ["headhunter"], evidence_sources: ["jobs", "onet"], onet_release: "31.0"});
+  }
+});
+
+it("explicit withdrawal prepares a server review with current run revisions on the agreed endpoint", async () => {
+  const review = withdrawalFixture();
+  const post = vi.spyOn(api, "post").mockResolvedValueOnce({data: review});
+  try {
+    expect(marketDemandApi).toHaveProperty("prepareSkillWithdrawal", expect.any(Function));
+    const response = await marketDemandApi.prepareSkillWithdrawal(7, {
+      run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 2,
+    });
+    expect(post).toHaveBeenCalledWith("/courses/7/market-demand/skill-review/withdrawal-review", {
+      run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 2,
+    });
+    expect(response).toEqual(review);
+  } finally {
+    post.mockRestore();
   }
 });

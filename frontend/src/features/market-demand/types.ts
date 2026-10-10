@@ -245,6 +245,7 @@ export interface ExtractionCoverage {
   acknowledged?: boolean;
 }
 export interface IntegrationReviewPayload {
+  withdrawal?: boolean;
   review_digest: string;
   candidate_revision: number;
   selection_revision: number;

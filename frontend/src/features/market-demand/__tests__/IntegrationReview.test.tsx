@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { SkillReviewPanel } from "@/features/market-demand/components/SkillReviewPanel";
 import { EvidenceLink } from "@/features/market-demand/components/SkillEvidencePanel";
-import type { SkillReview } from "@/features/market-demand/types";
+import type { IntegrationApprovalResponse, SkillReview } from "@/features/market-demand/types";
 import { IntegrationReview } from "@/features/market-demand/components/IntegrationReview";
-import { integrationFixture } from "@/features/market-demand/__tests__/review-fixtures";
-vi.mock("@/features/market-demand/api",async()=>({...await vi.importActual("@/features/market-demand/api"),approveSkillIntegration:vi.fn()}));
-import { approveSkillIntegration } from "@/features/market-demand/api";
+import { integrationFixture, reconciliationFixture, withdrawalFixture } from "@/features/market-demand/__tests__/review-fixtures";
+vi.mock("@/features/market-demand/api",async()=>({...await vi.importActual("@/features/market-demand/api"),approveSkillIntegration:vi.fn(),prepareSkillWithdrawal:vi.fn()}));
+import { approveSkillIntegration, prepareSkillWithdrawal } from "@/features/market-demand/api";
 beforeEach(()=>vi.resetAllMocks());
 
 it("shows reviewed targets/chapters and blocks final approval without every proposed posting", () => {
@@ -118,4 +118,126 @@ it.each(["http://employer.example/job/123", "https://employer.example/job/123"])
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
   expect(screen.getByRole("button", {name: "Approve integration"})).toBeEnabled();
   expect(screen.getByRole("link", {name: "Original job posting"})).toHaveAttribute("href", url);
+});
+
+it.each([
+  {projection: "projected" as const, acknowledgement: "Withdrawal saved; removal projected"},
+  {projection: "pending" as const, acknowledgement: "Withdrawal saved; removal waiting for projection"},
+  {projection: "error" as const, acknowledgement: "Withdrawal saved; projection failed"},
+])("explicit withdrawal uses two steps and preserves unsaved choices despite missing evidence/history ($projection)", async ({projection, acknowledgement}) => {
+  const initial = reconciliationFixture();
+  initial.candidates[0].posting_support = "missing";
+  initial.candidates[0].qualifying_posting_links = [];
+  initial.extraction_coverage = {status: "partial", acknowledged: false, warnings: ["Posting unavailable"]};
+  const prepared = {...withdrawalFixture(), candidates: initial.candidates, extraction_coverage: initial.extraction_coverage};
+  let finish!: (response: SkillReview) => void;
+  vi.mocked(prepareSkillWithdrawal).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  vi.mocked(approveSkillIntegration).mockResolvedValueOnce({
+    review: {...prepared, integration_review: null, publication_revision: 4, approved_references: []},
+    projection_status: projection,
+  });
+  render(<ReviewParent initialReview={initial}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("checkbox", {name: "Select SQL"}));
+  await user.click(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"}));
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+  const prepareButton = screen.getByRole("button", {name: "Prepare withdrawal"});
+  expect(prepareButton).toBeEnabled();
+  expect(screen.getByText(/saved learning paths and resources.*preserved/i)).toBeInTheDocument();
+  expect(screen.getByText(/other approvals.*keep.*available/i)).toBeInTheDocument();
+  await user.click(prepareButton);
+  expect(prepareSkillWithdrawal).toHaveBeenCalledWith(1, {run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 2});
+  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(approveSkillIntegration).not.toHaveBeenCalled();
+  expect(screen.queryByText(/Withdrawal saved/)).not.toBeInTheDocument();
+  expect(prepareButton).toBeDisabled();
+  await act(async () => finish(prepared));
+  expect(screen.getByRole("checkbox", {name: "Select SQL"})).toBeChecked();
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).toBeChecked();
+  expect(screen.getByRole("button", {name: "Withdraw approval"})).toBeEnabled();
+  await user.click(screen.getByRole("button", {name: "Withdraw approval"}));
+  expect(await screen.findByRole("status")).toHaveTextContent(acknowledgement);
+  expect(approveSkillIntegration).toHaveBeenCalledWith(1, {
+    run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 2,
+    review_digest: "withdrawal-digest-1", approved_candidate_ids: [],
+  });
+  expect(screen.queryByText("Published Python")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Prepare withdrawal"})).not.toBeInTheDocument();
+  expect(screen.getByRole("checkbox", {name: "Select SQL"})).toBeChecked();
+  expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).toBeChecked();
+}, 15000);
+
+it.each(["pending", "error"] as const)("explicit withdrawal remains preparable for an active offering with %s projection", projection => {
+  const review = reconciliationFixture();
+  review.approved_references[0] = {...review.approved_references[0], projection_status: projection, available_for_new_selection: false};
+  render(<ReviewParent initialReview={review}/>);
+  expect(screen.getByRole("button", {name: "Prepare withdrawal"})).toBeEnabled();
+});
+
+it.each(["candidate", "selection", "missing digest", "nonempty items"] as const)("explicit withdrawal blocks a %s review", invalid => {
+  const review = withdrawalFixture();
+  if (invalid === "candidate") review.integration_review.candidate_revision = 0;
+  if (invalid === "selection") review.integration_review.selection_revision = 0;
+  if (invalid === "missing digest") review.integration_review.review_digest = "";
+  if (invalid === "nonempty items") review.integration_review.items = integrationFixture().integration_review!.items;
+  render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
+  expect(screen.getByRole("button", {name: "Withdraw approval"})).toBeDisabled();
+  expect(approveSkillIntegration).not.toHaveBeenCalled();
+});
+
+it("explicit withdrawal never treats an unmarked initial empty publication as a withdrawal", () => {
+  const review = integrationFixture();
+  review.approved_references = [];
+  review.selected_candidate_ids = [];
+  review.integration_review!.items = [];
+  render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
+  expect(screen.queryByRole("button", {name: "Withdraw approval"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Prepare withdrawal"})).not.toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+});
+
+it("explicit withdrawal uses active references rather than historical publication revision", () => {
+  const review = {...reconciliationFixture(), approved_references: [], publication_revision: 9};
+  render(<ReviewParent initialReview={review}/>);
+  expect(screen.queryByRole("button", {name: "Prepare withdrawal"})).not.toBeInTheDocument();
+});
+
+it("explicit withdrawal honors the panel external lock even though publication-only gates can be bypassed", () => {
+  render(<SkillReviewPanel courseId={1} review={withdrawalFixture()} onReviewChange={vi.fn()} disabled/>);
+  expect(screen.getByRole("button", {name: "Prepare withdrawal"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Withdraw approval"})).toBeDisabled();
+});
+
+it.each(["prepare", "withdraw"] as const)("explicit withdrawal retains offering and choices when %s fails", async action => {
+  const review = action === "prepare" ? reconciliationFixture() : withdrawalFixture();
+  if (action === "prepare") vi.mocked(prepareSkillWithdrawal).mockRejectedValueOnce(new Error("Withdrawal preparation rejected"));
+  else vi.mocked(approveSkillIntegration).mockRejectedValueOnce(new Error("Withdrawal digest rejected"));
+  render(<ReviewParent initialReview={review}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("checkbox", {name: "Select SQL"}));
+  await user.click(screen.getByRole("button", {name: action === "prepare" ? "Prepare withdrawal" : "Withdraw approval"}));
+  expect(await screen.findByRole("alert")).toHaveTextContent(action === "prepare" ? "Withdrawal preparation rejected" : "Withdrawal digest rejected");
+  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.getByRole("checkbox", {name: "Select SQL"})).toBeChecked();
+  expect(screen.queryByText(/Withdrawal saved/)).not.toBeInTheDocument();
+});
+
+it.each(["prepare", "withdraw"] as const)("explicit withdrawal ignores late %s completion after a different review/run arrives", async action => {
+  const review = action === "prepare" ? reconciliationFixture() : withdrawalFixture();
+  let finishPrepare!: (response: SkillReview) => void;
+  let finishApprove!: (response: IntegrationApprovalResponse) => void;
+  if (action === "prepare") vi.mocked(prepareSkillWithdrawal).mockImplementationOnce(() => new Promise(resolve => {finishPrepare = resolve;}));
+  else vi.mocked(approveSkillIntegration).mockImplementationOnce(() => new Promise(resolve => {finishApprove = resolve;}));
+  const changed = vi.fn();
+  const {rerender} = render(<IntegrationReview courseId={1} review={review} onReviewChange={changed}/>);
+  await userEvent.setup().click(screen.getByRole("button", {name: action === "prepare" ? "Prepare withdrawal" : "Withdraw approval"}));
+  const next = {...reconciliationFixture(), run_id: "run-2", candidate_revision: 2, selection_revision: 3, approved_references: []};
+  rerender(<IntegrationReview courseId={1} review={next} onReviewChange={changed}/>);
+  await act(async () => {
+    if (action === "prepare") finishPrepare(withdrawalFixture());
+    else finishApprove({review: {...review, integration_review: null, approved_references: []}, projection_status: "pending"});
+  });
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Withdraw approval"})).not.toBeInTheDocument();
 });

@@ -263,7 +263,7 @@ export function SkillReviewPanel({courseId, review, onReviewChange, onRefresh, d
         <Button size="sm" disabled={locked || !dirty} onClick={() => void perform("save")}>Save draft</Button>
         <Button size="sm" disabled={locked || dirty || needsAcknowledgement || unresolvedReconciliations.length > 0 || !draft.selected_candidate_ids.length} onClick={() => void perform("confirm")}>Confirm selection for mapping</Button>
       </div>
-      <IntegrationReview courseId={courseId} review={snapshot} onReviewChange={onReviewChange} disabled={locked || dirty || needsAcknowledgement || unresolvedReconciliations.length > 0}/>
+      <IntegrationReview courseId={courseId} review={snapshot} onReviewChange={onReviewChange} disabled={locked} publicationDisabled={dirty || needsAcknowledgement || unresolvedReconciliations.length > 0}/>
     </section>
   );
 }

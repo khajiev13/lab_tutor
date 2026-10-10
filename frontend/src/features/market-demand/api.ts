@@ -295,6 +295,13 @@ export async function continueWithAvailableEvidence(courseId: number, body: Skil
   return data;
 }
 
+export async function prepareSkillWithdrawal(courseId: number, body: SkillReviewRevision): Promise<SkillReview> {
+  const { data } = await api.post<SkillReview>(
+    `/courses/${courseId}/market-demand/skill-review/withdrawal-review`, body,
+  );
+  return data;
+}
+
 export async function approveSkillIntegration(courseId: number, body: IntegrationApproval): Promise<IntegrationApprovalResponse> {
   const { data } = await api.post<IntegrationApprovalResponse>(
     `/courses/${courseId}/market-demand/integration-approval`, body,
