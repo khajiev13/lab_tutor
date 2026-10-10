@@ -1,0 +1,3 @@
+﻿O*NET-SOC Code,Title,Element ID,Element Name,Scale ID,Scale Name,Data Value,N,Standard Error,Lower CI Bound,Upper CI Bound,Recommend Suppress,Not Relevant,Date,Domain Source
+15-2051.00,Data Scientists,2.A.1.a,Reading Comprehension,IM,Importance,4.2,10,0.1,4,4.4,N,,08/2026,Analyst
+15-2051.00,Data Scientists,2.A.1.a,Reading Comprehension,LV,Level,,10,,,,N,,08/2026,Analyst

@@ -770,6 +770,7 @@ async def market_demand_chat(
                     "country": bound_state.get("job_search_country"),
                     "sources": bound_state.get("sources") or ["indeed", "linkedin"],
                     "evidence_sources": bound_state.get("evidence_sources") or ["jobs"],
+                    "onet_release": bound_state.get("onet_release"),
                 },
             )
             db.commit()

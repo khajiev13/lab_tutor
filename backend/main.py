@@ -35,6 +35,7 @@ import app.modules.curricularalignmentarchitect.skill_prerequisites.review_model
 import app.modules.embeddings.course_models  # noqa: E402
 import app.modules.embeddings.models  # noqa: E402
 import app.modules.marketdemandanalyst.models  # noqa: E402
+import app.modules.occupation_reference.models  # noqa: E402
 from app.core.api_schemas import (  # noqa: E402
     HealthResponse,
     RootResponse,
@@ -67,6 +68,9 @@ from app.modules.curricularalignmentarchitect.curriculum_planning import (  # no
 )
 from app.modules.marketdemandanalyst.routes import (  # noqa: E402
     router as market_demand_router,
+)
+from app.modules.occupation_reference.routes import (  # noqa: E402
+    router as occupation_reference_router,
 )
 from app.modules.review_chat import routes as review_chat_routes  # noqa: E402
 from app.modules.student_learning_path.routes import (  # noqa: E402
@@ -716,6 +720,7 @@ app.include_router(course_routes.router)
 app.include_router(concept_normalization_routes.router)
 app.include_router(book_selection_router)
 app.include_router(market_demand_router)
+app.include_router(occupation_reference_router)
 app.include_router(student_learning_path_router)
 app.include_router(chapter_plan_router)
 app.include_router(cognitive_diagnosis_routes.router)
