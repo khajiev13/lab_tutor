@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teacher evidence workspace — design specification</title>
+<style>
+:root{color-scheme:light;--ink:#18322b;--muted:#52645e;--line:#dae4de;--soft:#f3f7f4;--green:#216c53;--paper:#fff}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:80px}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:var(--green);text-underline-offset:3px}a:hover{color:#102d23}header,main,footer{max-width:1120px;margin:auto;padding:32px}header{padding-top:55px;padding-bottom:25px}.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}h1{font-size:clamp(30px,5vw,49px);line-height:1.12;letter-spacing:-1.6px;max-width:850px;margin:14px 0 19px;font-weight:650}h2{font-size:26px;line-height:1.3;letter-spacing:-.5px;margin:0 0 16px}h3{font-size:18px;margin:20px 0 8px}p{margin:0 0 14px}.lead{max-width:830px;font-size:20px;line-height:1.6}.status{display:inline-block;padding:5px 11px;border:1px solid var(--line);border-radius:5px;font-size:13px;color:var(--muted);margin-top:6px}.nav{position:sticky;top:0;z-index:2;background:#ffffffef;backdrop-filter:blur(8px);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.nav div{max-width:1120px;margin:auto;padding:12px 32px;display:flex;gap:14px 22px;flex-wrap:wrap}.nav a{font-size:13px;text-decoration:none}section{padding:30px 0;border-bottom:1px solid var(--line)}.intro{display:grid;grid-template-columns:1fr 1fr;gap:24px}.box{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:21px}.box h3{margin-top:0}.small,figcaption{font-size:13px;color:var(--muted)}.callout{border-left:3px solid var(--green);padding:2px 0 2px 17px;margin:20px 0}.callout p:last-child{margin:0}ul,ol{padding-left:22px;margin:10px 0 18px}li{margin:7px 0}.steps{counter-reset:step;list-style:none;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:18px}.steps li{padding:18px;border:1px solid var(--line);border-radius:8px;margin:0}.steps strong{display:block;margin-bottom:5px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:13px 10px}th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}td:first-child{font-weight:600}details{margin:12px 0;border:1px solid var(--line);border-radius:8px;background:var(--paper)}summary{padding:15px 18px;font-weight:600;cursor:pointer}details>div{padding:0 18px 18px}details[open] summary{border-bottom:1px solid var(--line);margin-bottom:15px}code{font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;background:var(--soft);padding:2px 4px;border-radius:3px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--soft);padding:16px;border-radius:7px;font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}.figures{display:grid;grid-template-columns:1fr 1fr;gap:20px}figure{margin:0}figure a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden}figure img{width:100%;height:430px;object-fit:cover;object-position:top;display:block}figcaption{padding-top:10px}.pill{font-size:11px;white-space:nowrap;padding:3px 7px;border-radius:4px;background:var(--soft);border:1px solid var(--line)}.decision{font-size:18px;font-weight:600}.acceptance td:first-child{width:58px}footer{font-size:13px;color:var(--muted);padding-bottom:45px}.sources li{font-size:14px}button{font:inherit;background:var(--ink);color:white;border:0;border-radius:6px;padding:10px 14px;cursor:pointer}button:hover{background:var(--green)}@media(max-width:650px){header,main,footer{padding:22px 17px}header{padding-top:32px}.nav div{padding:11px 17px;gap:8px 15px}.intro,.steps,.figures{grid-template-columns:1fr}.lead{font-size:18px}h2{font-size:23px}figure img{height:370px}th,td{padding:10px 7px}section{padding:24px 0}}@media print{.nav,button{display:none}details>div{display:block!important}details{break-inside:avoid}header,main,footer{max-width:none;padding:16px}section{break-inside:auto}figure img{height:350px}.figures{grid-template-columns:1fr 1fr}a{color:inherit}}
+</style>
+</head>
+<body>
+<header>
+<div class="eyebrow">Lab Tutor · Design specification · 11 October 2026</div>
+<h1>A simpler workspace for choosing what to teach.</h1>
+<p class="lead">Real job evidence and O*NET ratings in the main area. An agent conversation alongside them. One teacher-controlled shortlist across every chart and view.</p>
+<span class="status">Written spec for review · implementation plan follows approval</span>
+</header>
+<nav class="nav" aria-label="Specification sections"><div><a href="#experience">Teacher experience</a><a href="#charts">Charts &amp; patterns</a><a href="#agent">Agent collaboration</a><a href="#data">Real data</a><a href="#contracts">Technical contracts</a><a href="#acceptance">Acceptance</a><a href="#review">Review</a></div></nav>
+<main>
+<section id="brief">
+<div class="intro"><div><h2>The agreed outcome</h2><p>A teacher can understand which skills are supported by job postings, inspect how O*NET rates relevant competencies, discuss the evidence with the agent, and choose categories or individual skills with confidence.</p><p><strong>Simplicity is the design rule.</strong> Start with one useful overview. Surface at most two clear patterns. Reveal detailed comparisons, evidence and operational activity when needed.</p></div><div class="box"><h3>Where this belongs</h3><p>The existing Market Demand Analyst workspace at <code>/courses/:id/market-analyst</code>, opened from the course’s agents hub.</p><p class="small">This is the page running the Supervisor, Skill Finder, Curriculum Mapper, Skill Cleaner and Concept Linker swarm. The scope is this workspace and its entry point, rather than a redesign of every agent application.</p><p class="small">Assumption carried from the approved concept: “swarm agents page” refers to this existing market-analysis workspace.</p></div></div>
+<div class="callout"><p><strong>Every skill published for students still needs a stored, qualifying job-posting link and supporting evidence.</strong> O*NET supplies occupational context; it does not replace job evidence. Existing learning paths, resources, student APIs and quiz-based mastery remain compatible.</p></div>
+<details><summary>Why this approach</summary><div><p><strong>Chosen:</strong> reshape the existing workspace around its durable review data and reuse its source, selection and approval services. This gives charts and chat a shared state without creating a second approval system.</p><p><strong>Alternative:</strong> place charts inside the existing narrow side panel. That leaves evidence secondary and provides insufficient comparison space.</p><p><strong>Alternative:</strong> build a new dashboard and conversation system for all agents. That adds unrelated routes, state and migration work before the teacher’s skill-selection problem is solved.</p></div></details>
+</section>
+<section id="experience">
+<h2>1. The teacher’s experience</h2>
+<ol class="steps">
+<li><strong>Set the question</strong>Choose the market and available job sources. Optionally add O*NET occupations. Before collecting, show the source choices and expected action clearly.</li>
+<li><strong>Explore the evidence</strong>Open a saved analysis directly. The default Overview shows sample-frequency bars, coverage and up to two useful patterns. Categories and search narrow the skills shown.</li>
+<li><strong>Discuss and choose</strong>Click a chart mark to inspect its evidence. Ask the agent a contextual question. Select a whole category, then exclude individual skills. Suggestions are visible proposals.</li>
+<li><strong>Review before publishing</strong>Save the shortlist, confirm it for mapping, inspect the exact curriculum mappings and evidence, then approve integration. Each stage explains what happens next.</li>
+</ol>
+<h3>Layout and progressive detail</h3>
+<ul>
+<li><strong>Main area:</strong> Overview, Compare and Data views; focused-skill evidence; collapsible category shortlist; the current teacher checkpoint. Before skills exist, preserve the existing search-query and job-group confirmation cards here. Their explicit confirmations use workflow mode, so evidence-question mode cannot strand the analysis.</li>
+<li><strong>Right conversation:</strong> a compact context chip, readable conversation, one-line real activity status, expandable activity details and a reachable composer.</li>
+<li><strong>Controls:</strong> only category/search and controls relevant to the active chart. Source configuration collapses to a summary once an analysis starts. Collection settings and display filters are visibly different.</li>
+<li><strong>Desktop:</strong> show both panes when the workspace has at least 1,000 CSS pixels available, accounting for the app sidebar. Default chat width 360px; remaining width belongs to evidence. Main content and transcript can scroll independently.</li>
+<li><strong>Narrow screens:</strong> use Workspace / Conversation views with a clear unread-response indicator. Preserve the draft, focus, filters, composer and attached context when switching. Chat must remain reachable.</li>
+<li><strong>Attention:</strong> stream events do not switch chart tabs, open panels or move the teacher’s scroll position. New replies follow the transcript only while the teacher is already at its bottom.</li>
+</ul>
+<div class="figures">
+<figure><a href="2026-10-11-teacher-evidence-workspace-assets/demand-concept.png" target="_blank" rel="noopener"><img src="2026-10-11-teacher-evidence-workspace-assets/demand-concept.png" alt="Approved concept showing demand bars in the main area and the agent conversation on the right"></a><figcaption>Existing concept: chart-first layout and right conversation. Click to expand. Job counts shown here are illustrative; production must use saved data.</figcaption></figure>
+<figure><a href="2026-10-11-teacher-evidence-workspace-assets/occupation-concept.png" target="_blank" rel="noopener"><img src="2026-10-11-teacher-evidence-workspace-assets/occupation-concept.png" alt="Approved concept showing a skills by occupation ratings heatmap and shared shortlist"></a><figcaption>Existing concept: compare occupations with real O*NET snapshot values. The specification simplifies its tabs to Overview / Compare / Data and adds bounded pattern cards.</figcaption></figure>
+</div>
+</section>
+<section id="charts">
+<h2>2. Charts that answer useful questions</h2>
+<div class="table-wrap"><table><thead><tr><th>View</th><th>Teacher question</th><th>Required behavior</th></tr></thead><tbody>
+<tr><td>Overview · demand bars</td><td>Which skills appear most often in this collected sample?</td><td>Horizontal bars on a fixed 0–100% scale, with supporting / assessed counts. Show the top 12 matching skills and the total count; “View all” opens the filtered Data view. Zero assessed postings means unavailable.</td></tr>
+<tr><td>Compare · demand and importance</td><td>How do job frequency and occupational importance relate?</td><td>X = sample frequency; Y = O*NET Importance, 1–5, for one explicitly chosen occupation. No combined score or average across occupations. Unrated or ambiguous candidates remain inspectable in Data and the shortlist.</td></tr>
+<tr><td>Compare · occupations</td><td>Which competencies matter differently across the roles I selected?</td><td>Skills × confirmed occupations; switch Importance (1–5) / Level (0–7). Up to five occupations. Show 12 skill rows per page with a visible row range. Each cell has its own provenance. Missing and suppressed values are unavailable, never zero.</td></tr>
+<tr><td>Data · accessible table</td><td>What exact values and evidence support this?</td><td>Full filtered candidate list, paged 25 rows, sortable by name, frequency or the chosen reported rating. Keyboard-operable Inspect and selection controls; missing values sort last in either direction. No information exists only in a tooltip.</td></tr>
+</tbody></table></div>
+<p>Chart clicks focus the skill and evidence; they never select, save or approve it. Changing occupations updates only occupational context. Category/search filters change the visible rows, not posting denominators, source configuration or shortlist membership.</p>
+<h3>Patterns worth inspecting</h3>
+<p>Show <strong>at most two</strong> concise observations, computed from the displayed data scope. Each card includes exact values, sample or occupation context, a coverage qualifier and <strong>Inspect evidence</strong>. <strong>Ask agent</strong> stages a contextual question. Do not generate decorative insights when the data does not qualify.</p>
+<div class="table-wrap"><table><thead><tr><th>Pattern</th><th>Example wording</th><th>Eligibility</th></tr></thead><tbody>
+<tr><td>Common in this sample</td><td>“These skills appear in at least half of the assessed postings.”</td><td>At least 10 assessed postings; same assessed denominator; each highlighted skill has at least 3 supporting postings and frequency ≥50%. Show up to 3 skills with separate counts. Never add percentages together.</td></tr>
+<tr><td>Importance differs by occupation</td><td>“This competency is rated differently for these two occupations.”</td><td>The same O*NET descriptor and release, at least two confirmed occupations, valid reported IM values, and a difference ≥1.0 on the 1–5 scale. Show both values and occupation names.</td></tr>
+<tr><td>Important across selected roles</td><td>“This competency has importance of at least 4/5 in every selected occupation.”</td><td>At least two confirmed occupations; the same descriptor; a valid reported IM value ≥4 for every compared occupation. No missing or ambiguous cell.</td></tr>
+</tbody></table></div>
+<p class="small">Selection order: common-in-sample first, largest occupation difference second; use the shared-importance observation if the second is unavailable. Ties use stable label/ID ordering. Avoid repeating the same skill in two cards. Thresholds are product display rules, not statistical significance. Partial samples stay explicitly qualified. Show no “growing demand”, causal claim, skill co-occurrence, or market-wide estimate from a single collection.</p>
+<details><summary>Exact rating and chart rules</summary><div>
+<ul>
+<li>Use server-supplied <code>job_metrics</code>; supporting and assessed identities are deduplicated by the backend. Filtering skills does not recompute the denominator. Do not sum skill counts into category job totals.</li>
+<li>Plot an O*NET metric only if status is <code>reported</code>, value is finite and inside its declared scale, release matches the analysis, and the candidate association is <code>equivalent</code>. “Broader” and “related” remain contextual references.</li>
+<li>Deduplicate the same immutable evidence ID. Multiple distinct equivalent descriptors for a candidate/occupation are ambiguous: show “Multiple matched descriptors” and require a descriptor choice before plotting one number. Never take first, maximum or mean. For occupation comparisons and pattern rules, descriptor identity means the same <code>(release, family, element_id)</code>; occupation-specific evidence UUIDs are expected to differ. Allow at most one chosen evidence row per candidate/occupation, with a consistent descriptor identity across comparison cells.</li>
+<li>Keep missing, suppressed, not relevant, no association and ambiguous states distinguishable in the inspector. A suppressed numeric value in the database must never appear as a plotted value.</li>
+<li>Software-reference flags are categorical annotations, not importance or level. Do not assign Programming’s rating to Python or SQL merely because they are related.</li>
+<li>Overview top-12 truncation and heatmap pagination are display choices; pattern rules evaluate all matching candidates, not just the visible page. Zero confirmed occupations means an empty occupational comparison with an optional reference-exploration action. One confirmed occupation permits a single-role reference view. If another confirmed occupation is merely hidden, let the teacher display it immediately. Adding an occupation outside the locked run’s confirmed set requires a new analysis; browsing its reference data remains available separately.</li>
+<li>Every plot has labeled scales, direct values or accessible equivalents, readable dark/light themes, and non-color cues. Resizing never clips axis labels. A chart error leaves the table, evidence and shortlist usable.</li>
+</ul>
+</div></details>
+</section>
+<section id="selection">
+<h2>3. One shortlist, with teacher control</h2>
+<p>One page-scoped review controller owns the saved review and local draft. Charts, category checkboxes, evidence controls, proposal cards and the footer all read that same state.</p>
+<ul>
+<li>Selecting a category includes all its <strong>current</strong> members, including members hidden by search. Display the total, visible and selected counts. Individual checkboxes can exclude any member and produce the mixed category state.</li>
+<li>New candidates remain unselected. Removed or merged candidates trigger reconciliation; selections never transfer to replacements without review. Same-run refreshes preserve valid unsaved choices.</li>
+<li><strong>Apply to draft</strong> is local; <strong>Save draft</strong> persists using the existing run/candidate/selection revision contract. Undo restores the previous local selection operation. An explicit teacher re-check can remove an exclusion; an agent proposal cannot.</li>
+<li>A dirty draft has a visible unsaved indicator and navigation guard. If server revisions changed, preserve valid local choices, show what changed and require review before the next save. Do not silently overwrite another tab’s decisions.</li>
+<li><strong>Review mappings</strong> saves any dirty draft first, then invokes selection confirmation only after save succeeds. It does not publish. Final <strong>Approve integration</strong> uses the exact reviewed mapping, revisions and digest.</li>
+<li>Skills without qualifying posting evidence are visibly marked <strong>Needs job evidence</strong>. They may be inspected or saved as an incomplete draft. The authoritative backend job-evidence gate is final integration approval, which rejects missing qualifying evidence with <code>422 missing_job_evidence</code>. Selection confirmation itself validates shortlist and reconciliation state, not posting support; this spec does not add an earlier server gate. The default demand chart does not imply unsupported skills have job evidence.</li>
+</ul>
+</section>
+<section id="agent">
+<h2>4. An agent that understands the current view</h2>
+<p>The teacher can ask naturally, such as “Why is this useful?”, “How do these occupations differ?” or “Suggest a manageable starting set.” The agent receives the actual evidence behind the current context.</p>
+<ul>
+<li><strong>Visible context:</strong> “Critical Thinking · Data Scientists · current analysis” appears above the composer. “Ask about this skill/chart” prefills an editable question. The teacher can remove the focused-skill attachment; the turn remains an evidence question, not a workflow command.</li>
+<li><strong>Deliberate sending:</strong> chart clicks, filters and hovers do not invoke the model. Send freezes the attached context; later chart navigation does not change an in-flight question.</li>
+<li><strong>Evidence explanations:</strong> ordinary questions after review is available use an enforced inspection-only path. The model can read the validated evidence bundle, but cannot collect jobs, run extraction, edit configuration, map, publish or delete.</li>
+<li><strong>Suggestions:</strong> “Suggest skills” can create an immutable proposal with reasons and evidence. With unsaved changes, show <strong>Save draft and suggest</strong> as an explicit action. Apply changes only after teacher review; stale proposals cannot be applied.</li>
+<li><strong>Workflow actions:</strong> start/retry collection and continue mapping remain explicit, stage-specific controls. Free text needed during setup or an active workflow uses the existing swarm path and clearly shows the current activity.</li>
+<li><strong>Readable activity:</strong> show current agent and real task status in one line. Tool arguments/results are expandable. Report stages and source outcomes, not invented percentage progress or model chain-of-thought.</li>
+<li><strong>Recovery:</strong> restore saved conversation and review coherently. Retain a recoverable failed question. Offer refresh and explicit retry; never automatically replay a workflow or proposal that may have already executed.</li>
+</ul>
+<div class="callout"><p><strong>Honest interruption:</strong> the current backend continues managed work after a browser disconnect. This release uses “Close live response”, explains that work may continue, and refreshes status/results. It does not promise server cancellation.</p></div>
+<p class="small">The interaction policy follows user control and clear consequences in <a href="https://pair.withgoogle.com/chapter/feedback-controls/">Google PAIR’s Feedback + Control guidance</a>. These are design decisions for Lab Tutor; the source does not prescribe this specific layout.</p>
+</section>
+<section id="data">
+<h2>5. Real data, including when nothing exists yet</h2>
+<p><strong>PostgreSQL is authoritative.</strong> The browser reads authenticated course-scoped APIs. It never connects directly to the database, receives provider credentials, or invents fallback values. Neo4j remains the existing published graph projection.</p>
+<div class="box"><h3>Current local baseline</h3><p>The read-only audit on 11 October 2026 found O*NET 31.0 with 1,016 occupations and 63,671 evidence rows, and no durable market-analysis runs or vacancy snapshots. This is an observed local baseline, not a production guarantee.</p><p class="small">The prototype used a real O*NET snapshot and explicitly illustrative job counts. None of those sample counts or scripted replies will enter the production feature.</p></div>
+<ul>
+<li><strong>No saved analysis:</strong> show “Start an analysis” with source setup; no fake bars or zero-valued demand. A secondary “Explore O*NET occupations” action can read the existing reference APIs without creating a market run. Reference exploration has no publish/shortlist authority.</li>
+<li><strong>Ready analysis:</strong> load saved candidates, evidence, coverage, source outcomes and teacher choices. Restore the latest active analysis for that course/teacher. A run-history browser is outside this release.</li>
+<li><strong>Partial collection:</strong> keep useful data available with a clear assessed/selected coverage summary and source-level details. Existing “Continue with available evidence” acknowledgement remains required before advancing when applicable.</li>
+<li><strong>Retry collection:</strong> accurately describe that current behavior retries all configured providers and invalidates extraction metrics until reassessment. Preserve explicit provider choices; never silently add a fallback provider.</li>
+<li><strong>Original evidence:</strong> inspector shows original posting URL, title, company, source, matched phrase/excerpt, retrieval time and availability status. Load full snapshot details on demand. Display stored descriptions safely as text; retain available full safe payloads in the backend.</li>
+<li><strong>Unavailable posting:</strong> retain provenance and explain archived/purged status. Do not fabricate excerpts or bypass the existing qualifying-evidence rules. A URL is a stored source link, not a guarantee that the external page is still available.</li>
+</ul>
+</section>
+<section id="contracts">
+<h2>6. Technical specification</h2>
+<p class="small">These are boundaries and required behavior, not an implementation task sequence. The implementation plan will be written after this specification is approved.</p>
+<details><summary>A. Frontend responsibilities and scope</summary><div>
+<p>Keep the feature under <code>frontend/src/features/market-demand/</code>. Reuse <code>useAgentStream</code>, existing message components, <code>selection.ts</code>, the evidence inspector and integration-review rules. Replace the duplicated legacy results sidebar with the chart/review workspace.</p>
+<div class="table-wrap"><table><thead><tr><th>Responsibility</th><th>Boundary</th></tr></thead><tbody>
+<tr><td>Workspace page</td><td>Course routing, source setup, responsive panes and stage-specific actions.</td></tr>
+<tr><td>Review controller</td><td>Authoritative snapshot, one local selected/excluded draft, undo, reconciliation acknowledgements, save/confirm state, chart focus/filter/occupation and explicit descriptor choice.</td></tr>
+<tr><td>Chart data selectors</td><td>Pure normalization, rating eligibility, ambiguity handling, sorting, view datasets and deterministic pattern eligibility. Never fetch or mutate.</td></tr>
+<tr><td>ECharts adapter</td><td>Initialize once per mounted chart, update datasets/options, map mark IDs to focus callbacks, resize on container changes and dispose listeners/instances. No business selection state inside ECharts.</td></tr>
+<tr><td>Conversation controller</td><td>Restoration, stream events, visible frozen context attachment, composer text, proposal actions and detached/unknown execution state.</td></tr>
+<tr><td>Feature API wrapper</td><td>All new HTTP requests and typed DTOs; explicit abort/course/run generation guards prevent late responses from crossing contexts.</td></tr>
+</tbody></table></div>
+<p>Add ECharts only for this feature via the frontend container, with a pinned lockfile. Bundle the required chart types/components through <code>echarts/core</code>; no CDN runtime dependency and no broad Recharts migration. Lazy-load comparison views. Use existing Shadcn primitives, <code>@/</code> imports, Tailwind v4 / <code>cn()</code>, and react-hook-form + zod for forms.</p>
+<p>ECharts modular registration, explicit accessibility support and container resize/disposal follow the <a href="https://echarts.apache.org/handbook/en/basics/import/">official import guidance</a>, <a href="https://echarts.apache.org/handbook/en/best-practices/aria/">accessibility guidance</a> and <a href="https://echarts.apache.org/handbook/en/concepts/chart-size/">container sizing guidance</a>. A keyboard table is still required; chart ARIA descriptions alone do not make every mark keyboard-operable.</p>
+<p>Persist saved selections through the existing API. Store optional view preferences only under a user/course/run key in session storage; do not store credentials, source bodies or unsaved authoritative decisions there. Course or run switches clear incompatible focus and draft state. Chart refreshes never erase valid edits.</p>
+</div></details>
+<details><summary>B. Existing and extended API contracts</summary><div>
+<p>All paths below are relative to the existing API root and require the authenticated teacher to own the course.</p>
+<div class="table-wrap"><table><thead><tr><th>Contract</th><th>Decision</th></tr></thead><tbody>
+<tr><td><code>GET /courses/{id}/market-demand/skill-review</code></td><td>Continue as the authoritative review source. Add optional <code>analysis_metadata</code>, derived from the same SQL run: country, configured providers/evidence sources, pinned O*NET release/occupations, created/updated timestamps. Null when no active run. Do not read chart metrics from legacy chat state.</td></tr>
+<tr><td><code>GET …/skill-review/postings/{snapshot_id}</code></td><td>Reuse for owned, lazy-loaded evidence. IDs from candidate references only; server validates ownership.</td></tr>
+<tr><td><code>GET …/occupation-reference/releases</code><br><code>GET …/occupation-reference/occupations</code><br><code>GET …/occupation-reference/occupations/{soc}/skills</code></td><td>Reuse for release/occupation discovery and clearly labeled reference exploration. Run comparisons stay pinned to configured occupations/release.</td></tr>
+<tr><td>Existing draft, selection-confirmation, omission-acknowledgement and integration-approval APIs</td><td>Reuse revision/digest protections and job-evidence gates. No new path bypasses them.</td></tr>
+<tr><td><code>POST /courses/{id}/market-demand/chat</code></td><td>Optional typed <code>workspace_context</code> selects enforced explanation/proposal behavior. Omitted context preserves the existing workflow contract for older clients. The new UI always sends at least minimal run context with <code>intent:"explain"</code> for ordinary review questions, even after removing a focus chip. Only explicit workflow actions use the legacy path. New contextual requests do not run source configuration.</td></tr>
+<tr><td><code>GET /courses/{id}/market-demand/execution-status</code> <span class="pill">new</span></td><td>Return <code>{status: "busy" | "idle", state_updated_at: string | null}</code> from the cross-process PostgreSQL lease/state mechanism. Do not infer idle from one process’s memory. A read must not acquire a workflow lease. Request failure is “status unknown” in the UI.</td></tr>
+</tbody></table></div>
+<p>The added metadata shape is <code>{country: string | null, job_sources: JobSource[], evidence_sources: EvidenceSource[], onet_release: string | null, occupations: {soc_code: string, title: string}[], created_at: ISODateTime, updated_at: ISODateTime}</code>. Values come from the same run as the review; missing legacy metadata is explicit, never substituted from a different run.</p><p>No new analytics database or proposed SQL schema migration is needed. Compute metadata from <code>MarketAnalysisRun</code>; use existing thread checkpoint/message metadata to retain contextual-turn information. SQL reads stay in repositories, orchestration in services and dependencies are injected with <code>Depends()</code>.</p>
+<p>The status endpoint observes the current database’s granted conversation advisory lock through a read-only <code>pg_locks</code> query matching the bigint hash key and <code>objsubid=1</code>. Do not probe with <code>pg_try_advisory_lock</code> or process-local lease maps. <strong>Idle means only that no granted lease was observed at that instant.</strong> It is not proof of completion or success; <code>state_updated_at</code> is the latest SQL state save, not a terminal outcome. Later mutations must still acquire their existing lease.</p>
+<p>After detachment or restoration, query execution status and refresh review/history. While busy and the page is visible, poll at 2 seconds, backing off to 10 seconds after 30 seconds; stop on idle, course change, unmount or hidden page. Refresh on visibility return. If reconciliation provides no terminal result, retain “Outcome unknown” even when idle. On status failure, expose Retry status and let existing server 409 protections remain authoritative; never advertise successful cancellation.</p>
+</div></details>
+<details><summary>C. Context attached to an agent question</summary><div>
+<p>Run context is an optional discriminated object on the existing chat request. The following describes the complete first-release contract:</p>
+<pre>{
+  "kind": "run_review",
+  "version": 1,
+  "intent": "explain" | "propose_selection",
+  "run_id": "UUID",
+  "expected_candidate_revision": 4,
+  "expected_selection_revision": 2,
+  "view": "overview" | "demand_importance" | "occupations" | "data",
+  "focused_candidate_id": "UUID or null",
+  "candidate_ids": ["up to 20 explicitly focused/compared IDs"],
+  "filters": {"category_ids": [], "search": "", "scope": "all" | "selected"},
+  "occupation_codes": ["up to 5 configured SOC codes"],
+  "metric": "frequency" | "IM" | "LV",
+  "descriptor_choices": [{"candidate_id": "UUID", "evidence_id": "UUID"}],
+  "insight_kind": null | "common_sample" | "occupation_difference" | "shared_importance",
+  "has_unsaved_changes": false
+}</pre>
+<p><code>candidate_ids</code> identifies explicit focus, not the entire filtered dataset. The server resolves filters against its owned snapshot, computes the matching count and attaches bounded evidence. The UI never sends values, chart labels, URLs, HTML or excerpts as authoritative evidence.</p>
+<p><strong>Explanation and dirty drafts:</strong> explain the evidence without requiring a save. When changes are unsaved, show “Unsaved shortlist changes are not included”; the model must not claim it has the teacher’s current local choices. A selected-only visual filter follows the local draft. For an attached agent question, <code>filters.scope="selected"</code> uses saved selection and is unavailable until a dirty draft is saved. The Data view exposes this optional filter; Overview remains uncluttered. <strong>Proposal:</strong> requires a saved revision; Save draft and suggest sends only after the save succeeds.</p>
+<p>Reference-only questions use <code>{kind:"occupation_reference", version:1, intent:"explain", release, occupation_codes, element_ids, metric}</code>. They validate ready release, occupations and descriptors, never create a market run, and cannot propose publishable skills.</p>
+<ul>
+<li>Bounds: message ≤8,000 characters; serialized context ≤16 KiB; explicit candidates ≤20; categories ≤10; occupations ≤5; descriptor choices ≤20; reference element IDs ≤20; search ≤120 characters. Reject oversized or unknown fields instead of truncating choices silently.</li>
+<li>Resolve owned course and active run, then exact revisions. A foreign/inaccessible run or evidence returns 404; a stale snapshot returns structured <code>409 context_stale</code>; invalid filters/metrics/IDs return 422. Reject before calling the model. UI retains the question and offers Refresh context.</li>
+<li>Validate each evidence ID against candidate membership, occupation and pinned release. Allow one descriptor choice per candidate/occupation; occupation comparison requires the same <code>(release, family, element_id)</code> across cells, not identical evidence UUIDs. Pattern questions are recomputed from authoritative facts and the named rule. Client pattern labels confer no truth or authority.</li>
+<li>Evidence bundle ≤24 KiB: exact source facts, included/omitted counts, coverage, release/scale and source references. At most two 600-character excerpts per focused candidate. Apply the byte budget deterministically; never cut JSON mid-field. Disclose omitted context.</li>
+<li>Treat posting/source text as data. Enforce read-only or proposal-only tool permissions in runtime code; prompt wording is not sufficient. Proposal turns can invoke only the existing immutable proposal write in addition to reads.</li>
+<li>Store context IDs, labels, numerical facts, revisions, inclusion counts and notices with their conversation turn, but never copy source bodies or excerpts into contextual-turn metadata. Re-resolve source evidence when inspected and mark removed or purged sources as unavailable. This preserves the existing snapshot redaction boundary. Do not inherit context as a sticky “current chart” for later turns. Restored context chips describe what the model received at that time.</li>
+<li>Add an SSE <code>context_resolved</code> event with turn message ID, labels, run/revisions or reference release, occupations/metric, included/omitted counts and unsaved-draft notice. Extend typed history messages with optional matching context metadata.</li>
+</ul>
+<p>All contextual turns reuse the existing conversation serialization/lease so history remains ordered. Discussion cannot run concurrently with a still-busy workflow on the same conversation; explain the waiting state without discarding the staged question.</p>
+</div></details>
+<details><summary>D. Stream, proposal and failure semantics</summary><div>
+<ul>
+<li>Add a sanitized SSE <code>error</code> event with a stable code, user-readable message and recovery hint. Emit terminal <code>stream_end</code> with <code>outcome:"completed"|"failed"</code>. Older clients can ignore added fields.</li>
+<li>Do not call a tool or source successful solely because it returned a string. Tool progress may say “finished”; source success/failure comes from saved <code>source_outcomes</code>. Exceptions and incomplete streams must remain visible.</li>
+<li>Close live response detaches the client stream, retains partial transcript and displays execution status. Never automatically resend after an uncertain disconnect. Refresh first; allow an explicit new explanation or proposal using current revisions.</li>
+<li>A proposal records candidate and base selection revisions. Apply is disabled if either differs from the active saved review. Applying a reviewed diff changes the local draft only. Save still performs server revision validation. Protected exclusions are retained.</li>
+<li>Consolidate conflicting legacy prompt instructions: frequency refers to a collected sample; retry is possible with reassessment; saved selection and publication are teacher API actions. Recommendations cite verified evidence, disclose limitations and discuss learning fit without claiming job frequency alone determines pedagogy.</li>
+<li>Publication, source configuration, mapping and deletion stay outside contextual explanation/proposal permissions. A question such as “collect more jobs” in inspection mode should point to the explicit workflow action rather than execute it.</li>
+</ul>
+</div></details>
+<details><summary>E. Pattern computation, metadata and freshness</summary><div>
+<p>The frontend derives pattern cards from the same normalized, eligible chart data; no extra LLM call is required to generate them. The backend re-evaluates an attached pattern request against the corresponding saved facts before explaining it. Test fixtures cover parity of the named rules.</p>
+<p>Each observation records its rule, candidate IDs, descriptor/occupation IDs where relevant, exact values/denominators, run/revisions, release and current filter scope. Formatting may shorten labels but not precision in the inspector. No unsupported narrative is persisted as a new market fact.</p>
+<p>Refresh the authoritative review on <code>skill_review_changed</code>, completed/detached turn reconciliation and explicit teacher refresh. History, configuration and review must refer to the same active run before editing resumes. Late results from a previous course, run, reference request or occupation are ignored. A new review invalidates stale proposal eligibility, focused IDs that disappeared, and cached chart/pattern results while retaining valid local edits.</p>
+<p>Reference browsing is separate from a run’s confirmed occupation set. Browsing another role does not change collection configuration. To change locked sources, market, release or occupations, add a clear <strong>New analysis</strong> action reusing the existing confirmed <code>DELETE …/history</code> reset. Its confirmation explains that it clears the conversation and active analysis from this workspace, retains stored run/evidence/approval records and published student offerings, and offers Save draft, Discard draft or Cancel if edits are unsaved. There is no first-release browser for reopening older runs. Disable reset while known busy; handle server 409 without losing the current view. Clear local review, conversation and configuration only after acknowledged reset success, then show setup; the next explicit start creates the new run. Because SQL state deletion precedes checkpoint deletion, other failures can represent a partial reset. Retain recoverable input and reconcile status/history/review before another mutation; do not blindly restore or replay the former run.</p>
+</div></details>
+</section>
+<section id="acceptance">
+<h2>7. What must be demonstrated before completion</h2>
+<div class="table-wrap"><table class="acceptance"><thead><tr><th>ID</th><th>Scenario</th><th>Required evidence</th></tr></thead><tbody>
+<tr><td>A1</td><td>Open from the agents hub and a direct URL</td><td>Both reach the same chart-first market workspace for the correct course. Existing agent entry points still work.</td></tr>
+<tr><td>A2</td><td>Empty and database-backed states</td><td>No mock fallback; genuine empty demand state. Saved analysis reload reproduces the SQL counts, original links and shortlist. Reference-only browsing uses real imported O*NET data.</td></tr>
+<tr><td>A3</td><td>Charts and exact values</td><td>Demand counts/denominators, scatter coordinates and heatmap cells match the same fixture/API facts. Duplicate posting references do not inflate counts. Unavailable metrics never become zero.</td></tr>
+<tr><td>A4</td><td>Patterns</td><td>Rules show only eligible observations; include ties, fewer than 10 assessed postings, partial coverage, mixed denominators, missing ratings, occupation differences and no qualifying pattern. Server explanation resolves the same facts.</td></tr>
+<tr><td>A5</td><td>Focus versus selection</td><td>Click/filter/page/occupation changes issue no chat POST, collection or selection write. Shared category/individual controls, exclusions, undo and counts stay consistent.</td></tr>
+<tr><td>A6</td><td>Refresh, revisions and reconciliation</td><td>Valid unsaved choices survive same-run refresh; stale saves/proposals are rejected; merged/new candidates are never silently selected. Course/run switching ignores late responses.</td></tr>
+<tr><td>A7</td><td>Contextual agent behavior</td><td>Visible attachment equals the server-resolved bundle. Explain cannot call mutating tools. Proposal may save only a proposal. Dirty draft requires explicit Save and suggest. Foreign/stale/oversized context is rejected before an LLM call.</td></tr>
+<tr><td>A8</td><td>Evidence and trust</td><td>Original posting links/excerpts are inspectable. Suppressed ratings, multiple equivalent descriptors and related-only/software references are handled correctly. Source text cannot expand tool permissions.</td></tr>
+<tr><td>A9</td><td>Failure and detachment</td><td>Source error, partial extraction, failed stream, unknown execution status and cross-process busy lease are visible. Idle never implies success. Close live response does not claim cancellation; retry never duplicates work automatically. A failed New analysis reset preserves the current workspace; successful reset preserves durable evidence and published offerings.</td></tr>
+<tr><td>A10</td><td>Teacher approval and student regression</td><td>Search-query and job-group confirmations still advance the workflow. Missing job evidence blocks final integration approval at the existing server gate. Exact mapping/digest approval is preserved. Saved student paths, resources, APIs and quiz mastery remain usable.</td></tr>
+<tr><td>A11</td><td>Responsive and accessible UI</td><td>Headless tests at 1440, 1024, 768, 390 and 320px, with the app sidebar represented. Keyboard table supports equivalent inspection/selection; focus, composer and draft survive Workspace/Conversation switching. Light/dark labels and tooltips remain readable.</td></tr>
+<tr><td>A12</td><td>Chart lifecycle and ordinary usage</td><td>Repeated tab/resize/theme/course changes produce no blank chart, runtime error, duplicate event handlers or retained disposed instances. Table remains usable if chart loading fails.</td></tr>
+</tbody></table></div>
+<p class="small">Verification belongs to implementation: targeted Vitest and backend integration tests in Docker, backend tests against the real PostgreSQL test database, required lint/build/Ruff checks, and headless browser interaction tests. Browser assertions must exercise the risky behavior; a passing build is not proof. A controlled live provider smoke check may confirm collection and SQL persistence when credentials are available; deterministic fixtures cover failures and boundaries.</p>
+</section>
+<section id="boundaries">
+<h2>8. Scope boundaries</h2>
+<p>The first release includes the ECharts workspace, bounded pattern cards, shared shortlist, contextual explanation/proposal behavior, evidence inspection, honest stream/status recovery and existing approval integration.</p>
+<p>It excludes all-agent UI migration, a new swarm orchestration framework, provider-specific retry, true server-side cancellation, historical market trends, salary/geography analytics, co-occurrence mining, a weighted “best skill” score, a new job provider, scheduled crawling and a run-history browser. Those require separate data or workflow contracts.</p>
+<details><summary>Repository evidence and references</summary><div>
+<ul class="sources">
+<li><code>frontend/src/App.tsx</code>, <code>features/courses/pages/AgentHubPage.tsx</code>, <code>features/agents/components/TeacherAgentTimingDialog.tsx</code>: existing entry routes.</li>
+<li><code>frontend/src/features/market-demand/pages/MarketDemandPage.tsx</code>: current chat-first layout; <code>components/SkillReviewPanel.tsx</code> and <code>selection.ts</code>: selection/revision behavior.</li>
+<li><code>frontend/src/features/market-demand/hooks/useAgentStream.ts</code>, <code>api.ts</code>, <code>types.ts</code>: restored state and SSE boundary.</li>
+<li><code>backend/app/modules/marketdemandanalyst/models.py</code>, <code>review_service.py</code>, <code>evidence.py</code>: SQL run, snapshot, review and deduplicated metrics.</li>
+<li><code>backend/app/modules/marketdemandanalyst/routes.py</code>, <code>thread_state_service.py</code>, <code>graph.py</code>, <code>tools.py</code>: contextual-chat gaps, execution lease and proposal permissions.</li>
+<li><code>backend/app/modules/occupation_reference/</code>: imported descriptors, reported/suppressed metric status, release and occupation endpoints.</li>
+<li><a href="https://echarts.apache.org/handbook/en/concepts/dataset/">Apache ECharts datasets</a> · <a href="https://echarts.apache.org/handbook/en/concepts/event/">chart events</a> · <a href="https://pair.withgoogle.com/chapter/feedback-controls/">Google PAIR feedback and control</a>.</li>
+</ul>
+<p class="small">Repository inspected on branch <code>feat/headhunter-job-sources</code>, HEAD <code>7454b35</code>. Existing unrelated working-tree edits were left alone. This specification is an HTML technical record to match the project’s report preference.</p>
+</div></details>
+</section>
+<section id="review">
+<h2>Ready for specification review</h2>
+<p class="decision">Approve the behavior first; then write the implementation plan.</p>
+<p>The key decisions are: the existing market swarm route, a simple overview with deeper comparisons, at most two factual patterns, one teacher-owned shortlist, and an inspection-only agent path for evidence questions.</p>
+<p>Please review these decisions and the expanded contracts that matter to you. Changes can be incorporated into this spec before the implementation plan is written.</p>
+<p class="small">The user requested specifications before planning. Superpowers’ architectural workflow likewise separates approval of the written specification from approval of the later implementation plan.</p>
+</section>
+</main>
+<footer>Lab Tutor · Teacher evidence workspace · Written design specification, not an implementation plan. No production behavior is changed by this document.</footer>
+</body>
+</html>
