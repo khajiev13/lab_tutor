@@ -122,7 +122,7 @@ it("separates occupation-specific equivalent ratings from broader context and un
   render(<SkillReviewPanel courseId={1} review={review} onReviewChange={vi.fn()}/>);
   expect(screen.getByText(/Data Scientists.*broader context/)).toBeInTheDocument();
   expect(screen.getByText(/Software Developers.*equivalent/)).toBeInTheDocument();
-  expect(screen.getByText(/LV: unavailable \(suppressed\)/)).toBeInTheDocument();
+  expect(screen.getAllByText(/LV: unavailable \(suppressed\)/).length).toBeGreaterThan(0);
   expect(screen.getByRole("option",{name:"O*NET importance"})).toBeDisabled();
   await userEvent.setup().selectOptions(screen.getByRole("combobox",{name:"Active occupation"}),"15-1252.00");
   expect(screen.getByRole("option",{name:"O*NET importance"})).not.toBeDisabled();

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { isUsablePostingUrl } from "@/features/market-demand/selection";
 import { fetchPostingEvidence } from "@/features/market-demand/api";
-import type { PostingEvidence, SkillCandidate, VacancyEvidenceReference } from "@/features/market-demand/types";
+import type { OnetMetric, PostingEvidence, RatingResolution, SkillCandidate, VacancyEvidenceReference } from "@/features/market-demand/types";
 
 export function EvidenceLink({url, label}: {url: string; label: string}) {
   if (!isUsablePostingUrl(url)) return null;
@@ -51,13 +51,58 @@ function PostingDetails({courseId, evidence}: {courseId: number; evidence: Vacan
   );
 }
 
-export function SkillEvidencePanel({courseId, candidate}: {courseId: number; candidate: SkillCandidate}) {
+function metricText(metric: OnetMetric | undefined, name: "IM" | "LV") {
+  if (!metric) return `${name}: unavailable (missing)`;
+  if (metric.status !== "reported") return `${name}: unavailable (${metric.status})`;
+  const [minimum, maximum] = name === "IM" ? [1, 5] : [0, 7];
+  if (metric.scale_id !== name || metric.minimum !== minimum || metric.maximum !== maximum ||
+    typeof metric.value !== "number" || !Number.isFinite(metric.value) || metric.value < minimum || metric.value > maximum) {
+    return `${name}: unavailable (invalid reported value or scale)`;
+  }
+  return `${name}: ${metric.value} (${minimum}–${maximum})`;
+}
+
+interface Props {
+  courseId: number;
+  candidate: SkillCandidate;
+  focusedEvidenceId?: string | null;
+  ratings?: Record<string, RatingResolution>;
+  onChooseDescriptor?: (evidenceId: string, occupationCode: string) => void;
+}
+
+export function SkillEvidencePanel({courseId, candidate, focusedEvidenceId, ratings, onChooseDescriptor}: Props) {
+  const associations = [...new Map(candidate.onet_associations.map(item => [item.evidence.id, item])).values()];
   return (
     <details className="space-y-2 text-xs">
       <summary className="cursor-pointer font-medium">Evidence for {candidate.display_name}</summary>
-      {candidate.evidence_references.map(item => <PostingDetails key={item.snapshot_id} courseId={courseId} evidence={item}/>)}
+      {candidate.evidence_references.map(item => <PostingDetails key={`${courseId}-${item.snapshot_id}`} courseId={courseId} evidence={item}/>)}
       {candidate.qualifying_posting_links.filter(url => !candidate.evidence_references.some(item => item.original_url === url)).map(url => <p key={url}><EvidenceLink url={url} label="Original job posting"/></p>)}
-      {candidate.onet_associations.map(({evidence}) => <p key={evidence.id}><EvidenceLink url={evidence.source_url} label={`O*NET reference: ${evidence.label} (${evidence.occupation_title})`}/></p>)}
+      {candidate.posting_support === "missing" && <p>Needs job evidence — no qualifying posting evidence available.</p>}
+      {!associations.length && <p>O*NET unavailable: no association.</p>}
+      {ratings && Object.entries(ratings).map(([code, rating]) => <div key={code} className="space-y-1">
+        <p>{code}: {rating.status === "reported" ? `${rating.value} / ${rating.metric === "IM" ? 5 : 7}` : rating.status === "ambiguous" ? "Multiple matched descriptors" : `Unavailable: ${rating.status.replaceAll("_", " ")}`}</p>
+        {rating.status === "ambiguous" && onChooseDescriptor && <label>Choose descriptor for {code}
+          <select aria-label={`Inspector descriptor for ${candidate.display_name} · ${code}`} className="block max-w-full rounded-md border bg-background p-2" defaultValue="" onChange={event => {if (event.target.value) onChooseDescriptor(event.target.value, code);}}>
+            <option value="">Choose descriptor</option>{rating.evidence.map(item => <option key={item.id} value={item.id}>{item.label} · {item.release} · {item.family} · {item.element_id}</option>)}
+          </select>
+        </label>}
+      </div>)}
+      {associations.map(({evidence, relation, mapping_method, rationale}) => <div key={evidence.id} data-evidence-id={evidence.id} className="space-y-2 rounded-md border p-3">
+        {focusedEvidenceId === evidence.id && <p className="font-medium">Focused chart evidence</p>}
+        <p><EvidenceLink url={evidence.source_url} label={`O*NET reference: ${evidence.label} (${evidence.occupation_title})`}/></p>
+        <p>{evidence.release} · {evidence.family} · {evidence.element_id} · {evidence.soc_code} · {evidence.id}</p>
+        <p>{relation === "equivalent" ? "Equivalent association" : `${relation} contextual reference; not a plotted candidate rating`} · {mapping_method} · {rationale}</p>
+        <p>{evidence.definition}</p>
+        {evidence.workplace_example && <p>Workplace example: {evidence.workplace_example}</p>}
+        {evidence.family !== "software" && (["IM", "LV"] as const).map(name => <div key={name}>
+          <p>{metricText(evidence.ratings[name], name)}</p>
+          {evidence.ratings[name] && <><p>Rating date: {evidence.ratings[name]!.date ?? "not reported"} · declared scale {evidence.ratings[name]!.minimum}–{evidence.ratings[name]!.maximum}</p>
+            <pre className="whitespace-pre-wrap break-all">Quality: {JSON.stringify(evidence.ratings[name]!.quality, null, 2)}</pre></>}
+        </div>)}
+        {evidence.family === "software" && <p>Software-reference flags are categorical context, not importance or level.</p>}
+        {!!Object.keys(evidence.flags).length && <pre className="whitespace-pre-wrap break-all">Flags: {JSON.stringify(evidence.flags, null, 2)}</pre>}
+        <p>{evidence.attribution}</p>
+      </div>)}
     </details>
   );
 }

@@ -451,3 +451,15 @@ export interface WorkspaceData {
   tablePage: WorkspacePage;
   observations: PatternObservation[];
 }
+
+export interface ChartFocus {
+  candidateId: string;
+  occupationCode?: string;
+  evidenceId?: string;
+}
+export interface WorkspaceQuestion {
+  text: string;
+  candidateIds?: string[];
+  occupationCodes?: string[];
+  insightKind?: PatternObservation["kind"];
+}
