@@ -96,11 +96,11 @@ class OccupationReferenceRepository:
             )
         )
 
-    def get_release(self, version: str) -> OnetRelease | None:
+    def get_release(self, version: str, *, fresh: bool = False) -> OnetRelease | None:
         return self._db.scalar(
-            select(OnetRelease).where(
-                OnetRelease.version == version, OnetRelease.status == "ready"
-            )
+            select(OnetRelease)
+            .where(OnetRelease.version == version, OnetRelease.status == "ready")
+            .execution_options(populate_existing=fresh)
         )
 
     def list_releases(self) -> list[OnetRelease]:
@@ -173,7 +173,7 @@ class OccupationReferenceRepository:
         return list(rows), total
 
     def get_occupations(
-        self, version: str, soc_codes: list[str]
+        self, version: str, soc_codes: list[str], *, fresh: bool = False
     ) -> list[OnetOccupation]:
         return list(
             self._db.scalars(
@@ -183,10 +183,13 @@ class OccupationReferenceRepository:
                     OnetOccupation.soc_code.in_(soc_codes),
                 )
                 .order_by(OnetOccupation.soc_code)
+                .execution_options(populate_existing=fresh)
             )
         )
 
-    def get_evidence(self, version: str, soc_codes: list[str]) -> list[OnetEvidence]:
+    def get_evidence(
+        self, version: str, soc_codes: list[str], *, fresh: bool = False
+    ) -> list[OnetEvidence]:
         return list(
             self._db.scalars(
                 select(OnetEvidence)
@@ -201,6 +204,7 @@ class OccupationReferenceRepository:
                     OnetEvidence.workplace_example,
                     OnetEvidence.id,
                 )
+                .execution_options(populate_existing=fresh)
             )
         )
 

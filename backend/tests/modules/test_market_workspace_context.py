@@ -685,3 +685,85 @@ def test_reference_resolution_does_not_invent_missing_declared_scales(
         "status": "reported",
         "value": 4,
     }
+
+
+@pytest.mark.parametrize(
+    "changed_fact", ["rating", "occupation_title", "release_attribution"]
+)
+def test_reference_refreshes_preloaded_catalog_facts_after_another_session_commits(
+    owned, db_session, changed_fact
+):
+    """A real read must replace stale identity-map attributes, not just issue SQL."""
+    from sqlalchemy import update
+    from sqlalchemy.orm import Session
+
+    course, _, _, service = owned
+    rows = seed_onet(db_session)
+    repository = OccupationReferenceRepository(db_session)
+    # Strong references retain the precise stale instances throughout resolution.
+    release = repository.get_release("30.0")
+    occupations = repository.get_occupations("30.0", ["15-1252.00"])
+    evidence = repository.get_evidence("30.0", ["15-1252.00"])
+    assert evidence[0] is rows[0]
+    assert evidence[0].ratings["IM"]["status"] == "reported"
+    assert release.attribution == "O*NET"
+    assert occupations[0].title == "15-1252.00"
+    with Session(db_session.get_bind()) as writer:
+        if changed_fact == "rating":
+            writer.execute(
+                update(OnetEvidence)
+                .where(OnetEvidence.id == evidence[0].id)
+                .values(
+                    ratings={
+                        "IM": {
+                            "scale_id": "IM",
+                            "value": 4,
+                            "minimum": 1,
+                            "maximum": 5,
+                            "status": "suppressed",
+                        }
+                    }
+                )
+            )
+        elif changed_fact == "occupation_title":
+            writer.execute(
+                update(OnetOccupation)
+                .where(
+                    OnetOccupation.release == "30.0",
+                    OnetOccupation.soc_code == "15-1252.00",
+                )
+                .values(title="Updated occupation")
+            )
+        else:
+            writer.execute(
+                update(OnetRelease)
+                .where(OnetRelease.version == "30.0")
+                .values(attribution="Updated official attribution")
+            )
+        writer.commit()
+    # Session A still holds stale reported data until the repository read refreshes it.
+    assert evidence[0].ratings["IM"]["status"] == "reported"
+    request = schemas.OccupationReferenceContext(
+        kind="occupation_reference",
+        version=1,
+        intent="explain",
+        release="30.0",
+        occupation_codes=["15-1252.00"],
+        element_ids=["2.B.3"],
+        metric="IM",
+    )
+    result = service.resolve(course["id"], course["teacher_id"], request)
+    model_fact = result.model_bundle["evidence"][0]
+    history_fact = result.history_metadata.facts[0]
+    if changed_fact == "rating":
+        assert model_fact["ratings"]["IM"]["status"] == "suppressed"
+        assert model_fact["ratings"]["IM"]["value"] is None
+        assert history_fact["ratings"]["IM"]["value"] is None
+    elif changed_fact == "occupation_title":
+        assert model_fact["occupation_title"] == "Updated occupation"
+        assert history_fact["occupation_title"] == "Updated occupation"
+        assert result.history_metadata.occupations[0].title == "Updated occupation"
+    else:
+        assert model_fact["attribution"] == "Updated official attribution"
+        assert history_fact["attribution"] == "Updated official attribution"
+    assert not db_session.in_transaction()

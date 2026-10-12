@@ -142,10 +142,10 @@ class WorkspaceContextService:
             self._occupations.rollback()
 
     def _catalog(self, release: str | None, codes: list[str]):
-        ready = self._occupations.get_release(release) if release else None
+        ready = self._occupations.get_release(release, fresh=True) if release else None
         if ready is None:
             _error(422, "invalid_context", "A ready pinned O*NET release is required")
-        rows = self._occupations.get_occupations(ready.version, codes)
+        rows = self._occupations.get_occupations(ready.version, codes, fresh=True)
         titles = {row.soc_code: row.title for row in rows}
         if set(titles) != set(codes):
             _error(422, "invalid_context", "Occupation not found in the pinned release")
@@ -465,7 +465,9 @@ class WorkspaceContextService:
 
     def _reference(self, request: OccupationReferenceContext):
         ready, titles = self._catalog(request.release, request.occupation_codes)
-        rows = self._occupations.get_evidence(ready.version, request.occupation_codes)
+        rows = self._occupations.get_evidence(
+            ready.version, request.occupation_codes, fresh=True
+        )
         if not set(request.element_ids) <= {row.element_id for row in rows}:
             _error(422, "invalid_context", "Descriptor not found in these occupations")
         records = [
