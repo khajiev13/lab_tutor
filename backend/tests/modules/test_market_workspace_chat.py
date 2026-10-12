@@ -214,6 +214,15 @@ def test_fabricated_mutating_calls_do_nothing_and_leave_valid_next_workflow(
         },
     )
     assert response.status_code == 200, response.text
+    from tests.modules.test_market_demand import _parse_sse
+
+    denied = [e["data"] for e in _parse_sse(response.text) if e["event"] == "tool_end"]
+    assert denied and denied[0]["status"] == "error"
+    restored = client.get(
+        f"/courses/{course['id']}/market-demand/history", headers=teacher_auth_headers
+    ).json()
+    calls = [tc for m in restored["messages"] for tc in m["toolCalls"]]
+    assert calls[0]["status"] == "error"
     assert model.calls[-1][1] == (
         [] if intent == "explain" else ["propose_skill_selection"]
     )
@@ -385,6 +394,13 @@ def test_proposal_rejects_revision_that_became_stale_during_model_call(
         },
     )
     assert response.status_code == 200
+    from tests.modules.test_market_demand import _parse_sse
+
+    frames = _parse_sse(response.text)
+    error = next(e["data"] for e in frames if e["event"] == "error")
+    assert error["code"] == "context_stale"
+    assert "Refresh context" in error["recovery"]
+    assert frames[-1]["data"]["outcome"] == "failed"
     db_session.expire_all()
     assert run.recommendations == []
     assert run.selection_revision == 2
@@ -504,3 +520,188 @@ def test_malformed_tool_call_does_not_poison_the_next_workflow(
     )
     assert state(thread).next == ()
     assert state(thread).values["messages"][-1].content == "Workflow remains usable"
+
+
+def test_context_identity_redacted_history_and_evidence_assistant(
+    db_session, client, teacher_auth_headers, live_graph
+):
+    import json
+
+    from tests.modules.test_market_demand import _parse_sse
+
+    course, run, candidates, service, _ = seed_review(
+        db_session, client, teacher_auth_headers
+    )
+    model, _, state = live_graph
+    thread = service.thread_id(course["id"], course["teacher_id"])
+    state(thread)
+    url = f"/courses/{course['id']}/market-demand"
+    for _ in range(2):
+        model.replies.append(AIMessage(content="Collected sample evidence."))
+        response = client.post(
+            url + "/chat",
+            headers=teacher_auth_headers,
+            json={
+                "message": "Explain this skill",
+                "workspace_context": context(
+                    run_id=str(run.id),
+                    focused_candidate_id=candidates[0]["candidate_id"],
+                ),
+            },
+        )
+        frames = _parse_sse(response.text)
+        resolved = next(e["data"] for e in frames if e["event"] == "context_resolved")
+        assert frames[-1]["data"]["outcome"] == "completed"
+        starts = [e["data"] for e in frames if e["event"] == "agent_start"]
+        assert starts and all(e["agent"] == "workspace_review" for e in starts)
+        assert starts[0]["displayName"] == "Evidence assistant"
+        restored = client.get(url + "/history", headers=teacher_auth_headers).json()
+        users = [m for m in restored["messages"] if m["role"] == "user"]
+        assert users[-1]["id"] == resolved["messageId"]
+        assert users[-1]["workspace_context"] == resolved["workspace_context"]
+        assert "Required: Python." not in json.dumps(users[-1]["workspace_context"])
+        assert restored["outcome"] == "unknown"
+        assert restored["messages"][-1]["agentDisplayName"] == "Evidence assistant"
+    assert len(users) == 2 and users[0]["id"] != users[1]["id"]
+    raw = state(thread).values["messages"]
+    assert all(m.id for m in raw if isinstance(m, HumanMessage))
+    assert "workspace_context" in raw[0].additional_kwargs
+    assert "Required: Python." not in str(raw)
+    repo = MarketReviewRepository(db_session)
+    repo.purge_vacancy_content(
+        candidates[0]["evidence_references"][0]["snapshot_id"], reason="test"
+    )
+    repo.commit()
+    history = client.get(url + "/history", headers=teacher_auth_headers).json()
+    assert "Required: Python." not in json.dumps(history)
+    evidence = client.get(
+        url
+        + "/skill-review/postings/"
+        + candidates[0]["evidence_references"][0]["snapshot_id"],
+        headers=teacher_auth_headers,
+    )
+    assert evidence.status_code == 200, evidence.text
+    assert evidence.json()["status"] == "purged"
+    assert evidence.json()["description_text"] is None
+    assert evidence.json()["original_description"] is None
+    assert evidence.json()["raw_payload"] == {}
+    assert "Required: Python." not in evidence.text
+
+
+def test_model_failure_has_sanitized_error_and_failed_terminal(
+    db_session, client, teacher_auth_headers, live_graph
+):
+    from tests.modules.test_market_demand import _parse_sse
+
+    course, run, _, service, _ = seed_review(db_session, client, teacher_auth_headers)
+    model, _, state = live_graph
+    state(service.thread_id(course["id"], course["teacher_id"]))
+    model.replies.append(RuntimeError("provider key SECRET with SQL details"))
+    response = client.post(
+        f"/courses/{course['id']}/market-demand/chat",
+        headers=teacher_auth_headers,
+        json={"message": "Explain", "workspace_context": context(run_id=str(run.id))},
+    )
+    frames = _parse_sse(response.text)
+    error = next(e["data"] for e in frames if e["event"] == "error")
+    assert error["code"] == "execution_failed"
+    assert error["message"] and error["recovery"]
+    assert "SECRET" not in response.text and "SQL details" not in response.text
+    assert frames[-1]["data"]["outcome"] == "failed"
+
+
+def test_final_checkpoint_failure_does_not_claim_completed_reply(
+    db_session, client, teacher_auth_headers, live_graph, monkeypatch
+):
+    from tests.modules.test_market_demand import _parse_sse
+
+    course, run, _, service, _ = seed_review(db_session, client, teacher_auth_headers)
+    model, graph, state = live_graph
+    state(service.thread_id(course["id"], course["teacher_id"]))
+    original_put = graph.checkpointer.aput
+
+    async def fail_reply_checkpoint(config, checkpoint, metadata, versions):
+        messages = checkpoint["channel_values"].get("messages", [])
+        if messages and isinstance(messages[-1], AIMessage):
+            raise RuntimeError("checkpoint credential SECRET")
+        return await original_put(config, checkpoint, metadata, versions)
+
+    monkeypatch.setattr(graph.checkpointer, "aput", fail_reply_checkpoint)
+    model.replies.append(AIMessage(content="A reply is not terminal proof."))
+    response = client.post(
+        f"/courses/{course['id']}/market-demand/chat",
+        headers=teacher_auth_headers,
+        json={"message": "Explain", "workspace_context": context(run_id=str(run.id))},
+    )
+    frames = _parse_sse(response.text)
+    assert frames[-1]["data"]["outcome"] == "failed"
+    assert any(e["event"] == "error" for e in frames)
+    assert "SECRET" not in response.text
+
+
+def test_detached_real_graph_reply_restores_unknown_without_terminal_proof(
+    db_session, client, teacher_auth_headers, live_graph
+):
+    import asyncio
+    import threading
+
+    from app.modules.marketdemandanalyst.routes import _sse_stream
+    from app.modules.marketdemandanalyst.thread_state_service import ThreadStateService
+
+    course, _, _, service, _ = seed_review(db_session, client, teacher_auth_headers)
+    model, graph, state = live_graph
+    thread = service.thread_id(course["id"], course["teacher_id"])
+    state(thread)
+    entered, proceed = threading.Event(), threading.Event()
+
+    def delayed_reply():
+        entered.set()
+        assert proceed.wait(5)
+        return AIMessage(content="Reply checkpointed after detachment")
+
+    model.replies.append(delayed_reply)
+    owner = ThreadStateService()
+
+    async def detach():
+        lease = await owner.claim(thread)
+        stream = _sse_stream(
+            graph,
+            {
+                "messages": [
+                    HumanMessage(id="detached-user", content="Continue workflow")
+                ]
+            },
+            {"configurable": {"thread_id": thread}},
+            bound_state={},
+            lease=lease,
+            state_service=owner,
+        )
+        # The real model is blocked before token output, so cancellation of only
+        # the browser waiter must retain the producer and its PostgreSQL lease.
+        waiter = asyncio.create_task(anext(stream))
+        assert await asyncio.to_thread(entered.wait, 3)
+        waiter.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiter
+        await stream.aclose()
+        return lease
+
+    lease = client.portal.call(detach)
+    try:
+        observed = client.portal.call(ThreadStateService().execution_status, thread)
+        assert observed.status == "busy"
+    finally:
+        proceed.set()
+        client.portal.call(asyncio.wait_for, lease.finished.wait(), 5)
+    assert (
+        state(thread).values["messages"][-1].content
+        == "Reply checkpointed after detachment"
+    )
+    response = client.get(
+        f"/courses/{course['id']}/market-demand/history", headers=teacher_auth_headers
+    )
+    restored = response.json()
+    assert restored["outcome"] == "unknown"
+    assert restored["messages"][0]["id"] == "detached-user"
+    assert restored["messages"][-1]["content"] == "Reply checkpointed after detachment"
+    assert "outcome" not in state(thread).values

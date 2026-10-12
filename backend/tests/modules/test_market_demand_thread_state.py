@@ -130,10 +130,14 @@ async def test_disconnect_keeps_guard_until_late_tool_finishes_and_persists(db_s
         lease=lease,
         state_service=service,
     )
-    await anext(stream)
+    detached_frames = [await anext(stream)]
     await stream.aclose()
+    assert not any("event: stream_end" in frame for frame in detached_frames)
+    assert (
+        await ThreadStateService().execution_status("disconnect-course")
+    ).status == "busy"
     with pytest.raises(ThreadBusy):
-        await service.claim("disconnect-course")
+        await ThreadStateService().claim("disconnect-course")
     worker_continue.set()
     await asyncio.wait_for(lease.finished.wait(), 5)
     restored = await service.load("disconnect-course")
@@ -924,3 +928,58 @@ def test_execution_status_route_observes_owned_course_and_rejects_other_owners(
     finally:
         repository.release(connection, thread_id)
     assert client.get(url, headers=teacher_auth_headers).json()["status"] == "idle"
+
+
+@pytest.mark.anyio
+async def test_terminal_waits_for_final_sql_and_reports_failed_write():
+    import json
+    import threading
+
+    from langchain_core.messages import AIMessageChunk
+
+    from app.core.database import SessionLocal
+    from app.modules.marketdemandanalyst.repository import ThreadStateRepository
+    from app.modules.marketdemandanalyst.routes import _sse_stream
+    from app.modules.marketdemandanalyst.thread_state_service import ThreadStateService
+
+    entered, proceed = threading.Event(), threading.Event()
+
+    class FailingFinalWrite(ThreadStateRepository):
+        def save(self, thread_id, snapshot):
+            entered.set()
+            assert proceed.wait(5)
+            raise RuntimeError("SQL credential SECRET")
+
+    class Graph:
+        async def astream(self, *args, **kwargs):
+            yield ("supervisor:test",), (AIMessageChunk(content="Reply"), {})
+
+    service = ThreadStateService(FailingFinalWrite(SessionLocal))
+    lease = await service.claim("failed-final-sql")
+    frames = []
+
+    async def consume():
+        async for frame in _sse_stream(
+            Graph(), {}, {}, bound_state={}, lease=lease, state_service=service
+        ):
+            frames.append(frame)
+
+    consumer = asyncio.create_task(consume())
+    try:
+        assert await asyncio.to_thread(entered.wait, 3)
+        assert (
+            await ThreadStateService().execution_status(lease.thread_id)
+        ).status == "busy"
+        assert not any("event: stream_end" in frame for frame in frames)
+    finally:
+        proceed.set()
+        await asyncio.wait_for(consumer, 5)
+        await asyncio.wait_for(lease.finished.wait(), 5)
+    data = [json.loads(frame.split("data: ")[1]) for frame in frames]
+    assert data[-1]["outcome"] == "failed"
+    error = next(frame for frame in data if frame["type"] == "error")
+    assert error["code"] == "persistence_failed"
+    assert "SECRET" not in "".join(frames)
+    assert (
+        await ThreadStateService().execution_status(lease.thread_id)
+    ).status == "idle"

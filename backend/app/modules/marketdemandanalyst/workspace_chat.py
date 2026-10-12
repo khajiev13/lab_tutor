@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from langchain_core.tools import StructuredTool
 from langgraph.runtime import Runtime
 from langgraph_swarm import SwarmState
+from pydantic import ValidationError
 
 from app.core.database import SessionLocal
 
@@ -16,6 +17,7 @@ from .repository import MarketReviewRepository
 from .review_service import SkillReviewService
 from .schemas import (
     RecommendationChange,
+    ResolvedContextMetadata,
     ResolvedWorkspaceContext,
     SkillReview,
     SkillReviewRevision,
@@ -174,3 +176,37 @@ async def workspace_review(
             ),
         ]
     }
+
+
+def safe_workspace_metadata(value: object) -> dict | None:
+    """Restore only context facts, never retained source or model payloads."""
+    try:
+        metadata = ResolvedContextMetadata.model_validate(value).model_dump(mode="json")
+    except ValidationError:
+        return None
+    source_fields = {
+        "excerpt",
+        "source_excerpt",
+        "raw_payload",
+        "model_bundle",
+        "payload",
+        "description",
+        "description_text",
+        "original_description",
+        "source_text",
+        "original_phrase",
+        "content",
+    }
+
+    def redact(item):
+        if isinstance(item, dict):
+            return {
+                key: redact(val)
+                for key, val in item.items()
+                if key not in source_fields
+            }
+        if isinstance(item, list):
+            return [redact(val) for val in item]
+        return item
+
+    return redact(metadata)

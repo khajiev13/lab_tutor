@@ -375,3 +375,14 @@ class ResolvedWorkspaceContext(BaseModel):
     revision: SkillReviewRevision | None = None
     model_bundle: dict[str, Any]
     history_metadata: ResolvedContextMetadata
+
+
+class MarketStreamError(BaseModel):
+    code: Literal[
+        "execution_failed",
+        "execution_interrupted",
+        "persistence_failed",
+        "context_stale",
+    ]
+    message: str
+    recovery: str

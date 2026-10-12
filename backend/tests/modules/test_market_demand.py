@@ -332,7 +332,7 @@ class TestChatSSE:
 
         tool_end = next(e for e in events if e["event"] == "tool_end")
         assert tool_end["data"]["toolCallId"] == tc_id
-        assert tool_end["data"]["status"] == "success"
+        assert tool_end["data"]["status"] == "finished"
 
     @patch("app.modules.marketdemandanalyst.routes.get_graph")
     def test_tool_args_accumulated_across_chunks(self, mock_get_graph, auth_client):
@@ -1558,3 +1558,117 @@ class TestCurriculumMappingValidation:
         assert "skill_concepts" not in state_mod.tool_store
         assert "insertion_results" not in state_mod.tool_store
         assert "_cleaned_results" not in state_mod.tool_store
+
+
+@patch("app.modules.marketdemandanalyst.routes.get_graph")
+def test_history_redacts_context_payload_and_keeps_unfinished_tool_unknown(
+    mock_get_graph, client, teacher_auth_headers
+):
+    course_id = _create_course(client, teacher_auth_headers)
+    metadata = {
+        "kind": "run_review",
+        "intent": "explain",
+        "metric": "frequency",
+        "matching_count": 1,
+        "included_count": 1,
+        "omitted_count": 0,
+        "facts": [
+            {
+                "candidate_id": "candidate",
+                "postings": [
+                    {
+                        "snapshot_id": "posting",
+                        "excerpt": "retained secret excerpt",
+                        "raw_payload": {"private": "retained raw payload"},
+                    }
+                ],
+            }
+        ],
+        "model_bundle": {"source": "retained model evidence"},
+    }
+    graph = MagicMock()
+    graph.aget_state = AsyncMock(
+        return_value=SimpleNamespace(
+            values={
+                "messages": [
+                    HumanMessage(
+                        content="Old context",
+                        id="old-user",
+                        additional_kwargs={"workspace_context": metadata},
+                    ),
+                    AIMessage(
+                        content="Partial reply",
+                        name="workspace_review",
+                        tool_calls=[
+                            {
+                                "id": "unfinished",
+                                "name": "propose_skill_selection",
+                                "args": {},
+                            }
+                        ],
+                    ),
+                    HumanMessage(content="Legacy turn", id="legacy-user"),
+                    AIMessage(content="Legacy reply", name="supervisor"),
+                ]
+            }
+        )
+    )
+    mock_get_graph.return_value = (graph, None)
+    response = client.get(
+        f"/courses/{course_id}/market-demand/history", headers=teacher_auth_headers
+    )
+    data = response.json()
+    assert [m["content"] for m in data["messages"]] == [
+        "Old context",
+        "Partial reply",
+        "Legacy turn",
+        "Legacy reply",
+    ]
+    assert data["outcome"] == "unknown"
+    assert data["messages"][1]["toolCalls"][0]["status"] == "unknown"
+    assert (
+        data["messages"][0]["workspace_context"]["facts"][0]["postings"][0][
+            "snapshot_id"
+        ]
+        == "posting"
+    )
+    assert "retained" not in json.dumps(data["messages"][0]["workspace_context"])
+
+
+@pytest.mark.anyio
+async def test_string_tool_completion_preserves_authoritative_source_failure():
+    from app.modules.marketdemandanalyst import state
+    from app.modules.marketdemandanalyst.routes import _sse_stream
+
+    class Graph:
+        async def astream(self, *args, **kwargs):
+            state.tool_store["source_outcomes"] = {
+                "headhunter": {
+                    "status": "failed",
+                    "received_count": 0,
+                    "usable_count": 0,
+                }
+            }
+            yield (
+                ("supervisor:test",),
+                (
+                    ToolMessage(
+                        content="Collection finished with no usable results",
+                        tool_call_id="fetch",
+                        name="fetch_jobs",
+                    ),
+                    {},
+                ),
+            )
+
+    frames = _parse_sse(
+        "".join([frame async for frame in _sse_stream(Graph(), {}, {}, bound_state={})])
+    )
+    tool = next(e["data"] for e in frames if e["event"] == "tool_end")
+    assert tool["status"] == "finished"
+    outcomes = next(
+        e["data"]["value"]
+        for e in frames
+        if e["event"] == "state_update" and e["data"]["stateKey"] == "source_outcomes"
+    )
+    assert outcomes["headhunter"]["status"] == "failed"

@@ -55,6 +55,7 @@ from .schemas import (
     IntegrationApprovalResult,
     JobSource,
     JobSourceOption,
+    MarketStreamError,
     SkillReview,
     SkillReviewDraft,
     SkillReviewRevision,
@@ -75,7 +76,7 @@ from .thread_state_service import (
     ThreadStateService,
     get_thread_state_service,
 )
-from .workspace_chat import WorkspaceRuntimeContext
+from .workspace_chat import WorkspaceRuntimeContext, safe_workspace_metadata
 from .workspace_service import WorkspaceContextService
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,7 @@ router = APIRouter(prefix="/courses", tags=["market-demand"])
 # Agent display metadata (shared with frontend via agent_start events)
 AGENT_META: dict[str, dict[str, str]] = {
     "supervisor": {"displayName": "Supervisor", "emoji": "📊"},
+    "workspace_review": {"displayName": "Evidence assistant", "emoji": "🤖"},
     "skill_finder": {"displayName": "Skill Finder", "emoji": "🔍"},
     "curriculum_mapper": {"displayName": "Curriculum Mapper", "emoji": "🗺️"},
     "skill_cleaner": {"displayName": "Skill Cleaner", "emoji": "🧹"},
@@ -340,6 +342,34 @@ async def _load_persisted_state(thread_id: str) -> dict[str, Any] | None:
     return None
 
 
+def _stream_error(
+    exc: BaseException, *, persistence: bool = False
+) -> MarketStreamError:
+    if persistence:
+        return MarketStreamError(
+            code="persistence_failed",
+            message="The conversation could not be saved completely.",
+            recovery="Refresh the conversation and review before taking another action.",
+        )
+    if isinstance(exc, asyncio.CancelledError):
+        return MarketStreamError(
+            code="execution_interrupted",
+            message="The server execution was interrupted.",
+            recovery="Refresh execution status and the conversation before retrying.",
+        )
+    if isinstance(exc, HTTPException) and exc.status_code == 409:
+        return MarketStreamError(
+            code="context_stale",
+            message="The evidence or saved shortlist changed during this question.",
+            recovery="Refresh context and ask again using the current review.",
+        )
+    return MarketStreamError(
+        code="execution_failed",
+        message="The assistant could not finish this conversation turn.",
+        recovery="Refresh execution status, conversation and review before retrying.",
+    )
+
+
 async def _sse_stream(
     graph: Any,
     input_data: dict,
@@ -385,9 +415,11 @@ async def _sse_stream(
     # comments during silent periods (e.g. the fan-out extraction runs for several
     # minutes emitting no SSE-visible messages, which triggers Azure's 240-second
     # TCP idle timeout and kills the connection).
-    _queue: asyncio.Queue[tuple | Exception | None] = asyncio.Queue()
+    _queue: asyncio.Queue[tuple | MarketStreamError | None] = asyncio.Queue()
+    outcome = "completed"
 
     async def _graph_producer() -> None:
+        saving = False
         try:
             # Bind inside the producer: its tasks and synchronous LangChain tools
             # inherit this execution's mapping rather than the request's context.
@@ -412,10 +444,15 @@ async def _sse_stream(
                         and persistence_policy == "workflow_snapshot"
                         and isinstance(item[1][0], ToolMessage)
                     ):
+                        saving = True
                         await state_service.save(lease, snapshot_state(bound_state))
+                        saving = False
                     await _queue.put(item)
+        except asyncio.CancelledError as exc:
+            await _queue.put(_stream_error(exc))
         except Exception as exc:
-            await _queue.put(exc)
+            logger.exception("Graph execution failed")
+            await _queue.put(_stream_error(exc, persistence=saving))
         finally:
 
             async def finalize():
@@ -425,10 +462,13 @@ async def _sse_stream(
                             # Shielded adapters retain actual executor tasks. Drain
                             # them before capturing state or releasing SQL ownership.
                             if lease.tool_tasks:
-                                await asyncio.gather(
+                                results = await asyncio.gather(
                                     *lease.tool_tasks, return_exceptions=True
                                 )
                                 lease.tool_tasks.clear()
+                                for result in results:
+                                    if isinstance(result, BaseException):
+                                        await _queue.put(_stream_error(result))
                             if persistence_policy == "workflow_snapshot":
                                 await state_service.save(
                                     lease, snapshot_state(bound_state)
@@ -437,7 +477,7 @@ async def _sse_stream(
                             await state_service.release(lease)
                 except Exception as exc:
                     logger.exception("Failed to persist completed graph execution")
-                    await _queue.put(exc)
+                    await _queue.put(_stream_error(exc, persistence=True))
                 finally:
                     await _queue.put(None)
 
@@ -452,6 +492,15 @@ async def _sse_stream(
 
     try:
         logger.info("[PERF] SSE stream starting (thread=%s)", thread_id)
+        if runtime_context is not None and runtime_context.resolved is not None:
+            human = input_data["messages"][-1]
+            yield _sse(
+                "context_resolved",
+                {
+                    "messageId": human.id,
+                    "workspace_context": human.additional_kwargs["workspace_context"],
+                },
+            )
         while True:
             try:
                 item = await asyncio.wait_for(_queue.get(), timeout=30.0)
@@ -462,8 +511,10 @@ async def _sse_stream(
 
             if item is None:
                 break
-            if isinstance(item, Exception):
-                raise item
+            if isinstance(item, MarketStreamError):
+                outcome = "failed"
+                yield _sse("error", item.model_dump())
+                continue
 
             ns, (msg, _metadata) = item
             now = time.perf_counter()
@@ -492,8 +543,13 @@ async def _sse_stream(
             if isinstance(msg, HumanMessage):
                 continue
 
-            if isinstance(msg, AIMessageChunk):
+            if isinstance(msg, (AIMessage, AIMessageChunk)):
                 agent = _resolve_agent(ns)
+                if not ns and (
+                    msg.name == "workspace_review"
+                    or _metadata.get("langgraph_node") == "workspace_review"
+                ):
+                    agent = "workspace_review"
 
                 # Emit agent_start when agent switches
                 if agent != current_agent:
@@ -545,7 +601,15 @@ async def _sse_stream(
                         )
 
                 # Tool call chunks — accumulate args before emitting
-                for tc in msg.tool_call_chunks or []:
+                chunks = (
+                    msg.tool_call_chunks
+                    if isinstance(msg, AIMessageChunk)
+                    else [
+                        {**call, "args": json.dumps(call["args"]), "index": index}
+                        for index, call in enumerate(msg.tool_calls)
+                    ]
+                )
+                for tc in chunks or []:
                     tc_id = tc.get("id") or ""
                     tc_name = tc.get("name") or ""
                     tc_args = tc.get("args") or ""
@@ -646,7 +710,7 @@ async def _sse_stream(
                         "toolCallId": tc_id,
                         "toolName": msg.name or "",
                         "result": parsed,
-                        "status": "success",
+                        "status": "error" if msg.status == "error" else "finished",
                     },
                 )
 
@@ -713,7 +777,12 @@ async def _sse_stream(
                 prev_state = new_state
 
     except Exception as exc:
-        logger.exception("Graph stream error: %s", exc)
+        outcome = "failed"
+        logger.exception("Graph stream rendering failed")
+        # The owned producer still drains; wait for its finalization before ending
+        # an attached response even if presentation failed.
+        await asyncio.shield(_producer)
+        yield _sse("error", _stream_error(exc).model_dump())
     finally:
         if lease is None:
             _producer.cancel()
@@ -732,7 +801,7 @@ async def _sse_stream(
         thread_id,
         current_agent,
     )
-    yield _sse("stream_end", {})
+    yield _sse("stream_end", {"outcome": outcome})
 
 
 class ChatRequest(BaseModel):
@@ -1037,7 +1106,19 @@ async def market_demand_chat(
                         "recovery": "Recover the workflow, then refresh context",
                     },
                 )
-            input_data = {"messages": [HumanMessage(content=body.message)]}
+            input_data = {
+                "messages": [
+                    HumanMessage(
+                        id=f"user-{uuid.uuid4().hex}",
+                        content=body.message,
+                        additional_kwargs={
+                            "workspace_context": safe_workspace_metadata(
+                                resolved.history_metadata
+                            )
+                        },
+                    )
+                ]
+            }
         else:
             # Restore and validate durable configuration before graph work.
             t0 = time.perf_counter()
@@ -1075,7 +1156,9 @@ async def market_demand_chat(
 
             config = {"configurable": {"thread_id": thread_id}}
             input_data = {
-                "messages": [HumanMessage(content=body.message)],
+                "messages": [
+                    HumanMessage(id=f"user-{uuid.uuid4().hex}", content=body.message)
+                ],
                 "course_id": course.id,
                 "course_title": course.title,
                 "course_description": course.description or "",
@@ -1197,12 +1280,12 @@ async def get_conversation_history(
         _restore_thread_state(persisted, course)
 
     if not state or not state.values:
-        return {"messages": [], "threadId": thread_id}
+        return {"messages": [], "threadId": thread_id, "outcome": "unknown"}
 
     raw_messages = state.values.get("messages", [])
     if not raw_messages:
         logger.info("[PERF] /history: no messages found")
-        return {"messages": [], "threadId": thread_id}
+        return {"messages": [], "threadId": thread_id, "outcome": "unknown"}
 
     logger.info("[PERF] /history: converting %d raw messages", len(raw_messages))
 
@@ -1216,8 +1299,12 @@ async def get_conversation_history(
             if current_agent_msg:
                 chat_messages.append(current_agent_msg)
                 current_agent_msg = None
+            metadata = safe_workspace_metadata(
+                msg.additional_kwargs.get("workspace_context")
+            )
             chat_messages.append(
                 {
+                    **({"workspace_context": metadata} if metadata is not None else {}),
                     "id": msg.id or f"user-{len(chat_messages)}",
                     "role": "user",
                     "content": msg.content,
@@ -1253,7 +1340,7 @@ async def get_conversation_history(
                         "id": tc.get("id", ""),
                         "name": tc.get("name", ""),
                         "args": tc.get("args", {}),
-                        "status": "success",
+                        "status": "unknown",
                     }
                 )
 
@@ -1262,6 +1349,7 @@ async def get_conversation_history(
             if current_agent_msg:
                 for tc in current_agent_msg["toolCalls"]:
                     if tc["id"] == msg.tool_call_id:
+                        tc["status"] = "error" if msg.status == "error" else "finished"
                         try:
                             tc["result"] = (
                                 json.loads(msg.content)
@@ -1283,7 +1371,7 @@ async def get_conversation_history(
         len(chat_messages),
         thread_id,
     )
-    return {"messages": chat_messages, "threadId": thread_id}
+    return {"messages": chat_messages, "threadId": thread_id, "outcome": "unknown"}
 
 
 def _extract_agent_from_message(msg: AIMessage | AIMessageChunk) -> str:
