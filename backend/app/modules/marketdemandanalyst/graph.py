@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from collections.abc import Sequence
@@ -33,9 +34,10 @@ from .workspace_chat import WorkspaceRuntimeContext, route_entry, workspace_revi
 
 logger = logging.getLogger(__name__)
 
-# ── Shared async checkpointer (lazy-init) ──────────────────────
+# ── App-owned async checkpoint storage ────────────────────────
 _ASYNC_CHECKPOINTER: AsyncPostgresSaver | None = None
 _CONN_POOL: AsyncConnectionPool | None = None
+_CHECKPOINT_INIT_LOCK: asyncio.Lock | None = None
 
 
 def _get_checkpoint_db_url() -> str:
@@ -52,41 +54,72 @@ def _get_checkpoint_db_url() -> str:
 
 
 async def _get_async_checkpointer() -> AsyncPostgresSaver:
-    """Return the shared checkpointer backed by a connection pool.
-
-    Uses AsyncConnectionPool so each checkpoint operation gets a fresh
-    connection, avoiding idle-timeout drops during long tool calls.
-    """
-    global _ASYNC_CHECKPOINTER, _CONN_POOL  # noqa: PLW0603
-    if _ASYNC_CHECKPOINTER is None:
+    """Return ready storage; failed or concurrent setup never exposes a partial saver."""
+    global _ASYNC_CHECKPOINTER, _CONN_POOL, _CHECKPOINT_INIT_LOCK  # noqa: PLW0603
+    if _CHECKPOINT_INIT_LOCK is None:
+        _CHECKPOINT_INIT_LOCK = asyncio.Lock()
+    async with _CHECKPOINT_INIT_LOCK:
+        if _ASYNC_CHECKPOINTER is not None:
+            return _ASYNC_CHECKPOINTER
         t0 = time.perf_counter()
-        conn_string = _get_checkpoint_db_url()
-        kwargs = {
-            "conninfo": conn_string,
-            "min_size": 1,
-            "max_size": 5,
-            "max_idle": 120,
-            "check": AsyncConnectionPool.check_connection,
-            "kwargs": {
+        pool = AsyncConnectionPool(
+            conninfo=_get_checkpoint_db_url(),
+            min_size=1,
+            max_size=5,
+            max_idle=120,
+            check=AsyncConnectionPool.check_connection,
+            kwargs={
                 "autocommit": True,
                 "prepare_threshold": 0,
                 "row_factory": dict_row,
             },
-        }
-        _CONN_POOL = AsyncConnectionPool(**kwargs, open=False)
-        await _CONN_POOL.open()
-        pool_ms = (time.perf_counter() - t0) * 1000
-        logger.info("[PERF] Checkpointer pool opened in %.1fms", pool_ms)
-        t1 = time.perf_counter()
-        _ASYNC_CHECKPOINTER = AsyncPostgresSaver(conn=_CONN_POOL)
-        await _ASYNC_CHECKPOINTER.setup()
-        setup_ms = (time.perf_counter() - t1) * 1000
+            open=False,
+        )
+        try:
+            await pool.open()
+            saver = AsyncPostgresSaver(conn=pool)
+            await saver.setup()
+        except BaseException:
+            # Includes startup cancellation. A later call must create a fresh pool
+            # and finish real migrations, not reuse a partially initialized saver.
+            await pool.close()
+            raise
+        _CONN_POOL = pool
+        _ASYNC_CHECKPOINTER = saver
         logger.info(
-            "[PERF] Checkpointer setup took %.1fms (total init %.1fms)",
-            setup_ms,
+            "[PERF] Checkpoint storage ready in %.1fms",
             (time.perf_counter() - t0) * 1000,
         )
-    return _ASYNC_CHECKPOINTER
+        return saver
+
+
+async def initialize_market_checkpoint_storage() -> None:
+    """Migrate storage before serving requests, without creating an LLM/graph.
+
+    PostgreSQL concurrent index creation waits for older read transactions.
+    Running setup inside an authenticated request can wait on that same request's
+    auth session, which cannot close until the request finishes.
+    """
+    await _get_async_checkpointer()
+
+
+async def close_market_checkpoint_storage() -> None:
+    """Release app-owned storage after requests drain, including startup failures."""
+    global _ASYNC_CHECKPOINTER, _CONN_POOL, _CHECKPOINT_INIT_LOCK  # noqa: PLW0603
+    global _COMPILED_GRAPH, _LLM_INSTANCE  # noqa: PLW0603
+    if _CHECKPOINT_INIT_LOCK is None:
+        return
+    async with _CHECKPOINT_INIT_LOCK:
+        pool = _CONN_POOL
+        _ASYNC_CHECKPOINTER = None
+        _CONN_POOL = None
+        _COMPILED_GRAPH = None
+        _LLM_INSTANCE = None
+        if pool is not None:
+            await pool.close()
+    # Locks with waiters and psycopg pools belong to the old event loop. A new
+    # application lifespan must not inherit either of them (including in tests).
+    _CHECKPOINT_INIT_LOCK = None
 
 
 def _create_llm() -> ChatOpenAI:

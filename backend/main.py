@@ -691,10 +691,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     else:
         app.state.neo4j_driver = neo4j_result
 
-    yield
+    from app.modules.marketdemandanalyst.graph import (
+        close_market_checkpoint_storage,
+        initialize_market_checkpoint_storage,
+    )
 
-    if app.state.neo4j_driver is not None:
-        app.state.neo4j_driver.close()
+    try:
+        # Wait until startup transactions have closed before concurrent-index
+        # migrations. No authenticated request may hold an older snapshot yet.
+        await initialize_market_checkpoint_storage()
+        yield
+    finally:
+        try:
+            await close_market_checkpoint_storage()
+        finally:
+            if app.state.neo4j_driver is not None:
+                app.state.neo4j_driver.close()
 
 
 app = FastAPI(
