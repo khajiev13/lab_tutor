@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
@@ -239,15 +239,16 @@ function AppRoutes() {
   );
 }
 
-function App() {
+export function AppShell() {
   return (
-    <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
         <Toaster richColors position="top-right" />
       </AuthProvider>
-    </BrowserRouter>
   );
 }
+
+const appRouter = createBrowserRouter([{path: '*', element: <AppShell/>}]);
+function App() {return <RouterProvider router={appRouter}/>;}
 
 export default App;

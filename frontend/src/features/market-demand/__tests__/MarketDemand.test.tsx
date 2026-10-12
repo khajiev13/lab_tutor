@@ -1,9 +1,26 @@
-import { useState } from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 
+const TestChildren = createContext<React.ReactNode>(null);
+function RouterContents() {return useContext(TestChildren);}
+const testRouters: ReturnType<typeof createMemoryRouter>[] = [];
+afterEach(() => {testRouters.splice(0).forEach(router => router.dispose());});
+function TestRouter({children}: {children: React.ReactNode}) {
+ const [router] = useState(() => {const value = createMemoryRouter([{path:"*",element:<RouterContents/>}],{initialEntries:["/courses/1/market-analyst"]}); testRouters.push(value); return value;});
+ useEffect(() => () => router.dispose(), [router]);
+ return <TestChildren.Provider value={children}><RouterProvider router={router}/></TestChildren.Provider>;
+}
+const workspaceObservers = new Map<Element,ResizeObserverCallback>();
+function measureWorkspace(entries: ResizeObserverEntry[], observer: ResizeObserver) {for (const entry of entries) workspaceObservers.get(entry.target)?.([entry],observer);}
+vi.stubGlobal("ResizeObserver", class {callback:ResizeObserverCallback; constructor(callback: ResizeObserverCallback){this.callback=callback;} observe(node:Element){workspaceObservers.set(node,this.callback);} disconnect(){}});
+const compareFailure=vi.hoisted(() => ({enabled:false}));
+vi.mock('@/features/market-demand/components/WorkspaceCompare',async () => {
+ const actual=await vi.importActual<typeof import('@/features/market-demand/components/WorkspaceCompare')>('@/features/market-demand/components/WorkspaceCompare');
+ return {default:(props:import('@/features/market-demand/components/WorkspaceDataTable').WorkspaceViewProps) => {if(compareFailure.enabled) throw new Error('Chart-view loading failed'); return <actual.default {...props}/>;}};
+});
 // ── Mocks (before imports) ──────────────────────────────────
 
 vi.mock("sonner", () => ({
@@ -40,12 +57,14 @@ import type {
   ChatMessage,
   PipelineStageId,
   StageStatus,
+  SendCommand,
+  SendResult,
 } from "@/features/market-demand/types";
 import type { UseAgentStreamReturn } from "@/features/market-demand/hooks/useAgentStream";
 import { useAgentStream } from "@/features/market-demand/hooks/useAgentStream";
-vi.mock("@/features/market-demand/api", () => ({fetchJobSources: vi.fn(async () => [{id:"indeed",label:"Indeed",availability:"available",reason:null},{id:"linkedin",label:"LinkedIn",availability:"available",reason:null}]), confirmOnetOccupations:vi.fn(), fetchOnetReleases:vi.fn(async()=>({items:[{version:"31.0",active:true,attribution:"O*NET"}]})), searchOnetOccupations:vi.fn(async()=>({items:[{soc_code:"15-2051.00",title:"Data Scientists",description:"Analyze data"}],total:1,release:"31.0"}))}));
+vi.mock("@/features/market-demand/api", async () => ({skillReviewErrorMessage: (await vi.importActual<typeof import("@/features/market-demand/api")>("@/features/market-demand/api")).skillReviewErrorMessage,fetchJobSources: vi.fn(async () => [{id:"indeed",label:"Indeed",availability:"available",reason:null},{id:"linkedin",label:"LinkedIn",availability:"available",reason:null}]), confirmOnetOccupations:vi.fn(), saveSkillReviewDraft:vi.fn(), getOccupationSkills:vi.fn(), fetchOnetReleases:vi.fn(async()=>({items:[{version:"31.0",active:true,attribution:"O*NET"}]})), searchOnetOccupations:vi.fn(async()=>({items:[{soc_code:"15-2051.00",title:"Data Scientists",description:"Analyze data"}],total:1,release:"31.0"}))}));
 
-import { confirmOnetOccupations } from "@/features/market-demand/api";
+import { confirmOnetOccupations, saveSkillReviewDraft, getOccupationSkills } from "@/features/market-demand/api";
 
 import { ChatInput } from "@/features/market-demand/components/ChatInput";
 import { ConnectionStatus } from "@/features/market-demand/components/ConnectionStatus";
@@ -114,9 +133,17 @@ function mockStreamReturn(overrides: Partial<UseAgentStreamReturn> = {}): UseAge
 
 beforeEach(() => {
   vi.clearAllMocks();
+  compareFailure.enabled=false;
+  vi.mocked(confirmOnetOccupations).mockReset();
+  vi.mocked(saveSkillReviewDraft).mockReset();
   vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
 });
 
+async function ensureSetup() {
+ if (!screen.queryByRole("region",{name:"Analysis setup"})) fireEvent.click(screen.getByRole("button",{name:"Analysis setup"}));
+ await screen.findByRole("checkbox",{name:"Job postings"});
+ await act(async () => {await Promise.resolve();});
+}
 // ── ChatInput ───────────────────────────────────────────────
 
 function ControlledChatInput({onSend, isStreaming}: {onSend: (text: string) => void; isStreaming: boolean}) {
@@ -227,11 +254,11 @@ describe("MarketDemandPage", () => {
       "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
 
     expect(useAgentStream).toHaveBeenCalledWith(1, null, null);
   });
@@ -241,11 +268,11 @@ describe("MarketDemandPage", () => {
       "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
 
     expect(screen.getByRole("combobox", { name: /market country/i })).toHaveTextContent(
       "Choose country"
@@ -258,11 +285,11 @@ describe("MarketDemandPage", () => {
     );
     const user = userEvent.setup();
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
 
     await user.click(screen.getByRole("combobox", { name: /market country/i }));
     await user.click(await screen.findByRole("option", { name: "China" }));
@@ -278,11 +305,11 @@ describe("MarketDemandPage", () => {
       "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
 
     expect(screen.getByPlaceholderText("Type your response...")).toBeDisabled();
     expect(screen.getByRole("combobox", { name: /market country/i })).toHaveAttribute(
@@ -305,11 +332,11 @@ describe("MarketDemandPage", () => {
       "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
 
     expect(
       await screen.findByRole("combobox", { name: /market country/i })
@@ -321,32 +348,32 @@ describe("MarketDemandPage", () => {
       "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
     // Both breadcrumb and empty state heading contain the text
     const els = screen.getAllByText(/market demand analyst/i);
     expect(els.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows prompt suggestions on empty state", async () => {
+  it("shows actionable analysis setup on empty state", async () => {
     const { default: MarketDemandPage } = await import(
       "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
     expect(
-      screen.getByText(/analyze the job market/i)
+      screen.getByRole("button",{name:"Start an analysis"})
     ).toBeInTheDocument();
   });
 
-  it("calls send when a prompt suggestion is clicked", async () => {
+  it("starts an explicit workflow from the analysis action", async () => {
     const send = vi.fn();
     vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({ send }));
 
@@ -355,13 +382,13 @@ describe("MarketDemandPage", () => {
     );
     const user = userEvent.setup();
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
 
-    const suggestion = screen.getByText(/analyze the job market/i);
+    const suggestion = screen.getByRole("button",{name:"Start an analysis"});
     await screen.findByRole("checkbox", {name:"Indeed"});
     await user.click(suggestion);
     expect(send).toHaveBeenCalledTimes(1);
@@ -395,19 +422,20 @@ describe("MarketDemandPage", () => {
       "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
 
     expect(screen.getByText("Hello agent")).toBeInTheDocument();
     expect(screen.getByText("I found some jobs")).toBeInTheDocument();
   });
 
-  it("shows the selected job market country in the state panel", async () => {
+  it("uses source summary from the review instead of another thread state", async () => {
     vi.mocked(useAgentStream).mockReturnValue(
       mockStreamReturn({
+        skillReview: {...(await import("@/features/market-demand/__tests__/review-fixtures")).reviewFixture(),analysis_metadata:{country:"Uzbekistan",job_sources:["headhunter"],evidence_sources:["jobs"],onet_release:null,occupations:[],created_at:"2026-10-01",updated_at:"2026-10-02"}},
         agentState: {
           ...EMPTY_STATE,
           job_search_country: "China",
@@ -421,20 +449,21 @@ describe("MarketDemandPage", () => {
       "@/features/market-demand/pages/MarketDemandPage"
     );
     render(
-      <MemoryRouter>
+      <TestRouter>
         <MarketDemandPage />
-      </MemoryRouter>
+      </TestRouter>
     );
-    if (!screen.queryByText("Restoring conversation...")) await screen.findByRole("checkbox", {name:"Indeed"});
+    if (!screen.queryByText("Restoring conversation...")) await ensureSetup();
 
-    expect(screen.getByText(/market: China/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Analysis source summary")).toHaveTextContent("Market: Uzbekistan · Job sources: headhunter");
+    expect(screen.getByLabelText("Analysis source summary")).not.toHaveTextContent("China");
   });
 });
 
 it("renders Uzbekistan as a supported market choice", async()=>{
  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
  const {default:Page}=await import("@/features/market-demand/pages/MarketDemandPage");
- render(<MemoryRouter><Page/></MemoryRouter>);
+ render(<TestRouter><Page/></TestRouter>);
  const user=userEvent.setup();
  await user.click(screen.getByRole("combobox",{name:/Market country/}));
  expect(await screen.findByRole("option",{name:"Uzbekistan"})).toBeInTheDocument();
@@ -443,7 +472,8 @@ it("renders Uzbekistan as a supported market choice", async()=>{
 it("shows source failures separately from successful empty collections",async()=>{
  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({agentState:{...EMPTY_STATE,source_outcomes:{headhunter:{status:"error",received_count:0,usable_count:0,warnings:["Provider unavailable"]},linkedin:{status:"empty",received_count:0,usable_count:0,warnings:[]}}}}));
  const {default:Page}=await import("@/features/market-demand/pages/MarketDemandPage");
- render(<MemoryRouter><Page/></MemoryRouter>);
+ render(<TestRouter><Page/></TestRouter>);
+ await ensureSetup();
  expect(screen.getByText(/headhunter: error/i)).toBeInTheDocument();
  expect(screen.getByText(/linkedin: empty/i)).toBeInTheDocument();
  expect(screen.getByText("Provider unavailable")).toBeInTheDocument();
@@ -457,7 +487,7 @@ it("keeps input disabled when restoring saved source choices fails", async () =>
     retryRestoration: retry,
   }));
   const {default: Page} = await import("@/features/market-demand/pages/MarketDemandPage");
-  render(<MemoryRouter><Page/></MemoryRouter>);
+  render(<TestRouter><Page/></TestRouter>);
   await screen.findByRole("checkbox", {name: "Indeed"});
   expect(screen.getByPlaceholderText("Type your response...")).toBeDisabled();
   expect(screen.getByText("State unavailable")).toBeInTheDocument();
@@ -467,7 +497,7 @@ it("keeps input disabled when restoring saved source choices fails", async () =>
 });
 
 
-it("does not restore an old occupation confirmation after clearing the analysis", async () => {
+it("blocks New analysis while an occupation confirmation is pending", async () => {
   let finish!: (value: never) => void;
   vi.mocked(confirmOnetOccupations).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
   const clear = vi.fn(async () => undefined);
@@ -479,7 +509,8 @@ it("does not restore an old occupation confirmation after clearing the analysis"
     agentState: {...EMPTY_STATE,run_id:"run-1",sources:["headhunter"],evidence_sources:["onet"],onet_release:"31.0",selected_onet_occupations:["15-2051.00"]},
   }));
   const {default: Page} = await import("@/features/market-demand/pages/MarketDemandPage");
-  const {rerender} = render(<MemoryRouter><Page/></MemoryRouter>);
+  render(<TestRouter><Page/></TestRouter>);
+  await ensureSetup();
   await waitFor(() => {
     const release = screen.getByRole("combobox", { name: "O*NET release" }) as HTMLSelectElement;
     const loading = !!screen.queryByText("Loading O*NET catalog…");
@@ -491,15 +522,11 @@ it("does not restore an old occupation confirmation after clearing the analysis"
   }, { timeout: 10000 });
   fireEvent.click(screen.getByRole("button", {name:"Confirm occupations"}));
   await waitFor(() => expect(confirmOnetOccupations).toHaveBeenCalled());
-  fireEvent.click(screen.getByRole("button", {name:"Clear"}));
-  fireEvent.click(screen.getByRole("button", {name:"Delete"}));
-  await waitFor(() => expect(clear).toHaveBeenCalled());
-  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
-  rerender(<MemoryRouter><Page/></MemoryRouter>);
+  expect(screen.getByRole("button",{name:"New analysis"})).toBeDisabled();
+  expect(clear).not.toHaveBeenCalled();
   await act(async () => {finish(null as never);});
-  expect(refresh).not.toHaveBeenCalled();
-  expect(vi.mocked(useAgentStream)).toHaveBeenLastCalledWith(1, null, null);
-  expect(screen.queryByRole("button", {name:"Confirm occupations"})).not.toBeInTheDocument();
+  expect(refresh).toHaveBeenCalledOnce();
+
 });
 
 it("locks market and source settings during occupation confirmation", async () => {
@@ -509,7 +536,7 @@ it("locks market and source settings during occupation confirmation", async () =
     agentState: {...EMPTY_STATE, run_id:"run-1", evidence_sources:["onet"], onet_release:"31.0", selected_onet_occupations:["15-2051.00"]},
   }));
   const {default: Page} = await import("@/features/market-demand/pages/MarketDemandPage");
-  render(<MemoryRouter><Page/></MemoryRouter>);
+  render(<TestRouter><Page/></TestRouter>);
   await waitFor(() => {
     const release = screen.getByRole("combobox", { name: "O*NET release" }) as HTMLSelectElement;
     const loading = !!screen.queryByText("Loading O*NET catalog…");
@@ -527,4 +554,198 @@ it("locks market and source settings during occupation confirmation", async () =
   } finally {
     await act(async () => { finish(null as never); });
   }
+});
+
+
+it("splits at actual content width 1000 and retains the mounted composer at 999", async () => {
+ const {default:Page} = await import("@/features/market-demand/pages/MarketDemandPage");
+ render(<TestRouter><Page/></TestRouter>);
+ await screen.findByRole("button",{name:"Start an analysis"});
+ const workspace = screen.getByLabelText("Teacher evidence workspace");
+ const resize = (width:number) => act(() => measureWorkspace([{contentRect:{width},target:workspace} as unknown as ResizeObserverEntry],{} as ResizeObserver));
+ resize(999); expect(screen.getByRole("tab",{name:"Conversation"})).toBeInTheDocument();
+ fireEvent.click(screen.getByRole("tab",{name:"Conversation"}));
+ const composer=screen.getByPlaceholderText("Type your response..."); fireEvent.change(composer,{target:{value:"Keep this draft"}});
+ fireEvent.click(screen.getByRole("tab",{name:"Workspace"}));
+ resize(1000); expect(screen.queryByRole("tab",{name:"Conversation"})).not.toBeInTheDocument();
+ expect(screen.getByPlaceholderText("Type your response...")).toBe(composer); expect(composer).toHaveValue("Keep this draft");
+});
+
+async function openReviewWorkspace(overrides: Partial<UseAgentStreamReturn> = {}) {
+ const {workspaceReviewFixture} = await import('@/features/market-demand/__tests__/review-fixtures');
+ const review = workspaceReviewFixture();
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:review,...overrides}));
+ const {default:Page} = await import('@/features/market-demand/pages/MarketDemandPage');
+ const rendered=render(<TestRouter><Page/></TestRouter>);
+ await act(async () => {await Promise.resolve();});
+ const node=screen.getByLabelText('Teacher evidence workspace');
+ act(() => measureWorkspace([{contentRect:{width:1000},target:node} as unknown as ResizeObserverEntry],{} as ResizeObserver));
+ return {review,...rendered};
+}
+it('ordinary questions remain minimal Run Explain after inspecting a chart', async () => {
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({send});
+ fireEvent.click(screen.getByRole('button',{name:'Inspect Python'}));
+ fireEvent.change(screen.getByPlaceholderText('Type your response...'),{target:{value:'What does this analysis show?'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(() => expect(send).toHaveBeenCalledOnce());
+ expect(send.mock.calls[0][0]).toMatchObject({mode:'contextual',context:{intent:'explain',focused_candidate_id:null,candidate_ids:[],occupation_codes:[],filters:{scope:'all',search:'',category_ids:[]}}});
+});
+it('Ask stages editable context only and completed send removes focus without losing typed follow-up', async () => {
+ let finish!: (result: {outcome:'completed'}) => void;
+ const send=vi.fn<(command:SendCommand)=>Promise<SendResult>>(() => new Promise<{outcome:'completed'}>(resolve => {finish=resolve;}));
+ await openReviewWorkspace({send});
+ fireEvent.click(screen.getByRole('button',{name:'Inspect Python'}));
+ fireEvent.click(within(screen.getByRole('region',{name:'Focused evidence'})).getByRole('button',{name:'Ask about Python'}));
+ expect(send).not.toHaveBeenCalled(); expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+ expect(screen.getByLabelText('Attached context')).toHaveTextContent('Python');
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ fireEvent.change(screen.getByPlaceholderText('Type your response...'),{target:{value:'A new question'}});
+ await act(async () => finish({outcome:'completed'}));
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('A new question');
+ expect(screen.getByLabelText('Attached context')).toHaveTextContent('No focused skills');
+ expect(send.mock.calls[0][0]).toMatchObject({mode:'contextual',context:{intent:'explain'}});
+});
+it('retains all source, view and composer state when New analysis rejects', async () => {
+ const clear=vi.fn(async () => {throw new Error('Analysis still running');});
+ await openReviewWorkspace({clearConversation:clear});
+ fireEvent.click(screen.getByRole('button',{name:'Data'}));
+ fireEvent.change(screen.getByPlaceholderText('Type your response...'),{target:{value:'Keep question'}});
+ fireEvent.click(screen.getByRole('button',{name:'New analysis'}));
+ expect(screen.getByText(/current analysis will no longer be resumable/i)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Start new analysis'}));
+ await screen.findByText('Analysis still running');
+ expect(screen.getByLabelText('Evidence data')).toBeInTheDocument();
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('Keep question');
+ expect(screen.getByLabelText('Analysis source summary')).toHaveTextContent('headhunter');
+ expect(clear).toHaveBeenCalledOnce();
+});
+it('Cancel New analysis makes no reset request and dirty save must acknowledge before reset', async () => {
+ const clear=vi.fn(async () => undefined);
+ const {review}=await openReviewWorkspace({clearConversation:clear});
+ fireEvent.click(screen.getByRole('button',{name:'New analysis'})); fireEvent.click(screen.getByRole('button',{name:'Cancel'})); expect(clear).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));
+ fireEvent.click(screen.getByRole('button',{name:'New analysis'}));
+ let finish!: () => void;
+ vi.mocked(saveSkillReviewDraft).mockImplementationOnce(() => new Promise(resolve => {finish=()=>resolve({...review,selection_revision:3,selected_candidate_ids:[review.candidates[0].candidate_id]});}));
+ fireEvent.click(screen.getByRole('button',{name:'Save and start new analysis'}));
+ await waitFor(() => expect(saveSkillReviewDraft).toHaveBeenCalledOnce()); expect(clear).not.toHaveBeenCalled();
+ await act(async () => finish()); await waitFor(() => expect(clear).toHaveBeenCalledOnce());
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('');
+ expect(screen.getByRole('region',{name:'Analysis setup'})).toBeInTheDocument();
+});
+it('failed dirty save keeps the analysis and never requests reset', async () => {
+ const clear=vi.fn(async () => undefined);
+ await openReviewWorkspace({clearConversation:clear});
+ vi.mocked(saveSkillReviewDraft).mockRejectedValueOnce(new Error('Save offline'));
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));
+ fireEvent.click(screen.getByRole('button',{name:'New analysis'})); fireEvent.click(screen.getByRole('button',{name:'Save and start new analysis'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Save offline'); expect(clear).not.toHaveBeenCalled(); expect(screen.getByRole('checkbox',{name:'Select Python',hidden:true})).toBeChecked();
+});
+it('locks shortlist mutations when reconciliation cannot restore the workspace', async () => {
+ await openReviewWorkspace({isRestored:false,error:'Snapshot unavailable'});
+ expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeDisabled();
+});
+it('preserves an explicit role descriptor in inspector Ask context', async () => {
+ const {workspaceReviewFixture,workspaceEvidenceFixture,workspaceSoc,workspaceEvidenceId} = await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=workspaceReviewFixture(); const association=workspaceEvidenceFixture();
+ review.candidates[0].onet_associations=[association,workspaceEvidenceFixture({id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',element_id:'other',label:'Other descriptor'})];
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({skillReview:review,send});
+ fireEvent.click(screen.getByRole('button',{name:'Compare'}));
+ fireEvent.click(await screen.findByRole('checkbox',{name:'Display Developer'}));
+ fireEvent.click(screen.getByRole('button',{name:'Data'}));
+ fireEvent.change(screen.getByRole('combobox',{name:'Compare occupation'}),{target:{value:workspaceSoc}});
+ fireEvent.change(screen.getByRole('combobox',{name:'Descriptor for Python · Developer'}),{target:{value:workspaceEvidenceId}});
+ fireEvent.click(screen.getByRole('button',{name:'Inspect Python'}));
+ fireEvent.click(within(screen.getByRole('region',{name:'Focused evidence'})).getByRole('button',{name:'Ask about Python'}));
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(() => expect(send).toHaveBeenCalledOnce());
+ expect(send.mock.calls[0][0].context.descriptor_choices).toEqual([{candidate_id:review.candidates[0].candidate_id,evidence_id:workspaceEvidenceId}]);
+});
+it('offers Data filters from the same local shortlist without posting', async () => {
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({send});
+ fireEvent.click(screen.getByRole('button',{name:'Data'}));
+ fireEvent.click(screen.getByRole('checkbox',{name:'Only shortlisted skills'}));
+ expect(screen.getByText('No matching skills. Change the filters to inspect evidence.')).toBeInTheDocument();
+ expect(send).not.toHaveBeenCalled(); expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+});
+
+it('keeps Data and shortlist usable when the lazy Compare view fails', async () => {
+ await openReviewWorkspace(); compareFailure.enabled=true;
+ const logged=vi.spyOn(console,'error').mockImplementation(() => {});
+ try {
+  fireEvent.click(screen.getByRole('button',{name:'Compare'}));
+  await screen.findByText('Charts unavailable. Open Data to inspect the evidence and shortlist.');
+  expect(logged).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'Data'}));
+  expect(screen.getByLabelText('Evidence data')).toBeInTheDocument();
+  expect(screen.getAllByRole('checkbox',{name:'Select Python'}).length).toBeGreaterThan(0);
+ } finally {logged.mockRestore();}
+});
+it('shows unread messages on the narrow tab without switching panes or remounting the composer', async () => {
+ const {rerender}=await openReviewWorkspace();
+ const workspace=screen.getByLabelText('Teacher evidence workspace');
+ act(() => measureWorkspace([{contentRect:{width:999},target:workspace} as unknown as ResizeObserverEntry],{} as ResizeObserver));
+ const composer=screen.getByPlaceholderText('Type your response...');
+ const current=vi.mocked(useAgentStream).mock.results.at(-1)!.value;
+ vi.mocked(useAgentStream).mockReturnValue({...current,messages:[{id:'new',role:'agent',content:'New evidence explanation',toolCalls:[],isStreaming:false}]});
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.getByLabelText('New conversation messages')).toBeInTheDocument();
+ expect(screen.getByRole('tab',{name:'Workspace'})).toHaveAttribute('aria-selected','true');
+ expect(screen.getByPlaceholderText('Type your response...')).toBe(composer);
+});
+
+it('returns to minimal Run Explain after an explicitly staged reference answer', async () => {
+ const {workspaceReviewFixture,workspaceEvidenceFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review={...workspaceReviewFixture(),candidates:[]};
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ vi.mocked(getOccupationSkills).mockResolvedValue({release:'31.0',soc_code:'15-2051.00',items:[workspaceEvidenceFixture({release:'31.0',soc_code:'15-2051.00',occupation_title:'Data Scientists'}).evidence]});
+ await openReviewWorkspace({skillReview:review,send});
+ fireEvent.click(screen.getByRole('button',{name:'Explore O*NET occupations'}));
+ await waitFor(() => expect(screen.getByRole('button',{name:'Search'})).toBeEnabled());
+ fireEvent.change(screen.getByRole('textbox',{name:'Search occupations'}),{target:{value:'data'}});
+ fireEvent.click(screen.getByRole('button',{name:'Search'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Browse Data Scientists (15-2051.00)'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Ask about Programming'}));
+ expect(send).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(() => expect(send).toHaveBeenCalledOnce());
+ expect(send.mock.calls[0][0]).toMatchObject({mode:'contextual',context:{kind:'occupation_reference'}});
+ await waitFor(() => expect(screen.getByLabelText('Attached context')).toHaveTextContent('Review attachment'));
+ expect(screen.getByLabelText('Attached context')).toHaveTextContent('No focused skills');
+});
+
+it('retains explicitly replaced Ask context while a prior response completes', async () => {
+ const {workspaceReviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=workspaceReviewFixture(); review.candidates.push({...review.candidates[0],candidate_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',display_name:'SQL'});
+ let finish!: (result:SendResult)=>void;
+ const send=vi.fn<(command:SendCommand)=>Promise<SendResult>>(() => new Promise(resolve => {finish=resolve;}));
+ await openReviewWorkspace({skillReview:review,send});
+ fireEvent.click(screen.getByRole('button',{name:'Inspect Python'}));
+ fireEvent.click(within(screen.getByRole('region',{name:'Focused evidence'})).getByRole('button',{name:'Ask about Python'}));
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ fireEvent.click(screen.getByRole('button',{name:'Inspect SQL'}));
+ fireEvent.click(within(screen.getByRole('region',{name:'Focused evidence'})).getByRole('button',{name:'Ask about SQL'}));
+ await act(async () => finish({outcome:'completed'}));
+ expect(screen.getByLabelText('Attached context')).toHaveTextContent('SQL');
+ fireEvent.change(screen.getByPlaceholderText('Type your response...'),{target:{value:'Keep SQL replacement'}});
+ expect(screen.getByLabelText('Attached context')).toHaveTextContent('SQL');
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('Keep SQL replacement');
+});
+it('retains selected draft and focused inspector across narrow panes', async () => {
+ await openReviewWorkspace();
+ const workspace=screen.getByLabelText('Teacher evidence workspace');
+ act(() => measureWorkspace([{contentRect:{width:999},target:workspace} as unknown as ResizeObserverEntry],{} as ResizeObserver));
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));
+ fireEvent.click(screen.getByRole('button',{name:'Inspect Python'}));
+ fireEvent.click(screen.getByRole('tab',{name:/^Conversation/}));
+ fireEvent.change(screen.getByPlaceholderText('Type your response...'),{target:{value:'Preserved question'}});
+ fireEvent.click(screen.getByRole('tab',{name:'Workspace'}));
+ expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
+ expect(screen.getByRole('region',{name:'Focused evidence'})).toHaveTextContent('Python');
+ fireEvent.click(screen.getByRole('tab',{name:/^Conversation/}));
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('Preserved question');
 });

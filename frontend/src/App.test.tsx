@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const auth = vi.hoisted(() => ({authenticated:true,loading:false}));
 vi.mock('@/features/auth/context/AuthContext', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useAuth: () => ({
@@ -13,8 +14,8 @@ vi.mock('@/features/auth/context/AuthContext', () => ({
       role: 'student',
       created_at: '2026-04-15T00:00:00Z',
     },
-    isAuthenticated: true,
-    isLoading: false,
+    isAuthenticated: auth.authenticated,
+    isLoading: auth.loading,
     isServerWakingUp: false,
     login: vi.fn(),
     register: vi.fn(),
@@ -71,20 +72,27 @@ vi.mock('@/features/student-learning-path/pages/StudentLearningPathStudyPage', (
 }));
 vi.mock('@/features/auth/pages/Profile', () => ({ default: () => <div>Profile</div> }));
 
-import App from './App';
+import {AppShell} from './App';
+import {createMemoryRouter, RouterProvider} from 'react-router-dom';
+const routers: ReturnType<typeof createMemoryRouter>[] = [];
 
 function renderAppAt(pathname: string) {
-  window.history.pushState({}, '', pathname);
-  render(<App />);
+  const router=createMemoryRouter([{path:'*',element:<AppShell/>}],{initialEntries:[pathname]}); routers.push(router);
+  render(<RouterProvider router={router}/>);
 }
 
 describe('App routing', () => {
+  it('protects a market deep link and redirects signed-out users to Login', async () => {auth.authenticated=false; renderAppAt('/courses/1/market-analyst'); expect(await screen.findByText('Login')).toBeInTheDocument(); expect(screen.queryByText('Market Demand')).not.toBeInTheDocument();});
+  it('redirects authenticated users from public routes', async () => {renderAppAt('/login'); expect(await screen.findByText('Dashboard')).toBeInTheDocument();});
+  it('preserves the market workspace deep link', () => {renderAppAt('/courses/1/market-analyst'); expect(screen.getByText('Market Demand')).toBeInTheDocument();});
+  it('preserves the agents hub route', () => {renderAppAt('/courses/1'); expect(screen.getByText('Agent Hub')).toBeInTheDocument();});
   beforeEach(() => {
+    auth.authenticated=true; auth.loading=false;
     window.history.pushState({}, '', '/');
   });
 
   afterEach(() => {
-    cleanup();
+    cleanup(); routers.splice(0).forEach(router => router.dispose());
   });
 
   it('keeps dashboard chrome on the learning-path route', () => {

@@ -1,9 +1,18 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import type { AgentState, JobSourceAvailability } from "@/features/market-demand/types";
 
+import {createContext, useContext, useState} from "react";
+const TestChildren = createContext<React.ReactNode>(null);
+function RouterContents() {return useContext(TestChildren);}
+const routers: ReturnType<typeof createMemoryRouter>[] = [];
+afterEach(() => {routers.splice(0).forEach(router => router.dispose());});
+function TestRouter({children}: {children: React.ReactNode}) {
+ const [router]=useState(() => {const value=createMemoryRouter([{path:"*",element:<RouterContents/>}],{initialEntries:["/courses/1/market-analyst"]}); routers.push(value); return value;});
+ return <TestChildren.Provider value={children}><RouterProvider router={router}/></TestChildren.Provider>;
+}
 const context = vi.hoisted(() => ({ courseId: 1 }));
 vi.mock("@/features/courses/context/CourseDetailContext", () => ({
   CourseDetailProvider: ({children}: {children: React.ReactNode}) => <>{children}</>,
@@ -85,12 +94,12 @@ describe("shared teacher source configuration", () => {
       onEvent({type:"text_done",messageId:"a1"});
       onEvent({type:"stream_end", outcome:"completed"});
     });
-    render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+    render(<TestRouter><MarketDemandPage/></TestRouter>);
     const user = userEvent.setup();
     expect(await screen.findByRole("checkbox", {name:"HeadHunter"}, {timeout: 10000})).toBeChecked();
     expect(screen.getByRole("checkbox", {name:"Indeed"})).toBeDisabled();
     expect(screen.getByRole("checkbox", {name:"LinkedIn"})).not.toBeChecked();
-    await user.click(screen.getByText("Analyze the job market for this course and find relevant postings"));
+    await user.click(screen.getByRole("button",{name:"Start an analysis"}));
     await user.click(await screen.findByRole("button", {name:"Select all"}));
     await user.click(screen.getByRole("button", {name:/Confirm Selection/}));
     await user.type(screen.getByPlaceholderText("Type your response..."), "Continue with my selected sources{enter}");
@@ -110,7 +119,7 @@ describe("shared teacher source configuration", () => {
 
   it("blocks collection when provider catalog fails instead of using defaults", async () => {
     vi.mocked(fetchJobSources).mockRejectedValueOnce(new Error("Catalog offline"));
-    render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+    render(<TestRouter><MarketDemandPage/></TestRouter>);
     expect(await screen.findByText(/Source catalog unavailable: Catalog offline/)).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Type your response...")).toBeDisabled();
     expect(streamMarketDemandChat).not.toHaveBeenCalled();
@@ -119,10 +128,10 @@ describe("shared teacher source configuration", () => {
   it("does not apply an old course provider catalog to the new course", async () => {
     let finishOld!: (items: JobSourceAvailability[]) => void;
     vi.mocked(fetchJobSources).mockImplementationOnce(() => new Promise(resolve => {finishOld = resolve;}));
-    const {rerender} = render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+    const {rerender} = render(<TestRouter><MarketDemandPage/></TestRouter>);
     await waitFor(() => expect(fetchJobSources).toHaveBeenCalledWith(1, "Uzbekistan", expect.any(AbortSignal)));
     context.courseId = 2;
-    rerender(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+    rerender(<TestRouter><MarketDemandPage/></TestRouter>);
     expect(await screen.findByRole("checkbox", {name:"HeadHunter"}, {timeout: 10000})).toBeInTheDocument();
     await act(async () => {finishOld([{id:"indeed",label:"Old course provider",availability:"available",reason:null}]);});
     expect(screen.queryByRole("checkbox", {name:"Old course provider"})).not.toBeInTheDocument();
@@ -133,9 +142,11 @@ it("renders the durable nested review without treating extracted category prose 
   const {reviewFixture} = await import("@/features/market-demand/__tests__/review-fixtures");
   vi.mocked(fetchSkillReview).mockResolvedValue(reviewFixture());
   vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",extracted_skills:[{name:"Legacy Python",category:"legacy",frequency:1,pct:100}]});
-  render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+  render(<TestRouter><MarketDemandPage/></TestRouter>);
   expect(await screen.findByRole("checkbox",{name:"Select Python"},{timeout:10000})).toBeInTheDocument();
   expect(screen.queryByText("Select Skill Categories")).not.toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("button",{name:"Analysis setup"}));
+  expect(screen.getByRole("checkbox",{name:"O*NET references"})).toBeDisabled();
   await userEvent.setup().click(screen.getByRole("checkbox",{name:"Select Python"}));
   expect(streamMarketDemandChat).not.toHaveBeenCalled();
 });
@@ -154,7 +165,7 @@ it.each(["enable", "release"])("confirms pending %s configuration locally before
  vi.mocked(fetchOnetReleases).mockResolvedValue({items:[{version:"30.0",active:false,attribution:"O*NET"},{version:"31.0",active:true,attribution:"O*NET"}]});
  vi.mocked(searchOnetOccupations).mockResolvedValue({items:[{soc_code:"15-2051.00",title:"Data Scientists",description:"Analyze data"}],total:1,release:"31.0"});
  vi.mocked(confirmOnetOccupations).mockRejectedValue(new Error("Durable configuration has not enabled this release"));
- render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+ render(<TestRouter><MarketDemandPage/></TestRouter>);
  const user=userEvent.setup();
  await screen.findByRole("checkbox",{name:"HeadHunter"},{timeout:10000});
  if(change==="enable") await user.click(screen.getByRole("checkbox",{name:"O*NET references"}));
@@ -178,7 +189,9 @@ it("prevents configuration changes after collection starts",async()=>{
  const saved = await fetchSkillReview(1);
  vi.mocked(fetchSkillReview).mockResolvedValue({...saved,run_id:"run-1"});
  vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",source_outcomes:{headhunter:{status:"success",received_count:1,usable_count:1,warnings:[]}}});
- render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
+ render(<TestRouter><MarketDemandPage/></TestRouter>);
+ await screen.findByText(/Source settings|No skills are available/);
+ await userEvent.setup().click(screen.getByRole("button",{name:"Analysis setup"}));
  const provider=await screen.findByRole("checkbox",{name:"HeadHunter"},{timeout:10000});
  expect(screen.getByRole("checkbox",{name:"O*NET references"})).toBeDisabled();
  expect(provider).toBeDisabled();
