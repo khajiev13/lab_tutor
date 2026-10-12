@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { useSkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
-import { reconciliationA, reconciliationFixture, reviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
+import { reconciliationA, reconciliationB, reconciliationFixture, reviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
 import type { SkillReview } from "@/features/market-demand/types";
 
 vi.mock("@/features/market-demand/api", async () => ({
@@ -185,4 +185,118 @@ it("locks local selection actions immediately when a save begins", async () => {
   });
   expect(result.current.draft.selected_candidate_ids).toEqual(["python"]);
   await act(async () => {finish({...review, selected_candidate_ids: ["python"], selection_revision: 3}); await pending;});
+});
+
+it.each(["candidate", "category", "proposal", "reconciliation", "incoming", "undo", "view"] as const)("ignores retained %s actions after the course/run changes", action => {
+  const review = {...reconciliationFixture(), recommendations: [{id: "proposal", candidate_revision: 1, base_selection_revision: 2, changes: [{candidate_id: "python", action: "add" as const, reason: "Relevant"}]}]};
+  const {result, rerender, onReviewChange} = setup({...review, selected_candidate_ids: [], excluded_candidate_ids: []});
+  act(() => result.current.setCandidate("reference", true));
+  const retained = result.current;
+  const next = {...review, run_id: "run-2", selected_candidate_ids: [], excluded_candidate_ids: []};
+  rerender({courseId: 2, review: next, onReviewChange});
+  act(() => result.current.setCandidate("sql", true));
+  act(() => result.current.updateView({filters: {category_ids: [], search: "current", scope: "all"}}));
+  rerender({courseId: 2, review: {...next, candidate_revision: 2}, onReviewChange});
+  act(() => {
+    if (action === "candidate") retained.setCandidate("python", true);
+    if (action === "category") retained.setCategory("tools", true);
+    if (action === "proposal") retained.applyProposal("proposal");
+    if (action === "reconciliation") retained.acknowledgeReconciliation(reconciliationA);
+    if (action === "incoming") retained.acknowledgeIncomingReview();
+    if (action === "undo") retained.undo();
+    if (action === "view") retained.updateView({filters: {category_ids: [], search: "old", scope: "all"}});
+  });
+  expect(result.current.review?.run_id).toBe("run-2");
+  expect(result.current.draft.selected_candidate_ids).toEqual(["sql"]);
+  expect(result.current.pendingReconciliationIds).toEqual([]);
+  expect(result.current.reviewRequired).toBe(true);
+  expect(result.current.view.filters.search).toBe("current");
+});
+
+it.each(["course", "run", "revision"])("ignores retained selection after a changed %s identity", change => {
+  const review = reviewFixture();
+  const {result, rerender, onReviewChange} = setup(review);
+  const retained = result.current.setCandidate;
+  rerender({courseId: change === "course" ? 2 : 1, review: {...review, run_id: change === "run" ? "run-2" : "run-1", candidate_revision: change === "revision" ? 2 : 1}, onReviewChange});
+  act(() => result.current.setCandidate("sql", true));
+  act(() => retained("python", true));
+  expect(result.current.draft.selected_candidate_ids).toEqual(["sql"]);
+});
+
+it("composes two selection operations without an intervening render", () => {
+  const {result} = setup();
+  act(() => {
+    result.current.setCandidate("python", true);
+    result.current.setCandidate("sql", true);
+  });
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "sql"]);
+  act(() => result.current.undo());
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python"]);
+});
+
+it("uses the current exclusion when a retained proposal applies after another local edit", () => {
+  const review = {...reviewFixture(), recommendations: [{id: "proposal", candidate_revision: 1, base_selection_revision: 2, changes: [
+    {candidate_id: "python", action: "add" as const, reason: "Relevant"},
+    {candidate_id: "sql", action: "add" as const, reason: "Relevant"},
+  ]}]};
+  const {result} = setup(review);
+  const retained = result.current;
+  act(() => result.current.setCandidate("sql", false));
+  act(() => retained.applyProposal("proposal"));
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python"]);
+  expect(result.current.draft.excluded_candidate_ids).toEqual(["sql"]);
+  act(() => retained.undo());
+  expect(result.current.draft.selected_candidate_ids).toEqual([]);
+  expect(result.current.draft.excluded_candidate_ids).toEqual(["sql"]);
+});
+
+it("composes category, exclusion and reconciliation acknowledgements in one turn", () => {
+  const {result} = setup({...reconciliationFixture(), selected_candidate_ids: [], excluded_candidate_ids: []});
+  act(() => {
+    result.current.setCategory("tools", true);
+    result.current.setCandidate("sql", false);
+    result.current.acknowledgeReconciliation(reconciliationA);
+    result.current.acknowledgeReconciliation(reconciliationB);
+  });
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "reference"]);
+  expect(result.current.draft.excluded_candidate_ids).toEqual(["sql"]);
+  expect(result.current.pendingReconciliationIds).toEqual([reconciliationA, reconciliationB]);
+});
+
+it("a retained same-revision save submits the newest local draft", async () => {
+  const review = reviewFixture();
+  const {result} = setup(review);
+  act(() => result.current.setCandidate("python", true));
+  const retainedSave = result.current.save;
+  act(() => result.current.setCandidate("sql", true));
+  vi.mocked(saveSkillReviewDraft).mockImplementation(async (_, body) => ({...review, ...body, selection_revision: 3}));
+  await act(async () => {await retainedSave();});
+  expect(saveSkillReviewDraft).toHaveBeenCalledWith(1, expect.objectContaining({selected_candidate_ids: ["python", "sql"]}));
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "sql"]);
+});
+
+it("starts a save from the latest choices even before React renders them", async () => {
+  const review = reviewFixture();
+  const {result} = setup(review);
+  vi.mocked(saveSkillReviewDraft).mockImplementation(async (_, body) => ({...review, ...body, selection_revision: 3}));
+  await act(async () => {
+    result.current.setCandidate("python", true);
+    result.current.setCandidate("sql", true);
+    await result.current.save();
+  });
+  expect(saveSkillReviewDraft).toHaveBeenCalledWith(1, expect.objectContaining({selected_candidate_ids: ["python", "sql"]}));
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "sql"]);
+});
+
+it("a retained mapping action uses the current dirty flag and saves newer choices first", async () => {
+  const review = reviewFixture();
+  const {result} = setup(review);
+  const retainedMappings = result.current.reviewMappings;
+  act(() => result.current.setCandidate("python", true));
+  const saved = {...review, selected_candidate_ids: ["python"], selection_revision: 5};
+  vi.mocked(saveSkillReviewDraft).mockResolvedValue(saved);
+  vi.mocked(confirmSkillReviewSelection).mockResolvedValue(saved);
+  await act(async () => {await retainedMappings();});
+  expect(saveSkillReviewDraft).toHaveBeenCalledWith(1, expect.objectContaining({selected_candidate_ids: ["python"]}));
+  expect(confirmSkillReviewSelection).toHaveBeenCalledWith(1, expect.objectContaining({expected_selection_revision: 5}));
 });

@@ -69,7 +69,7 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
     view: initialView()}));
   const generation = useRef(0);
   const activeRequest = useRef<number | null>(null);
-  const live = useRef({courseId, review, disabled});
+  const live = useRef({model, disabled, onReviewChange});
 
   if (model.incoming !== review || model.courseId !== courseId) {
     const sameRun = model.courseId === courseId && !!review && model.snapshot?.run_id === review.run_id;
@@ -94,49 +94,65 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
   }
 
   useLayoutEffect(() => {
-    if (live.current.courseId !== courseId || !sameRevision(live.current.review, model.snapshot)) {
+    if (live.current.model.courseId !== courseId || !sameRevision(live.current.model.snapshot, model.snapshot)) {
       generation.current += 1;
       activeRequest.current = null;
     }
-    live.current = {courseId, review: model.snapshot, disabled};
-  }, [courseId, model.snapshot, disabled]);
+    live.current = {model, disabled, onReviewChange};
+  }, [courseId, model, disabled, onReviewChange]);
   useEffect(() => () => {generation.current += 1; activeRequest.current = null;}, []);
 
   const pendingReconciliationIds = model.reconciliationIds;
   const dirty = !sameDraft(model.draft, draftOf(model.snapshot)) || pendingReconciliationIds.length > 0;
 
-
-  const locked = disabled || model.busy;
-  const mutate = (next: SelectionDraft) => {
-    if (locked || activeRequest.current !== null || sameDraft(next, model.draft)) return;
-    setModel({...model, draft: next, undo: model.draft, success: null, error: null});
+  // Mirror the single model synchronously so batched and retained actions see
+  // every preceding local operation, even before React commits another render.
+  const writeModel = (update: (current: typeof model) => typeof model) => {
+    const next = update(live.current.model);
+    if (next === live.current.model) return;
+    live.current = {...live.current, model: next};
+    setModel(next);
+  };
+  const hasCurrentIdentity = () => live.current.model.courseId === courseId &&
+    sameRevision(live.current.model.snapshot, model.snapshot);
+  const updateLocal = (update: (current: typeof model) => typeof model, allowBusy = false) => {
+    if (!hasCurrentIdentity()) return;
+    if (!allowBusy && (live.current.disabled || live.current.model.busy || activeRequest.current !== null)) return;
+    writeModel(update);
+  };
+  const mutate = (update: (current: typeof model) => SelectionDraft) => {
+    updateLocal(current => {
+      const next = update(current);
+      return sameDraft(next, current.draft) ? current : {...current, draft: next, undo: current.draft, success: null, error: null};
+    });
   };
   const revision = (snapshot: SkillReview) => ({run_id: snapshot.run_id!, expected_candidate_revision: snapshot.candidate_revision, expected_selection_revision: snapshot.selection_revision});
 
   const perform = async (action: "save" | "confirm" | "continue"): Promise<SkillReview> => {
-    if (live.current.courseId !== courseId || !sameRevision(live.current.review, model.snapshot)) throw new Error("Skill review changed; use the current review actions");
-    if (!model.snapshot?.run_id || live.current.disabled || activeRequest.current !== null) throw new Error("Skill review is unavailable or busy");
-    if (model.reviewRequired) throw new Error("Review the changed revisions before saving");
-    if (action === "continue" && dirty) throw new Error("Save the draft before acknowledging evidence");
+    if (!hasCurrentIdentity()) throw new Error("Skill review changed; use the current review actions");
+    const current = live.current.model;
+    const requestDirty = !sameDraft(current.draft, draftOf(current.snapshot)) || current.reconciliationIds.length > 0;
+    if (!current.snapshot?.run_id || live.current.disabled || activeRequest.current !== null) throw new Error("Skill review is unavailable or busy");
+    if (current.reviewRequired) throw new Error("Review the changed revisions before saving");
+    if (action === "continue" && requestDirty) throw new Error("Save the draft before acknowledging evidence");
     const request = ++generation.current;
     activeRequest.current = request;
-    setModel(current => ({...current, busy: true, error: null, success: null}));
+    writeModel(current => ({...current, busy: true, error: null, success: null}));
     const assertCurrent = () => {
       if (generation.current !== request) throw new Error("Skill review changed while the request was pending");
     };
     const accept = (response: SkillReview) => {
       assertCurrent();
-      if (response.run_id !== model.snapshot!.run_id) throw new Error("Skill review response belongs to a different run");
-      live.current = {...live.current, review: response};
-      setModel(current => ({...current, snapshot: response, draft: draftOf(response), reconciliationIds: [], reviewRequired: false, undo: null}));
-      onReviewChange(response);
+      if (response.run_id !== current.snapshot!.run_id) throw new Error("Skill review response belongs to a different run");
+      writeModel(current => ({...current, snapshot: response, draft: draftOf(response), reconciliationIds: [], reviewRequired: false, undo: null}));
+      live.current.onReviewChange(response);
       return response;
     };
-    let acknowledged = model.snapshot;
+    let acknowledged = current.snapshot;
     try {
-      if (action === "save" || (action === "confirm" && dirty)) {
-        acknowledged = accept(await saveSkillReviewDraft(courseId, {...revision(acknowledged), ...model.draft,
-          ...(pendingReconciliationIds.length ? {resolved_reconciliation_ids: pendingReconciliationIds} : {})}));
+      if (action === "save" || (action === "confirm" && requestDirty)) {
+        acknowledged = accept(await saveSkillReviewDraft(courseId, {...revision(acknowledged), ...current.draft,
+          ...(current.reconciliationIds.length ? {resolved_reconciliation_ids: current.reconciliationIds} : {})}));
       }
       if (action === "confirm") {
         assertCurrent();
@@ -147,15 +163,15 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
       }
       if (action === "continue") acknowledged = accept(await continueWithAvailableEvidence(courseId, revision(acknowledged)));
       assertCurrent();
-      setModel(current => ({...current, success: action === "save" ? "Draft saved" : action === "confirm" ? "Selection confirmed for mapping" : "Evidence omissions acknowledged; supporting postings are still required"}));
+      writeModel(current => ({...current, success: action === "save" ? "Draft saved" : action === "confirm" ? "Selection confirmed for mapping" : "Evidence omissions acknowledged; supporting postings are still required"}));
       return acknowledged;
     } catch (cause) {
-      if (request === generation.current) setModel(current => ({...current, error: skillReviewErrorMessage(cause, "Skill review request failed")}));
+      if (request === generation.current) writeModel(current => ({...current, error: skillReviewErrorMessage(cause, "Skill review request failed")}));
       throw cause;
     } finally {
       if (request === generation.current) {
         activeRequest.current = null;
-        setModel(current => ({...current, busy: false}));
+        writeModel(current => ({...current, busy: false}));
       }
     }
   };
@@ -165,21 +181,23 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
     reviewRequired: model.reviewRequired, error: model.error, success: model.success, canUndo: !!model.undo,
     reconciliation: model.reconciliation, pendingReconciliationIds,
     needsEvidenceAcknowledgement: needsEvidenceAcknowledgement(model.snapshot),
-    setCandidate: (id, checked) => {if (model.snapshot?.candidates.some(item => item.candidate_id === id)) mutate(applyIndividualSelection(model.draft, id, checked));},
-    setCategory: (id, checked) => mutate(applyCategorySelection(model.draft, model.snapshot?.candidates.filter(item => item.category_id === id).map(item => item.candidate_id) ?? [], checked)),
-    applyProposal: (id, chosenIds) => {
-      const proposal = model.snapshot?.recommendations.find(item => item.id === id);
-      if (!proposal || proposal.candidate_revision !== model.snapshot?.candidate_revision || proposal.base_selection_revision !== model.snapshot.selection_revision) return;
-      const changes = proposal.changes.filter(change => model.snapshot!.candidates.some(item => item.candidate_id === change.candidate_id));
-      mutate(applyRecommendationChanges(model.draft, changes, chosenIds ?? changes.map(change => change.candidate_id)));
-    },
-    acknowledgeReconciliation: (id, checked = true) => {
-      if (locked || activeRequest.current !== null || !model.snapshot?.reconciliations?.some(record => record.reconciliation_id === id && !record.resolved)) return;
-      setModel({...model, reconciliationIds: checked ? [...new Set([...model.reconciliationIds, id])] : model.reconciliationIds.filter(item => item !== id), error: null, success: null});
-    },
-    acknowledgeIncomingReview: () => {if (!locked && activeRequest.current === null) setModel({...model, reviewRequired: false});},
-    updateView: update => setModel(current => ({...current, view: {...current.view, ...update}})),
-    undo: () => {if (!locked && activeRequest.current === null && model.undo) setModel({...model, draft: model.undo, undo: null, success: null, error: null});},
+    setCandidate: (id, checked) => mutate(current => current.snapshot?.candidates.some(item => item.candidate_id === id)
+      ? applyIndividualSelection(current.draft, id, checked) : current.draft),
+    setCategory: (id, checked) => mutate(current => applyCategorySelection(current.draft,
+      current.snapshot?.candidates.filter(item => item.category_id === id).map(item => item.candidate_id) ?? [], checked)),
+    applyProposal: (id, chosenIds) => mutate(current => {
+      const proposal = current.snapshot?.recommendations.find(item => item.id === id);
+      if (!proposal || proposal.candidate_revision !== current.snapshot?.candidate_revision || proposal.base_selection_revision !== current.snapshot.selection_revision) return current.draft;
+      const changes = proposal.changes.filter(change => current.snapshot!.candidates.some(item => item.candidate_id === change.candidate_id));
+      return applyRecommendationChanges(current.draft, changes, chosenIds ?? changes.map(change => change.candidate_id));
+    }),
+    acknowledgeReconciliation: (id, checked = true) => updateLocal(current => {
+      if (!current.snapshot?.reconciliations?.some(record => record.reconciliation_id === id && !record.resolved)) return current;
+      return {...current, reconciliationIds: checked ? [...new Set([...current.reconciliationIds, id])] : current.reconciliationIds.filter(item => item !== id), error: null, success: null};
+    }),
+    acknowledgeIncomingReview: () => updateLocal(current => ({...current, reviewRequired: false})),
+    updateView: update => updateLocal(current => ({...current, view: {...current.view, ...update}}), true),
+    undo: () => updateLocal(current => current.undo ? {...current, draft: current.undo, undo: null, success: null, error: null} : current),
     save: () => perform("save"), reviewMappings: () => perform("confirm"), acknowledgeAvailableEvidence: () => perform("continue"),
     onReviewChange,
   };
