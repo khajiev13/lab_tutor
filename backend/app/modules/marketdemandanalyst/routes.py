@@ -19,7 +19,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -35,6 +35,7 @@ from app.modules.curricularalignmentarchitect.skill_prerequisites.review_reposit
 from app.modules.curricularalignmentarchitect.skill_prerequisites.service import (
     schedule_skill_prerequisite_rebuild as schedule_prerequisite_rebuild,
 )
+from app.modules.occupation_reference.repository import OccupationReferenceRepository
 from app.modules.occupation_reference.service import (
     OccupationReferenceService,
     get_occupation_reference_service,
@@ -58,6 +59,7 @@ from .schemas import (
     SkillReviewDraft,
     SkillReviewRevision,
     VacancyEvidence,
+    WorkspaceContext,
 )
 from .service import MarketConfigurationService
 from .state import (
@@ -73,6 +75,7 @@ from .thread_state_service import (
     ThreadStateService,
     get_thread_state_service,
 )
+from .workspace_service import WorkspaceContextService
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +104,13 @@ def get_skill_review_service(
     repository: MarketReviewRepository = Depends(get_market_review_repository),
 ) -> SkillReviewService:
     return SkillReviewService(repository)
+
+
+def get_workspace_context_service(
+    repository: MarketReviewRepository = Depends(get_market_review_repository),
+    db: Session = Depends(get_db),
+) -> WorkspaceContextService:
+    return WorkspaceContextService(repository, OccupationReferenceRepository(db))
 
 
 def get_skill_evidence_projector(
@@ -707,13 +717,39 @@ async def _sse_stream(
 
 
 class ChatRequest(BaseModel):
-    message: str = ""
+    message: str = Field(default="", max_length=8000)
+    workspace_context: WorkspaceContext | None = None
     sources: list[JobSource] | None = None
     evidence_sources: list[EvidenceSource] | None = None
     onet_release: str | None = None
     onet_occupation_codes: list[str] | None = None
     country: str | None = None
     location: str | None = None  # Deprecated; old clients sent this as country.
+
+    @model_validator(mode="before")
+    @classmethod
+    def contextual_unknown_fields(cls, value):
+        if (
+            isinstance(value, dict)
+            and value.get("workspace_context") is not None
+            and set(value) - set(cls.model_fields)
+        ):
+            raise ValueError("Unknown contextual chat fields")
+        return value
+
+    @model_validator(mode="after")
+    def contextual_configuration(self):
+        configuration = {
+            "sources",
+            "evidence_sources",
+            "onet_release",
+            "onet_occupation_codes",
+            "country",
+            "location",
+        }
+        if self.workspace_context is not None and self.model_fields_set & configuration:
+            raise ValueError("Contextual questions cannot change source configuration")
+        return self
 
 
 @router.get("/{course_id}/market-demand/sources", response_model=list[JobSourceOption])

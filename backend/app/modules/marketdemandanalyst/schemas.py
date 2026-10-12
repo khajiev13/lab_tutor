@@ -1,11 +1,13 @@
 """Versioned market skill review boundary contracts."""
 
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.modules.occupation_reference.schemas import ReleaseVersion, SocCode
 
 JobSource = Literal["indeed", "linkedin", "headhunter"]
 EvidenceSource = Literal["jobs", "onet"]
@@ -231,3 +233,145 @@ class IntegrationApproval(SkillReviewRevision):
 class IntegrationApprovalResult(BaseModel):
     review: SkillReview
     projection_status: Literal["pending", "projected", "error"]
+
+
+# Contextual workspace requests carry identities, never client-supplied evidence.
+InsightKind = Literal["common_sample", "occupation_difference", "shared_importance"]
+WorkspaceMetric = Literal["frequency", "IM", "LV"]
+
+
+class WorkspaceDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def strict_version(cls, value):
+        if (
+            isinstance(value, dict)
+            and "version" in value
+            and type(value["version"]) is not int
+        ):
+            raise ValueError("Context version must be an integer")
+        return value
+
+    @model_validator(mode="after")
+    def bounded_json(self):
+        if len(self.model_dump_json().encode("utf-8")) > 16 * 1024:
+            raise ValueError("Workspace context exceeds 16 KiB")
+        return self
+
+
+class WorkspaceFilters(WorkspaceDTO):
+    category_ids: list[str] = Field(default_factory=list, max_length=10)
+    search: str = Field(default="", max_length=120)
+    scope: Literal["all", "selected"] = "all"
+
+
+class DescriptorChoice(WorkspaceDTO):
+    candidate_id: UUID
+    evidence_id: UUID
+
+
+class RunReviewContext(WorkspaceDTO):
+    kind: Literal["run_review"]
+    version: Literal[1]
+    intent: Literal["explain", "propose_selection"]
+    run_id: UUID
+    expected_candidate_revision: int = Field(ge=0, strict=True)
+    expected_selection_revision: int = Field(ge=0, strict=True)
+    view: Literal["overview", "demand_importance", "occupations", "data"]
+    focused_candidate_id: UUID | None = None
+    candidate_ids: list[UUID] = Field(default_factory=list, max_length=20)
+    filters: WorkspaceFilters = Field(default_factory=WorkspaceFilters)
+    occupation_codes: list[SocCode] = Field(default_factory=list, max_length=5)
+    metric: WorkspaceMetric
+    descriptor_choices: list[DescriptorChoice] = Field(
+        default_factory=list, max_length=20
+    )
+    insight_kind: InsightKind | None = None
+    has_unsaved_changes: bool = Field(default=False, strict=True)
+
+    @field_validator("candidate_ids", "occupation_codes")
+    @classmethod
+    def distinct_ids(cls, value):
+        if len(set(value)) != len(value):
+            raise ValueError("Context IDs must be distinct")
+        return value
+
+
+class OccupationReferenceContext(WorkspaceDTO):
+    kind: Literal["occupation_reference"]
+    version: Literal[1]
+    intent: Literal["explain"]
+    release: ReleaseVersion
+    occupation_codes: list[SocCode] = Field(min_length=1, max_length=5)
+    element_ids: list[Annotated[str, Field(min_length=1, max_length=30)]] = Field(
+        default_factory=list, max_length=20
+    )
+    metric: Literal["IM", "LV"]
+
+    @field_validator("occupation_codes", "element_ids")
+    @classmethod
+    def distinct_ids(cls, value):
+        if len(set(value)) != len(value):
+            raise ValueError("Context IDs must be distinct")
+        return value
+
+
+WorkspaceContext = Annotated[
+    RunReviewContext | OccupationReferenceContext, Field(discriminator="kind")
+]
+
+
+class PatternValue(BaseModel):
+    candidate_id: str
+    occupation_code: str | None = None
+    value: float
+    supporting_count: int | None = None
+    assessed_count: int | None = None
+
+
+class PatternObservation(BaseModel):
+    kind: InsightKind
+    candidate_ids: list[str]
+    occupation_codes: list[str]
+    descriptor_keys: list[tuple[str, str, str]]
+    values: list[PatternValue]
+    coverage: dict[str, Any]
+
+
+class ResolvedContextMetadata(BaseModel):
+    """Persistable facts only; source content stays in the detached model bundle."""
+
+    kind: Literal["run_review", "occupation_reference"]
+    version: Literal[1] = 1
+    intent: Literal["explain", "propose_selection"]
+    run_id: UUID | None = None
+    candidate_revision: int | None = None
+    selection_revision: int | None = None
+    release: str | None = None
+    view: str | None = None
+    metric: WorkspaceMetric
+    occupation_codes: list[str] = Field(default_factory=list)
+    occupations: list[AnalysisOccupation] = Field(default_factory=list)
+    candidate_ids: list[str] = Field(default_factory=list)
+    candidate_labels: dict[str, str] = Field(default_factory=dict)
+    filters: WorkspaceFilters | None = None
+    descriptor_choices: list[DescriptorChoice] = Field(default_factory=list)
+    insight_kind: InsightKind | None = None
+    matching_count: int
+    included_count: int
+    omitted_count: int
+    evidence_included_count: int = 0
+    evidence_omitted_count: int = 0
+    facts: list[dict[str, Any]] = Field(default_factory=list)
+    coverage: dict[str, Any] = Field(default_factory=dict)
+    notices: list[str] = Field(default_factory=list)
+
+
+class ResolvedWorkspaceContext(BaseModel):
+    request: WorkspaceContext
+    intent: Literal["explain", "propose_selection"]
+    revision: SkillReviewRevision | None = None
+    model_bundle: dict[str, Any]
+    history_metadata: ResolvedContextMetadata

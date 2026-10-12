@@ -620,6 +620,25 @@ class MarketReviewRepository:
             )
         }
 
+    def workspace_vacancies(
+        self, run_id: UUID, snapshot_ids: list[UUID]
+    ) -> dict[str, MarketVacancySnapshot]:
+        """Bound source reads to the requested owned run, never another course."""
+        # Twenty explicit candidates plus a separate focus, two sources each.
+        if len(snapshot_ids) > 42:
+            raise ValueError("Workspace posting read exceeds its bound")
+        return {
+            str(row.id): row
+            for row in self._db.scalars(
+                select(MarketVacancySnapshot)
+                .where(
+                    MarketVacancySnapshot.run_id == run_id,
+                    MarketVacancySnapshot.id.in_(snapshot_ids),
+                )
+                .execution_options(populate_existing=True)
+            )
+        }
+
     def onet_evidence(self, run: MarketAnalysisRun) -> dict:
         from app.modules.occupation_reference.models import OnetEvidence
 
