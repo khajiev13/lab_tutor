@@ -947,3 +947,75 @@ def test_no_active_run_has_no_analysis_metadata(client, teacher_auth_headers):
     )
     assert response.status_code == 200
     assert response.json()["analysis_metadata"] is None
+
+
+@pytest.mark.parametrize(
+    "occupation,expected_title",
+    [
+        ({"soc_code": "15-1252.00"}, "15-1252.00"),
+        ({"soc_code": "15-1252.00", "title": None}, "15-1252.00"),
+        ({"soc_code": "15-1252.00", "title": ""}, "15-1252.00"),
+        ({"soc_code": "15-1252.00", "title": " \t\n"}, "15-1252.00"),
+        (
+            {"soc_code": "15-1252.00", "title": "  Software Developers  "},
+            "  Software Developers  ",
+        ),
+    ],
+    ids=["missing-title", "null-title", "empty-title", "blank-title", "stored-title"],
+)
+def test_review_metadata_preserves_legacy_occupation_codes_without_rewriting_config(
+    db_session, client, teacher_auth_headers, occupation, expected_title
+):
+    from copy import deepcopy
+    from datetime import datetime
+
+    from sqlalchemy.orm import Session
+
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+    from app.modules.marketdemandanalyst.review_service import SkillReviewService
+
+    course = _owned_course(client, teacher_auth_headers)
+    config = {
+        "country": "uzbekistan",
+        "sources": ["headhunter"],
+        "evidence_sources": ["jobs", "onet"],
+        "onet_release": "30.1",
+        "selected_onet_occupations": [
+            occupation,
+            {"soc_code": "15-1253.00", "title": "Software Quality Assurance Analysts"},
+        ],
+    }
+    stored_config = deepcopy(config)
+    repo = MarketReviewRepository(db_session)
+    run = repo.create_run(course["id"], course["teacher_id"], config)
+    repo.save_configuration_snapshot(
+        SkillReviewService.thread_id(course["id"], course["teacher_id"]),
+        {"run_id": str(run.id), "onet_release": "other-release"},
+    )
+    db_session.commit()
+    created_at, updated_at = run.created_at, run.updated_at
+    response = client.get(
+        f"/courses/{course['id']}/market-demand/skill-review",
+        headers=teacher_auth_headers,
+    )
+    assert response.status_code == 200
+    review = response.json()
+    assert review["run_id"] == str(run.id)
+    metadata = review["analysis_metadata"]
+    assert metadata["onet_release"] == "30.1"
+    assert metadata["occupations"] == [
+        {"soc_code": "15-1252.00", "title": expected_title},
+        {"soc_code": "15-1253.00", "title": "Software Quality Assurance Analysts"},
+    ]
+    assert datetime.fromisoformat(metadata["created_at"]) == created_at
+    assert datetime.fromisoformat(metadata["updated_at"]) == updated_at
+    assert run.config == stored_config
+    dto = SkillReviewService.review_from_run(run)
+    dto.analysis_metadata.occupations[0].title = "Changed response label"
+    assert run.config == stored_config
+    with Session(bind=db_session.get_bind()) as fresh_session:
+        stored_run = fresh_session.get(MarketAnalysisRun, run.id)
+        assert stored_run.config == stored_config
+        assert stored_run.created_at == created_at
+        assert stored_run.updated_at == updated_at

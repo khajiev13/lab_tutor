@@ -850,6 +850,35 @@ def test_teacher_bank_and_student_insight_share_ids_and_safe_overlays(
     assert bank(client, o)["selected_skill_reference_ids"] == []
 
 
+def _assert_readiness_upgrade_databases(fixture_database, application_database):
+    assert fixture_database in {"lab_tutor_test", "lab_tutor_workspace_test"}
+    assert application_database == fixture_database
+
+
+@pytest.mark.parametrize("database", ["lab_tutor_test", "lab_tutor_workspace_test"])
+def test_readiness_upgrade_database_guard_accepts_exact_disposable_pair(database):
+    _assert_readiness_upgrade_databases(database, database)
+
+
+@pytest.mark.parametrize(
+    "fixture_database,application_database",
+    [
+        ("lab_tutor_test_copy", "lab_tutor_test_copy"),
+        ("production_lab_tutor_test", "production_lab_tutor_test"),
+        ("lab_tutor", "lab_tutor"),
+        ("configured_database", "configured_database"),
+        ("lab_tutor_test", "lab_tutor_workspace_test"),
+        ("lab_tutor_workspace_test", "lab_tutor_test"),
+        ("lab_tutor_workspace_test", "lab_tutor"),
+    ],
+)
+def test_readiness_upgrade_database_guard_rejects_unsafe_or_mismatched_pair(
+    fixture_database, application_database
+):
+    with pytest.raises(AssertionError):
+        _assert_readiness_upgrade_databases(fixture_database, application_database)
+
+
 @pytest.mark.parametrize("gate", ["completed", "waived", "not_started"])
 def test_readiness_marker_upgrade_preserves_old_projected_and_never_rewrites_new_marker(
     db_session, offering, gate
@@ -867,9 +896,10 @@ def test_readiness_marker_upgrade_preserves_old_projected_and_never_rewrites_new
     ).market_gate_status = CourseMarketGateStatus(gate)
     db_session.commit()
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT current_database()")) == "lab_tutor_test"
+        application_database = connection.scalar(text("SELECT current_database()"))
+    fixture_database = db_session.scalar(text("SELECT current_database()"))
     # Only disposable PostgreSQL schema; production/main is never a fallback.
-    assert db_session.scalar(text("SELECT current_database()")) == "lab_tutor_test"
+    _assert_readiness_upgrade_databases(fixture_database, application_database)
     db_session.execute(
         text("ALTER TABLE market_skill_approvals DROP COLUMN readiness_applied")
     )

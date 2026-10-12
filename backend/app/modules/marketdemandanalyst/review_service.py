@@ -247,6 +247,11 @@ class SkillReviewService:
                     ],
                 }
             )
+        occupations = deepcopy(run.config.get("selected_onet_occupations") or [])
+        for occupation in occupations:
+            title = occupation.get("title")
+            if title is None or (isinstance(title, str) and not title.strip()):
+                occupation["title"] = occupation["soc_code"]
         omissions = available_evidence_omissions(run)
         return SkillReview(
             run_id=run.id,
@@ -255,7 +260,7 @@ class SkillReviewService:
                 job_sources=run.config.get("sources") or [],
                 evidence_sources=run.config.get("evidence_sources") or [],
                 onet_release=run.config.get("onet_release"),
-                occupations=run.config.get("selected_onet_occupations") or [],
+                occupations=occupations,
                 created_at=run.created_at,
                 updated_at=run.updated_at,
             ),
