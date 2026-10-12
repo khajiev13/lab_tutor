@@ -851,3 +851,28 @@ it('disables partial-reset retry while busy and offers none for ordinary failed 
  rerender(<TestRouter><Page/></TestRouter>);
  expect(screen.queryByRole('button',{name:'Retry reset'})).not.toBeInTheDocument();
 });
+
+it('preserves dirty view source configuration and input while workflow-only reset recovery blocks normal mutations', async () => {
+ const clear=vi.fn().mockRejectedValueOnce(new Error('Workflow reset offline')).mockResolvedValueOnce(undefined);
+ const {review,rerender}=await openReviewWorkspace({clearConversation:clear});
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));
+ fireEvent.click(screen.getByRole('button',{name:'Data'}));
+ fireEvent.change(screen.getByPlaceholderText('Type your response...'),{target:{value:'Retain workflow follow-up'}});
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:review,isRestored:false,resetRecovery:'required',clearConversation:clear}));
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.getByLabelText('Evidence data')).toBeInTheDocument();
+ expect(screen.getByLabelText('Analysis source summary')).toHaveTextContent('headhunter');
+ for (const checkbox of screen.getAllByRole('checkbox',{name:'Select Python'})) {expect(checkbox).toBeDisabled(); expect(checkbox).toBeChecked();}
+ expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Retry reset'}));
+ expect(screen.queryByRole('button',{name:'Save and start new analysis'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Confirm reset retry'}));
+ await screen.findByText('Workflow reset offline');
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('Retain workflow follow-up');
+ expect(screen.getByLabelText('Evidence data')).toBeInTheDocument();
+ expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Confirm reset retry'}));
+ await waitFor(() => expect(clear).toHaveBeenCalledTimes(2));
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('');
+});

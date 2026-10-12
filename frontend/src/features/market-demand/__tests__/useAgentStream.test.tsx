@@ -369,6 +369,8 @@ it("polls visible busy execution at two seconds then ten, stops hidden and idle,
 });
 
 it("restores unmatched tools as unknown and keeps source outcomes independent of returned text", async () => {
+  // This fixture represents persisted pre-run state, not orphaned checkpoints after reset.
+  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status: "idle", state_updated_at: "2026-10-13T12:00:00Z"});
   vi.mocked(fetchConversationHistory).mockResolvedValue({threadId: "t", outcome: "unknown", messages: [{id: "restored", role: "agent", agent: "workspace_review", content: "Old partial", isStreaming: true, toolCalls: [{id: "old", name: "collect", args: {}, status: "loading"}]}]});
   vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({onEvent}) => {
     onEvent({type: "agent_start", agent: "skill_finder", messageId: "new", displayName: "Finder", emoji: ""});
@@ -388,6 +390,7 @@ it("restores unmatched tools as unknown and keeps source outcomes independent of
 });
 
 it("reconciliation replaces partial transcript with the completed authoritative history without claiming success", async () => {
+  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status: "idle", state_updated_at: "2026-10-13T12:00:00Z"});
   const {result} = renderHook(() => useAgentStream(1));
   await waitFor(() => expect(result.current.isRestored).toBe(true));
   vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({onEvent}) => {
@@ -827,4 +830,148 @@ it("does not restore editing when failed-reset reconciliation is superseded by a
   expect(result.current.isRestored).toBe(false);
   await act(async () => {await result.current.send({mode:"workflow",text:"Start"});});
   expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
+
+// Real workflow HumanMessage/AIMessage history has no workspace_context metadata.
+const retainedWorkflowHistory = () => ({threadId: "thread-1", outcome: "unknown" as const, messages: [
+  {id: "user-workflow", role: "user" as const, content: "Analyze this course", toolCalls: [], isStreaming: false},
+  {id: "agent-workflow", role: "agent" as const, agent: "skill_finder" as const, content: "Collected job evidence", toolCalls: [], isStreaming: false},
+]});
+// Mirror the absent-state wire response: course/default country only, all other keys null.
+const absentWorkflowThreadState = {...EMPTY_STATE, course_id: 1, course_title: "Test Course", course_description: "",
+  teacher_id: null, extraction_coverage: null, onet_evidence: null, sources: null, evidence_sources: null,
+  onet_release: null, selected_onet_occupations: null, onet_selection_confirmed: null, run_id: null,
+  candidate_revision: null, source_outcomes: null, selection_revision: null, publication_revision: null,
+  selected_candidate_ids: null, excluded_candidate_ids: null, selection_confirmation: null,
+  review_stage: null, skill_review_change_id: null, curated_skills: null, mapped_skills: null,
+  final_skills: null, _cleaned_results: null, _raw_skill_urls: null,
+} as unknown as AgentState;
+
+it("recognizes workflow-only partial reset on fresh reload and requires confirmed retry", async () => {
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedWorkflowHistory());
+  vi.mocked(fetchAgentState).mockResolvedValue(absentWorkflowThreadState);
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
+  expect(result.current.isRestored).toBe(false);
+  expect(result.current.resetRecovery).toBe("required");
+  expect(result.current.skillReview).toBeNull();
+  expect(deleteConversation).not.toHaveBeenCalled();
+  await act(async () => {await result.current.send({mode:"workflow",text:"Start"});});
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+  await act(async () => {await result.current.clearConversation();});
+  expect(deleteConversation).toHaveBeenCalledOnce();
+  expect(result.current.resetRecovery).toBe("none");
+  expect(result.current.isRestored).toBe(true);
+  expect(result.current.messages).toEqual([]);
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
+
+it("retains workflow-only old review configuration and question through failed reset and retry until acknowledgement", async () => {
+  const emptyReview = await vi.mocked(fetchSkillReview)(1);
+  const review = reviewFixture();
+  const configured: AgentState = {...EMPTY_STATE, run_id:review.run_id, sources:["headhunter"],
+    evidence_sources:["jobs"], job_search_country:"Russia", job_search_country_confirmed:true, job_search_location:"Russia",
+    fetched_jobs:[{title:"Developer"}], candidate_revision:review.candidate_revision};
+  vi.mocked(fetchAgentState).mockResolvedValue(configured);
+  vi.mocked(fetchSkillReview).mockResolvedValue(review);
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedWorkflowHistory());
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  await act(async () => {await result.current.send({mode:"workflow",text:"Keep this workflow question"});});
+  const retained = result.current.messages;
+  vi.mocked(fetchAgentState).mockResolvedValue(absentWorkflowThreadState);
+  vi.mocked(fetchSkillReview).mockResolvedValue(emptyReview);
+  for (const message of ["Initial reset offline", "Retry offline"]) {
+    vi.mocked(deleteConversation).mockRejectedValueOnce(new Error(message));
+    await act(async () => {await expect(result.current.clearConversation()).rejects.toThrow(message);});
+    expect(result.current.isRestored).toBe(false);
+    expect(result.current.resetRecovery).toBe("required");
+    expect(result.current.skillReview).toBe(review);
+    expect(result.current.agentState).toBe(configured);
+    expect(result.current.messages).toBe(retained);
+    expect(result.current.recoverableCommand?.text).toBe("Keep this workflow question");
+  }
+  await act(async () => {
+    await result.current.send({mode:"workflow",text:"Start"});
+    await result.current.send({mode:"contextual",text:"Explain",context:contextual});
+  });
+  act(() => result.current.applySkillReview({...review,selection_revision:99}));
+  expect(result.current.skillReview).toBe(review);
+  expect(streamMarketDemandChat).toHaveBeenCalledOnce();
+  let acknowledge!: () => void;
+  vi.mocked(deleteConversation).mockImplementationOnce(() => new Promise(resolve => {acknowledge = resolve;}));
+  let retry!: Promise<void>;
+  act(() => {retry = result.current.clearConversation();});
+  await waitFor(() => expect(deleteConversation).toHaveBeenCalledTimes(3));
+  expect(result.current.agentState).toBe(configured);
+  expect(result.current.skillReview).toBe(review);
+  expect(result.current.recoverableCommand?.text).toBe("Keep this workflow question");
+  await act(async () => {acknowledge(); await retry;});
+  expect(result.current.agentState.fetched_jobs).toBeNull();
+  expect(result.current.skillReview).toBeNull();
+  expect(result.current.recoverableCommand).toBeNull();
+  expect(result.current.isRestored).toBe(true);
+  expect(streamMarketDemandChat).toHaveBeenCalledOnce();
+});
+
+it.each(["status-failure", "known-busy", "nondefault-source", "nondefault-market"])("does not restore workflow-only retained history when absence is unproven: %s", async (kind) => {
+  vi.mocked(fetchAgentState).mockResolvedValue(absentWorkflowThreadState);
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedWorkflowHistory());
+  if (kind === "status-failure") vi.mocked(getMarketExecutionStatus).mockRejectedValue(new Error("Status unavailable"));
+  else if (kind === "known-busy") vi.mocked(getMarketExecutionStatus).mockResolvedValue({status:"busy",state_updated_at:null});
+  if (kind === "nondefault-source") vi.mocked(fetchAgentState).mockResolvedValue({...absentWorkflowThreadState,sources:["indeed"]});
+  if (kind === "nondefault-market") vi.mocked(fetchAgentState).mockResolvedValue({...absentWorkflowThreadState,job_search_country:"China",job_search_country_confirmed:true,job_search_location:"China"});
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
+  expect(result.current.isRestored).toBe(false);
+  expect(result.current.resetRecovery).toBe("none");
+  expect(result.current.skillReview).toBeNull();
+  await act(async () => {await result.current.send({mode:"workflow",text:"Start"});});
+  await act(async () => {await expect(result.current.clearConversation()).rejects.toThrow();});
+  expect(deleteConversation).not.toHaveBeenCalled();
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
+
+it("refuses confirmed workflow-only retry when a fresh status read cannot prove state absence", async () => {
+  vi.mocked(fetchAgentState).mockResolvedValue(absentWorkflowThreadState);
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedWorkflowHistory());
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.resetRecovery).toBe("required"));
+  vi.mocked(getMarketExecutionStatus).mockRejectedValue(new Error("Status unavailable"));
+  await act(async () => {await expect(result.current.clearConversation()).rejects.toThrow();});
+  expect(deleteConversation).not.toHaveBeenCalled();
+  expect(result.current.isRestored).toBe(false);
+});
+
+it.each(["default-persisted", "configured-persisted"])("normally restores legitimate workflow-only pre-run history: %s", async (kind) => {
+  const state = kind === "default-persisted" ? absentWorkflowThreadState : {...EMPTY_STATE, job_search_country:"China", job_search_country_confirmed:true, job_search_location:"China"};
+  vi.mocked(fetchAgentState).mockResolvedValue(state);
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedWorkflowHistory());
+  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status:"idle",state_updated_at:"2026-10-13T12:00:00Z"});
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  expect(result.current.resetRecovery).toBe("none");
+  expect(result.current.messages[0].content).toBe("Analyze this course");
+  expect(result.current.agentState).toBe(state);
+  expect(deleteConversation).not.toHaveBeenCalled();
+});
+
+it("normally restores a truly empty workspace with absent authoritative state", async () => {
+  vi.mocked(fetchAgentState).mockResolvedValue(absentWorkflowThreadState);
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  expect(result.current.resetRecovery).toBe("none");
+  expect(result.current.messages).toEqual([]);
+  expect(deleteConversation).not.toHaveBeenCalled();
+});
+
+it("does not classify a null-run occupation-reference conversation as contextless workflow recovery", async () => {
+  const history = retainedResetHistory();
+  vi.mocked(fetchConversationHistory).mockResolvedValue({...history, messages:[{...history.messages[0],
+    workspace_context:{...history.messages[0].workspace_context,kind:"occupation_reference",run_id:null,release:"31.0"}}]});
+  vi.mocked(fetchAgentState).mockResolvedValue(absentWorkflowThreadState);
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  expect(result.current.resetRecovery).toBe("none");
+  expect(deleteConversation).not.toHaveBeenCalled();
 });

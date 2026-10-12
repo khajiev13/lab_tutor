@@ -132,10 +132,27 @@ export function useAgentStream(
           message.workspace_context?.run_id ? [message.workspace_context.run_id] : []))];
         // SQL reset can commit before checkpoint cleanup fails. This is reset-only recovery,
         // never permission to publish mismatched history/review or resume the former run.
-        const partialReset = runId === null && review?.run_id === null &&
+        const emptyRunReview = runId === null && review?.run_id === null &&
           review.candidates.length === 0 && review.candidate_revision === 0 &&
-          review.selection_revision === 0 && review.publication_revision === 0 &&
-          !!history.threadId && historicalRuns.length === 1;
+          review.selection_revision === 0 && review.publication_revision === 0;
+        const contextlessWorkflowHistory = emptyRunReview && history.messages.length > 0 &&
+          history.messages.every(message => !message.workspace_context);
+        const onlyCourseDefaults = state.job_search_country === EMPTY_STATE.job_search_country &&
+          state.job_search_country_confirmed === false && state.job_search_location === EMPTY_STATE.job_search_location &&
+          Object.entries(state).every(([key, value]) => ["course_id", "course_title", "course_description",
+            "job_search_country", "job_search_country_confirmed", "job_search_location"].includes(key) || value == null);
+        // Null run IDs also occur before a run exists. A successful SQL status read
+        // distinguishes persisted pre-run state from absent state with retained checkpoints.
+        if (contextlessWorkflowHistory && (status.status !== "idle" || status.state_updated_at === undefined)) {
+          setExecution({...status, outcome: "unknown"});
+          throw new Error("The analysis status could not be confirmed as idle. Refresh before changing this workspace.");
+        }
+        const absentWorkflowState = contextlessWorkflowHistory && status.state_updated_at === null;
+        if (absentWorkflowState && (!onlyCourseDefaults || !history.threadId)) {
+          throw new Error("Analysis changed during refresh. Refresh again before taking another action.");
+        }
+        const partialReset = emptyRunReview && !!history.threadId &&
+          (historicalRuns.length === 1 || absentWorkflowState);
         if (partialReset) {
           const signature = JSON.stringify([history.threadId, historicalRuns[0], history.messages.map(message => message.id)]);
           if (attempt === 0) {partialResetSignature = signature; continue;}
