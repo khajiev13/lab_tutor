@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import {DescriptorChooser} from "@/features/market-demand/components/WorkspaceDataTable";
 import { Button } from "@/components/ui/button";
 import { isUsablePostingUrl } from "@/features/market-demand/selection";
@@ -10,16 +10,20 @@ export function EvidenceLink({url, label}: {url: string; label: string}) {
   return <a href={url} target="_blank" rel="noopener noreferrer" className="break-all text-primary underline">{label}</a>;
 }
 
-function PostingDetails({courseId, evidence}: {courseId: number; evidence: VacancyEvidenceReference}) {
+function PostingDetails({courseId, evidence, recheck, onRequested}: {
+  courseId: number; evidence: VacancyEvidenceReference; recheck: boolean; onRequested: () => void;
+}) {
   const [posting, setPosting] = useState<PostingEvidence | null>(null);
+  const [renewOnMount] = useState(recheck);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  useEffect(() => () => abortRef.current?.abort(), [courseId, evidence.snapshot_id]);
   const load = async () => {
+    onRequested();
     abortRef.current?.abort();
     const abort = new AbortController();
     abortRef.current = abort;
+    setPosting(null);
     setLoading(true);
     setError(null);
     try {
@@ -31,16 +35,24 @@ function PostingDetails({courseId, evidence}: {courseId: number; evidence: Vacan
       if (!abort.signal.aborted) setLoading(false);
     }
   };
+  const renewInspection = useEffectEvent(load);
+  useEffect(() => {
+    if (renewOnMount) void renewInspection();
+    return () => abortRef.current?.abort();
+  }, [courseId, evidence.snapshot_id, renewOnMount]);
+  const purged = !!posting && (!!posting.purged_at || posting.status === "purged");
+  const sourceAvailable = !!posting && !purged && !loading && !error;
+  const availability = posting ? purged ? "purged" : posting.status : loading ? "checking current availability" : error ? "current availability unavailable" : "current availability not checked";
   return (
     <div className="space-y-2 rounded-md border p-3">
       <EvidenceLink url={evidence.original_url} label="Original job posting"/>
-      <p>{evidence.provider} · retrieved {evidence.retrieved_at} · {evidence.status}</p>
-      <p>{evidence.evidence_kind === "provider_tag" ? "Provider tag" : "Validated source passage"}: {evidence.original_phrase}</p>
+      <p>{evidence.provider} · retrieved {posting?.retrieved_at ?? evidence.retrieved_at} · {availability}</p>
+      {sourceAvailable && <><p>{evidence.evidence_kind === "provider_tag" ? "Provider tag" : "Validated source passage"}: {evidence.original_phrase}</p>
       {evidence.excerpt && <blockquote className="border-l-2 pl-2">{evidence.excerpt}</blockquote>}
-      {evidence.excerpt_start != null && <p>Cleaned text offsets: {evidence.excerpt_start}–{evidence.excerpt_end} (end exclusive)</p>}
-      {!posting && <Button variant="outline" size="sm" disabled={loading} onClick={() => void load()}>{loading ? "Loading evidence…" : "Load full posting evidence"}</Button>}
+      {evidence.excerpt_start != null && <p>Cleaned text offsets: {evidence.excerpt_start}–{evidence.excerpt_end} (end exclusive)</p>}</>}
+      <Button variant="outline" size="sm" disabled={loading} onClick={() => void load()}>{loading ? "Loading evidence…" : posting ? "Reload full posting evidence" : "Load full posting evidence"}</Button>
       {error && <p role="alert" className="text-destructive">{error}</p>}
-      {posting && (posting.purged_at ? <p>Posting content unavailable: purged {posting.purged_at}. Retained provenance only.</p> : (
+      {posting && (purged ? <p>Posting content unavailable: purged {posting.purged_at ?? "(date not reported)"}. Retained provenance only.</p> : (
         <div className="space-y-2">
           <p>{posting.title} · {posting.company}</p>
           <p className="whitespace-pre-wrap">{posting.description_text}</p>
@@ -75,10 +87,21 @@ interface Props {
 
 export function SkillEvidencePanel({courseId, candidate, focusedEvidenceId, ratings, descriptorChoices, release, onChooseDescriptor}: Props) {
   const associations = [...new Map(candidate.onet_associations.map(item => [item.evidence.id, item])).values()];
+  // Only request identities survive a disclosure session. Full bodies are
+  // discarded on close and previously requested snapshots re-resolve on reopen.
+  const [requestedPostings, setRequestedPostings] = useState<string[]>([]);
+  const [inspecting, setInspecting] = useState(false);
   return (
-    <details className="space-y-2 text-xs">
+    <details className="space-y-2 text-xs" onToggle={event => {
+      if (event.target !== event.currentTarget) return;
+      setInspecting(event.currentTarget.open);
+    }}>
       <summary className="cursor-pointer font-medium">Evidence for {candidate.display_name}</summary>
-      {candidate.evidence_references.map(item => <PostingDetails key={`${courseId}-${item.snapshot_id}`} courseId={courseId} evidence={item}/>)}
+      {inspecting && candidate.evidence_references.map(item => {
+        const key = `${courseId}-${item.snapshot_id}`;
+        return <PostingDetails key={`${candidate.candidate_id}-${key}`} courseId={courseId} evidence={item} recheck={requestedPostings.includes(key)}
+          onRequested={() => setRequestedPostings(previous => previous.includes(key) ? previous : [...previous, key])}/>;
+      })}
       {candidate.qualifying_posting_links.filter(url => !candidate.evidence_references.some(item => item.original_url === url)).map(url => <p key={url}><EvidenceLink url={url} label="Original job posting"/></p>)}
       {candidate.posting_support === "missing" && <p>Needs job evidence — no qualifying posting evidence available.</p>}
       {!associations.length && <p>O*NET unavailable: no association.</p>}

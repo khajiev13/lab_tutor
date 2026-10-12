@@ -1,5 +1,5 @@
 import {useEffect, useEffectEvent} from "react";
-import {render, screen, within} from "@testing-library/react";
+import {act, render, screen, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {beforeEach, expect, it, vi} from "vitest";
 import {WorkspaceOverview} from "@/features/market-demand/components/WorkspaceOverview";
@@ -9,7 +9,7 @@ import {SkillEvidencePanel} from "@/features/market-demand/components/SkillEvide
 import {useSkillReviewController} from "@/features/market-demand/hooks/useSkillReviewController";
 import {buildWorkspaceData} from "@/features/market-demand/workspace-data";
 import {reviewFixture, workspaceCandidateId, workspaceEvidenceFixture, workspaceOtherSoc, workspaceReviewFixture, workspaceSoc, workspaceViewFixture} from "@/features/market-demand/__tests__/review-fixtures";
-import type {SkillReview, WorkspaceQuestion, WorkspaceViewState} from "@/features/market-demand/types";
+import type {PostingEvidence, SkillReview, WorkspaceQuestion, WorkspaceViewState} from "@/features/market-demand/types";
 
 // ECharts is an external renderer; real browser lifecycle evidence is Task 12.
 vi.mock("@/features/market-demand/components/EvidenceChart", () => ({EvidenceChart: ({label, option, onFocus}: {label: string; option: {series: {data: {focus: unknown}[]}[]}; onFocus: (focus: unknown) => void}) =>
@@ -368,4 +368,152 @@ it("inspector retains descriptor identity and lets shared view state change or c
   expect(saveSkillReviewDraft).not.toHaveBeenCalled();
   expect(streamMarketDemandChat).not.toHaveBeenCalled();
   expect(fetchPostingEvidence).not.toHaveBeenCalled();
+});
+
+function currentPostingFixture(): PostingEvidence {
+  return {snapshot_id: "snapshot-1", provider: "headhunter", native_id: "123", original_url: "https://hh.uz/vacancy/123", title: "Developer", company: "Acme", description_text: "Previously retained private posting body", original_description: "Previously retained private source description", raw_payload: {description: "Previously retained private provider payload"}, retrieved_at: "2026-10-09", status: "active", purged_at: null};
+}
+function purgedPostingFixture(): PostingEvidence {
+  return {...currentPostingFixture(), description_text: null, original_description: null, raw_payload: null, purged_at: "2026-10-13"};
+}
+
+it("reopening the same snapshot re-resolves purged availability and discards every previously loaded full body", async () => {
+  vi.mocked(fetchPostingEvidence).mockReset().mockResolvedValueOnce(currentPostingFixture()).mockResolvedValueOnce(purgedPostingFixture());
+  render(<SkillEvidencePanel courseId={1} candidate={reviewFixture().candidates[0]}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Evidence for Python"));
+  expect(fetchPostingEvidence).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  expect(await screen.findByText("Previously retained private posting body")).toBeInTheDocument();
+  await user.click(screen.getByText("Evidence for Python"));
+  expect(screen.queryAllByText(/Previously retained private/)).toHaveLength(0);
+  await user.click(screen.getByText("Evidence for Python"));
+  expect(await screen.findByText(/Posting content unavailable: purged 2026-10-13/)).toBeInTheDocument();
+  expect(screen.queryAllByText(/Previously retained private/)).toHaveLength(0);
+  expect(fetchPostingEvidence).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("link", {name: "Original job posting"})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
+  expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
+
+it("failed renewed availability never falls back to a cached body and supports explicit retry and reload", async () => {
+  vi.mocked(fetchPostingEvidence).mockReset().mockResolvedValueOnce(currentPostingFixture()).mockRejectedValueOnce(new Error("Current availability unavailable")).mockResolvedValueOnce(purgedPostingFixture()).mockResolvedValueOnce(purgedPostingFixture());
+  render(<SkillEvidencePanel courseId={1} candidate={reviewFixture().candidates[0]}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Evidence for Python"));
+  await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  expect(await screen.findByText("Previously retained private posting body")).toBeInTheDocument();
+  await user.click(screen.getByText("Evidence for Python"));
+  await user.click(screen.getByText("Evidence for Python"));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Current availability unavailable");
+  expect(screen.queryAllByText(/Previously retained private/)).toHaveLength(0);
+  await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  expect(await screen.findByText(/Posting content unavailable: purged/)).toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name: "Reload full posting evidence"}));
+  expect(await screen.findByText(/Posting content unavailable: purged/)).toBeInTheDocument();
+  expect(fetchPostingEvidence).toHaveBeenCalledTimes(4);
+});
+
+it.each(["resolve", "reject"] as const)("pending first request cannot %s into a later reopened inspection", async outcome => {
+  let resolveFirst!: (posting: PostingEvidence) => void;
+  let rejectFirst!: (error: Error) => void;
+  let resolveCurrent!: (posting: PostingEvidence) => void;
+  vi.mocked(fetchPostingEvidence).mockReset()
+    .mockImplementationOnce(() => new Promise((resolve, reject) => {resolveFirst = resolve; rejectFirst = reject;}))
+    .mockImplementationOnce(() => new Promise(resolve => {resolveCurrent = resolve;}));
+  render(<SkillEvidencePanel courseId={1} candidate={reviewFixture().candidates[0]}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Evidence for Python"));
+  await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  const firstSignal = vi.mocked(fetchPostingEvidence).mock.calls[0][2]!;
+  await user.click(screen.getByText("Evidence for Python"));
+  expect(firstSignal.aborted).toBe(true);
+  await user.click(screen.getByText("Evidence for Python"));
+  expect(fetchPostingEvidence).toHaveBeenCalledTimes(2);
+  await act(async () => {if (outcome === "resolve") resolveFirst(currentPostingFixture()); else rejectFirst(new Error("Old inspection failed"));});
+  expect(screen.queryAllByText(/Previously retained private/)).toHaveLength(0);
+  expect(screen.queryByText("Old inspection failed")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Loading evidence…"})).toBeDisabled();
+  await act(async () => resolveCurrent(purgedPostingFixture()));
+  expect(screen.getByText(/Posting content unavailable: purged/)).toBeInTheDocument();
+  expect(screen.queryAllByText(/Previously retained private/)).toHaveLength(0);
+});
+
+it.each(["course", "snapshot", "candidate"] as const)("pending posting response cannot cross a changed %s identity", async identity => {
+  let resolvePrevious!: (posting: PostingEvidence) => void;
+  vi.mocked(fetchPostingEvidence).mockReset()
+    .mockImplementationOnce(() => new Promise(resolve => {resolvePrevious = resolve;}))
+    .mockResolvedValueOnce(purgedPostingFixture());
+  const candidate = reviewFixture().candidates[0];
+  const {rerender} = render(<SkillEvidencePanel courseId={1} candidate={candidate}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Evidence for Python"));
+  await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  const oldSignal = vi.mocked(fetchPostingEvidence).mock.calls[0][2]!;
+  const next = identity === "snapshot" ? {...candidate, evidence_references: [{...candidate.evidence_references[0], snapshot_id: "snapshot-2"}]} : identity === "candidate" ? {...candidate, candidate_id: "next-candidate"} : candidate;
+  rerender(<SkillEvidencePanel courseId={identity === "course" ? 2 : 1} candidate={next}/>);
+  expect(oldSignal.aborted).toBe(true);
+  if (identity !== "candidate") await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  expect(await screen.findByText(/Posting content unavailable: purged/)).toBeInTheDocument();
+  await act(async () => resolvePrevious(currentPostingFixture()));
+  expect(screen.queryAllByText(/Previously retained private/)).toHaveLength(0);
+});
+
+it.each(["extracted_text", "provider_tag"] as const)("current purged availability redacts retained %s phrases and excerpts during renewed inspection", async evidenceKind => {
+  let resolveCurrent!: (posting: PostingEvidence) => void;
+  vi.mocked(fetchPostingEvidence).mockReset().mockResolvedValueOnce(currentPostingFixture())
+    .mockImplementationOnce(() => new Promise(resolve => {resolveCurrent = resolve;}));
+  const candidate = reviewFixture().candidates[0];
+  candidate.evidence_references[0] = {...candidate.evidence_references[0], evidence_kind: evidenceKind, original_phrase: "Retained private matched phrase", excerpt: "Retained private source excerpt"};
+  render(<SkillEvidencePanel courseId={1} candidate={candidate}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Evidence for Python"));
+  await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  expect(await screen.findByText("Previously retained private posting body")).toBeInTheDocument();
+  expect(screen.getByText(/Retained private matched phrase/)).toBeInTheDocument();
+  await user.click(screen.getByText("Evidence for Python"));
+  await user.click(screen.getByText("Evidence for Python"));
+  expect(screen.getByRole("button", {name: "Loading evidence…"})).toBeDisabled();
+  expect(screen.queryAllByText(/Retained private/)).toHaveLength(0);
+  expect(screen.queryByText(/Cleaned text offsets/)).not.toBeInTheDocument();
+  await act(async () => resolveCurrent(purgedPostingFixture()));
+  expect(screen.getByText(/Posting content unavailable: purged/)).toBeInTheDocument();
+  expect(screen.queryAllByText(/Retained private|Previously retained private/)).toHaveLength(0);
+  expect(screen.getByRole("link", {name: "Original job posting"})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
+  expect(screen.getByText(/headhunter · retrieved 2026-10-09 · purged/)).toBeInTheDocument();
+});
+
+it("manual posting reload clears private bodies and passages while current availability is pending or failed", async () => {
+  let rejectReload!: (error: Error) => void;
+  vi.mocked(fetchPostingEvidence).mockReset().mockResolvedValueOnce(currentPostingFixture())
+    .mockImplementationOnce(() => new Promise((_, reject) => {rejectReload = reject;}));
+  const candidate = reviewFixture().candidates[0];
+  candidate.evidence_references[0] = {...candidate.evidence_references[0], excerpt: "Retained private source excerpt"};
+  render(<SkillEvidencePanel courseId={1} candidate={candidate}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Evidence for Python"));
+  await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  expect(await screen.findByText("Previously retained private posting body")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name: "Reload full posting evidence"}));
+  expect(screen.queryAllByText(/Previously retained private|Retained private/)).toHaveLength(0);
+  expect(screen.getByRole("button", {name: "Loading evidence…"})).toBeDisabled();
+  await act(async () => rejectReload(new Error("Current evidence unavailable")));
+  expect(screen.getByRole("alert")).toHaveTextContent("Current evidence unavailable");
+  expect(screen.queryAllByText(/Previously retained private|Retained private/)).toHaveLength(0);
+});
+
+it("first inspection with retained pre-purge props withholds source phrases until explicit current availability resolves", async () => {
+  vi.mocked(fetchPostingEvidence).mockReset().mockResolvedValueOnce(purgedPostingFixture());
+  const candidate = reviewFixture().candidates[0];
+  candidate.evidence_references[0] = {...candidate.evidence_references[0], original_phrase: "Pre-purge private matched phrase", excerpt: "Pre-purge private source excerpt"};
+  render(<SkillEvidencePanel courseId={1} candidate={candidate}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Evidence for Python"));
+  expect(fetchPostingEvidence).not.toHaveBeenCalled();
+  expect(screen.queryAllByText(/Pre-purge private/)).toHaveLength(0);
+  expect(screen.getByText(/current availability not checked/)).toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name: "Load full posting evidence"}));
+  expect(await screen.findByText(/Posting content unavailable: purged/)).toBeInTheDocument();
+  expect(screen.queryAllByText(/Pre-purge private/)).toHaveLength(0);
+  expect(screen.getByRole("link", {name: "Original job posting"})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
 });
