@@ -10,6 +10,7 @@ from sqlalchemy.engine import Connection
 from app.core.database import SessionLocal
 
 from .repository import ThreadStateRepository
+from .schemas import ExecutionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,9 @@ class ThreadStateService:
         self._leases: dict[str, ThreadLease] = {}
         self._claims: dict[str, asyncio.Task] = {}
         self._claim_cleanup: set[asyncio.Task] = set()
+
+    async def execution_status(self, thread_id: str) -> ExecutionStatus:
+        return await asyncio.to_thread(self._repository.execution_status, thread_id)
 
     async def claim(self, thread_id: str) -> ThreadLease:
         if thread_id in self._leases or thread_id in self._claims:

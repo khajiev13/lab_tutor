@@ -66,8 +66,29 @@ class CandidateReconciliation(BaseModel):
     resolved: bool = False
 
 
+class AnalysisOccupation(BaseModel):
+    soc_code: str
+    title: str
+
+
+class AnalysisMetadata(BaseModel):
+    country: str | None = None
+    job_sources: list[JobSource] = Field(default_factory=list)
+    evidence_sources: list[EvidenceSource] = Field(default_factory=list)
+    onet_release: str | None = None
+    occupations: list[AnalysisOccupation] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
+class ExecutionStatus(BaseModel):
+    status: Literal["busy", "idle"]
+    state_updated_at: datetime | None = None
+
+
 class SkillReview(BaseModel):
     run_id: UUID | None = None
+    analysis_metadata: AnalysisMetadata | None = None
     candidate_revision: int = 0
     selection_revision: int = 0
     categories: list[SkillCategory] = Field(default_factory=list)

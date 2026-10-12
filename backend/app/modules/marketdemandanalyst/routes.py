@@ -49,6 +49,7 @@ from .repository import MarketReviewRepository, load_async_thread_state
 from .review_service import SkillReviewService
 from .schemas import (
     EvidenceSource,
+    ExecutionStatus,
     IntegrationApproval,
     IntegrationApprovalResult,
     JobSource,
@@ -759,6 +760,21 @@ def market_vacancy_evidence(
         retrieved_at=snapshot.retrieved_at,
         status=snapshot.status,
         purged_at=snapshot.purged_at,
+    )
+
+
+@router.get(
+    "/{course_id}/market-demand/execution-status", response_model=ExecutionStatus
+)
+async def get_market_execution_status(
+    course_id: int,
+    teacher: TeacherDep,
+    service: SkillReviewService = Depends(get_skill_review_service),
+    state_service: ThreadStateService = Depends(get_thread_state_service),
+):
+    service.require_teacher(course_id, teacher.id)
+    return await state_service.execution_status(
+        service.thread_id(course_id, teacher.id)
     )
 
 

@@ -144,6 +144,7 @@ def test_empty_review_dto_is_coherent_and_detached():
     second = SkillReview()
     assert second.model_dump(mode="json") == {
         "run_id": None,
+        "analysis_metadata": None,
         "candidate_revision": 0,
         "selection_revision": 0,
         "categories": [],
@@ -837,3 +838,112 @@ def test_unresolved_reconciliation_blocks_even_empty_shortlist_confirmation(
     )
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "reconciliation_required"
+
+
+@pytest.mark.parametrize(
+    "config,expected",
+    [
+        (
+            {
+                "country": "uzbekistan",
+                "sources": ["headhunter"],
+                "evidence_sources": ["jobs", "onet"],
+                "onet_release": "30.1",
+                "selected_onet_occupations": [
+                    {"soc_code": "15-1252.00", "title": "Software Developers"}
+                ],
+            },
+            {
+                "country": "uzbekistan",
+                "job_sources": ["headhunter"],
+                "evidence_sources": ["jobs", "onet"],
+                "onet_release": "30.1",
+                "occupations": [
+                    {"soc_code": "15-1252.00", "title": "Software Developers"}
+                ],
+            },
+        ),
+        (
+            {},
+            {
+                "country": None,
+                "job_sources": [],
+                "evidence_sources": [],
+                "onet_release": None,
+                "occupations": [],
+            },
+        ),
+        (
+            {
+                "country": None,
+                "sources": None,
+                "evidence_sources": None,
+                "onet_release": None,
+                "selected_onet_occupations": None,
+            },
+            {
+                "country": None,
+                "job_sources": [],
+                "evidence_sources": [],
+                "onet_release": None,
+                "occupations": [],
+            },
+        ),
+    ],
+)
+def test_review_metadata_comes_from_its_run_not_thread_or_latest_run(
+    db_session, client, teacher_auth_headers, config, expected
+):
+    from datetime import UTC, datetime
+
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+    from app.modules.marketdemandanalyst.review_service import SkillReviewService
+
+    course = _owned_course(client, teacher_auth_headers)
+    repo = MarketReviewRepository(db_session)
+    run = repo.create_run(course["id"], course["teacher_id"], config)
+    run.created_at = datetime(2026, 1, 1, 12, tzinfo=UTC)
+    run.updated_at = datetime(2026, 1, 2, 12, tzinfo=UTC)
+    repo.create_run(
+        course["id"],
+        course["teacher_id"],
+        {"country": "united_states", "onet_release": "other"},
+    )
+    repo.save_configuration_snapshot(
+        SkillReviewService.thread_id(course["id"], course["teacher_id"]),
+        {
+            "run_id": str(run.id),
+            "job_search_country": "united_states",
+            "onet_release": "other",
+        },
+    )
+    db_session.commit()
+    response = client.get(
+        f"/courses/{course['id']}/market-demand/skill-review",
+        headers=teacher_auth_headers,
+    )
+    assert response.status_code == 200
+    review = response.json()
+    assert review["run_id"] == str(run.id)
+    metadata = review["analysis_metadata"]
+    assert {
+        key: value
+        for key, value in metadata.items()
+        if key not in {"created_at", "updated_at"}
+    } == expected
+    assert datetime.fromisoformat(metadata["created_at"]) == run.created_at
+    assert datetime.fromisoformat(metadata["updated_at"]) == run.updated_at
+    # DTO collections remain detached from the persisted configuration.
+    dto = SkillReviewService.review_from_run(run)
+    dto.analysis_metadata.job_sources.append("indeed")
+    assert run.config == config
+
+
+def test_no_active_run_has_no_analysis_metadata(client, teacher_auth_headers):
+    course = _owned_course(client, teacher_auth_headers)
+    response = client.get(
+        f"/courses/{course['id']}/market-demand/skill-review",
+        headers=teacher_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["analysis_metadata"] is None

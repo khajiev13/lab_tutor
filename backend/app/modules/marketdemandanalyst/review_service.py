@@ -14,6 +14,7 @@ from .evidence import reference_fingerprint
 from .models import MarketAnalysisRun
 from .repository import InvalidCandidateIds, MarketReviewRepository, RevisionConflict
 from .schemas import (
+    AnalysisMetadata,
     IntegrationApproval,
     IntegrationApprovalResult,
     RecommendationProposal,
@@ -249,6 +250,15 @@ class SkillReviewService:
         omissions = available_evidence_omissions(run)
         return SkillReview(
             run_id=run.id,
+            analysis_metadata=AnalysisMetadata(
+                country=run.config.get("country"),
+                job_sources=run.config.get("sources") or [],
+                evidence_sources=run.config.get("evidence_sources") or [],
+                onet_release=run.config.get("onet_release"),
+                occupations=run.config.get("selected_onet_occupations") or [],
+                created_at=run.created_at,
+                updated_at=run.updated_at,
+            ),
             candidate_revision=run.candidate_revision,
             selection_revision=run.selection_revision,
             categories=manifest.get("categories", []),

@@ -267,12 +267,14 @@ async def test_cancelled_save_waiter_does_not_release_guard_before_real_sql_writ
                 completed.set()
 
     service = ThreadStateService(DelayedRepository(SessionLocal))
+    observer = ThreadStateService()
     lease = await service.claim("cancelled-save")
     waiter = service.save(lease, {"course_id": 33})
     assert await asyncio.to_thread(entered.wait, 5)
     waiter.cancel()
     release = asyncio.create_task(service.release(lease))
     try:
+        assert (await observer.execution_status("cancelled-save")).status == "busy"
         with pytest.raises(ThreadBusy):
             await ThreadStateService().claim("cancelled-save")
     finally:
@@ -282,6 +284,9 @@ async def test_cancelled_save_waiter_does_not_release_guard_before_real_sql_writ
         finally:
             assert await asyncio.to_thread(completed.wait, 5)
     assert (await ThreadStateService().load("cancelled-save"))["course_id"] == 33
+    status = await observer.execution_status("cancelled-save")
+    assert status.status == "idle"
+    assert status.state_updated_at is not None
 
 
 @pytest.mark.anyio
@@ -741,3 +746,181 @@ async def test_cancelled_actual_extractor_node_drains_late_state(stage, monkeypa
         proceed.set()
         await asyncio.wait_for(lease.finished.wait(), 5)
         await asyncio.wait_for(consumer, 5)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    # Positive halves, negative high half, and both halves negative.
+    "thread_id",
+    ["observed-lease-a", "observed-lease-b", "observed-lease-d"],
+)
+async def test_execution_status_observes_real_lease_without_acquiring_or_releasing(
+    db_session, thread_id
+):
+    from app.modules.marketdemandanalyst.models import MDAThreadState
+    from app.modules.marketdemandanalyst.thread_state_service import (
+        ThreadBusy,
+        ThreadStateService,
+    )
+
+    owner, observer, competitor = (
+        ThreadStateService(),
+        ThreadStateService(),
+        ThreadStateService(),
+    )
+    for _ in range(2):
+        status = await observer.execution_status(thread_id)
+        assert status.status == "idle"
+        assert status.state_updated_at is None
+    lease = await owner.claim(thread_id)
+    try:
+        for _ in range(2):
+            assert (await observer.execution_status(thread_id)).status == "busy"
+            assert (
+                await observer.execution_status(thread_id + "-other")
+            ).status == "idle"
+            with pytest.raises(ThreadBusy):
+                await competitor.claim(thread_id)
+        await owner.save(lease, {"course_id": 11})
+        status = await observer.execution_status(thread_id)
+        assert status.status == "busy"
+        assert (
+            status.state_updated_at
+            == db_session.get(MDAThreadState, thread_id).updated_at
+        )
+    finally:
+        await owner.release(lease)
+    assert (await observer.execution_status(thread_id)).status == "idle"
+    # Reading idle never leaves a lease behind.
+    next_lease = await competitor.claim(thread_id)
+    await competitor.release(next_lease)
+
+
+@pytest.mark.anyio
+async def test_execution_status_ignores_same_key_lock_in_another_database(db_session):
+    from sqlalchemy import create_engine, text
+
+    from app.core.database import engine
+    from app.modules.marketdemandanalyst.thread_state_service import ThreadStateService
+
+    other_engine = create_engine(engine.url.set(database="postgres"))
+    thread_id = "other-database-lease"
+    observer = ThreadStateService()
+    try:
+        with other_engine.connect() as connection:
+            connection.execute(
+                text("SELECT pg_advisory_lock(hashtextextended(:thread_id, 0))"),
+                {"thread_id": thread_id},
+            )
+            connection.commit()
+            try:
+                assert (await observer.execution_status(thread_id)).status == "idle"
+                lease = await observer.claim(thread_id)
+                try:
+                    assert (
+                        await ThreadStateService().execution_status(thread_id)
+                    ).status == "busy"
+                finally:
+                    await observer.release(lease)
+            finally:
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(hashtextextended(:thread_id, 0))"),
+                    {"thread_id": thread_id},
+                )
+                connection.commit()
+    finally:
+        other_engine.dispose()
+
+
+@pytest.mark.anyio
+async def test_execution_status_ignores_two_integer_advisory_lock_namespace(db_session):
+    from sqlalchemy import text
+
+    from app.core.database import engine
+    from app.modules.marketdemandanalyst.thread_state_service import ThreadStateService
+
+    thread_id = "two-integer-lock"
+    with engine.connect() as connection:
+        # Same 64 bits, but PostgreSQL identifies this lock with objsubid=2.
+        halves = connection.execute(
+            text(
+                "SELECT (hashtextextended(:thread_id, 0) >> 32)::int, (hashtextextended(:thread_id, 0) << 32 >> 32)::int"
+            ),
+            {"thread_id": thread_id},
+        ).one()
+        connection.execute(
+            text("SELECT pg_advisory_lock(:high, :low)"),
+            {"high": halves[0], "low": halves[1]},
+        )
+        connection.commit()
+        try:
+            assert (
+                await ThreadStateService().execution_status(thread_id)
+            ).status == "idle"
+        finally:
+            connection.execute(
+                text("SELECT pg_advisory_unlock(:high, :low)"),
+                {"high": halves[0], "low": halves[1]},
+            )
+            connection.commit()
+
+
+def test_execution_status_route_observes_owned_course_and_rejects_other_owners(
+    client, db_session, teacher_auth_headers, student_auth_headers
+):
+    from app.core.database import SessionLocal
+    from app.modules.courses.models import Course
+    from app.modules.marketdemandanalyst.repository import ThreadStateRepository
+    from app.modules.marketdemandanalyst.routes import _get_thread_id
+
+    course_id = client.post(
+        "/courses", json={"title": "Status course"}, headers=teacher_auth_headers
+    ).json()["id"]
+    course = db_session.get(Course, course_id)
+    url = f"/courses/{course_id}/market-demand/execution-status"
+    response = client.get(url, headers=teacher_auth_headers)
+    assert response.status_code == 200
+    assert response.json() == {"status": "idle", "state_updated_at": None}
+    repository = ThreadStateRepository(SessionLocal)
+    thread_id = _get_thread_id(course.teacher_id, course.id)
+    connection = repository.acquire(thread_id)
+    assert connection is not None
+    try:
+        assert client.get(url, headers=teacher_auth_headers).json() == {
+            "status": "busy",
+            "state_updated_at": None,
+        }
+        assert client.get(url, headers=student_auth_headers).status_code == 403
+        assert (
+            client.get(
+                f"/courses/{course_id + 1000}/market-demand/execution-status",
+                headers=teacher_auth_headers,
+            ).status_code
+            == 404
+        )
+        # Another teacher cannot see either review metadata or execution state.
+        client.post(
+            "/auth/register",
+            json={
+                "email": "other-teacher@example.com",
+                "password": "password",
+                "first_name": "Other",
+                "last_name": "Teacher",
+                "role": "teacher",
+            },
+        )
+        token = client.post(
+            "/auth/jwt/login",
+            data={"username": "other-teacher@example.com", "password": "password"},
+        ).json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        assert client.get(url, headers=headers).status_code == 404
+        assert (
+            client.get(
+                f"/courses/{course_id}/market-demand/skill-review", headers=headers
+            ).status_code
+            == 404
+        )
+    finally:
+        repository.release(connection, thread_id)
+    assert client.get(url, headers=teacher_auth_headers).json()["status"] == "idle"

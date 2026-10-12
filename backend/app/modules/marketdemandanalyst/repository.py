@@ -21,7 +21,7 @@ from .models import (
     MarketVacancySnapshot,
     MDAThreadState,
 )
-from .schemas import ProviderVacancy, safe_provider_payload
+from .schemas import ExecutionStatus, ProviderVacancy, safe_provider_payload
 
 
 class RevisionConflict(ValueError):
@@ -968,6 +968,36 @@ class MarketReviewRepository:
 class ThreadStateRepository:
     def __init__(self, session_factory: Callable[[], Session]):
         self._session_factory = session_factory
+
+    def execution_status(self, thread_id: str) -> ExecutionStatus:
+        """Observe the session lease without acquiring or releasing any lock."""
+        with self._session_factory() as session:
+            row = session.execute(
+                text(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM pg_locks
+                        WHERE locktype = 'advisory'
+                          AND database = (
+                              SELECT oid FROM pg_database
+                              WHERE datname = current_database()
+                          )
+                          AND granted
+                          AND classid = ((lock_key >> 32) & 4294967295)::oid
+                          AND objid = (lock_key & 4294967295)::oid
+                          AND objsubid = 1
+                    ) AS busy,
+                    (SELECT updated_at FROM mda_thread_state
+                     WHERE thread_id = :thread_id) AS state_updated_at
+                    FROM (SELECT hashtextextended(:thread_id, 0) AS lock_key) AS requested
+                    """
+                ),
+                {"thread_id": thread_id},
+            ).one()
+            return ExecutionStatus(
+                status="busy" if row.busy else "idle",
+                state_updated_at=row.state_updated_at,
+            )
 
     def acquire(self, thread_id: str) -> Connection | None:
         with self._session_factory() as session:
