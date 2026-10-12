@@ -5,8 +5,10 @@ from collections.abc import Sequence
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import create_react_agent
-from langgraph_swarm import create_handoff_tool, create_swarm
+from langgraph_swarm import SwarmState, create_handoff_tool
+from langgraph_swarm.handoff import get_handoff_destinations
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
@@ -27,6 +29,7 @@ from .tools import (
     SUPERVISOR_TOOLS,
     owned_sync_tools,
 )
+from .workspace_chat import WorkspaceRuntimeContext, route_entry, workspace_review
 
 logger = logging.getLogger(__name__)
 
@@ -322,9 +325,21 @@ async def get_graph():
     )
 
     # ── Build swarm (5 agents) ──
-    workflow = create_swarm(
-        [supervisor, skill_finder, curriculum_mapper, skill_cleaner, concept_linker],
-        default_active_agent="supervisor",
+    agents = [
+        supervisor,
+        skill_finder,
+        curriculum_mapper,
+        skill_cleaner,
+        concept_linker,
+    ]
+    workflow = StateGraph(SwarmState, context_schema=WorkspaceRuntimeContext)
+    for agent in agents:
+        workflow.add_node(
+            agent.name, agent, destinations=tuple(get_handoff_destinations(agent))
+        )
+    workflow.add_node("workspace_review", workspace_review)
+    workflow.add_conditional_edges(
+        START, route_entry, [agent.name for agent in agents] + ["workspace_review"]
     )
 
     # ── Add skill_extractor subgraph (map-reduce, no LLM agent) ──

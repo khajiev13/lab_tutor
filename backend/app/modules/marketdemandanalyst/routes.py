@@ -14,7 +14,7 @@ import time
 import uuid
 from collections.abc import AsyncGenerator, Callable
 from copy import deepcopy
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -75,6 +75,7 @@ from .thread_state_service import (
     ThreadStateService,
     get_thread_state_service,
 )
+from .workspace_chat import WorkspaceRuntimeContext
 from .workspace_service import WorkspaceContextService
 
 logger = logging.getLogger(__name__)
@@ -347,6 +348,10 @@ async def _sse_stream(
     bound_state: dict | None = None,
     lease: ThreadLease | None = None,
     state_service: ThreadStateService | None = None,
+    runtime_context: WorkspaceRuntimeContext | None = None,
+    persistence_policy: Literal[
+        "workflow_snapshot", "checkpoint_only", "proposal_snapshot"
+    ] = "workflow_snapshot",
 ) -> AsyncGenerator[str, None]:
     """Stream the LangGraph swarm execution as SSE events.
 
@@ -395,10 +400,16 @@ async def _sse_stream(
                     config=config,
                     stream_mode="messages",
                     subgraphs=True,
+                    **(
+                        {"context": runtime_context}
+                        if runtime_context is not None
+                        else {}
+                    ),
                 ):
                     if (
                         lease is not None
                         and state_service is not None
+                        and persistence_policy == "workflow_snapshot"
                         and isinstance(item[1][0], ToolMessage)
                     ):
                         await state_service.save(lease, snapshot_state(bound_state))
@@ -418,7 +429,10 @@ async def _sse_stream(
                                     *lease.tool_tasks, return_exceptions=True
                                 )
                                 lease.tool_tasks.clear()
-                            await state_service.save(lease, snapshot_state(bound_state))
+                            if persistence_policy == "workflow_snapshot":
+                                await state_service.save(
+                                    lease, snapshot_state(bound_state)
+                                )
                         finally:
                             await state_service.release(lease)
                 except Exception as exc:
@@ -665,7 +679,12 @@ async def _sse_stream(
                             int(course_id),
                             "market_demand_insertion",
                         )
-                if new_state != prev_state and thread_id and lease is None:
+                if (
+                    new_state != prev_state
+                    and thread_id
+                    and lease is None
+                    and persistence_policy == "workflow_snapshot"
+                ):
                     _persist_state(thread_id, bound_state)
                 review_keys = (
                     "run_id",
@@ -948,6 +967,7 @@ async def market_demand_chat(
     configuration_service: MarketConfigurationService = Depends(
         get_market_configuration_service
     ),
+    workspace_service: WorkspaceContextService = Depends(get_workspace_context_service),
 ) -> StreamingResponse:
     """Stream a Market Demand Agent conversation turn.
 
@@ -979,62 +999,107 @@ async def market_demand_chat(
     except ThreadBusy as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     try:
-        # Restore and validate durable configuration before graph work.
-        t0 = time.perf_counter()
-        persisted = await _load_persisted_state(thread_id)
-        parallel_ms = (time.perf_counter() - t0) * 1000
-        logger.info("[PERF] Persisted state load took %.1fms", parallel_ms)
-
-        bound_state: dict = {}
-        with bind_tool_store(bound_state):
-            _restore_thread_state(persisted, course, requested_country)
-        try:
-            configuration_service.configure(
-                course.id, teacher.id, bound_state, body.model_dump(exclude_unset=True)
+        runtime_context = None
+        persistence_policy = "workflow_snapshot"
+        if body.workspace_context is not None:
+            # Resolve rolls back the read transaction and expires ORM objects.
+            # Detach identities first; reading course.id afterwards reopens it.
+            context_course_id, context_teacher_id = course.id, teacher.id
+            resolved = workspace_service.resolve(
+                context_course_id, context_teacher_id, body.workspace_context
             )
-            configuration_service.save_snapshot(thread_id, snapshot_state(bound_state))
-            db.commit()
-        except LookupError as exc:
-            db.rollback()
-            raise HTTPException(404, str(exc)) from exc
-        except ValueError as exc:
-            db.rollback()
-            raise HTTPException(
-                409 if "new analysis" in str(exc) or "locked" in str(exc) else 422,
-                str(exc),
-            ) from exc
-        except BaseException:
-            db.rollback()
-            raise
-        graph, _llm = await get_graph()
-
-        config = {"configurable": {"thread_id": thread_id}}
-        input_data = {
-            "messages": [HumanMessage(content=body.message)],
-            "course_id": course.id,
-            "course_title": course.title,
-            "course_description": course.description or "",
-        }
-
-        # Pre-warm: read the checkpoint with retry so stale SSL connections in the
-        # pool are discarded *before* we enter the SSE generator (where retry is
-        # harder because we may have already yielded events).
-        t0 = time.perf_counter()
-        for attempt in range(2):
-            try:
-                await graph.aget_state(config)
-                break
-            except Exception:
-                if attempt == 0:
-                    logger.warning(
-                        "Chat pre-warm checkpoint read failed (attempt 1), retrying…"
-                    )
-                    continue
-                logger.warning(
-                    "Chat pre-warm checkpoint read failed twice, proceeding anyway"
+            runtime_context = WorkspaceRuntimeContext(
+                resolved=resolved,
+                course_id=context_course_id,
+                teacher_id=context_teacher_id,
+                intent=resolved.intent,
+            )
+            persistence_policy = (
+                "proposal_snapshot"
+                if resolved.intent == "propose_selection"
+                else "checkpoint_only"
+            )
+            # Inspection must not configure sources, seed defaults, or write SQL.
+            bound_state = deepcopy(await _load_persisted_state(thread_id) or {})
+            graph, _llm = await get_graph()
+            config = {"configurable": {"thread_id": thread_id}}
+            checkpoint = await graph.aget_state(config)
+            # Fresh contextual input may replace a failed contextual-only turn.
+            # Never discard pending workflow nodes or their nested work.
+            if any(name != "workspace_review" for name in checkpoint.next) or any(
+                task.name != "workspace_review" for task in checkpoint.tasks
+            ):
+                raise HTTPException(
+                    409,
+                    {
+                        "code": "workflow_recovery_required",
+                        "message": "An unfinished workflow needs recovery before this question can run.",
+                        "recovery": "Recover the workflow, then refresh context",
+                    },
                 )
-        prewarm_ms = (time.perf_counter() - t0) * 1000
-        logger.info("[PERF] Checkpoint pre-warm took %.1fms", prewarm_ms)
+            input_data = {"messages": [HumanMessage(content=body.message)]}
+        else:
+            # Restore and validate durable configuration before graph work.
+            t0 = time.perf_counter()
+            persisted = await _load_persisted_state(thread_id)
+            parallel_ms = (time.perf_counter() - t0) * 1000
+            logger.info("[PERF] Persisted state load took %.1fms", parallel_ms)
+
+            bound_state: dict = {}
+            with bind_tool_store(bound_state):
+                _restore_thread_state(persisted, course, requested_country)
+            try:
+                configuration_service.configure(
+                    course.id,
+                    teacher.id,
+                    bound_state,
+                    body.model_dump(exclude_unset=True),
+                )
+                configuration_service.save_snapshot(
+                    thread_id, snapshot_state(bound_state)
+                )
+                db.commit()
+            except LookupError as exc:
+                db.rollback()
+                raise HTTPException(404, str(exc)) from exc
+            except ValueError as exc:
+                db.rollback()
+                raise HTTPException(
+                    409 if "new analysis" in str(exc) or "locked" in str(exc) else 422,
+                    str(exc),
+                ) from exc
+            except BaseException:
+                db.rollback()
+                raise
+            graph, _llm = await get_graph()
+
+            config = {"configurable": {"thread_id": thread_id}}
+            input_data = {
+                "messages": [HumanMessage(content=body.message)],
+                "course_id": course.id,
+                "course_title": course.title,
+                "course_description": course.description or "",
+            }
+
+            # Pre-warm: read the checkpoint with retry so stale SSL connections in the
+            # pool are discarded *before* we enter the SSE generator (where retry is
+            # harder because we may have already yielded events).
+            t0 = time.perf_counter()
+            for attempt in range(2):
+                try:
+                    await graph.aget_state(config)
+                    break
+                except Exception:
+                    if attempt == 0:
+                        logger.warning(
+                            "Chat pre-warm checkpoint read failed (attempt 1), retrying…"
+                        )
+                        continue
+                    logger.warning(
+                        "Chat pre-warm checkpoint read failed twice, proceeding anyway"
+                    )
+            prewarm_ms = (time.perf_counter() - t0) * 1000
+            logger.info("[PERF] Checkpoint pre-warm took %.1fms", prewarm_ms)
 
         setup_ms = (time.perf_counter() - chat_start) * 1000
         logger.info("[PERF] /chat setup total %.1fms before SSE stream", setup_ms)
@@ -1051,6 +1116,8 @@ async def market_demand_chat(
             bound_state=bound_state,
             lease=lease,
             state_service=state_service,
+            runtime_context=runtime_context,
+            persistence_policy=persistence_policy,
         ),
         media_type="text/event-stream",
         headers={
