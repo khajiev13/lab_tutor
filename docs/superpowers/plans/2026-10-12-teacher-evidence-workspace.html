@@ -1,0 +1,371 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Teacher evidence workspace — implementation plan</title><style>
+:root{color-scheme:light;--ink:#19332c;--muted:#54645d;--green:#216c53;--line:#dbe4de;--soft:#f4f7f4}*{box-sizing:border-box}body{margin:0;background:#fff;color:var(--ink);font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}html{scroll-behavior:smooth;scroll-padding-top:82px}header,main,footer{max-width:1140px;padding:30px;margin:auto}header{padding-top:54px;padding-bottom:30px}h1{font-size:clamp(30px,4.7vw,49px);line-height:1.13;letter-spacing:-1.5px;max-width:850px;margin:15px 0 20px;font-weight:650}h2{font-size:25px;letter-spacing:-.4px;line-height:1.35;margin:0 0 14px}h3{font-size:18px}.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.lead{font-size:20px;max-width:840px;margin:0 0 17px}.badge{display:inline-block;border:1px solid var(--line);border-radius:5px;padding:5px 10px;font-size:13px;color:var(--muted)}a{color:var(--green);text-underline-offset:3px}a:hover{color:#102a21}nav{position:sticky;top:0;background:#fffffff5;backdrop-filter:blur(8px);border-block:1px solid var(--line);z-index:2}nav>div{max-width:1140px;margin:auto;padding:12px 30px;display:flex;flex-wrap:wrap;gap:10px 24px}nav a{text-decoration:none;font-size:13px}section{padding:29px 0;border-bottom:1px solid var(--line)}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:22px 0}.card{padding:20px;border:1px solid var(--line);border-radius:9px;background:var(--soft)}.card b{font-size:17px;display:block;margin:6px 0}.card p{font-size:14px;margin:0}.small,figcaption{font-size:13px;color:var(--muted)}.callout{padding:3px 0 3px 17px;border-left:3px solid var(--green);margin:20px 0}.callout p{margin:0}p{margin:0 0 14px}.figure-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}figure{margin:0}figure a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden}figure img{display:block;width:100%;height:320px;object-fit:cover;object-position:top}figcaption{padding-top:9px}.table-scroll{overflow-x:auto;max-width:100%}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:12px 10px;vertical-align:top;text-align:left;border-bottom:1px solid var(--line)}th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}td:first-child{font-weight:600}.roadmap td:first-child{width:60px}.roadmap a{text-decoration:none}.roadmap td:nth-child(2){min-width:220px}.roadmap td:last-child{color:var(--muted)}details{border:1px solid var(--line);border-radius:8px;margin:12px 0;background:#fff}summary{cursor:pointer;padding:17px 19px;font-weight:600;line-height:1.5}details[open]>summary{border-bottom:1px solid var(--line)}.detail-body{padding:18px 20px;overflow-wrap:anywhere}.detail-body p{font-size:15px}.detail-body ul{padding-left:23px}.detail-body li{margin:9px 0;font-size:15px}.detail-body pre{font-size:12px;line-height:1.55;background:var(--soft);padding:15px;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:5px}.detail-body code{font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;background:var(--soft);padding:2px 4px;border-radius:3px;overflow-wrap:anywhere}.detail-body pre code{padding:0}.detail-body input[type=checkbox]{accent-color:var(--green)}.detail-body blockquote{border-left:2px solid var(--line);margin:15px 0;padding:0 15px}.task-id{display:inline-block;font-size:12px;color:var(--green);min-width:35px}.toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}button{font:inherit;font-size:13px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:5px;padding:8px 12px;cursor:pointer}button:hover{background:var(--soft)}footer{font-size:13px;color:var(--muted);padding-bottom:45px}.text-link{font-size:14px}.review-box{background:var(--soft);border:1px solid var(--line);padding:22px;border-radius:8px}@media(max-width:680px){header,main,footer{padding:23px 17px}header{padding-top:32px}nav>div{padding:11px 17px;gap:8px 17px}.cards,.figure-grid{grid-template-columns:1fr}.lead{font-size:18px}.card{padding:17px}.cards{gap:10px}.detail-body{padding:16px 14px}summary{padding:15px 14px}.roadmap td:nth-child(2){min-width:175px}td,th{padding:10px 7px}figure img{height:290px}section{padding:25px 0}}@media print{nav,.toolbar{display:none}details{break-inside:auto}.detail-body{display:block!important}header,main,footer{max-width:none;padding:14px}figure img{height:260px}}
+</style></head><body><header><div class="eyebrow">Lab Tutor · Implementation plan · 12 October 2026</div><h1>Teacher evidence workspace</h1><p class="lead">A simple overview, useful patterns and a helpful conversation. A concrete plan to build it with real database evidence.</p><span class="badge">Specification approved · 12 tasks · implementation has not started</span><p class="text-link" style="margin-top:16px"><a href="../specs/2026-10-11-teacher-evidence-workspace-design.html">Read the approved specification ↗</a></p></header><nav aria-label="Plan sections"><div><a href="#overview">Outcome</a><a href="#roadmap">Task overview</a><a href="#foundations">Contracts & constraints</a><a href="#tasks">Implementation tasks</a><a href="#verification">Verification</a><a href="#review">Review</a></div></nav><main>
+<section id="overview"><h2>Keep the experience simple.</h2><p>The teacher starts with one demand chart and at most two evidence-backed patterns. Deeper comparisons and exact values are one step away. Categories and individual skills share the same shortlist; the conversation stays alongside the evidence.</p><div class="cards"><div class="card"><span class="eyebrow">Tasks 1–4</span><b>Trustworthy data and agent behavior</b><p>Authoritative metadata, validated context, restricted evidence questions and honest execution status.</p></div><div class="card"><span class="eyebrow">Tasks 5–10</span><b>Clear teacher controls</b><p>Shared selection, ECharts, useful comparisons, better conversation and O*NET reference browsing.</p></div><div class="card"><span class="eyebrow">Tasks 11–12</span><b>Integration and proof</b><p>Responsive page, existing approval checkpoints, database readback and headless browser tests.</p></div></div><div class="callout"><p><strong>Every published skill still needs its job-posting evidence.</strong> O*NET provides importance and level context. Existing student paths, resources and quiz mastery stay compatible.</p></div><div class="figure-grid"><figure><a href="../specs/2026-10-11-teacher-evidence-workspace-assets/demand-concept.png" target="_blank" rel="noopener"><img src="../specs/2026-10-11-teacher-evidence-workspace-assets/demand-concept.png" alt="Approved concept with chart area and right-hand agent conversation"></a><figcaption>Approved visual direction. Earlier prototype job counts are illustrative; implementation uses SQL-backed APIs.</figcaption></figure><figure><a href="../specs/2026-10-11-teacher-evidence-workspace-assets/occupation-concept.png" target="_blank" rel="noopener"><img src="../specs/2026-10-11-teacher-evidence-workspace-assets/occupation-concept.png" alt="Approved occupation comparison concept with a shared teacher shortlist"></a><figcaption>Occupation comparisons reveal detail when needed. Click either screenshot to expand.</figcaption></figure></div></section>
+<section id="roadmap"><h2>The twelve implementation tasks</h2><p class="small">Each task includes file ownership, interfaces, a failing-test step, implementation, verification and a scoped commit. Open a task for details.</p><div class="table-scroll"><table class="roadmap"><thead><tr><th>Task</th><th>Deliverable</th><th>What it proves</th></tr></thead><tbody><tr><td>01</td><td><a href="#task-1">Return authoritative analysis metadata and execution status</a></td><td>Metadata and status from the correct SQL run</td></tr><tr><td>02</td><td><a href="#task-2">Resolve bounded, owned context and deterministic patterns</a></td><td>Validated evidence, bounded context and pattern rules</td></tr><tr><td>03</td><td><a href="#task-3">Add a restricted contextual entry to the existing graph</a></td><td>Evidence questions cannot trigger workflow tools</td></tr><tr><td>04</td><td><a href="#task-4">Make stream completion and restored context truthful</a></td><td>Accurate completion, failure and restored context</td></tr><tr><td>05</td><td><a href="#task-5">Extract the single teacher shortlist controller</a></td><td>One shared shortlist with exclusions and safe saving</td></tr><tr><td>06</td><td><a href="#task-6">Build exact chart datasets, patterns and context requests</a></td><td>Exact values and defensible patterns in every view</td></tr><tr><td>07</td><td><a href="#task-7">Render ECharts and accessible evidence views</a></td><td>Interactive ECharts with an accessible table</td></tr><tr><td>08</td><td><a href="#task-8">Add typed contextual transport and recovery</a></td><td>Contextual requests and reliable recovery</td></tr><tr><td>09</td><td><a href="#task-9">Make conversation controls understandable and stateful</a></td><td>Clear context, useful proposals and preserved questions</td></tr><tr><td>10</td><td><a href="#task-10">Support genuine empty states and O*NET reference exploration</a></td><td>Useful reference browsing when no analysis exists</td></tr><tr><td>11</td><td><a href="#task-11">Assemble the simple workspace and preserve teacher checkpoints</a></td><td>Simple layout, checkpoints and guarded navigation</td></tr><tr><td>12</td><td><a href="#task-12">Verify the complete database-backed teacher flow</a></td><td>Real database flow, browser proof and student regression</td></tr></tbody></table></div></section>
+<section id="foundations"><h2>Contracts and constraints</h2><p>The plan reuses the existing route, source services, SQL review and teacher approval flow. Frontend and backend can progress in parallel after the shared contracts are fixed.</p><details id="foundation-0"><summary>Global Constraints</summary><div class="detail-body"><ul>
+<li>“Every skill published for students still needs a stored, qualifying job-posting link and supporting evidence.” Preserve the existing final <code>422 missing_job_evidence</code> gate, exact approval digest and student APIs, paths, resources and quiz mastery.</li>
+<li>“PostgreSQL is authoritative.” Neo4j stays the projection. Never use prototype counts or scripted replies as production fallback.</li>
+<li>“Chart clicks focus the skill and evidence; they never select, save or approve it.” No model calls on click, hover or filter changes.</li>
+<li>“Show at most two” patterns. Demand 0–100%; IM 1–5; LV 0–7. Overview 12 rows; heatmap 12 rows/page; Data 25 rows/page; at most 5 occupations.</li>
+<li>Show both panes at <strong>1,000 CSS pixels of available workspace width</strong>, accounting for the app sidebar; chat defaults to <strong>360px</strong>. Smaller workspace: Workspace / Conversation with preserved state.</li>
+<li>Context: message ≤8,000 characters; JSON context ≤16 KiB; explicit candidates ≤20; categories ≤10; occupations ≤5; descriptor choices ≤20; reference element IDs ≤20; search ≤120 characters. Model evidence ≤24 KiB and at most two 600-character excerpts per focused candidate.</li>
+<li>Reject contextual source configuration; explain has no mutating tools; propose can write only an immutable recommendation. Ordinary review questions retain <code>intent:&quot;explain&quot;</code> after removing focus.</li>
+<li>“A read must not acquire a workflow lease.” Idle is a point-in-time observation, never proof of completion. Closing a stream is detachment, not server cancellation.</li>
+<li>Keep HTTP wrappers in feature <code>api.ts</code>, <code>@/</code> imports, Tailwind/<code>cn()</code>, react-hook-form + zod for forms. SQL in repositories, behavior in services, route injection through <code>Depends()</code>.</li>
+<li>Run app tests/dependency installation in Docker; real PostgreSQL tests, no mocked repositories. External model/provider boundaries may be deterministic doubles. Headless browsers only.</li>
+<li>No all-agent migration, new provider, weighted score, historical trend/co-occurrence analytics, run-history browser, provider-specific retry, true cancellation or scheduled crawling.</li>
+</ul>
+</div></details><details id="foundation-1"><summary>Review Focus</summary><div class="detail-body"><p>These five less-obvious conditions receive explicit tests in the owning task:</p>
+<ol>
+<li>A conversation is idle but its checkpoint still has unfinished workflow work: an evidence question must not resume that work or discard it. <strong>Task 3.</strong></li>
+<li>A snapshot is purged after a question: stored context metadata must not preserve source excerpts, and evidence inspection must report unavailability. <strong>Tasks 2 and 4.</strong></li>
+<li>Save completes after the teacher changes course or after a newer review arrives: ignore the late result; mapping/proposals use the acknowledged revision, never an old render closure. <strong>Tasks 5 and 8.</strong></li>
+<li>A reset fails after SQL state deletion but before checkpoint deletion: preserve recoverable input and reconcile; do not claim the former run is still active. <strong>Tasks 8 and 11.</strong></li>
+<li>The same competency has different evidence UUIDs in different occupations, while one candidate matches two descriptors: compare descriptor identity, preserve ambiguity, and never choose the largest rating. <strong>Tasks 2 and 6.</strong></li>
+</ol>
+</div></details><details id="foundation-2"><summary>Repository map and ownership</summary><div class="detail-body"><p>The coordinator owns this plan, shared contracts, task integration and final verification. A backend worker owns <code>backend/</code>; a frontend worker owns <code>frontend/</code>. Do not run two workers editing the same frontend types/page/hook, or the same backend graph/routes. Commit operations remain serialized by the coordinator.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Existing files to extend</th>
+<th>Focused new files</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SQL review and status</td>
+<td><code>backend/app/modules/marketdemandanalyst/{schemas,repository,review_service,thread_state_service,routes}.py</code></td>
+<td>None for metadata/status</td>
+</tr>
+<tr>
+<td>Context and patterns</td>
+<td>Same repository/schema boundary</td>
+<td><code>workspace_service.py</code>, <code>workspace_patterns.py</code> in that module</td>
+</tr>
+<tr>
+<td>Contextual execution</td>
+<td><code>graph.py</code>, <code>routes.py</code>, <code>prompts.py</code></td>
+<td><code>workspace_chat.py</code> in that module</td>
+</tr>
+<tr>
+<td>Frontend transport</td>
+<td><code>frontend/src/features/market-demand/{types,api}.ts</code>, <code>hooks/useAgentStream.ts</code></td>
+<td>None</td>
+</tr>
+<tr>
+<td>Shared review and data</td>
+<td><code>selection.ts</code>, <code>components/SkillReviewPanel.tsx</code></td>
+<td><code>hooks/useSkillReviewController.ts</code>, <code>workspace-data.ts</code>, <code>workspace-context.ts</code></td>
+</tr>
+<tr>
+<td>Evidence views</td>
+<td><code>components/SkillEvidencePanel.tsx</code></td>
+<td><code>EvidenceChart.tsx</code>, <code>WorkspaceOverview.tsx</code>, <code>WorkspaceCompare.tsx</code>, <code>WorkspaceDataTable.tsx</code> under <code>components/</code></td>
+</tr>
+<tr>
+<td>Conversation and page</td>
+<td><code>ChatInput.tsx</code>, <code>AgentMessage.tsx</code>, <code>UserMessage.tsx</code>, <code>pages/MarketDemandPage.tsx</code></td>
+<td><code>components/WorkspaceConversation.tsx</code>, <code>components/OccupationReferencePanel.tsx</code>, <code>hooks/useWorkspaceNavigationGuard.ts</code></td>
+</tr>
+<tr>
+<td>Navigation guard</td>
+<td><code>frontend/src/App.tsx</code></td>
+<td>No route redesign; minimal Data Router shell for supported navigation blocking</td>
+</tr>
+<tr>
+<td>Verification</td>
+<td>Existing market-demand tests and real SQL fixtures</td>
+<td>Focused test files named per task; final acceptance harness/report</td>
+</tr>
+</tbody></table></div>
+<p><code>components/IntegrationReview.tsx</code> remains the approval authority in the UI; adapt props only if controller integration requires it. Remove <code>components/StatePanel.tsx</code> and its usages after replacing the legacy results sidebar. Retain unrelated Recharts usage.</p>
+</div></details><details id="foundation-3"><summary>Shared contracts and execution order</summary><div class="detail-body"><p>All task-local files below are relative to the repository root; <code>B/</code> means <code>backend/app/modules/marketdemandanalyst/</code>, <code>F/</code> means <code>frontend/src/features/market-demand/</code>. These aliases are documentation shorthand, not new filesystem roots.</p>
+<ul>
+<li><code>SkillReview.analysis_metadata?: AnalysisMetadata | null</code> uses the exact approved object: <code>country</code>, <code>job_sources</code>, <code>evidence_sources</code>, <code>onet_release</code>, <code>occupations:[{soc_code,title}]</code>, <code>created_at</code>, <code>updated_at</code>. Values come from that review’s run, never another thread snapshot.</li>
+<li><code>GET /courses/{id}/market-demand/execution-status</code> returns <code>{status:&quot;busy&quot;|&quot;idle&quot;,state_updated_at:string|null}</code>. HTTP failure is local <code>unknown</code>, not a third server value.</li>
+<li><code>WorkspaceContext = RunReviewContext | OccupationReferenceContext</code> follows spec §6C field-for-field, including version 1, intents, filter scope and descriptor choices. Pydantic objects forbid extras. Context with country/location/providers/release configuration in the outer chat request is 422.</li>
+<li><code>context_resolved</code> carries the stable human message ID plus safe metadata. <code>error</code> carries <code>code</code>, <code>message</code>, <code>recovery</code>. <code>stream_end</code> adds <code>outcome:&quot;completed&quot;|&quot;failed&quot;</code>; old requests remain supported. History messages gain optional matching context metadata. A restored transcript without terminal proof must not claim success.</li>
+<li><code>WorkspaceViewState</code> contains <code>view</code>, <code>filters</code>, <code>focusedCandidateId</code>, <code>occupationCodes</code>, <code>activeOccupationCode</code>, <code>metric</code>, <code>descriptorChoices</code>, <code>sort:{field,direction}</code>, <code>page</code>. Use candidate IDs and evidence IDs, never chart positions as identity.</li>
+<li>Frontend <code>SendCommand = {mode:&quot;workflow&quot;,text:string} | {mode:&quot;contextual&quot;,text:string,context:WorkspaceContext}</code>. Contextual transport omits workflow configuration. Missing focus never means workflow mode.</li>
+<li>Pattern corpus is one reviewed JSON corpus mirrored byte-for-byte into backend and frontend test directories because the existing containers mount each application separately. Edit the backend copy, copy it to the frontend, and verify <code>cmp</code> at integration. Both languages assert exact outputs from all cases; neither has a separate set of thresholds.</li>
+</ul>
+<p>Backend dependency chain: <strong>1 → 2 → 3 → 4</strong>. Frontend: <strong>5 → 6 → 7</strong>, then <strong>8 → 9</strong>, with <strong>10</strong> using the reference API and shared types. <strong>11</strong> joins these pieces; <strong>12</strong> verifies the result. Backend and frontend work may overlap after these contracts are frozen, but tasks within each ownership boundary remain sequential. No product rollout until task 12 passes.</p>
+<h3>Execution preflight, folded into Task 1</h3>
+<p>Use <code>superpowers:using-git-worktrees</code> at execution time and a feature branch such as <code>feat/teacher-evidence-workspace</code>; base it on the approved specification and plan commits. Preserve the existing unrelated dirty checkout. Do not copy <code>.env</code> into Git or include unrelated dependency/Docker changes in this feature. Apply the user’s current AGENTS instructions in the worktree too.</p>
+<p>Check which source checkout the Docker containers actually mount before testing. Reuse suitable containers only when they point to the implementation checkout; otherwise create scoped development containers with the existing Compose definitions and isolated names/ports. Do not claim verification against another checkout. Commands below use the project’s standard container names; substitute only the verified scoped equivalents.</p>
+<p>Use the explicit test database URL shown in every backend command. <code>tests/conftest.py</code> creates/drops schema and truncates tables: never point it at a development or production database, and never run two pytest processes against the same test database. Start required containers if stopped; investigate an unhealthy environment before changing product code. If <code>docker</code> is absent from PATH on this Mac, use <code>/Applications/Docker.app/Contents/Resources/bin/docker</code>. No host app-dependency installation. For every task commit, stage the named files explicitly with <code>git add -- &lt;task paths&gt;</code>, inspect the staged diff, then <code>git commit -m &quot;&lt;task message&gt;&quot;</code>; do not stage the whole working tree.</p>
+</div></details></section>
+<section id="tasks"><h2>Implementation details</h2><div class="toolbar"><button id="expand" type="button">Expand all tasks</button><button id="collapse" type="button">Collapse all tasks</button></div><details class="task" id="task-1"><summary><span class="task-id">01</span>Return authoritative analysis metadata and execution status</summary><div class="detail-body"><p><strong>Files:</strong> Modify <code>B/schemas.py</code>, <code>B/review_service.py</code> (<code>review_from_run</code>), <code>B/repository.py</code> (<code>ThreadStateRepository</code>), <code>B/thread_state_service.py</code>, <code>B/routes.py</code>. Tests: <code>backend/tests/modules/test_market_skill_review.py</code>, <code>backend/tests/modules/test_market_demand_thread_state.py</code>.</p>
+<p><strong>Interfaces:</strong> Produces <code>AnalysisMetadata</code>, <code>AnalysisOccupation</code>, <code>ExecutionStatus</code>; <code>ThreadStateRepository.execution_status(thread_id: str) -&gt; ExecutionStatus</code>; <code>async ThreadStateService.execution_status(thread_id: str) -&gt; ExecutionStatus</code>. Existing <code>get_review</code> returns the extended <code>SkillReview</code>.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing tests</strong> for populated/legacy/no-run metadata, ownership, and a second service observing a real PostgreSQL lease. Core assertions:</li>
+</ul>
+<pre><code class="language-python">assert review.analysis_metadata.onet_release == run.config[&quot;onet_release&quot;]
+assert empty_review.analysis_metadata is None
+assert (await observer.execution_status(thread_id)).status == &quot;busy&quot;
+# Repeated observation neither releases nor acquires the conversation lock.
+with pytest.raises(ThreadBusy):
+    await competitor.claim(thread_id)
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec -e LAB_TUTOR_DATABASE_URL=&quot;postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test&quot; lab_tutor_backend sh -lc &#39;cd /app &amp;&amp; /app/.venv/bin/python -m pytest -v tests/modules/test_market_skill_review.py tests/modules/test_market_demand_thread_state.py&#39;</code>. New tests must fail for missing fields/status behavior, not infrastructure.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement</strong> metadata from the same run, including null/empty legacy fields. Observe <code>pg_locks</code> using current database OID, granted advisory lock, unsigned high/low 32-bit halves of <code>hashtextextended(thread_id,0)</code> and <code>objsubid=1</code>; read <code>MDAThreadState.updated_at</code>. Add the owned, injected GET endpoint. Never call lock acquisition in status. Test wrong-key/current-database separation and busy through finalization.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat the exact task command; all selected tests pass. Run the backend Ruff command in the final-check section before committing Python changes.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: expose market analysis metadata and execution status</code>.</li>
+</ul>
+</div></details><details class="task" id="task-2"><summary><span class="task-id">02</span>Resolve bounded, owned context and deterministic patterns</summary><div class="detail-body"><p><strong>Files:</strong> Create <code>B/workspace_service.py</code>, <code>B/workspace_patterns.py</code>, <code>backend/tests/modules/test_market_workspace_context.py</code>, <code>backend/tests/modules/test_market_workspace_patterns.py</code>, <code>backend/tests/fixtures/teacher-workspace-patterns.json</code>. Modify <code>B/schemas.py</code>, <code>B/repository.py</code>, <code>B/routes.py</code> (dependency factory), and fixture helpers in <code>backend/tests/market_skill_fixtures.py</code> only as needed.</p>
+<p><strong>Interfaces:</strong> <code>WorkspaceContextService.resolve(course_id:int, teacher_id:int, request:WorkspaceContext) -&gt; ResolvedWorkspaceContext</code>; detached result holds <code>request</code>, <code>intent</code>, <code>revision:SkillReviewRevision|None</code>, <code>model_bundle:dict</code>, <code>history_metadata:ResolvedContextMetadata</code>. <code>derive_pattern_observations(review:SkillReview, context:RunReviewContext) -&gt; list[PatternObservation]</code>. Constructor-inject SQL and occupation repositories. <code>PatternObservation</code> has <code>kind:InsightKind</code>, <code>candidate_ids:list[str]</code>, <code>occupation_codes:list[str]</code>, <code>descriptor_keys:list[tuple[str,str,str]]</code>, <code>values:list[PatternValue]</code>, <code>coverage:dict</code>. <code>PatternValue</code> is <code>{candidate_id, occupation_code:null|str, value:float, supporting_count:null|int, assessed_count:null|int}</code>; <code>InsightKind</code> is the spec&#39;s three pattern names. Use that same JSON shape in TypeScript; snapshot/revision/filter identity is carried by the enclosing resolved context.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing SQL/contract tests</strong> covering every bound, unknown fields, foreign ownership, stale revisions, invalid candidate/occupation/evidence membership, mixed configuration and reference-only contexts. Seed from real SQL fixtures; model invocation count stays zero on rejection.</li>
+</ul>
+<pre><code class="language-python">assert stale_response.status_code == 409
+assert stale_response.json()[&quot;detail&quot;][&quot;code&quot;] == &quot;context_stale&quot;
+assert len(json.dumps(resolved.model_bundle, ensure_ascii=False).encode()) &lt;= 24 * 1024
+assert &quot;original_description&quot; not in json.dumps(resolved.history_metadata.model_dump())
+assert source_excerpt not in json.dumps(resolved.history_metadata.model_dump())
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec -e LAB_TUTOR_DATABASE_URL=&quot;postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test&quot; lab_tutor_backend sh -lc &#39;cd /app &amp;&amp; /app/.venv/bin/python -m pytest -v tests/modules/test_market_workspace_context.py tests/modules/test_market_workspace_patterns.py&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement resolution</strong> against the active owned run after lease acquisition. Query bounded owned postings and fresh O*NET rows through repositories; validate ready/pinned release, occupation, descriptor and relation. Detach facts and release the read transaction before model work. Use saved selection for attached <code>scope=&quot;selected&quot;</code>; reject dirty selected-scope/proposal requests. Return 404/409/422 per the spec. Apply the UTF-8 byte budget to valid complete JSON; count omissions after budgeting. Only IDs/labels/facts/revisions/counts enter persistent metadata, never source bodies/excerpts.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement pure pattern rules and corpus.</strong> Common sample: denominator ≥10, support ≥3 and percentage ≥50, same denominator, ≤3 skills. Difference: same <code>(release,family,element_id)</code>, ≥2 occupations and IM spread ≥1.0. Shared importance: every compared occupation reported IM≥4, ≥2 roles. Max 2 observations in approved priority, no repeated skill; sort ties by normalized label then stable ID using identical lexical rules in both languages. Corpus cases include 9/10 denominators, 2/3 supports, 49.9/50%, spread .99/1.0, IM3.99/4, ties, partial/mixed coverage, missing/suppressed values, ambiguity, duplicate evidence and distinct per-role evidence UUIDs. Pattern scope is all matching candidates, not a page.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command and Ruff. Include multibyte text at byte limits, empty search/filter combinations and purged evidence. Both models and DB facts remain unmodified during resolution.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: resolve validated workspace evidence context</code>.</li>
+</ul>
+</div></details><details class="task" id="task-3"><summary><span class="task-id">03</span>Add a restricted contextual entry to the existing graph</summary><div class="detail-body"><p><strong>Files:</strong> Create <code>B/workspace_chat.py</code>, <code>backend/tests/modules/test_market_workspace_chat.py</code>. Modify <code>B/graph.py</code>, <code>B/routes.py</code> (<code>ChatRequest</code>, <code>/chat</code>, stream context/persistence arguments), <code>B/prompts.py</code>. Reuse <code>B/review_service.py</code>, <code>B/tools.py</code> owned-execution helpers; change them only if a narrow public helper is required.</p>
+<p><strong>Interfaces:</strong> <code>WorkspaceRuntimeContext</code> carries an optional detached resolved context, course/teacher identity and allowed intent for one invocation; absent context means legacy workflow. <code>route_entry(state:SwarmState, runtime:Runtime[WorkspaceRuntimeContext]) -&gt; str</code>; <code>async workspace_review(state:SwarmState, runtime:Runtime[WorkspaceRuntimeContext]) -&gt; dict</code> returns only <code>messages</code>. <code>create_workspace_proposal(course_id:int, teacher_id:int, revision:SkillReviewRevision, changes:list[RecommendationChange]) -&gt; tuple[SkillReview,dict]</code> delegates to the existing recommendation service with frozen revisions. No inner lease acquisition. Extend <code>_sse_stream</code> with <code>runtime_context:WorkspaceRuntimeContext|None</code> and server-only <code>persistence_policy:Literal[&quot;workflow_snapshot&quot;,&quot;checkpoint_only&quot;,&quot;proposal_snapshot&quot;]</code>; the client cannot choose these parameters.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing real-graph/checkpointer tests</strong> with a deterministic external model double, not a fake graph. Run workflow → explain → workflow and inspect routing/history/state; try fabricated fetch/delete/publish tool calls and stale proposals.</li>
+</ul>
+<pre><code class="language-python">assert after_inspect.values[&quot;active_agent&quot;] == before.values[&quot;active_agent&quot;]
+assert provider_calls == []
+assert saved_run.config == before_config
+assert saved_selection == before_selection
+assert pending_checkpoint_response.status_code == 409
+assert pending_checkpoint_response.json()[&quot;detail&quot;][&quot;code&quot;] == &quot;workflow_recovery_required&quot;
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec -e LAB_TUTOR_DATABASE_URL=&quot;postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test&quot; lab_tutor_backend sh -lc &#39;cd /app &amp;&amp; /app/.venv/bin/python -m pytest -v tests/modules/test_market_workspace_chat.py tests/modules/test_market_skill_recommendations.py&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement one guarded entry.</strong> Replace only the <code>create_swarm</code> convenience construction with equivalent public <code>StateGraph(SwarmState, context_schema=...)</code> construction, preserving current nodes/handoff destinations/checkpointer and <code>skill_extractor</code>. Use one START router: validated runtime context → <code>workspace_review</code>; otherwise existing active agent/default supervisor. Do not add a second START branch or second parent graph. Review node has no handoffs and leaves <code>active_agent</code> unchanged. Runtime bundle never enters graph state or <code>STATE_KEYS</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Wire the contextual route under the existing lease.</strong> Check ownership, claim, resolve revisions/facts, then read checkpoint. Reject unfinished workflow tasks before invoking a model; do not resume them through chat. Explain binds zero tools; propose binds only the revision-bound proposal wrapper with existing owned-worker finalization. Reference questions create no run. Skip configuration and seeded tool-state defaults. Pass an explicit server-owned persistence policy: explain/reference writes checkpoint messages only; proposal relies on the existing committed proposal snapshot rather than overwriting it with stale state.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command and Ruff. Verify stale proposal rejection, no saved/excluded selection mutation, no nested lease, no raw context in checkpoints, ordered history and unchanged legacy handoffs. Clean test checkpoint IDs/pools. Consolidate legacy prompt conflicts around sample frequency, permitted retries and teacher approval; do not change the provider contract.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: isolate workspace explanations and proposals</code>.</li>
+</ul>
+</div></details><details class="task" id="task-4"><summary><span class="task-id">04</span>Make stream completion and restored context truthful</summary><div class="detail-body"><p><strong>Files:</strong> Modify <code>B/routes.py</code> (<code>_sse_stream</code>, history conversion), <code>B/workspace_chat.py</code>, <code>B/schemas.py</code>; extend <code>backend/tests/modules/test_market_demand.py</code>, <code>test_market_demand_thread_state.py</code>, <code>test_market_workspace_chat.py</code>.</p>
+<p><strong>Interfaces:</strong> Existing SSE frame shape plus the shared <code>context_resolved</code>, <code>error</code>, <code>stream_end.outcome</code> fields. Safe contextual metadata lives in <code>HumanMessage.additional_kwargs[&quot;workspace_context&quot;]</code>. Stable server-generated human ID joins live and historical messages. Terminal SSE outcome is distinct from checkpointed reply text; no new durable terminal-status store is introduced.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing tests</strong> for model failure, final SQL/checkpoint failure, absent terminal result after detachment, stable message identity and redacted history:</li>
+</ul>
+<pre><code class="language-python">assert frames[-1][&quot;data&quot;][&quot;outcome&quot;] == &quot;failed&quot;
+assert context_event[&quot;messageId&quot;] == restored_user_message[&quot;id&quot;]
+assert &quot;workspace_context&quot; in restored_user_message
+assert source_excerpt not in json.dumps(restored_user_message[&quot;workspace_context&quot;])
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec -e LAB_TUTOR_DATABASE_URL=&quot;postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test&quot; lab_tutor_backend sh -lc &#39;cd /app &amp;&amp; /app/.venv/bin/python -m pytest -v tests/modules/test_market_demand.py tests/modules/test_market_demand_thread_state.py tests/modules/test_market_workspace_chat.py&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement</strong> sanitized error codes/messages/recovery without exception repr. Emit completed only after successful owned finalization; failed when final persistence fails. On restore, reconcile review/history and keep outcome unknown when no terminal proof exists; do not retrofit a synthetic success marker into checkpoints or infer it from reply text. Preserve managed producer/draining/lease release after browser detach. Register <code>workspace_review</code> display metadata as “Evidence assistant” and retain that agent identity in stream/history. Extend history conversion without merging distinct contextual turns or dropping old messages. Tool completion is not source success; source outcomes remain authoritative. Use a <code>finished</code>/unknown display state where success is not proven, retaining old wire compatibility where necessary.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command and Ruff. A second service must still observe busy until owned work drains. Historical purged evidence is unavailable through inspection; context metadata contains no retained payload. Legacy request/event tests remain green.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>fix: report market conversation outcomes accurately</code>.</li>
+</ul>
+</div></details><details class="task" id="task-5"><summary><span class="task-id">05</span>Extract the single teacher shortlist controller</summary><div class="detail-body"><p><strong>Files:</strong> Create <code>F/hooks/useSkillReviewController.ts</code>, <code>F/__tests__/useSkillReviewController.test.tsx</code>. Modify <code>F/components/SkillReviewPanel.tsx</code>, <code>F/pages/MarketDemandPage.tsx</code>, <code>F/types.ts</code>, <code>F/__tests__/SkillReviewPanel.test.tsx</code>; reuse <code>F/selection.ts</code> and integration review.</p>
+<p><strong>Interfaces:</strong> <code>useSkillReviewController({courseId,review,onReviewChange,disabled}) -&gt; SkillReviewController</code>. It receives the one authoritative review from <code>useAgentStream</code>; owns local draft/undo/reconciliation/view state. Export actions <code>setCandidate</code>, <code>setCategory</code>, <code>applyProposal</code>, <code>acknowledgeReconciliation</code>, <code>acknowledgeIncomingReview</code>, <code>updateView</code>, <code>undo</code>; <code>save()</code>, <code>reviewMappings()</code>, <code>acknowledgeAvailableEvidence()</code> each return <code>Promise&lt;SkillReview&gt;</code> and reject failures. Expose <code>dirty</code>, <code>busy</code>, <code>reviewRequired</code>, <code>error</code>, <code>canUndo</code>.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing controller/component tests:</strong> category selection includes search-hidden members; exclusions survive proposals; new/merged candidates are not auto-selected; dirty same-run refresh preserves valid choices; an older save cannot cross a course/run generation.</li>
+</ul>
+<pre><code class="language-ts">expect(result.current.draft.selected_candidate_ids).toEqual([pythonId, sqlId]);
+expect(result.current.draft.excluded_candidate_ids).toContain(powerBiId);
+expect(confirmSkillReviewSelection).toHaveBeenCalledWith(courseId,
+  expect.objectContaining({expected_selection_revision: acknowledged.selection_revision}));
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/useSkillReviewController.test.tsx src/features/market-demand/__tests__/selection.test.ts src/features/market-demand/__tests__/SkillReviewPanel.test.tsx src/features/market-demand/__tests__/IntegrationReview.test.tsx&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement extraction, not a second store.</strong> First mirror the shared <code>AnalysisMetadata</code>, <code>WorkspaceContext</code>, <code>ResolvedContextMetadata</code>, <code>ExecutionStatus</code> DTOs and define <code>WorkspaceViewState</code> in <code>types.ts</code>; Task 8 adds their transport behavior. Move existing local decisions/actions into the controller. Keep server-owned selection separate from dirty draft. Acknowledge changed revisions before another save, surface lost candidate names, retain protected exclusions and explicit reconciliation IDs. <code>reviewMappings()</code> first awaits successful save if dirty and confirms the returned revisions. Make SkillReviewPanel controlled. Do not add an earlier backend posting gate or alter approval/withdrawal semantics.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command. Include failed save → no confirm, stale proposal disabled, undo, zero-member category and refresh during save. Keep the old page functional by instantiating its controller at the page boundary.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>refactor: share the teacher skill selection controller</code>.</li>
+</ul>
+</div></details><details class="task" id="task-6"><summary><span class="task-id">06</span>Build exact chart datasets, patterns and context requests</summary><div class="detail-body"><p><strong>Files:</strong> Create <code>F/workspace-data.ts</code>, <code>F/workspace-context.ts</code>, <code>F/__tests__/workspace-data.test.ts</code>, <code>F/__tests__/workspace-context.test.ts</code>, <code>F/__tests__/teacher-workspace-patterns.json</code>. Modify <code>F/types.ts</code>, <code>F/__tests__/review-fixtures.ts</code>.</p>
+<p><strong>Interfaces:</strong> <code>resolveOnetRating(candidate,occupationCode,metric,release,evidenceId?) -&gt; RatingResolution</code>; <code>buildWorkspaceData(review:SkillReview,draft:SelectionDraft,view:WorkspaceViewState) -&gt; WorkspaceData</code>; <code>derivePatternObservations(scope:NormalizedWorkspaceScope) -&gt; PatternObservation[]</code>. Rating union distinguishes reported/missing/suppressed/not-relevant/no-association/ambiguous; reported includes evidence and descriptor identity. Data includes full filtered scope, demand rows, scatter points, heatmap page, table page and observations. <code>buildRunReviewContext({review,view,dirty,intent,candidateIds?,insightKind?}) -&gt; {ok:true,context:RunReviewContext}|{ok:false,reason:&quot;save_required&quot;|&quot;invalid_context&quot;}</code>; <code>removeContextFocus(context:WorkspaceContext) -&gt; WorkspaceContext</code>.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing selectors/builders tests</strong> and copy Task 2’s corpus byte-for-byte. Both suites compare the same expected observation JSON:</li>
+</ul>
+<pre><code class="language-ts">expect(data.demandRows).toHaveLength(12);
+expect(data.tablePage.rows).toHaveLength(25);
+expect(data.observations.length).toBeLessThanOrEqual(2);
+expect(resolveOnetRating(ambiguous, soc, &quot;IM&quot;, release).status).toBe(&quot;ambiguous&quot;);
+expect(removeContextFocus(context).intent).toBe(&quot;explain&quot;);
+expect(buildRunReviewContext(dirtySelectedScope)).toEqual({ok:false,reason:&quot;save_required&quot;});
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/workspace-data.test.ts src/features/market-demand/__tests__/workspace-context.test.ts&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement pure selectors</strong> using server <code>job_metrics</code>, eligible equivalent O*NET associations, matching pinned release and reported finite in-range values. Never aggregate percentages or map broader/software references to numerical importance. Deduplicate evidence IDs; explicit descriptor choice resolves ambiguity. Missing sorts last both ways. Normalize search/labels with Unicode NFKC, trim and lowercase in both languages; category filtering intersects search, then optional local selected scope. Stable ties compare normalized Unicode code points then ID, not locale-sensitive ordering. Add Cyrillic and supplementary-character corpus cases. Keep counts independent of top-12/pagination; clamp page after filtering.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement context builders</strong> with IDs/filters only, no client facts/URLs/excerpts. Preserve explicit intent after focus removal, freeze a deep copy at Send, and enforce all shared bounds. A dirty selected-only context or proposal requires save; explain otherwise carries the unsaved notice. No run means reference context only.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command and both-language corpus tests. <code>cmp backend/tests/fixtures/teacher-workspace-patterns.json frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json</code> must exit 0. Test all-zero demand versus unassessed demand, same descriptor across distinct evidence IDs and different descriptor choices across occupations.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: derive evidence charts and inspectable patterns</code>.</li>
+</ul>
+</div></details><details class="task" id="task-7"><summary><span class="task-id">07</span>Render ECharts and accessible evidence views</summary><div class="detail-body"><p><strong>Files:</strong> Create <code>F/components/EvidenceChart.tsx</code>, <code>WorkspaceOverview.tsx</code>, <code>WorkspaceCompare.tsx</code>, <code>WorkspaceDataTable.tsx</code>, <code>F/__tests__/EvidenceChart.test.tsx</code>, <code>WorkspaceViews.test.tsx</code>. Modify <code>frontend/package.json</code>, <code>frontend/package-lock.json</code>, <code>F/components/SkillEvidencePanel.tsx</code> and relevant evidence tests.</p>
+<p><strong>Interfaces:</strong> <code>EvidenceChart({option,label,className,onFocus,onError?})</code>; <code>ChartFocus={candidateId:string,occupationCode?:string,evidenceId?:string}</code>. View props <code>{data:WorkspaceData,controller:SkillReviewController,onAsk:(request:WorkspaceQuestion)=&gt;void}</code>; <code>WorkspaceQuestion={text:string,candidateIds?:string[],occupationCodes?:string[],insightKind?:PatternObservation[&quot;kind&quot;]}</code>. Question objects contain no source values. Default-export Compare for lazy loading.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing lifecycle/view tests</strong> proving resize/disposal and that bar/cell/pattern interactions stage focus/question without selecting or POSTing:</li>
+</ul>
+<pre><code class="language-ts">expect(onFocus).toHaveBeenCalledWith({candidateId:pythonId});
+expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+expect(streamMarketDemandChat).not.toHaveBeenCalled();
+unmount();
+expect(chart.dispose).toHaveBeenCalledTimes(1);
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/EvidenceChart.test.tsx src/features/market-demand/__tests__/WorkspaceViews.test.tsx&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Install and implement</strong> with <code>docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm install --save-exact echarts&#39;</code>; retain the resolved version in the lockfile, no router upgrade or wrapper dependency. Register Bar/Scatter/Heatmap, Grid/Dataset/Tooltip/VisualMap/Aria and required renderer through <code>echarts/core</code>. Adapter owns init/update/ResizeObserver/listeners/dispose, handles zero-sized/hidden containers and theme changes. Use safe text tooltips and accessible values; no raw source HTML rendering. Container dimensions use Tailwind.</li>
+<li><input disabled="" type="checkbox"> <strong>Render</strong> Overview bars and ≤2 cards, fixed scales, explicit occupation/metric controls, 12-row heatmap, 25-row keyboard Data table, row ranges, empty/partial/error states and all unavailable reasons. Zero occupations → empty comparison; one → single-role view; hidden confirmed role can be re-enabled without a new run. Multiple descriptors require choice. Inspector reuses lazy owned posting retrieval, original links, retrieval/availability and rating provenance. Chart failure retains table/shortlist. Compare is lazy-loaded; labels/values work in light/dark mode.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command; save actual chart resize/theme/browser verification for task 12 because jsdom’s ResizeObserver cannot prove it.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: add ECharts teacher evidence views</code>.</li>
+</ul>
+</div></details><details class="task" id="task-8"><summary><span class="task-id">08</span>Add typed contextual transport and recovery</summary><div class="detail-body"><p><strong>Files:</strong> Modify <code>F/types.ts</code>, <code>F/api.ts</code>, <code>F/hooks/useAgentStream.ts</code>, <code>F/__tests__/api.test.ts</code>, <code>F/__tests__/useAgentStream.test.tsx</code>.</p>
+<p><strong>Interfaces:</strong> <code>getMarketExecutionStatus(courseId:number,signal?:AbortSignal):Promise&lt;ExecutionStatus&gt;</code>; <code>streamMarketDemandChat</code> takes discriminated workflow/contextual arguments; <code>MarketDemandApiError</code> retains <code>status</code>, <code>code</code>, <code>message</code>, <code>recovery</code>. Hook <code>send(command:SendCommand):Promise&lt;SendResult&gt;</code> where result is completed/failed/detached; <code>closeLiveResponse():void</code>, <code>reconcile():Promise&lt;void&gt;</code>, <code>clearConversation():Promise&lt;void&gt;</code> rejects reset failures. Existing hook configuration remains workflow-only.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing transport/hook tests</strong> for structured 409/422, truncated frames, failure events, EOF without stream_end, detach, stale course generations and failed/partial reset:</li>
+</ul>
+<pre><code class="language-ts">expect(sentBody.workspace_context.intent).toBe(&quot;explain&quot;);
+expect(sentBody).not.toHaveProperty(&quot;sources&quot;);
+expect(sentBody).not.toHaveProperty(&quot;country&quot;);
+expect(result.current.execution.outcome).toBe(&quot;unknown&quot;); // EOF without terminal proof
+await expect(result.current.clearConversation()).rejects.toThrow();
+expect(result.current.skillReview).toEqual(reviewBeforeRejectedReset);
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/api.test.ts src/features/market-demand/__tests__/useAgentStream.test.tsx&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement</strong> typed context/history/error/outcome transport and terminal tracking, including the <code>workspace_review</code> agent identity. Network errors must not silently resolve as success. Preserve source fields only on workflow requests. Resolve history/state/review coherently, retain recoverable failed questions and ignore stale generations. Status polling: visible busy 2 seconds, 10 seconds after 30 seconds; stop idle/hidden/unmount/course change; refresh on visibility return. Idle + no terminal proof stays unknown. Never automatically replay uncertain work. Rejected reset clears nothing; ambiguous reset reconciles authoritative state before another mutation.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command with fake timers for polling and stream fragmentation. Assert polling cannot create runs or acquire execution ownership; late responses cannot replace a new course’s state. Source outcomes determine source success.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: connect contextual chat and execution recovery</code>.</li>
+</ul>
+</div></details><details class="task" id="task-9"><summary><span class="task-id">09</span>Make conversation controls understandable and stateful</summary><div class="detail-body"><p><strong>Files:</strong> Create <code>F/components/WorkspaceConversation.tsx</code>, <code>F/__tests__/WorkspaceConversation.test.tsx</code>. Modify <code>F/components/ChatInput.tsx</code>, <code>AgentMessage.tsx</code>, <code>UserMessage.tsx</code>, existing message tests and <code>frontend/src/test/AgentComponents.test.tsx</code> as required.</p>
+<p><strong>Interfaces:</strong> <code>ConversationDraft={text:string,command:{mode:&quot;workflow&quot;}|{mode:&quot;contextual&quot;,context:WorkspaceContext}}</code>; <code>WorkspaceConversation({stream,draft,onDraftChange,onSubmit})</code>. Controlled ChatInput receives <code>value</code>, <code>onChange</code>, submission and close-live-response callbacks; page owns draft above responsive panes.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing interaction tests</strong> for editable prefilled questions, removal of focus, frozen submitted context, failed send retention and scroll attention:</li>
+</ul>
+<pre><code class="language-ts">expect(onSubmit).not.toHaveBeenCalled(); // clicking Ask only stages
+expect(latestDraft.command.context.intent).toBe(&quot;explain&quot;);
+expect(screen.getByRole(&quot;textbox&quot;)).toHaveValue(questionAfterFailure);
+expect(scrollToBottom).not.toHaveBeenCalled(); // reader scrolled upward
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/WorkspaceConversation.test.tsx src/features/market-demand/__tests__/AgentMessage.test.tsx src/test/AgentComponents.test.tsx&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement</strong> visible context chip and unsaved notice, simple current-agent/activity line, expandable tool details, safe historical chips and truthful outcome notices. “Close live response” detaches; show continued-work explanation. Preserve typed follow-up text entered while a reply streams. No automatic view switch or forced scroll. “Save draft and suggest” awaits controller save and uses its returned review; render reviewable immutable proposals and apply only to draft.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command. Test busy conversation staging, refresh-context recovery, removed-source evidence and keyboard focus. No chain-of-thought or fake progress percentages.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: improve teacher conversation controls</code>.</li>
+</ul>
+</div></details><details class="task" id="task-10"><summary><span class="task-id">10</span>Support genuine empty states and O*NET reference exploration</summary><div class="detail-body"><p><strong>Files:</strong> Create <code>F/components/OccupationReferencePanel.tsx</code>, <code>F/__tests__/OccupationReferencePanel.test.tsx</code>. Modify <code>F/api.ts</code>, <code>F/types.ts</code>, <code>F/__tests__/api.test.ts</code>.</p>
+<p><strong>Interfaces:</strong> <code>getOccupationSkills(courseId:number,release:string,socCode:string,signal?:AbortSignal):Promise&lt;OccupationSkills&gt;</code> mirrors existing backend response. <code>OccupationReferencePanel({courseId,onAsk:(context:OccupationReferenceContext,suggestedQuestion:string)=&gt;void})</code>. Reference items remain <code>OnetEvidence[]</code>, never selectable <code>SkillCandidate</code> objects.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing tests</strong> for ready release/occupation selection, missing/suppressed/software data, stale responses and a reference question with no run:</li>
+</ul>
+<pre><code class="language-ts">expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({kind:&quot;occupation_reference&quot;,intent:&quot;explain&quot;}), expect.any(String));
+expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+expect(screen.queryByRole(&quot;button&quot;, {name:&quot;Approve integration&quot;})).toBeNull();
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/OccupationReferencePanel.test.tsx src/features/market-demand/__tests__/api.test.ts&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement</strong> release/occupation/reference browsing using existing picker conventions and APIs, with attribution and correct IM/LV statuses. Show Start an analysis as primary empty-state action and reference exploration as secondary. Browsing changes no locked collection settings, creates no run and cannot publish. Abort/ignore superseded release/occupation/course requests. Context bounds are identical to the backend.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command; verify empty imported dataset and request errors have retry actions rather than invented data.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: add O*NET reference exploration for teachers</code>.</li>
+</ul>
+</div></details><details class="task" id="task-11"><summary><span class="task-id">11</span>Assemble the simple workspace and preserve teacher checkpoints</summary><div class="detail-body"><p><strong>Files:</strong> Modify <code>F/pages/MarketDemandPage.tsx</code>, <code>frontend/src/App.tsx</code>, <code>F/__tests__/MarketDemand.test.tsx</code>, <code>MarketDemandConfiguration.test.tsx</code>, <code>frontend/src/App.test.tsx</code>. Create <code>F/hooks/useWorkspaceNavigationGuard.ts</code>, <code>F/__tests__/useWorkspaceNavigationGuard.test.tsx</code>. Remove <code>F/components/StatePanel.tsx</code> and obsolete usages once replaced. Reuse <code>SelectionPanel</code>, <code>PipelineStepper</code>, source pickers and integration review.</p>
+<p><strong>Interfaces:</strong> Page composes tasks 5–10. <code>useWorkspaceNavigationGuard({dirty:boolean,save:()=&gt;Promise&lt;SkillReview&gt;})</code> returns blocked destination and <code>saveAndLeave</code>, <code>discardAndLeave</code>, <code>stay</code> actions. Root exports an application shell preserving current AuthProvider/AppRoutes/Toaster; use a single root <code>*</code> Data Router route, retaining existing descendant paths/layouts.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Write failing page/guard tests</strong> for main evidence/right chat, exact available-width breakpoint, coherent draft across narrow tabs, restored source summary and query/job-group confirmations. Dirty link/back navigation has Save/Discard/Cancel; failed save keeps the page.</li>
+</ul>
+<pre><code class="language-ts">expect(confirmQuerySend.mode).toBe(&quot;workflow&quot;);
+expect(ordinaryReviewSend.mode).toBe(&quot;contextual&quot;);
+expect(screen.getByRole(&quot;checkbox&quot;,{name:/Python/})).toBeChecked(); // after pane switch
+expect(resetRequestCount).toBe(0); // cancelling New analysis
+expect(currentPath()).toBe(originalPath); // dirty navigation cancelled
+</code></pre>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Run red:</strong> <code>docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/MarketDemand.test.tsx src/features/market-demand/__tests__/MarketDemandConfiguration.test.tsx src/features/market-demand/__tests__/useWorkspaceNavigationGuard.test.tsx src/App.test.tsx&#39;</code>.</li>
+<li><input disabled="" type="checkbox"> <strong>Compose the page</strong> at its existing URL and hub entry point. Overview default; Compare/Data reveal detail. Keep main/transcript scroll independent, collapse configuration after start, preserve pre-extraction query/group checkpoints and explicit workflow mode. Maintain one review/controller/composer above responsive panes. Base layout on observed content width, not browser width. Keep unread indicator; no auto-switch. No-run/partial/error states use actual API results.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement supported navigation protection.</strong> Replace only BrowserRouter shell with RouterProvider/createBrowserRouter root <code>*</code> route; retain AppRoutes paths and existing auth/layout behavior. Create the browser router once outside rendering, never nest routers, and keep AuthProvider/Toaster inside AppShell. Use one <code>useBlocker</code> above the responsive panes for internal/history navigation and <code>useBeforeUnload</code> for reload/close. The browser controls native unload confirmation. Guard tests use a fresh catch-all <code>createMemoryRouter</code>, disposed after each test. No popstate monkeypatch or broad routing migration. Test protected routes, deep links and existing non-market routes under the shell.</li>
+<li><input disabled="" type="checkbox"> <strong>Implement New analysis</strong> with the existing DELETE history API and precise confirmation: saved evidence/published skills remain; current analysis is no longer resumable here. Save/Discard/Cancel for dirty draft; reset only after save succeeds. Disable known-busy, retain view on 409, reconcile ambiguous partial failure. Clear local state only after acknowledged success; show setup without automatic collection. Keep retry-all-providers/reassessment wording and existing omission acknowledgement before advancing.</li>
+<li><input disabled="" type="checkbox"> <strong>Run green:</strong> repeat task command; existing integration-review tests remain green. Verify ordinary questions never lose inspection intent and final approval remains the existing exact mapping/digest action.</li>
+<li><input disabled="" type="checkbox"> <strong>Commit only this task’s files:</strong> <code>feat: assemble the teacher evidence workspace</code>.</li>
+</ul>
+</div></details><details class="task" id="task-12"><summary><span class="task-id">12</span>Verify the complete database-backed teacher flow</summary><div class="detail-body"><p><strong>Files:</strong> Create <code>backend/tests/acceptance/teacher_workspace_server.py</code>, <code>frontend/e2e/teacher-evidence-workspace.cjs</code>, and <code>output/teacher-evidence-workspace/acceptance/index.html</code> with screenshots/readback evidence during execution. Add an empty <code>backend/tests/acceptance/__init__.py</code> if needed. Do not commit credentials, transient browser storage or real posting bodies.</p>
+<p><strong>Interfaces:</strong> Acceptance server module starts the real FastAPI app against a dedicated PostgreSQL database named <code>lab_tutor_workspace_acceptance</code>, rejecting any other database name. Its CLI is <code>python -m tests.acceptance.teacher_workspace_server --port 8000 --manifest /tmp/teacher-workspace.json</code>. It seeds a disposable course/review/occupation fixture through existing SQL services and installs deterministic external-model/provider doubles; business routes, repositories, checkpointing and approval gates remain real. It exposes no fixture-control endpoints in production. Browser script consumes <code>WORKSPACE_UI_URL</code>, <code>WORKSPACE_API_URL</code> and a temporary 0600 fixture manifest path supplied through <code>WORKSPACE_FIXTURE_PATH</code>.</p>
+<ul>
+<li><input disabled="" type="checkbox"> <strong>Build the isolated acceptance fixture and headless script.</strong> Seed a synthetic, clearly labeled test sample: 10 assessed postings, two occupations, shared and differing descriptors, missing/suppressed/ambiguous metrics, 30 candidates, partial provider outcome, saved exclusions and existing student records. Include SQL IDs/expected values in the private manifest and public non-sensitive expected-results file. Import actual small O*NET test fixtures; no production fallback data.</li>
+<li><input disabled="" type="checkbox"> <strong>Run acceptance and capture failures before declaring success.</strong> Start one-off backend/frontend Docker services on free loopback ports using the existing images/network and implementation checkout (defaults 18000 for API and 15173 for UI). Override the backend DB and disable external credentials for this fixture; override frontend <code>VITE_API_URL</code>. Do not repoint existing app containers. Create a fresh dedicated database; if that name already belongs to another run, wait for its owner to finish rather than truncating or dropping it. The server must wait for health, verify its database and clean up only its own resources. Copy its manifest to a host temporary file with mode 0600. Run <code>WORKSPACE_UI_URL=http://127.0.0.1:15173 WORKSPACE_API_URL=http://127.0.0.1:18000 WORKSPACE_FIXTURE_PATH=/tmp/teacher-workspace.json node /Users/khajievroma/.codex/skills/playwright-skill/run.js &quot;$PWD/frontend/e2e/teacher-evidence-workspace.cjs&quot;</code> headlessly; no host frontend dependency installation. Expected success is exit 0 with every scenario assertion below, not merely screenshots.</li>
+<li><input disabled="" type="checkbox"> <strong>Exercise A1–A12:</strong> hub/direct route; empty/reference modes; saved SQL values and links; chart focus without writes; descriptor choice and pattern parity; category select + individual exclusion; save/reload; dirty refresh + stale second-tab proposal; contextual explanation/proposal permissions; query/group workflow checkpoints; partial-source acknowledgement; stream failure/detach + unknown outcome; New analysis rejection/partial failure/success; missing-evidence publication rejection; exact approved mapping; unchanged student paths/resources/quiz mastery. Browser assertions compare displayed counts and posted revisions with fresh SQL/API readback.</li>
+<li><input disabled="" type="checkbox"> <strong>Verify actual charts and attention</strong> at 1440, 1024, 768, 390 and 320px with app sidebar expanded/collapsed; light/dark; real ResizeObserver; hidden-pane reopening; repeated course/view changes; keyboard table; guarded link/back/reload; conversation scroll and retained composer. Record no runtime errors, no clipped labels/document overflow, no duplicate click handlers and no unintended chat/selection requests. A chart-load failure must leave Data usable.</li>
+<li><input disabled="" type="checkbox"> <strong>Run final scoped regression/check commands below.</strong> Fix failures within the task that owns them, then rerun only affected checks plus integration when the fix changes integrated behavior. A passing build alone does not satisfy any scenario above. Live HeadHunter smoke is optional when existing local credentials and provider availability permit it; clearly distinguish controlled real-DB acceptance from live-provider proof.</li>
+<li><input disabled="" type="checkbox"> <strong>Write the HTML handoff</strong> with screenshots, scenario results, exact commands, commit range and any material limitation. Remove acceptance fixture data/services and private manifests. Review the complete branch, then commit only acceptance/report files with <code>test: verify the teacher evidence workspace end to end</code>. No deployment, merge or student publication outside the isolated acceptance data is part of this plan.</li>
+</ul>
+</div></details></section>
+<section id="verification"><h2>How completion will be demonstrated</h2><p>Real PostgreSQL tests cover ownership, revisions and agent permissions. Browser tests exercise selection, chart interactions, recovery and the approval flow at five widths. Screenshots support those assertions; they do not replace them.</p><details id="final-0" ><summary>Final scoped commands and acceptance mapping</summary><div class="detail-body"><p>Run backend commands serially; all test targets use the explicit test database. Do not substitute host dependency installs if Docker is unavailable.</p>
+<pre><code class="language-sh">docker exec -e LAB_TUTOR_DATABASE_URL=&quot;postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test&quot; lab_tutor_backend sh -lc &#39;cd /app &amp;&amp; /app/.venv/bin/python -m pytest -v tests/modules/test_market_workspace_context.py tests/modules/test_market_workspace_patterns.py tests/modules/test_market_workspace_chat.py tests/modules/test_market_demand.py tests/modules/test_market_demand_thread_state.py tests/modules/test_market_skill_review.py tests/modules/test_market_skill_recommendations.py tests/modules/test_market_vacancy_evidence.py tests/modules/test_market_skill_approval.py tests/modules/test_market_skill_student_access.py tests/modules/occupation_reference/test_routes.py&#39;
+docker exec lab_tutor_backend sh -lc &#39;cd /app &amp;&amp; /app/.venv/bin/ruff check . &amp;&amp; /app/.venv/bin/ruff format --check .&#39;
+docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm test -- --run src/features/market-demand src/test/AgentComponents.test.tsx src/App.test.tsx&#39;
+docker exec lab_tutor_frontend sh -lc &#39;cd /app &amp;&amp; npm run lint &amp;&amp; npm run build&#39;
+cmp backend/tests/fixtures/teacher-workspace-patterns.json frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json
+</code></pre>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Spec acceptance</th>
+<th>Tasks responsible</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A1 Route and agents hub</td>
+<td>11, 12</td>
+</tr>
+<tr>
+<td>A2 Real/empty data</td>
+<td>1, 2, 10, 12</td>
+</tr>
+<tr>
+<td>A3 Exact chart values</td>
+<td>2, 6, 7, 12</td>
+</tr>
+<tr>
+<td>A4 Bounded patterns</td>
+<td>2, 6, 7, 12</td>
+</tr>
+<tr>
+<td>A5 Focus versus selection</td>
+<td>5, 7, 9, 12</td>
+</tr>
+<tr>
+<td>A6 Revisions/reconciliation</td>
+<td>2, 3, 5, 8, 12</td>
+</tr>
+<tr>
+<td>A7 Context/tool permissions</td>
+<td>2, 3, 4, 6, 8, 9, 12</td>
+</tr>
+<tr>
+<td>A8 Evidence/provenance</td>
+<td>2, 4, 6, 7, 10, 12</td>
+</tr>
+<tr>
+<td>A9 Failure/detachment/reset</td>
+<td>1, 3, 4, 8, 11, 12</td>
+</tr>
+<tr>
+<td>A10 Approvals/student regression</td>
+<td>5, 11, 12</td>
+</tr>
+<tr>
+<td>A11 Responsive/accessibility</td>
+<td>7, 9, 11, 12</td>
+</tr>
+<tr>
+<td>A12 Chart lifecycle</td>
+<td>7, 11, 12</td>
+</tr>
+</tbody></table></div>
+</div></details><details id="final-1" open><summary>Plan review and execution handoff</summary><div class="detail-body"><p>This plan changes documentation only until approved for execution. Recommendation: <strong>subagent-driven</strong>, with frontend/backend ownership and a coordinator, because graph permissions, asynchronous recovery and teacher approval depend on several shared contracts. Fresh task reviews should precede the final whole-branch review. Native execution remains an option with the same task/checklist boundaries.</p>
+<p>Before implementing, confirm that the plan captures the approved behavior and choose the execution approach. After execution, preserve the usual branch review/merge process; this plan does not authorize deployment.</p>
+<p>Planning references: <a href="../specs/2026-10-11-teacher-evidence-workspace-design.html">approved specification</a>, <a href="https://echarts.apache.org/handbook/en/basics/import/">ECharts modular imports</a>, <a href="https://echarts.apache.org/handbook/en/best-practices/aria/">ECharts accessibility</a>, <a href="https://reactrouter.com/api/hooks/useBlocker">React Router navigation blocking</a>, <a href="https://reactrouter.com/api/hooks/useBeforeUnload">reload/unload handling</a>, <a href="https://reactrouter.com/6.30.1/upgrading/v6-data#add-routerprovider-with-a-root-splat-route">supported root catch-all router migration</a>. The graph-entry decision is grounded in the repository’s installed LangGraph/Swarm source, preserving its existing routing semantics.</p>
+</div></details></section>
+<section id="review"><h2>Ready for plan review</h2><div class="review-box"><p><strong>Recommended execution: subagent-driven.</strong> Use a coordinator with frontend/backend ownership and fresh task reviews, because permissions, revisions and asynchronous recovery cross several boundaries.</p><p>Native execution is also available: one implementer works through the same tasks, followed by a whole-branch review.</p><p class="small">No production code, dependencies, deployment or live data were changed while writing this plan. The Markdown file is the internal execution checklist; this HTML is the review version.</p></div></section></main><footer>Lab Tutor · <a href="2026-10-12-teacher-evidence-workspace.md">Technical execution checklist</a> · Approved spec commit 4552f61 · Planned work, not completed implementation.</footer><script>
+const reveal=()=>{const el=document.getElementById(location.hash.slice(1));if(el?.tagName==='DETAILS')el.open=true;};window.addEventListener('hashchange',reveal);reveal();document.querySelector('#expand').addEventListener('click',()=>document.querySelectorAll('details.task').forEach(el=>el.open=true));document.querySelector('#collapse').addEventListener('click',()=>document.querySelectorAll('details.task').forEach(el=>el.open=false));document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',()=>{const el=document.getElementById(a.hash.slice(1));if(el?.tagName==='DETAILS')el.open=true;}));
+</script></body></html>
