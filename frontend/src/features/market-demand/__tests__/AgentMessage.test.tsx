@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import type { ChatMessage } from "../types";
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { ChatMessage } from "@/features/market-demand/types";
 
 // Mock the agent-response component (it's a complex UI library component)
 vi.mock("@/components/ui/agent-response", () => ({
@@ -33,7 +33,7 @@ vi.mock("@/components/ui/loader", () => ({
   Loader: () => <div data-testid="loader">loading...</div>,
 }));
 
-import { AgentMessage } from "../components/AgentMessage";
+import { AgentMessage } from "@/features/market-demand/components/AgentMessage";
 
 describe("AgentMessage", () => {
   it("renders agent content via AgentResponse", () => {
@@ -113,7 +113,7 @@ describe("AgentMessage", () => {
     };
 
     render(<AgentMessage message={message} />);
-    expect(screen.getByTestId("tool-name")).toHaveTextContent("Update Knowledge Map");
+    expect(screen.getByText(/Update Knowledge Map/)).toBeInTheDocument();
   });
 
   it("falls back to agentDisplayName when agent is not in config", () => {
@@ -130,5 +130,23 @@ describe("AgentMessage", () => {
 
     render(<AgentMessage message={message} />);
     expect(screen.getByTestId("agent-name")).toHaveTextContent("Custom Agent");
+  });
+});
+
+describe("truthful tool details", () => {
+  it("shows finished and unknown distinctly without claiming source success", () => {
+    render(<AgentMessage message={{id: "details", role: "agent", agent: "workspace_review", content: "Checked tools", isStreaming: false,
+      toolCalls: [{id: "finished", name: "fetch_jobs", args: {}, status: "finished", result: "Provider failed"},
+        {id: "unknown", name: "get_extracted_skills", args: {}, status: "unknown", result: "Result exists"}]}}/>);
+    expect(screen.getByText(/Fetch Jobs · Finished/)).toBeInTheDocument();
+    expect(screen.getByText(/Review Extracted Skills · Outcome unknown/)).toBeInTheDocument();
+    expect(screen.getByText("Provider failed")).not.toBeVisible();
+    fireEvent.click(screen.getByText(/Fetch Jobs · Finished/));
+    expect(screen.getByText(/Provider failed/)).toBeVisible();
+    expect(screen.queryByText(/Source succeeded/)).not.toBeInTheDocument();
+  });
+  it("names the actual agent while waiting for its first text", () => {
+    render(<AgentMessage message={{id: "waiting", role: "agent", agent: "workspace_review", content: "", toolCalls: [], isStreaming: true}}/>);
+    expect(screen.getByText(/Evidence assistant/)).toBeInTheDocument();
   });
 });

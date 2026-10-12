@@ -1,11 +1,8 @@
 import { cn } from "@/lib/utils";
-import {
-  AgentResponse,
-  type ToolCall as AgentToolCall,
-} from "@/components/ui/agent-response";
+import { AgentResponse } from "@/components/ui/agent-response";
 import { Loader } from "@/components/ui/loader";
-import { AGENT_IDENTITIES } from "../agent-config";
-import type { ChatMessage, ToolCall } from "../types";
+import { AGENT_IDENTITIES } from "@/features/market-demand/agent-config";
+import type { ChatMessage, ToolCall } from "@/features/market-demand/types";
 
 const TOOL_LABELS: Record<string, string> = {
   fetch_jobs: "Fetch Jobs",
@@ -29,20 +26,9 @@ const TOOL_LABELS: Record<string, string> = {
   save_skills_for_insertion: "Save Skills for Insertion",
 };
 
-function mapToolCalls(toolCalls: ToolCall[]): AgentToolCall[] {
-  return toolCalls.map((tc) => ({
-    id: tc.id,
-    name: TOOL_LABELS[tc.name] ?? tc.name,
-    input: tc.args,
-    output: tc.result,
-    status:
-      tc.status === "loading"
-        ? "running"
-        : tc.status === "success"
-          ? "completed"
-          : "failed",
-  }));
-}
+const TOOL_STATUS: Record<ToolCall["status"], string> = {
+  loading: "Running", finished: "Finished", success: "Finished", error: "Failed", unknown: "Outcome unknown",
+};
 
 interface AgentMessageProps {
   message: ChatMessage;
@@ -74,18 +60,28 @@ export function AgentMessage({ message }: AgentMessageProps) {
     return (
       <div className="flex items-center gap-3 px-4 py-2">
         {agentAvatar}
-        <Loader variant="typing" size="sm" />
+        <div><p className="text-sm font-medium">{identity?.displayName || message.agentDisplayName || "Agent"} · Preparing response</p><Loader variant="typing" size="sm" /></div>
       </div>
     );
   }
 
   return (
+    <div>
     <AgentResponse
       message={message.content}
-      toolCalls={mapToolCalls(message.toolCalls)}
+      toolCalls={[]}
       isStreaming={message.isStreaming}
       avatar={agentAvatar}
       agentName={identity?.displayName || message.agentDisplayName || "Agent"}
     />
+    {message.toolCalls.length > 0 && <div className="space-y-2 px-4 pb-3">
+      {message.toolCalls.map(tool => <details key={tool.id} className="rounded-md border p-2 text-sm">
+        <summary className="cursor-pointer">{TOOL_LABELS[tool.name] ?? tool.name} · {TOOL_STATUS[tool.status]}</summary>
+        <p className="mt-2 text-xs text-muted-foreground">A finished tool call does not establish that its source succeeded. Check evidence coverage for source outcomes.</p>
+        <p className="mt-2 font-medium">Input</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(tool.args, null, 2)}</pre>
+        {tool.result !== undefined && <><p className="mt-2 font-medium">Returned details</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">{typeof tool.result === "string" ? tool.result : JSON.stringify(tool.result, null, 2)}</pre></>}
+      </details>)}
+    </div>}
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -118,11 +119,16 @@ beforeEach(() => {
 
 // ── ChatInput ───────────────────────────────────────────────
 
+function ControlledChatInput({onSend, isStreaming}: {onSend: (text: string) => void; isStreaming: boolean}) {
+  const [value, setValue] = useState("");
+  return <ChatInput value={value} onChange={setValue} onSend={text => {onSend(text); setValue("");}} onCloseLiveResponse={vi.fn()} isStreaming={isStreaming}/>;
+}
+
 describe("ChatInput", () => {
   it("calls onSend with input text on Enter", async () => {
     const onSend = vi.fn();
     const user = userEvent.setup();
-    render(<ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />);
+    render(<ControlledChatInput onSend={onSend} isStreaming={false} />);
 
     const textarea = screen.getByPlaceholderText("Type your response...");
     await user.type(textarea, "find python jobs{enter}");
@@ -133,7 +139,7 @@ describe("ChatInput", () => {
   it("does not send empty messages", async () => {
     const onSend = vi.fn();
     const user = userEvent.setup();
-    render(<ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />);
+    render(<ControlledChatInput onSend={onSend} isStreaming={false} />);
 
     const textarea = screen.getByPlaceholderText("Type your response...");
     await user.type(textarea, "{enter}");
@@ -142,7 +148,7 @@ describe("ChatInput", () => {
   });
 
   it("shows stop button when streaming", () => {
-    render(<ChatInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={true} />);
+    render(<ControlledChatInput onSend={vi.fn()} isStreaming={true} />);
     // The stop button is icon-only (Square icon), find by role
     const buttons = screen.getAllByRole("button");
     expect(buttons.length).toBeGreaterThan(0);
@@ -151,7 +157,7 @@ describe("ChatInput", () => {
   it("clears input after send", async () => {
     const onSend = vi.fn();
     const user = userEvent.setup();
-    render(<ChatInput onSend={onSend} onStop={vi.fn()} isStreaming={false} />);
+    render(<ControlledChatInput onSend={onSend} isStreaming={false} />);
 
     const textarea = screen.getByPlaceholderText("Type your response...");
     await user.type(textarea, "test message{enter}");

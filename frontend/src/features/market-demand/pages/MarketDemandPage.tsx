@@ -310,6 +310,13 @@ function MarketDemandContent() {
   const handleSend = (text: string) => {
     if (!sourceInputDisabled) void send({mode: "workflow", text});
   };
+  const [conversationText, setConversationText] = useState("");
+  const handleInputSend = async (text: string) => {
+    if (sourceInputDisabled) return;
+    const submitted = conversationText;
+    const result = await send({mode: "workflow", text});
+    if (result.outcome === "completed") setConversationText(current => current === submitted ? "" : current);
+  };
 
   const handleCountryChange = useCallback((country: string) => {
     occupationGeneration.current += 1;
@@ -581,8 +588,10 @@ function MarketDemandContent() {
           <div className="px-4 py-3 shrink-0 sticky bottom-0 bg-background">
             <div className="mx-auto max-w-3xl">
               <ChatInput
-                onSend={handleSend}
-                onStop={stop}
+                onSend={text => void handleInputSend(text).catch(() => {})}
+                value={conversationText}
+                onChange={setConversationText}
+                onCloseLiveResponse={stop}
                 isStreaming={isStreaming}
                 disabled={sourceInputDisabled}
               />
