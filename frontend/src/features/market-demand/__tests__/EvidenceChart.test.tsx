@@ -1,11 +1,15 @@
 import {act, render, screen, waitFor} from "@testing-library/react";
 import {beforeEach, expect, it, vi} from "vitest";
+import {format} from "echarts/core";
 import {EvidenceChart} from "@/features/market-demand/components/EvidenceChart";
 
 const runtime = vi.hoisted(() => ({
   init: vi.fn(), use: vi.fn(), setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn(), on: vi.fn(), off: vi.fn(),
 }));
-vi.mock("echarts/core", () => ({init: runtime.init, use: runtime.use}));
+vi.mock("echarts/core", async (importOriginal) => {
+  const core = await importOriginal<typeof import("echarts/core")>();
+  return {init: runtime.init, use: runtime.use, format: core.format};
+});
 vi.mock("echarts/charts", () => ({BarChart: {}, ScatterChart: {}, HeatmapChart: {}}));
 vi.mock("echarts/components", () => ({GridComponent: {}, DatasetComponent: {}, TooltipComponent: {}, VisualMapComponent: {}, AriaComponent: {}}));
 vi.mock("echarts/renderers", () => ({SVGRenderer: {}}));
@@ -18,6 +22,9 @@ beforeEach(() => {
   width = 600; height = 400;
   document.documentElement.classList.remove("dark");
   runtime.init.mockReturnValue(runtime);
+  // jsdom has no canvas. Keep ECharts' real text measurement and its platform
+  // fallback rather than replacing the width calculation with a test formula.
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(() => width);
   vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => height);
   vi.stubGlobal("ResizeObserver", class {
@@ -25,6 +32,47 @@ beforeEach(() => {
     observe() {}
     disconnect() {disconnect();}
   });
+});
+
+it.each([
+  "Synthetic competency 24: 70% · 7 / 10 supporting / assessed",
+  "VeryLongUnbrokenCompetencyDescriptorWithoutSpacesOrBreaksAtAll · Software Developers: 4.25 / 5 · Importance · 30.3 · 2.A.1.a",
+  "数据分析能力与跨团队沟通技能及软件开发职业 · {source|原始标签} 🧪: 83.33% · 20 / 24 supporting / assessed",
+])("wraps complete source tooltip text within a narrow chart: %s", async (source) => {
+  width = 288;
+  const onFocus = vi.fn();
+  render(<EvidenceChart label="Demand" option={{}} onFocus={onFocus}/>);
+  await waitFor(() => expect(runtime.setOption).toHaveBeenCalled());
+  const tooltip = runtime.setOption.mock.calls.at(-1)![0].tooltip;
+  const text = tooltip.formatter({data: {tooltipText: source}});
+  expect(text).toContain("\n");
+  expect(text.replaceAll("\n", "")).toBe(source.replaceAll("{", "｛").replaceAll("}", "｝"));
+  expect(text).not.toMatch(/[{}]/);
+  // Content plus actual ECharts rich-text padding/border must fit the frame.
+  expect(format.getTextRect(text).width + 22).toBeLessThanOrEqual(288);
+  expect(tooltip.renderMode).toBe("richText");
+  expect(onFocus).not.toHaveBeenCalled();
+});
+
+it("recomputes tooltip wrapping from restored and resized width through theme changes", async () => {
+  width = 0;
+  render(<EvidenceChart label="Demand" option={{}} onFocus={vi.fn()}/>);
+  width = 180;
+  act(() => resize([], {} as ResizeObserver));
+  await waitFor(() => expect(runtime.setOption).toHaveBeenCalled());
+  const source = "Synthetic competency 24: 70% · 7 / 10 supporting / assessed";
+  const currentText = () => runtime.setOption.mock.calls.at(-1)![0].tooltip.formatter({data: {tooltipText: source}});
+  const narrow = currentText();
+  expect(format.getTextRect(narrow).width + 22).toBeLessThanOrEqual(180);
+  width = 720;
+  act(() => resize([], {} as ResizeObserver));
+  expect(currentText()).toBe(source);
+  width = 288;
+  act(() => resize([], {} as ResizeObserver));
+  act(() => document.documentElement.classList.add("dark"));
+  await waitFor(() => expect(runtime.setOption.mock.calls.at(-1)![0].tooltip.textStyle.color).toBe("#f4f4f5"));
+  expect(format.getTextRect(currentText()).width + 22).toBeLessThanOrEqual(288);
+  expect(currentText().replaceAll("\n", "")).toBe(source);
 });
 
 it("owns resize, option replacement, focus identity and disposal", async () => {
