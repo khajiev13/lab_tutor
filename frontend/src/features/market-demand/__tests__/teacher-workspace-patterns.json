@@ -5090,6 +5090,1576 @@
           }
         }
       ]
+    },
+    {
+      "name": "trim_bom_search_edges",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "﻿Python﻿",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "trim_bom_only_search_is_empty",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "﻿",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "trim_nel_search_edges_are_retained",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "Python",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": []
+    },
+    {
+      "name": "trim_python_control_001c_search_edges_retained",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "\u001cPython\u001c",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": []
+    },
+    {
+      "name": "trim_python_control_001d_search_edges_retained",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "\u001dPython\u001d",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": []
+    },
+    {
+      "name": "trim_python_control_001e_search_edges_retained",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "\u001ePython\u001e",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": []
+    },
+    {
+      "name": "trim_python_control_001f_search_edges_retained",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "\u001fPython\u001f",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": []
+    },
+    {
+      "name": "trim_bom_internal_match_is_retained",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Py﻿thon",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "Py﻿thon",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "trim_bom_internal_is_not_discarded",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Py﻿thon",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "Python",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": []
+    },
+    {
+      "name": "trim_nel_internal_match_is_retained",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "Python",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "trim_nel_internal_is_not_discarded",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "Python",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": []
+    },
+    {
+      "name": "trim_python_controls_internal_match_retained",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Py\u001c\u001d\u001e\u001fthon",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "Py\u001c\u001d\u001e\u001fthon",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "trim_python_controls_internal_not_discarded",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Py\u001c\u001d\u001e\u001fthon",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "Python",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": []
+    },
+    {
+      "name": "trim_all_ecmascript_edges_in_search",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Python",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "\t\n\u000b\f\r                  　﻿Python\t\n\u000b\f\r                  　﻿",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "trim_bom_label_ties_use_stable_id",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "﻿Alpha﻿",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "display_name": " alpha ",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000001",
+            "00000000-0000-0000-0000-000000000002"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            },
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000002",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "trim_nel_label_order_retains_codepoint",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Alpha",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "display_name": "Zulu",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000002",
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000002",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            },
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    {
+      "name": "trim_python_control_label_order_retains_codepoints",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Alpha",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "display_name": "\u001c\u001d\u001e\u001fAlpha\u001c\u001d\u001e\u001f",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [],
+            "aliases": [],
+            "original_labels": []
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000002",
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000002",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            },
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
     }
   ]
 }

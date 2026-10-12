@@ -4,6 +4,8 @@ import type {
   RatingResolution, SkillCandidate, SkillReview, WorkspaceData, WorkspacePage, WorkspaceRow, WorkspaceViewState,
 } from "@/features/market-demand/types";
 
+// Shared backend contract: ECMAScript WhiteSpace/LineTerminator edge trim after NFKC.
+// Native trim removes BOM, retains NEL/Python-only controls, and preserves internal characters.
 function normalizedText(value: string): string {
   return value.normalize("NFKC").trim().toLowerCase();
 }

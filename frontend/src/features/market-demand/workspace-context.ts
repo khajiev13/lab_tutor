@@ -45,6 +45,7 @@ export function validateWorkspaceContext(context: unknown): context is Workspace
     record(filters) && onlyKeys(filters, ["category_ids", "search", "scope"]) && stringList(filters.category_ids, 10, () => true) &&
     typeof filters.search === "string" && characters(filters.search) <= 120 && oneOf(filters.scope, ["all", "selected"]) &&
     stringList(context.occupation_codes, 5, value => soc.test(value), true) && oneOf(context.metric, ["frequency", "IM", "LV"]) &&
+    (context.metric === "frequency" || context.occupation_codes.length > 0) &&
     Array.isArray(choices) && choices.length <= 20 && choices.every(choice => record(choice) && onlyKeys(choice, ["candidate_id", "evidence_id"]) &&
       typeof choice.candidate_id === "string" && uuid.test(choice.candidate_id) && typeof choice.evidence_id === "string" && uuid.test(choice.evidence_id)) &&
     (context.insight_kind === null || oneOf(context.insight_kind, insights)) && typeof context.has_unsaved_changes === "boolean";
@@ -85,7 +86,7 @@ export function buildRunReviewContext(input: {
     roleChoices.add(roleKey);
     const key = JSON.stringify([evidence.release, evidence.family, evidence.element_id]);
     const previous = descriptors.get(choice.candidate_id);
-    if ((context.view === "occupations" || context.insight_kind === "occupation_difference" || context.insight_kind === "shared_importance") && previous && previous !== key) return invalid;
+    if (previous && previous !== key) return invalid;
     descriptors.set(choice.candidate_id, key);
   }
   return {ok: true, context: copyWorkspaceContext(context)};

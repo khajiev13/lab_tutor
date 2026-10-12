@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
 import {buildOccupationReferenceContext, buildRunReviewContext, copyWorkspaceContext, removeContextFocus, validateWorkspaceContext, isWorkspaceMessageValid} from "@/features/market-demand/workspace-context";
-import {workspaceCandidateId, workspaceEvidenceFixture, workspaceEvidenceId, workspaceReviewFixture, workspaceRunId, workspaceSoc, workspaceViewFixture} from "@/features/market-demand/__tests__/review-fixtures";
-import type {RunReviewContext, WorkspaceContext} from "@/features/market-demand/types";
+import {workspaceCandidateId, workspaceEvidenceFixture, workspaceEvidenceId, workspaceReviewFixture, workspaceRunId, workspaceSoc, workspaceOtherSoc, workspaceViewFixture} from "@/features/market-demand/__tests__/review-fixtures";
+import type {RunReviewContext, WorkspaceContext, WorkspaceView} from "@/features/market-demand/types";
 
 const input = () => ({review: workspaceReviewFixture(), view: workspaceViewFixture(), dirty: false, intent: "explain" as const});
 const expected: RunReviewContext = {kind: "run_review", version: 1, intent: "explain", run_id: workspaceRunId,
@@ -51,6 +51,39 @@ describe("context builders", () => {
     result.context.descriptor_choices.push({candidate_id: workspaceCandidateId, evidence_id: workspaceEvidenceId});
     expect(copy).toEqual(expected);
     expect(result.context.filters.category_ids).toEqual([]);
+  });
+  it.each(["overview", "data", "demand_importance", "occupations"] satisfies WorkspaceView[])("rejects inconsistent explicit descriptors across occupations in %s", view => {
+    const args = input();
+    const otherId = "00000000-0000-0000-0000-000000000012";
+    args.review.candidates[0].onet_associations = [workspaceEvidenceFixture(), workspaceEvidenceFixture({id: otherId, soc_code: workspaceOtherSoc, element_id: "2.B.3.k"})];
+    args.view.view = view;
+    args.view.descriptorChoices = [{candidate_id: workspaceCandidateId, evidence_id: workspaceEvidenceId}, {candidate_id: workspaceCandidateId, evidence_id: otherId}];
+    expect(buildRunReviewContext(args)).toEqual({ok: false, reason: "invalid_context"});
+  });
+  it.each(["overview", "data", "demand_importance", "occupations"] satisfies WorkspaceView[])("accepts consistent descriptors with distinct role evidence IDs in %s", view => {
+    const args = input();
+    const otherId = "00000000-0000-0000-0000-000000000012";
+    args.review.candidates[0].onet_associations = [workspaceEvidenceFixture(), workspaceEvidenceFixture({id: otherId, soc_code: workspaceOtherSoc})];
+    args.view.view = view;
+    args.view.descriptorChoices = [{candidate_id: workspaceCandidateId, evidence_id: workspaceEvidenceId}, {candidate_id: workspaceCandidateId, evidence_id: otherId}];
+    const result = buildRunReviewContext(args);
+    expect(result).toEqual({ok: true, context: {...expected, view, descriptor_choices: args.view.descriptorChoices}});
+  });
+  it.each(["IM", "LV"] as const)("rejects %s contexts without occupations in the builder", metric => {
+    const args = input();
+    args.view.metric = metric;
+    args.view.occupationCodes = [];
+    expect(buildRunReviewContext(args)).toEqual({ok: false, reason: "invalid_context"});
+  });
+  it.each(["IM", "LV"] as const)("rejects %s contexts without occupations in the strict validator", metric => {
+    expect(validateWorkspaceContext({...expected, metric, occupation_codes: []})).toBe(false);
+  });
+  it("accepts frequency contexts with no occupations in the builder and strict validator", () => {
+    const args = input();
+    args.view.metric = "frequency";
+    args.view.occupationCodes = [];
+    expect(buildRunReviewContext(args)).toEqual({ok: true, context: {...expected, metric: "frequency", occupation_codes: []}});
+    expect(validateWorkspaceContext({...expected, metric: "frequency", occupation_codes: []})).toBe(true);
   });
   it("validates confirmed occupations, member IDs, categories and eligible descriptor choices", () => {
     const args = input();
