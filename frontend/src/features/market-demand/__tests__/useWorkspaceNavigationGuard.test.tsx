@@ -25,6 +25,21 @@ describe('workspace navigation protection', () => {
   fireEvent.click(screen.getByText('Discard'));
   await waitFor(() => expect(router.state.location.pathname).toBe('/replacement'));
  });
+ it('ignores stay and discard while save is pending without resetting or proceeding', async () => {
+  let finish!: () => void;
+  const save=vi.fn(() => new Promise<ReturnType<typeof reviewFixture>>(resolve => {finish=()=>resolve(reviewFixture());}));
+  const {router}=setup(save);
+  fireEvent.click(screen.getByText('Leave')); fireEvent.click(await screen.findByText('Save'));
+  const blocker=Array.from(router.state.blockers.values())[0];
+  if (blocker.state !== 'blocked') throw new Error('Expected a blocked destination');
+  const reset=vi.spyOn(blocker,'reset'); const proceed=vi.spyOn(blocker,'proceed');
+  fireEvent.click(screen.getByText('Cancel')); fireEvent.click(screen.getByText('Discard'));
+  expect(reset).not.toHaveBeenCalled(); expect(proceed).not.toHaveBeenCalled();
+  expect(router.state.location.pathname).toBe('/workspace');
+  expect(screen.getByText('Save')).toBeInTheDocument();
+  await act(async () => finish());
+  await waitFor(() => expect(router.state.location.pathname).toBe('/next'));
+ });
  it('blocks a dirty link and Cancel retains the current path', async () => {const {router} = setup(); fireEvent.click(screen.getByText('Leave')); await screen.findByText('Cancel'); fireEvent.click(screen.getByText('Cancel')); expect(router.state.location.pathname).toBe('/workspace');});
  it('blocks history back and Discard proceeds to the exact destination', async () => {const {router} = setup(); await act(async () => {await router.navigate(-1);}); await screen.findByText('Discard'); fireEvent.click(screen.getByText('Discard')); await waitFor(() => expect(router.state.location.pathname).toBe('/previous'));});
  it('waits for acknowledged save before leaving', async () => {let finish!: () => void; const save = vi.fn(() => new Promise<ReturnType<typeof reviewFixture>>(resolve => {finish = () => resolve(reviewFixture());})); const {router} = setup(save); fireEvent.click(screen.getByText('Leave')); fireEvent.click(await screen.findByText('Save')); expect(router.state.location.pathname).toBe('/workspace'); await act(async () => finish()); await waitFor(() => expect(router.state.location.pathname).toBe('/next'));});

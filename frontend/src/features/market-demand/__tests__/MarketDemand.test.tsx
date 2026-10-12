@@ -749,3 +749,66 @@ it('retains selected draft and focused inspector across narrow panes', async () 
  fireEvent.click(screen.getByRole('tab',{name:/^Conversation/}));
  expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('Preserved question');
 });
+
+
+it('locks Start synchronously while the first local workflow send is pending', async () => {
+ let finish!: (result:SendResult)=>void;
+ const send=vi.fn<(command:SendCommand)=>Promise<SendResult>>(() => new Promise(resolve => {finish=resolve;}));
+ const closeLiveResponse=vi.fn();
+ const {review,rerender}=await openReviewWorkspace({skillReview:null,send,closeLiveResponse});
+ const start=screen.getByRole('button',{name:'Start an analysis'});
+ expect(start).toBeEnabled();
+ act(() => {fireEvent.click(start); fireEvent.click(start);});
+ expect(send).toHaveBeenCalledOnce();
+ expect(start).toBeDisabled();
+ expect(closeLiveResponse).not.toHaveBeenCalled();
+ const current=vi.mocked(useAgentStream).mock.results.at(-1)!.value;
+ vi.mocked(useAgentStream).mockReturnValue({...current,skillReview:{...review,candidates:[]}});
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ await act(async () => finish({outcome:'completed'}));
+ expect(start).toBeEnabled();
+ expect(screen.getByLabelText('Attached context')).toHaveTextContent('No focused skills');
+});
+it.each(['detached known-busy','attached streaming'] as const)('keeps Start disabled for %s execution without candidates', async (execution) => {
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ const closeLiveResponse=vi.fn();
+ await openReviewWorkspace({skillReview:null,send,closeLiveResponse,isStreaming:execution === 'attached streaming',execution:{status:execution === 'detached known-busy' ? 'busy' : 'idle',state_updated_at:null,outcome:'unknown'}});
+ const start=screen.getByRole('button',{name:'Start an analysis'});
+ expect(start).toBeDisabled(); fireEvent.click(start);
+ expect(send).not.toHaveBeenCalled(); expect(closeLiveResponse).not.toHaveBeenCalled();
+});
+it.each(['unchanged','follow-up','Ask replacement','failed','detached'] as const)('preserves initial workflow attachment through review arrival: %s', async (scenario) => {
+ let finish!: (result:SendResult)=>void;
+ const send=vi.fn<(command:SendCommand)=>Promise<SendResult>>(() => new Promise(resolve => {finish=resolve;}));
+ const {review,rerender}=await openReviewWorkspace({skillReview:null,send});
+ const composer=screen.getByPlaceholderText('Type your response...');
+ fireEvent.change(composer,{target:{value:'Collect evidence for this course'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ expect(send).toHaveBeenCalledWith({mode:'workflow',text:'Collect evidence for this course'});
+ const current=vi.mocked(useAgentStream).mock.results.at(-1)!.value;
+ vi.mocked(useAgentStream).mockReturnValue({...current,skillReview:review});
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.queryByLabelText('Attached context')).not.toBeInTheDocument();
+ if(scenario === 'follow-up') fireEvent.change(composer,{target:{value:'A new follow-up'}});
+ if(scenario === 'Ask replacement') {
+  fireEvent.click(screen.getByRole('button',{name:'Inspect Python'}));
+  fireEvent.click(within(screen.getByRole('region',{name:'Focused evidence'})).getByRole('button',{name:'Ask about Python'}));
+ }
+ await act(async () => finish({outcome:scenario === 'failed' ? 'failed' : scenario === 'detached' ? 'detached' : 'completed'}));
+ if(scenario === 'failed' || scenario === 'detached') {
+  expect(composer).toHaveValue('Collect evidence for this course');
+  expect(screen.queryByLabelText('Attached context')).not.toBeInTheDocument();
+ } else if(scenario === 'Ask replacement') {
+  expect(composer).toHaveValue('Explain the evidence for Python.');
+  expect(screen.getByLabelText('Attached context')).toHaveTextContent('Python');
+ } else {
+  expect(composer).toHaveValue(scenario === 'follow-up' ? 'A new follow-up' : '');
+  expect(screen.getByLabelText('Attached context')).toHaveTextContent('No focused skills');
+  fireEvent.change(composer,{target:{value:'Explain the current run'}});
+  fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+  expect(send.mock.calls[1][0]).toMatchObject({mode:'contextual',context:{run_id:review.run_id,intent:'explain',focused_candidate_id:null,candidate_ids:[],occupation_codes:[],filters:{scope:'all',search:'',category_ids:[]}}});
+  await act(async () => finish({outcome:'completed'}));
+ }
+});

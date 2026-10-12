@@ -175,6 +175,8 @@ function MarketDemandContent() {
   const [occupationError, setOccupationError] = useState<string | null>(null);
   const [occupationConfirming, setOccupationConfirming] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const sendPending = useRef(false);
+  const [sending, setSending] = useState(false);
   const occupationGeneration = useRef(0);
   useEffect(() => () => {
     occupationGeneration.current += 1;
@@ -199,7 +201,7 @@ function MarketDemandContent() {
 
   const skillReviewController = useSkillReviewController({
     courseId, review: skillReview, onReviewChange: applySkillReview,
-    disabled: !isRestored || resetting || isStreaming || stream.execution.status === "busy" || occupationConfirming,
+    disabled: !isRestored || resetting || sending || isStreaming || stream.execution.status === "busy" || occupationConfirming,
   });
   const [pane, setPane] = useState<"workspace" | "conversation">("workspace");
   const [wide, setWide] = useState(false);
@@ -239,6 +241,7 @@ function MarketDemandContent() {
   const handleDraftChange = (next: ConversationDraft) => {
     const completed = completedCommand.current;
     completedCommand.current = null;
+    if (completed?.mode === "workflow" && next.command.mode === "workflow") workflowExplicit.current = false;
     const justCompleted = completed?.mode === "contextual" && next.command.mode === "contextual" &&
       JSON.stringify(next.command.context) === JSON.stringify({...removeContextFocus(completed.context), intent: "explain"});
     const attached = next.command.mode === "contextual" ? next.command.context : null;
@@ -308,7 +311,7 @@ function MarketDemandContent() {
   }, [courseId, catalogMarket, isLoadingHistory]);
   const configurationStarted = !!review?.candidates.length || hasItems(agentState.extracted_skills) || hasItems(agentState.fetched_jobs) ||
     Object.values(agentState.source_outcomes ?? {}).some((outcome) => outcome.status !== "idle");
-  const settingsDisabled = !isRestored || isLoadingHistory || isStreaming ||
+  const settingsDisabled = !isRestored || isLoadingHistory || isStreaming || sending || resetting || stream.execution.status === "busy" || skillReviewController.busy ||
     occupationConfirming || configurationStarted;
   const hasUnavailableProvider = configuration.sources.some(
     (source) => !sourceCatalog.some((item) => item.id === source && item.availability === "available")
@@ -325,6 +328,8 @@ function MarketDemandContent() {
     configuration.evidence_sources.length === 0 ||
     (configuration.evidence_sources.includes("jobs") && jobConfigurationInvalid) ||
     (configuration.evidence_sources.includes("onet") && onetConfigurationInvalid);
+  const workPending = sending || isStreaming || stream.execution.status === "busy" || skillReviewController.busy || resetting || occupationConfirming;
+  const workflowDisabled = sourceInputDisabled || workPending;
   const handleOccupationConfirm = async (release: string, codes: string[]) => {
     const generation = ++occupationGeneration.current;
     const isCurrent = () => generation === occupationGeneration.current;
@@ -367,16 +372,32 @@ function MarketDemandContent() {
     ids: string[];
   } | null>(null);
 
-  const handleSend = (text: string) => {
-    if (!sourceInputDisabled) {setSetupOpen(false); void send({mode: "workflow", text});}
-  };
-  const handleSubmit = async (command: SendCommand): Promise<SendResult> => {
+  const handleSubmit = async (command: SendCommand, fromComposer = true): Promise<SendResult> => {
+    if (sendPending.current || workPending || !isRestored || isLoadingHistory) return {outcome: "failed", error: {code: "workspace_busy", message: "The workspace is already processing an operation.", recovery: "Wait for the current operation to finish."}};
     if (command.mode === "workflow" && sourceInputDisabled) return {outcome: "failed", error: {code: "configuration_unavailable", message: "Choose available sources before starting.", recovery: "Open analysis setup."}};
     const generation = pageGeneration.current;
+    sendPending.current = true; setSending(true);
     completedCommand.current = null;
-    const result = await send(command);
-    if (pageGeneration.current === generation && result.outcome === "completed") {completedCommand.current = command; workflowExplicit.current = false; setSetupOpen(false);}
-    return result;
+    // Keep an initial workflow attachment unchanged until the conversation's
+    // exact submitted-draft completion callback has processed it.
+    if (fromComposer && command.mode === "workflow") workflowExplicit.current = true;
+    try {
+      const result = await send(command);
+      if (pageGeneration.current === generation && result.outcome === "completed") {
+        if (fromComposer) {
+          completedCommand.current = command;
+          if (command.mode === "contextual") workflowExplicit.current = false;
+        }
+        setSetupOpen(false);
+      }
+      return result;
+    } finally {
+      if (pageGeneration.current === generation) {sendPending.current = false; setSending(false);}
+    }
+  };
+  const handleSend = (text: string) => {
+    if (sendPending.current || workflowDisabled) return;
+    setSetupOpen(false); void handleSubmit({mode: "workflow", text}, false).catch(() => {});
   };
 
   const handleCountryChange = useCallback((country: string) => {
@@ -385,7 +406,7 @@ function MarketDemandContent() {
   }, []);
 
   const handleClear = async (saveFirst: boolean) => {
-    if (resetPending.current || isStreaming || stream.execution.status === "busy" || occupationConfirming || skillReviewController.busy) return;
+    if (sendPending.current || resetPending.current || isStreaming || stream.execution.status === "busy" || occupationConfirming || skillReviewController.busy) return;
     resetPending.current = true; setResetting(true); setResetError(null);
     const generation = pageGeneration.current;
     try {
@@ -407,25 +428,21 @@ function MarketDemandContent() {
     }
   };
 
-  const handleSearchQueryConfirm = useCallback(
-    (selectedIds: string[]) => {
-      setConfirmedSelection({ kind: "search_queries", ids: selectedIds });
-      send({mode: "workflow", text: selectedIds.map((t) => `"${t}"`).join(", ")});
-    },
-    [send]
-  );
+  const handleSearchQueryConfirm = (selectedIds: string[]) => {
+    if (sendPending.current || workflowDisabled) return;
+    setConfirmedSelection({ kind: "search_queries", ids: selectedIds });
+    handleSend(selectedIds.map((t) => `"${t}"`).join(", "));
+  };
 
-  const handleJobGroupConfirm = useCallback(
-    (selectedIds: string[]) => {
-      const groups = agentState.job_groups;
-      if (!groups) return;
-      const groupKeys = Object.keys(groups);
-      const indices = selectedIds.map((id) => groupKeys.indexOf(id) + 1);
-      setConfirmedSelection({ kind: "job_groups", ids: selectedIds });
-      send({mode: "workflow", text: indices.join(", ")});
-    },
-    [agentState.job_groups, send]
-  );
+  const handleJobGroupConfirm = (selectedIds: string[]) => {
+    if (sendPending.current || workflowDisabled) return;
+    const groups = agentState.job_groups;
+    if (!groups) return;
+    const groupKeys = Object.keys(groups);
+    const indices = selectedIds.map((id) => groupKeys.indexOf(id) + 1);
+    setConfirmedSelection({ kind: "job_groups", ids: selectedIds });
+    handleSend(indices.join(", "));
+  };
 
   const countrySelectorDisabled = settingsDisabled;
 
@@ -456,7 +473,7 @@ function MarketDemandContent() {
   const metadata = review?.analysis_metadata;
   const started = configurationStarted || !!review?.candidates.length || messages.length > 0;
   const setupVisible = setupOpen || !started;
-  const resetDisabled = isStreaming || stream.execution.status === "busy" || occupationConfirming || skillReviewController.busy || resetting || !isRestored;
+  const resetDisabled = workPending || !isRestored;
   return (
     <div ref={workspaceRef} aria-label="Teacher evidence workspace" className="absolute inset-0 flex min-w-0 flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
@@ -563,7 +580,7 @@ function MarketDemandContent() {
           {isLoadingHistory ? <p className="flex items-center gap-2"><Loader2 className="size-4 animate-spin"/>Restoring conversation...</p> : !review?.candidates.length && <section className="space-y-3">
             <h2 className="text-lg font-semibold">Market Demand Analyst</h2>
             <p>{review?.run_id ? "No skills are available in this analysis yet. Review source results and teacher checkpoints below." : "Start an analysis to collect job evidence for this course."}</p>
-            <Button disabled={sourceInputDisabled} onClick={() => handleSend("Analyze the job market for this course and find relevant postings")}>Start an analysis</Button>
+            <Button disabled={workflowDisabled} onClick={() => handleSend("Analyze the job market for this course and find relevant postings")}>Start an analysis</Button>
             <Button variant="outline" onClick={() => setReferenceOpen(!referenceOpen)}>Explore O*NET occupations</Button>
           </section>}
           {referenceOpen && <OccupationReferencePanel courseId={courseId} onAsk={stageContext}/>}
@@ -571,7 +588,7 @@ function MarketDemandContent() {
             {Object.entries(review?.source_outcomes ?? agentState.source_outcomes ?? {}).map(([source,outcome]) => <div key={source}><p>{source}: {outcome.status}</p><p>{outcome.received_count} received · {outcome.usable_count} usable</p>{outcome.warnings.map((warning,index) => <p key={index}>{warning}</p>)}</div>)}
             <Button variant="outline" size="sm" disabled={resetDisabled} onClick={() => handleSend("Retry all providers and reassess the collected evidence")}>Retry all providers and reassess</Button>
           </section>}
-          {showSelection && selectionConfig[pending.kind] && <SelectionCard title={selectionConfig[pending.kind].title} subtitle={selectionConfig[pending.kind].subtitle} items={pending.items} onConfirm={selectionConfig[pending.kind].onConfirm} disabled={isStreaming || sourceInputDisabled}/>}
+          {showSelection && selectionConfig[pending.kind] && <SelectionCard title={selectionConfig[pending.kind].title} subtitle={selectionConfig[pending.kind].subtitle} items={pending.items} onConfirm={selectionConfig[pending.kind].onConfirm} disabled={workflowDisabled}/>}
           {confirmedSelection && confirmedSelection.kind !== pending?.kind && <SelectionCard title={`Selected: ${selectionConfig[confirmedSelection.kind]?.title ?? confirmedSelection.kind}`} items={confirmedSelection.ids.map(id => ({id,label:id.replace(/_/g," ")}))} onConfirm={() => {}} confirmed confirmedIds={confirmedSelection.ids}/>}
           {askError && <p role="alert">{askError}</p>}
           {data && review?.candidates.length ? <>
@@ -606,7 +623,7 @@ function MarketDemandContent() {
           </details>}
         </main>
         <aside aria-label="Conversation pane" className={cn("min-h-0 min-w-0 border-l pt-3", wide ? "w-[360px] shrink-0" : "flex-1", !wide && pane !== "conversation" && "hidden")}>
-          <WorkspaceConversation stream={{...stream,isRestored: stream.isRestored && (draft.command.mode === "contextual" || !sourceInputDisabled)}} draft={draft} onDraftChange={handleDraftChange} onSubmit={handleSubmit} controller={skillReviewController}/>
+          <WorkspaceConversation stream={{...stream,isRestored: stream.isRestored && !sending && !resetting && (draft.command.mode === "contextual" || !sourceInputDisabled)}} draft={draft} onDraftChange={handleDraftChange} onSubmit={handleSubmit} controller={skillReviewController}/>
         </aside>
       </div>
       <AlertDialog open={newAnalysisOpen} onOpenChange={open => {if (!resetting) setNewAnalysisOpen(open);}}>
