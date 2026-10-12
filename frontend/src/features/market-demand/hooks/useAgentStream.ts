@@ -42,6 +42,7 @@ import { derivePipelineStages } from "@/features/market-demand/pipeline";
 
 export interface UseAgentStreamReturn {
   isRestored: boolean;
+  resetRecovery: "none" | "required";
   retryRestoration: () => void;
   skillReview: SkillReview | null;
   refreshSkillReview: () => Promise<void>;
@@ -70,6 +71,8 @@ export function useAgentStream(
   configurationOverride: SourceConfiguration | null = null
 ): UseAgentStreamReturn {
   const [isRestored, setIsRestored] = useState(false);
+  const [resetRecovery, setResetRecovery] = useState<"none" | "required">("none");
+  const resetRecoveryStatusRef = useRef<ExecutionObservation["status"] | null>(null);
   const reviewAbortRef = useRef<AbortController | null>(null);
   const [skillReview, setSkillReview] = useState<SkillReview | null>(null);
   const courseRef = useRef(courseId);
@@ -112,6 +115,9 @@ export function useAgentStream(
       request === snapshotRequestRef.current && generation === generationRef.current;
     restoredRef.current = false;
     setIsRestored(false);
+    resetRecoveryStatusRef.current = null;
+    setResetRecovery("none");
+    let partialResetSignature: string | null = null;
     try {
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const [history, state, review, status] = await Promise.all([
@@ -122,6 +128,25 @@ export function useAgentStream(
         ]);
         if (!isCurrent()) return;
         const runId = state.run_id ?? null;
+        const historicalRuns = [...new Set(history.messages.flatMap(message =>
+          message.workspace_context?.run_id ? [message.workspace_context.run_id] : []))];
+        // SQL reset can commit before checkpoint cleanup fails. This is reset-only recovery,
+        // never permission to publish mismatched history/review or resume the former run.
+        const partialReset = runId === null && review?.run_id === null &&
+          review.candidates.length === 0 && review.candidate_revision === 0 &&
+          review.selection_revision === 0 && review.publication_revision === 0 &&
+          !!history.threadId && historicalRuns.length === 1;
+        if (partialReset) {
+          const signature = JSON.stringify([history.threadId, historicalRuns[0], history.messages.map(message => message.id)]);
+          if (attempt === 0) {partialResetSignature = signature; continue;}
+          if (signature === partialResetSignature) {
+            resetRecoveryStatusRef.current = status.status;
+            setResetRecovery("required");
+            setExecution({...status, outcome: "unknown"});
+            throw new Error("The previous reset did not finish. Confirm a reset retry to start a new analysis. Your current workspace and question are retained until it succeeds.");
+          }
+          throw new Error("Conversation changed during refresh. Refresh again before taking another action.");
+        }
         if ((review?.run_id ?? null) !== runId || history.messages.some(message =>
           message.workspace_context?.run_id && message.workspace_context.run_id !== runId)) {
           throw new Error("Conversation and review changed during refresh. Refresh again before taking another action.");
@@ -359,6 +384,8 @@ export function useAgentStream(
     courseRef.current = courseId;
     restoredRef.current = false;
     resetPendingRef.current = false;
+    resetRecoveryStatusRef.current = null;
+    setResetRecovery("none");
     terminalProofRef.current = null;
     busySinceRef.current = null;
     generationRef.current += 1;
@@ -543,7 +570,7 @@ export function useAgentStream(
   }, [courseId, finishMessages, reconcile]);
 
   const clearConversation = useCallback(async () => {
-    if (courseRef.current !== courseId || resetPendingRef.current || !restoredRef.current) throw new Error("Workspace reset unavailable");
+    if (courseRef.current !== courseId || resetPendingRef.current || (!restoredRef.current && resetRecoveryStatusRef.current === null)) throw new Error("Workspace reset unavailable");
     if (abortRef.current || execution.status === "busy") throw new MarketDemandApiError(409, "execution_busy", "Analysis is still running", "Refresh execution status before starting a new analysis.");
     const generation = generationRef.current;
     const wasRestored = restoredRef.current;
@@ -551,6 +578,20 @@ export function useAgentStream(
     restoredRef.current = false;
     setIsRestored(false);
     try {
+      if (!wasRestored) {
+        // The teacher explicitly confirmed retry. Recheck ownership/partial shape/status,
+        // keeping every ordinary mutation blocked throughout these bounded reads.
+        const recovery = reconcile();
+        const request = snapshotRequestRef.current;
+        try {await recovery;} catch (cause) {
+          if (generation !== generationRef.current || courseRef.current !== courseId) return;
+          if (request !== snapshotRequestRef.current || resetRecoveryStatusRef.current === null) throw cause;
+        }
+        if (generation !== generationRef.current || courseRef.current !== courseId) return;
+        if (request !== snapshotRequestRef.current) throw new Error("Workspace changed while checking reset. Refresh before retrying.");
+        if (resetRecoveryStatusRef.current === "busy") throw new MarketDemandApiError(409, "execution_busy", "Analysis is still running", "Refresh execution status before starting a new analysis.");
+        // Unknown status is not success; the DELETE lease guard remains authoritative.
+      }
       await deleteConversation(courseId);
       if (generation !== generationRef.current || courseRef.current !== courseId) return;
       snapshotAbortRef.current?.abort();
@@ -558,6 +599,8 @@ export function useAgentStream(
       reviewAbortRef.current?.abort();
       reviewRequestRef.current += 1;
       terminalProofRef.current = null;
+      resetRecoveryStatusRef.current = null;
+      setResetRecovery("none");
       skillReviewRef.current = null;
       setSkillReview(null);
       messagesRef.current = [];
@@ -573,11 +616,20 @@ export function useAgentStream(
       setIsRestored(true);
     } catch (cause) {
       if (generation === generationRef.current && courseRef.current === courseId) {
-        resetPendingRef.current = false;
         if (cause instanceof MarketDemandApiError && cause.status === 409) {
           restoredRef.current = wasRestored;
           setIsRestored(wasRestored);
-        } else await reconcile().catch(() => {});
+        } else {
+          try {
+            const recovery = reconcile();
+            const request = snapshotRequestRef.current;
+            await recovery;
+            if (generation === generationRef.current && courseRef.current === courseId && request === snapshotRequestRef.current) {
+              restoredRef.current = true;
+              setIsRestored(true);
+            }
+          } catch { /* Failed recovery keeps ordinary mutations blocked. */ }
+        }
         if (generation === generationRef.current && courseRef.current === courseId) {
           setError(cause instanceof Error ? cause.message : "Failed to clear conversation");
         }
@@ -592,6 +644,7 @@ export function useAgentStream(
 
   return {
     isRestored,
+    resetRecovery,
     retryRestoration,
     skillReview,
     refreshSkillReview,

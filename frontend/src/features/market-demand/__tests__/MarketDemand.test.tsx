@@ -107,6 +107,7 @@ const ALL_PENDING: Record<PipelineStageId, StageStatus> = {
 function mockStreamReturn(overrides: Partial<UseAgentStreamReturn> = {}): UseAgentStreamReturn {
   return {
     isRestored: true,
+    resetRecovery: "none",
     retryRestoration: vi.fn(),
     skillReview: null,
     refreshSkillReview: vi.fn(),
@@ -811,4 +812,42 @@ it.each(['unchanged','follow-up','Ask replacement','failed','detached'] as const
   expect(send.mock.calls[1][0]).toMatchObject({mode:'contextual',context:{run_id:review.run_id,intent:'explain',focused_candidate_id:null,candidate_ids:[],occupation_codes:[],filters:{scope:'all',search:'',category_ids:[]}}});
   await act(async () => finish({outcome:'completed'}));
  }
+});
+
+it('offers confirmed reset retry on fresh partial-reset load while ordinary start stays blocked', async () => {
+ const clear=vi.fn(async () => undefined);
+ await openReviewWorkspace({skillReview:null,isRestored:false,resetRecovery:'required',error:'The previous reset did not finish.',clearConversation:clear});
+ expect(screen.getByRole('button',{name:'Start an analysis'})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Retry reset'}));
+ expect(clear).not.toHaveBeenCalled();
+ expect(screen.getByText(/Saved evidence and published skills remain/)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Confirm reset retry'}));
+ await waitFor(() => expect(clear).toHaveBeenCalledOnce());
+ expect(screen.getByRole('region',{name:'Analysis setup'})).toBeInTheDocument();
+ expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+});
+
+it('retains question and view on failed partial-reset retry and makes another confirmed retry reachable', async () => {
+ const clear=vi.fn().mockRejectedValueOnce(new Error('Retry offline')).mockResolvedValueOnce(undefined);
+ await openReviewWorkspace({isRestored:false,resetRecovery:'required',clearConversation:clear});
+ fireEvent.click(screen.getByRole('button',{name:'Data'}));
+ fireEvent.change(screen.getByPlaceholderText('Type your response...'),{target:{value:'Keep until reset acknowledgement'}});
+ fireEvent.click(screen.getByRole('button',{name:'Retry reset'}));
+ fireEvent.click(screen.getByRole('button',{name:'Confirm reset retry'}));
+ await screen.findByText('Retry offline');
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('Keep until reset acknowledgement');
+ expect(screen.getByLabelText('Evidence data')).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Save and start new analysis'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Confirm reset retry'}));
+ await waitFor(() => expect(clear).toHaveBeenCalledTimes(2));
+ expect(screen.getByPlaceholderText('Type your response...')).toHaveValue('');
+});
+
+it('disables partial-reset retry while busy and offers none for ordinary failed restoration', async () => {
+ const {rerender}=await openReviewWorkspace({skillReview:null,isRestored:false,resetRecovery:'required',execution:{status:'busy',state_updated_at:null,outcome:'unknown'}});
+ expect(screen.getByRole('button',{name:'Retry reset'})).toBeDisabled();
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({isRestored:false,error:'Read unavailable'}));
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.queryByRole('button',{name:'Retry reset'})).not.toBeInTheDocument();
 });

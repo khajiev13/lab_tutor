@@ -407,6 +407,7 @@ function MarketDemandContent() {
 
   const handleClear = async (saveFirst: boolean) => {
     if (sendPending.current || resetPending.current || isStreaming || stream.execution.status === "busy" || occupationConfirming || skillReviewController.busy) return;
+    if (saveFirst && !isRestored) return;
     resetPending.current = true; setResetting(true); setResetError(null);
     const generation = pageGeneration.current;
     try {
@@ -473,7 +474,8 @@ function MarketDemandContent() {
   const metadata = review?.analysis_metadata;
   const started = configurationStarted || !!review?.candidates.length || messages.length > 0;
   const setupVisible = setupOpen || !started;
-  const resetDisabled = workPending || !isRestored;
+  const resetRecoveryRequired = stream.resetRecovery === "required";
+  const resetDisabled = workPending || isLoadingHistory || (!isRestored && !resetRecoveryRequired);
   return (
     <div ref={workspaceRef} aria-label="Teacher evidence workspace" className="absolute inset-0 flex min-w-0 flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
@@ -499,7 +501,7 @@ function MarketDemandContent() {
         <div className="flex items-center gap-2">
           <ConnectionStatus isStreaming={isStreaming} hasError={!!error}/>
           <Button variant="outline" size="sm" onClick={() => setSetupOpen(!setupVisible)}>Analysis setup</Button>
-          {started && <Button variant="ghost" size="sm" disabled={resetDisabled} onClick={() => setNewAnalysisOpen(true)}>New analysis</Button>}
+          {(started || resetRecoveryRequired) && <Button variant="ghost" size="sm" disabled={resetDisabled} onClick={() => setNewAnalysisOpen(true)}>{resetRecoveryRequired ? "Retry reset" : "New analysis"}</Button>}
         </div>
       </div>
       {error && <div role="alert" className="flex shrink-0 items-center gap-3 border-b px-4 py-2 text-sm text-destructive"><p>{error}</p>
@@ -586,7 +588,7 @@ function MarketDemandContent() {
           {referenceOpen && <OccupationReferencePanel courseId={courseId} onAsk={stageContext}/>}
           {Object.keys(review?.source_outcomes ?? agentState.source_outcomes ?? {}).length > 0 && <section aria-label="Source progress" className="space-y-2 text-xs">
             {Object.entries(review?.source_outcomes ?? agentState.source_outcomes ?? {}).map(([source,outcome]) => <div key={source}><p>{source}: {outcome.status}</p><p>{outcome.received_count} received · {outcome.usable_count} usable</p>{outcome.warnings.map((warning,index) => <p key={index}>{warning}</p>)}</div>)}
-            <Button variant="outline" size="sm" disabled={resetDisabled} onClick={() => handleSend("Retry all providers and reassess the collected evidence")}>Retry all providers and reassess</Button>
+            <Button variant="outline" size="sm" disabled={resetDisabled || !isRestored} onClick={() => handleSend("Retry all providers and reassess the collected evidence")}>Retry all providers and reassess</Button>
           </section>}
           {showSelection && selectionConfig[pending.kind] && <SelectionCard title={selectionConfig[pending.kind].title} subtitle={selectionConfig[pending.kind].subtitle} items={pending.items} onConfirm={selectionConfig[pending.kind].onConfirm} disabled={workflowDisabled}/>}
           {confirmedSelection && confirmedSelection.kind !== pending?.kind && <SelectionCard title={`Selected: ${selectionConfig[confirmedSelection.kind]?.title ?? confirmedSelection.kind}`} items={confirmedSelection.ids.map(id => ({id,label:id.replace(/_/g," ")}))} onConfirm={() => {}} confirmed confirmedIds={confirmedSelection.ids}/>}
@@ -619,7 +621,7 @@ function MarketDemandContent() {
           </> : null}
           {review?.run_id && review.candidates.length > 0 && <SkillReviewPanel courseId={courseId} controller={skillReviewController} onRefresh={refreshSkillReview}/>}
           {started && <details><summary>Workflow progress and actions</summary><PipelineStepper stages={pipelineStages}/>
-            <Button variant="outline" disabled={resetDisabled} onClick={() => {workflowExplicit.current = true; setConversationDraft({text:"Continue the current workflow",command:{mode:"workflow"}});}}>Stage workflow response</Button>
+            <Button variant="outline" disabled={resetDisabled || !isRestored} onClick={() => {workflowExplicit.current = true; setConversationDraft({text:"Continue the current workflow",command:{mode:"workflow"}});}}>Stage workflow response</Button>
           </details>}
         </main>
         <aside aria-label="Conversation pane" className={cn("min-h-0 min-w-0 border-l pt-3", wide ? "w-[360px] shrink-0" : "flex-1", !wide && pane !== "conversation" && "hidden")}>
@@ -627,11 +629,11 @@ function MarketDemandContent() {
         </aside>
       </div>
       <AlertDialog open={newAnalysisOpen} onOpenChange={open => {if (!resetting) setNewAnalysisOpen(open);}}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Start a new analysis?</AlertDialogTitle><AlertDialogDescription>Saved evidence and published skills remain. The current analysis will no longer be resumable here.{skillReviewController.dirty ? " Save or discard your unsaved shortlist before continuing." : ""}</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Start a new analysis?</AlertDialogTitle><AlertDialogDescription>Saved evidence and published skills remain. The current analysis will no longer be resumable here.{skillReviewController.dirty ? isRestored ? " Save or discard your unsaved shortlist before continuing." : " Retrying reset will discard your unsaved shortlist, which cannot be saved until restoration succeeds." : ""}</AlertDialogDescription></AlertDialogHeader>
           {resetError && <p role="alert">{resetError}</p>}
           <AlertDialogFooter><AlertDialogCancel disabled={resetting}>Cancel</AlertDialogCancel>
-            {skillReviewController.dirty && <Button disabled={resetDisabled} onClick={() => void handleClear(true)}>Save and start new analysis</Button>}
-            <Button disabled={resetDisabled} onClick={() => void handleClear(false)}>{skillReviewController.dirty ? "Discard and start new analysis" : "Start new analysis"}</Button>
+            {skillReviewController.dirty && isRestored && <Button disabled={resetDisabled} onClick={() => void handleClear(true)}>Save and start new analysis</Button>}
+            <Button disabled={resetDisabled} onClick={() => void handleClear(false)}>{resetRecoveryRequired ? "Confirm reset retry" : skillReviewController.dirty ? "Discard and start new analysis" : "Start new analysis"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

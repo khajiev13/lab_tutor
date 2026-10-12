@@ -663,3 +663,168 @@ it("rejects two regressing coherent reads without publishing stale surfaces or e
   expect(result.current.isRestored).toBe(true);
   expect(result.current.skillReview).toEqual(acknowledged);
 });
+
+const retainedResetHistory = (runId = "run-old") => ({threadId: "thread-1", messages: [{
+  id: "old-question", role: "user" as const, content: "Explain retained evidence", toolCalls: [], isStreaming: false,
+  workspace_context: {kind: "run_review", version: 1, intent: "explain", run_id: runId,
+    candidate_revision: 1, selection_revision: 2, release: null, view: "overview", metric: "frequency",
+    occupation_codes: [], occupations: [], candidate_ids: [], candidate_labels: {}, filters: null,
+    descriptor_choices: [], insight_kind: null, matching_count: 0, included_count: 0, omitted_count: 0,
+    evidence_included_count: 0, evidence_omitted_count: 0, facts: [], coverage: {}, notices: [],
+  } satisfies ResolvedContextMetadata,
+}]});
+
+it("recognizes partial reset on reload without restoring edits or automatically deleting", async () => {
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedResetHistory());
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
+  expect(result.current.resetRecovery).toBe("required");
+  expect(result.current.isRestored).toBe(false);
+  expect(result.current.execution).toMatchObject({status: "idle", outcome: "unknown"});
+  await act(async () => {await result.current.send({mode: "workflow", text: "Start"});});
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+  expect(deleteConversation).not.toHaveBeenCalled();
+  expect(fetchConversationHistory).toHaveBeenCalledTimes(2);
+});
+
+it("retains old review and recoverable question after partial reset until explicit retry acknowledgement", async () => {
+  const review = reviewFixture();
+  const emptyReview = await vi.mocked(fetchSkillReview)(1);
+  vi.mocked(fetchSkillReview).mockResolvedValue(review);
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: review.run_id});
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  await act(async () => {await result.current.send({mode: "contextual", text: "Keep my question", context: contextual});});
+  const oldMessages = result.current.messages;
+  vi.mocked(deleteConversation).mockRejectedValueOnce(new Error("Reset connection lost"));
+  vi.mocked(fetchSkillReview).mockResolvedValue(emptyReview);
+  vi.mocked(fetchAgentState).mockResolvedValue(EMPTY_STATE);
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedResetHistory(review.run_id!));
+  await act(async () => {await expect(result.current.clearConversation()).rejects.toThrow("Reset connection lost");});
+  expect(result.current.resetRecovery).toBe("required");
+  expect(result.current.isRestored).toBe(false);
+  expect(result.current.skillReview).toBe(review);
+  expect(result.current.messages).toBe(oldMessages);
+  expect(result.current.recoverableCommand?.text).toBe("Keep my question");
+  act(() => result.current.applySkillReview({...review, selection_revision: 99}));
+  expect(result.current.skillReview).toBe(review);
+  let acknowledge!: () => void;
+  vi.mocked(deleteConversation).mockImplementationOnce(() => new Promise(resolve => {acknowledge = resolve;}));
+  let retry!: Promise<void>;
+  act(() => {retry = result.current.clearConversation();});
+  await waitFor(() => expect(deleteConversation).toHaveBeenCalledTimes(2));
+  expect(result.current.skillReview).toBe(review);
+  expect(result.current.recoverableCommand?.text).toBe("Keep my question");
+  await act(async () => {acknowledge(); await retry;});
+  expect(result.current.resetRecovery).toBe("none");
+  expect(result.current.isRestored).toBe(true);
+  expect(result.current.skillReview).toBeNull();
+  expect(result.current.messages).toEqual([]);
+  expect(result.current.recoverableCommand).toBeNull();
+  expect(result.current.execution.outcome).toBe("unknown");
+  expect(streamMarketDemandChat).toHaveBeenCalledTimes(1);
+});
+
+it.each(["busy", "unknown"] as const)("guards confirmed partial-reset retry with fresh %s status", async (status) => {
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedResetHistory());
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
+  vi.mocked(getMarketExecutionStatus).mockImplementation(async () => {
+    if (status === "unknown") throw new Error("Status unavailable");
+    return {status, state_updated_at: null};
+  });
+  await act(async () => {
+    if (status === "busy") await expect(result.current.clearConversation()).rejects.toMatchObject({status: 409});
+    else await result.current.clearConversation();
+  });
+  expect(deleteConversation).toHaveBeenCalledTimes(status === "busy" ? 0 : 1);
+  expect(result.current.execution.outcome).toBe("unknown");
+  expect(result.current.isRestored).toBe(status !== "busy");
+  if (status === "busy") expect(result.current.resetRecovery).toBe("required");
+});
+
+it("retains actionable partial-reset retry after another failure or server busy rejection", async () => {
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedResetHistory());
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
+  for (const failure of [new Error("Offline"), new MarketDemandApiError(409, "execution_busy", "Running", "Refresh")]) {
+    vi.mocked(deleteConversation).mockRejectedValueOnce(failure);
+    await act(async () => {await expect(result.current.clearConversation()).rejects.toBe(failure);});
+    expect(result.current.resetRecovery).toBe("required");
+    expect(result.current.isRestored).toBe(false);
+  }
+  expect(deleteConversation).toHaveBeenCalledTimes(2);
+});
+
+it.each(["mixed-history", "active-state", "transient-read", "changing-history"])("does not enable reset recovery for %s", async (kind) => {
+  const history = retainedResetHistory();
+  vi.mocked(fetchConversationHistory).mockResolvedValue(history);
+  if (kind === "mixed-history") vi.mocked(fetchConversationHistory).mockResolvedValue({...history, messages: [...history.messages, ...retainedResetHistory("other-run").messages]});
+  if (kind === "active-state") vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "run-new"});
+  if (kind === "transient-read") vi.mocked(fetchSkillReview).mockRejectedValue(new Error("Read unavailable"));
+  if (kind === "changing-history") vi.mocked(fetchConversationHistory).mockResolvedValueOnce(history).mockResolvedValue(retainedResetHistory("other-run"));
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
+  expect(result.current.resetRecovery).toBe("none");
+  expect(result.current.isRestored).toBe(false);
+  await act(async () => {await expect(result.current.clearConversation()).rejects.toThrow("unavailable");});
+  expect(deleteConversation).not.toHaveBeenCalled();
+});
+
+it.each(["read", "delete"])("ignores partial-reset retry %s and retained callback after course change", async (phase) => {
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedResetHistory());
+  const {result, rerender} = renderHook(({id}) => useAgentStream(id), {initialProps: {id: 1}});
+  await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
+  expect(result.current.resetRecovery).toBe("required");
+  const oldClear = result.current.clearConversation;
+  let finish!: () => void;
+  if (phase === "read") vi.mocked(fetchConversationHistory).mockImplementationOnce(() => new Promise(resolve => {finish = () => resolve(retainedResetHistory());}));
+  else vi.mocked(deleteConversation).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  let retry!: Promise<void>;
+  act(() => {retry = oldClear();});
+  if (phase === "delete") await waitFor(() => expect(deleteConversation).toHaveBeenCalledOnce());
+  else await act(async () => {});
+  vi.mocked(fetchConversationHistory).mockResolvedValue({threadId: "course-2", messages: []});
+  rerender({id: 2});
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  await act(async () => {finish(); await retry;});
+  expect(result.current.threadId).toBe("course-2");
+  expect(result.current.resetRecovery).toBe("none");
+  expect(result.current.error).toBeNull();
+  await act(async () => {await expect(oldClear()).rejects.toThrow("unavailable");});
+  expect(deleteConversation).toHaveBeenCalledTimes(phase === "delete" ? 1 : 0);
+});
+
+it("does not delete after a newer same-course read supersedes partial-reset retry validation", async () => {
+  vi.mocked(fetchConversationHistory).mockResolvedValue(retainedResetHistory());
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.resetRecovery).toBe("required"));
+  let finish!: (value: ReturnType<typeof retainedResetHistory>) => void;
+  vi.mocked(fetchConversationHistory).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  let retry!: Promise<void>;
+  act(() => {retry = result.current.clearConversation();});
+  await act(async () => {});
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "run-new"});
+  await act(async () => {await expect(result.current.reconcile()).rejects.toThrow("changed");});
+  await act(async () => {finish(retainedResetHistory()); await expect(retry).rejects.toThrow("changed");});
+  expect(deleteConversation).not.toHaveBeenCalled();
+  expect(result.current.isRestored).toBe(false);
+  expect(result.current.resetRecovery).toBe("none");
+});
+
+it("does not restore editing when failed-reset reconciliation is superseded by a mixed-run read", async () => {
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let finish!: (value: {threadId: string; messages: []}) => void;
+  vi.mocked(fetchConversationHistory).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  vi.mocked(deleteConversation).mockRejectedValueOnce(new Error("Reset offline"));
+  let reset!: Promise<void>;
+  act(() => {reset = result.current.clearConversation();});
+  await act(async () => {});
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "new-run"});
+  await act(async () => {await expect(result.current.reconcile()).rejects.toThrow("changed");});
+  await act(async () => {finish({threadId:"thread-1",messages:[]}); await expect(reset).rejects.toThrow("Reset offline");});
+  expect(result.current.isRestored).toBe(false);
+  await act(async () => {await result.current.send({mode:"workflow",text:"Start"});});
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
