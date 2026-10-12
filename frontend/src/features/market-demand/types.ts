@@ -233,6 +233,11 @@ export interface OnetEvidence {
   source_url: string;
   attribution: string;
 }
+export interface OccupationSkills {
+  release: string;
+  soc_code: string;
+  items: OnetEvidence[];
+}
 export interface OnetAssociation {
   evidence: OnetEvidence;
   relation: "equivalent" | "broader" | "related" | "unmatched";

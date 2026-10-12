@@ -143,3 +143,14 @@ it("rejects missing contextual mode or payload instead of falling back to workfl
   }
   expect(fetchMock).not.toHaveBeenCalled();
 });
+
+it("loads occupation reference evidence with the exact GET DTO, release and abort signal", async () => {
+  const response = {release: "31.0", soc_code: "15-2051.00", items: []};
+  const get = vi.spyOn(api, "get").mockResolvedValueOnce({data: response});
+  const signal = new AbortController().signal;
+  try {
+    expect(marketDemandApi).toHaveProperty("getOccupationSkills", expect.any(Function));
+    await expect(marketDemandApi.getOccupationSkills(7, "31.0", "15-2051.00", signal)).resolves.toEqual(response);
+    expect(get).toHaveBeenCalledWith("/courses/7/occupation-reference/occupations/15-2051.00/skills", {params: {release: "31.0"}, signal});
+  } finally {get.mockRestore();}
+});

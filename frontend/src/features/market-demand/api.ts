@@ -14,6 +14,7 @@ import type {
   PostingEvidence,
   WorkspaceContext,
   ExecutionStatus,
+  OccupationSkills,
 } from "@/features/market-demand/types";
 import api from "@/services/api";
 import { isAxiosError } from "axios";
@@ -258,6 +259,19 @@ export async function searchOnetOccupations(
   const { data } = await api.get<{ items: OnetOccupation[]; total: number; release: string }>(
     `/courses/${courseId}/occupation-reference/occupations`,
     { params: { release, q, offset, limit }, signal },
+  );
+  return data;
+}
+
+export async function getOccupationSkills(
+  courseId: number,
+  release: string,
+  socCode: string,
+  signal?: AbortSignal,
+): Promise<OccupationSkills> {
+  const {data} = await api.get<OccupationSkills>(
+    `/courses/${courseId}/occupation-reference/occupations/${encodeURIComponent(socCode)}/skills`,
+    {params: {release}, signal},
   );
   return data;
 }
