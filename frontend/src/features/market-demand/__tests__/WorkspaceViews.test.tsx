@@ -281,3 +281,91 @@ it("inspector keeps nonqualifying posting provenance while marking missing job e
   expect(streamMarketDemandChat).not.toHaveBeenCalled();
   expect(fetchPostingEvidence).not.toHaveBeenCalled();
 });
+
+it.each(["data", "compare"] as const)("%s distinguishes unchosen occupation from genuine missing association", async kind => {
+  const review = workspaceReviewFixture();
+  review.candidates[0].onet_associations = [workspaceEvidenceFixture()];
+  render(<Harness review={review} kind={kind} view={{...workspaceViewFixture(), view: "demand_importance", activeOccupationCode: null}}/>);
+  expect(screen.getByText("Choose an occupation to see its reported rating")).toBeInTheDocument();
+  expect(screen.queryByText("Unavailable: no equivalent association in this release")).not.toBeInTheDocument();
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByRole("combobox", {name: "Compare occupation"}), workspaceSoc);
+  expect(screen.getByText("4 / 5")).toBeInTheDocument();
+  expect(screen.queryByText("Choose an occupation to see its reported rating")).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByRole("combobox", {name: "Compare occupation"}), workspaceOtherSoc);
+  expect(screen.getByText("Unavailable: no equivalent association in this release")).toBeInTheDocument();
+  expect(state().draft.selected_candidate_ids).toEqual([]);
+  expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
+
+it.each(["data", "compare"] as const)("%s retains eligible descriptor chooser after reported/missing/suppressed choices and supports clearing", async kind => {
+  const review = workspaceReviewFixture();
+  const reported = workspaceEvidenceFixture();
+  const missing = workspaceEvidenceFixture({id: "missing-descriptor", element_id: "missing-element", label: "Missing descriptor"});
+  missing.evidence.ratings.IM!.status = "missing";
+  const suppressed = workspaceEvidenceFixture({id: "suppressed-descriptor", element_id: "suppressed-element", label: "Suppressed descriptor"});
+  suppressed.evidence.ratings.IM!.status = "suppressed";
+  review.candidates[0].onet_associations = [reported, missing, suppressed, workspaceEvidenceFixture({id: "wrong-release", release: "29.0", element_id: "wrong", label: "Wrong release"}), {...workspaceEvidenceFixture({id: "related", element_id: "related", label: "Related descriptor"}), relation: "related"}, workspaceEvidenceFixture({id: "software", family: "software", element_id: "software", label: "Software descriptor"})];
+  const view = {...workspaceViewFixture(), view: "occupations" as const, occupationCodes: [workspaceSoc]};
+  render(<Harness review={review} kind={kind} view={view}/>);
+  const chooser = () => screen.getByRole("combobox", {name: "Descriptor for Python · Developer"});
+  expect(within(chooser()).getAllByRole("option")).toHaveLength(4);
+  expect(within(chooser()).queryByRole("option", {name: /Wrong release|Related descriptor|Software descriptor/})).not.toBeInTheDocument();
+  const user = userEvent.setup();
+  await user.selectOptions(chooser(), reported.evidence.id);
+  expect(screen.getByText("4 / 5")).toBeInTheDocument();
+  expect(chooser()).toHaveValue(reported.evidence.id);
+  await user.selectOptions(chooser(), "missing-descriptor");
+  expect(screen.getByText("Unavailable: missing")).toBeInTheDocument();
+  expect(chooser()).toHaveValue("missing-descriptor");
+  await user.selectOptions(chooser(), "suppressed-descriptor");
+  expect(screen.getByText("Unavailable: suppressed")).toBeInTheDocument();
+  expect(chooser()).toHaveValue("suppressed-descriptor");
+  expect(screen.queryByText("4 / 5")).not.toBeInTheDocument();
+  await user.selectOptions(chooser(), "");
+  expect(screen.getByText(/Multiple matched descriptors/)).toBeInTheDocument();
+  expect(chooser()).toHaveValue("");
+  expect(state().view.descriptorChoices).toEqual([]);
+  expect(state().draft.selected_candidate_ids).toEqual([]);
+  expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
+
+function InspectorHarness({review}: {review: SkillReview}) {
+  const controller = useSkillReviewController({courseId: 1, review, onReviewChange: vi.fn()});
+  const initializeView = useEffectEvent(() => controller.updateView({...workspaceViewFixture(), occupationCodes: [workspaceSoc]}));
+  useEffect(() => initializeView(), []);
+  const data = buildWorkspaceData(review, controller.draft, controller.view);
+  const row = data.rows[0];
+  return <><output data-testid="state">{JSON.stringify({view: controller.view, draft: controller.draft})}</output>
+    <SkillEvidencePanel courseId={1} candidate={row.candidate} ratings={row.ratings} onChooseDescriptor={(id, code) => controller.updateView({descriptorChoices: [
+      ...controller.view.descriptorChoices.filter(choice => choice.candidate_id !== row.candidateId || !row.candidate.onet_associations.some(item => item.evidence.id === choice.evidence_id && item.evidence.soc_code === code)),
+      ...(id ? [{candidate_id: row.candidateId, evidence_id: id}] : []),
+    ]})}/></>;
+}
+
+it("inspector retains descriptor identity and lets shared view state change or clear resolved choices", async () => {
+  const review = workspaceReviewFixture();
+  const first = workspaceEvidenceFixture();
+  const suppressed = workspaceEvidenceFixture({id: "suppressed-descriptor", element_id: "suppressed", label: "Suppressed descriptor"});
+  suppressed.evidence.ratings.IM!.status = "suppressed";
+  review.candidates[0].onet_associations = [first, suppressed];
+  render(<InspectorHarness review={review}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByText("Evidence for Python"));
+  const chooser = () => screen.getByRole("combobox", {name: `Inspector descriptor for Python · ${workspaceSoc}`});
+  await user.selectOptions(chooser(), first.evidence.id);
+  expect(screen.getByText(`${workspaceSoc}: 4 / 5`)).toBeInTheDocument();
+  expect(chooser()).toHaveValue(first.evidence.id);
+  await user.selectOptions(chooser(), "suppressed-descriptor");
+  expect(screen.getByText(`${workspaceSoc}: Unavailable: suppressed`)).toBeInTheDocument();
+  expect(chooser()).toHaveValue("suppressed-descriptor");
+  await user.selectOptions(chooser(), "");
+  expect(screen.getByText(`${workspaceSoc}: Multiple matched descriptors`)).toBeInTheDocument();
+  expect(state().view.descriptorChoices).toEqual([]);
+  expect(state().draft.selected_candidate_ids).toEqual([]);
+  expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+  expect(fetchPostingEvidence).not.toHaveBeenCalled();
+});

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import {DescriptorChooser} from "@/features/market-demand/components/WorkspaceDataTable";
 import { Button } from "@/components/ui/button";
 import { isUsablePostingUrl } from "@/features/market-demand/selection";
 import { fetchPostingEvidence } from "@/features/market-demand/api";
-import type { OnetMetric, PostingEvidence, RatingResolution, SkillCandidate, VacancyEvidenceReference } from "@/features/market-demand/types";
+import type { DescriptorChoice, OnetMetric, PostingEvidence, RatingResolution, SkillCandidate, VacancyEvidenceReference } from "@/features/market-demand/types";
 
 export function EvidenceLink({url, label}: {url: string; label: string}) {
   if (!isUsablePostingUrl(url)) return null;
@@ -67,10 +68,12 @@ interface Props {
   candidate: SkillCandidate;
   focusedEvidenceId?: string | null;
   ratings?: Record<string, RatingResolution>;
+  descriptorChoices?: DescriptorChoice[];
+  release?: string | null;
   onChooseDescriptor?: (evidenceId: string, occupationCode: string) => void;
 }
 
-export function SkillEvidencePanel({courseId, candidate, focusedEvidenceId, ratings, onChooseDescriptor}: Props) {
+export function SkillEvidencePanel({courseId, candidate, focusedEvidenceId, ratings, descriptorChoices, release, onChooseDescriptor}: Props) {
   const associations = [...new Map(candidate.onet_associations.map(item => [item.evidence.id, item])).values()];
   return (
     <details className="space-y-2 text-xs">
@@ -81,11 +84,11 @@ export function SkillEvidencePanel({courseId, candidate, focusedEvidenceId, rati
       {!associations.length && <p>O*NET unavailable: no association.</p>}
       {ratings && Object.entries(ratings).map(([code, rating]) => <div key={code} className="space-y-1">
         <p>{code}: {rating.status === "reported" ? `${rating.value} / ${rating.metric === "IM" ? 5 : 7}` : rating.status === "ambiguous" ? "Multiple matched descriptors" : `Unavailable: ${rating.status.replaceAll("_", " ")}`}</p>
-        {rating.status === "ambiguous" && onChooseDescriptor && <label>Choose descriptor for {code}
-          <select aria-label={`Inspector descriptor for ${candidate.display_name} · ${code}`} className="block max-w-full rounded-md border bg-background p-2" defaultValue="" onChange={event => {if (event.target.value) onChooseDescriptor(event.target.value, code);}}>
-            <option value="">Choose descriptor</option>{rating.evidence.map(item => <option key={item.id} value={item.id}>{item.label} · {item.release} · {item.family} · {item.element_id}</option>)}
-          </select>
-        </label>}
+        {onChooseDescriptor && <DescriptorChooser candidate={candidate} occupationCode={code}
+          release={release ?? ("descriptorKey" in rating ? rating.descriptorKey[0] : rating.status === "ambiguous" ? rating.evidence[0]?.release ?? null : null)}
+          label={`${candidate.display_name} · ${code}`} ariaLabel={`Inspector descriptor for ${candidate.display_name} · ${code}`}
+          selectedEvidenceIds={descriptorChoices ? descriptorChoices.filter(choice => choice.candidate_id === candidate.candidate_id).map(choice => choice.evidence_id) : "evidence" in rating && !Array.isArray(rating.evidence) ? [rating.evidence.id] : []}
+          onChoose={id => onChooseDescriptor(id, code)}/>}
       </div>)}
       {associations.map(({evidence, relation, mapping_method, rationale}) => <div key={evidence.id} data-evidence-id={evidence.id} className="space-y-2 rounded-md border p-3">
         {focusedEvidenceId === evidence.id && <p className="font-medium">Focused chart evidence</p>}
