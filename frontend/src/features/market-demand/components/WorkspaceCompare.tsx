@@ -33,21 +33,30 @@ export default function WorkspaceCompare({data, controller, onAsk}: WorkspaceVie
       focus: {candidateId: row.candidateId, occupationCode: code, evidenceId: rating.evidence.id},
       tooltipText: `${row.label} · ${roleName(code)}: ${rating.value} / ${metric === "IM" ? 5 : 7} · ${rating.evidence.label} · ${rating.evidence.release} · ${rating.evidence.element_id}`}]: [];
   }));
-  const chart = scatter ? {
-    animation: false, grid: {left: 12, right: 28, top: 40, bottom: 48, containLabel: true},
-    xAxis: {type: "value", min: 0, max: 100, name: "Sample frequency (%)", nameLocation: "middle", nameGap: 30},
-    yAxis: {type: "value", min: 1, max: 5, name: "Importance (1–5)", interval: 1},
-    series: [{type: "scatter", symbolSize: 14, itemStyle: {color: "#2563eb"}, data: shown.scatterPoints.map(row => ({value: [row.demand, row.importance],
-      focus: {candidateId: row.candidateId, occupationCode: activeRole?.soc_code, evidenceId: row.importanceRating.evidence.id},
-      tooltipText: `${row.label} · ${activeRole?.title}: ${row.demand}% sample frequency · ${row.importance} / 5 Importance · ${row.importanceRating.evidence.label} · ${row.importanceRating.evidence.release}`}))}],
-  } : {
-    animation: false, grid: {left: 12, right: 24, top: 72, bottom: 72, containLabel: true},
-    xAxis: {type: "category", position: "top", data: codes.map(roleName), axisLabel: {interval: 0, width: 120, overflow: "truncate"}, splitArea: {show: false}},
-    yAxis: {type: "category", inverse: true, data: page.rows.map(row => row.label), axisLabel: {width: 150, overflow: "truncate"}},
-    visualMap: {min: metric === "IM" ? 1 : 0, max: metric === "IM" ? 5 : 7, orient: "horizontal", left: "center", bottom: 0,
-      text: [metric === "IM" ? "Importance 5" : "Level 7", metric === "IM" ? "Importance 1" : "Level 0"], inRange: {color: ["#bfdbfe", "#1d4ed8"]}},
-    series: [{type: "heatmap", data: heatmap, label: {show: true, color: "#18181b", textBorderColor: "#ffffff", textBorderWidth: 3},
-      itemStyle: {borderColor: "#71717a", borderWidth: 1}}],
+  const chart = (width: number) => {
+    const skillLabelWidth = Math.min(150, Math.floor(width * 0.3));
+    // Reserve both grid insets (12 + 24), the skill-label margin (8), and
+    // an 8px gap between occupation labels even when every label is truncated.
+    const roleLabelWidth = Math.max(1, Math.min(120, Math.floor((width - 44 - skillLabelWidth) / Math.max(1, codes.length)) - 8));
+    return scatter ? {
+      animation: false, grid: {left: 12, right: 28, top: 40, bottom: 48, containLabel: true},
+      xAxis: {type: "value", min: 0, max: 100, name: "Sample frequency (%)", nameLocation: "middle", nameGap: 30},
+      yAxis: {type: "value", min: 1, max: 5, name: "Importance (1–5)", nameTextStyle: {align: "left"}, interval: 1},
+      series: [{type: "scatter", symbolSize: 14, itemStyle: {color: "#2563eb"}, data: shown.scatterPoints.map(row => ({value: [row.demand, row.importance],
+        focus: {candidateId: row.candidateId, occupationCode: activeRole?.soc_code, evidenceId: row.importanceRating.evidence.id},
+        tooltipText: `${row.label} · ${activeRole?.title}: ${row.demand}% sample frequency · ${row.importance} / 5 Importance · ${row.importanceRating.evidence.label} · ${row.importanceRating.evidence.release}`}))}],
+    } : {
+      animation: false, grid: {left: 12, right: 24, top: 72, bottom: 72, containLabel: true},
+      xAxis: {type: "category", position: "top", data: codes.map(roleName), axisLabel: {interval: 0, width: roleLabelWidth, overflow: "truncate"}, splitArea: {show: false}},
+      yAxis: {type: "category", inverse: true, data: page.rows.map(row => row.label), axisLabel: {width: skillLabelWidth, margin: 8, overflow: "truncate"}},
+      visualMap: {min: metric === "IM" ? 1 : 0, max: metric === "IM" ? 5 : 7, orient: "horizontal", left: "center", bottom: 0,
+        // The horizontal bar's length is itemHeight; leave room for both full
+        // endpoint labels, their gaps, padding and a small frame inset.
+        itemHeight: Math.max(24, Math.min(140, width - 192)), textGap: 8, padding: 5,
+        text: [metric === "IM" ? "Importance 5" : "Level 7", metric === "IM" ? "Importance 1" : "Level 0"], inRange: {color: ["#bfdbfe", "#1d4ed8"]}},
+      series: [{type: "heatmap", data: heatmap, label: {show: true, color: "#18181b", textBorderColor: "#ffffff", textBorderWidth: 3},
+        itemStyle: {borderColor: "#71717a", borderWidth: 1}}],
+    };
   };
   return <section aria-label="Occupation comparison" className="space-y-4">
     <div className="flex flex-wrap gap-2">

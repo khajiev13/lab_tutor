@@ -1,4 +1,5 @@
 import {useEffect, useEffectEvent} from "react";
+import {format} from "echarts/core";
 import {act, render, screen, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {beforeEach, expect, it, vi} from "vitest";
@@ -11,12 +12,17 @@ import {buildWorkspaceData} from "@/features/market-demand/workspace-data";
 import {reviewFixture, workspaceCandidateId, workspaceEvidenceFixture, workspaceOtherSoc, workspaceReviewFixture, workspaceSoc, workspaceViewFixture} from "@/features/market-demand/__tests__/review-fixtures";
 import type {PostingEvidence, SkillReview, WorkspaceQuestion, WorkspaceViewState} from "@/features/market-demand/types";
 
+let chartWidth = 288;
+
 // ECharts is an external renderer; real browser lifecycle evidence is Task 12.
-vi.mock("@/features/market-demand/components/EvidenceChart", () => ({EvidenceChart: ({label, option, onFocus}: {label: string; option: {series: {data: {focus: unknown}[]}[]}; onFocus: (focus: unknown) => void}) =>
-  <div role="img" aria-label={label}><output data-testid="chart-options">{JSON.stringify(option)}</output>{option.series[0].data.map((item, i) => <button key={i} onClick={() => onFocus(item.focus)}>Plot {i + 1}</button>)}</div>}));
+type ChartOption = {series: {data: {focus: unknown}[]}[]};
+vi.mock("@/features/market-demand/components/EvidenceChart", () => ({EvidenceChart: ({label, option, onFocus}: {label: string; option: ChartOption | ((width: number) => ChartOption); onFocus: (focus: unknown) => void}) => {
+  const resolved = typeof option === "function" ? option(chartWidth) : option;
+  return <div role="img" aria-label={label}><output data-testid="chart-options">{JSON.stringify(resolved)}</output>{resolved.series[0].data.map((item, i) => <button key={i} onClick={() => onFocus(item.focus)}>Plot {i + 1}</button>)}</div>;
+}}));
 vi.mock("@/features/market-demand/api", async () => ({...await vi.importActual("@/features/market-demand/api"), saveSkillReviewDraft: vi.fn(), streamMarketDemandChat: vi.fn(), fetchPostingEvidence: vi.fn()}));
 import {saveSkillReviewDraft, streamMarketDemandChat, fetchPostingEvidence} from "@/features/market-demand/api";
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {vi.clearAllMocks(); chartWidth = 288;});
 
 const defaultReview = workspaceReviewFixture();
 const defaultView = workspaceViewFixture();
@@ -81,6 +87,8 @@ it("scatter focus carries role/evidence; controls only change occupational view 
   const option = JSON.parse(screen.getByTestId("chart-options").textContent!);
   expect(option.xAxis).toMatchObject({min: 0, max: 100});
   expect(option.yAxis).toMatchObject({min: 1, max: 5});
+  // An end-name centered on the left axis extends outside the SVG frame.
+  expect(option.yAxis.nameTextStyle).toMatchObject({align: "left"});
   await user.click(screen.getByRole("button", {name: "Plot 1"}));
   expect(state().view).toMatchObject({focusedCandidateId: workspaceCandidateId, activeOccupationCode: workspaceSoc});
   await user.selectOptions(screen.getByRole("combobox", {name: "Compare occupation"}), workspaceOtherSoc);
@@ -108,6 +116,39 @@ it("heatmap supports zero/one role, hides and re-enables confirmed roles, switch
   expect(screen.getByText(/Single-role reference view/)).toBeInTheDocument();
   expect(state().view.occupationCodes).toEqual([workspaceOtherSoc]);
   expect(state().draft.selected_candidate_ids).toEqual([]);
+});
+
+it.each([[288, 2], [358, 2], [736, 2], [288, 5], [358, 5], [736, 5]])("budgets heatmap labels and complete legend within %ipx for %i roles", (width, count) => {
+  chartWidth = width;
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+  const titles = ["VeryLongUnbrokenOccupationHeadingWithoutSpacesOne", "VeryLongUnbrokenOccupationHeadingWithoutSpacesTwo", "数据分析能力与软件开发职业", "{source|occupation}", "Cross-team research and development"];
+  const review = workspaceReviewFixture();
+  review.analysis_metadata!.occupations = titles.slice(0, count).map((title, i) => ({soc_code: `role-${i}`, title}));
+  review.candidates[0].display_name = "VeryLongUnbrokenCompetencyNameWithoutSpaces";
+  review.candidates[0].onet_associations = titles.slice(0, count).map((_, i) => workspaceEvidenceFixture({id: `evidence-${i}`, soc_code: `role-${i}`}));
+  const codes = review.analysis_metadata!.occupations.map(role => role.soc_code);
+  render(<Harness review={review} kind="compare" view={{...workspaceViewFixture(), view: "occupations", occupationCodes: codes, activeOccupationCode: codes[0]}}/>);
+  const option = JSON.parse(screen.getByTestId("chart-options").textContent!);
+  // Conservative per-band contract: even a skill label using its whole width
+  // leaves a gap between all displayed occupation labels, including the ends.
+  const plotWidth = width - option.grid.left - option.grid.right - option.yAxis.axisLabel.width - 8;
+  expect(option.xAxis.axisLabel.width).toBeGreaterThan(0);
+  expect.soft((option.xAxis.axisLabel.width + 8) * count).toBeLessThanOrEqual(plotWidth);
+  expect(option.xAxis.axisLabel).toMatchObject({interval: 0, overflow: "truncate"});
+  expect(option.yAxis.axisLabel.overflow).toBe("truncate");
+  expect(option.visualMap).toMatchObject({min: 1, max: 5, text: ["Importance 5", "Importance 1"]});
+  const endpointWidth = option.visualMap.text.reduce((total: number, label: string) => total + format.getTextRect(label).width, 0);
+  expect(endpointWidth + (option.visualMap.itemHeight ?? 140) + 2 * (option.visualMap.textGap ?? 10) + 2 * (option.visualMap.padding ?? 5)).toBeLessThanOrEqual(width - 16);
+  expect(option.xAxis.data).toEqual(titles.slice(0, count));
+  expect(option.yAxis.data[0]).toBe("VeryLongUnbrokenCompetencyNameWithoutSpaces");
+  for (const [i, title] of titles.slice(0, count).entries()) {
+    expect(screen.getByRole("columnheader", {name: title})).toBeInTheDocument();
+    expect(option.series[0].data[i]).toMatchObject({value: [i, 0, 4], focus: {occupationCode: `role-${i}`, evidenceId: `evidence-${i}`}});
+    expect(option.series[0].data[i].tooltipText).toContain(title);
+  }
+  expect(state().draft.selected_candidate_ids).toEqual([]);
+  expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
 });
 
 it("unconfirmed occupation comparison stays empty", () => {

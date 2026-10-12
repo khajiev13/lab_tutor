@@ -4,7 +4,7 @@ import {cn} from "@/lib/utils";
 import type {ChartFocus} from "@/features/market-demand/types";
 
 interface Props {
-  option: EChartsCoreOption;
+  option: EChartsCoreOption | ((width: number) => EChartsCoreOption);
   label: string;
   className?: string;
   onFocus: (focus: ChartFocus) => void;
@@ -100,7 +100,11 @@ export function EvidenceChart({option, label, className, onFocus, onError}: Prop
     };
     const apply = () => {
       if (removed || failed || !instance.current || !measureText || !element.clientWidth || !element.clientHeight) return;
-      try {instance.current.setOption(themedOption(latest.current.option, element.clientWidth, measureText), {notMerge: true});}
+      try {
+        const width = element.clientWidth;
+        const option = typeof latest.current.option === "function" ? latest.current.option(width) : latest.current.option;
+        instance.current.setOption(themedOption(option, width, measureText), {notMerge: true});
+      }
       catch (cause) {fail(cause);}
     };
     const size = async () => {

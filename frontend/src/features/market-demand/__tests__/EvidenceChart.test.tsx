@@ -154,3 +154,24 @@ it("retains the latest option while hidden and applies it when the container is 
   act(() => resize([], {} as ResizeObserver));
   await waitFor(() => expect(runtime.setOption).toHaveBeenCalledWith(expect.objectContaining({xAxis: expect.objectContaining({max: 100})}), {notMerge: true}));
 });
+
+it("resolves width-dependent options after hidden restore, resize, replacement and theme change", async () => {
+  width = 0;
+  const option = (currentWidth: number) => ({grid: {left: currentWidth / 4}, yAxis: {name: "Importance (1–5)", nameTextStyle: {align: "left"}}});
+  const {rerender} = render(<EvidenceChart label="Comparison" option={option} onFocus={vi.fn()}/>);
+  width = 288;
+  act(() => resize([], {} as ResizeObserver));
+  await waitFor(() => expect(runtime.setOption).toHaveBeenCalled());
+  expect(runtime.setOption.mock.calls.at(-1)![0]).toMatchObject({grid: {left: 72}});
+  width = 736;
+  act(() => resize([], {} as ResizeObserver));
+  expect(runtime.setOption.mock.calls.at(-1)![0].grid.left).toBe(184);
+  width = 0;
+  rerender(<EvidenceChart label="Comparison" option={currentWidth => ({...option(currentWidth), grid: {left: currentWidth / 2}})} onFocus={vi.fn()}/>);
+  width = 358;
+  act(() => resize([], {} as ResizeObserver));
+  expect(runtime.setOption.mock.calls.at(-1)![0].grid.left).toBe(179);
+  act(() => document.documentElement.classList.add("dark"));
+  await waitFor(() => expect(runtime.setOption.mock.calls.at(-1)![0].yAxis.nameTextStyle).toMatchObject({align: "left", color: "#f4f4f5"}));
+  expect(runtime.setOption.mock.calls.at(-1)![0].grid.left).toBe(179);
+});
