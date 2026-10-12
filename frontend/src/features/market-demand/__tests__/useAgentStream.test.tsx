@@ -1,9 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentState } from "@/features/market-demand/types";
+import type { AgentState, SendResult, WorkspaceContext, StreamEvent, ResolvedContextMetadata } from "@/features/market-demand/types";
 import { useAgentStream } from "@/features/market-demand/hooks/useAgentStream";
 import {
+  getMarketExecutionStatus,
+  MarketDemandApiError,
   deleteConversation,
   fetchSkillReview,
   fetchAgentState,
@@ -11,7 +13,9 @@ import {
   streamMarketDemandChat,
 } from "@/features/market-demand/api";
 
-vi.mock("@/features/market-demand/api", () => ({
+vi.mock("@/features/market-demand/api", async () => ({
+  ...await vi.importActual("@/features/market-demand/api"),
+  getMarketExecutionStatus: vi.fn(),
   deleteConversation: vi.fn(),
   fetchSkillReview: vi.fn(),
   fetchAgentState: vi.fn(),
@@ -42,6 +46,7 @@ const EMPTY_STATE: AgentState = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status: "idle", state_updated_at: null});
   vi.mocked(fetchConversationHistory).mockResolvedValue({messages: [], threadId: "thread-1"});
   vi.mocked(fetchAgentState).mockResolvedValue(EMPTY_STATE);
   vi.mocked(fetchSkillReview).mockResolvedValue({
@@ -68,7 +73,7 @@ describe("useAgentStream country selection", () => {
 
     await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
     await act(async () => {
-      await result.current.send("Analyze the job market");
+      await result.current.send({mode: "workflow", text: "Analyze the job market"});
     });
 
     expect(streamMarketDemandChat).toHaveBeenCalledWith(
@@ -83,7 +88,7 @@ describe("useAgentStream country selection", () => {
 
     await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
     await act(async () => {
-      await result.current.send("Analyze the job market");
+      await result.current.send({mode: "workflow", text: "Analyze the job market"});
     });
 
     expect(streamMarketDemandChat).toHaveBeenCalledWith(
@@ -101,8 +106,8 @@ it("restores provider choices and ignores cancelled stream callbacks", async () 
   vi.mocked(streamMarketDemandChat).mockImplementationOnce(() => new Promise<void>(r => {finish=r;}));
   const {result} = renderHook(() => useAgentStream(1));
   await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
-  let pending!: Promise<void>;
-  act(() => {pending=result.current.send("Analyze");});
+  let pending!: Promise<SendResult>;
+  act(() => {pending=result.current.send({mode: "workflow", text: "Analyze"});});
   expect(streamMarketDemandChat).toHaveBeenLastCalledWith(expect.objectContaining({sources:["headhunter"], evidence_sources:["jobs","onet"], onet_release:"31.0", onet_occupation_codes:["15-2051.00"]}));
   const old = vi.mocked(streamMarketDemandChat).mock.calls.at(-1)![0];
   act(() => {result.current.stop(); old.onEvent({type:"state_update",stateKey:"fetched_jobs",value:[{title:"stale"}]});});
@@ -117,12 +122,12 @@ it("aborts a previous course stream and prevents its finally clearing a newer st
   vi.mocked(streamMarketDemandChat).mockImplementation(() => new Promise<void>(r => finishes.push(r)));
   const {result,rerender}=renderHook(({id})=>useAgentStream(id),{initialProps:{id:1}});
   await waitFor(()=>expect(result.current.isLoadingHistory).toBe(false));
-  let first!:Promise<void>; act(()=>{first=result.current.send("First");});
+  let first!:Promise<SendResult>; act(()=>{first=result.current.send({mode: "workflow", text: "First"});});
   const args=vi.mocked(streamMarketDemandChat).mock.calls.at(-1)![0];
   rerender({id:2});
   await waitFor(()=>expect(result.current.isLoadingHistory).toBe(false));
   expect(args.signal?.aborted).toBe(true);
-  let second!:Promise<void>; act(()=>{second=result.current.send("Second");});
+  let second!:Promise<SendResult>; act(()=>{second=result.current.send({mode: "workflow", text: "Second"});});
   await act(async()=>{finishes[0](); await first;});
   expect(result.current.isStreaming).toBe(true);
   await act(async()=>{finishes[1](); await second;});
@@ -135,7 +140,7 @@ it("refuses sends until restoration succeeds", async () => {
  vi.mocked(fetchAgentState).mockImplementationOnce(()=>new Promise(r=>{restore=r;}));
  const {result}=renderHook(()=>useAgentStream(1));
  const before=vi.mocked(streamMarketDemandChat).mock.calls.length;
- await act(async()=>{await result.current.send("Too early");});
+ await act(async()=>{await result.current.send({mode: "workflow", text: "Too early"});});
  expect(vi.mocked(streamMarketDemandChat).mock.calls.length).toBe(before);
  await act(async()=>{restore(EMPTY_STATE);});
 });
@@ -144,13 +149,13 @@ it("refuses sends until restoration succeeds", async () => {
 it("restores the coherent review and refetches the latest SSE revision", async () => {
  const emptyReview = {run_id:"run-1",candidate_revision:1,selection_revision:0,categories:[],candidates:[],selected_candidate_ids:[],excluded_candidate_ids:[],recommendations:[],source_outcomes:{},extraction_coverage:{},integration_review:null,publication_revision:0,approved_references:[]};
  vi.mocked(fetchSkillReview).mockResolvedValueOnce(emptyReview).mockResolvedValueOnce({...emptyReview,candidate_revision:2});
- vi.mocked(fetchAgentState).mockResolvedValue(EMPTY_STATE);
+ vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "run-1"});
  vi.mocked(fetchConversationHistory).mockResolvedValue({messages:[],threadId:"t"});
  let finish!:()=>void;
  vi.mocked(streamMarketDemandChat).mockImplementationOnce(()=>new Promise(r=>{finish=r;}));
  const {result}=renderHook(()=>useAgentStream(1));
  await waitFor(()=>expect(result.current.skillReview?.candidate_revision).toBe(1));
- let pending!:Promise<void>; act(()=>{pending=result.current.send("Analyze");});
+ let pending!:Promise<SendResult>; act(()=>{pending=result.current.send({mode: "workflow", text: "Analyze"});});
  const args=vi.mocked(streamMarketDemandChat).mock.calls.at(-1)![0];
  act(()=>args.onEvent({type:"skill_review_changed",run_id:"run-1",candidate_revision:2,selection_revision:0,publication_revision:0}));
  await waitFor(()=>expect(result.current.skillReview?.candidate_revision).toBe(2));
@@ -166,7 +171,7 @@ it("keeps restoration unavailable after state loading fails", async () => {
   const {result} = renderHook(() => useAgentStream(1));
   await waitFor(() => expect(result.current.error).toBe("State unavailable"));
   expect(result.current.isRestored).toBe(false);
-  await act(async () => {await result.current.send("Analyze");});
+  await act(async () => {await result.current.send({mode: "workflow", text: "Analyze"});});
   expect(vi.mocked(streamMarketDemandChat).mock.calls.length).toBe(before);
   vi.mocked(fetchAgentState).mockResolvedValue(EMPTY_STATE);
   await act(async () => {result.current.retryRestoration();});
@@ -181,19 +186,19 @@ it.each(["response", "error"] as const)("rejects obsolete review %s after same-c
     resolveReview = resolve;
     rejectReview = reject;
   }));
-  vi.mocked(fetchAgentState).mockResolvedValue(EMPTY_STATE);
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "run-1"});
   vi.mocked(fetchConversationHistory).mockResolvedValue({messages: [], threadId: "t"});
   const finishes: (() => void)[] = [];
   vi.mocked(streamMarketDemandChat).mockImplementation(() => new Promise(resolve => finishes.push(resolve)));
   const {result} = renderHook(() => useAgentStream(1));
   await act(async () => {});
   await waitFor(() => expect(result.current.skillReview?.candidate_revision).toBe(1));
-  let first!: Promise<void>;
-  act(() => {first = result.current.send("First");});
+  let first!: Promise<SendResult>;
+  act(() => {first = result.current.send({mode: "workflow", text: "First"});});
   const firstArgs = vi.mocked(streamMarketDemandChat).mock.calls.at(-1)![0];
   act(() => firstArgs.onEvent({type: "skill_review_changed", run_id: "run-1", candidate_revision: 99, selection_revision: 0, publication_revision: 0}));
-  let second!: Promise<void>;
-  act(() => {second = result.current.send("Second");});
+  let second!: Promise<SendResult>;
+  act(() => {second = result.current.send({mode: "workflow", text: "Second"});});
   await act(async () => {
     if (completion === "response") resolveReview({...review, candidate_revision: 99});
     else rejectReview(new Error("Obsolete review failed"));
@@ -218,7 +223,7 @@ it("ignores an old clear rejection after switching courses", async () => {
   await waitFor(() => expect(result.current.isRestored).toBe(true));
   await act(async () => {
     rejectClear(new Error("Old course clear failed"));
-    await clearing;
+    await expect(clearing).rejects.toThrow("Old course clear failed");
   });
   expect(result.current.error).toBeNull();
 });
@@ -226,6 +231,7 @@ it("ignores an old clear rejection after switching courses", async () => {
 it("accepts acknowledged review mutations but rejects older revisions and previous-course acknowledgements", async () => {
   const review = {run_id:"run-1",candidate_revision:1,selection_revision:2,categories:[],candidates:[],selected_candidate_ids:[],excluded_candidate_ids:[],recommendations:[],source_outcomes:{},extraction_coverage:{},integration_review:null,publication_revision:0,approved_references:[]};
   vi.mocked(fetchSkillReview).mockResolvedValue(review);
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "run-1"});
   const {result,rerender} = renderHook(({courseId})=>useAgentStream(courseId),{initialProps:{courseId:1}});
   await waitFor(()=>expect(result.current.isRestored).toBe(true));
   const oldApply = result.current.applySkillReview;
@@ -237,4 +243,317 @@ it("accepts acknowledged review mutations but rejects older revisions and previo
   await waitFor(()=>expect(result.current.isRestored).toBe(true));
   act(()=>oldApply({...review,selection_revision:99}));
   expect(result.current.skillReview?.selection_revision).toBe(2);
+});
+
+const contextual: WorkspaceContext = {kind: "occupation_reference", version: 1, intent: "explain", release: "31.0", occupation_codes: ["15-2051.00"], element_ids: [], metric: "IM"};
+
+it("sends unfocused contextual questions without workflow config", async () => {
+  const {result} = renderHook(() => useAgentStream(1, "China"));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  await act(async () => {await result.current.send({mode: "contextual", text: "Explain", context: contextual});});
+  const args = vi.mocked(streamMarketDemandChat).mock.calls[0][0];
+  expect(args).toMatchObject({mode: "contextual", workspace_context: contextual});
+  expect(args).not.toHaveProperty("country");
+  expect(args).not.toHaveProperty("sources");
+});
+
+it.each(["completed", "failed", "eof", "error_without_end"] as const)("requires terminal proof for %s", async (kind) => {
+  vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({onEvent}) => {
+    if (kind === "failed" || kind === "error_without_end") onEvent({type: "error", code: "persistence_failed", message: "Save failed", recovery: "Refresh first"} as StreamEvent);
+    if (kind === "completed" || kind === "failed") onEvent({type: "stream_end", outcome: kind} as StreamEvent);
+  });
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let sent!: SendResult;
+  await act(async () => {sent = await result.current.send({mode: "contextual", text: "Explain", context: contextual});});
+  expect(sent.outcome).toBe(kind === "completed" || kind === "failed" ? kind : "detached");
+  expect(result.current.execution.outcome).toBe(kind === "completed" || kind === "failed" ? kind : "unknown");
+  if (kind !== "completed") expect(result.current.recoverableCommand?.text).toBe("Explain");
+  if (kind === "failed") expect(result.current.streamError).toMatchObject({code: "persistence_failed", recovery: "Refresh first"});
+});
+
+it("closeLiveResponse retains partial transcript and leaves execution unknown", async () => {
+  let finish!: () => void;
+  vi.mocked(streamMarketDemandChat).mockImplementationOnce(({onEvent}) => {
+    onEvent({type: "agent_start", agent: "workspace_review", messageId: "a", displayName: "Evidence assistant", emoji: "🤖"} as StreamEvent);
+    onEvent({type: "text_delta", messageId: "a", delta: "Partial"});
+    return new Promise(resolve => {finish = resolve;});
+  });
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let pending!: Promise<SendResult>;
+  act(() => {pending = result.current.send({mode: "workflow", text: "Analyze"});});
+  act(() => result.current.closeLiveResponse());
+  expect(result.current.messages.some(m => m.content === "Partial")).toBe(true);
+  expect(result.current.messages.every(m => !m.isStreaming)).toBe(true);
+  expect(result.current.execution.outcome).toBe("unknown");
+  await act(async () => {finish(); expect((await pending).outcome).toBe("detached");});
+});
+
+it("keeps rejected reset data and rejects its promise", async () => {
+  vi.mocked(deleteConversation).mockRejectedValueOnce(new MarketDemandApiError(409, "execution_busy", "Running", "Refresh"));
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  const before = result.current.skillReview;
+  await act(async () => {await expect(result.current.clearConversation()).rejects.toThrow("Running");});
+  expect(result.current.skillReview).toBe(before);
+  expect(result.current.threadId).toBe("thread-1");
+  expect(result.current.isRestored).toBe(true);
+});
+
+it("reconciles ambiguous resets before another mutation and never replays", async () => {
+  vi.mocked(deleteConversation).mockRejectedValueOnce(new Error("Reset connection lost"));
+  let history!: (value: {messages: []; threadId: string}) => void;
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  vi.mocked(fetchConversationHistory).mockImplementationOnce(() => new Promise(resolve => {history = resolve;}));
+  let clearing!: Promise<void>;
+  act(() => {clearing = result.current.clearConversation();});
+  await act(async () => {});
+  expect(result.current.isRestored).toBe(false);
+  await act(async () => {await result.current.send({mode: "workflow", text: "Retry"});});
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+  await act(async () => {await expect(result.current.clearConversation()).rejects.toThrow("unavailable");});
+  expect(deleteConversation).toHaveBeenCalledTimes(1);
+  await act(async () => {history({messages: [], threadId: ""}); await expect(clearing).rejects.toThrow("Reset connection lost");});
+  expect(result.current.isRestored).toBe(true);
+  expect(result.current.threadId).toBeNull();
+});
+
+it("does not enable mutations from mixed active run snapshots", async () => {
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "run-new"});
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isLoadingHistory).toBe(false));
+  expect(result.current.isRestored).toBe(false);
+  await act(async () => {await result.current.send({mode: "workflow", text: "Analyze"});});
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});
+
+it("polls visible busy execution at two seconds then ten, stops hidden and idle, refreshes on return", async () => {
+  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status: "busy", state_updated_at: "now"});
+  const {result, unmount} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  vi.useFakeTimers();
+  // Reinstall the busy timer in fake time through a visibility refresh.
+  act(() => document.dispatchEvent(new Event("visibilitychange")));
+  await act(async () => {});
+  vi.mocked(getMarketExecutionStatus).mockClear();
+  try {
+    await act(async () => {await vi.advanceTimersByTimeAsync(2000);});
+    expect(getMarketExecutionStatus).toHaveBeenCalledTimes(1);
+    await act(async () => {await vi.advanceTimersByTimeAsync(28000);});
+    expect(getMarketExecutionStatus).toHaveBeenCalledTimes(15);
+    await act(async () => {await vi.advanceTimersByTimeAsync(9999);});
+    expect(getMarketExecutionStatus).toHaveBeenCalledTimes(15);
+    await act(async () => {await vi.advanceTimersByTimeAsync(1);});
+    expect(getMarketExecutionStatus).toHaveBeenCalledTimes(16);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => {await vi.advanceTimersByTimeAsync(20000);});
+    expect(getMarketExecutionStatus).toHaveBeenCalledTimes(16);
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.mocked(getMarketExecutionStatus).mockResolvedValue({status: "idle", state_updated_at: "later"});
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    expect(result.current.execution).toMatchObject({status: "idle", outcome: "unknown"});
+    const calls = vi.mocked(getMarketExecutionStatus).mock.calls.length;
+    await act(async () => {await vi.advanceTimersByTimeAsync(20000);});
+    expect(getMarketExecutionStatus).toHaveBeenCalledTimes(calls);
+    expect(streamMarketDemandChat).not.toHaveBeenCalled();
+    expect(deleteConversation).not.toHaveBeenCalled();
+    unmount();
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => {await vi.advanceTimersByTimeAsync(20000);});
+    expect(getMarketExecutionStatus).toHaveBeenCalledTimes(calls);
+  } finally {vi.restoreAllMocks(); vi.useRealTimers();}
+});
+
+it("restores unmatched tools as unknown and keeps source outcomes independent of returned text", async () => {
+  vi.mocked(fetchConversationHistory).mockResolvedValue({threadId: "t", outcome: "unknown", messages: [{id: "restored", role: "agent", agent: "workspace_review", content: "Old partial", isStreaming: true, toolCalls: [{id: "old", name: "collect", args: {}, status: "loading"}]}]});
+  vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({onEvent}) => {
+    onEvent({type: "agent_start", agent: "skill_finder", messageId: "new", displayName: "Finder", emoji: ""});
+    onEvent({type: "tool_start", agent: "skill_finder", toolCallId: "tool", toolName: "collect", args: {}});
+    onEvent({type: "tool_end", toolCallId: "tool", toolName: "collect", status: "finished", result: "Provider denied request"});
+    onEvent({type: "state_update", stateKey: "source_outcomes", value: {jobs: {status: "error", received_count: 0, usable_count: 0, warnings: ["Denied"]}}});
+    // Keep recovery snapshot aligned with the live source outcome.
+    vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, source_outcomes: {jobs: {status: "error", received_count: 0, usable_count: 0, warnings: ["Denied"]}}});
+  });
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  expect(result.current.messages[0].toolCalls[0].status).toBe("unknown");
+  await act(async () => {await result.current.send({mode: "workflow", text: "Analyze"});});
+  expect(result.current.messages.at(-1)?.toolCalls[0].status).toBe("finished");
+  expect(result.current.agentState.source_outcomes?.jobs.status).toBe("error");
+  expect(result.current.execution.outcome).toBe("unknown");
+});
+
+it("reconciliation replaces partial transcript with the completed authoritative history without claiming success", async () => {
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({onEvent}) => {
+    onEvent({type: "agent_start", agent: "workspace_review", messageId: "a", displayName: "Evidence assistant", emoji: "🤖"});
+    onEvent({type: "text_delta", messageId: "a", delta: "Partial"});
+    vi.mocked(fetchConversationHistory).mockResolvedValue({threadId: "thread-1", outcome: "unknown", messages: [{id: "a", role: "agent", content: "Complete server response", toolCalls: [], isStreaming: false}]});
+  });
+  await act(async () => {await result.current.send({mode: "workflow", text: "Analyze"});});
+  expect(result.current.messages.at(-1)?.content).toBe("Complete server response");
+  expect(result.current.execution.outcome).toBe("unknown");
+});
+
+it("ignores delayed status and snapshot responses after course change", async () => {
+  const {result, rerender} = renderHook(({id}) => useAgentStream(id), {initialProps: {id: 1}});
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let resolve!: (status: {status: "busy"; state_updated_at: string}) => void;
+  vi.mocked(getMarketExecutionStatus).mockImplementationOnce(() => new Promise(r => {resolve = r;}));
+  let refreshing!: Promise<void>;
+  act(() => {refreshing = result.current.reconcile();});
+  rerender({id: 2});
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  await act(async () => {resolve({status: "busy", state_updated_at: "old"}); await refreshing;});
+  expect(result.current.execution).toMatchObject({status: "idle", state_updated_at: null, outcome: "unknown"});
+});
+
+it.each([true, false])("retains live terminal proof for the first run with run-id event %s", async (hasRunEvent) => {
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({onEvent}) => {
+    if (hasRunEvent) onEvent({type: "state_update", stateKey: "run_id", value: "run-new"});
+    onEvent({type: "stream_end", outcome: "completed"});
+    vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "run-new"});
+    vi.mocked(fetchSkillReview).mockResolvedValue({...result.current.skillReview!, run_id: "run-new"});
+  });
+  await act(async () => {await result.current.send({mode: "workflow", text: "Analyze"});});
+  expect(result.current.execution.outcome).toBe("completed");
+});
+
+it("keeps polling after replacing a stream within the same course", async () => {
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  vi.useFakeTimers();
+  const finishes: (() => void)[] = [];
+  vi.mocked(streamMarketDemandChat).mockImplementation(() => new Promise(r => finishes.push(r)));
+  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status: "busy", state_updated_at: null});
+  let first!: Promise<SendResult>;
+  let second!: Promise<SendResult>;
+  try {
+    act(() => {first = result.current.send({mode: "workflow", text: "First"});});
+    await act(async () => {await vi.advanceTimersByTimeAsync(2000);});
+    act(() => {second = result.current.send({mode: "workflow", text: "Second"});});
+    vi.mocked(getMarketExecutionStatus).mockClear();
+    await act(async () => {await vi.advanceTimersByTimeAsync(2000);});
+    expect(getMarketExecutionStatus).toHaveBeenCalledTimes(1);
+  } finally {
+    await act(async () => {finishes.forEach(f => f()); await Promise.all([first, second]);});
+    vi.useRealTimers();
+  }
+});
+
+it("refuses a reset during an attached reply without detaching or clearing it", async () => {
+  let finish!: () => void;
+  vi.mocked(streamMarketDemandChat).mockImplementationOnce(({onEvent}) => {
+    onEvent({type: "agent_start", agent: "workspace_review", messageId: "a", displayName: "Evidence assistant", emoji: "🤖"});
+    onEvent({type: "text_delta", messageId: "a", delta: "Still responding"});
+    return new Promise(r => {finish = r;});
+  });
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let sending!: Promise<SendResult>;
+  act(() => {sending = result.current.send({mode: "workflow", text: "Analyze"});});
+  const before = result.current.messages;
+  const review = result.current.skillReview;
+  const signal = vi.mocked(streamMarketDemandChat).mock.calls[0][0].signal;
+  await act(async () => {await expect(result.current.clearConversation()).rejects.toMatchObject({status: 409});});
+  expect(deleteConversation).not.toHaveBeenCalled();
+  expect(signal?.aborted).toBe(false);
+  expect(result.current.messages).toBe(before);
+  expect(result.current.skillReview).toBe(review);
+  expect(result.current.isStreaming).toBe(true);
+  await act(async () => {finish(); await sending;});
+});
+
+it("does not publish an old reset failure after its recovery awaited a course change", async () => {
+  const {result, rerender} = renderHook(({id}) => useAgentStream(id), {initialProps: {id: 1}});
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let resolve!: (value: {messages: []; threadId: string}) => void;
+  vi.mocked(fetchConversationHistory).mockImplementationOnce(() => new Promise(r => {resolve = r;}));
+  vi.mocked(deleteConversation).mockRejectedValueOnce(new Error("Old reset lost connection"));
+  let clearing!: Promise<void>;
+  act(() => {clearing = result.current.clearConversation();});
+  await act(async () => {});
+  rerender({id: 2});
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  await act(async () => {resolve({messages: [], threadId: "old"}); await expect(clearing).rejects.toThrow("Old reset lost connection");});
+  expect(result.current.error).toBeNull();
+  expect(result.current.threadId).toBe("thread-1");
+});
+
+it.each([409, 422])("retains recoverable question and structured HTTP %s rejection across restoration retry", async (status) => {
+  vi.mocked(streamMarketDemandChat).mockRejectedValueOnce(new MarketDemandApiError(status, "context_stale", "Context changed", "Refresh first"));
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let sent!: SendResult;
+  await act(async () => {sent = await result.current.send({mode: "contextual", text: "Explain this", context: contextual});});
+  expect(sent).toMatchObject({outcome: "detached", error: {status, code: "context_stale", recovery: "Refresh first"}});
+  expect(result.current.execution.outcome).toBe("unknown");
+  act(() => result.current.retryRestoration());
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  expect(result.current.recoverableCommand?.text).toBe("Explain this");
+  expect(streamMarketDemandChat).toHaveBeenCalledTimes(1);
+});
+
+it("clears local surfaces only after acknowledged reset success", async () => {
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let finish!: () => void;
+  vi.mocked(deleteConversation).mockImplementationOnce(() => new Promise(r => {finish = r;}));
+  const before = result.current.skillReview;
+  let pending!: Promise<void>;
+  act(() => {pending = result.current.clearConversation();});
+  expect(result.current.skillReview).toBe(before);
+  expect(result.current.threadId).toBe("thread-1");
+  expect(result.current.isRestored).toBe(false);
+  await act(async () => {finish(); await pending;});
+  expect(result.current.skillReview).toBeNull();
+  expect(result.current.threadId).toBeNull();
+  expect(result.current.messages).toEqual([]);
+  expect(result.current.execution).toMatchObject({status: "idle", outcome: "unknown"});
+});
+
+
+it("keeps distinct stable human IDs and context metadata for repeated questions live and restored", async () => {
+  const metadata: ResolvedContextMetadata = {
+    kind: "occupation_reference", version: 1, intent: "explain", run_id: null,
+    candidate_revision: null, selection_revision: null, release: "31.0", view: null,
+    metric: "IM", occupation_codes: ["15-2051.00"], occupations: [{soc_code: "15-2051.00", title: "Data Scientists"}],
+    candidate_ids: [], candidate_labels: {}, filters: null, descriptor_choices: [], insight_kind: null,
+    matching_count: 0, included_count: 0, omitted_count: 0, evidence_included_count: 0, evidence_omitted_count: 0,
+    facts: [], coverage: {}, notices: ["Reference context"],
+  };
+  let turn = 0;
+  vi.mocked(streamMarketDemandChat).mockImplementation(async ({onEvent}) => {
+    onEvent({type: "context_resolved", messageId: `human-${++turn}`, workspace_context: metadata});
+    onEvent({type: "stream_end", outcome: "completed"});
+  });
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  for (let i = 0; i < 2; i++) await act(async () => {await result.current.send({mode: "contextual", text: "Explain", context: contextual});});
+  expect(result.current.messages.map(m => ({id: m.id, content: m.content, context: m.workspace_context}))).toEqual([
+    {id: "human-1", content: "Explain", context: metadata}, {id: "human-2", content: "Explain", context: metadata},
+  ]);
+  vi.mocked(fetchConversationHistory).mockResolvedValue({threadId: "thread-1", outcome: "unknown", messages: result.current.messages});
+  await act(async () => {await result.current.reconcile();});
+  expect(result.current.messages.map(m => m.id)).toEqual(["human-1", "human-2"]);
+  expect(result.current.messages[1].workspace_context?.notices).toEqual(["Reference context"]);
+});
+
+it.each(["retryRestoration", "refreshSkillReview"] as const)("ignores a retained old-course %s callback", async (name) => {
+  const {result, rerender} = renderHook(({id}) => useAgentStream(id), {initialProps: {id: 1}});
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  const oldCallback = result.current[name];
+  rerender({id: 2});
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  const requests = vi.mocked(fetchSkillReview).mock.calls.length;
+  await act(async () => {await oldCallback();});
+  expect(fetchSkillReview).toHaveBeenCalledTimes(requests);
+  expect(result.current.isLoadingHistory).toBe(false);
+  expect(result.current.isRestored).toBe(true);
 });

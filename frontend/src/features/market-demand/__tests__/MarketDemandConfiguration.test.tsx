@@ -15,6 +15,7 @@ vi.mock("react-router-dom", async () => ({
 }));
 vi.mock("@/features/market-demand/api", () => ({
   fetchConversationHistory: vi.fn(),
+  getMarketExecutionStatus: vi.fn(),
   fetchAgentState: vi.fn(),
   fetchSkillReview: vi.fn(),
   fetchJobSources: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("@/features/market-demand/api", () => ({
 }));
 import {
   fetchConversationHistory,
+  getMarketExecutionStatus,
   fetchAgentState,
   fetchSkillReview,
   fetchJobSources,
@@ -66,6 +68,7 @@ const catalog: JobSourceAvailability[] = [
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status: "idle", state_updated_at: null});
   context.courseId = 1;
   vi.mocked(fetchConversationHistory).mockResolvedValue({messages: [], threadId: "t"});
   vi.mocked(fetchAgentState).mockResolvedValue(restored);
@@ -80,7 +83,7 @@ describe("shared teacher source configuration", () => {
       onEvent({type:"agent_start",agent:"supervisor",messageId:"a1",displayName:"Supervisor",emoji:""});
       onEvent({type:"text_delta",messageId:"a1",delta:'Search Terms: "data analyst", "data scientist"'});
       onEvent({type:"text_done",messageId:"a1"});
-      onEvent({type:"stream_end"});
+      onEvent({type:"stream_end", outcome:"completed"});
     });
     render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
     const user = userEvent.setup();
@@ -129,7 +132,7 @@ describe("shared teacher source configuration", () => {
 it("renders the durable nested review without treating extracted category prose as skill approval", async () => {
   const {reviewFixture} = await import("@/features/market-demand/__tests__/review-fixtures");
   vi.mocked(fetchSkillReview).mockResolvedValue(reviewFixture());
-  vi.mocked(fetchAgentState).mockResolvedValue({...restored,extracted_skills:[{name:"Legacy Python",category:"legacy",frequency:1,pct:100}]});
+  vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",extracted_skills:[{name:"Legacy Python",category:"legacy",frequency:1,pct:100}]});
   render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
   expect(await screen.findByRole("checkbox",{name:"Select Python"},{timeout:10000})).toBeInTheDocument();
   expect(screen.queryByText("Select Skill Categories")).not.toBeInTheDocument();
@@ -146,6 +149,8 @@ it.each(["enable", "release"])("confirms pending %s configuration locally before
   state.selected_onet_occupations = ["15-1252.00"];
  }
  vi.mocked(fetchAgentState).mockResolvedValue(state);
+ const saved = await fetchSkillReview(1);
+ vi.mocked(fetchSkillReview).mockResolvedValue({...saved,run_id:"run-1"});
  vi.mocked(fetchOnetReleases).mockResolvedValue({items:[{version:"30.0",active:false,attribution:"O*NET"},{version:"31.0",active:true,attribution:"O*NET"}]});
  vi.mocked(searchOnetOccupations).mockResolvedValue({items:[{soc_code:"15-2051.00",title:"Data Scientists",description:"Analyze data"}],total:1,release:"31.0"});
  vi.mocked(confirmOnetOccupations).mockRejectedValue(new Error("Durable configuration has not enabled this release"));
@@ -170,6 +175,8 @@ it.each(["enable", "release"])("confirms pending %s configuration locally before
 });
 
 it("prevents configuration changes after collection starts",async()=>{
+ const saved = await fetchSkillReview(1);
+ vi.mocked(fetchSkillReview).mockResolvedValue({...saved,run_id:"run-1"});
  vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",source_outcomes:{headhunter:{status:"success",received_count:1,usable_count:1,warnings:[]}}});
  render(<MemoryRouter><MarketDemandPage/></MemoryRouter>);
  const provider=await screen.findByRole("checkbox",{name:"HeadHunter"},{timeout:10000});

@@ -1,5 +1,6 @@
 // SSE event types from the backend
 export type AgentName =
+  | "workspace_review"
   | "supervisor"
   | "skill_finder"
   | "curriculum_mapper"
@@ -12,13 +13,15 @@ export type StreamEvent =
   | { type: "text_done"; messageId: string }
   | { type: "tool_start"; toolName: string; toolCallId: string; args: Record<string, unknown>; agent: AgentName }
   | { type: "tool_args_update"; toolCallId: string; args: Record<string, unknown> }
-  | { type: "tool_end"; toolCallId: string; toolName: string; result: unknown; status: "success" | "error" }
+  | { type: "tool_end"; toolCallId: string; toolName: string; result: unknown; status: "finished" | "error" }
   | { type: "state_update"; stateKey: string; value: unknown }
   | { type: "skill_review_changed"; run_id: string; candidate_revision: number; selection_revision: number; publication_revision: number }
-  | { type: "stream_end" };
+  | { type: "context_resolved"; messageId: string; workspace_context: ResolvedContextMetadata }
+  | ({ type: "error" } & StreamFailure)
+  | { type: "stream_end"; outcome?: "completed" | "failed" };
 
 // Chat message model
-export type ToolCallStatus = "loading" | "success" | "error";
+export type ToolCallStatus = "loading" | "finished" | "unknown" | "success" | "error";
 
 export interface ToolCall {
   id: string;
@@ -37,6 +40,7 @@ export interface ChatMessage {
   content: string;
   toolCalls: ToolCall[];
   isStreaming: boolean;
+  workspace_context?: ResolvedContextMetadata;
 }
 
 // Pipeline stages
@@ -462,4 +466,20 @@ export interface WorkspaceQuestion {
   candidateIds?: string[];
   occupationCodes?: string[];
   insightKind?: PatternObservation["kind"];
+}
+
+export interface StreamFailure {
+  code: string;
+  message: string;
+  recovery: string;
+  status?: number;
+}
+export type SendCommand =
+  | {mode: "workflow"; text: string}
+  | {mode: "contextual"; text: string; context: WorkspaceContext};
+export type SendResult = {outcome: "completed" | "failed" | "detached"; error?: StreamFailure};
+export interface ExecutionObservation {
+  status: ExecutionStatus["status"] | "unknown";
+  state_updated_at: string | null;
+  outcome: "completed" | "failed" | "unknown";
 }

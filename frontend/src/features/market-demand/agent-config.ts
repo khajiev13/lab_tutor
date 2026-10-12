@@ -11,6 +11,14 @@ export interface AgentIdentity {
 }
 
 export const AGENT_IDENTITIES: Record<AgentName, AgentIdentity> = {
+  workspace_review: {
+    displayName: "Evidence assistant",
+    shortName: "Evidence",
+    icon: Bot,
+    accentColor: "text-blue-500",
+    bgColor: "bg-blue-50 dark:bg-blue-950",
+    borderColor: "border-blue-300 dark:border-blue-700",
+  },
   supervisor: {
     displayName: "Supervisor",
     shortName: "Supervisor",

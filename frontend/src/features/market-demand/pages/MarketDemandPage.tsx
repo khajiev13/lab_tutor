@@ -308,7 +308,7 @@ function MarketDemandContent() {
   } | null>(null);
 
   const handleSend = (text: string) => {
-    if (!sourceInputDisabled) void send(text);
+    if (!sourceInputDisabled) void send({mode: "workflow", text});
   };
 
   const handleCountryChange = useCallback((country: string) => {
@@ -329,7 +329,7 @@ function MarketDemandContent() {
   const handleSearchQueryConfirm = useCallback(
     (selectedIds: string[]) => {
       setConfirmedSelection({ kind: "search_queries", ids: selectedIds });
-      send(selectedIds.map((t) => `"${t}"`).join(", "));
+      send({mode: "workflow", text: selectedIds.map((t) => `"${t}"`).join(", ")});
     },
     [send]
   );
@@ -341,7 +341,7 @@ function MarketDemandContent() {
       const groupKeys = Object.keys(groups);
       const indices = selectedIds.map((id) => groupKeys.indexOf(id) + 1);
       setConfirmedSelection({ kind: "job_groups", ids: selectedIds });
-      send(indices.join(", "));
+      send({mode: "workflow", text: indices.join(", ")});
     },
     [agentState.job_groups, send]
   );

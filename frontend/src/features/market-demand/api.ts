@@ -12,6 +12,8 @@ import type {
   IntegrationApproval,
   IntegrationApprovalResponse,
   PostingEvidence,
+  WorkspaceContext,
+  ExecutionStatus,
 } from "@/features/market-demand/types";
 import api from "@/services/api";
 import { isAxiosError } from "axios";
@@ -27,14 +29,41 @@ function getAccessToken(): string | null {
   return localStorage.getItem("access_token");
 }
 
-interface StreamChatArgs extends Partial<SourceConfiguration> {
+interface StreamCallbacks {
   courseId: number;
   message: string;
-  country: string | null;
   onEvent: (event: StreamEvent) => void;
   onThreadId?: (threadId: string) => void;
   onError?: (err: unknown) => void;
   signal?: AbortSignal;
+}
+export type StreamChatArgs = StreamCallbacks & (
+  | ({mode: "workflow"; country: string | null; workspace_context?: never} & Partial<SourceConfiguration>)
+  | ({mode: "contextual"; workspace_context: WorkspaceContext; country?: never} & {[K in keyof SourceConfiguration]?: never})
+);
+
+export class MarketDemandApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly recovery: string;
+  constructor(status: number, code: string, message: string, recovery: string) {
+    super(message);
+    this.name = "MarketDemandApiError";
+    this.status = status;
+    this.code = code;
+    this.recovery = recovery;
+  }
+}
+
+function responseError(status: number, data: unknown): MarketDemandApiError {
+  const detail = typeof data === "object" && data !== null && "detail" in data ? data.detail : data;
+  const structured = typeof detail === "object" && detail !== null ? detail as Record<string, unknown> : {};
+  return new MarketDemandApiError(
+    status,
+    typeof structured.code === "string" ? structured.code : "request_failed",
+    typeof structured.message === "string" ? structured.message : typeof detail === "string" ? detail : `Market demand request failed (${status})`,
+    typeof structured.recovery === "string" ? structured.recovery : "Refresh execution status, conversation and review before retrying.",
+  );
 }
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -89,38 +118,33 @@ async function fetchWithAuth(
   return res;
 }
 
-export async function streamMarketDemandChat({
-  courseId,
-  message,
-  country,
-  sources,
-  evidence_sources,
-  onet_release,
-  onet_occupation_codes,
-  onEvent,
-  onThreadId,
-  onError,
-  signal,
-}: StreamChatArgs): Promise<void> {
+export async function streamMarketDemandChat(args: StreamChatArgs): Promise<void> {
+  if (args.mode !== "workflow" && args.mode !== "contextual") throw new Error("Choose an explicit conversation mode");
+  if (args.mode === "contextual" && !args.workspace_context) throw new Error("Workspace context is required for a contextual question");
+  const {courseId, message, onEvent, onThreadId, onError, signal} = args;
   const token = getAccessToken();
   if (!token) {
     throw new Error("Not authenticated");
   }
 
   const url = `${API_URL}/courses/${courseId}/market-demand/chat`;
-  const body = JSON.stringify({
+  const body = JSON.stringify(args.mode === "contextual" ? {
+    message, workspace_context: args.workspace_context,
+  } : {
     message,
-    ...(country ? { country } : {}),
-    ...(sources !== undefined ? { sources } : {}),
-    ...(evidence_sources !== undefined ? { evidence_sources } : {}),
-    ...(onet_release !== undefined ? { onet_release } : {}),
-    ...(onet_occupation_codes !== undefined ? { onet_occupation_codes } : {}),
+    ...(args.country ? {country: args.country} : {}),
+    ...(args.sources !== undefined ? {sources: args.sources} : {}),
+    ...(args.evidence_sources !== undefined ? {evidence_sources: args.evidence_sources} : {}),
+    ...(args.onet_release !== undefined ? {onet_release: args.onet_release} : {}),
+    ...(args.onet_occupation_codes !== undefined ? {onet_occupation_codes: args.onet_occupation_codes} : {}),
   });
   const res = await fetchWithAuth(url, body, token, signal);
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(text || `Market demand chat failed (${res.status})`);
+    let data: unknown = text;
+    try {data = JSON.parse(text);} catch { /* Plain legacy HTTP detail. */ }
+    throw responseError(res.status, data);
   }
 
   // Capture thread_id from response header
@@ -139,81 +163,65 @@ export async function streamMarketDemandChat({
 
   try {
     while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      let idx: number;
-      while ((idx = buffer.indexOf("\n\n")) !== -1) {
-        const rawMessage = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-
-        const lines = rawMessage.split("\n").map((l) => l.trimEnd());
-        let eventType: string | null = null;
-        let eventData: string | null = null;
-
-        for (const line of lines) {
-          if (!line) continue;
-          if (line.startsWith("event:")) {
-            eventType = line.slice("event:".length).trim();
-          } else if (line.startsWith("data:")) {
-            eventData = line.slice("data:".length).trim();
-          }
+      if (signal?.aborted) throw new DOMException("Response detached", "AbortError");
+      const {value, done} = await reader.read();
+      buffer += decoder.decode(value, {stream: !done});
+      let boundary: RegExpExecArray | null;
+      while ((boundary = /\r?\n\r?\n/.exec(buffer))) {
+        const frame = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        let eventType: string | undefined;
+        const data: string[] = [];
+        for (const line of frame.split(/\r?\n/)) {
+          if (line.startsWith("event:")) eventType = line.slice(6).trim();
+          if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
         }
-
-        if (eventData) {
-          try {
-            const parsed = JSON.parse(eventData);
-            if (!parsed.type && eventType) {
-              parsed.type = eventType;
-            }
-            onEvent(parsed as StreamEvent);
-          } catch (e) {
-            onError?.(e);
-          }
-        }
+        if (!data.length) continue;
+        const parsed = JSON.parse(data.join("\n"));
+        if (!parsed || typeof parsed !== "object") throw new Error("Invalid stream frame");
+        if (!parsed.type && eventType) parsed.type = eventType;
+        onEvent(parsed as StreamEvent);
+      }
+      if (done) {
+        if (buffer.split(/\r?\n/).some(line => line.trim() && !line.startsWith(":"))) throw new Error("Response ended with an incomplete stream frame");
+        break;
       }
     }
-  } catch (e) {
-    const isAbort =
-      typeof e === "object" &&
-      e !== null &&
-      "name" in e &&
-      (e as { name: string }).name === "AbortError";
-    if (!isAbort) {
-      onError?.(e);
-    }
+  } catch (cause) {
+    onError?.(cause);
+    throw cause;
   } finally {
-    try {
-      reader.releaseLock();
-    } catch {
-      // ignore
-    }
+    reader.releaseLock();
   }
 }
 
 export interface HistoryResponse {
   messages: ChatMessage[];
   threadId: string;
+  outcome?: "unknown";
 }
 
-export async function fetchConversationHistory(courseId: number): Promise<HistoryResponse> {
+export async function fetchConversationHistory(courseId: number, signal?: AbortSignal): Promise<HistoryResponse> {
   const { data } = await api.get<HistoryResponse>(
-    `/courses/${courseId}/market-demand/history`
+    `/courses/${courseId}/market-demand/history`, {signal},
   );
   return data;
 }
 
-export async function fetchAgentState(courseId: number): Promise<AgentState> {
+export async function fetchAgentState(courseId: number, signal?: AbortSignal): Promise<AgentState> {
   const { data } = await api.get<AgentState>(
-    `/courses/${courseId}/market-demand/state`
+    `/courses/${courseId}/market-demand/state`, {signal},
   );
   return data;
 }
 
 export async function deleteConversation(courseId: number): Promise<void> {
-  await api.delete(`/courses/${courseId}/market-demand/history`);
+  try {
+    await api.delete(`/courses/${courseId}/market-demand/history`);
+  } catch (cause) {
+    if (isAxiosError(cause) && cause.response) throw responseError(cause.response.status, cause.response.data);
+    throw cause;
+  }
 }
 
 export async function fetchJobSources(
@@ -323,4 +331,9 @@ export function skillReviewErrorMessage(cause: unknown, fallback: string): strin
     if (detail) return JSON.stringify(detail);
   }
   return cause instanceof Error ? cause.message : fallback;
+}
+
+export async function getMarketExecutionStatus(courseId: number, signal?: AbortSignal): Promise<ExecutionStatus> {
+  const {data} = await api.get<ExecutionStatus>(`/courses/${courseId}/market-demand/execution-status`, {signal});
+  return data;
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deleteConversation, fetchAgentState, fetchConversationHistory, streamMarketDemandChat, fetchSkillReview } from "@/features/market-demand/api";
+import { deleteConversation, fetchAgentState, fetchConversationHistory, streamMarketDemandChat, fetchSkillReview, getMarketExecutionStatus, MarketDemandApiError } from "@/features/market-demand/api";
 import { DEFAULT_MARKET_DEMAND_COUNTRY } from "@/features/market-demand/countries";
 import type {
   AgentName,
@@ -11,6 +11,10 @@ import type {
   ToolCall,
   SourceConfiguration,
   SkillReview,
+  SendCommand,
+  SendResult,
+  StreamFailure,
+  ExecutionObservation,
 } from "@/features/market-demand/types";
 
 const EMPTY_STATE: AgentState = {
@@ -49,7 +53,12 @@ export interface UseAgentStreamReturn {
   agentState: AgentState;
   pipelineStages: Record<PipelineStageId, StageStatus>;
   threadId: string | null;
-  send: (text: string) => Promise<void>;
+  send: (command: SendCommand) => Promise<SendResult>;
+  closeLiveResponse: () => void;
+  reconcile: () => Promise<void>;
+  execution: ExecutionObservation;
+  streamError: StreamFailure | null;
+  recoverableCommand: SendCommand | null;
   stop: () => void;
   clearConversation: () => Promise<void>;
   error: string | null;
@@ -60,7 +69,6 @@ export function useAgentStream(
   countryOverride: string | null = null,
   configurationOverride: SourceConfiguration | null = null
 ): UseAgentStreamReturn {
-  const [restoreAttempt, setRestoreAttempt] = useState(0);
   const [isRestored, setIsRestored] = useState(false);
   const reviewAbortRef = useRef<AbortController | null>(null);
   const [skillReview, setSkillReview] = useState<SkillReview | null>(null);
@@ -76,64 +84,127 @@ export function useAgentStream(
   const [error, setError] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
+  const snapshotAbortRef = useRef<AbortController | null>(null);
+  const snapshotRequestRef = useRef(0);
+  const skillReviewRef = useRef<SkillReview | null>(null);
+  const resetPendingRef = useRef(false);
+  const terminalProofRef = useRef<{generation: number; runId: string | null; createdRun?: boolean; outcome: "completed" | "failed"} | null>(null);
+  const busySinceRef = useRef<number | null>(null);
+  const [streamGeneration, setStreamGeneration] = useState(0);
+  const [execution, setExecution] = useState<ExecutionObservation>({status: "unknown", state_updated_at: null, outcome: "unknown"});
+  const [streamError, setStreamError] = useState<StreamFailure | null>(null);
+  const [recoverableCommand, setRecoverableCommand] = useState<SendCommand | null>(null);
 
   // Refs for mutable state during streaming
   const messagesRef = useRef<ChatMessage[]>([]);
   const agentStateRef = useRef<AgentState>(EMPTY_STATE);
 
+  const reconcile = useCallback(async (retainTranscript = false) => {
+    if (courseRef.current !== courseId) return;
+    snapshotAbortRef.current?.abort();
+    reviewAbortRef.current?.abort();
+    reviewRequestRef.current += 1;
+    const abort = new AbortController();
+    snapshotAbortRef.current = abort;
+    const request = ++snapshotRequestRef.current;
+    const generation = generationRef.current;
+    const isCurrent = () => !abort.signal.aborted && courseRef.current === courseId &&
+      request === snapshotRequestRef.current && generation === generationRef.current;
+    restoredRef.current = false;
+    setIsRestored(false);
+    try {
+      const [history, state, review, status] = await Promise.all([
+        fetchConversationHistory(courseId, abort.signal),
+        fetchAgentState(courseId, abort.signal),
+        fetchSkillReview(courseId, abort.signal),
+        getMarketExecutionStatus(courseId, abort.signal).catch(() => ({status: "unknown" as const, state_updated_at: null})),
+      ]);
+      if (!isCurrent()) return;
+      const runId = state.run_id ?? null;
+      if ((review?.run_id ?? null) !== runId || history.messages.some(message =>
+        message.workspace_context?.run_id && message.workspace_context.run_id !== runId)) {
+        throw new Error("Conversation and review changed during refresh. Refresh again before taking another action.");
+      }
+      const sameRun = (skillReviewRef.current?.run_id ?? null) === runId;
+      skillReviewRef.current = review;
+      setSkillReview(review);
+      agentStateRef.current = state;
+      setAgentState(state);
+      // An attached partial response is still useful while server history catches up.
+      if (!retainTranscript || !sameRun || !messagesRef.current.length ||
+        (status.status === "idle" && history.messages.some(message => message.id === messagesRef.current.at(-1)?.id))) {
+        messagesRef.current = history.messages.map(message => ({...message, isStreaming: false,
+          toolCalls: message.toolCalls.map(tool => ({...tool, status: tool.status === "loading" ? "unknown" : tool.status === "success" ? "finished" : tool.status}))}));
+        setMessages(messagesRef.current);
+      }
+      setThreadId(history.threadId || null);
+      const proof = terminalProofRef.current;
+      const proven = proof?.generation === generation && (proof.runId === runId || (proof.createdRun && proof.runId === null));
+      if (proven && proof) terminalProofRef.current = {...proof, runId, createdRun: false};
+      setExecution({...status, outcome: proven && proof ? proof.outcome : "unknown"});
+      if (!resetPendingRef.current) {
+        restoredRef.current = true;
+        setIsRestored(true);
+      }
+    } catch (cause) {
+      if (isCurrent()) setError(cause instanceof Error ? cause.message : "Failed to restore conversation");
+      throw cause;
+    } finally {
+      if (isCurrent()) setIsLoadingHistory(false);
+    }
+  }, [courseId]);
+
   const refreshSkillReview = useCallback(async () => {
+    if (courseRef.current !== courseId) return;
     reviewAbortRef.current?.abort();
     const abort = new AbortController();
     reviewAbortRef.current = abort;
     const request = ++reviewRequestRef.current;
-    const activeCourse = courseId;
+    const generation = generationRef.current;
     try {
       const snapshot = await fetchSkillReview(courseId, abort.signal);
-      if (
-        !abort.signal.aborted &&
-        courseRef.current === activeCourse &&
-        request === reviewRequestRef.current
-      ) {
-        setSkillReview(snapshot);
+      if (abort.signal.aborted || courseRef.current !== courseId || request !== reviewRequestRef.current || generation !== generationRef.current) return;
+      if ((snapshot.run_id ?? null) !== (agentStateRef.current.run_id ?? null)) {
+        await reconcile(true);
+        return;
       }
+      const current = skillReviewRef.current;
+      if (current && (snapshot.candidate_revision < current.candidate_revision || snapshot.selection_revision < current.selection_revision || snapshot.publication_revision < current.publication_revision)) return;
+      skillReviewRef.current = snapshot;
+      setSkillReview(snapshot);
     } catch (cause) {
-      if (
-        !abort.signal.aborted &&
-        courseRef.current === activeCourse &&
-        request === reviewRequestRef.current
-      ) {
+      if (!abort.signal.aborted && courseRef.current === courseId && request === reviewRequestRef.current && generation === generationRef.current) {
         setError(cause instanceof Error ? cause.message : "Failed to refresh skill review");
       }
       throw cause;
     }
-  }, [courseId]);
+  }, [courseId, reconcile]);
 
   const applySkillReview = useCallback((snapshot: SkillReview) => {
     if (courseRef.current !== courseId || !restoredRef.current) return;
     reviewAbortRef.current?.abort();
     reviewRequestRef.current += 1;
-    setSkillReview(current => {
-      if (!current || snapshot.run_id !== current.run_id ||
-        snapshot.candidate_revision < current.candidate_revision ||
-        snapshot.selection_revision < current.selection_revision ||
-        snapshot.publication_revision < current.publication_revision) return current;
-      return snapshot;
-    });
+    const current = skillReviewRef.current;
+    if (!current || snapshot.run_id !== current.run_id ||
+      snapshot.candidate_revision < current.candidate_revision ||
+      snapshot.selection_revision < current.selection_revision ||
+      snapshot.publication_revision < current.publication_revision) return;
+    skillReviewRef.current = snapshot;
+    setSkillReview(snapshot);
   }, [courseId]);
 
   const handleEvent = useCallback((event: StreamEvent) => {
     switch (event.type) {
       case "agent_start": {
         setCurrentAgent(event.agent);
-        // Resolve any pending tool calls and stop streaming on the previous agent message.
-        // Handoff tools (transfer_to_*) never emit tool_end, so we close them out here.
+        // Preserve uncertain tools across agent handoff; termination needs a matching result.
         messagesRef.current = messagesRef.current.map((m, idx) => {
           if (idx === messagesRef.current.length - 1 && m.role === "agent" && m.isStreaming) {
             return {
               ...m,
               isStreaming: false,
               toolCalls: m.toolCalls.map((tc) =>
-                tc.status === "loading" ? { ...tc, status: "success" as const } : tc
+                tc.status === "loading" ? { ...tc, status: "unknown" as const } : tc
               ),
             };
           }
@@ -241,31 +312,49 @@ export function useAgentStream(
       }
 
       case "skill_review_changed": {
-        void refreshSkillReview().catch(() => {});
+        if (event.run_id === agentStateRef.current.run_id) void refreshSkillReview().catch(() => {});
+        else void reconcile(true).catch(() => {});
         break;
       }
-
+      case "context_resolved": {
+        const index = messagesRef.current.map(message => message.role).lastIndexOf("user");
+        if (index !== -1) {
+          messagesRef.current = messagesRef.current.map((message, i) => i === index ? {...message, id: event.messageId, workspace_context: event.workspace_context} : message);
+          setMessages(messagesRef.current);
+        }
+        break;
+      }
+      case "error": {
+        setStreamError({code: event.code, message: event.message, recovery: event.recovery});
+        setError(event.message);
+        break;
+      }
       case "stream_end": {
+        if (event.outcome) {
+          terminalProofRef.current = {generation: generationRef.current, runId: agentStateRef.current.run_id ?? null, outcome: event.outcome};
+          setExecution(current => ({...current, outcome: event.outcome!}));
+        }
         setIsStreaming(false);
         setCurrentAgent(null);
         break;
       }
     }
-  }, [refreshSkillReview]);
+  }, [refreshSkillReview, reconcile]);
 
-  // Load course-scoped conversation history whenever the course changes.
+  // Restore all editable surfaces together; stale requests cannot update another course.
   useEffect(() => {
-    let cancelled = false;
-    const restoreAbort = new AbortController();
     courseRef.current = courseId;
     restoredRef.current = false;
-    setIsRestored(false);
-    reviewAbortRef.current?.abort();
+    resetPendingRef.current = false;
+    terminalProofRef.current = null;
+    busySinceRef.current = null;
     generationRef.current += 1;
     reviewRequestRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
+    setIsRestored(false);
     setIsStreaming(false);
+    skillReviewRef.current = null;
     setSkillReview(null);
     setIsLoadingHistory(true);
     messagesRef.current = [];
@@ -275,140 +364,182 @@ export function useAgentStream(
     setThreadId(null);
     setCurrentAgent(null);
     setError(null);
-
-    Promise.all([
-      fetchConversationHistory(courseId),
-      fetchAgentState(courseId),
-      fetchSkillReview(courseId, restoreAbort.signal),
-    ])
-      .then(([historyData, stateData, reviewData]) => {
-        if (cancelled) return;
-        if (historyData.messages.length > 0) {
-          messagesRef.current = historyData.messages;
-          setMessages(historyData.messages);
-        }
-        if (historyData.threadId) {
-          setThreadId(historyData.threadId);
-        }
-        // Restore agent state (pipeline progress, jobs, skills, etc.)
-        setSkillReview(reviewData);
-        restoredRef.current = true;
-        setIsRestored(true);
-        agentStateRef.current = stateData;
-        setAgentState(stateData);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to restore conversation");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingHistory(false);
-      });
-
+    setStreamError(null);
+    setRecoverableCommand(null);
+    setExecution({status: "unknown", state_updated_at: null, outcome: "unknown"});
+    void reconcile().catch(() => {});
     return () => {
-      cancelled = true;
-      restoreAbort.abort();
+      snapshotAbortRef.current?.abort();
       reviewAbortRef.current?.abort();
       restoredRef.current = false;
       generationRef.current += 1;
       reviewRequestRef.current += 1;
+      snapshotRequestRef.current += 1;
       abortRef.current?.abort();
     };
-  }, [courseId, restoreAttempt]);
+  }, [courseId, reconcile]);
+
+  useEffect(() => {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let requestAbort: AbortController | undefined;
+    const generation = generationRef.current;
+    if (execution.status === "busy" || isStreaming) busySinceRef.current ??= Date.now();
+    else busySinceRef.current = null;
+    const started = busySinceRef.current ?? Date.now();
+    const isCurrent = () => !stopped && generation === generationRef.current && courseRef.current === courseId;
+    const visible = () => document.visibilityState !== "hidden";
+    const poll = async (refreshSnapshot = false) => {
+      if (!isCurrent() || !visible()) return;
+      requestAbort = new AbortController();
+      try {
+        const status = await getMarketExecutionStatus(courseId, requestAbort.signal);
+        if (!isCurrent() || requestAbort.signal.aborted || !visible()) return;
+        setExecution(current => ({...current, ...status}));
+        if (status.status === "idle") {
+          if (!abortRef.current && (execution.status === "busy" || refreshSnapshot)) await reconcile(true);
+          return;
+        }
+        timer = setTimeout(() => {void poll();}, Date.now() - started >= 30000 ? 10000 : 2000);
+      } catch {
+        if (isCurrent() && !requestAbort.signal.aborted) setExecution(current => ({...current, status: "unknown", state_updated_at: null}));
+      }
+    };
+    const onVisibility = () => {
+      clearTimeout(timer);
+      requestAbort?.abort();
+      if (visible()) void poll(true);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    if (visible() && (execution.status === "busy" || isStreaming)) timer = setTimeout(() => {void poll();}, 2000);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      requestAbort?.abort();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [courseId, execution.status, isStreaming, streamGeneration, reconcile]);
 
   const retryRestoration = useCallback(() => {
-    setRestoreAttempt((attempt) => attempt + 1);
+    if (courseRef.current !== courseId) return;
+    setIsLoadingHistory(true);
+    setError(null);
+    void reconcile(true).catch(() => {});
+  }, [courseId, reconcile]);
+
+  const finishMessages = useCallback(() => {
+    messagesRef.current = messagesRef.current.map(message => ({...message, isStreaming: false,
+      toolCalls: message.toolCalls.map(tool => tool.status === "loading" ? {...tool, status: "unknown"} : tool)}));
+    setMessages(messagesRef.current);
   }, []);
 
-  const send = useCallback(
-    async (text: string) => {
-      if (!restoredRef.current || courseRef.current !== courseId) return;
-      abortRef.current?.abort();
-      reviewAbortRef.current?.abort();
-      reviewRequestRef.current += 1;
-      const generation = ++generationRef.current;
-      setError(null);
-
-      // Add user message (skip for initial empty greeting)
-      if (text) {
-        const userMsg: ChatMessage = {
-          id: `user-${Date.now()}`,
-          role: "user",
-          content: text,
-          toolCalls: [],
-          isStreaming: false,
-        };
-        messagesRef.current = [...messagesRef.current, userMsg];
-        setMessages(messagesRef.current);
-      }
-
-      setIsStreaming(true);
-      const abort = new AbortController();
-      abortRef.current = abort;
-
-      try {
-        const country =
-          countryOverride ??
-          (agentStateRef.current.job_search_country_confirmed
-            ? agentStateRef.current.job_search_country
-            : null);
-        const configuration: SourceConfiguration = configurationOverride ?? {
+  const send = useCallback(async (command: SendCommand): Promise<SendResult> => {
+    if (!restoredRef.current || resetPendingRef.current || courseRef.current !== courseId) return {outcome: "detached"};
+    abortRef.current?.abort();
+    snapshotAbortRef.current?.abort();
+    snapshotRequestRef.current += 1;
+    reviewAbortRef.current?.abort();
+    reviewRequestRef.current += 1;
+    const generation = ++generationRef.current;
+    const initialRunId = agentStateRef.current.run_id ?? null;
+    setStreamGeneration(generation);
+    terminalProofRef.current = null;
+    setError(null);
+    setStreamError(null);
+    setRecoverableCommand(command);
+    setExecution(current => ({...current, outcome: "unknown"}));
+    if (command.text) {
+      messagesRef.current = [...messagesRef.current, {id: `user-${generation}-${Date.now()}`, role: "user", content: command.text, toolCalls: [], isStreaming: false}];
+      setMessages(messagesRef.current);
+    }
+    setIsStreaming(true);
+    const abort = new AbortController();
+    abortRef.current = abort;
+    const isCurrent = () => !abort.signal.aborted && generation === generationRef.current && courseRef.current === courseId;
+    const result: SendResult = {outcome: "detached"};
+    let failure: StreamFailure | undefined;
+    try {
+      const callbacks = {
+        courseId, message: command.text, signal: abort.signal,
+        onThreadId: (id: string) => {if (isCurrent()) setThreadId(id);},
+        onEvent: (event: StreamEvent) => {
+          if (!isCurrent()) return;
+          if (event.type === "stream_end" && event.outcome) result.outcome = event.outcome;
+          if (event.type === "error") failure = {code: event.code, message: event.message, recovery: event.recovery};
+          handleEvent(event);
+          if (event.type === "stream_end" && event.outcome && terminalProofRef.current) {
+            terminalProofRef.current.createdRun = command.mode === "workflow" && initialRunId === null;
+          }
+        },
+      };
+      if (command.mode === "contextual") {
+        await streamMarketDemandChat({...callbacks, mode: "contextual", workspace_context: command.context});
+      } else {
+        const country = countryOverride ?? (agentStateRef.current.job_search_country_confirmed ? agentStateRef.current.job_search_country : null);
+        const configuration = configurationOverride ?? {
           sources: agentStateRef.current.sources ?? ["indeed", "linkedin"],
           evidence_sources: agentStateRef.current.evidence_sources ?? ["jobs"],
           onet_release: agentStateRef.current.onet_release ?? null,
           onet_occupation_codes: agentStateRef.current.selected_onet_occupations ?? [],
         };
-        const isCurrent = () => !abort.signal.aborted && generation === generationRef.current && courseRef.current === courseId;
-        await streamMarketDemandChat({
-          ...configuration,
-          courseId,
-          message: text,
-          country,
-          signal: abort.signal,
-          onThreadId: (id) => {if (isCurrent()) setThreadId(id);},
-          onEvent: (event) => {if (isCurrent()) handleEvent(event);},
-          onError: (err) => {
-            console.error("Stream event error:", err);
-          },
-        });
-      } catch (e) {
-        const isAbort =
-          typeof e === "object" &&
-          e !== null &&
-          "name" in e &&
-          (e as { name: string }).name === "AbortError";
-        if (!isAbort && generation === generationRef.current && courseRef.current === courseId) {
-          const msg = e instanceof Error ? e.message : "Stream failed";
-          setError(msg);
-          console.error("Stream error:", e);
-        }
-      } finally {
-        if (generation === generationRef.current && courseRef.current === courseId) {
-          setIsStreaming(false);
-          setCurrentAgent(null);
-          abortRef.current = null;
-        }
+        await streamMarketDemandChat({...callbacks, ...configuration, mode: "workflow", country});
       }
-    },
-    [courseId, countryOverride, configurationOverride, handleEvent]
-  );
+    } catch (cause) {
+      if (isCurrent()) {
+        failure = cause instanceof MarketDemandApiError ? {status: cause.status, code: cause.code, message: cause.message, recovery: cause.recovery} : {
+          code: "connection_lost", message: cause instanceof Error ? cause.message : "Response disconnected", recovery: "Refresh conversation and review before retrying.",
+        };
+        setError(failure.message);
+        setStreamError(failure);
+      }
+    } finally {
+      if (isCurrent()) {
+        setIsStreaming(false);
+        setCurrentAgent(null);
+        abortRef.current = null;
+        finishMessages();
+        if (result.outcome === "completed") setRecoverableCommand(null);
+        else if (!failure) setError(result.outcome === "failed" ? "Response failed. Refresh before retrying." : "Response disconnected before completion. Refresh before retrying.");
+        await reconcile(true).catch(() => {});
+      }
+    }
+    if (abort.signal.aborted || generation !== generationRef.current || courseRef.current !== courseId) return {outcome: "detached"};
+    return {...result, ...(failure ? {error: failure} : {})};
+  }, [courseId, countryOverride, configurationOverride, handleEvent, finishMessages, reconcile]);
 
-  const stop = useCallback(() => {
+  const closeLiveResponse = useCallback(() => {
+    if (courseRef.current !== courseId) return;
     generationRef.current += 1;
+    setStreamGeneration(generationRef.current);
+    terminalProofRef.current = null;
     reviewRequestRef.current += 1;
     reviewAbortRef.current?.abort();
     abortRef.current?.abort();
+    abortRef.current = null;
     setIsStreaming(false);
     setCurrentAgent(null);
-  }, []);
+    finishMessages();
+    setExecution(current => ({...current, outcome: "unknown"}));
+    void reconcile(true).catch(() => {});
+  }, [courseId, finishMessages, reconcile]);
 
   const clearConversation = useCallback(async () => {
-    stop();
+    if (courseRef.current !== courseId || resetPendingRef.current || !restoredRef.current) throw new Error("Workspace reset unavailable");
+    if (abortRef.current || execution.status === "busy") throw new MarketDemandApiError(409, "execution_busy", "Analysis is still running", "Refresh execution status before starting a new analysis.");
     const generation = generationRef.current;
+    const wasRestored = restoredRef.current;
+    resetPendingRef.current = true;
+    restoredRef.current = false;
+    setIsRestored(false);
     try {
       await deleteConversation(courseId);
       if (generation !== generationRef.current || courseRef.current !== courseId) return;
+      snapshotAbortRef.current?.abort();
+      snapshotRequestRef.current += 1;
+      reviewAbortRef.current?.abort();
+      reviewRequestRef.current += 1;
+      terminalProofRef.current = null;
+      skillReviewRef.current = null;
       setSkillReview(null);
       messagesRef.current = [];
       setMessages([]);
@@ -416,13 +547,27 @@ export function useAgentStream(
       setAgentState(EMPTY_STATE);
       setThreadId(null);
       setError(null);
-    } catch (e) {
-      if (generation !== generationRef.current || courseRef.current !== courseId) return;
-      const msg = e instanceof Error ? e.message : "Failed to clear conversation";
-      setError(msg);
-      console.error("Clear conversation error:", e);
+      setStreamError(null);
+      setRecoverableCommand(null);
+      setExecution({status: "idle", state_updated_at: null, outcome: "unknown"});
+      restoredRef.current = true;
+      setIsRestored(true);
+    } catch (cause) {
+      if (generation === generationRef.current && courseRef.current === courseId) {
+        resetPendingRef.current = false;
+        if (cause instanceof MarketDemandApiError && cause.status === 409) {
+          restoredRef.current = wasRestored;
+          setIsRestored(wasRestored);
+        } else await reconcile().catch(() => {});
+        if (generation === generationRef.current && courseRef.current === courseId) {
+          setError(cause instanceof Error ? cause.message : "Failed to clear conversation");
+        }
+      }
+      throw cause;
+    } finally {
+      if (generation === generationRef.current && courseRef.current === courseId) resetPendingRef.current = false;
     }
-  }, [courseId, stop]);
+  }, [courseId, execution.status, reconcile]);
 
   const pipelineStages = derivePipelineStages(agentState);
 
@@ -440,7 +585,12 @@ export function useAgentStream(
     pipelineStages,
     threadId,
     send,
-    stop,
+    stop: closeLiveResponse,
+    closeLiveResponse,
+    reconcile,
+    execution,
+    streamError,
+    recoverableCommand,
     clearConversation,
     error,
   };
