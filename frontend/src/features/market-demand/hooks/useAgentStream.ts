@@ -113,38 +113,51 @@ export function useAgentStream(
     restoredRef.current = false;
     setIsRestored(false);
     try {
-      const [history, state, review, status] = await Promise.all([
-        fetchConversationHistory(courseId, abort.signal),
-        fetchAgentState(courseId, abort.signal),
-        fetchSkillReview(courseId, abort.signal),
-        getMarketExecutionStatus(courseId, abort.signal).catch(() => ({status: "unknown" as const, state_updated_at: null})),
-      ]);
-      if (!isCurrent()) return;
-      const runId = state.run_id ?? null;
-      if ((review?.run_id ?? null) !== runId || history.messages.some(message =>
-        message.workspace_context?.run_id && message.workspace_context.run_id !== runId)) {
-        throw new Error("Conversation and review changed during refresh. Refresh again before taking another action.");
-      }
-      const sameRun = (skillReviewRef.current?.run_id ?? null) === runId;
-      skillReviewRef.current = review;
-      setSkillReview(review);
-      agentStateRef.current = state;
-      setAgentState(state);
-      // An attached partial response is still useful while server history catches up.
-      if (!retainTranscript || !sameRun || !messagesRef.current.length ||
-        (status.status === "idle" && history.messages.some(message => message.id === messagesRef.current.at(-1)?.id))) {
-        messagesRef.current = history.messages.map(message => ({...message, isStreaming: false,
-          toolCalls: message.toolCalls.map(tool => ({...tool, status: tool.status === "loading" ? "unknown" : tool.status === "success" ? "finished" : tool.status}))}));
-        setMessages(messagesRef.current);
-      }
-      setThreadId(history.threadId || null);
-      const proof = terminalProofRef.current;
-      const proven = proof?.generation === generation && (proof.runId === runId || (proof.createdRun && proof.runId === null));
-      if (proven && proof) terminalProofRef.current = {...proof, runId, createdRun: false};
-      setExecution({...status, outcome: proven && proof ? proof.outcome : "unknown"});
-      if (!resetPendingRef.current) {
-        restoredRef.current = true;
-        setIsRestored(true);
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const [history, state, review, status] = await Promise.all([
+          fetchConversationHistory(courseId, abort.signal),
+          fetchAgentState(courseId, abort.signal),
+          fetchSkillReview(courseId, abort.signal),
+          getMarketExecutionStatus(courseId, abort.signal).catch(() => ({status: "unknown" as const, state_updated_at: null})),
+        ]);
+        if (!isCurrent()) return;
+        const runId = state.run_id ?? null;
+        if ((review?.run_id ?? null) !== runId || history.messages.some(message =>
+          message.workspace_context?.run_id && message.workspace_context.run_id !== runId)) {
+          throw new Error("Conversation and review changed during refresh. Refresh again before taking another action.");
+        }
+        const sameRun = (skillReviewRef.current?.run_id ?? null) === runId;
+        const current = skillReviewRef.current;
+        if (sameRun && current && review && (
+          review.candidate_revision < current.candidate_revision ||
+          review.selection_revision < current.selection_revision ||
+          review.publication_revision < current.publication_revision
+        )) {
+          // Discard every surface from this read; a newer SSE/acknowledgement set the floor.
+          if (attempt === 0) continue;
+          throw new Error("Review changed during refresh. Refresh again before taking another action.");
+        }
+        skillReviewRef.current = review;
+        setSkillReview(review);
+        agentStateRef.current = state;
+        setAgentState(state);
+        // An attached partial response is still useful while server history catches up.
+        if (!retainTranscript || !sameRun || !messagesRef.current.length ||
+          (status.status === "idle" && history.messages.some(message => message.id === messagesRef.current.at(-1)?.id))) {
+          messagesRef.current = history.messages.map(message => ({...message, isStreaming: false,
+            toolCalls: message.toolCalls.map(tool => ({...tool, status: tool.status === "loading" ? "unknown" : tool.status === "success" ? "finished" : tool.status}))}));
+          setMessages(messagesRef.current);
+        }
+        setThreadId(history.threadId || null);
+        const proof = terminalProofRef.current;
+        const proven = proof?.generation === generation && (proof.runId === runId || (proof.createdRun && proof.runId === null));
+        if (proven && proof) terminalProofRef.current = {...proof, runId, createdRun: false};
+        setExecution({...status, outcome: proven && proof ? proof.outcome : "unknown"});
+        if (!resetPendingRef.current) {
+          restoredRef.current = true;
+          setIsRestored(true);
+        }
+        break;
       }
     } catch (cause) {
       if (isCurrent()) setError(cause instanceof Error ? cause.message : "Failed to restore conversation");
@@ -383,6 +396,7 @@ export function useAgentStream(
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let requestAbort: AbortController | undefined;
+    let requestSequence = 0;
     const generation = generationRef.current;
     if (execution.status === "busy" || isStreaming) busySinceRef.current ??= Date.now();
     else busySinceRef.current = null;
@@ -391,10 +405,13 @@ export function useAgentStream(
     const visible = () => document.visibilityState !== "hidden";
     const poll = async (refreshSnapshot = false) => {
       if (!isCurrent() || !visible()) return;
-      requestAbort = new AbortController();
+      const abort = new AbortController();
+      requestAbort = abort;
+      const request = ++requestSequence;
+      const isCurrentPoll = () => isCurrent() && request === requestSequence && !abort.signal.aborted && visible();
       try {
-        const status = await getMarketExecutionStatus(courseId, requestAbort.signal);
-        if (!isCurrent() || requestAbort.signal.aborted || !visible()) return;
+        const status = await getMarketExecutionStatus(courseId, abort.signal);
+        if (!isCurrentPoll()) return;
         setExecution(current => ({...current, ...status}));
         if (status.status === "idle") {
           if (!abortRef.current && (execution.status === "busy" || refreshSnapshot)) await reconcile(true);
@@ -402,10 +419,11 @@ export function useAgentStream(
         }
         timer = setTimeout(() => {void poll();}, Date.now() - started >= 30000 ? 10000 : 2000);
       } catch {
-        if (isCurrent() && !requestAbort.signal.aborted) setExecution(current => ({...current, status: "unknown", state_updated_at: null}));
+        if (isCurrentPoll()) setExecution(current => ({...current, status: "unknown", state_updated_at: null}));
       }
     };
     const onVisibility = () => {
+      requestSequence += 1;
       clearTimeout(timer);
       requestAbort?.abort();
       if (visible()) void poll(true);
@@ -486,6 +504,7 @@ export function useAgentStream(
       }
     } catch (cause) {
       if (isCurrent()) {
+        if (cause instanceof MarketDemandApiError && (cause.status === 409 || cause.status === 422)) result.outcome = "failed";
         failure = cause instanceof MarketDemandApiError ? {status: cause.status, code: cause.code, message: cause.message, recovery: cause.recovery} : {
           code: "connection_lost", message: cause instanceof Error ? cause.message : "Response disconnected", recovery: "Refresh conversation and review before retrying.",
         };
