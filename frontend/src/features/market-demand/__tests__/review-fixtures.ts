@@ -1,4 +1,4 @@
-import type { CandidateReconciliation, IntegrationReviewPayload, SkillReview } from "@/features/market-demand/types";
+import type { CandidateReconciliation, IntegrationReviewPayload, OnetAssociation, OnetEvidence, SkillReview, WorkspaceViewState } from "@/features/market-demand/types";
 
 export function reviewFixture(): SkillReview {
   return {
@@ -48,4 +48,33 @@ export function withdrawalFixture(): WithdrawalReview {
     review_digest: "withdrawal-digest-1", candidate_revision: 1, selection_revision: 2,
     withdrawal: true, items: [], omissions: ["Posting evidence unavailable"], omissions_acknowledged: false,
   }};
+}
+
+export const workspaceRunId = "00000000-0000-0000-0000-000000000099";
+export const workspaceCandidateId = "00000000-0000-0000-0000-000000000001";
+export const workspaceEvidenceId = "00000000-0000-0000-0000-000000000011";
+export const workspaceSoc = "15-1252.00";
+export const workspaceOtherSoc = "15-1253.00";
+
+export function workspaceViewFixture(): WorkspaceViewState {
+  return {view: "overview", filters: {category_ids: [], search: "", scope: "all"}, focusedCandidateId: null,
+    occupationCodes: [workspaceSoc, workspaceOtherSoc], activeOccupationCode: workspaceSoc, metric: "IM",
+    descriptorChoices: [], sort: {field: "name", direction: "asc"}, page: 1};
+}
+
+export function workspaceReviewFixture(): SkillReview {
+  const review = reviewFixture();
+  return {...review, run_id: workspaceRunId, candidates: [{...review.candidates[0], candidate_id: workspaceCandidateId}],
+    analysis_metadata: {country: null, job_sources: ["headhunter"], evidence_sources: ["jobs", "onet"], onet_release: "30.0",
+      occupations: [{soc_code: workspaceSoc, title: "Developer"}, {soc_code: workspaceOtherSoc, title: "Tester"}],
+      created_at: "2026-10-12", updated_at: "2026-10-12"}};
+}
+
+export function workspaceEvidenceFixture(overrides: Partial<OnetEvidence> = {}): OnetAssociation {
+  return {relation: "equivalent", mapping_method: "reviewed", rationale: "Equivalent", evidence: {
+    id: workspaceEvidenceId, release: "30.0", soc_code: workspaceSoc, occupation_title: "Developer", family: "essential",
+    element_id: "2.B.3.m", label: "Programming", definition: "Writing programs", workplace_example: null,
+    ratings: {IM: {scale_id: "IM", value: 4, minimum: 1, maximum: 5, status: "reported", date: null, quality: {}},
+      LV: {scale_id: "LV", value: 0, minimum: 0, maximum: 7, status: "reported", date: null, quality: {}}},
+    flags: {}, source_url: "https://onetonline.org", attribution: "O*NET", ...overrides}};
 }

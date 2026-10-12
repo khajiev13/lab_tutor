@@ -393,3 +393,61 @@ export interface WorkspaceViewState {
   sort: {field: string; direction: "asc" | "desc"};
   page: number;
 }
+
+export type DescriptorKey = [release: string, family: string, elementId: string];
+export type RatingResolution =
+  | {status: "reported"; value: number; metric: "IM" | "LV"; evidence: OnetEvidence; descriptorKey: DescriptorKey}
+  | {status: "missing" | "suppressed" | "not_relevant"; evidence: OnetEvidence; descriptorKey: DescriptorKey}
+  | {status: "no_association"}
+  | {status: "ambiguous"; evidence: OnetEvidence[]};
+export interface PatternValue {
+  candidate_id: string;
+  occupation_code: string | null;
+  value: number;
+  supporting_count: number | null;
+  assessed_count: number | null;
+}
+export interface PatternObservation {
+  kind: InsightKind;
+  candidate_ids: string[];
+  occupation_codes: string[];
+  descriptor_keys: DescriptorKey[];
+  values: PatternValue[];
+  coverage: {extraction_coverage: ExtractionCoverage; source_outcomes: Record<string, SourceOutcome>};
+}
+export interface NormalizedWorkspaceScope {
+  candidates: SkillCandidate[];
+  release: string | null;
+  occupationCodes: string[];
+  confirmedOccupationCodes: string[];
+  metric: WorkspaceMetric;
+  descriptorChoices: DescriptorChoice[];
+  coverage: PatternObservation["coverage"];
+}
+export interface WorkspaceRow {
+  candidateId: string;
+  label: string;
+  candidate: SkillCandidate;
+  selected: boolean;
+  demand: number | null;
+  rating: RatingResolution;
+  ratings: Record<string, RatingResolution>;
+}
+export interface WorkspacePage {
+  rows: WorkspaceRow[];
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  total: number;
+  start: number;
+  end: number;
+}
+export interface WorkspaceData {
+  scope: NormalizedWorkspaceScope;
+  rows: WorkspaceRow[];
+  demandRows: WorkspaceRow[];
+  scatterPoints: (WorkspaceRow & {demand: number; importance: number; importanceRating: Extract<RatingResolution, {status: "reported"}>})[];
+  heatmapPage: WorkspacePage;
+  tablePage: WorkspacePage;
+  observations: PatternObservation[];
+}
