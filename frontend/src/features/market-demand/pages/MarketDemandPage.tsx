@@ -42,6 +42,7 @@ import {
 } from "@/features/courses/context/CourseDetailContext";
 import { getAgentById } from "@/features/agents/config";
 import { DEFAULT_MARKET_DEMAND_COUNTRY, MARKET_DEMAND_COUNTRIES } from "@/features/market-demand/countries";
+import { useSkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
 import { useAgentStream } from "@/features/market-demand/hooks/useAgentStream";
 import { AgentMessage } from "@/features/market-demand/components/AgentMessage";
 import { UserMessage } from "@/features/market-demand/components/UserMessage";
@@ -196,6 +197,10 @@ function MarketDemandContent() {
     error,
   } = useAgentStream(courseId, selectedCountryOverride, sourceOverride);
 
+  const skillReviewController = useSkillReviewController({
+    courseId, review: skillReview, onReviewChange: applySkillReview,
+    disabled: isStreaming || occupationConfirming,
+  });
   const [panelOpen, setPanelOpen] = useState(true);
   const selectedCountry =
     selectedCountryOverride ??
@@ -562,10 +567,8 @@ function MarketDemandContent() {
               <SkillReviewPanel
                 key={skillReview.run_id}
                 courseId={courseId}
-                review={skillReview}
-                onReviewChange={applySkillReview}
+                controller={skillReviewController}
                 onRefresh={refreshSkillReview}
-                disabled={isStreaming || occupationConfirming}
               />
             )}
             <ChatContainerScrollAnchor />

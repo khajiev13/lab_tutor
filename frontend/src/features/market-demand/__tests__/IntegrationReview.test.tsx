@@ -2,11 +2,17 @@ import { useState } from "react";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import { SkillReviewPanel } from "@/features/market-demand/components/SkillReviewPanel";
+import { useSkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
+import { SkillReviewPanel as ControlledSkillReviewPanel } from "@/features/market-demand/components/SkillReviewPanel";
 import { EvidenceLink } from "@/features/market-demand/components/SkillEvidencePanel";
 import type { IntegrationApprovalResponse, SkillReview } from "@/features/market-demand/types";
 import { IntegrationReview } from "@/features/market-demand/components/IntegrationReview";
 import { integrationFixture, reconciliationFixture, withdrawalFixture } from "@/features/market-demand/__tests__/review-fixtures";
+function SkillReviewPanel({courseId, review, onReviewChange, disabled}: {courseId: number; review: SkillReview; onReviewChange: (review: SkillReview) => void; disabled?: boolean}) {
+  const controller = useSkillReviewController({courseId, review, onReviewChange, disabled});
+  return <ControlledSkillReviewPanel courseId={courseId} controller={controller}/>;
+}
+
 vi.mock("@/features/market-demand/api",async()=>({...await vi.importActual("@/features/market-demand/api"),approveSkillIntegration:vi.fn(),prepareSkillWithdrawal:vi.fn()}));
 import { approveSkillIntegration, prepareSkillWithdrawal } from "@/features/market-demand/api";
 beforeEach(()=>vi.resetAllMocks());

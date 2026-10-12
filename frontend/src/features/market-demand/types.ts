@@ -160,6 +160,7 @@ export interface CandidateReconciliation {
   resolved: boolean;
 }
 export interface SkillReview {
+  analysis_metadata?: AnalysisMetadata | null;
   run_id: string | null;
   candidate_revision: number;
   selection_revision: number;
@@ -297,4 +298,98 @@ export interface PostingEvidence {
   retrieved_at: string;
   status: string;
   purged_at: string | null;
+}
+
+export interface AnalysisOccupation {
+  soc_code: string;
+  title: string;
+}
+export interface AnalysisMetadata {
+  country: string | null;
+  job_sources: JobSource[];
+  evidence_sources: EvidenceSource[];
+  onet_release: string | null;
+  occupations: AnalysisOccupation[];
+  created_at: string;
+  updated_at: string;
+}
+export interface ExecutionStatus {
+  status: "busy" | "idle";
+  state_updated_at: string | null;
+}
+export type WorkspaceView = "overview" | "demand_importance" | "occupations" | "data";
+export type WorkspaceMetric = "frequency" | "IM" | "LV";
+export type InsightKind = "common_sample" | "occupation_difference" | "shared_importance";
+export interface WorkspaceFilters {
+  category_ids: string[];
+  search: string;
+  scope: "all" | "selected";
+}
+export interface DescriptorChoice {
+  candidate_id: string;
+  evidence_id: string;
+}
+export interface RunReviewContext {
+  kind: "run_review";
+  version: 1;
+  intent: "explain" | "propose_selection";
+  run_id: string;
+  expected_candidate_revision: number;
+  expected_selection_revision: number;
+  view: WorkspaceView;
+  focused_candidate_id: string | null;
+  candidate_ids: string[];
+  filters: WorkspaceFilters;
+  occupation_codes: string[];
+  metric: WorkspaceMetric;
+  descriptor_choices: DescriptorChoice[];
+  insight_kind: InsightKind | null;
+  has_unsaved_changes: boolean;
+}
+export interface OccupationReferenceContext {
+  kind: "occupation_reference";
+  version: 1;
+  intent: "explain";
+  release: string;
+  occupation_codes: string[];
+  element_ids: string[];
+  metric: "IM" | "LV";
+}
+export type WorkspaceContext = RunReviewContext | OccupationReferenceContext;
+export interface ResolvedContextMetadata {
+  kind: "run_review" | "occupation_reference";
+  version: 1;
+  intent: "explain" | "propose_selection";
+  run_id: string | null;
+  candidate_revision: number | null;
+  selection_revision: number | null;
+  release: string | null;
+  view: string | null;
+  metric: WorkspaceMetric;
+  occupation_codes: string[];
+  occupations: AnalysisOccupation[];
+  candidate_ids: string[];
+  candidate_labels: Record<string, string>;
+  filters: WorkspaceFilters | null;
+  descriptor_choices: DescriptorChoice[];
+  insight_kind: InsightKind | null;
+  matching_count: number;
+  included_count: number;
+  omitted_count: number;
+  evidence_included_count: number;
+  evidence_omitted_count: number;
+  facts: Record<string, unknown>[];
+  coverage: Record<string, unknown>;
+  notices: string[];
+}
+export interface WorkspaceViewState {
+  view: WorkspaceView;
+  filters: WorkspaceFilters;
+  focusedCandidateId: string | null;
+  occupationCodes: string[];
+  activeOccupationCode: string | null;
+  metric: WorkspaceMetric;
+  descriptorChoices: DescriptorChoice[];
+  sort: {field: string; direction: "asc" | "desc"};
+  page: number;
 }

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import { SkillReviewPanel } from "@/features/market-demand/components/SkillReviewPanel";
+import { useSkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
+import { SkillReviewPanel as ControlledSkillReviewPanel } from "@/features/market-demand/components/SkillReviewPanel";
 import { integrationFixture, reconciliationA, reconciliationB, reconciliationFixture, reviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
 import type { SkillReview, OnetEvidence, OnetMetric, OnetAssociation } from "@/features/market-demand/types";
 import type { ReconciledReview } from "@/features/market-demand/__tests__/review-fixtures";
@@ -10,6 +11,11 @@ import type { ReconciledReview } from "@/features/market-demand/__tests__/review
 vi.mock("@/features/market-demand/api", async () => ({...await vi.importActual("@/features/market-demand/api"),saveSkillReviewDraft:vi.fn(),confirmSkillReviewSelection:vi.fn(),continueWithAvailableEvidence:vi.fn(),fetchPostingEvidence:vi.fn(),approveSkillIntegration:vi.fn()}));
 import { saveSkillReviewDraft, confirmSkillReviewSelection, fetchPostingEvidence, continueWithAvailableEvidence, approveSkillIntegration } from "@/features/market-demand/api";
 beforeEach(() => vi.resetAllMocks());
+
+function SkillReviewPanel({courseId, review, onReviewChange, disabled}: {courseId: number; review: SkillReview; onReviewChange: (review: SkillReview) => void; disabled?: boolean}) {
+  const controller = useSkillReviewController({courseId, review, onReviewChange, disabled});
+  return <ControlledSkillReviewPanel courseId={courseId} controller={controller}/>;
+}
 
 it("selects hidden category members, preserves individual exclusions through filtering/sorting and reload", async () => {
   const review = reviewFixture();
@@ -57,7 +63,7 @@ it.each(["Connection lost","Stale revision"])("retains unsaved choices on %s wit
   expect(screen.getByRole("checkbox",{name:"Select Python"})).toBeChecked();
   expect(screen.queryByText("Draft saved")).not.toBeInTheDocument();
   expect(screen.getByText("Published Python")).toBeInTheDocument();
-  expect(screen.getByRole("button",{name:"Confirm selection for mapping"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"Confirm selection for mapping"})).toBeEnabled();
 });
 
 it("shows reconciliation and keeps late/merged candidates unselected", () => {
@@ -335,4 +341,46 @@ it.each(["candidate", "selection", "run"] as const)("durable reconciliation rese
   expect(screen.queryByText("Draft saved")).not.toBeInTheDocument();
   expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).not.toBeChecked();
   expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+});
+
+it("requires teacher review of changed revisions while retaining dirty choices", async () => {
+  const review = reviewFixture();
+  const onReviewChange = vi.fn();
+  const {rerender} = render(<SkillReviewPanel courseId={1} review={review} onReviewChange={onReviewChange}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("checkbox", {name: "Select Python"}));
+  expect(screen.getByText("Unsaved shortlist changes")).toBeInTheDocument();
+  const incoming = {...review, selection_revision: 4, selected_candidate_ids: ["sql"]};
+  rerender(<SkillReviewPanel courseId={1} review={incoming} onReviewChange={onReviewChange}/>);
+  expect(screen.getByRole("checkbox", {name: "Select Python"})).toBeChecked();
+  expect(screen.getByRole("checkbox", {name: "Select SQL"})).not.toBeChecked();
+  expect(screen.getByRole("button", {name: "Save draft"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+  await user.click(screen.getByRole("button", {name: "I reviewed the changed revisions"}));
+  expect(screen.getByRole("button", {name: "Save draft"})).toBeEnabled();
+  expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+});
+
+it("disables stale suggestions and empty categories without changing the shortlist", () => {
+  const review = {...reviewFixture(), categories: [...reviewFixture().categories, {category_id: "empty", label: "Empty"}],
+    recommendations: [{id: "old", candidate_revision: 0, base_selection_revision: 2, changes: [{candidate_id: "python", action: "add" as const, reason: "Old advice"}]}]};
+  render(<SkillReviewPanel courseId={1} review={review} onReviewChange={vi.fn()}/>);
+  expect(screen.getByRole("checkbox", {name: /Select category Empty/})).toBeDisabled();
+  expect(screen.getByRole("checkbox", {name: "Apply suggestion for Python"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Apply all suggestions"})).toBeDisabled();
+  expect(screen.getByRole("checkbox", {name: "Select Python"})).not.toBeChecked();
+});
+
+it("saves dirty choices before mapping using the acknowledged server revision", async () => {
+  const review = reviewFixture();
+  const saved = {...review, selection_revision: 5, selected_candidate_ids: ["python"]};
+  vi.mocked(saveSkillReviewDraft).mockResolvedValue(saved);
+  vi.mocked(confirmSkillReviewSelection).mockResolvedValue(saved);
+  render(<ReviewParent initialReview={review}/>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("checkbox", {name: "Select Python"}));
+  await user.click(screen.getByRole("button", {name: "Confirm selection for mapping"}));
+  expect(await screen.findByText("Selection confirmed for mapping")).toBeInTheDocument();
+  expect(confirmSkillReviewSelection).toHaveBeenCalledWith(1, {run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 5});
+  expect(screen.queryByText("Unsaved shortlist changes")).not.toBeInTheDocument();
 });
