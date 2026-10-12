@@ -767,3 +767,48 @@ def test_reference_refreshes_preloaded_catalog_facts_after_another_session_commi
         assert model_fact["attribution"] == "Updated official attribution"
         assert history_fact["attribution"] == "Updated official attribution"
     assert not db_session.in_transaction()
+
+
+@pytest.mark.parametrize(
+    "label,aliases,original_labels,search,expected_count",
+    [
+        ("Ｐｙｔｈｏｎ", [], [], "python", 1),
+        ("Competency", ["ＳＱＬ"], [], "sql", 1),
+        ("Competency", [], ["ＳＱＬ"], "sql", 1),
+        ("Machine  Learning", [], [], "machine  learning", 1),
+        ("Machine", ["Learning"], [], "machine learning", 0),
+    ],
+)
+def test_sql_context_search_matches_the_same_normalized_per_label_scope(
+    owned, db_session, label, aliases, original_labels, search, expected_count
+):
+    _, run, candidates, _ = owned
+    run.candidate_manifest = {
+        **run.candidate_manifest,
+        "candidates": [
+            {
+                **candidates[0],
+                "display_name": label,
+                "aliases": aliases,
+                "original_labels": original_labels,
+            }
+        ],
+    }
+    db_session.commit()
+    result = resolve(
+        owned, filters={"category_ids": [], "search": search, "scope": "all"}
+    )
+    assert result.history_metadata.matching_count == expected_count
+    assert result.history_metadata.included_count == expected_count
+    assert len(result.model_bundle["candidates"]) == expected_count
+    if expected_count:
+        fact = result.model_bundle["candidates"][0]
+        assert fact["candidate_id"] == candidates[0]["candidate_id"]
+        assert fact["display_name"] == label
+        assert fact["job_metrics"]["assessed_posting_count"] == 1
+        assert (
+            result.history_metadata.facts[0]["candidate_id"]
+            == candidates[0]["candidate_id"]
+        )
+    else:
+        assert result.history_metadata.facts == []

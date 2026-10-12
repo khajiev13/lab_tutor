@@ -13,11 +13,15 @@ from .schemas import (
 )
 
 
+def _normalized_text(value: str) -> str:
+    return unicodedata.normalize("NFKC", value).strip().lower()
+
+
 def lexical_key(candidate: SkillCandidate) -> tuple[str, str]:
     # Identical to the frontend: NFKC, trim, lowercase, Unicode code-point
     # comparison. Internal whitespace stays significant; no locale collation.
     return (
-        unicodedata.normalize("NFKC", candidate.display_name).strip().lower(),
+        _normalized_text(candidate.display_name),
         str(candidate.candidate_id),
     )
 
@@ -26,7 +30,7 @@ def matching_candidates(
     review: SkillReview, context: RunReviewContext
 ) -> list[SkillCandidate]:
     selected = {str(value) for value in review.selected_candidate_ids}
-    search = " ".join(context.filters.search.lower().split())
+    search = _normalized_text(context.filters.search)
     return sorted(
         (
             candidate
@@ -37,14 +41,14 @@ def matching_candidates(
             )
             and (
                 not search
-                or search
-                in " ".join(
-                    [
+                or any(
+                    search in _normalized_text(label)
+                    for label in (
                         candidate.display_name,
                         *candidate.aliases,
                         *candidate.original_labels,
-                    ]
-                ).lower()
+                    )
+                )
             )
             and (
                 context.filters.scope == "all"
