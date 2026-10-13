@@ -11,7 +11,7 @@ import type {
   SelectBooksRequest,
   SelectedBookManualUploadResponse,
   StartSessionRequest,
-} from './types';
+} from '@/features/book-selection/types';
 
 // ── REST endpoints ─────────────────────────────────────────────
 
@@ -101,6 +101,15 @@ export async function getCourseSelectedBooks(
 ): Promise<CourseSelectedBook[]> {
   const res = await api.get<CourseSelectedBook[]>(
     `/book-selection/courses/${courseId}/selected-books`,
+  );
+  return res.data;
+}
+
+export async function skipBookSelection(
+  courseId: number,
+): Promise<BookSelectionSession> {
+  const res = await api.post<BookSelectionSession>(
+    `/book-selection/courses/${courseId}/skip`,
   );
   return res.data;
 }

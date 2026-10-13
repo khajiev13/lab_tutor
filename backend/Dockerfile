@@ -32,6 +32,15 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync ${UV_SYNC_ARGS}
 
+# Optional CPU-only deployment: omit torch/CUDA packages via UV_SYNC_ARGS,
+# then install the matching CPU wheel without changing the project lockfile.
+ARG TORCH_CPU_VERSION=""
+RUN --mount=type=cache,target=/root/.cache/uv \
+    if [ -n "$TORCH_CPU_VERSION" ]; then \
+        uv pip install --no-deps --index-url https://download.pytorch.org/whl/cpu \
+            "torch==$TORCH_CPU_VERSION"; \
+    fi
+
 # Make entrypoint script executable
 RUN chmod +x entrypoint.sh
 

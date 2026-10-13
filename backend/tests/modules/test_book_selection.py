@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -15,6 +16,7 @@ from app.modules.curricularalignmentarchitect.book_selection.utils import (
     compute_finals,
 )
 from app.modules.curricularalignmentarchitect.models import (
+    BookStatus,
     CourseBook,
     DownloadStatus,
     SessionStatus,
@@ -466,6 +468,60 @@ class TestBookSelectionRoutes:
         )
         assert resp.status_code in (200, 201), f"Failed to create course: {resp.text}"
         return resp.json()["id"]
+
+    def test_deployed_skip_books_stays_complete_after_graph_readback(
+        self, client, teacher_auth_headers, db_session, mock_neo4j
+    ):
+        course_id = self._create_course_via_api(client, teacher_auth_headers)
+        repo = BookSelectionRepository(db_session)
+        repo.create_selected_book(
+            course_id=course_id,
+            title="Previous selected book",
+            status=BookStatus.DOWNLOADED,
+        )
+
+        response = client.post(
+            f"/book-selection/courses/{course_id}/skip", headers=teacher_auth_headers
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "completed"
+        assert response.json()["progress_total"] == 0
+        session_id = response.json()["id"]
+        session = repo.get_latest_session(course_id)
+        assert json.loads(session.discovered_books_json) == {
+            "teacher_skipped_book_selection": True
+        }
+
+        record = MagicMock()
+        record.data.return_value = {
+            "title": "Previously extracted graph book",
+            "chapter_count": 2,
+            "skill_count": 1,
+        }
+        mock_neo4j.run.return_value = [record]
+        readback = client.get(
+            f"/book-selection/courses/{course_id}/session", headers=teacher_auth_headers
+        )
+        assert readback.status_code == 200
+        assert readback.json()["id"] == session_id
+        assert readback.json()["progress_total"] == 0
+        assert repo.get_course_selected_books(course_id) == []
+
+        repeated = client.post(
+            f"/book-selection/courses/{course_id}/skip", headers=teacher_auth_headers
+        )
+        assert repeated.status_code == 200
+        assert repeated.json()["id"] == session_id
+
+    @pytest.mark.parametrize("actor", ["anonymous", "student"])
+    def test_deployed_skip_books_requires_teacher(self, client, request, actor):
+        headers = (
+            request.getfixturevalue("student_auth_headers")
+            if actor == "student"
+            else {}
+        )
+        response = client.post("/book-selection/courses/1/skip", headers=headers)
+        assert response.status_code == (403 if actor == "student" else 401)
 
     def test_create_session_requires_auth(self, client):
         resp = client.post(

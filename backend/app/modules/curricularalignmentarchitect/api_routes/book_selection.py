@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import Depends, Form, HTTPException, UploadFile, status
+from neo4j import Driver as Neo4jDriver
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.neo4j import get_neo4j_driver
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
 
@@ -23,8 +25,11 @@ from ..schemas import (
 from ..service import BookSelectionService, get_book_selection_service
 
 
-def _get_service(db: Session = Depends(get_db)) -> BookSelectionService:
-    return get_book_selection_service(db)
+def _get_service(
+    db: Session = Depends(get_db),
+    neo4j_driver: Neo4jDriver | None = Depends(get_neo4j_driver),
+) -> BookSelectionService:
+    return get_book_selection_service(db, neo4j_driver=neo4j_driver)
 
 
 def register_routes(router):
@@ -192,6 +197,17 @@ def register_routes(router):
         service: BookSelectionService = Depends(_get_service),
     ):
         return service.get_course_selected_books(course_id)
+
+    @router.post(
+        "/courses/{course_id}/skip",
+        response_model=SessionRead,
+    )
+    def skip_book_selection(
+        course_id: int,
+        _teacher: User = Depends(require_role(UserRole.TEACHER)),
+        service: BookSelectionService = Depends(_get_service),
+    ):
+        return service.skip_book_selection(course_id)
 
     @router.post(
         "/selected-books/{selected_book_id}/upload",

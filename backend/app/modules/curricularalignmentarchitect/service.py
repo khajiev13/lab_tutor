@@ -9,8 +9,11 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
+from urllib.parse import unquote, urlparse
 
 from fastapi import UploadFile
+from neo4j import Driver as Neo4jDriver
+from neo4j.exceptions import Neo4jError
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -18,6 +21,7 @@ from app.providers.storage import BlobService
 
 from .book_selection.graph import build_workflow
 from .models import BookSelectionSession, BookStatus, DownloadStatus, SessionStatus
+from .neo4j_repository import load_extracted_course_books
 from .repository import BookSelectionRepository
 from .schemas import (
     BookCandidateRead,
@@ -35,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 CORE_WEIGHT_KEYS = ("C_topic", "C_struc", "C_scope", "C_pub", "C_auth", "C_time")
+SKIP_BOOK_SELECTION_MARKER = {"teacher_skipped_book_selection": True}
 
 
 def _sanitize_error(exc: Exception) -> str:
@@ -113,9 +118,11 @@ class BookSelectionService:
         self,
         repo: BookSelectionRepository,
         blob_service: BlobService,
+        neo4j_driver: Neo4jDriver | None = None,
     ) -> None:
         self.repo = repo
         self.blob_service = blob_service
+        self.neo4j_driver = neo4j_driver
 
     # ── Session management ──────────────────────────────────────
 
@@ -199,10 +206,92 @@ class BookSelectionService:
         return SessionRead.model_validate(session)
 
     def get_latest_session(self, course_id: int) -> SessionRead | None:
+        self._sync_neo4j_book_selection(course_id)
         session = self.repo.get_latest_session(course_id)
         if session is None:
             return None
         self._auto_heal_stuck_downloading(session)
+        return SessionRead.model_validate(session)
+
+    def _sync_neo4j_book_selection(self, course_id: int) -> None:
+        """Reflect already-extracted Neo4j books into SQL session status."""
+        if self.neo4j_driver is None:
+            return
+
+        latest = self.repo.get_latest_session(course_id)
+        if latest is not None and _session_skipped_book_selection(latest):
+            return
+
+        try:
+            graph_books = load_extracted_course_books(self.neo4j_driver, course_id)
+        except Neo4jError:
+            logger.warning(
+                "Neo4j book-selection read-through failed for course %d",
+                course_id,
+                exc_info=True,
+            )
+            return
+
+        if not graph_books:
+            return
+
+        for book in graph_books:
+            self.repo.upsert_selected_book_from_graph(
+                course_id=course_id,
+                title=str(book["title"]),
+                authors=book.get("authors"),
+                publisher=book.get("publisher"),
+                year=book.get("year"),
+                blob_path=_blob_path_from_url(book.get("blob_url")),
+                blob_url=book.get("blob_url"),
+            )
+
+        progress_count = len(graph_books)
+        latest = self.repo.get_latest_session(course_id)
+        if latest is None:
+            self.repo.create_completed_session(
+                course_id=course_id,
+                thread_id=f"bs-{course_id}-neo4j-{uuid.uuid4().hex[:12]}",
+                progress_count=progress_count,
+                discovered_books={"source": "neo4j", "books": graph_books},
+            )
+            return
+
+        if (
+            latest.status != SessionStatus.COMPLETED
+            or latest.progress_total != progress_count
+            or latest.progress_scored != progress_count
+        ):
+            self.repo.mark_session_completed(
+                latest.id,
+                progress_count=progress_count,
+                discovered_books={"source": "neo4j", "books": graph_books},
+            )
+
+    def skip_book_selection(self, course_id: int) -> SessionRead:
+        """Mark book selection complete when a teacher chooses no books."""
+        self.repo.delete_all_selected_books_for_course(course_id)
+        latest = self.repo.get_latest_session(course_id)
+        if latest is None:
+            session = self.repo.create_completed_session(
+                course_id=course_id,
+                thread_id=f"bs-{course_id}-skipped-{uuid.uuid4().hex[:12]}",
+                progress_count=0,
+                discovered_books=SKIP_BOOK_SELECTION_MARKER,
+            )
+        else:
+            session = self.repo.mark_session_completed(
+                latest.id,
+                progress_count=0,
+                discovered_books=SKIP_BOOK_SELECTION_MARKER,
+            )
+            if session is None:
+                session = self.repo.create_completed_session(
+                    course_id=course_id,
+                    thread_id=f"bs-{course_id}-skipped-{uuid.uuid4().hex[:12]}",
+                    progress_count=0,
+                    discovered_books=SKIP_BOOK_SELECTION_MARKER,
+                )
         return SessionRead.model_validate(session)
 
     def get_session_books(self, session_id: int) -> list[BookCandidateRead]:
@@ -1113,6 +1202,7 @@ class BookSelectionService:
 
     def get_course_selected_books(self, course_id: int) -> list[CourseSelectedBookRead]:
         """Get all selected books for a course."""
+        self._sync_neo4j_book_selection(course_id)
         books = self.repo.get_course_selected_books(course_id)
         return [CourseSelectedBookRead.model_validate(b) for b in books]
 
@@ -1222,9 +1312,39 @@ def _safe_filename(title: str) -> str:
     return safe
 
 
-def get_book_selection_service(db: Session) -> BookSelectionService:
+def _session_skipped_book_selection(session: BookSelectionSession) -> bool:
+    if not session.discovered_books_json:
+        return False
+    try:
+        data = json.loads(session.discovered_books_json)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(data, dict) and data.get("teacher_skipped_book_selection") is True
+
+
+def _blob_path_from_url(blob_url: str | None) -> str | None:
+    if not blob_url:
+        return None
+    parsed = urlparse(blob_url)
+    path = unquote(parsed.path).lstrip("/")
+    if path.startswith("courses/"):
+        return path
+    marker = "/courses/"
+    if marker in path:
+        return f"courses/{path.split(marker, 1)[1]}"
+    return None
+
+
+def get_book_selection_service(
+    db: Session,
+    neo4j_driver: Neo4jDriver | None = None,
+) -> BookSelectionService:
     """Factory: create a BookSelectionService with all dependencies."""
     from app.providers.storage import blob_service
 
     repo = BookSelectionRepository(db)
-    return BookSelectionService(repo=repo, blob_service=blob_service)
+    return BookSelectionService(
+        repo=repo,
+        blob_service=blob_service,
+        neo4j_driver=neo4j_driver,
+    )

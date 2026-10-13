@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
   BookCandidate,
@@ -9,7 +9,7 @@ import type {
   CourseSelectedBook,
   SessionStatus,
   StartSessionRequest,
-} from '../types';
+} from '@/features/book-selection/types';
 import {
   createSession,
   getCourseSelectedBooks,
@@ -21,12 +21,13 @@ import {
   rediscoverBooks,
   reselectBooks,
   selectAndDownload,
-} from '../api';
-import { WeightsConfigPanel } from './WeightsConfigPanel';
-import { DiscoveryScoringProgress } from './DiscoveryScoringProgress';
-import { BookReviewTable } from './BookReviewTable';
-import { DownloadStatusPanel } from './DownloadStatusPanel';
-import { ManualUploadCard } from './ManualUploadCard';
+  skipBookSelection,
+} from '@/features/book-selection/api';
+import { WeightsConfigPanel } from '@/features/book-selection/components/WeightsConfigPanel';
+import { DiscoveryScoringProgress } from '@/features/book-selection/components/DiscoveryScoringProgress';
+import { BookReviewTable } from '@/features/book-selection/components/BookReviewTable';
+import { DownloadStatusPanel } from '@/features/book-selection/components/DownloadStatusPanel';
+import { ManualUploadCard } from '@/features/book-selection/components/ManualUploadCard';
 
 /** Statuses where the backend is actively working and we should poll. */
 const ACTIVE_STATUSES: SessionStatus[] = [
@@ -308,6 +309,28 @@ export function BookSelectionDashboard({
     }
   }, [session]);
 
+  const handleSkip = useCallback(async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const updated = await skipBookSelection(courseId);
+      setSession(updated);
+      setPhase(updated.status);
+      setBooks([]);
+      setSelectedBooks([]);
+      toast.success('Book selection marked complete');
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Failed to skip book selection';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+      setIsLoading(false);
+    }
+  }, [courseId]);
+
   // ── Render ──────────────────────────────────────────────────
 
   if (disabled) {
@@ -352,11 +375,23 @@ export function BookSelectionDashboard({
 
       {/* Phase: Configuration (or failed - allow retry) */}
       {(phase === 'configuring' || (phase === 'failed' && !session)) && (
-        <WeightsConfigPanel
-          onStart={handleStart}
-          isLoading={isLoading}
-          disabled={disabled}
-        />
+        <div className="space-y-3">
+          <WeightsConfigPanel
+            onStart={handleStart}
+            isLoading={isLoading}
+            disabled={disabled}
+          />
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={handleSkip}
+              disabled={isSubmitting || isLoading}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Skip Books
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Phase: Failed with existing session — show retry options */}
@@ -404,31 +439,67 @@ export function BookSelectionDashboard({
 
       {/* Phase: Review */}
       {phase === 'awaiting_review' && (
-        <BookReviewTable
-          books={books}
-          onSelect={handleSelect}
-          onRediscover={session ? () => handleRediscover(session) : undefined}
-          isSubmitting={isSubmitting}
-          isRediscovering={isLoading}
-          weightsJson={session?.weights_json}
-        />
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={handleSkip}
+              disabled={isSubmitting || isLoading}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Skip Books
+            </Button>
+          </div>
+          <BookReviewTable
+            books={books}
+            onSelect={handleSelect}
+            onRediscover={session ? () => handleRediscover(session) : undefined}
+            isSubmitting={isSubmitting}
+            isRediscovering={isLoading}
+            weightsJson={session?.weights_json}
+          />
+        </div>
       )}
 
       {/* Phase: Downloading */}
       {(phase === 'downloading' || phase === 'completed') && session && (
         <>
-          <DownloadStatusPanel
-            selectedBooks={selectedBooks}
-            downloadEvents={[]}
-            isDownloading={phase === 'downloading'}
-            onRefresh={refreshBooks}
-            onReselect={handleReselect}
-            isReselecting={isLoading}
-          />
-          <ManualUploadCard
-            courseId={courseId}
-            onUploaded={handleCustomUpload}
-          />
+          {phase === 'completed' &&
+          selectedBooks.length === 0 &&
+          session.progress_total === 0 ? (
+            <Alert className="bg-muted/50">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertTitle>Book selection complete</AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-4">
+                <span>No books are selected for this course.</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReselect}
+                  disabled={isLoading}
+                  className="shrink-0"
+                >
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                  Choose Books
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <DownloadStatusPanel
+                selectedBooks={selectedBooks}
+                downloadEvents={[]}
+                isDownloading={phase === 'downloading'}
+                onRefresh={refreshBooks}
+                onReselect={handleReselect}
+                isReselecting={isLoading}
+              />
+              <ManualUploadCard
+                courseId={courseId}
+                onUploaded={handleCustomUpload}
+              />
+            </>
+          )}
         </>
       )}
 

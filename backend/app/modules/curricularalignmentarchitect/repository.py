@@ -84,6 +84,55 @@ class BookSelectionRepository:
             session.updated_at = datetime.now(UTC)
             self.db.commit()
 
+    def create_completed_session(
+        self,
+        *,
+        course_id: int,
+        thread_id: str,
+        progress_count: int = 0,
+        course_level: str = "bachelor",
+        discovered_books: dict | list | None = None,
+    ) -> BookSelectionSession:
+        """Create a terminal session for externally completed/teacher-skipped flows."""
+        session = BookSelectionSession(
+            course_id=course_id,
+            thread_id=thread_id,
+            weights_json="{}",
+            course_level=course_level,
+            discovered_books_json=json.dumps(discovered_books)
+            if discovered_books is not None
+            else None,
+            progress_scored=progress_count,
+            progress_total=progress_count,
+            status=SessionStatus.COMPLETED,
+        )
+        self.db.add(session)
+        self.db.commit()
+        self.db.refresh(session)
+        return session
+
+    def mark_session_completed(
+        self,
+        session_id: int,
+        *,
+        progress_count: int = 0,
+        discovered_books: dict | list | None = None,
+    ) -> BookSelectionSession | None:
+        """Mark an existing session completed and optionally persist metadata."""
+        session = self.get_session(session_id)
+        if session is None:
+            return None
+        session.status = SessionStatus.COMPLETED
+        session.progress_scored = progress_count
+        session.progress_total = progress_count
+        if discovered_books is not None:
+            session.discovered_books_json = json.dumps(discovered_books)
+        session.error_message = None
+        session.updated_at = datetime.now(UTC)
+        self.db.commit()
+        self.db.refresh(session)
+        return session
+
     def update_progress(
         self,
         session_id: int,
@@ -374,6 +423,51 @@ class BookSelectionRepository:
             )
             .first()
             is not None
+        )
+
+    def upsert_selected_book_from_graph(
+        self,
+        *,
+        course_id: int,
+        title: str,
+        authors: str | None = None,
+        publisher: str | None = None,
+        year: str | None = None,
+        blob_path: str | None = None,
+        blob_url: str | None = None,
+    ) -> CourseSelectedBook:
+        """Ensure a Neo4j-backed book is represented in course_selected_books."""
+        from sqlalchemy import func
+
+        existing = (
+            self.db.query(CourseSelectedBook)
+            .filter(
+                CourseSelectedBook.course_id == course_id,
+                func.lower(CourseSelectedBook.title) == title.strip().lower(),
+            )
+            .first()
+        )
+        if existing is not None:
+            if blob_path and existing.blob_path is None:
+                existing.blob_path = blob_path
+            if blob_url and existing.blob_url is None:
+                existing.blob_url = blob_url
+            if existing.status == BookStatus.FAILED and blob_url:
+                existing.status = BookStatus.DOWNLOADED
+            existing.updated_at = datetime.now(UTC)
+            self.db.commit()
+            self.db.refresh(existing)
+            return existing
+
+        return self.create_selected_book(
+            course_id=course_id,
+            title=title,
+            authors=authors,
+            publisher=publisher,
+            year=year,
+            status=BookStatus.DOWNLOADED,
+            blob_path=blob_path,
+            blob_url=blob_url,
         )
 
     def delete_selected_book(self, selected_book_id: int) -> bool:
