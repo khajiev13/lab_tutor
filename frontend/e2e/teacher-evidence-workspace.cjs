@@ -78,6 +78,67 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             assert.equal(mutations.length, before, 'Actual ECharts mark focus must not write or chat');
             console.log('PASS actual SVG bar click focuses Python without mutation');
         }
+        if (phase === 'pending-composer') {
+            const records = [];
+            const sqlBefore = action('sql-readback');
+            for (const width of [1440, 390]) {
+                await page.setViewportSize({ width, height: 1000 });
+                const workspaceTab = page.getByRole('tab', { name: 'Workspace', exact: true });
+                if (await workspaceTab.count()) await workspaceTab.click();
+                await page.getByRole('button', { name: 'Inspect Python', exact: true }).click();
+                await page.getByRole('region', { name: 'Focused evidence' }).getByRole('button', { name: 'Ask about Python', exact: true }).click();
+                const conversationTab = page.getByRole('tab', { name: /^Conversation/ });
+                if (await conversationTab.count()) await conversationTab.click();
+                const question = page.getByRole('textbox', { name: 'Question', exact: true });
+                const gateId = `pending${width}`;
+                const reply = `Synthetic gated explanation at ${width}.`;
+                action('model-gate-arm', { id: gateId });
+                action('model-queue', [{ content: reply, gate: gateId }]);
+                const chatCount = () => mutations.filter(item => item.method === 'POST' && item.url.endsWith('/market-demand/chat')).length;
+                const priorCount = chatCount();
+                let responseFinished = false;
+                const responsePromise = page.waitForResponse(r => r.url().endsWith('/market-demand/chat'));
+                await page.getByRole('button', { name: 'Send message', exact: true }).click();
+                const response = await responsePromise;
+                const completion = response.finished().then(() => { responseFinished = true; });
+                const gateWaiting = async () => {
+                    for (let attempt = 0; attempt < 60; attempt++) {
+                        const state = action('model-gate-status');
+                        if (state.status === 'waiting') return state;
+                        await page.waitForTimeout(50);
+                    }
+                    throw new Error('Model did not reach the deterministic gate');
+                };
+                const beforeInput = await gateWaiting();
+                assert.deepEqual(beforeInput, { id: gateId, status: 'waiting' });
+                assert.equal(responseFinished, false, 'Response must remain pending before typing');
+                assert.equal(await question.isEnabled(), true, 'Textarea enabled before native keyboard input');
+                await question.click();
+                await page.keyboard.press('ControlOrMeta+A');
+                const followUp = `Retained gated follow-up at ${width}.`;
+                await page.keyboard.insertText(followUp);
+                await page.keyboard.press('Enter');
+                const afterInput = action('model-gate-status');
+                assert.deepEqual(afterInput, beforeInput, 'Model remains held after typing and Enter');
+                assert.equal(responseFinished, false, 'No EOF before follow-up');
+                assert.equal(await question.inputValue(), followUp);
+                assert.equal(chatCount() - priorCount, 1, 'Pending Enter cannot dispatch a duplicate chat');
+                assert.equal(await page.getByRole('button', { name: 'Send message', exact: true }).isDisabled(), true);
+                await page.screenshot({ path: path.join(output, `pending-${width}.png`), fullPage: true });
+                action('model-gate-release');
+                await completion;
+                await page.getByText(reply, { exact: true }).waitFor();
+                assert.equal(await question.inputValue(), followUp);
+                assert.match(await page.getByLabel('Attached context', { exact: true }).innerText(), /No focused skills/);
+                assert.equal(chatCount() - priorCount, 1);
+                records.push({ width, gate: gateId, beforeInput, afterInput, enabledBeforeTyping: true, responsePendingBeforeAndAfterInput: true, nativeKeyboard: true, chatPosts: 1, retainedFollowUp: true, unchangedAttachmentCleared: true, responseCompletedAfterRelease: true });
+                await page.screenshot({ path: path.join(output, `completed-${width}.png`), fullPage: true });
+            }
+            assert.deepEqual(action('sql-readback'), sqlBefore, 'Read-only explanations retain authoritative run selection/publication');
+            assert.equal(action('model-readback').length, 2, 'Exactly two gated inference calls');
+            fs.writeFileSync(path.join(output, 'pending-proof.json'), JSON.stringify({ records, sqlBefore, sqlAfter: action('sql-readback'), inferenceCalls: 2, actualAuthRoutesGraphCheckpointer: true, workflowBrowserReplay: false }, null, 2));
+            console.log('PASS desktop and narrow native typing while deterministic model gate holds SSE; one POST each; retained text and cleared attachment after release');
+        }
         if (phase === 'metadata') {
             const proof = action('metadata-compatibility');
             const prior = JSON.parse(fs.readFileSync(path.join(output, 'corpus-sql-readback.json'))).find(item => item.name === 'max_two_no_repeated_skill');

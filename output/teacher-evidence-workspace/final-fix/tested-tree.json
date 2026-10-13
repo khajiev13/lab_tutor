@@ -1,0 +1,14 @@
+{
+  "base": "064c0355bdda8676b78c11ac324d4b775577b109",
+  "uncommitted_tested_tree": true,
+  "sha256": {
+    "frontend/src/features/market-demand/pages/MarketDemandPage.tsx": "4c9467589a88b0b03247fdc4b221b1439b385b4c80c58dbf3b80ccf36333c525",
+    "frontend/src/features/market-demand/__tests__/MarketDemand.test.tsx": "1ab459ba391b2a89e686dc09bab5606555a4b5ef207f00ef8bbcf20ace0eb633",
+    "backend/app/modules/marketdemandanalyst/workspace_patterns.py": "eedc601b991600ed667985be1f53db617b05b1776cb7629c26926d0423e9f7bb",
+    "backend/tests/modules/test_market_workspace_patterns.py": "50f1a72e438a1bb6cf92ac6bc6572b5761c4099c410c94e58334027587aeac63",
+    "backend/tests/fixtures/teacher-workspace-patterns.json": "5d79c0d3a0ae565288dc4fbcb56d36dc5adeadf43876ee8059a55d02693dccdf",
+    "frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json": "5d79c0d3a0ae565288dc4fbcb56d36dc5adeadf43876ee8059a55d02693dccdf",
+    "backend/tests/acceptance/teacher_workspace_server.py": "f65f5446bfaf5c9bd33800f45085b8fb4ede28830977a74221a5d3c368450a5d",
+    "frontend/e2e/teacher-evidence-workspace.cjs": "f5282ef920d12a4d8ecc99c951775aecea2bcca3b92e2ba561b5592e1b087b5a"
+  }
+}

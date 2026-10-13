@@ -1,0 +1,38 @@
+{
+  "headless": true,
+  "records": [
+    {
+      "report": "final-fix",
+      "width": 1280,
+      "localReferences": 34,
+      "imagesLoaded": 4,
+      "horizontalOverflow": 0,
+      "actualImageClick": true
+    },
+    {
+      "report": "final-fix",
+      "width": 390,
+      "localReferences": 34,
+      "imagesLoaded": 4,
+      "horizontalOverflow": 0,
+      "actualImageClick": true
+    },
+    {
+      "report": "acceptance",
+      "width": 1280,
+      "localReferences": 71,
+      "imagesLoaded": 10,
+      "horizontalOverflow": 0,
+      "actualImageClick": true
+    },
+    {
+      "report": "acceptance",
+      "width": 390,
+      "localReferences": 71,
+      "imagesLoaded": 10,
+      "horizontalOverflow": 0,
+      "actualImageClick": true
+    }
+  ],
+  "runtimeErrors": []
+}

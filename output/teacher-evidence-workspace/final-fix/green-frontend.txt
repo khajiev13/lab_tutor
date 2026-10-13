@@ -1,0 +1,15 @@
+
+> frontend@0.0.0 test
+> vitest --run src/features/market-demand/__tests__/MarketDemand.test.tsx -t allows real follow-up --maxWorkers 1 --no-file-parallelism
+
+
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90m/app[39m
+
+ [32m✓[39m src/features/market-demand/__tests__/MarketDemand.test.tsx [2m([22m[2m53 tests[22m[2m | [22m[33m51 skipped[39m[2m)[22m[33m 1927[2mms[22m[39m
+   [33m[2m✓[22m[39m allows real follow-up typing before the contextual send completes [33m 1299[2mms[22m[39m
+   [33m[2m✓[22m[39m allows real follow-up typing before the initial workflow send completes [33m 622[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m2 passed[39m[22m[2m | [22m[33m51 skipped[39m[90m (53)[39m
+[2m   Start at [22m 05:16:32
+[2m   Duration [22m 3.14s[2m (transform 526ms, setup 85ms, import 621ms, tests 1.93s, environment 406ms)[22m

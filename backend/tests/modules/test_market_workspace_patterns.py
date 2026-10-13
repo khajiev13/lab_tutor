@@ -75,3 +75,26 @@ def test_workspace_normalization_uses_ecmascript_edge_trim(value, expected):
     from app.modules.marketdemandanalyst.workspace_patterns import _normalized_text
 
     assert _normalized_text(value) == expected
+
+
+@pytest.mark.parametrize("metric,bounds,value", [("IM", (1, 5), 4), ("LV", (0, 7), 4)])
+@pytest.mark.parametrize("identity", ["matching", "wrong", "missing"])
+def test_reported_value_requires_matching_scale_identity(
+    metric, bounds, value, identity
+):
+    from app.modules.marketdemandanalyst.workspace_patterns import reported_value
+
+    rating = {
+        "status": "reported",
+        "value": value,
+        "minimum": bounds[0],
+        "maximum": bounds[1],
+    }
+    if identity != "missing":
+        rating["scale_id"] = (
+            metric if identity == "matching" else ("LV" if metric == "IM" else "IM")
+        )
+    evidence = {"ratings": {metric: rating}}
+    before = json.loads(json.dumps(evidence))
+    assert reported_value(evidence, metric) == (4.0 if identity == "matching" else None)
+    assert evidence == before

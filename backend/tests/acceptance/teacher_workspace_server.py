@@ -279,6 +279,16 @@ def install_external_model_double() -> None:
             fd = os.open(calls, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
             with os.fdopen(fd, "a") as stream:
                 stream.write(json.dumps(record) + "\n")
+            if reply.get("gate"):
+                gate = Path("/tmp/teacher-workspace-gate.json")
+                state = json.loads(gate.read_text())
+                assert state == {"id": reply["gate"], "status": "armed"}
+                gate.write_text(json.dumps({"id": reply["gate"], "status": "waiting"}))
+                deadline = time.monotonic() + 90
+                while json.loads(gate.read_text())["status"] != "released":
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("Acceptance model gate was not released")
+                    time.sleep(0.05)
             if reply.get("delay"):
                 time.sleep(reply["delay"])
             if reply.get("exception"):
@@ -1016,6 +1026,9 @@ def main() -> None:
             "seed-student",
             "model-queue",
             "model-readback",
+            "model-gate-arm",
+            "model-gate-status",
+            "model-gate-release",
             "prepare-review",
             "hold-lease",
             "arm-reset-failure",
@@ -1300,6 +1313,25 @@ def main() -> None:
             return
         if args.action == "seed-student":
             print(json.dumps(seed_student(manifest)))
+            return
+        if args.action in {"model-gate-arm", "model-gate-status", "model-gate-release"}:
+            target = Path("/tmp/teacher-workspace-gate.json")
+            if args.action == "model-gate-arm":
+                import sys
+
+                identifier = json.loads(sys.stdin.read())["id"]
+                assert isinstance(identifier, str) and identifier.isalnum()
+                descriptor = os.open(
+                    target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
+                )
+                with os.fdopen(descriptor, "w") as stream:
+                    json.dump({"id": identifier, "status": "armed"}, stream)
+            state = json.loads(target.read_text())
+            if args.action == "model-gate-release":
+                assert state["status"] == "waiting"
+                state["status"] = "released"
+                target.write_text(json.dumps(state))
+            print(json.dumps(state))
             return
         if args.action == "model-queue":
             import sys

@@ -1,0 +1,161 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.15, pytest-9.0.2, pluggy-1.6.0 -- /app/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /app
+configfile: pyproject.toml
+plugins: langsmith-0.5.0, anyio-4.12.0
+collecting ... collected 107 items / 98 deselected / 9 selected
+
+tests/modules/test_market_workspace_patterns.py::test_golden_workspace_pattern_rules[invalid_out_of_scale] PASSED [ 11%]
+tests/modules/test_market_workspace_patterns.py::test_golden_workspace_pattern_rules[importance_wrong_scale_id] FAILED [ 22%]
+tests/modules/test_market_workspace_patterns.py::test_golden_workspace_pattern_rules[importance_missing_scale_id] FAILED [ 33%]
+tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[matching-IM-bounds0-4] PASSED [ 44%]
+tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[matching-LV-bounds1-4] PASSED [ 55%]
+tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[wrong-IM-bounds0-4] FAILED [ 66%]
+tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[wrong-LV-bounds1-4] FAILED [ 77%]
+tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[missing-IM-bounds0-4] FAILED [ 88%]
+tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[missing-LV-bounds1-4] FAILED [100%]
+
+=================================== FAILURES ===================================
+________ test_golden_workspace_pattern_rules[importance_wrong_scale_id] ________
+
+case = {'context': {'candidate_ids': [], 'descriptor_choices': [], 'expected_candidate_revision': 1, 'expected_selection_revi...entage': 50, 'supporting_posting_count': 3}, ...}], 'categories': [{'category_id': 'skills', 'label': 'Skills'}], ...}}
+
+    @pytest.mark.parametrize("case", CORPUS["cases"], ids=lambda case: case["name"])
+    def test_golden_workspace_pattern_rules(case):
+        from app.modules.marketdemandanalyst.workspace_patterns import (
+            derive_pattern_observations,
+        )
+
+        review = schemas.SkillReview.model_validate(case["review"])
+        request = schemas.RunReviewContext.model_validate(case["context"])
+        before = review.model_dump(mode="json")
+>       assert [
+            row.model_dump(mode="json")
+            for row in derive_pattern_observations(review, request)
+        ] == case["expected"]
+E       AssertionError: assert [{'candidate_...rtance', ...}] == []
+E
+E         Left contains one more item: {'candidate_ids': ['00000000-0000-0000-0000-000000000001'], 'coverage': {'extraction_coverage': {}, 'source_outcomes': {}}, 'descriptor_keys': [['30.0', 'transferable', '2.B.3']], 'kind': 'shared_importance', ...}
+E
+E         Full diff:
+E         - []
+E         + [
+E         +     {...
+E
+E         ...Full output truncated (37 lines hidden), use '-vv' to show
+
+tests/modules/test_market_workspace_patterns.py:24: AssertionError
+_______ test_golden_workspace_pattern_rules[importance_missing_scale_id] _______
+
+case = {'context': {'candidate_ids': [], 'descriptor_choices': [], 'expected_candidate_revision': 1, 'expected_selection_revi...entage': 50, 'supporting_posting_count': 3}, ...}], 'categories': [{'category_id': 'skills', 'label': 'Skills'}], ...}}
+
+    @pytest.mark.parametrize("case", CORPUS["cases"], ids=lambda case: case["name"])
+    def test_golden_workspace_pattern_rules(case):
+        from app.modules.marketdemandanalyst.workspace_patterns import (
+            derive_pattern_observations,
+        )
+
+        review = schemas.SkillReview.model_validate(case["review"])
+        request = schemas.RunReviewContext.model_validate(case["context"])
+        before = review.model_dump(mode="json")
+>       assert [
+            row.model_dump(mode="json")
+            for row in derive_pattern_observations(review, request)
+        ] == case["expected"]
+E       AssertionError: assert [{'candidate_...rtance', ...}] == []
+E
+E         Left contains one more item: {'candidate_ids': ['00000000-0000-0000-0000-000000000001'], 'coverage': {'extraction_coverage': {}, 'source_outcomes': {}}, 'descriptor_keys': [['30.0', 'transferable', '2.B.3']], 'kind': 'shared_importance', ...}
+E
+E         Full diff:
+E         - []
+E         + [
+E         +     {...
+E
+E         ...Full output truncated (37 lines hidden), use '-vv' to show
+
+tests/modules/test_market_workspace_patterns.py:24: AssertionError
+___ test_reported_value_requires_matching_scale_identity[wrong-IM-bounds0-4] ___
+
+metric = 'IM', bounds = (1, 5), value = 4, identity = 'wrong'
+
+    @pytest.mark.parametrize("metric,bounds,value", [("IM", (1, 5), 4), ("LV", (0, 7), 4)])
+    @pytest.mark.parametrize("identity", ["matching", "wrong", "missing"])
+    def test_reported_value_requires_matching_scale_identity(metric, bounds, value, identity):
+        from app.modules.marketdemandanalyst.workspace_patterns import reported_value
+
+        rating = {"status": "reported", "value": value, "minimum": bounds[0], "maximum": bounds[1]}
+        if identity != "missing":
+            rating["scale_id"] = metric if identity == "matching" else ("LV" if metric == "IM" else "IM")
+        evidence = {"ratings": {metric: rating}}
+        before = json.loads(json.dumps(evidence))
+>       assert reported_value(evidence, metric) == (4.0 if identity == "matching" else None)
+E       AssertionError: assert 4.0 == None
+E        +  where 4.0 = <function reported_value at 0xffff729cd8a0>({'ratings': {'IM': {'maximum': 5, 'minimum': 1, 'scale_id': 'LV', 'status': 'reported', ...}}}, 'IM')
+
+tests/modules/test_market_workspace_patterns.py:90: AssertionError
+___ test_reported_value_requires_matching_scale_identity[wrong-LV-bounds1-4] ___
+
+metric = 'LV', bounds = (0, 7), value = 4, identity = 'wrong'
+
+    @pytest.mark.parametrize("metric,bounds,value", [("IM", (1, 5), 4), ("LV", (0, 7), 4)])
+    @pytest.mark.parametrize("identity", ["matching", "wrong", "missing"])
+    def test_reported_value_requires_matching_scale_identity(metric, bounds, value, identity):
+        from app.modules.marketdemandanalyst.workspace_patterns import reported_value
+
+        rating = {"status": "reported", "value": value, "minimum": bounds[0], "maximum": bounds[1]}
+        if identity != "missing":
+            rating["scale_id"] = metric if identity == "matching" else ("LV" if metric == "IM" else "IM")
+        evidence = {"ratings": {metric: rating}}
+        before = json.loads(json.dumps(evidence))
+>       assert reported_value(evidence, metric) == (4.0 if identity == "matching" else None)
+E       AssertionError: assert 4.0 == None
+E        +  where 4.0 = <function reported_value at 0xffff729cd8a0>({'ratings': {'LV': {'maximum': 7, 'minimum': 0, 'scale_id': 'IM', 'status': 'reported', ...}}}, 'LV')
+
+tests/modules/test_market_workspace_patterns.py:90: AssertionError
+__ test_reported_value_requires_matching_scale_identity[missing-IM-bounds0-4] __
+
+metric = 'IM', bounds = (1, 5), value = 4, identity = 'missing'
+
+    @pytest.mark.parametrize("metric,bounds,value", [("IM", (1, 5), 4), ("LV", (0, 7), 4)])
+    @pytest.mark.parametrize("identity", ["matching", "wrong", "missing"])
+    def test_reported_value_requires_matching_scale_identity(metric, bounds, value, identity):
+        from app.modules.marketdemandanalyst.workspace_patterns import reported_value
+
+        rating = {"status": "reported", "value": value, "minimum": bounds[0], "maximum": bounds[1]}
+        if identity != "missing":
+            rating["scale_id"] = metric if identity == "matching" else ("LV" if metric == "IM" else "IM")
+        evidence = {"ratings": {metric: rating}}
+        before = json.loads(json.dumps(evidence))
+>       assert reported_value(evidence, metric) == (4.0 if identity == "matching" else None)
+E       AssertionError: assert 4.0 == None
+E        +  where 4.0 = <function reported_value at 0xffff729cd8a0>({'ratings': {'IM': {'maximum': 5, 'minimum': 1, 'status': 'reported', 'value': 4}}}, 'IM')
+
+tests/modules/test_market_workspace_patterns.py:90: AssertionError
+__ test_reported_value_requires_matching_scale_identity[missing-LV-bounds1-4] __
+
+metric = 'LV', bounds = (0, 7), value = 4, identity = 'missing'
+
+    @pytest.mark.parametrize("metric,bounds,value", [("IM", (1, 5), 4), ("LV", (0, 7), 4)])
+    @pytest.mark.parametrize("identity", ["matching", "wrong", "missing"])
+    def test_reported_value_requires_matching_scale_identity(metric, bounds, value, identity):
+        from app.modules.marketdemandanalyst.workspace_patterns import reported_value
+
+        rating = {"status": "reported", "value": value, "minimum": bounds[0], "maximum": bounds[1]}
+        if identity != "missing":
+            rating["scale_id"] = metric if identity == "matching" else ("LV" if metric == "IM" else "IM")
+        evidence = {"ratings": {metric: rating}}
+        before = json.loads(json.dumps(evidence))
+>       assert reported_value(evidence, metric) == (4.0 if identity == "matching" else None)
+E       AssertionError: assert 4.0 == None
+E        +  where 4.0 = <function reported_value at 0xffff729cd8a0>({'ratings': {'LV': {'maximum': 7, 'minimum': 0, 'status': 'reported', 'value': 4}}}, 'LV')
+
+tests/modules/test_market_workspace_patterns.py:90: AssertionError
+=========================== short test summary info ============================
+FAILED tests/modules/test_market_workspace_patterns.py::test_golden_workspace_pattern_rules[importance_wrong_scale_id]
+FAILED tests/modules/test_market_workspace_patterns.py::test_golden_workspace_pattern_rules[importance_missing_scale_id]
+FAILED tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[wrong-IM-bounds0-4]
+FAILED tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[wrong-LV-bounds1-4]
+FAILED tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[missing-IM-bounds0-4]
+FAILED tests/modules/test_market_workspace_patterns.py::test_reported_value_requires_matching_scale_identity[missing-LV-bounds1-4]
+================== 6 failed, 3 passed, 98 deselected in 0.32s ==================

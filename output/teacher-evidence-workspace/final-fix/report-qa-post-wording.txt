@@ -1,0 +1,6 @@
+🎭 Playwright Skill - Universal Executor
+
+📄 Executing file: /tmp/workspace-final-fix-runtime/qa.cjs
+🚀 Starting automation...
+
+PASS 1280/390 HTML preview QA: local links/images, actual image click, no overflow/runtime error

@@ -1,0 +1,26 @@
+output/teacher-evidence-workspace/final-fix/frontend-lint-build.txt:20: trailing whitespace.
++[plugin vite:reporter]
+output/teacher-evidence-workspace/final-fix/red-backend.txt:29: trailing whitespace.
++
+output/teacher-evidence-workspace/final-fix/red-backend.txt:38: trailing whitespace.
++E
+output/teacher-evidence-workspace/final-fix/red-backend.txt:40: trailing whitespace.
++E
+output/teacher-evidence-workspace/final-fix/red-backend.txt:45: trailing whitespace.
++E
+output/teacher-evidence-workspace/final-fix/red-backend.txt:58: trailing whitespace.
++
+output/teacher-evidence-workspace/final-fix/red-backend.txt:67: trailing whitespace.
++E
+output/teacher-evidence-workspace/final-fix/red-backend.txt:69: trailing whitespace.
++E
+output/teacher-evidence-workspace/final-fix/red-backend.txt:74: trailing whitespace.
++E
+output/teacher-evidence-workspace/final-fix/red-backend.txt:86: trailing whitespace.
++
+output/teacher-evidence-workspace/final-fix/red-backend.txt:105: trailing whitespace.
++
+output/teacher-evidence-workspace/final-fix/red-backend.txt:124: trailing whitespace.
++
+output/teacher-evidence-workspace/final-fix/red-backend.txt:143: trailing whitespace.
++

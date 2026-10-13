@@ -625,7 +625,7 @@ function MarketDemandContent() {
           </details>}
         </main>
         <aside aria-label="Conversation pane" className={cn("min-h-0 min-w-0 border-l pt-3", wide ? "w-[360px] shrink-0" : "flex-1", !wide && pane !== "conversation" && "hidden")}>
-          <WorkspaceConversation stream={{...stream,isRestored: stream.isRestored && !sending && !resetting && (draft.command.mode === "contextual" || !sourceInputDisabled)}} draft={draft} onDraftChange={handleDraftChange} onSubmit={handleSubmit} controller={skillReviewController}/>
+          <WorkspaceConversation stream={{...stream,isRestored: stream.isRestored && !resetting && (draft.command.mode === "contextual" || !sourceInputDisabled)}} draft={draft} onDraftChange={handleDraftChange} onSubmit={handleSubmit} controller={skillReviewController}/>
         </aside>
       </div>
       <AlertDialog open={newAnalysisOpen} onOpenChange={open => {if (!resetting) setNewAnalysisOpen(open);}}>

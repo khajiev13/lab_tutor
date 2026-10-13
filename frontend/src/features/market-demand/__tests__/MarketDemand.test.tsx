@@ -607,6 +607,38 @@ it('Ask stages editable context only and completed send removes focus without lo
  expect(screen.getByLabelText('Attached context')).toHaveTextContent('No focused skills');
  expect(send.mock.calls[0][0]).toMatchObject({mode:'contextual',context:{intent:'explain'}});
 });
+it.each(['contextual','initial workflow'] as const)('allows real follow-up typing before the %s send completes', async (mode) => {
+ const user=userEvent.setup();
+ let finish!: (result:SendResult)=>void;
+ let settled=false;
+ const send=vi.fn<(command:SendCommand)=>Promise<SendResult>>(() => new Promise(resolve => {finish=result=>{settled=true;resolve(result);};}));
+ const {review,rerender}=await openReviewWorkspace({...(mode === 'initial workflow' ? {skillReview:null} : {}),send});
+ if(mode === 'contextual') {
+  await user.click(screen.getByRole('button',{name:'Inspect Python'}));
+  await user.click(within(screen.getByRole('region',{name:'Focused evidence'})).getByRole('button',{name:'Ask about Python'}));
+ } else await user.type(screen.getByPlaceholderText('Type your response...'),'Collect evidence for this course');
+ const composer=screen.getByPlaceholderText('Type your response...');
+ await user.click(screen.getByRole('button',{name:'Send message'}));
+ expect(send).toHaveBeenCalledOnce();
+ expect(composer).toBeEnabled();
+ const current=vi.mocked(useAgentStream).mock.results.at(-1)!.value;
+ vi.mocked(useAgentStream).mockReturnValue({...current,isStreaming:true,execution:{status:'busy',state_updated_at:null,outcome:'unknown'},skillReview:review});
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(composer).toBeEnabled();
+ await user.clear(composer);
+ await user.type(composer,'A follow-up before completion{Enter}');
+ expect(composer).toHaveValue('A follow-up before completion');
+ expect(settled).toBe(false);
+ expect(send).toHaveBeenCalledOnce();
+ expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
+ vi.mocked(useAgentStream).mockReturnValue({...current,isStreaming:false,skillReview:review});
+ rerender(<TestRouter><Page/></TestRouter>);
+ await act(async () => finish({outcome:'completed'}));
+ expect(composer).toHaveValue('A follow-up before completion');
+ expect(screen.getByLabelText('Attached context')).toHaveTextContent('No focused skills');
+ expect(send).toHaveBeenCalledOnce();
+});
 it('retains all source, view and composer state when New analysis rejects', async () => {
  const clear=vi.fn(async () => {throw new Error('Analysis still running');});
  await openReviewWorkspace({clearConversation:clear});

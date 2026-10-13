@@ -116,7 +116,8 @@ def reported_value(evidence: dict, metric: str) -> float | None:
     value = rating.get("value")
     bounds = (1, 5) if metric == "IM" else (0, 7)
     if (
-        isinstance(value, bool)
+        rating.get("scale_id") != metric
+        or isinstance(value, bool)
         or not isinstance(value, (int, float))
         or not math.isfinite(value)
         or (rating.get("minimum"), rating.get("maximum")) != bounds

@@ -1,0 +1,93 @@
+
+> frontend@0.0.0 test
+> vitest --run src/features/market-demand/__tests__/MarketDemand.test.tsx -t allows real follow-up --maxWorkers 1 --no-file-parallelism
+
+
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90m/app[39m
+
+ [31m❯[39m src/features/market-demand/__tests__/MarketDemand.test.tsx [2m([22m[2m53 tests[22m[2m | [22m[31m2 failed[39m[2m | [22m[33m51 skipped[39m[2m)[22m[33m 1347[2mms[22m[39m
+     [2m[90m↓[39m[22m calls onSend with input text on Enter
+     [2m[90m↓[39m[22m does not send empty messages
+     [2m[90m↓[39m[22m shows stop button when streaming
+     [2m[90m↓[39m[22m clears input after send
+     [2m[90m↓[39m[22m shows Ready when idle
+     [2m[90m↓[39m[22m shows Error when hasError is true
+     [2m[90m↓[39m[22m shows Streaming when streaming
+     [2m[90m↓[39m[22m renders all 7 stages
+     [2m[90m↓[39m[22m marks completed stages
+     [2m[90m↓[39m[22m renders user message content
+     [2m[90m↓[39m[22m passes the route course id into the market-demand hook
+     [2m[90m↓[39m[22m renders an unconfirmed market country placeholder
+     [2m[90m↓[39m[22m passes the selected market country into the market-demand hook
+     [2m[90m↓[39m[22m disables input while restoring conversation state
+     [2m[90m↓[39m[22m syncs the selector from restored agent state
+     [2m[90m↓[39m[22m renders without crashing
+     [2m[90m↓[39m[22m shows actionable analysis setup on empty state
+     [2m[90m↓[39m[22m starts an explicit workflow from the analysis action
+     [2m[90m↓[39m[22m renders messages when present
+     [2m[90m↓[39m[22m uses source summary from the review instead of another thread state
+   [2m[90m↓[39m[22m renders Uzbekistan as a supported market choice
+   [2m[90m↓[39m[22m shows source failures separately from successful empty collections
+   [2m[90m↓[39m[22m keeps input disabled when restoring saved source choices fails
+   [2m[90m↓[39m[22m blocks New analysis while an occupation confirmation is pending
+   [2m[90m↓[39m[22m locks market and source settings during occupation confirmation
+   [2m[90m↓[39m[22m splits at actual content width 1000 and retains the mounted composer at 999
+   [2m[90m↓[39m[22m ordinary questions remain minimal Run Explain after inspecting a chart
+   [2m[90m↓[39m[22m Ask stages editable context only and completed send removes focus without losing typed follow-up
+[31m   [31m×[31m allows real follow-up typing before the contextual send completes[39m[33m 928[2mms[22m[39m
+[31m   [31m×[31m allows real follow-up typing before the initial workflow send completes[39m[33m 416[2mms[22m[39m
+   [2m[90m↓[39m[22m retains all source, view and composer state when New analysis rejects
+   [2m[90m↓[39m[22m Cancel New analysis makes no reset request and dirty save must acknowledge before reset
+   [2m[90m↓[39m[22m failed dirty save keeps the analysis and never requests reset
+   [2m[90m↓[39m[22m locks shortlist mutations when reconciliation cannot restore the workspace
+   [2m[90m↓[39m[22m preserves an explicit role descriptor in inspector Ask context
+   [2m[90m↓[39m[22m offers Data filters from the same local shortlist without posting
+   [2m[90m↓[39m[22m keeps Data and shortlist usable when the lazy Compare view fails
+   [2m[90m↓[39m[22m shows unread messages on the narrow tab without switching panes or remounting the composer
+   [2m[90m↓[39m[22m returns to minimal Run Explain after an explicitly staged reference answer
+   [2m[90m↓[39m[22m retains explicitly replaced Ask context while a prior response completes
+   [2m[90m↓[39m[22m retains selected draft and focused inspector across narrow panes
+   [2m[90m↓[39m[22m locks Start synchronously while the first local workflow send is pending
+   [2m[90m↓[39m[22m keeps Start disabled for detached known-busy execution without candidates
+   [2m[90m↓[39m[22m keeps Start disabled for attached streaming execution without candidates
+   [2m[90m↓[39m[22m preserves initial workflow attachment through review arrival: unchanged
+   [2m[90m↓[39m[22m preserves initial workflow attachment through review arrival: follow-up
+   [2m[90m↓[39m[22m preserves initial workflow attachment through review arrival: Ask replacement
+   [2m[90m↓[39m[22m preserves initial workflow attachment through review arrival: failed
+   [2m[90m↓[39m[22m preserves initial workflow attachment through review arrival: detached
+   [2m[90m↓[39m[22m offers confirmed reset retry on fresh partial-reset load while ordinary start stays blocked
+   [2m[90m↓[39m[22m retains question and view on failed partial-reset retry and makes another confirmed retry reachable
+   [2m[90m↓[39m[22m disables partial-reset retry while busy and offers none for ordinary failed restoration
+   [2m[90m↓[39m[22m preserves dirty view source configuration and input while workflow-only reset recovery blocks normal mutations
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/features/market-demand/__tests__/MarketDemand.test.tsx[2m > [22mallows real follow-up typing before the contextual send completes
+[41m[1m FAIL [22m[49m src/features/market-demand/__tests__/MarketDemand.test.tsx[2m > [22mallows real follow-up typing before the initial workflow send completes
+[31m[1mError[22m: [2mexpect([22m[31melement[31m[2m).toBeEnabled()[22m
+
+Received element is not enabled:
+  [31m<textarea
+  aria-label="Question"
+  class="flex field-sizing-content rounded-md border border-input px-3 py-2 text-base transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:ring-destructive/40 text-primary min-h-[44px] w-full resize-none border-none bg-transparent shadow-none outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+  data-slot="textarea"
+  disabled=""
+  placeholder="Type your response..."
+  rows="1"
+  style="height: 0px;"
+/>[31m[39m
+[36m [2m❯[22m src/features/market-demand/__tests__/MarketDemand.test.tsx:[2m623:19[22m[39m
+    [90m621| [39m [35mawait[39m user[33m.[39m[34mclick[39m(screen[33m.[39m[34mgetByRole[39m([32m'button'[39m[33m,[39m{name[33m:[39m[32m'Send message'[39m}))[33m;[39m
+    [90m622| [39m [34mexpect[39m(send)[33m.[39m[34mtoHaveBeenCalledOnce[39m()[33m;[39m
+    [90m623| [39m [34mexpect[39m(composer)[33m.[39m[34mtoBeEnabled[39m()[33m;[39m
+    [90m   | [39m                  [31m^[39m
+    [90m624| [39m [35mconst[39m current[33m=[39mvi[33m.[39m[34mmocked[39m(useAgentStream)[33m.[39mmock[33m.[39mresults[33m.[39m[34mat[39m([33m-[39m[34m1[39m)[33m![39m[33m.[39mvalue[33m;[39m
+    [90m625| [39m vi.mocked(useAgentStream).mockReturnValue({...current,isStreaming:tru…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[33m51 skipped[39m[90m (53)[39m
+[2m   Start at [22m 05:14:28
+[2m   Duration [22m 2.80s[2m (transform 571ms, setup 89ms, import 790ms, tests 1.35s, environment 475ms)[22m

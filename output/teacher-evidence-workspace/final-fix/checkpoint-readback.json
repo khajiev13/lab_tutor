@@ -1,0 +1,16 @@
+{
+  "durable_counts": {
+    "market_analysis_runs": 1,
+    "market_vacancy_snapshots": 10,
+    "market_skill_approvals": 0
+  },
+  "checkpoints": [
+    {
+      "thread_id": "mda-1-course-1",
+      "count": 6
+    }
+  ],
+  "active_threads": [
+    "mda-1-course-1"
+  ]
+}

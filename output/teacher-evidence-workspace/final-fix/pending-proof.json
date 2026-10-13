@@ -1,0 +1,67 @@
+{
+  "records": [
+    {
+      "width": 1440,
+      "gate": "pending1440",
+      "beforeInput": {
+        "id": "pending1440",
+        "status": "waiting"
+      },
+      "afterInput": {
+        "id": "pending1440",
+        "status": "waiting"
+      },
+      "enabledBeforeTyping": true,
+      "responsePendingBeforeAndAfterInput": true,
+      "nativeKeyboard": true,
+      "chatPosts": 1,
+      "retainedFollowUp": true,
+      "unchangedAttachmentCleared": true,
+      "responseCompletedAfterRelease": true
+    },
+    {
+      "width": 390,
+      "gate": "pending390",
+      "beforeInput": {
+        "id": "pending390",
+        "status": "waiting"
+      },
+      "afterInput": {
+        "id": "pending390",
+        "status": "waiting"
+      },
+      "enabledBeforeTyping": true,
+      "responsePendingBeforeAndAfterInput": true,
+      "nativeKeyboard": true,
+      "chatPosts": 1,
+      "retainedFollowUp": true,
+      "unchangedAttachmentCleared": true,
+      "responseCompletedAfterRelease": true
+    }
+  ],
+  "sqlBefore": {
+    "run_id": "2dc30325-e1db-4329-8d90-379a2687992a",
+    "candidate_revision": 1,
+    "selection_revision": 1,
+    "publication_revision": 0,
+    "selected_candidate_ids": [
+      "a2e4d50f-7cc1-4ca1-bd9f-185626f1c51f"
+    ],
+    "approved_references": [],
+    "approvals": []
+  },
+  "sqlAfter": {
+    "run_id": "2dc30325-e1db-4329-8d90-379a2687992a",
+    "candidate_revision": 1,
+    "selection_revision": 1,
+    "publication_revision": 0,
+    "selected_candidate_ids": [
+      "a2e4d50f-7cc1-4ca1-bd9f-185626f1c51f"
+    ],
+    "approved_references": [],
+    "approvals": []
+  },
+  "inferenceCalls": 2,
+  "actualAuthRoutesGraphCheckpointer": true,
+  "workflowBrowserReplay": false
+}

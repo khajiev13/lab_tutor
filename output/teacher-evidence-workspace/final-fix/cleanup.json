@@ -1,0 +1,19 @@
+{
+  "generation": "final-fix-20261013T051507Z-xGJCSKN8",
+  "utc": "2026-10-13T05:23:57.447197+00:00",
+  "exact_marker_labels_ids_validated": true,
+  "owned_containers_removed": 3,
+  "owned_graph_anonymous_volumes_removed": 2,
+  "owned_acceptance_sql_removed": true,
+  "private_auth_env_model_files_removed": true,
+  "alias_and_loopback_ports_free": true,
+  "original_scoped_containers_preserved": true,
+  "preserved_container_count": 65,
+  "other_project_container_count": 54,
+  "other_projects_preserved": true,
+  "shared_dependency_volumes_preserved": true,
+  "workspace_test_preserved": true,
+  "worktree_and_scratch_preserved": true,
+  "api_stopped_before_graph_clearing_tests": true,
+  "no_production_env_database_graph_changes": true
+}

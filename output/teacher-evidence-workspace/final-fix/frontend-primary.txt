@@ -1,0 +1,48 @@
+
+> frontend@0.0.0 test
+> vitest --run src/features/market-demand src/test/AgentComponents.test.tsx src/App.test.tsx --maxWorkers 1 --no-file-parallelism
+
+
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90m/app[39m
+
+ [32m✓[39m src/features/market-demand/__tests__/useAgentStream.test.tsx [2m([22m[2m65 tests[22m[2m)[22m[33m 4424[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/WorkspaceViews.test.tsx [2m([22m[2m38 tests[22m[2m)[22m[33m 3899[2mms[22m[39m
+   [33m[2m✓[22m[39m heatmap supports zero/one role, hides and re-enables confirmed roles, switches fixed scales and pages 12 rows [33m 461[2mms[22m[39m
+   [33m[2m✓[22m[39m Data pages 25 rows, supports keyboard inspect and explicit local selection, missing values remain last on sort [33m 653[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/SkillReviewPanel.test.tsx [2m([22m[2m24 tests[22m[2m)[22m[33m 3270[2mms[22m[39m
+   [33m[2m✓[22m[39m selects hidden category members, preserves individual exclusions through filtering/sorting and reload [33m 675[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/MarketDemandConfiguration.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 2586[2mms[22m[39m
+     [33m[2m✓[22m[39m restores sources and serializes them from suggestion, selection and typed replies [33m 1140[2mms[22m[39m
+   [33m[2m✓[22m[39m confirms pending enable configuration locally before the authoritative chat update [33m 309[2mms[22m[39m
+   [33m[2m✓[22m[39m confirms pending release configuration locally before the authoritative chat update [33m 385[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/OccupationReferencePanel.test.tsx [2m([22m[2m36 tests[22m[2m)[22m[33m 2106[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/IntegrationReview.test.tsx [2m([22m[2m51 tests[22m[2m)[22m[33m 2173[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/MarketDemand.test.tsx [2m([22m[2m53 tests[22m[2m)[22m[33m 8921[2mms[22m[39m
+   [33m[2m✓[22m[39m allows real follow-up typing before the contextual send completes [33m 526[2mms[22m[39m
+   [33m[2m✓[22m[39m allows real follow-up typing before the initial workflow send completes [33m 552[2mms[22m[39m
+   [33m[2m✓[22m[39m retains all source, view and composer state when New analysis rejects [33m 301[2mms[22m[39m
+   [33m[2m✓[22m[39m Cancel New analysis makes no reset request and dirty save must acknowledge before reset [33m 418[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves an explicit role descriptor in inspector Ask context [33m 730[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves dirty view source configuration and input while workflow-only reset recovery blocks normal mutations [33m 501[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/WorkspaceConversation.test.tsx [2m([22m[2m28 tests[22m[2m)[22m[33m 2132[2mms[22m[39m
+     [33m[2m✓[22m[39m stages an editable Ask question without sending and keeps keyboard focus [33m 311[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/OnetOccupationPicker.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 538[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/EvidenceChart.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 903[2mms[22m[39m
+ [32m✓[39m src/test/AgentComponents.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 585[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/JobSourcePicker.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 408[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps unavailable sources disabled and never selects a fallback [33m 383[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/AgentMessage.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 200[2mms[22m[39m
+ [32m✓[39m src/App.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 231[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/useWorkspaceNavigationGuard.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 118[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/useSkillReviewController.test.tsx [2m([22m[2m31 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/workspace-data.test.ts [2m([22m[2m76 tests[22m[2m)[22m[32m 34[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/api.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/workspace-context.test.ts [2m([22m[2m43 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/pipeline-logic.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/selection.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/agent-config.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+[2m      Tests [22m [1m[32m546 passed[39m[22m[90m (546)[39m
+[2m   Start at [22m 05:18:59
+[2m   Duration [22m 50.11s[2m (transform 1.74s, setup 917ms, import 6.24s, tests 32.65s, environment 7.90s)[22m

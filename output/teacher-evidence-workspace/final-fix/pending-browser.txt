@@ -1,0 +1,12 @@
+🎭 Playwright Skill - Universal Executor
+
+📄 Executing file: /Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/frontend/e2e/teacher-evidence-workspace.cjs
+🚀 Starting automation...
+
+apiRequestContext.get: socket hang up
+Call log:
+[2m  - → GET http://127.0.0.1:18780/courses/1/market-demand/skill-review[22m
+[2m    - user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36[22m
+[2m    - accept: */*[22m
+[2m    - accept-encoding: gzip,deflate,br[22m
+[2m    - Authorization: Bearer [REDACTED][22m

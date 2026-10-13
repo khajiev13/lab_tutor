@@ -1,0 +1,2 @@
+5d79c0d3a0ae565288dc4fbcb56d36dc5adeadf43876ee8059a55d02693dccdf  backend/tests/fixtures/teacher-workspace-patterns.json
+5d79c0d3a0ae565288dc4fbcb56d36dc5adeadf43876ee8059a55d02693dccdf  frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json

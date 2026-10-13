@@ -1,0 +1,20 @@
+🎭 Playwright Skill - Universal Executor
+
+📄 Executing file: /tmp/workspace-final-fix-runtime/qa.cjs
+🚀 Starting automation...
+
+node:internal/process/promises:324
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+AssertionError [ERR_ASSERTION]: All local images loaded
+    at /Users/khajievroma/.codex/skills/playwright-skill/.temp-execution-1791869068170.js:20:4 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.8.2
