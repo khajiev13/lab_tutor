@@ -110,6 +110,8 @@ def _official(row, title: str, attribution: str) -> dict:
         "label": row.label,
         "definition": row.definition,
         "workplace_example": row.workplace_example,
+        # This catalog imports ratings and definitions, not level activity anchors.
+        "level_activity_anchors": None,
         "ratings": ratings,
         "flags": deepcopy(row.flags),
         "source_url": release_url(row.release, f"{row.family}_skills.csv"),

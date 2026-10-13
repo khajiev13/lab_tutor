@@ -105,17 +105,19 @@ async def workspace_review(
         _proposal_tool(context) if context.intent == "propose_selection" else None
     )
     model = llm.bind_tools([proposal]) if proposal is not None else llm
-    # Begin at a user boundary so trimming cannot leave orphan tool messages.
-    history = list(state.get("messages", []))[-10:]
-    while history and not isinstance(history[0], HumanMessage):
-        history.pop(0)
+    # Retain conversation history in the checkpoint/UI, but do not feed earlier
+    # model conclusions back as evidence for the freshly resolved attachment.
+    question = next(
+        (m for m in reversed(state.get("messages", [])) if isinstance(m, HumanMessage)),
+        None,
+    )
     prompt = [
         SystemMessage(content=WORKSPACE_REVIEW_PROMPT),
         SystemMessage(
             content="Evidence data for this invocation only:\n"
             + json.dumps(context.resolved.model_bundle, ensure_ascii=False)
         ),
-        *history,
+        *([question] if question is not None else []),
     ]
     reply = await model.ainvoke(prompt)
     reply.name = "workspace_review"

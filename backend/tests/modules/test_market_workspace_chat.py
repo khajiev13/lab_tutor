@@ -154,6 +154,71 @@ def test_workflow_explain_workflow_preserves_active_agent_and_sql(
     ] == ["Start workflow", "Explain this skill", "Continue workflow"]
 
 
+@pytest.mark.parametrize("intent", ["explain", "propose_selection"])
+def test_current_evidence_review_does_not_feed_prior_unfounded_prose_to_model(
+    db_session, client, teacher_auth_headers, live_graph, intent
+):
+    course, run, candidates, service, _ = seed_review(
+        db_session, client, teacher_auth_headers
+    )
+    model, graph, state = live_graph
+    thread = service.thread_id(course["id"], course["teacher_id"])
+    config = {"configurable": {"thread_id": thread}}
+    state(thread)
+    previous_claim = "A level of 4.12 proves independent senior-level coding."
+    model.replies.extend(
+        [
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "id": "old-handoff",
+                        "name": "transfer_to_skill_finder",
+                        "args": {},
+                    }
+                ],
+            ),
+            AIMessage(content=previous_claim),
+        ]
+    )
+    client.portal.call(
+        graph.ainvoke,
+        {"messages": [HumanMessage(content="Earlier occupation question")]},
+        config,
+    )
+    before = state(thread)
+    repo = MarketReviewRepository(db_session)
+    snapshot = deepcopy(repo.load_active_snapshot(thread))
+    selections = deepcopy((run.selected_candidate_ids, run.excluded_candidate_ids))
+    question = "Explain the currently attached skill evidence."
+    model.replies.append(AIMessage(content="Current evidence only; no level anchors."))
+    response = client.post(
+        f"/courses/{course['id']}/market-demand/chat",
+        headers=teacher_auth_headers,
+        json={
+            "message": question,
+            "workspace_context": context(
+                run_id=str(run.id),
+                focused_candidate_id=candidates[0]["candidate_id"],
+                intent=intent,
+            ),
+        },
+    )
+    assert response.status_code == 200, response.text
+    messages, tools = model.calls[-1]
+    assert [m.content for m in messages if isinstance(m, HumanMessage)] == [question]
+    assert previous_claim not in str(messages)
+    assert not any(isinstance(m, (AIMessage, ToolMessage)) for m in messages)
+    assert "Required: Python." in str(messages)
+    assert tools == ([] if intent == "explain" else ["propose_skill_selection"])
+    after = state(thread)
+    assert previous_claim in [m.content for m in after.values["messages"]]
+    assert after.values["active_agent"] == before.values["active_agent"]
+    db_session.expire_all()
+    assert repo.load_active_snapshot(thread) == snapshot
+    assert (run.selected_candidate_ids, run.excluded_candidate_ids) == selections
+
+
 def test_context_rejects_unfinished_checkpoint_without_model_or_checkpoint_mutation(
     db_session, client, teacher_auth_headers, live_graph
 ):

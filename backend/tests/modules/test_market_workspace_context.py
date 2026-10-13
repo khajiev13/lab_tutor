@@ -466,6 +466,10 @@ def test_reference_resolution_does_not_create_run(owned, db_session):
     assert result.revision is None
     assert result.model_bundle["evidence"][0]["ratings"]["IM"]["value"] == 4
     assert (
+        result.model_bundle["evidence"][0].get("level_activity_anchors", "missing")
+        is None
+    )
+    assert (
         db_session.scalar(select(func.count()).select_from(MarketAnalysisRun)) == before
     )
     for patch in (
