@@ -24,6 +24,7 @@ from .evidence import (
     reconcile_candidates,
     reference_fingerprint,
 )
+from .extractor import merge_evidenced_skills
 from .job_sources import get_job_source_service
 from .repository import MarketReviewRepository, RevisionConflict
 from .schemas import SourceOutcome
@@ -98,7 +99,9 @@ class MarketSourceService:
             if association.get(f"omitted_{kind}")
         }
         fixed_warnings.add("O*NET association inference reached its call limit.")
-        warnings = set(coverage.get("warnings", []))
+        warnings = set(coverage.get("warnings", [])) - set(
+            coverage.get("semantic_grouping", {}).get("warnings", [])
+        )
         return bool(warnings) and warnings <= fixed_warnings
 
     def prepare_extraction_jobs(
@@ -459,10 +462,16 @@ class MarketSourceService:
             if use_onet:
                 self._require_active_run(repo, run)
             revisions = (run.candidate_revision, run.selection_revision)
+            previous = deepcopy(run.candidate_manifest)
+            previous.update(
+                selected_candidate_ids=deepcopy(run.selected_candidate_ids),
+                excluded_candidate_ids=deepcopy(run.excluded_candidate_ids),
+            )
             prepared = [
                 self._validated_observation(repo, run, item) for item in observations
             ]
             prepared = [item for item in prepared if item["evidence_references"]]
+        prepared, grouping_coverage = merge_evidenced_skills(prepared, previous)
         rows, outcome = self._onet(authoritative) if use_onet else ([], {})
         decisions, association_coverage = (
             map_associations(prepared, rows) if use_onet else ([], None)
@@ -570,9 +579,11 @@ class MarketSourceService:
                 "assessed_chunks": sum(a["assessed_chunks"] for a in assessments),
                 "warnings": sorted(
                     {w for a in assessments for w in a.get("warnings", [])}
+                    | set(grouping_coverage["warnings"])
                 ),
                 "acknowledged": False,
                 "assessments": deepcopy(assessments),
+                "semantic_grouping": grouping_coverage,
             }
             if association_coverage is not None:
                 coverage["association_coverage"] = association_coverage
@@ -791,5 +802,6 @@ def available_evidence_omissions(run, *, include_extraction: bool = True) -> lis
     coverage = run.extraction_coverage
     if include_extraction and coverage.get("status") in {"partial", "failed"}:
         omissions.append(f"extraction: {coverage['status']}")
-        omissions.extend(coverage.get("warnings", []))
+        advisory = set(coverage.get("semantic_grouping", {}).get("warnings", []))
+        omissions.extend(w for w in coverage.get("warnings", []) if w not in advisory)
     return sorted(set(omissions))

@@ -125,8 +125,48 @@ def _union(items: list[dict], field: str) -> list:
     return result
 
 
+def merge_observation_group(items: list[dict], canonical: dict) -> dict:
+    """Union server-validated evidence; a grouping decision supplies no source data."""
+    names = list(
+        dict.fromkeys(
+            [
+                canonical["name"],
+                *canonical.get("original_labels", []),
+                *_union(items, "original_labels"),
+                *[item["name"] for item in items],
+            ]
+        )
+    )
+    return {
+        **deepcopy(canonical),
+        "semantic_identity_keys": list(
+            dict.fromkeys(
+                [
+                    canonical["identity_key"],
+                    *canonical.get("semantic_identity_keys", []),
+                    *[item["identity_key"] for item in items],
+                    *_union(items, "semantic_identity_keys"),
+                ]
+            )
+        ),
+        "original_labels": names,
+        "aliases": list(
+            dict.fromkeys(
+                [
+                    *canonical.get("aliases", []),
+                    *_union(items, "aliases"),
+                    *[name for name in names if name != canonical["name"]],
+                ]
+            )
+        ),
+        "evidence_references": _union(items, "evidence_references"),
+        "supporting_identities": _union(items, "supporting_identities"),
+        "onet_associations": _union(items, "onet_associations"),
+    }
+
+
 def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
-    """Only explicit identity keys merge; equal labels alone never prove equivalence.
+    """Explicit identity and semantic member keys merge; equal labels do not.
 
     A conflicting historical teacher decision becomes a visible unresolved merge,
     with old IDs retained in the reconciliation record rather than auto-selected.
@@ -146,6 +186,11 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
             "identity_key": candidate.get("identity_key"),
             "display_name": candidate.get("display_name"),
             "category_id": candidate.get("category_id"),
+            "semantic_identity_keys": deepcopy(
+                candidate.get("semantic_identity_keys", [])
+            ),
+            "original_labels": deepcopy(candidate.get("original_labels", [])),
+            "aliases": deepcopy(candidate.get("aliases", [])),
             "selected": candidate_id in selected,
             "excluded": candidate_id in excluded,
         }
@@ -185,20 +230,46 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
     candidates = []
     next_selected, next_excluded = [], []
     for key, items in groups.items():
-        matches = [p for p in previous if p.get("identity_key") == key]
+        semantic_keys = set(_union(items, "semantic_identity_keys"))
+
+        def equivalent(candidate, identity_key=key, member_keys=semantic_keys):
+            return candidate.get("identity_key") == identity_key or bool(
+                member_keys
+                & {
+                    candidate.get("identity_key"),
+                    *candidate.get("semantic_identity_keys", []),
+                }
+            )
+
+        matches = [p for p in previous if equivalent(p)]
         if not matches:
             matches = [
                 h
                 for h in history.values()
-                if h.get("identity_key") == key
-                and not h.get("superseded_by_candidate_id")
+                if equivalent(h) and not h.get("superseded_by_candidate_id")
             ]
         old_ids = [str(p["candidate_id"]) for p in matches]
         conflict = any(history[c]["selected"] for c in old_ids) and any(
             history[c]["excluded"] for c in old_ids
         )
-        candidate_id = old_ids[0] if len(matches) == 1 else str(uuid4())
-        if len(matches) > 1:
+        agreed_merge = len(matches) > 1 and bool(semantic_keys) and not conflict
+        if agreed_merge:
+            matches.sort(
+                key=lambda candidate: (
+                    not (
+                        history[str(candidate["candidate_id"])]["selected"]
+                        or history[str(candidate["candidate_id"])]["excluded"]
+                    ),
+                    candidate.get("identity_key") != key,
+                    str(candidate["candidate_id"]),
+                )
+            )
+        candidate_id = (
+            str(matches[0]["candidate_id"])
+            if len(matches) == 1 or agreed_merge
+            else str(uuid4())
+        )
+        if len(matches) > 1 and not agreed_merge:
             reconciliations.append(
                 reconciliation(
                     candidate_id,
@@ -209,7 +280,10 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
                     else "ambiguous_equivalent_merge",
                 )
             )
+        if len(matches) > 1:
             for old_id in old_ids:
+                if old_id == candidate_id:
+                    continue
                 history[old_id]["superseded_by_candidate_id"] = candidate_id
         first = items[0]
         refs = _union(items, "evidence_references")
@@ -218,6 +292,7 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
             {
                 "candidate_id": candidate_id,
                 "identity_key": key,
+                "semantic_identity_keys": sorted(semantic_keys),
                 "display_name": first.get("display_name") or first["name"],
                 "category_id": first.get("category_id")
                 or first.get("category", "unknown"),
@@ -239,18 +314,23 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
                 "qualifying_posting_links": links,
             }
         )
-        if len(matches) == 1:
+        if len(matches) == 1 or agreed_merge:
             if history[candidate_id]["selected"]:
                 next_selected.append(candidate_id)
             if history[candidate_id]["excluded"]:
                 next_excluded.append(candidate_id)
+        elif conflict and semantic_keys:
+            next_excluded.append(candidate_id)
         history.setdefault(
             candidate_id,
             {
                 "candidate_id": candidate_id,
                 "identity_key": key,
+                "semantic_identity_keys": sorted(semantic_keys),
                 "display_name": candidates[-1]["display_name"],
                 "category_id": candidates[-1]["category_id"],
+                "original_labels": deepcopy(candidates[-1]["original_labels"]),
+                "aliases": deepcopy(candidates[-1]["aliases"]),
                 "selected": candidate_id in next_selected,
                 "excluded": candidate_id in next_excluded,
             },
@@ -258,9 +338,13 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
     live_ids = {c["candidate_id"] for c in candidates}
     for old in previous:
         old_id = str(old["candidate_id"])
-        if old_id not in live_ids and not any(
-            not r.get("resolved") and old_id in r["previous_candidate_ids"]
-            for r in reconciliations
+        if (
+            old_id not in live_ids
+            and not history[old_id].get("superseded_by_candidate_id")
+            and not any(
+                not r.get("resolved") and old_id in r["previous_candidate_ids"]
+                for r in reconciliations
+            )
         ):
             reconciliations.append(
                 reconciliation(
