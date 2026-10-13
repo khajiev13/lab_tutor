@@ -1,0 +1,55 @@
+{
+  "product_commit": "c69976a3a3f49f9a5b3666a551fa8ce4df5bf35a",
+  "branch": "feat/teacher-evidence-workspace",
+  "base_branch": "feat/headhunter-job-sources",
+  "backend_tests_passed": 399,
+  "backend_warning_count": 90,
+  "frontend_tests_passed": 546,
+  "frontend_files_passed": 22,
+  "frontend_serialized_primary": true,
+  "source_fingerprints_verified": 8,
+  "corpus_cases": 63,
+  "original_61_cases_preserved": true,
+  "native_pending_browser_widths": [
+    1440,
+    390
+  ],
+  "final_scoped_findings_closed": [
+    "I1",
+    "M1"
+  ],
+  "deferred_fixture_only_minors": 1,
+  "rulings_exported": 41,
+  "document_checks": {
+    "exit": 0,
+    "headless": true,
+    "widths": [
+      1280,
+      390
+    ],
+    "loaded_images": 5,
+    "all_local_links_exist": true,
+    "no_horizontal_overflow_or_runtime_errors": true,
+    "all_ruling_texts_and_order_exact": true,
+    "archived_records": 34,
+    "archived_sources_and_sha256_exact": true,
+    "report_qa": "completion-report-qa.txt",
+    "records_qa": "completion-records-format-qa.txt",
+    "archive_whitespace_note": "The first git diff --check identified two intentional Markdown hard-break spaces in the verbatim archived review. They were HTML-entity encoded; a fresh headless check confirms every original source character and SHA-256 is unchanged."
+  },
+  "integration_choice": "pending",
+  "bounded_secret_pattern_scan": {
+    "files": 39,
+    "patterns": [
+      "JWT",
+      "HeadHunter application token",
+      "Bearer token"
+    ],
+    "passed": true
+  },
+  "owned_acceptance_cleanup": {
+    "exact_three_containers_and_private_runtime_absence_independently_confirmed": true,
+    "receipt": "final-fix/cleanup.json",
+    "worktree_preserved": true
+  }
+}

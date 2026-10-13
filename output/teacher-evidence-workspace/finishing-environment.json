@@ -1,0 +1,10 @@
+{
+  "branch": "feat/teacher-evidence-workspace",
+  "head": "c69976a3a3f49f9a5b3666a551fa8ce4df5bf35a",
+  "git_dir": "/Users/khajievroma/Projects/lab_tutor/.git/worktrees/lab_tutor2",
+  "git_common_dir": "/Users/khajievroma/Projects/lab_tutor/.git",
+  "worktree": "/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor",
+  "base_branch": "feat/headhunter-job-sources",
+  "fork_commit": "1a720c78edcfe126180a039fd74852a43e277ec6",
+  "preserve_worktree_until_integration_choice": true
+}
