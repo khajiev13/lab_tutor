@@ -993,6 +993,167 @@ def test_shorter_validated_quote_can_confirm_same_task_without_losing_choice(pip
     assert candidate["job_metrics"]["supporting_posting_count"] == 2
 
 
+def test_long_source_sample_137_can_group_without_discarding_stored_text(pipeline):
+    from app.modules.marketdemandanalyst.models import MarketVacancySnapshot
+
+    for item in pipeline.observations:
+        ref = item["evidence_references"][0]
+        text = "Context. " * 90 + ref["original_phrase"] + ". End."
+        row = pipeline.db.get(MarketVacancySnapshot, UUID(ref["snapshot_id"]))
+        row.original_description = row.description_text = text
+        ref.update(excerpt=text, excerpt_end=len(text))
+    pipeline.db.commit()
+    many = []
+    for index in range(137):
+        item = deepcopy(pipeline.observations[index % 2])
+        item.update(
+            name=f"Configure ETL pipelines variant {index}",
+            identity_key=f"jobs:variant-{index}",
+        )
+        many.append(item)
+
+    def groups(payload):
+        assert (
+            len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode())
+            < 64 * 1024
+        )
+        assert all(row["passages"] for row in payload["observations"])
+        assert all(
+            "ETL" in json.dumps(row["passages"]) for row in payload["observations"]
+        )
+        return all_equivalent(payload)
+
+    pipeline.handler = groups
+    result = save(pipeline, many)
+    assert len(result["candidates"]) == 1
+    assert result["extraction_coverage"]["semantic_grouping"]["status"] == "full"
+    assert result["candidates"][0]["job_metrics"]["supporting_posting_count"] == 2
+    assert all(
+        len(ref["excerpt"]) > 800
+        for ref in result["candidates"][0]["evidence_references"]
+    )
+
+
+@pytest.mark.parametrize("count", [1, 2])
+def test_failed_changed_quote_pass_can_recover_explicit_historical_teacher_choice(
+    pipeline, count
+):
+    pipeline.handler = all_equivalent
+    first = save(pipeline)["candidates"][0]
+    draft(pipeline, [first["candidate_id"]], [])
+    changed = deepcopy(pipeline.observations[:count])
+    for index, item in enumerate(changed):
+        item.update(name="Set up ETL pipelines", identity_key=f"jobs:recovery-{index}")
+        ref = item["evidence_references"][0]
+        quote = ref["original_phrase"]
+        offset = ref["excerpt"].index(quote)
+        ref.update(excerpt=quote, excerpt_start=offset, excerpt_end=offset + len(quote))
+
+    def fail(payload):
+        raise TimeoutError("Grouping temporarily unavailable")
+
+    pipeline.handler = fail
+    save(pipeline, changed)
+    assert stored(pipeline).selected_candidate_ids == []
+    # Existing production history predates retained passage references.
+    run = stored(pipeline)
+    manifest = deepcopy(run.candidate_manifest)
+    for candidate in manifest["candidate_history"]:
+        if candidate["candidate_id"] == first["candidate_id"]:
+            candidate.pop("evidence_references", None)
+    run.candidate_manifest = manifest
+    pipeline.db.commit()
+
+    def confirm(payload):
+        assert len(payload["prior_candidates"]) == 1
+        assert payload["prior_candidates"][0]["name"] == "Configure ETL pipelines"
+        return confirm_prior_equivalence(payload)
+
+    pipeline.handler = confirm
+    result = save(pipeline, changed)
+    assert result["candidates"][0]["candidate_id"] == first["candidate_id"]
+    assert stored(pipeline).selected_candidate_ids == [first["candidate_id"]]
+    assert result["candidates"][0]["evidence_references"] == [
+        i["evidence_references"][0] for i in changed
+    ]
+    assert not stored(pipeline).candidate_manifest["reconciliation_required"]
+
+
+def test_current_known_sample_does_not_duplicate_137_prior_labels(pipeline):
+    many = []
+    for index in range(137):
+        item = deepcopy(pipeline.observations[index % 2])
+        item.update(
+            name=f"Configure ETL pipelines variant {index}",
+            identity_key=f"jobs:known-{index}",
+        )
+        many.append(item)
+    pipeline.handler = lambda payload: []
+    save(pipeline, many)
+
+    def groups(payload):
+        assert len(payload["observations"]) == 137
+        assert payload["prior_candidates"] == []
+        return all_equivalent(payload)
+
+    pipeline.handler = groups
+    result = save(pipeline, many)
+    assert len(result["candidates"]) == 1
+    assert result["extraction_coverage"]["semantic_grouping"]["status"] == "full"
+
+
+def test_unrelated_missing_choice_does_not_force_historical_confirmation(pipeline):
+    configure = deepcopy(pipeline.observations[0])
+    monitor = deepcopy(configure)
+    monitor.update(
+        name="Monitor ETL pipeline failures", identity_key="jobs:missing-monitor"
+    )
+    ref = monitor["evidence_references"][0]
+    quote = "Monitor ETL pipeline failures"
+    start = ref["excerpt"].index(quote)
+    ref.update(
+        original_phrase=quote,
+        excerpt=quote,
+        excerpt_start=start,
+        excerpt_end=start + len(quote),
+    )
+    pipeline.handler = lambda payload: [
+        {"canonical_id": row["observation_id"], "member_ids": [row["observation_id"]]}
+        for row in payload["observations"]
+    ]
+    initial = save(pipeline, [configure, monitor])["candidates"]
+    selected, missing = [c["candidate_id"] for c in initial]
+    draft(pipeline, [selected, missing], [])
+    current = deepcopy(configure)
+    current.update(name="Set up ETL pipelines", identity_key="jobs:recovered-setup")
+    ref = current["evidence_references"][0]
+    quote = ref["original_phrase"]
+    start = ref["excerpt"].index(quote)
+    ref.update(excerpt=quote, excerpt_start=start, excerpt_end=start + len(quote))
+    pipeline.handler = lambda payload: []
+    save(pipeline, [current])
+
+    def confirm(payload):
+        prior = next(
+            row["candidate_id"]
+            for row in payload["prior_candidates"]
+            if row["name"] == configure["name"]
+        )
+        return [
+            {"canonical_id": "o0", "member_ids": ["o0"], "prior_candidate_ids": [prior]}
+        ]
+
+    pipeline.handler = confirm
+    result = save(pipeline, [current])
+    assert result["extraction_coverage"]["semantic_grouping"]["status"] == "full"
+    assert stored(pipeline).selected_candidate_ids == [selected]
+    assert result["candidates"][0]["candidate_id"] != missing
+    assert any(
+        not r["resolved"] and r["previous_candidate_ids"] == [missing]
+        for r in stored(pipeline).candidate_manifest["reconciliations"]
+    )
+
+
 @pytest.mark.parametrize("pipeline", ["inverse_mentoring"], indirect=True)
 def test_opposite_mentoring_roles_cannot_merge_even_with_valid_model_ids(pipeline):
     pipeline.handler = all_equivalent

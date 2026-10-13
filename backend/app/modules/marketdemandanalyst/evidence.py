@@ -315,6 +315,7 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
             ),
             "original_labels": deepcopy(candidate.get("original_labels", [])),
             "aliases": deepcopy(candidate.get("aliases", [])),
+            "evidence_references": deepcopy(candidate.get("evidence_references", [])),
             "selected": candidate_id in selected,
             "excluded": candidate_id in excluded,
         }
@@ -373,6 +374,16 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
             )
 
         matches = [p for p in previous if equivalent(p)]
+        confirmed_ids = set(_union(items, "_confirmed_prior_candidate_ids"))
+        matched_ids = {str(p["candidate_id"]) for p in matches}
+        matches.extend(
+            h
+            for identity, h in history.items()
+            if identity in confirmed_ids
+            and identity not in matched_ids
+            and equivalent(h)
+            and not h.get("superseded_by_candidate_id")
+        )
         if not matches:
             matches = [
                 h
@@ -400,6 +411,13 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
             if len(matches) == 1 or agreed_merge
             else str(uuid4())
         )
+        if candidate_id in confirmed_ids:
+            for record in reconciliations:
+                if record["reason"] == "candidate_no_longer_observed" and record[
+                    "previous_candidate_ids"
+                ] == [candidate_id]:
+                    record["resolved"] = True
+                    record["resolution"] = "same_task_reconfirmed"
         if len(matches) > 1 and not agreed_merge:
             reconciliations.append(
                 reconciliation(

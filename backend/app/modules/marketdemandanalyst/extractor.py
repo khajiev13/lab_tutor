@@ -493,6 +493,23 @@ def _overlapping_source_passages(first: dict, second: dict) -> bool:
     )
 
 
+def _semantic_passage(ref: dict) -> dict:
+    """Abbreviate model context, keeping stored original references untouched."""
+    phrase = ref.get("original_phrase") or ""
+    excerpt = ref.get("excerpt") or ""
+    result = {
+        "original_phrase": phrase[:300],
+        "evidence_kind": ref.get("evidence_kind"),
+    }
+    if excerpt and excerpt != phrase:
+        position = excerpt.find(phrase) if phrase else 0
+        start = max(0, position - 60)
+        result["excerpt"] = excerpt[start : start + 200]
+    if len(phrase) > 300 or (excerpt != phrase and len(excerpt) > 200):
+        result["abbreviated"] = True
+    return result
+
+
 def _known_canonical(items: list[dict], proposed: dict, previous: dict) -> dict:
     keys = {
         key
@@ -524,6 +541,11 @@ def _known_canonical(items: list[dict], proposed: dict, previous: dict) -> dict:
         return proposed
     protected = set(previous.get("selected_candidate_ids", [])) | set(
         previous.get("excluded_candidate_ids", [])
+    )
+    protected.update(
+        str(c["candidate_id"])
+        for c in candidates
+        if c.get("selected") or c.get("excluded")
     )
     candidates.sort(
         key=lambda candidate: (
@@ -576,6 +598,9 @@ def merge_evidenced_skills(
 ) -> tuple[list[dict], dict]:
     """Restore bounded semantic grouping without letting model output own evidence."""
     previous = repair_semantic_roles(previous, observations)
+    protected_ids = set(previous.get("selected_candidate_ids", [])) | set(
+        previous.get("excluded_candidate_ids", [])
+    )
     known_keys = {}
     prior_candidates = {}
     for candidate in [
@@ -587,6 +612,8 @@ def merge_evidenced_skills(
         ).startswith("onet:"):
             continue
         prior_candidates[str(candidate["candidate_id"])] = candidate
+        if candidate.get("selected") or candidate.get("excluded"):
+            protected_ids.add(str(candidate["candidate_id"]))
         for key in [
             candidate.get("identity_key"),
             *candidate.get("semantic_identity_keys", []),
@@ -601,6 +628,7 @@ def merge_evidenced_skills(
     grouped = {}
     for original in observations:
         item = deepcopy(original)
+        item.pop("_confirmed_prior_candidate_ids", None)
         key = (
             item.get("identity_key")
             or "jobs:"
@@ -635,6 +663,9 @@ def merge_evidenced_skills(
         for items in grouped.values()
     ]
     by_id = {f"o{index}": item for index, item in enumerate(prepared)}
+    represented_keys = {
+        key for item in prepared for key in item.get("semantic_identity_keys", [])
+    }
     matches = {}
     for observation_id, item in by_id.items():
         claim_keys = set().union(
@@ -647,7 +678,8 @@ def merge_evidenced_skills(
         matches[observation_id] = {
             identity
             for identity, candidate in prior_candidates.items()
-            if (
+            if candidate["identity_key"] not in represented_keys
+            and (
                 candidate["identity_key"] in claim_keys
                 or any(
                     _overlapping_source_passages(current, old)
@@ -659,6 +691,17 @@ def merge_evidenced_skills(
                 item["name"], candidate.get("display_name", "")
             )
         }
+    grounded_matches = deepcopy(matches)
+    for identity, item in by_id.items():
+        matches[identity].update(
+            prior_id
+            for prior_id, candidate in prior_candidates.items()
+            if prior_id in protected_ids
+            and candidate["identity_key"] not in represented_keys
+            and not opposing_mentoring_roles(
+                item["name"], candidate.get("display_name", "")
+            )
+        )
     relevant_prior_ids = set().union(*matches.values())
     prior_ids = {
         identity: f"p{index}"
@@ -671,6 +714,10 @@ def merge_evidenced_skills(
         identity: {prior_ids[value] for value in values}
         for identity, values in matches.items()
     }
+    grounded_matches = {
+        identity: {prior_ids[value] for value in values}
+        for identity, values in grounded_matches.items()
+    }
     coverage = {
         "status": "full",
         "input_competencies": len(prepared),
@@ -678,10 +725,7 @@ def merge_evidenced_skills(
         "omitted_observations": 0,
         "warnings": [],
     }
-    if len(prepared) < 2 and (
-        not relevant_prior_ids
-        or all(item["identity_key"] in known_keys for item in prepared)
-    ):
+    if len(prepared) < 2 and not relevant_prior_ids:
         return prepared, coverage
     payload = json.dumps(
         {
@@ -693,9 +737,7 @@ def merge_evidenced_skills(
                     "prior_candidate_ids": sorted(matches[observation_id]),
                     "passages": [
                         {
-                            "original_phrase": ref.get("original_phrase"),
-                            "excerpt": (ref.get("excerpt") or "")[:600],
-                            "evidence_kind": ref.get("evidence_kind"),
+                            **_semantic_passage(ref),
                         }
                         for ref in item["evidence_references"][:2]
                     ],
@@ -719,6 +761,7 @@ def merge_evidenced_skills(
             ],
         },
         ensure_ascii=False,
+        separators=(",", ":"),
     )
     if (
         len(prepared) > 150
@@ -821,7 +864,9 @@ def merge_evidenced_skills(
                     group_keys,
                     {
                         prior_by_handle[prior_id]["identity_key"]
-                        for prior_id in allowed_prior_ids
+                        for prior_id in set().union(
+                            *(grounded_matches[identity] for identity in members)
+                        )
                     }
                     & protected_keys,
                 )
@@ -863,6 +908,10 @@ def merge_evidenced_skills(
             for member in members:
                 member["semantic_identity_keys"].append(prior_key)
         canonical = _known_canonical(members, by_id[group["canonical_id"]], previous)
+        canonical["_confirmed_prior_candidate_ids"] = [
+            str(prior_by_handle[p]["candidate_id"])
+            for p in group["prior_candidate_ids"]
+        ]
         result.append(merge_observation_group(members, canonical))
     result.extend(item for identity, item in by_id.items() if identity not in seen)
     coverage["output_competencies"] = len(result)
