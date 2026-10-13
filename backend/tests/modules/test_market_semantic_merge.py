@@ -57,6 +57,19 @@ def pipeline(db_session, client, teacher_auth_headers, monkeypatch, request):
                 "137349578",
             ),
         ]
+    elif getattr(request, "param", None) == "inverse_mentoring":
+        specifications = [
+            (
+                "Provide mentoring to junior analysts",
+                "Mentor junior analysts",
+                "mentor",
+            ),
+            (
+                "Receive mentoring from experienced specialists",
+                "Receive mentoring from experienced specialists",
+                "mentee",
+            ),
+        ]
     for name, phrase, native_id in specifications:
         text = f"Required work: {phrase}. Monitor ETL pipeline failures."
         snapshot = repo.upsert_vacancy_snapshot(
@@ -938,3 +951,112 @@ def test_foreign_teacher_cannot_send_owned_postings_for_grouping(pipeline):
     with pytest.raises(LookupError):
         save(pipeline)
     assert pipeline.calls == []
+
+
+@pytest.mark.parametrize("old_version", [None, 1])
+def test_corrected_extraction_can_replace_obsolete_assessment_once(
+    pipeline, old_version
+):
+    save(pipeline)
+    jobs = [{"snapshot_id": item["snapshot_id"]} for item in pipeline.assessments]
+    assert pipeline.service.extraction_is_complete(pipeline.config, jobs)
+    run = stored(pipeline)
+    coverage = deepcopy(run.extraction_coverage)
+    coverage["extraction_version"] = old_version
+    run.extraction_coverage = coverage
+    pipeline.db.commit()
+    assert not pipeline.service.extraction_is_complete(pipeline.config, jobs)
+    save(pipeline)
+    assert pipeline.service.extraction_is_complete(pipeline.config, jobs)
+
+
+def test_shorter_validated_quote_can_confirm_same_task_without_losing_choice(pipeline):
+    pipeline.handler = all_equivalent
+    first = save(pipeline)["candidates"][0]
+    draft(pipeline, [first["candidate_id"]], [])
+    changed = deepcopy(pipeline.observations)
+    for index, item in enumerate(changed):
+        item.update(name="Set up ETL pipelines", identity_key=f"jobs:shorter-{index}")
+        ref = item["evidence_references"][0]
+        quote = ref["original_phrase"]
+        offset = ref["excerpt"].index(quote)
+        ref.update(excerpt=quote, excerpt_start=offset, excerpt_end=offset + len(quote))
+    pipeline.handler = confirm_prior_equivalence
+    result = save(pipeline, changed)
+    assert len(result["candidates"]) == 1
+    candidate = result["candidates"][0]
+    assert candidate["candidate_id"] == first["candidate_id"]
+    assert stored(pipeline).selected_candidate_ids == [first["candidate_id"]]
+    assert candidate["evidence_references"] == [
+        c["evidence_references"][0] for c in changed
+    ]
+    assert candidate["job_metrics"]["supporting_posting_count"] == 2
+
+
+@pytest.mark.parametrize("pipeline", ["inverse_mentoring"], indirect=True)
+def test_opposite_mentoring_roles_cannot_merge_even_with_valid_model_ids(pipeline):
+    pipeline.handler = all_equivalent
+    result = save(pipeline)
+    assert {c["display_name"] for c in result["candidates"]} == {
+        item["name"] for item in pipeline.observations
+    }
+    assert all(len(c["qualifying_posting_links"]) == 1 for c in result["candidates"])
+    assert all(
+        c["job_metrics"]["supporting_posting_count"] == 1 for c in result["candidates"]
+    )
+    assert result["extraction_coverage"]["semantic_grouping"]["status"] == "partial"
+
+
+@pytest.mark.parametrize("pipeline", ["inverse_mentoring"], indirect=True)
+@pytest.mark.parametrize("changed_key", [False, True])
+def test_saved_inverse_membership_repairs_without_reassigning_mentor_choice(
+    pipeline, changed_key
+):
+    from app.modules.marketdemandanalyst.evidence import (
+        merge_observation_group,
+        reconcile_candidates,
+    )
+
+    # Seed a durable group made by the old implementation, without the new guard.
+    combined = merge_observation_group(pipeline.observations, pipeline.observations[0])
+    previous = reconcile_candidates([combined], {})
+    mentor_id = previous["candidates"][0]["candidate_id"]
+    run = stored(pipeline)
+    run.candidate_manifest = previous
+    pipeline.db.commit()
+    draft(pipeline, [mentor_id], [])
+    current = deepcopy(pipeline.observations)
+    if changed_key:
+        current[1]["identity_key"] = "jobs:changed-mentee"
+
+    pipeline.handler = lambda payload: [
+        {"canonical_id": r["observation_id"], "member_ids": [r["observation_id"]]}
+        for r in payload["observations"]
+    ]
+    result = save(pipeline, current)
+    candidates = result["candidates"]
+    assert len(candidates) == len({c["candidate_id"] for c in candidates}) == 2
+    mentor = next(c for c in candidates if c["display_name"] == current[0]["name"])
+    mentee = next(c for c in candidates if c["display_name"] == current[1]["name"])
+    assert mentor["candidate_id"] == mentor_id != mentee["candidate_id"]
+    assert stored(pipeline).selected_candidate_ids == [mentor_id]
+    assert current[1]["name"] not in mentor["aliases"]
+    assert (
+        pipeline.observations[1]["identity_key"] not in mentor["semantic_identity_keys"]
+    )
+    assert current[1]["identity_key"] not in mentor["semantic_identity_keys"]
+    assert mentor["qualifying_posting_links"] == ["https://hh.uz/vacancy/mentor"]
+    assert mentee["qualifying_posting_links"] == ["https://hh.uz/vacancy/mentee"]
+    manifest = stored(pipeline).candidate_manifest
+    assert not manifest["reconciliation_required"]
+    assert any(
+        r["reason"] == "incompatible_task_roles_repaired"
+        and r["resolved"]
+        and current[1]["name"] in r["historical_candidates"][0]["aliases"]
+        for r in manifest["reconciliations"]
+    )
+    repeated = save(pipeline, list(reversed(current)))
+    assert {c["candidate_id"] for c in repeated["candidates"]} == {
+        c["candidate_id"] for c in candidates
+    }
+    assert stored(pipeline).selected_candidate_ids == [mentor_id]

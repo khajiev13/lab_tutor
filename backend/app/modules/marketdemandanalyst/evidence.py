@@ -1,6 +1,7 @@
 """Pure extraction provenance and conservative run-local candidate reconciliation."""
 
 import json
+import re
 from copy import deepcopy
 from hashlib import sha256
 from uuid import uuid4
@@ -165,12 +166,135 @@ def merge_observation_group(items: list[dict], canonical: dict) -> dict:
     }
 
 
+def opposing_mentoring_roles(first: str, second: str) -> bool:
+    """Reject the known inverse-role error without guessing general equivalence."""
+
+    def role(label):
+        text = (label or "").casefold().strip()
+        if not re.search(r"mentor|mentee|наставнич|наставник", text):
+            return None
+        if re.match(
+            r"(receive|accept|get|seek|undergo|learn|получать|получить|обучаться)\b",
+            text,
+        ):
+            return "recipient"
+        if re.match(
+            r"(mentor|provide|give|offer|coach|guide|train|наставлять|обучать)\b", text
+        ):
+            return "provider"
+        return None
+
+    left, right = role(first), role(second)
+    return bool(left and right and left != right)
+
+
+def repair_semantic_roles(previous: dict, observations: list[dict]) -> dict:
+    """Prune proven inverse membership; retain the original group as audit data."""
+    result = deepcopy(previous)
+    labels = {
+        item["identity_key"]: item.get("name") or item.get("display_name", "")
+        for item in observations
+        if item.get("identity_key")
+    }
+    # A grouped registry claim has the canonical label for every passage. Only
+    # individual old candidates can identify a member's original direction.
+    for candidate in previous.get("candidate_history", []):
+        keys = candidate.get("semantic_identity_keys", [])
+        if len(keys) <= 1 and not any(
+            opposing_mentoring_roles(candidate.get("display_name", ""), label)
+            for label in candidate.get("aliases", [])
+        ):
+            labels.setdefault(
+                candidate.get("identity_key"), candidate.get("display_name", "")
+            )
+    records = result.setdefault("reconciliations", [])
+    for collection in ("candidates", "candidate_history"):
+        for candidate in result.get(collection, []):
+            name = candidate.get("display_name", "")
+            original = deepcopy(candidate)
+            polluted = any(
+                opposing_mentoring_roles(name, label)
+                for label in [
+                    *candidate.get("original_labels", []),
+                    *candidate.get("aliases", []),
+                ]
+            )
+            keys = [
+                key
+                for key in [
+                    candidate.get("identity_key"),
+                    *candidate.get("semantic_identity_keys", []),
+                ]
+                if key
+                and not opposing_mentoring_roles(name, labels.get(key, ""))
+                and (
+                    not polluted
+                    or key == candidate.get("identity_key")
+                    or key in labels
+                )
+            ]
+            candidate["semantic_identity_keys"] = list(dict.fromkeys(keys))
+            if candidate.get("identity_key") not in keys:
+                candidate["identity_key"] = keys[0] if keys else None
+            for field in ("original_labels", "aliases"):
+                candidate[field] = [
+                    label
+                    for label in candidate.get(field, [])
+                    if not opposing_mentoring_roles(name, label)
+                ]
+            # Ordinary candidates need no new record or metadata normalization.
+            repaired = (
+                any(
+                    original.get(field, []) != candidate.get(field, [])
+                    for field in ("original_labels", "aliases")
+                )
+                or original.get("identity_key") != candidate.get("identity_key")
+                or set(
+                    [
+                        original.get("identity_key"),
+                        *original.get("semantic_identity_keys", []),
+                    ]
+                )
+                - set(keys)
+            )
+            if not repaired:
+                candidate.clear()
+                candidate.update(original)
+                continue
+            candidate_id = str(candidate["candidate_id"])
+            if any(
+                record.get("reason") == "incompatible_task_roles_repaired"
+                and candidate_id in record["previous_candidate_ids"]
+                for record in records
+            ):
+                continue
+            records.append(
+                {
+                    "reconciliation_id": str(uuid4()),
+                    "candidate_id": candidate_id,
+                    "identity_key": original.get("identity_key"),
+                    "previous_candidate_ids": [candidate_id],
+                    "reason": "incompatible_task_roles_repaired",
+                    "previous_selected_candidate_ids": [candidate_id]
+                    if candidate_id in previous.get("selected_candidate_ids", [])
+                    else [],
+                    "previous_excluded_candidate_ids": [candidate_id]
+                    if candidate_id in previous.get("excluded_candidate_ids", [])
+                    else [],
+                    "historical_candidates": [original],
+                    "resolved": True,
+                }
+            )
+    return result
+
+
 def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
     """Explicit identity and semantic member keys merge; equal labels do not.
 
     A conflicting historical teacher decision becomes a visible unresolved merge,
     with old IDs retained in the reconciliation record rather than auto-selected.
     """
+    previous_manifest = repair_semantic_roles(previous_manifest, evidence)
     previous = previous_manifest.get("candidates", [])
     selected = set(previous_manifest.get("selected_candidate_ids", []))
     excluded = set(previous_manifest.get("excluded_candidate_ids", []))
@@ -232,7 +356,14 @@ def reconcile_candidates(evidence: list[dict], previous_manifest: dict) -> dict:
     for key, items in groups.items():
         semantic_keys = set(_union(items, "semantic_identity_keys"))
 
-        def equivalent(candidate, identity_key=key, member_keys=semantic_keys):
+        def equivalent(
+            candidate,
+            identity_key=key,
+            member_keys=semantic_keys,
+            task_name=items[0].get("name") or items[0].get("display_name", ""),
+        ):
+            if opposing_mentoring_roles(candidate.get("display_name", ""), task_name):
+                return False
             return candidate.get("identity_key") == identity_key or bool(
                 member_keys
                 & {

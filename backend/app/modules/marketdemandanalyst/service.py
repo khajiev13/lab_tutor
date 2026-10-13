@@ -29,6 +29,9 @@ from .job_sources import get_job_source_service
 from .repository import MarketReviewRepository, RevisionConflict
 from .schemas import SourceOutcome
 
+# Advance when corrected extraction/grouping rules require one fresh assessment.
+_EXTRACTION_VERSION = 2
+
 
 class MarketSourceService:
     def __init__(self, *, jobs=None, session_factory=SessionLocal):
@@ -81,7 +84,8 @@ class MarketSourceService:
         assessments = coverage.get("assessments", [])
         selected_ids = {job.get("snapshot_id") for job in jobs}
         if (
-            coverage.get("status") not in {"full", "partial"}
+            coverage.get("extraction_version") != _EXTRACTION_VERSION
+            or coverage.get("status") not in {"full", "partial"}
             or not assessments
             or None in selected_ids
             or selected_ids != {item.get("snapshot_id") for item in assessments}
@@ -568,6 +572,7 @@ class MarketSourceService:
                 else "failed"
             )
             coverage = {
+                "extraction_version": _EXTRACTION_VERSION,
                 "status": status,
                 "sample_limits": deepcopy(
                     run.extraction_coverage.get("sample_limits", {})

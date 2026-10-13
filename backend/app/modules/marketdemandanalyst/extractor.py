@@ -26,7 +26,9 @@ from langgraph.types import Command, Send
 from .evidence import (
     make_extraction_chunks,
     merge_observation_group,
+    opposing_mentoring_roles,
     reference_fingerprint,
+    repair_semantic_roles,
     validated_passage,
 )
 from .state import owned_sync_execution, tool_store
@@ -155,15 +157,22 @@ def extract_one(state: ExtractorState) -> dict:
 
 # Bound active model calls across all runs; per-posting chunks remain sequential.
 _EXTRACTION_SLOTS = BoundedSemaphore(8)
-_EVIDENCE_PROMPT = """Extract explicit teachable competencies from this vacancy passage.
-Use an action verb and task for the name. Include teachable communication/social
-competencies when explicitly supported (explaining results, negotiation, mentoring).
-Exclude vague personality traits and unsupported assumptions. Return a JSON array:
-[{{"name":"Explain technical results", "category":"communication",
-"original_phrase":"explain results", "excerpt":"explain results to stakeholders",
+_EVIDENCE_PROMPT = """Extract ALL explicitly stated teachable work competencies.
+Read EVERY responsibility and technical-requirement bullet, then supported
+communication/social tasks. Cover the technical duties, not just the example.
+Use an action verb + task for each name; names may be in English. Include required
+technologies only for the work the passage supports. Do not invent tasks.
+Exclude vague traits, employment benefits, and unsupported assumptions. Being
+offered training or receiving mentoring is not a demanded professional skill;
+providing mentoring counts only when explicitly required or desired experience.
+Return a JSON array:
+[{{"name":"Develop ETL/ELT processes", "category":"data_processing",
+"original_phrase":"Разрабатывать и поддерживать ETL/ELT-процессы",
+"excerpt":"Разрабатывать и поддерживать ETL/ELT-процессы",
 "evidence_kind":"extracted_text"}}]
 The original_phrase and excerpt MUST be exact substrings of the provided cleaned
-passage. For an explicit provider tag, return evidence_kind="provider_tag" and the
+passage in its ORIGINAL LANGUAGE, including capitalization and punctuation. Do
+not translate these quotations. For a provider tag, use evidence_kind="provider_tag" and the
 exact tag as original_phrase. Do not invent ratings or frequency counts.
 Title: {title}
 Provider tags: {tags}
@@ -177,6 +186,7 @@ def _extract_evidenced_job(job: dict) -> dict:
     chunks = make_extraction_chunks(text)
     observations, warnings = [], []
     assessed = 0
+    rejected = 0
     llm = _get_extraction_llm(timeout_seconds=90)
     for chunk in chunks:
         try:
@@ -206,6 +216,7 @@ def _extract_evidenced_job(job: dict) -> dict:
                     or not isinstance(phrase, str)
                     or not phrase.strip()
                 ):
+                    rejected += 1
                     continue
                 kind = row.get("evidence_kind", "extracted_text")
                 if kind == "provider_tag" and phrase in job.get("skill_tags", []):
@@ -223,8 +234,10 @@ def _extract_evidenced_job(job: dict) -> dict:
                         or passage["excerpt_end"] > chunk["end"]
                         or phrase not in passage["excerpt"]
                     ):
+                        rejected += 1
                         continue
                 else:
+                    rejected += 1
                     continue
                 ref = {
                     "snapshot_id": job["snapshot_id"],
@@ -266,9 +279,13 @@ def _extract_evidenced_job(job: dict) -> dict:
         warnings.append(
             f"Posting {job.get('snapshot_id')}: {uncovered} trailing characters were not assessed (16-chunk limit)."
         )
+    if rejected:
+        warnings.append(
+            f"Posting {job.get('snapshot_id')}: {rejected} unsupported extraction rows were discarded; retry or acknowledge partial coverage."
+        )
     status = (
         "full"
-        if chunks and assessed == len(chunks) and not uncovered
+        if chunks and assessed == len(chunks) and not uncovered and not rejected
         else "partial"
         if assessed
         else "failed"
@@ -427,6 +444,8 @@ Supporting activities such as optimizing versus maintaining do not alone change
 that core outcome. Keep different primary tasks or proficiency requirements apart.
 Configuring an ETL pipeline and monitoring its failures are related but distinct
 tasks; querying SQL and securing SQL access are distinct. Preserve those separately.
+Keep actor roles and direction intact: receiving mentoring and providing mentoring
+are different outcomes. A recipient/learner must never merge with a provider/teacher.
 O*NET descriptors and ratings are not grouping keys and are not supplied here.
 Choose the best ORIGINAL competency by its observation_id as canonical_id.
 Do not invent names, source passages, URLs, counts, categories, or member IDs.
@@ -450,6 +469,30 @@ Input JSON:
 """
 
 
+def _overlapping_source_passages(first: dict, second: dict) -> bool:
+    """Overlap supplies a historical comparison, never proof of task identity."""
+    if any(ref.get("evidence_kind") != "extracted_text" for ref in (first, second)):
+        return False
+    if any(
+        not first.get(key) or first[key] != second.get(key)
+        for key in ("snapshot_id", "provider", "original_url")
+    ):
+        return False
+    for ref in (first, second):
+        start, end = ref.get("excerpt_start"), ref.get("excerpt_end")
+        if not (
+            type(start) is int
+            and type(end) is int
+            and 0 <= start < end
+            and isinstance(ref.get("excerpt"), str)
+            and len(ref["excerpt"]) == end - start
+        ):
+            return False
+    return max(first["excerpt_start"], second["excerpt_start"]) < min(
+        first["excerpt_end"], second["excerpt_end"]
+    )
+
+
 def _known_canonical(items: list[dict], proposed: dict, previous: dict) -> dict:
     keys = {
         key
@@ -464,6 +507,12 @@ def _known_canonical(items: list[dict], proposed: dict, previous: dict) -> dict:
                 *previous.get("candidates", []),
             ]
             if not candidate.get("superseded_by_candidate_id")
+            and all(
+                not opposing_mentoring_roles(
+                    item["name"], candidate.get("display_name", "")
+                )
+                for item in items
+            )
             and keys
             & {
                 candidate.get("identity_key"),
@@ -526,6 +575,7 @@ def merge_evidenced_skills(
     observations: list[dict], previous: dict
 ) -> tuple[list[dict], dict]:
     """Restore bounded semantic grouping without letting model output own evidence."""
+    previous = repair_semantic_roles(previous, observations)
     known_keys = {}
     prior_candidates = {}
     for candidate in [
@@ -541,7 +591,8 @@ def merge_evidenced_skills(
             candidate.get("identity_key"),
             *candidate.get("semantic_identity_keys", []),
         ]:
-            known_keys[key] = candidate["identity_key"]
+            if key:
+                known_keys[key] = candidate["identity_key"]
     known_claims = {}
     for claim in previous.get("validated_observations", []):
         known_key = known_keys.get(claim.get("identity_key"))
@@ -568,6 +619,14 @@ def merge_evidenced_skills(
         item["identity_key"] = key
         item["semantic_identity_keys"] = [key]
         canonical_key = known_keys.get(key)
+        if canonical_key and any(
+            candidate.get("identity_key") == canonical_key
+            and opposing_mentoring_roles(
+                item["name"], candidate.get("display_name", "")
+            )
+            for candidate in prior_candidates.values()
+        ):
+            canonical_key = None
         if canonical_key:
             item["semantic_identity_keys"].append(canonical_key)
         grouped.setdefault(canonical_key or key, []).append(item)
@@ -588,7 +647,17 @@ def merge_evidenced_skills(
         matches[observation_id] = {
             identity
             for identity, candidate in prior_candidates.items()
-            if candidate["identity_key"] in claim_keys
+            if (
+                candidate["identity_key"] in claim_keys
+                or any(
+                    _overlapping_source_passages(current, old)
+                    for current in item["evidence_references"]
+                    for old in candidate.get("evidence_references", [])
+                )
+            )
+            and not opposing_mentoring_roles(
+                item["name"], candidate.get("display_name", "")
+            )
         }
     relevant_prior_ids = set().union(*matches.values())
     prior_ids = {
@@ -778,8 +847,17 @@ def merge_evidenced_skills(
         )
         return prepared, coverage
     result = []
+    rejected_groups = 0
     for group in groups:
         members = [deepcopy(by_id[identity]) for identity in group["member_ids"]]
+        if any(
+            opposing_mentoring_roles(first["name"], second["name"])
+            for first in members
+            for second in members
+        ):
+            rejected_groups += 1
+            result.extend(members)
+            continue
         for prior_id in group["prior_candidate_ids"]:
             prior_key = prior_by_handle[prior_id]["identity_key"]
             for member in members:
@@ -793,6 +871,11 @@ def merge_evidenced_skills(
         coverage["status"] = "partial"
         coverage["warnings"].append(
             "Semantic grouping omitted members; their original competencies and evidence were retained."
+        )
+    if rejected_groups:
+        coverage["status"] = "partial"
+        coverage["warnings"].append(
+            "Opposite mentoring roles were kept separate with their original posting evidence."
         )
     return result, coverage
 

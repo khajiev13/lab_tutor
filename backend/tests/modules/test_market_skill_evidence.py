@@ -235,7 +235,9 @@ def test_real_extract_one_reaches_skill_after_4000_and_rejects_hallucination(
     item = result["skills"][0]
     assert item["evidence_references"][0]["excerpt_start"] == 4301
     assert item["evidence_references"][0]["excerpt_end"] == 4342
-    assert result["assessments"][0]["status"] == "full"
+    assert result["assessments"][0]["status"] == "partial"
+    assert result["assessments"][0]["assessed_chunks"] == 2
+    assert "2 unsupported extraction rows" in result["assessments"][0]["warnings"][0]
 
 
 def test_partial_extraction_keeps_success_and_exposes_failed_chunks(monkeypatch):
@@ -375,3 +377,45 @@ def test_same_name_and_tag_with_different_source_tasks_do_not_merge(monkeypatch)
             }
         )
     assert len(reconcile_candidates(result["skills"], {})["candidates"]) == 2
+
+
+def test_invalid_source_rows_are_partial_while_valid_work_is_retained(monkeypatch):
+    from app.modules.marketdemandanalyst import extractor
+
+    class LLM:
+        def invoke(self, *args, **kwargs):
+            return SimpleNamespace(
+                content=json.dumps(
+                    [
+                        {
+                            "name": "Develop ETL processes",
+                            "original_phrase": "Разрабатывать ETL",
+                            "excerpt": "Разрабатывать ETL",
+                            "category": "data_processing",
+                        },
+                        {
+                            "name": "Use Spark",
+                            "original_phrase": "Spark",
+                            "excerpt": "Invented Spark requirement",
+                        },
+                    ]
+                )
+            )
+
+    monkeypatch.setattr(extractor, "_get_extraction_llm", lambda **kwargs: LLM())
+    with bind_tool_store({"run_id": str(uuid4())}):
+        result = extractor.extract_one(
+            {
+                "job": {
+                    "snapshot_id": str(uuid4()),
+                    "description": "Разрабатывать ETL. Spark",
+                    "demand_identity": "one",
+                }
+            }
+        )
+    assert [s["name"] for s in result["skills"]] == ["Develop ETL processes"]
+    assessment = result["assessments"][0]
+    assert assessment["status"] == "partial"
+    assert assessment["assessed_chunks"] == 1
+    assert assessment["warnings"]
+    assert "Invented Spark requirement" not in str(assessment)
