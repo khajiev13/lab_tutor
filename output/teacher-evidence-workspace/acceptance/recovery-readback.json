@@ -1,0 +1,11 @@
+{
+  "busy": {
+    "status": "busy",
+    "state_updated_at": "2026-10-12T21:48:49.334084Z"
+  },
+  "status": {
+    "status": "idle",
+    "state_updated_at": "2026-10-12T21:48:49.334084Z"
+  },
+  "chatRequests": 2
+}

@@ -1,0 +1,25 @@
+[
+  {
+    "kind": "chart",
+    "injected": [
+      "http://127.0.0.1:18773/node_modules/.vite/deps/echarts_core.js?v=d4f5c544"
+    ],
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_FAILED"
+    ],
+    "pageErrors": [],
+    "dataRows": 25
+  },
+  {
+    "kind": "comparison",
+    "injected": [
+      "http://127.0.0.1:18773/src/features/market-demand/components/WorkspaceCompare.tsx?t=1791840843274"
+    ],
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_FAILED",
+      "%o\n\n%s\n\n%s\n TypeError: Failed to fetch dynamically imported module: http://127.0.0.1:18773/src/features/market-demand/components/WorkspaceCompare.tsx?t=1791840843274 The above error occurred in one of your React components. React will try to recreate this component tree from scratch using the error boundary you provided, ChartViewBoundary."
+    ],
+    "pageErrors": [],
+    "dataRows": 25
+  }
+]

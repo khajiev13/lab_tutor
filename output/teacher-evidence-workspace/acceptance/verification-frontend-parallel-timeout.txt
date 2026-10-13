@@ -1,0 +1,176 @@
+HEAD62ab13ec792c8103b58c993b110d6184d896d2a4
+COMMAND /Applications/Docker.app/Contents/Resources/bin/docker exec lab_tutor_workspace_frontend sh -lc 'cd /app && npm test -- --run src/features/market-demand src/test/AgentComponents.test.tsx src/App.test.tsx'
+
+> frontend@0.0.0 test
+> vitest --run src/features/market-demand src/test/AgentComponents.test.tsx src/App.test.tsx
+
+
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90m/app[39m
+
+ [32m✓[39m src/features/market-demand/__tests__/OnetOccupationPicker.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 2506[2mms[22m[39m
+   [33m[2m✓[22m[39m requires explicit occupation confirmation [33m 1093[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves restored confirmed codes even when they are outside search results [33m 410[2mms[22m[39m
+   [33m[2m✓[22m[39m locks the release and search while occupation confirmation is pending [33m 423[2mms[22m[39m
+   [33m[2m✓[22m[39m starts idle and only searches 2–120 trimmed characters [33m 334[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/useAgentStream.test.tsx [2m([22m[2m65 tests[22m[2m)[22m[33m 5123[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/IntegrationReview.test.tsx [2m([22m[2m51 tests[22m[2m)[22m[33m 9492[2mms[22m[39m
+   [33m[2m✓[22m[39m reviewed concepts displays normalized server names and nullable descriptions as safe text before approval [33m 615[2mms[22m[39m
+   [33m[2m✓[22m[39m retains 'pending' projection acknowledgement through the real panel parent when approval clears the proposal [33m 500[2mms[22m[39m
+   [33m[2m✓[22m[39m retains 'error' projection acknowledgement through the real panel parent when approval clears the proposal [33m 343[2mms[22m[39m
+   [33m[2m✓[22m[39m explicit withdrawal uses two steps and preserves unsaved choices despite missing evidence/history ('projected') [33m 1237[2mms[22m[39m
+   [33m[2m✓[22m[39m explicit withdrawal uses two steps and preserves unsaved choices despite missing evidence/history ('pending') [33m 2013[2mms[22m[39m
+   [33m[2m✓[22m[39m explicit withdrawal uses two steps and preserves unsaved choices despite missing evidence/history ('error') [33m 1230[2mms[22m[39m
+   [33m[2m✓[22m[39m explicit withdrawal retains offering and choices when prepare fails [33m 376[2mms[22m[39m
+   [33m[2m✓[22m[39m explicit withdrawal retains offering and choices when withdraw fails [33m 451[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/EvidenceChart.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 3011[2mms[22m[39m
+   [33m[2m✓[22m[39m reports initialization errors without removing the accessible fallback [33m 1106[2mms[22m[39m
+   [33m[2m✓[22m[39m disposes a failing instance once and keeps render failures from taking down siblings [33m 465[2mms[22m[39m
+ [31m❯[39m src/features/market-demand/__tests__/MarketDemandConfiguration.test.tsx [2m([22m[2m7 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 15078[2mms[22m[39m
+[31m     [31m×[31m restores sources and serializes them from suggestion, selection and typed replies[39m[33m 5071[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks collection when provider catalog fails instead of using defaults [33m 583[2mms[22m[39m
+     [33m[2m✓[22m[39m does not apply an old course provider catalog to the new course [33m 1325[2mms[22m[39m
+   [33m[2m✓[22m[39m renders the durable nested review without treating extracted category prose as skill approval [33m 1272[2mms[22m[39m
+   [33m[2m✓[22m[39m confirms pending enable configuration locally before the authoritative chat update [33m 2321[2mms[22m[39m
+   [33m[2m✓[22m[39m confirms pending release configuration locally before the authoritative chat update [33m 2981[2mms[22m[39m
+   [33m[2m✓[22m[39m prevents configuration changes after collection starts [33m 1519[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/SkillReviewPanel.test.tsx [2m([22m[2m24 tests[22m[2m)[22m[33m 17185[2mms[22m[39m
+   [33m[2m✓[22m[39m selects hidden category members, preserves individual exclusions through filtering/sorting and reload [33m 2182[2mms[22m[39m
+   [33m[2m✓[22m[39m applies selected suggestions locally, protects excluded IDs and undoes the batch [33m 676[2mms[22m[39m
+   [33m[2m✓[22m[39m retains unsaved choices on Connection lost without success or publication [33m 725[2mms[22m[39m
+   [33m[2m✓[22m[39m retains unsaved choices on Stale revision without success or publication [33m 564[2mms[22m[39m
+   [33m[2m✓[22m[39m renders full evidence as safe text/JSON with genuine posting links [33m 816[2mms[22m[39m
+   [33m[2m✓[22m[39m separates occupation-specific equivalent ratings from broader context and unavailable scores [33m 495[2mms[22m[39m
+   [33m[2m✓[22m[39m orders actual skill rows by the selected occupation and excludes broader, suppressed and unavailable ratings [33m 1190[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps mapping blocked until delayed continuation acknowledgement and keeps unsupported publication blocked afterward [33m 710[2mms[22m[39m
+   [33m[2m✓[22m[39m retains partial-evidence gates and prior publication when continuation fails [33m 429[2mms[22m[39m
+   [33m[2m✓[22m[39m allows mapping after successful continuation without publishing an O*NET-only candidate [33m 397[2mms[22m[39m
+   [33m[2m✓[22m[39m durable reconciliation survives a fresh reload after its candidates disappear [33m 437[2mms[22m[39m
+   [33m[2m✓[22m[39m durable reconciliation saves only explicit records and requires server resolution before mapping [33m 1203[2mms[22m[39m
+   [33m[2m✓[22m[39m durable reconciliation remains unresolved on ordinary save while category selection and exclusions survive [33m 1417[2mms[22m[39m
+   [33m[2m✓[22m[39m durable reconciliation retains explicit acknowledgement after Connection lost [33m 544[2mms[22m[39m
+   [33m[2m✓[22m[39m durable reconciliation retains explicit acknowledgement after Stale reconciliation revision [33m 761[2mms[22m[39m
+   [33m[2m✓[22m[39m durable reconciliation resets acknowledgements on a new candidate and ignores stale save completion [33m 1311[2mms[22m[39m
+   [33m[2m✓[22m[39m durable reconciliation resets acknowledgements on a new selection and ignores stale save completion [33m 938[2mms[22m[39m
+   [33m[2m✓[22m[39m durable reconciliation resets acknowledgements on a new run and ignores stale save completion [33m 902[2mms[22m[39m
+   [33m[2m✓[22m[39m requires teacher review of changed revisions while retaining dirty choices [33m 470[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/WorkspaceConversation.test.tsx [2m([22m[2m28 tests[22m[2m)[22m[33m 11631[2mms[22m[39m
+     [33m[2m✓[22m[39m stages an editable Ask question without sending and keeps keyboard focus [33m 1334[2mms[22m[39m
+     [33m[2m✓[22m[39m removes focus without converting ordinary review questions to workflow [33m 662[2mms[22m[39m
+     [33m[2m✓[22m[39m returns a proposal attachment to read-only Explain when its focus is removed [33m 393[2mms[22m[39m
+     [33m[2m✓[22m[39m freezes submitted text and nested context and preserves typed follow-up without inheriting submitted focus [33m 646[2mms[22m[39m
+     [33m[2m✓[22m[39m clears only the completed draft and does not carry its focus into the next turn [33m 580[2mms[22m[39m
+     [33m[2m✓[22m[39m allows busy staging and typing while blocking concurrent sends [33m 636[2mms[22m[39m
+     [33m[2m✓[22m[39m prevents a second send before the parent streaming state updates [33m 655[2mms[22m[39m
+     [33m[2m✓[22m[39m allows an explicit read refresh after detachment while the server is still busy [33m 313[2mms[22m[39m
+     [33m[2m✓[22m[39m does not claim execution success for an idle observation or a rejected request [33m 458[2mms[22m[39m
+     [33m[2m✓[22m[39m uses Unicode message bounds and rejects oversized context without sending [33m 618[2mms[22m[39m
+     [33m[2m✓[22m[39m refreshes only after reconciliation and rebuilds from the newly accepted review [33m 1209[2mms[22m[39m
+     [33m[2m✓[22m[39m retains attachment and question after failed refresh [33m 445[2mms[22m[39m
+     [33m[2m✓[22m[39m saves before suggesting using the returned saved revision [33m 335[2mms[22m[39m
+     [33m[2m✓[22m[39m never sends when saving the draft fails [33m 318[2mms[22m[39m
+     [33m[2m✓[22m[39m displays immutable proposals and applies only to the existing local controller draft [33m 325[2mms[22m[39m
+     [33m[2m✓[22m[39m resets a completed proposal attachment to Explain while preserving a typed follow-up [33m 457[2mms[22m[39m
+     [33m[2m✓[22m[39m requires save before sending a selected-only question from a dirty shortlist [33m 429[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/WorkspaceViews.test.tsx [2m([22m[2m38 tests[22m[2m)[22m[33m 19206[2mms[22m[39m
+   [33m[2m✓[22m[39m bar and pattern inspection focus, Ask stages an editable question, and View all preserves filters [33m 1212[2mms[22m[39m
+   [33m[2m✓[22m[39m scatter focus carries role/evidence; controls only change occupational view state [33m 448[2mms[22m[39m
+   [33m[2m✓[22m[39m heatmap supports zero/one role, hides and re-enables confirmed roles, switches fixed scales and pages 12 rows [33m 2368[2mms[22m[39m
+   [33m[2m✓[22m[39m budgets heatmap labels and complete legend within 358px for 2 roles [33m 385[2mms[22m[39m
+   [33m[2m✓[22m[39m budgets heatmap labels and complete legend within 736px for 2 roles [33m 491[2mms[22m[39m
+   [33m[2m✓[22m[39m budgets heatmap labels and complete legend within 288px for 5 roles [33m 676[2mms[22m[39m
+   [33m[2m✓[22m[39m budgets heatmap labels and complete legend within 358px for 5 roles [33m 626[2mms[22m[39m
+   [33m[2m✓[22m[39m budgets heatmap labels and complete legend within 736px for 5 roles [33m 767[2mms[22m[39m
+   [33m[2m✓[22m[39m Data pages 25 rows, supports keyboard inspect and explicit local selection, missing values remain last on sort [33m 3147[2mms[22m[39m
+   [33m[2m✓[22m[39m Data retains missing/suppressed/not relevant/no association/ambiguity reasons and no unavailable numbers [33m 499[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps the comparison pinned to confirmed roles and allows at most five displayed [33m 394[2mms[22m[39m
+   [33m[2m✓[22m[39m inspector keeps nonqualifying posting provenance while marking missing job evidence and stages descriptor choice [33m 389[2mms[22m[39m
+   [33m[2m✓[22m[39m data distinguishes unchosen occupation from genuine missing association [33m 549[2mms[22m[39m
+   [33m[2m✓[22m[39m compare distinguishes unchosen occupation from genuine missing association [33m 714[2mms[22m[39m
+   [33m[2m✓[22m[39m data retains eligible descriptor chooser after reported/missing/suppressed choices and supports clearing [33m 1692[2mms[22m[39m
+   [33m[2m✓[22m[39m compare retains eligible descriptor chooser after reported/missing/suppressed choices and supports clearing [33m 790[2mms[22m[39m
+   [33m[2m✓[22m[39m failed renewed availability never falls back to a cached body and supports explicit retry and reload [33m 400[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/OccupationReferencePanel.test.tsx [2m([22m[2m36 tests[22m[2m)[22m[33m 11771[2mms[22m[39m
+   [33m[2m✓[22m[39m browses and stages reference-only IDs without a run or any mutation [33m 1257[2mms[22m[39m
+   [33m[2m✓[22m[39m renders unavailable statuses separately and software as categorical [33m 567[2mms[22m[39m
+   [33m[2m✓[22m[39m does not show a numeric IM value with invalid reported metadata {"value":null} [33m 432[2mms[22m[39m
+   [33m[2m✓[22m[39m does not show a numeric IM value with invalid reported metadata {"value":null} [33m 320[2mms[22m[39m
+   [33m[2m✓[22m[39m does not show a numeric IM value with invalid reported metadata {"value":0} [33m 348[2mms[22m[39m
+   [33m[2m✓[22m[39m does not show a numeric IM value with invalid reported metadata {"value":6} [33m 331[2mms[22m[39m
+   [33m[2m✓[22m[39m does not show a numeric IM value with invalid reported metadata {"value":null} [33m 430[2mms[22m[39m
+   [33m[2m✓[22m[39m does not show a numeric IM value with invalid reported metadata {"value":3,"minimum":0} [33m 319[2mms[22m[39m
+   [33m[2m✓[22m[39m bounds searches, trims valid input, and only offers explicit release selection when none is active [33m 545[2mms[22m[39m
+   [33m[2m✓[22m[39m offers retry for empty catalog without inventing an occupation [33m 400[2mms[22m[39m
+   [33m[2m✓[22m[39m offers retry for error catalog without inventing an occupation [33m 618[2mms[22m[39m
+   [33m[2m✓[22m[39m offers retry for empty occupation results [33m 632[2mms[22m[39m
+   [33m[2m✓[22m[39m offers retry for error occupation results [33m 468[2mms[22m[39m
+   [33m[2m✓[22m[39m offers retry for empty imported evidence without staged fallback [33m 649[2mms[22m[39m
+   [33m[2m✓[22m[39m offers retry for error imported evidence without staged fallback [33m 695[2mms[22m[39m
+   [33m[2m✓[22m[39m aborts and ignores superseded occupation evidence even when it resolves after abort [33m 398[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/JobSourcePicker.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 907[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps unavailable sources disabled and never selects a fallback [33m 760[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/AgentMessage.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 605[2mms[22m[39m
+     [33m[2m✓[22m[39m shows finished and unknown distinctly without claiming source success [33m 450[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/pipeline-logic.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/workspace-data.test.ts [2m([22m[2m74 tests[22m[2m)[22m[32m 97[2mms[22m[39m
+ [32m✓[39m src/test/AgentComponents.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 1893[2mms[22m[39m
+     [33m[2m✓[22m[39m navigates on click for enabled agent [33m 700[2mms[22m[39m
+     [33m[2m✓[22m[39m renders the architect research summary for teachers [33m 323[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/useSkillReviewController.test.tsx [2m([22m[2m31 tests[22m[2m)[22m[32m 223[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/useWorkspaceNavigationGuard.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 508[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/api.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 84[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/workspace-context.test.ts [2m([22m[2m43 tests[22m[2m)[22m[32m 43[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/selection.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/agent-config.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/App.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 760[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps dashboard chrome on the learning-path route [33m 339[2mms[22m[39m
+ [32m✓[39m src/features/market-demand/__tests__/MarketDemand.test.tsx [2m([22m[2m51 tests[22m[2m)[22m[33m 27906[2mms[22m[39m
+     [33m[2m✓[22m[39m calls onSend with input text on Enter [33m 1073[2mms[22m[39m
+     [33m[2m✓[22m[39m passes the route course id into the market-demand hook [33m 1333[2mms[22m[39m
+     [33m[2m✓[22m[39m renders an unconfirmed market country placeholder [33m 885[2mms[22m[39m
+     [33m[2m✓[22m[39m passes the selected market country into the market-demand hook [33m 2660[2mms[22m[39m
+     [33m[2m✓[22m[39m disables input while restoring conversation state [33m 478[2mms[22m[39m
+     [33m[2m✓[22m[39m syncs the selector from restored agent state [33m 543[2mms[22m[39m
+     [33m[2m✓[22m[39m renders without crashing [33m 366[2mms[22m[39m
+     [33m[2m✓[22m[39m shows actionable analysis setup on empty state [33m 488[2mms[22m[39m
+     [33m[2m✓[22m[39m starts an explicit workflow from the analysis action [33m 835[2mms[22m[39m
+     [33m[2m✓[22m[39m renders messages when present [33m 923[2mms[22m[39m
+     [33m[2m✓[22m[39m uses source summary from the review instead of another thread state [33m 1272[2mms[22m[39m
+   [33m[2m✓[22m[39m renders Uzbekistan as a supported market choice [33m 2123[2mms[22m[39m
+   [33m[2m✓[22m[39m shows source failures separately from successful empty collections [33m 1151[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps input disabled when restoring saved source choices fails [33m 901[2mms[22m[39m
+   [33m[2m✓[22m[39m blocks New analysis while an occupation confirmation is pending [33m 851[2mms[22m[39m
+   [33m[2m✓[22m[39m locks market and source settings during occupation confirmation [33m 850[2mms[22m[39m
+   [33m[2m✓[22m[39m splits at actual content width 1000 and retains the mounted composer at 999 [33m 536[2mms[22m[39m
+   [33m[2m✓[22m[39m ordinary questions remain minimal Run Explain after inspecting a chart [33m 623[2mms[22m[39m
+   [33m[2m✓[22m[39m Ask stages editable context only and completed send removes focus without losing typed follow-up [33m 1083[2mms[22m[39m
+   [33m[2m✓[22m[39m retains all source, view and composer state when New analysis rejects [33m 1684[2mms[22m[39m
+   [33m[2m✓[22m[39m Cancel New analysis makes no reset request and dirty save must acknowledge before reset [33m 1465[2mms[22m[39m
+   [33m[2m✓[22m[39m failed dirty save keeps the analysis and never requests reset [33m 728[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves an explicit role descriptor in inspector Ask context [33m 922[2mms[22m[39m
+   [33m[2m✓[22m[39m returns to minimal Run Explain after an explicitly staged reference answer [33m 330[2mms[22m[39m
+   [33m[2m✓[22m[39m retains question and view on failed partial-reset retry and makes another confirmed retry reachable [33m 413[2mms[22m[39m
+   [33m[2m✓[22m[39m preserves dirty view source configuration and input while workflow-only reset recovery blocks normal mutations [33m 487[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/features/market-demand/__tests__/MarketDemandConfiguration.test.tsx[2m > [22mshared teacher source configuration[2m > [22mrestores sources and serializes them from suggestion, selection and typed replies
+[31m[1mError[22m: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+[36m [2m❯[22m src/features/market-demand/__tests__/MarketDemandConfiguration.test.tsx:[2m90:3[22m[39m
+    [90m 88| [39m
+    [90m 89| [39m[34mdescribe[39m([32m"shared teacher source configuration"[39m[33m,[39m () [33m=>[39m {
+    [90m 90| [39m  it("restores sources and serializes them from suggestion, selection …
+    [90m   | [39m  [31m^[39m
+    [90m 91| [39m    vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({o…
+    [90m 92| [39m      onEvent({type:"agent_start",agent:"supervisor",messageId:"a1",di…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m21 passed[39m[22m[90m (22)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m541 passed[39m[22m[90m (542)[39m
+[2m   Start at [22m 22:15:36
+[2m   Duration [22m 31.86s[2m (transform 12.67s, setup 2.95s, import 28.55s, tests 128.08s, environment 25.97s)[22m
+
+
+EXIT 1

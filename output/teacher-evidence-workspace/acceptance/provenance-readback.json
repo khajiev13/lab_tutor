@@ -1,0 +1,136 @@
+{
+  "expected": {
+    "course": {
+      "id": 22,
+      "title": "SYNTHETIC duplicate posting and Unicode provenance a1723123-65d4-40b2-a0ee-2492fa3a0f97",
+      "description": null,
+      "level": "bachelor",
+      "publication_status": "draft",
+      "market_gate_status": "not_started",
+      "teacher_id": 1,
+      "created_at": "2026-10-12T21:52:23.346028Z",
+      "extraction_status": "not_started"
+    },
+    "input_reference_count": 3,
+    "unique_snapshot_count": 10,
+    "duplicate_id": "b6cd5f22-7a83-4997-8562-e578742c17f1",
+    "query_membership": [
+      "first query",
+      "second query"
+    ],
+    "expected_metrics": {
+      "supporting_posting_count": 2,
+      "assessed_posting_count": 10,
+      "selected_posting_count": 10,
+      "percentage": 20,
+      "coverage_status": "full"
+    },
+    "review": {
+      "run_id": "49717405-69c1-4bf3-b53e-9d0a65fb19b6",
+      "analysis_metadata": {
+        "country": null,
+        "job_sources": [
+          "headhunter"
+        ],
+        "evidence_sources": [
+          "jobs"
+        ],
+        "onet_release": null,
+        "occupations": [],
+        "created_at": "2026-10-12T21:52:23.463416Z",
+        "updated_at": "2026-10-12T21:52:23.463416Z"
+      },
+      "candidate_revision": 1,
+      "selection_revision": 0,
+      "categories": [
+        {
+          "category_id": "programming",
+          "label": "Programming"
+        }
+      ],
+      "candidates": [
+        {
+          "candidate_id": "d2049501-2241-40a0-b50b-cb405925bb4b",
+          "display_name": "SYNTHETIC Python services",
+          "category_id": "programming",
+          "original_labels": [
+            "Python services",
+            "SYNTHETIC Python services"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "active",
+              "excerpt": "Python services",
+              "provider": "headhunter",
+              "excerpt_end": 54,
+              "snapshot_id": "b6cd5f22-7a83-4997-8562-e578742c17f1",
+              "original_url": "https://hh.uz/vacancy/97000000",
+              "retrieved_at": "2026-10-12T21:52:23.466198+00:00",
+              "evidence_kind": "description_span",
+              "excerpt_start": 39,
+              "original_phrase": "Python services"
+            },
+            {
+              "status": "active",
+              "excerpt": "Python services",
+              "provider": "headhunter",
+              "excerpt_end": 54,
+              "snapshot_id": "5718528a-c898-493c-bf40-94ea550c8058",
+              "original_url": "https://hh.uz/vacancy/97000001",
+              "retrieved_at": "2026-10-12T21:52:23.476132+00:00",
+              "evidence_kind": "description_span",
+              "excerpt_start": 39,
+              "original_phrase": "Python services"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 20,
+            "coverage_status": "full",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 10,
+            "supporting_posting_count": 2
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/97000000",
+            "https://hh.uz/vacancy/97000001"
+          ]
+        }
+      ],
+      "selected_candidate_ids": [],
+      "excluded_candidate_ids": [],
+      "recommendations": [],
+      "reconciliations": [],
+      "source_outcomes": {},
+      "extraction_coverage": {
+        "acknowledged": true
+      },
+      "integration_review": null,
+      "publication_revision": 0,
+      "approved_references": []
+    }
+  },
+  "posting": {
+    "snapshot_id": "b6cd5f22-7a83-4997-8562-e578742c17f1",
+    "provider": "headhunter",
+    "native_id": "97000000",
+    "original_url": "https://hh.uz/vacancy/97000000",
+    "title": "SYNTHETIC provenance",
+    "company": "",
+    "description_text": "SYNTHETIC TEST ONLY. Русский 中文. Build Python services with tests.",
+    "original_description": "SYNTHETIC TEST ONLY. Русский 中文. Build Python services with tests.",
+    "raw_payload": {
+      "source": "acceptance fixture",
+      "synthetic": true
+    },
+    "retrieved_at": "2026-10-12T21:52:23.466198Z",
+    "status": "active",
+    "purged_at": null
+  },
+  "barValues": [
+    20
+  ]
+}

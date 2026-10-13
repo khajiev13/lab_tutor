@@ -1,0 +1,10 @@
+{
+  "databaseMarker": "Task12 owned synthetic acceptance d1a3660 complete run",
+  "injectedTriggers": 0,
+  "advisoryLocks": 0,
+  "apiOwner": "teacher-workspace",
+  "resetLabels": [
+    "contextual",
+    "workflow-only"
+  ]
+}

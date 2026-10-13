@@ -1,0 +1,6 @@
+HEAD62ab13ec792c8103b58c993b110d6184d896d2a4
+COMMAND /Applications/Docker.app/Contents/Resources/bin/docker exec lab_tutor_workspace_backend sh -lc 'cd /app && /app/.venv/bin/ruff check . && /app/.venv/bin/ruff format --check .'
+All checks passed!
+328 files already formatted
+
+EXIT 0

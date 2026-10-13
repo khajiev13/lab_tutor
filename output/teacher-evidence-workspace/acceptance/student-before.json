@@ -1,0 +1,108 @@
+{
+  "path": {
+    "course_id": 1,
+    "course_title": "SYNTHETIC acceptance course",
+    "chapters": [
+      {
+        "title": "Programming",
+        "chapter_index": 1,
+        "description": null,
+        "learning_objectives": [],
+        "selected_skills": [
+          {
+            "skill_reference_id": "6c62808c-9212-47fa-9835-6e4fc7a7d8fd",
+            "source": "book",
+            "origin": "book",
+            "qualifying_posting_links": [],
+            "evidence_references": [],
+            "onet_associations": [],
+            "job_metrics": null,
+            "projection_status": "projected",
+            "available_for_new_selection": true,
+            "availability_reason": null,
+            "is_selected": false,
+            "peer_count": 0,
+            "name": "Saved synthetic book skill",
+            "description": null,
+            "concepts": [],
+            "readings": [
+              {
+                "id": "task12-reading",
+                "title": "Saved synthetic reading",
+                "url": "https://example.invalid/task12-reading",
+                "domain": "",
+                "snippet": "",
+                "search_content": "",
+                "search_result_url": "",
+                "search_result_domain": "",
+                "source_engine": "",
+                "source_engines": [],
+                "search_metadata_json": "[]",
+                "resource_type": "article",
+                "final_score": 0.9,
+                "concepts_covered": []
+              }
+            ],
+            "videos": [],
+            "questions": [
+              {
+                "id": "task12-question",
+                "text": "Synthetic: what is 2 + 2?",
+                "difficulty": "easy",
+                "options": [
+                  "4",
+                  "3",
+                  "2",
+                  "1"
+                ]
+              }
+            ],
+            "resource_status": "loaded",
+            "is_known": true
+          }
+        ],
+        "quiz_status": "completed",
+        "easy_question_count": 1,
+        "answered_count": 1,
+        "correct_count": 1
+      }
+    ],
+    "total_selected_skills": 1,
+    "skills_with_resources": 1
+  },
+  "quiz": {
+    "course_id": 1,
+    "chapter_index": 1,
+    "chapter_title": "Programming",
+    "questions": [
+      {
+        "id": "task12-question",
+        "skill_name": "Saved synthetic book skill",
+        "text": "Synthetic: what is 2 + 2?",
+        "options": [
+          "4",
+          "3",
+          "2",
+          "1"
+        ]
+      }
+    ],
+    "previous_answers": {
+      "task12-question": {
+        "selected_option": "A",
+        "answered_right": true,
+        "answered_at": "2026-10-12T21:43:40.678000Z"
+      }
+    }
+  },
+  "reading": {
+    "id": "task12-reading",
+    "title": "Saved synthetic reading",
+    "url": "https://example.invalid/task12-reading",
+    "domain": "example.invalid",
+    "status": "ready",
+    "content_markdown": "# Synthetic saved reading\nRetained student resource.",
+    "fallback_summary": "We could not generate an in-app preview for this resource. Open the original source to keep studying.",
+    "error_message": null
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 409 (Conflict)",
+      "url": "http://127.0.0.1:18780/courses/1/market-demand/history"
+    }
+  ],
+  "runtimeErrors": []
+}

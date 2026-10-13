@@ -1,0 +1,18 @@
+{
+  "base": "d1a3660669f1ce64ef8851c2fca24c0179c1912f",
+  "sql_marker": "Task12 owned synthetic acceptance d1a3660 complete run",
+  "runs": 21,
+  "snapshots": 23,
+  "approvals": 1,
+  "injected_triggers": 0,
+  "advisory_locks": 0,
+  "graph_nodes_after_pytest": 2,
+  "api": "created/stopped, signing key rotated; manifest authentication stale",
+  "ui": "running loopback18773",
+  "graph": "owned, running, no host ports",
+  "pending": [
+    "Owner fix and fresh scoped review",
+    "Affected backend regression and remaining final checks",
+    "Report QA, owned cleanup, acceptance-only commit"
+  ]
+}

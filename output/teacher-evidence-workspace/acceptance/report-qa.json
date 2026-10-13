@@ -1,0 +1,206 @@
+[
+  {
+    "width": 1280,
+    "documentWidth": 1280,
+    "viewport": 1280,
+    "images": [
+      {
+        "src": "chart-1440-light.png",
+        "loaded": true
+      },
+      {
+        "src": "chart-390-dark.png",
+        "loaded": true
+      },
+      {
+        "src": "tooltip-variants-heatmap-light.png",
+        "loaded": true
+      },
+      {
+        "src": "tooltip-five-roles-heatmap-dark.png",
+        "loaded": true
+      },
+      {
+        "src": "approval-projected.png",
+        "loaded": true
+      },
+      {
+        "src": "reset-contextual-failed-retained.png",
+        "loaded": true
+      },
+      {
+        "src": "reset-workflow-only-recovered.png",
+        "loaded": true
+      },
+      {
+        "src": "network-failure-comparison.png",
+        "loaded": true
+      }
+    ],
+    "links": [
+      "#results",
+      "#pictures",
+      "#verification",
+      "#limits",
+      "acceptance-summary.json",
+      "architect-fixture-console-before-classification.json",
+      "console-supplemental.json",
+      "supplemental-readback.json",
+      "expected-fixture.json",
+      "reset-recovery-readback.json",
+      "verification-backend12.txt",
+      "regression-blocker.json",
+      "metadata-compatibility.json",
+      "metadata-current-head.png",
+      "supplemental-readback.json",
+      "workflow-checkpoints.json",
+      "corpus-browser-facts.json",
+      "corpus-sql-readback.json",
+      "context-calls.json",
+      "supplemental-readback.json",
+      "context-rejections.json",
+      "provenance-purged-readback.json",
+      "reset-recovery-readback.json",
+      "approval-readback.json",
+      "tooltip-five-roles.json",
+      "network-failures.json",
+      "chart-1440-light.png",
+      "chart-390-dark.png",
+      "tooltip-variants-heatmap-light.png",
+      "tooltip-five-roles-heatmap-dark.png",
+      "approval-projected.png",
+      "reset-contextual-failed-retained.png",
+      "reset-workflow-only-recovered.png",
+      "network-failure-comparison.png",
+      "geometry.json",
+      "tooltip-geometry.json",
+      "tooltip-variants.json",
+      "tooltip-five-roles.json",
+      "lifecycle.json",
+      "corpus-sql-readback.json",
+      "corpus-browser-facts.json",
+      "verification-frontend-parallel-timeout.txt",
+      "verification-frontend-timeout-diagnostic.txt",
+      "verification-backend12-final.txt",
+      "verification-backend-ruff.txt",
+      "verification-frontend-tests.txt",
+      "verification-frontend-lint-build.txt",
+      "verification-corpus-byte-parity.txt",
+      "verification-corpus-sha.txt",
+      "verification-browser-script-syntax.txt",
+      "verification.json",
+      "resource-before-regression.json",
+      "cleanup.json",
+      "cold-start-before-fix.png",
+      "purge-before-fix.png",
+      "partial-reset-blocker.png",
+      "tooltip-before-fix.png",
+      "heatmap-labels-before-fix.png",
+      "tooltip-variants-blocker.json"
+    ],
+    "runtimeErrors": [],
+    "actualLocalImageLinkClick": true
+  },
+  {
+    "width": 390,
+    "documentWidth": 390,
+    "viewport": 390,
+    "images": [
+      {
+        "src": "chart-1440-light.png",
+        "loaded": true
+      },
+      {
+        "src": "chart-390-dark.png",
+        "loaded": true
+      },
+      {
+        "src": "tooltip-variants-heatmap-light.png",
+        "loaded": true
+      },
+      {
+        "src": "tooltip-five-roles-heatmap-dark.png",
+        "loaded": true
+      },
+      {
+        "src": "approval-projected.png",
+        "loaded": true
+      },
+      {
+        "src": "reset-contextual-failed-retained.png",
+        "loaded": true
+      },
+      {
+        "src": "reset-workflow-only-recovered.png",
+        "loaded": true
+      },
+      {
+        "src": "network-failure-comparison.png",
+        "loaded": true
+      }
+    ],
+    "links": [
+      "#results",
+      "#pictures",
+      "#verification",
+      "#limits",
+      "acceptance-summary.json",
+      "architect-fixture-console-before-classification.json",
+      "console-supplemental.json",
+      "supplemental-readback.json",
+      "expected-fixture.json",
+      "reset-recovery-readback.json",
+      "verification-backend12.txt",
+      "regression-blocker.json",
+      "metadata-compatibility.json",
+      "metadata-current-head.png",
+      "supplemental-readback.json",
+      "workflow-checkpoints.json",
+      "corpus-browser-facts.json",
+      "corpus-sql-readback.json",
+      "context-calls.json",
+      "supplemental-readback.json",
+      "context-rejections.json",
+      "provenance-purged-readback.json",
+      "reset-recovery-readback.json",
+      "approval-readback.json",
+      "tooltip-five-roles.json",
+      "network-failures.json",
+      "chart-1440-light.png",
+      "chart-390-dark.png",
+      "tooltip-variants-heatmap-light.png",
+      "tooltip-five-roles-heatmap-dark.png",
+      "approval-projected.png",
+      "reset-contextual-failed-retained.png",
+      "reset-workflow-only-recovered.png",
+      "network-failure-comparison.png",
+      "geometry.json",
+      "tooltip-geometry.json",
+      "tooltip-variants.json",
+      "tooltip-five-roles.json",
+      "lifecycle.json",
+      "corpus-sql-readback.json",
+      "corpus-browser-facts.json",
+      "verification-frontend-parallel-timeout.txt",
+      "verification-frontend-timeout-diagnostic.txt",
+      "verification-backend12-final.txt",
+      "verification-backend-ruff.txt",
+      "verification-frontend-tests.txt",
+      "verification-frontend-lint-build.txt",
+      "verification-corpus-byte-parity.txt",
+      "verification-corpus-sha.txt",
+      "verification-browser-script-syntax.txt",
+      "verification.json",
+      "resource-before-regression.json",
+      "cleanup.json",
+      "cold-start-before-fix.png",
+      "purge-before-fix.png",
+      "partial-reset-blocker.png",
+      "tooltip-before-fix.png",
+      "heatmap-labels-before-fix.png",
+      "tooltip-variants-blocker.json"
+    ],
+    "runtimeErrors": [],
+    "actualLocalImageLinkClick": true
+  }
+]

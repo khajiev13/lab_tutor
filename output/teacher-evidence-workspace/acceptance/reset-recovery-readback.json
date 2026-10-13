@@ -1,0 +1,4511 @@
+{
+  "records": [
+    {
+      "label": "contextual",
+      "history": {
+        "messages": [
+          {
+            "workspace_context": {
+              "kind": "run_review",
+              "version": 1,
+              "intent": "explain",
+              "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+              "candidate_revision": 1,
+              "selection_revision": 2,
+              "release": "31.0",
+              "view": "data",
+              "metric": "frequency",
+              "occupation_codes": [],
+              "occupations": [],
+              "candidate_ids": [
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96"
+              ],
+              "candidate_labels": {
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96": "Python",
+                "803ff482-904c-4541-ae40-66150d2f91b9": "Synthetic competency 11",
+                "6725c6d0-0623-4fed-97d9-31ce548d427a": "Synthetic competency 21",
+                "041c9415-f8b6-446a-b872-275f577f9546": "Communication",
+                "66f9731c-f642-4b45-b0db-d01ca600610c": "Critical Thinking",
+                "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60": "Programming",
+                "b855b591-22f8-4b76-b072-28338d207230": "Synthetic competency 05",
+                "ef7d4ba2-150d-4836-bc48-4a23a4e12370": "Synthetic competency 06",
+                "dc1ad13b-586e-4b89-bb68-d5064ef7adb9": "Synthetic competency 07",
+                "250983f1-502e-40b1-a812-1fcf2d936d71": "Synthetic competency 08",
+                "1abb0abd-8396-4866-98f8-1b9608b7fb6f": "Synthetic competency 09",
+                "80005a8b-b444-4ad4-a72b-0fb3468904ef": "Synthetic competency 10",
+                "8edec9e6-9914-4a9a-a1af-742e6c2f08f4": "Synthetic competency 12",
+                "af085f68-fa88-4327-8383-4e96135e7db1": "Synthetic competency 13",
+                "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d": "Synthetic competency 14",
+                "438385cc-1ce1-47a3-8c2a-37c81c9f300a": "Synthetic competency 15",
+                "9894b011-fee4-4614-8ec5-0d94ada6f7ff": "Synthetic competency 16",
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2": "Synthetic competency 17",
+                "f117585b-f0ab-4565-a377-09bdd8f5cf80": "Synthetic competency 18",
+                "89aec2fd-8564-45a8-94c7-70be8eba9950": "Synthetic competency 19",
+                "8f6df141-71fe-43fd-9456-f9441b42d97f": "Synthetic competency 20",
+                "3053c5cf-f54e-4aba-8f4a-83184729bb86": "Synthetic competency 22",
+                "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2": "Synthetic competency 23",
+                "a62fea45-093f-46f3-9dc7-e37c31a55f99": "Synthetic competency 24",
+                "69d103d6-6bfc-44cc-adb6-f84c949f30cd": "Synthetic competency 25",
+                "ea12b764-3f89-4655-9206-47cd05c2097b": "Synthetic competency 26",
+                "539a788c-2172-47e6-b218-afa195a4f0bf": "Synthetic competency 27",
+                "9830b62f-80dc-4a94-91b7-65c105f3941f": "Synthetic competency 28",
+                "3f09d235-a2a6-4fce-9b69-204a3d87d645": "Synthetic competency 29",
+                "deca39ce-4d21-473b-99f4-8fbb0d5bd92e": "Synthetic competency 30"
+              },
+              "filters": {
+                "category_ids": [],
+                "search": "",
+                "scope": "all"
+              },
+              "descriptor_choices": [],
+              "insight_kind": null,
+              "matching_count": 30,
+              "included_count": 30,
+              "omitted_count": 0,
+              "evidence_included_count": 2,
+              "evidence_omitted_count": 162,
+              "facts": [
+                {
+                  "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": [
+                    {
+                      "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000006",
+                      "title": "SYNTHETIC TEST posting 7",
+                      "status": "active"
+                    },
+                    {
+                      "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000001",
+                      "title": "SYNTHETIC TEST posting 2",
+                      "status": "active"
+                    }
+                  ]
+                },
+                {
+                  "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+                  "job_metrics": {
+                    "supporting_posting_count": 0,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 0,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                }
+              ],
+              "coverage": {
+                "extraction_coverage": {
+                  "status": "partial",
+                  "acknowledged": false
+                },
+                "source_outcomes": {
+                  "onet": {
+                    "status": "success",
+                    "received_count": 0,
+                    "usable_count": 0,
+                    "warnings": []
+                  },
+                  "headhunter": {
+                    "status": "partial",
+                    "received_count": 12,
+                    "usable_count": 10,
+                    "warnings": []
+                  }
+                }
+              },
+              "notices": [
+                "Unsaved shortlist changes are not included",
+                "Some context was omitted to fit the evidence budget"
+              ]
+            },
+            "id": "user-718112c5fa534e48bdd066c92b3c64e4",
+            "role": "user",
+            "content": "Explain the displayed Python evidence.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13213-6e55-7d42-adf8-6a43ef13595f-0",
+            "role": "agent",
+            "agent": "workspace_review",
+            "agentDisplayName": "Evidence assistant",
+            "agentEmoji": "🤖",
+            "content": "Controlled explanation of the saved Python evidence.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "workspace_context": {
+              "kind": "run_review",
+              "version": 1,
+              "intent": "propose_selection",
+              "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+              "candidate_revision": 1,
+              "selection_revision": 3,
+              "release": "31.0",
+              "view": "data",
+              "metric": "frequency",
+              "occupation_codes": [],
+              "occupations": [],
+              "candidate_ids": [
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2"
+              ],
+              "candidate_labels": {
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2": "Synthetic competency 17",
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96": "Python",
+                "803ff482-904c-4541-ae40-66150d2f91b9": "Synthetic competency 11",
+                "6725c6d0-0623-4fed-97d9-31ce548d427a": "Synthetic competency 21",
+                "041c9415-f8b6-446a-b872-275f577f9546": "Communication",
+                "66f9731c-f642-4b45-b0db-d01ca600610c": "Critical Thinking",
+                "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60": "Programming",
+                "b855b591-22f8-4b76-b072-28338d207230": "Synthetic competency 05",
+                "ef7d4ba2-150d-4836-bc48-4a23a4e12370": "Synthetic competency 06",
+                "dc1ad13b-586e-4b89-bb68-d5064ef7adb9": "Synthetic competency 07",
+                "250983f1-502e-40b1-a812-1fcf2d936d71": "Synthetic competency 08",
+                "1abb0abd-8396-4866-98f8-1b9608b7fb6f": "Synthetic competency 09",
+                "80005a8b-b444-4ad4-a72b-0fb3468904ef": "Synthetic competency 10",
+                "8edec9e6-9914-4a9a-a1af-742e6c2f08f4": "Synthetic competency 12",
+                "af085f68-fa88-4327-8383-4e96135e7db1": "Synthetic competency 13",
+                "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d": "Synthetic competency 14",
+                "438385cc-1ce1-47a3-8c2a-37c81c9f300a": "Synthetic competency 15",
+                "9894b011-fee4-4614-8ec5-0d94ada6f7ff": "Synthetic competency 16",
+                "f117585b-f0ab-4565-a377-09bdd8f5cf80": "Synthetic competency 18",
+                "89aec2fd-8564-45a8-94c7-70be8eba9950": "Synthetic competency 19",
+                "8f6df141-71fe-43fd-9456-f9441b42d97f": "Synthetic competency 20",
+                "3053c5cf-f54e-4aba-8f4a-83184729bb86": "Synthetic competency 22",
+                "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2": "Synthetic competency 23",
+                "a62fea45-093f-46f3-9dc7-e37c31a55f99": "Synthetic competency 24",
+                "69d103d6-6bfc-44cc-adb6-f84c949f30cd": "Synthetic competency 25",
+                "ea12b764-3f89-4655-9206-47cd05c2097b": "Synthetic competency 26",
+                "539a788c-2172-47e6-b218-afa195a4f0bf": "Synthetic competency 27",
+                "9830b62f-80dc-4a94-91b7-65c105f3941f": "Synthetic competency 28",
+                "3f09d235-a2a6-4fce-9b69-204a3d87d645": "Synthetic competency 29",
+                "deca39ce-4d21-473b-99f4-8fbb0d5bd92e": "Synthetic competency 30"
+              },
+              "filters": {
+                "category_ids": [],
+                "search": "",
+                "scope": "all"
+              },
+              "descriptor_choices": [],
+              "insight_kind": null,
+              "matching_count": 30,
+              "included_count": 30,
+              "omitted_count": 0,
+              "evidence_included_count": 2,
+              "evidence_omitted_count": 162,
+              "facts": [
+                {
+                  "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": [
+                    {
+                      "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000001",
+                      "title": "SYNTHETIC TEST posting 2",
+                      "status": "active"
+                    },
+                    {
+                      "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000003",
+                      "title": "SYNTHETIC TEST posting 4",
+                      "status": "active"
+                    }
+                  ]
+                },
+                {
+                  "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+                  "job_metrics": {
+                    "supporting_posting_count": 0,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 0,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                }
+              ],
+              "coverage": {
+                "extraction_coverage": {
+                  "status": "partial",
+                  "acknowledged": false
+                },
+                "source_outcomes": {
+                  "onet": {
+                    "status": "success",
+                    "received_count": 0,
+                    "usable_count": 0,
+                    "warnings": []
+                  },
+                  "headhunter": {
+                    "status": "partial",
+                    "received_count": 12,
+                    "usable_count": 10,
+                    "warnings": []
+                  }
+                }
+              },
+              "notices": [
+                "Some context was omitted to fit the evidence budget"
+              ]
+            },
+            "id": "user-87f96285cf46410c90c2f0700e23c25c",
+            "role": "user",
+            "content": "Explain the evidence and unavailable values for Synthetic competency 17.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13213-9371-7c21-8dec-5cfa5c65c411-0",
+            "role": "agent",
+            "agent": "workspace_review",
+            "agentDisplayName": "Evidence assistant",
+            "agentEmoji": "🤖",
+            "content": "The proposal is ready for review. Your saved shortlist is unchanged; apply the proposed changes and Save draft to keep them.",
+            "toolCalls": [
+              {
+                "id": "task12-proposal",
+                "name": "propose_skill_selection",
+                "args": {
+                  "changes": [
+                    {
+                      "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                      "action": "add",
+                      "reason": "Synthetic evidence merits teacher review"
+                    }
+                  ]
+                },
+                "status": "finished",
+                "result": {
+                  "proposal_id": "76634ba7-3f30-42d9-b624-f33e34edeefb",
+                  "status": "proposed"
+                }
+              }
+            ],
+            "isStreaming": false
+          },
+          {
+            "workspace_context": {
+              "kind": "run_review",
+              "version": 1,
+              "intent": "explain",
+              "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+              "candidate_revision": 1,
+              "selection_revision": 6,
+              "release": "31.0",
+              "view": "overview",
+              "metric": "frequency",
+              "occupation_codes": [],
+              "occupations": [],
+              "candidate_ids": [
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96"
+              ],
+              "candidate_labels": {
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96": "Python",
+                "803ff482-904c-4541-ae40-66150d2f91b9": "Synthetic competency 11",
+                "6725c6d0-0623-4fed-97d9-31ce548d427a": "Synthetic competency 21",
+                "041c9415-f8b6-446a-b872-275f577f9546": "Communication",
+                "66f9731c-f642-4b45-b0db-d01ca600610c": "Critical Thinking",
+                "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60": "Programming",
+                "b855b591-22f8-4b76-b072-28338d207230": "Synthetic competency 05",
+                "ef7d4ba2-150d-4836-bc48-4a23a4e12370": "Synthetic competency 06",
+                "dc1ad13b-586e-4b89-bb68-d5064ef7adb9": "Synthetic competency 07",
+                "250983f1-502e-40b1-a812-1fcf2d936d71": "Synthetic competency 08",
+                "1abb0abd-8396-4866-98f8-1b9608b7fb6f": "Synthetic competency 09",
+                "80005a8b-b444-4ad4-a72b-0fb3468904ef": "Synthetic competency 10",
+                "8edec9e6-9914-4a9a-a1af-742e6c2f08f4": "Synthetic competency 12",
+                "af085f68-fa88-4327-8383-4e96135e7db1": "Synthetic competency 13",
+                "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d": "Synthetic competency 14",
+                "438385cc-1ce1-47a3-8c2a-37c81c9f300a": "Synthetic competency 15",
+                "9894b011-fee4-4614-8ec5-0d94ada6f7ff": "Synthetic competency 16",
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2": "Synthetic competency 17",
+                "f117585b-f0ab-4565-a377-09bdd8f5cf80": "Synthetic competency 18",
+                "89aec2fd-8564-45a8-94c7-70be8eba9950": "Synthetic competency 19",
+                "8f6df141-71fe-43fd-9456-f9441b42d97f": "Synthetic competency 20",
+                "3053c5cf-f54e-4aba-8f4a-83184729bb86": "Synthetic competency 22",
+                "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2": "Synthetic competency 23",
+                "a62fea45-093f-46f3-9dc7-e37c31a55f99": "Synthetic competency 24",
+                "69d103d6-6bfc-44cc-adb6-f84c949f30cd": "Synthetic competency 25",
+                "ea12b764-3f89-4655-9206-47cd05c2097b": "Synthetic competency 26",
+                "539a788c-2172-47e6-b218-afa195a4f0bf": "Synthetic competency 27",
+                "9830b62f-80dc-4a94-91b7-65c105f3941f": "Synthetic competency 28",
+                "3f09d235-a2a6-4fce-9b69-204a3d87d645": "Synthetic competency 29",
+                "deca39ce-4d21-473b-99f4-8fbb0d5bd92e": "Synthetic competency 30"
+              },
+              "filters": {
+                "category_ids": [],
+                "search": "",
+                "scope": "all"
+              },
+              "descriptor_choices": [],
+              "insight_kind": null,
+              "matching_count": 30,
+              "included_count": 30,
+              "omitted_count": 0,
+              "evidence_included_count": 2,
+              "evidence_omitted_count": 162,
+              "facts": [
+                {
+                  "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": [
+                    {
+                      "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000006",
+                      "title": "SYNTHETIC TEST posting 7",
+                      "status": "active"
+                    },
+                    {
+                      "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000001",
+                      "title": "SYNTHETIC TEST posting 2",
+                      "status": "active"
+                    }
+                  ]
+                },
+                {
+                  "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+                  "job_metrics": {
+                    "supporting_posting_count": 0,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 0,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                }
+              ],
+              "coverage": {
+                "extraction_coverage": {
+                  "status": "partial",
+                  "acknowledged": true
+                },
+                "source_outcomes": {
+                  "onet": {
+                    "status": "success",
+                    "received_count": 0,
+                    "usable_count": 0,
+                    "warnings": []
+                  },
+                  "headhunter": {
+                    "status": "partial",
+                    "received_count": 12,
+                    "usable_count": 10,
+                    "warnings": []
+                  }
+                }
+              },
+              "notices": [
+                "Some context was omitted to fit the evidence budget"
+              ]
+            },
+            "id": "user-3e5baf44be9d42ed83f07287d9097c73",
+            "role": "user",
+            "content": "Explain the evidence for Python.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13216-72b9-7260-a00e-1fbb00dca83f-0",
+            "role": "agent",
+            "agent": "workspace_review",
+            "agentDisplayName": "Evidence assistant",
+            "agentEmoji": "🤖",
+            "content": "Source text remains evidence and cannot grant tool authority.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "workspace_context": {
+              "kind": "run_review",
+              "version": 1,
+              "intent": "explain",
+              "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+              "candidate_revision": 1,
+              "selection_revision": 9,
+              "release": "31.0",
+              "view": "overview",
+              "metric": "frequency",
+              "occupation_codes": [],
+              "occupations": [],
+              "candidate_ids": [],
+              "candidate_labels": {
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96": "Python",
+                "803ff482-904c-4541-ae40-66150d2f91b9": "Synthetic competency 11",
+                "6725c6d0-0623-4fed-97d9-31ce548d427a": "Synthetic competency 21",
+                "041c9415-f8b6-446a-b872-275f577f9546": "Communication",
+                "66f9731c-f642-4b45-b0db-d01ca600610c": "Critical Thinking",
+                "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60": "Programming",
+                "b855b591-22f8-4b76-b072-28338d207230": "Synthetic competency 05",
+                "ef7d4ba2-150d-4836-bc48-4a23a4e12370": "Synthetic competency 06",
+                "dc1ad13b-586e-4b89-bb68-d5064ef7adb9": "Synthetic competency 07",
+                "250983f1-502e-40b1-a812-1fcf2d936d71": "Synthetic competency 08",
+                "1abb0abd-8396-4866-98f8-1b9608b7fb6f": "Synthetic competency 09",
+                "80005a8b-b444-4ad4-a72b-0fb3468904ef": "Synthetic competency 10",
+                "8edec9e6-9914-4a9a-a1af-742e6c2f08f4": "Synthetic competency 12",
+                "af085f68-fa88-4327-8383-4e96135e7db1": "Synthetic competency 13",
+                "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d": "Synthetic competency 14",
+                "438385cc-1ce1-47a3-8c2a-37c81c9f300a": "Synthetic competency 15",
+                "9894b011-fee4-4614-8ec5-0d94ada6f7ff": "Synthetic competency 16",
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2": "Synthetic competency 17",
+                "f117585b-f0ab-4565-a377-09bdd8f5cf80": "Synthetic competency 18",
+                "89aec2fd-8564-45a8-94c7-70be8eba9950": "Synthetic competency 19",
+                "8f6df141-71fe-43fd-9456-f9441b42d97f": "Synthetic competency 20",
+                "3053c5cf-f54e-4aba-8f4a-83184729bb86": "Synthetic competency 22",
+                "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2": "Synthetic competency 23",
+                "a62fea45-093f-46f3-9dc7-e37c31a55f99": "Synthetic competency 24",
+                "69d103d6-6bfc-44cc-adb6-f84c949f30cd": "Synthetic competency 25",
+                "ea12b764-3f89-4655-9206-47cd05c2097b": "Synthetic competency 26",
+                "539a788c-2172-47e6-b218-afa195a4f0bf": "Synthetic competency 27",
+                "9830b62f-80dc-4a94-91b7-65c105f3941f": "Synthetic competency 28",
+                "3f09d235-a2a6-4fce-9b69-204a3d87d645": "Synthetic competency 29",
+                "deca39ce-4d21-473b-99f4-8fbb0d5bd92e": "Synthetic competency 30"
+              },
+              "filters": {
+                "category_ids": [],
+                "search": "",
+                "scope": "all"
+              },
+              "descriptor_choices": [],
+              "insight_kind": null,
+              "matching_count": 30,
+              "included_count": 30,
+              "omitted_count": 0,
+              "evidence_included_count": 0,
+              "evidence_omitted_count": 164,
+              "facts": [
+                {
+                  "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+                  "job_metrics": {
+                    "supporting_posting_count": 0,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 0,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                }
+              ],
+              "coverage": {
+                "extraction_coverage": {
+                  "status": "partial",
+                  "acknowledged": true
+                },
+                "source_outcomes": {
+                  "onet": {
+                    "status": "success",
+                    "received_count": 0,
+                    "usable_count": 0,
+                    "warnings": []
+                  },
+                  "headhunter": {
+                    "status": "partial",
+                    "received_count": 12,
+                    "usable_count": 10,
+                    "warnings": []
+                  }
+                }
+              },
+              "notices": [
+                "Some context was omitted to fit the evidence budget"
+              ]
+            },
+            "id": "user-bbcfc03477c74207b5cd45db438e36c5",
+            "role": "user",
+            "content": "Create a long controlled explanation for transcript scroll acceptance.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13217-101c-7b70-b769-d3a3445d2069-0",
+            "role": "agent",
+            "agent": "workspace_review",
+            "agentDisplayName": "Evidence assistant",
+            "agentEmoji": "🤖",
+            "content": "Synthetic explanation paragraph 1: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 2: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 3: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 4: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 5: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 6: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 7: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 8: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 9: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 10: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 11: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 12: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 13: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 14: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 15: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 16: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 17: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 18: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 19: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 20: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 21: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 22: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 23: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 24: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 25: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 26: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 27: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 28: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 29: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 30: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 31: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 32: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 33: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 34: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 35: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 36: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 37: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 38: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 39: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 40: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 41: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 42: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 43: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 44: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 45: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 46: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 47: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 48: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 49: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 50: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 51: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 52: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 53: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 54: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 55: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 56: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 57: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 58: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 59: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 60: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 61: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 62: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 63: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 64: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 65: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 66: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 67: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 68: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 69: the saved sample is limited to the assessed postings and does not imply complete market coverage.\n\nSynthetic explanation paragraph 70: the saved sample is limited to the assessed postings and does not imply complete market coverage.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "workspace_context": {
+              "kind": "run_review",
+              "version": 1,
+              "intent": "explain",
+              "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+              "candidate_revision": 1,
+              "selection_revision": 9,
+              "release": "31.0",
+              "view": "overview",
+              "metric": "frequency",
+              "occupation_codes": [],
+              "occupations": [],
+              "candidate_ids": [],
+              "candidate_labels": {
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96": "Python",
+                "803ff482-904c-4541-ae40-66150d2f91b9": "Synthetic competency 11",
+                "6725c6d0-0623-4fed-97d9-31ce548d427a": "Synthetic competency 21",
+                "041c9415-f8b6-446a-b872-275f577f9546": "Communication",
+                "66f9731c-f642-4b45-b0db-d01ca600610c": "Critical Thinking",
+                "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60": "Programming",
+                "b855b591-22f8-4b76-b072-28338d207230": "Synthetic competency 05",
+                "ef7d4ba2-150d-4836-bc48-4a23a4e12370": "Synthetic competency 06",
+                "dc1ad13b-586e-4b89-bb68-d5064ef7adb9": "Synthetic competency 07",
+                "250983f1-502e-40b1-a812-1fcf2d936d71": "Synthetic competency 08",
+                "1abb0abd-8396-4866-98f8-1b9608b7fb6f": "Synthetic competency 09",
+                "80005a8b-b444-4ad4-a72b-0fb3468904ef": "Synthetic competency 10",
+                "8edec9e6-9914-4a9a-a1af-742e6c2f08f4": "Synthetic competency 12",
+                "af085f68-fa88-4327-8383-4e96135e7db1": "Synthetic competency 13",
+                "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d": "Synthetic competency 14",
+                "438385cc-1ce1-47a3-8c2a-37c81c9f300a": "Synthetic competency 15",
+                "9894b011-fee4-4614-8ec5-0d94ada6f7ff": "Synthetic competency 16",
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2": "Synthetic competency 17",
+                "f117585b-f0ab-4565-a377-09bdd8f5cf80": "Synthetic competency 18",
+                "89aec2fd-8564-45a8-94c7-70be8eba9950": "Synthetic competency 19",
+                "8f6df141-71fe-43fd-9456-f9441b42d97f": "Synthetic competency 20",
+                "3053c5cf-f54e-4aba-8f4a-83184729bb86": "Synthetic competency 22",
+                "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2": "Synthetic competency 23",
+                "a62fea45-093f-46f3-9dc7-e37c31a55f99": "Synthetic competency 24",
+                "69d103d6-6bfc-44cc-adb6-f84c949f30cd": "Synthetic competency 25",
+                "ea12b764-3f89-4655-9206-47cd05c2097b": "Synthetic competency 26",
+                "539a788c-2172-47e6-b218-afa195a4f0bf": "Synthetic competency 27",
+                "9830b62f-80dc-4a94-91b7-65c105f3941f": "Synthetic competency 28",
+                "3f09d235-a2a6-4fce-9b69-204a3d87d645": "Synthetic competency 29",
+                "deca39ce-4d21-473b-99f4-8fbb0d5bd92e": "Synthetic competency 30"
+              },
+              "filters": {
+                "category_ids": [],
+                "search": "",
+                "scope": "all"
+              },
+              "descriptor_choices": [],
+              "insight_kind": null,
+              "matching_count": 30,
+              "included_count": 30,
+              "omitted_count": 0,
+              "evidence_included_count": 0,
+              "evidence_omitted_count": 164,
+              "facts": [
+                {
+                  "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+                  "job_metrics": {
+                    "supporting_posting_count": 0,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 0,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                }
+              ],
+              "coverage": {
+                "extraction_coverage": {
+                  "status": "partial",
+                  "acknowledged": true
+                },
+                "source_outcomes": {
+                  "onet": {
+                    "status": "success",
+                    "received_count": 0,
+                    "usable_count": 0,
+                    "warnings": []
+                  },
+                  "headhunter": {
+                    "status": "partial",
+                    "received_count": 12,
+                    "usable_count": 10,
+                    "warnings": []
+                  }
+                }
+              },
+              "notices": [
+                "Some context was omitted to fit the evidence budget"
+              ]
+            },
+            "id": "user-df93e02a97554e9c8dd2c2ed0c00e3ee",
+            "role": "user",
+            "content": "Add one controlled reply.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13217-2116-71f1-861b-3a1efc163bff-0",
+            "role": "agent",
+            "agent": "workspace_review",
+            "agentDisplayName": "Evidence assistant",
+            "agentEmoji": "🤖",
+            "content": "Newest synthetic response below the retained scroll position.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "workspace_context": {
+              "kind": "run_review",
+              "version": 1,
+              "intent": "explain",
+              "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+              "candidate_revision": 1,
+              "selection_revision": 9,
+              "release": "31.0",
+              "view": "overview",
+              "metric": "frequency",
+              "occupation_codes": [],
+              "occupations": [],
+              "candidate_ids": [
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96"
+              ],
+              "candidate_labels": {
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96": "Python",
+                "803ff482-904c-4541-ae40-66150d2f91b9": "Synthetic competency 11",
+                "6725c6d0-0623-4fed-97d9-31ce548d427a": "Synthetic competency 21",
+                "041c9415-f8b6-446a-b872-275f577f9546": "Communication",
+                "66f9731c-f642-4b45-b0db-d01ca600610c": "Critical Thinking",
+                "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60": "Programming",
+                "b855b591-22f8-4b76-b072-28338d207230": "Synthetic competency 05",
+                "ef7d4ba2-150d-4836-bc48-4a23a4e12370": "Synthetic competency 06",
+                "dc1ad13b-586e-4b89-bb68-d5064ef7adb9": "Synthetic competency 07",
+                "250983f1-502e-40b1-a812-1fcf2d936d71": "Synthetic competency 08",
+                "1abb0abd-8396-4866-98f8-1b9608b7fb6f": "Synthetic competency 09",
+                "80005a8b-b444-4ad4-a72b-0fb3468904ef": "Synthetic competency 10",
+                "8edec9e6-9914-4a9a-a1af-742e6c2f08f4": "Synthetic competency 12",
+                "af085f68-fa88-4327-8383-4e96135e7db1": "Synthetic competency 13",
+                "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d": "Synthetic competency 14",
+                "438385cc-1ce1-47a3-8c2a-37c81c9f300a": "Synthetic competency 15",
+                "9894b011-fee4-4614-8ec5-0d94ada6f7ff": "Synthetic competency 16",
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2": "Synthetic competency 17",
+                "f117585b-f0ab-4565-a377-09bdd8f5cf80": "Synthetic competency 18",
+                "89aec2fd-8564-45a8-94c7-70be8eba9950": "Synthetic competency 19",
+                "8f6df141-71fe-43fd-9456-f9441b42d97f": "Synthetic competency 20",
+                "3053c5cf-f54e-4aba-8f4a-83184729bb86": "Synthetic competency 22",
+                "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2": "Synthetic competency 23",
+                "a62fea45-093f-46f3-9dc7-e37c31a55f99": "Synthetic competency 24",
+                "69d103d6-6bfc-44cc-adb6-f84c949f30cd": "Synthetic competency 25",
+                "ea12b764-3f89-4655-9206-47cd05c2097b": "Synthetic competency 26",
+                "539a788c-2172-47e6-b218-afa195a4f0bf": "Synthetic competency 27",
+                "9830b62f-80dc-4a94-91b7-65c105f3941f": "Synthetic competency 28",
+                "3f09d235-a2a6-4fce-9b69-204a3d87d645": "Synthetic competency 29",
+                "deca39ce-4d21-473b-99f4-8fbb0d5bd92e": "Synthetic competency 30"
+              },
+              "filters": {
+                "category_ids": [],
+                "search": "",
+                "scope": "all"
+              },
+              "descriptor_choices": [],
+              "insight_kind": null,
+              "matching_count": 30,
+              "included_count": 30,
+              "omitted_count": 0,
+              "evidence_included_count": 2,
+              "evidence_omitted_count": 162,
+              "facts": [
+                {
+                  "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": [
+                    {
+                      "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000006",
+                      "title": "SYNTHETIC TEST posting 7",
+                      "status": "active"
+                    },
+                    {
+                      "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000001",
+                      "title": "SYNTHETIC TEST posting 2",
+                      "status": "active"
+                    }
+                  ]
+                },
+                {
+                  "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+                  "job_metrics": {
+                    "supporting_posting_count": 0,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 0,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                }
+              ],
+              "coverage": {
+                "extraction_coverage": {
+                  "status": "partial",
+                  "acknowledged": true
+                },
+                "source_outcomes": {
+                  "onet": {
+                    "status": "success",
+                    "received_count": 0,
+                    "usable_count": 0,
+                    "warnings": []
+                  },
+                  "headhunter": {
+                    "status": "partial",
+                    "received_count": 12,
+                    "usable_count": 10,
+                    "warnings": []
+                  }
+                }
+              },
+              "notices": [
+                "Some context was omitted to fit the evidence budget"
+              ]
+            },
+            "id": "user-bb684057d64c4b5d8ec87a8416871f64",
+            "role": "user",
+            "content": "Retain this question after failed inference.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "workspace_context": {
+              "kind": "run_review",
+              "version": 1,
+              "intent": "explain",
+              "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+              "candidate_revision": 1,
+              "selection_revision": 9,
+              "release": "31.0",
+              "view": "overview",
+              "metric": "frequency",
+              "occupation_codes": [],
+              "occupations": [],
+              "candidate_ids": [
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96"
+              ],
+              "candidate_labels": {
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96": "Python",
+                "803ff482-904c-4541-ae40-66150d2f91b9": "Synthetic competency 11",
+                "6725c6d0-0623-4fed-97d9-31ce548d427a": "Synthetic competency 21",
+                "041c9415-f8b6-446a-b872-275f577f9546": "Communication",
+                "66f9731c-f642-4b45-b0db-d01ca600610c": "Critical Thinking",
+                "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60": "Programming",
+                "b855b591-22f8-4b76-b072-28338d207230": "Synthetic competency 05",
+                "ef7d4ba2-150d-4836-bc48-4a23a4e12370": "Synthetic competency 06",
+                "dc1ad13b-586e-4b89-bb68-d5064ef7adb9": "Synthetic competency 07",
+                "250983f1-502e-40b1-a812-1fcf2d936d71": "Synthetic competency 08",
+                "1abb0abd-8396-4866-98f8-1b9608b7fb6f": "Synthetic competency 09",
+                "80005a8b-b444-4ad4-a72b-0fb3468904ef": "Synthetic competency 10",
+                "8edec9e6-9914-4a9a-a1af-742e6c2f08f4": "Synthetic competency 12",
+                "af085f68-fa88-4327-8383-4e96135e7db1": "Synthetic competency 13",
+                "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d": "Synthetic competency 14",
+                "438385cc-1ce1-47a3-8c2a-37c81c9f300a": "Synthetic competency 15",
+                "9894b011-fee4-4614-8ec5-0d94ada6f7ff": "Synthetic competency 16",
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2": "Synthetic competency 17",
+                "f117585b-f0ab-4565-a377-09bdd8f5cf80": "Synthetic competency 18",
+                "89aec2fd-8564-45a8-94c7-70be8eba9950": "Synthetic competency 19",
+                "8f6df141-71fe-43fd-9456-f9441b42d97f": "Synthetic competency 20",
+                "3053c5cf-f54e-4aba-8f4a-83184729bb86": "Synthetic competency 22",
+                "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2": "Synthetic competency 23",
+                "a62fea45-093f-46f3-9dc7-e37c31a55f99": "Synthetic competency 24",
+                "69d103d6-6bfc-44cc-adb6-f84c949f30cd": "Synthetic competency 25",
+                "ea12b764-3f89-4655-9206-47cd05c2097b": "Synthetic competency 26",
+                "539a788c-2172-47e6-b218-afa195a4f0bf": "Synthetic competency 27",
+                "9830b62f-80dc-4a94-91b7-65c105f3941f": "Synthetic competency 28",
+                "3f09d235-a2a6-4fce-9b69-204a3d87d645": "Synthetic competency 29",
+                "deca39ce-4d21-473b-99f4-8fbb0d5bd92e": "Synthetic competency 30"
+              },
+              "filters": {
+                "category_ids": [],
+                "search": "",
+                "scope": "all"
+              },
+              "descriptor_choices": [],
+              "insight_kind": null,
+              "matching_count": 30,
+              "included_count": 30,
+              "omitted_count": 0,
+              "evidence_included_count": 2,
+              "evidence_omitted_count": 162,
+              "facts": [
+                {
+                  "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": [
+                    {
+                      "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000006",
+                      "title": "SYNTHETIC TEST posting 7",
+                      "status": "active"
+                    },
+                    {
+                      "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000001",
+                      "title": "SYNTHETIC TEST posting 2",
+                      "status": "active"
+                    }
+                  ]
+                },
+                {
+                  "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+                  "job_metrics": {
+                    "supporting_posting_count": 0,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 0,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                }
+              ],
+              "coverage": {
+                "extraction_coverage": {
+                  "status": "partial",
+                  "acknowledged": true
+                },
+                "source_outcomes": {
+                  "onet": {
+                    "status": "success",
+                    "received_count": 0,
+                    "usable_count": 0,
+                    "warnings": []
+                  },
+                  "headhunter": {
+                    "status": "partial",
+                    "received_count": 12,
+                    "usable_count": 10,
+                    "warnings": []
+                  }
+                }
+              },
+              "notices": [
+                "Some context was omitted to fit the evidence budget"
+              ]
+            },
+            "id": "user-e39d91e1d1024995ac5d0f9d7dd9645b",
+            "role": "user",
+            "content": "Retain this question after failed inference.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13217-75cc-7652-a158-4daac6415197-0",
+            "role": "agent",
+            "agent": "workspace_review",
+            "agentDisplayName": "Evidence assistant",
+            "agentEmoji": "🤖",
+            "content": "Synthetic delayed response after detachment.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "workspace_context": {
+              "kind": "run_review",
+              "version": 1,
+              "intent": "explain",
+              "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+              "candidate_revision": 1,
+              "selection_revision": 9,
+              "release": "31.0",
+              "view": "overview",
+              "metric": "frequency",
+              "occupation_codes": [],
+              "occupations": [],
+              "candidate_ids": [
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96"
+              ],
+              "candidate_labels": {
+                "2a0e6a43-6bf8-4eec-88e1-10bc94717d96": "Python",
+                "803ff482-904c-4541-ae40-66150d2f91b9": "Synthetic competency 11",
+                "6725c6d0-0623-4fed-97d9-31ce548d427a": "Synthetic competency 21",
+                "041c9415-f8b6-446a-b872-275f577f9546": "Communication",
+                "66f9731c-f642-4b45-b0db-d01ca600610c": "Critical Thinking",
+                "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60": "Programming",
+                "b855b591-22f8-4b76-b072-28338d207230": "Synthetic competency 05",
+                "ef7d4ba2-150d-4836-bc48-4a23a4e12370": "Synthetic competency 06",
+                "dc1ad13b-586e-4b89-bb68-d5064ef7adb9": "Synthetic competency 07",
+                "250983f1-502e-40b1-a812-1fcf2d936d71": "Synthetic competency 08",
+                "1abb0abd-8396-4866-98f8-1b9608b7fb6f": "Synthetic competency 09",
+                "80005a8b-b444-4ad4-a72b-0fb3468904ef": "Synthetic competency 10",
+                "8edec9e6-9914-4a9a-a1af-742e6c2f08f4": "Synthetic competency 12",
+                "af085f68-fa88-4327-8383-4e96135e7db1": "Synthetic competency 13",
+                "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d": "Synthetic competency 14",
+                "438385cc-1ce1-47a3-8c2a-37c81c9f300a": "Synthetic competency 15",
+                "9894b011-fee4-4614-8ec5-0d94ada6f7ff": "Synthetic competency 16",
+                "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2": "Synthetic competency 17",
+                "f117585b-f0ab-4565-a377-09bdd8f5cf80": "Synthetic competency 18",
+                "89aec2fd-8564-45a8-94c7-70be8eba9950": "Synthetic competency 19",
+                "8f6df141-71fe-43fd-9456-f9441b42d97f": "Synthetic competency 20",
+                "3053c5cf-f54e-4aba-8f4a-83184729bb86": "Synthetic competency 22",
+                "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2": "Synthetic competency 23",
+                "a62fea45-093f-46f3-9dc7-e37c31a55f99": "Synthetic competency 24",
+                "69d103d6-6bfc-44cc-adb6-f84c949f30cd": "Synthetic competency 25",
+                "ea12b764-3f89-4655-9206-47cd05c2097b": "Synthetic competency 26",
+                "539a788c-2172-47e6-b218-afa195a4f0bf": "Synthetic competency 27",
+                "9830b62f-80dc-4a94-91b7-65c105f3941f": "Synthetic competency 28",
+                "3f09d235-a2a6-4fce-9b69-204a3d87d645": "Synthetic competency 29",
+                "deca39ce-4d21-473b-99f4-8fbb0d5bd92e": "Synthetic competency 30"
+              },
+              "filters": {
+                "category_ids": [],
+                "search": "",
+                "scope": "all"
+              },
+              "descriptor_choices": [],
+              "insight_kind": null,
+              "matching_count": 30,
+              "included_count": 30,
+              "omitted_count": 0,
+              "evidence_included_count": 2,
+              "evidence_omitted_count": 162,
+              "facts": [
+                {
+                  "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": [
+                    {
+                      "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000006",
+                      "title": "SYNTHETIC TEST posting 7",
+                      "status": "active"
+                    },
+                    {
+                      "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                      "provider": "headhunter",
+                      "original_url": "https://hh.uz/vacancy/99000001",
+                      "title": "SYNTHETIC TEST posting 2",
+                      "status": "active"
+                    }
+                  ]
+                },
+                {
+                  "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+                  "job_metrics": {
+                    "supporting_posting_count": 10,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 100,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+                  "job_metrics": {
+                    "supporting_posting_count": 1,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 10,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+                  "job_metrics": {
+                    "supporting_posting_count": 9,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 90,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+                  "job_metrics": {
+                    "supporting_posting_count": 8,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 80,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+                  "job_metrics": {
+                    "supporting_posting_count": 7,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 70,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+                  "job_metrics": {
+                    "supporting_posting_count": 6,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 60,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+                  "job_metrics": {
+                    "supporting_posting_count": 5,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 50,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+                  "job_metrics": {
+                    "supporting_posting_count": 4,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 40,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+                  "job_metrics": {
+                    "supporting_posting_count": 3,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 30,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+                  "job_metrics": {
+                    "supporting_posting_count": 2,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 20,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                },
+                {
+                  "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+                  "job_metrics": {
+                    "supporting_posting_count": 0,
+                    "assessed_posting_count": 10,
+                    "selected_posting_count": 12,
+                    "percentage": 0,
+                    "coverage_status": "partial"
+                  },
+                  "onet_associations": [],
+                  "postings": []
+                }
+              ],
+              "coverage": {
+                "extraction_coverage": {
+                  "status": "partial",
+                  "acknowledged": true
+                },
+                "source_outcomes": {
+                  "onet": {
+                    "status": "success",
+                    "received_count": 0,
+                    "usable_count": 0,
+                    "warnings": []
+                  },
+                  "headhunter": {
+                    "status": "partial",
+                    "received_count": 12,
+                    "usable_count": 10,
+                    "warnings": []
+                  }
+                }
+              },
+              "notices": [
+                "Some context was omitted to fit the evidence budget"
+              ]
+            },
+            "id": "user-d0b0fc7706334175b8b120d647d580f0",
+            "role": "user",
+            "content": "Explain the evidence for Python.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a1321a-b136-7363-85b0-978694e49ca5-0",
+            "role": "agent",
+            "agent": "workspace_review",
+            "agentDisplayName": "Evidence assistant",
+            "agentEmoji": "🤖",
+            "content": "Synthetic contextual checkpoint for physical reset acceptance.",
+            "toolCalls": [],
+            "isStreaming": false
+          }
+        ],
+        "threadId": "mda-1-course-1",
+        "outcome": "unknown"
+      },
+      "before": {
+        "durable_counts": {
+          "market_analysis_runs": 21,
+          "market_vacancy_snapshots": 23,
+          "market_skill_approvals": 1
+        },
+        "checkpoints": [
+          {
+            "thread_id": "mda-1-course-1",
+            "count": 23
+          },
+          {
+            "thread_id": "mda-1-course-18",
+            "count": 42
+          },
+          {
+            "thread_id": "mda-1-course-19",
+            "count": 6
+          }
+        ],
+        "active_threads": [
+          "mda-1-course-10",
+          "mda-1-course-11",
+          "mda-1-course-12",
+          "mda-1-course-13",
+          "mda-1-course-14",
+          "mda-1-course-15",
+          "mda-1-course-16",
+          "mda-1-course-17",
+          "mda-1-course-18",
+          "mda-1-course-19",
+          "mda-1-course-20",
+          "mda-1-course-21",
+          "mda-1-course-22",
+          "mda-1-course-3",
+          "mda-1-course-4",
+          "mda-1-course-5",
+          "mda-1-course-6",
+          "mda-1-course-7",
+          "mda-1-course-8",
+          "mda-1-course-9"
+        ]
+      },
+      "after": {
+        "durable_counts": {
+          "market_analysis_runs": 21,
+          "market_vacancy_snapshots": 23,
+          "market_skill_approvals": 1
+        },
+        "checkpoints": [
+          {
+            "thread_id": "mda-1-course-18",
+            "count": 42
+          },
+          {
+            "thread_id": "mda-1-course-19",
+            "count": 6
+          }
+        ],
+        "active_threads": [
+          "mda-1-course-10",
+          "mda-1-course-11",
+          "mda-1-course-12",
+          "mda-1-course-13",
+          "mda-1-course-14",
+          "mda-1-course-15",
+          "mda-1-course-16",
+          "mda-1-course-17",
+          "mda-1-course-18",
+          "mda-1-course-19",
+          "mda-1-course-20",
+          "mda-1-course-21",
+          "mda-1-course-22",
+          "mda-1-course-3",
+          "mda-1-course-4",
+          "mda-1-course-5",
+          "mda-1-course-6",
+          "mda-1-course-7",
+          "mda-1-course-8",
+          "mda-1-course-9"
+        ]
+      },
+      "healthyRetryStatus": 200
+    },
+    {
+      "label": "workflow-only",
+      "history": {
+        "messages": [
+          {
+            "id": "user-29d84d8d1c2c49769ea8f5a5deb3db24",
+            "role": "user",
+            "content": "Find synthetic job evidence for this course.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13214-2688-7b51-b20a-1da25ef77343-0",
+            "role": "agent",
+            "agent": "supervisor",
+            "agentDisplayName": "Supervisor",
+            "agentEmoji": "📊",
+            "content": "Search Terms: \"Python developer\" and \"Software engineer\". Please confirm the search queries.",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "user-e6b23200d91e4badb30e4aefb2aeddcc",
+            "role": "user",
+            "content": "\"Python developer\", \"Software engineer\"",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13214-4211-7433-869c-383d0fb12f01-0",
+            "role": "agent",
+            "agent": "supervisor",
+            "agentDisplayName": "Supervisor",
+            "agentEmoji": "📊",
+            "content": "",
+            "toolCalls": [
+              {
+                "id": "task12-handoff",
+                "name": "transfer_to_skill_finder",
+                "args": {},
+                "status": "finished",
+                "result": "Successfully transferred to skill_finder"
+              }
+            ],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13214-4221-76f1-966c-edd4e32da9e0-0",
+            "role": "agent",
+            "agent": "skill_finder",
+            "agentDisplayName": "Skill Finder",
+            "agentEmoji": "🔍",
+            "content": "Synthetic jobs are collected. Please confirm a job group.",
+            "toolCalls": [
+              {
+                "id": "task12-fetch",
+                "name": "fetch_jobs",
+                "args": {
+                  "search_terms": "Python developer, Software engineer",
+                  "country": "Uzbekistan"
+                },
+                "status": "finished",
+                "result": "Selected evidence sources: headhunter: success (3 received, 3 usable)\nFetched 3 extraction-eligible jobs.\n[1] Synthetic Python Developer (3 jobs)\nAsk the teacher which job groups to select before extracting vacancies."
+              }
+            ],
+            "isStreaming": false
+          },
+          {
+            "id": "user-6310a9987daa45399d74edc673d235e5",
+            "role": "user",
+            "content": "1",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13214-5473-7331-8e24-197873ec1aed-0",
+            "role": "agent",
+            "agent": "skill_finder",
+            "agentDisplayName": "Skill Finder",
+            "agentEmoji": "🔍",
+            "content": "The teacher-confirmed synthetic job group is selected.",
+            "toolCalls": [
+              {
+                "id": "task12-groups",
+                "name": "select_jobs_by_group",
+                "args": {
+                  "group_names": "all"
+                },
+                "status": "finished",
+                "result": "Selected 3 jobs from all 1 groups:\n  ✓ Synthetic Python Developer (3)\n\nSelection complete. Transfer back to Coordinator."
+              }
+            ],
+            "isStreaming": false
+          },
+          {
+            "id": "user-c424b556f7ed40f39fc1a9c38811821e",
+            "role": "user",
+            "content": "Continue the current workflow",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13218-0a44-7eb2-91af-1221c8f1be7c-0",
+            "role": "agent",
+            "agent": "skill_finder",
+            "agentDisplayName": "Skill Finder",
+            "agentEmoji": "🔍",
+            "content": "The synthetic provider failed. No fallback provider was used.",
+            "toolCalls": [
+              {
+                "id": "task12-source-error",
+                "name": "fetch_jobs",
+                "args": {
+                  "search_terms": "sourceerror",
+                  "country": "Uzbekistan"
+                },
+                "status": "finished",
+                "result": "Selected evidence sources: headhunter: error (0 received, 0 usable)\nFetched 0 extraction-eligible jobs.\nRetry or use Continue with available evidence before advancing. Supporting postings remain required for publication."
+              }
+            ],
+            "isStreaming": false
+          },
+          {
+            "id": "user-f36a98a3586e4c16852dae65d58d3766",
+            "role": "user",
+            "content": "Continue the current workflow",
+            "toolCalls": [],
+            "isStreaming": false
+          },
+          {
+            "id": "lc_run--01a13219-8624-7d02-b140-74e52c473199-0",
+            "role": "agent",
+            "agent": "skill_finder",
+            "agentDisplayName": "Skill Finder",
+            "agentEmoji": "🔍",
+            "content": "The synthetic provider failed. No fallback provider was used.",
+            "toolCalls": [
+              {
+                "id": "task12-source-error",
+                "name": "fetch_jobs",
+                "args": {
+                  "search_terms": "sourceerror",
+                  "country": "Uzbekistan"
+                },
+                "status": "finished",
+                "result": "Selected evidence sources: headhunter: error (0 received, 0 usable)\nFetched 0 extraction-eligible jobs.\nRetry or use Continue with available evidence before advancing. Supporting postings remain required for publication."
+              }
+            ],
+            "isStreaming": false
+          }
+        ],
+        "threadId": "mda-1-course-18",
+        "outcome": "unknown"
+      },
+      "before": {
+        "durable_counts": {
+          "market_analysis_runs": 21,
+          "market_vacancy_snapshots": 23,
+          "market_skill_approvals": 1
+        },
+        "checkpoints": [
+          {
+            "thread_id": "mda-1-course-18",
+            "count": 42
+          },
+          {
+            "thread_id": "mda-1-course-19",
+            "count": 6
+          }
+        ],
+        "active_threads": [
+          "mda-1-course-10",
+          "mda-1-course-11",
+          "mda-1-course-12",
+          "mda-1-course-13",
+          "mda-1-course-14",
+          "mda-1-course-15",
+          "mda-1-course-16",
+          "mda-1-course-17",
+          "mda-1-course-19",
+          "mda-1-course-20",
+          "mda-1-course-21",
+          "mda-1-course-22",
+          "mda-1-course-3",
+          "mda-1-course-4",
+          "mda-1-course-5",
+          "mda-1-course-6",
+          "mda-1-course-7",
+          "mda-1-course-8",
+          "mda-1-course-9"
+        ]
+      },
+      "after": {
+        "durable_counts": {
+          "market_analysis_runs": 21,
+          "market_vacancy_snapshots": 23,
+          "market_skill_approvals": 1
+        },
+        "checkpoints": [
+          {
+            "thread_id": "mda-1-course-19",
+            "count": 6
+          }
+        ],
+        "active_threads": [
+          "mda-1-course-10",
+          "mda-1-course-11",
+          "mda-1-course-12",
+          "mda-1-course-13",
+          "mda-1-course-14",
+          "mda-1-course-15",
+          "mda-1-course-16",
+          "mda-1-course-17",
+          "mda-1-course-19",
+          "mda-1-course-20",
+          "mda-1-course-21",
+          "mda-1-course-22",
+          "mda-1-course-3",
+          "mda-1-course-4",
+          "mda-1-course-5",
+          "mda-1-course-6",
+          "mda-1-course-7",
+          "mda-1-course-8",
+          "mda-1-course-9"
+        ]
+      },
+      "healthyRetryStatus": 200
+    }
+  ],
+  "durable": {
+    "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+    "candidate_revision": 1,
+    "selection_revision": 9,
+    "publication_revision": 1,
+    "selected_candidate_ids": [
+      "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+      "041c9415-f8b6-446a-b872-275f577f9546",
+      "f117585b-f0ab-4565-a377-09bdd8f5cf80"
+    ],
+    "approved_references": [
+      {
+        "label": "Python",
+        "origin": "market_demand",
+        "source": "market",
+        "category": "programming",
+        "reference_id": "2c6cb8bf-361d-402f-80ee-148e6135bd3f",
+        "projection_status": "projected",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/99000001",
+          "https://hh.uz/vacancy/99000002",
+          "https://hh.uz/vacancy/99000003",
+          "https://hh.uz/vacancy/99000004",
+          "https://hh.uz/vacancy/99000005",
+          "https://hh.uz/vacancy/99000006",
+          "https://hh.uz/vacancy/99000007",
+          "https://hh.uz/vacancy/99000008",
+          "https://hh.uz/vacancy/99000009"
+        ],
+        "available_for_new_selection": true
+      }
+    ],
+    "approvals": [
+      {
+        "review_digest": "c7474f9233871437e7a2f0b7c45bfa016c770382680daa6eb05800f1d2ac9538",
+        "items": [
+          {
+            "name": "Python",
+            "origin": "market_demand",
+            "target": {
+              "label": "Python",
+              "origin": "market_demand",
+              "source": "market",
+              "identity": "career:3ab7f5c2-347a-54ce-a383-7d49da529b34"
+            },
+            "chapters": [
+              {
+                "title": "Programming",
+                "chapter_id": "chapter-1"
+              }
+            ],
+            "concepts": [],
+            "candidate": {
+              "aliases": [],
+              "category_id": "programming",
+              "job_metrics": {
+                "percentage": 100,
+                "coverage_status": "partial",
+                "assessed_posting_count": 10,
+                "selected_posting_count": 12,
+                "supporting_posting_count": 10
+              },
+              "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+              "display_name": "Python",
+              "original_labels": [
+                "Python"
+              ],
+              "posting_support": "supported",
+              "onet_associations": [],
+              "evidence_references": [
+                {
+                  "status": "purged",
+                  "provider": "headhunter",
+                  "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+                  "original_url": "https://hh.uz/vacancy/99000000",
+                  "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+                  "evidence_kind": "provider_tag",
+                  "content_removed": true,
+                  "original_phrase": null
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                  "original_url": "https://hh.uz/vacancy/99000001",
+                  "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+                  "original_url": "https://hh.uz/vacancy/99000002",
+                  "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+                  "original_url": "https://hh.uz/vacancy/99000003",
+                  "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+                  "original_url": "https://hh.uz/vacancy/99000004",
+                  "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+                  "original_url": "https://hh.uz/vacancy/99000005",
+                  "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                  "original_url": "https://hh.uz/vacancy/99000006",
+                  "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+                  "original_url": "https://hh.uz/vacancy/99000007",
+                  "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+                  "original_url": "https://hh.uz/vacancy/99000008",
+                  "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "a8f7fb47-2742-470e-b0da-01a28eac6669",
+                  "original_url": "https://hh.uz/vacancy/99000009",
+                  "retrieved_at": "2026-10-12T21:43:31.700111+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                }
+              ],
+              "recommendation_reasons": [],
+              "qualifying_posting_links": [
+                "https://hh.uz/vacancy/99000000",
+                "https://hh.uz/vacancy/99000001",
+                "https://hh.uz/vacancy/99000002",
+                "https://hh.uz/vacancy/99000003",
+                "https://hh.uz/vacancy/99000004",
+                "https://hh.uz/vacancy/99000005",
+                "https://hh.uz/vacancy/99000006",
+                "https://hh.uz/vacancy/99000007",
+                "https://hh.uz/vacancy/99000008",
+                "https://hh.uz/vacancy/99000009"
+              ]
+            },
+            "chapter_ids": [
+              "chapter-1"
+            ],
+            "disposition": "new",
+            "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+            "identity_key": "jobs:Python",
+            "onet_bindings": [],
+            "vacancy_bindings": [
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                "original_url": "https://hh.uz/vacancy/99000001",
+                "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+                "original_url": "https://hh.uz/vacancy/99000002",
+                "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+                "original_url": "https://hh.uz/vacancy/99000003",
+                "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+                "original_url": "https://hh.uz/vacancy/99000004",
+                "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+                "original_url": "https://hh.uz/vacancy/99000005",
+                "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                "original_url": "https://hh.uz/vacancy/99000006",
+                "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+                "original_url": "https://hh.uz/vacancy/99000007",
+                "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+                "original_url": "https://hh.uz/vacancy/99000008",
+                "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "a8f7fb47-2742-470e-b0da-01a28eac6669",
+                "original_url": "https://hh.uz/vacancy/99000009",
+                "retrieved_at": "2026-10-12T21:43:31.700111+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              }
+            ],
+            "skill_reference_id": "2c6cb8bf-361d-402f-80ee-148e6135bd3f",
+            "validated_observations": [],
+            "qualifying_posting_links": [
+              "https://hh.uz/vacancy/99000001",
+              "https://hh.uz/vacancy/99000002",
+              "https://hh.uz/vacancy/99000003",
+              "https://hh.uz/vacancy/99000004",
+              "https://hh.uz/vacancy/99000005",
+              "https://hh.uz/vacancy/99000006",
+              "https://hh.uz/vacancy/99000007",
+              "https://hh.uz/vacancy/99000008",
+              "https://hh.uz/vacancy/99000009"
+            ]
+          }
+        ],
+        "revision": 1,
+        "projection_status": "projected"
+      }
+    ]
+  },
+  "student": {
+    "path": {
+      "course_id": 1,
+      "course_title": "SYNTHETIC acceptance course",
+      "chapters": [
+        {
+          "title": "Programming",
+          "chapter_index": 1,
+          "description": null,
+          "learning_objectives": [],
+          "selected_skills": [
+            {
+              "skill_reference_id": "6c62808c-9212-47fa-9835-6e4fc7a7d8fd",
+              "source": "book",
+              "origin": "book",
+              "qualifying_posting_links": [],
+              "evidence_references": [],
+              "onet_associations": [],
+              "job_metrics": null,
+              "projection_status": "projected",
+              "available_for_new_selection": true,
+              "availability_reason": null,
+              "is_selected": false,
+              "peer_count": 0,
+              "name": "Saved synthetic book skill",
+              "description": null,
+              "concepts": [],
+              "readings": [
+                {
+                  "id": "task12-reading",
+                  "title": "Saved synthetic reading",
+                  "url": "https://example.invalid/task12-reading",
+                  "domain": "",
+                  "snippet": "",
+                  "search_content": "",
+                  "search_result_url": "",
+                  "search_result_domain": "",
+                  "source_engine": "",
+                  "source_engines": [],
+                  "search_metadata_json": "[]",
+                  "resource_type": "article",
+                  "final_score": 0.9,
+                  "concepts_covered": []
+                }
+              ],
+              "videos": [],
+              "questions": [
+                {
+                  "id": "task12-question",
+                  "text": "Synthetic: what is 2 + 2?",
+                  "difficulty": "easy",
+                  "options": [
+                    "4",
+                    "3",
+                    "2",
+                    "1"
+                  ]
+                }
+              ],
+              "resource_status": "loaded",
+              "is_known": true
+            }
+          ],
+          "quiz_status": "completed",
+          "easy_question_count": 1,
+          "answered_count": 1,
+          "correct_count": 1
+        }
+      ],
+      "total_selected_skills": 1,
+      "skills_with_resources": 1
+    },
+    "quiz": {
+      "course_id": 1,
+      "chapter_index": 1,
+      "chapter_title": "Programming",
+      "questions": [
+        {
+          "id": "task12-question",
+          "skill_name": "Saved synthetic book skill",
+          "text": "Synthetic: what is 2 + 2?",
+          "options": [
+            "4",
+            "3",
+            "2",
+            "1"
+          ]
+        }
+      ],
+      "previous_answers": {
+        "task12-question": {
+          "selected_option": "A",
+          "answered_right": true,
+          "answered_at": "2026-10-12T21:43:40.678000Z"
+        }
+      }
+    },
+    "reading": {
+      "id": "task12-reading",
+      "title": "Saved synthetic reading",
+      "url": "https://example.invalid/task12-reading",
+      "domain": "example.invalid",
+      "status": "ready",
+      "content_markdown": "# Synthetic saved reading\nRetained student resource.",
+      "fallback_summary": "We could not generate an in-app preview for this resource. Open the original source to keep studying.",
+      "error_message": null
+    }
+  },
+  "automaticModelCalls": 0
+}

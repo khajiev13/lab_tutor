@@ -1,0 +1,15 @@
+{
+  "base": "29929f07ec3c37c687734527edc603fd24479bf3",
+  "source": "Captured real hover before Task7 fix; raw output retained in task-12-verification.log",
+  "chart": {
+    "left": 16,
+    "right": 304,
+    "width": 288
+  },
+  "tooltip": {
+    "text": "Synthetic competency 24: 70% \u00b7 7 / 10 supporting / assessed",
+    "left": 36,
+    "right": 360.859375,
+    "width": 324.859375
+  }
+}

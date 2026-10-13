@@ -1,0 +1,389 @@
+[
+  {
+    "name": "denominator_9",
+    "heatmap": [],
+    "patterns": []
+  },
+  {
+    "name": "denominator_10",
+    "heatmap": [],
+    "patterns": [
+      {
+        "kind": "common_sample",
+        "candidate_ids": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "occupation_codes": [],
+        "descriptor_keys": [],
+        "values": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": null,
+            "value": 50,
+            "supporting_count": 3,
+            "assessed_count": 10
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {},
+          "source_outcomes": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "spread_1_0_distinct_role_ids",
+    "heatmap": [
+      [
+        0,
+        0,
+        3
+      ],
+      [
+        1,
+        0,
+        4
+      ]
+    ],
+    "patterns": [
+      {
+        "kind": "occupation_difference",
+        "candidate_ids": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "descriptor_keys": [
+          [
+            "30.0",
+            "transferable",
+            "2.B.3"
+          ]
+        ],
+        "values": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": "15-1252.00",
+            "value": 3,
+            "supporting_count": null,
+            "assessed_count": null
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": "15-1253.00",
+            "value": 4,
+            "supporting_count": null,
+            "assessed_count": null
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {},
+          "source_outcomes": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "missing_cell",
+    "heatmap": [
+      [
+        0,
+        0,
+        4
+      ]
+    ],
+    "patterns": []
+  },
+  {
+    "name": "suppressed_numeric_not_plotted",
+    "heatmap": [
+      [
+        0,
+        0,
+        4
+      ]
+    ],
+    "patterns": []
+  },
+  {
+    "name": "ambiguous_cell",
+    "heatmap": [
+      [
+        1,
+        0,
+        5
+      ]
+    ],
+    "patterns": []
+  },
+  {
+    "name": "explicit_descriptor_choice",
+    "heatmap": [
+      [
+        0,
+        0,
+        3
+      ],
+      [
+        1,
+        0,
+        5
+      ]
+    ],
+    "patterns": [
+      {
+        "kind": "occupation_difference",
+        "candidate_ids": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "descriptor_keys": [
+          [
+            "30.0",
+            "transferable",
+            "2.B.3"
+          ]
+        ],
+        "values": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": "15-1252.00",
+            "value": 3,
+            "supporting_count": null,
+            "assessed_count": null
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": "15-1253.00",
+            "value": 5,
+            "supporting_count": null,
+            "assessed_count": null
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {},
+          "source_outcomes": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "tie_label_then_id",
+    "heatmap": [],
+    "patterns": [
+      {
+        "kind": "common_sample",
+        "candidate_ids": [
+          "00000000-0000-0000-0000-000000000002",
+          "00000000-0000-0000-0000-000000000003",
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "occupation_codes": [],
+        "descriptor_keys": [],
+        "values": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "occupation_code": null,
+            "value": 50,
+            "supporting_count": 3,
+            "assessed_count": 10
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000003",
+            "occupation_code": null,
+            "value": 50,
+            "supporting_count": 3,
+            "assessed_count": 10
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": null,
+            "value": 50,
+            "supporting_count": 3,
+            "assessed_count": 10
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {},
+          "source_outcomes": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "same_denominator_only",
+    "heatmap": [],
+    "patterns": [
+      {
+        "kind": "common_sample",
+        "candidate_ids": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "occupation_codes": [],
+        "descriptor_keys": [],
+        "values": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": null,
+            "value": 50,
+            "supporting_count": 3,
+            "assessed_count": 10
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {},
+          "source_outcomes": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "max_two_no_repeated_skill",
+    "scatter": [
+      [
+        50,
+        3
+      ]
+    ]
+  },
+  {
+    "name": "max_two_no_repeated_skill",
+    "heatmap": [
+      [
+        0,
+        0,
+        3
+      ],
+      [
+        1,
+        0,
+        5
+      ],
+      [
+        0,
+        1,
+        3
+      ],
+      [
+        1,
+        1,
+        4
+      ]
+    ],
+    "patterns": [
+      {
+        "kind": "common_sample",
+        "candidate_ids": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "occupation_codes": [],
+        "descriptor_keys": [],
+        "values": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": null,
+            "value": 50,
+            "supporting_count": 3,
+            "assessed_count": 10
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {},
+          "source_outcomes": {}
+        }
+      },
+      {
+        "kind": "occupation_difference",
+        "candidate_ids": [
+          "00000000-0000-0000-0000-000000000002"
+        ],
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "descriptor_keys": [
+          [
+            "30.0",
+            "transferable",
+            "2.B.3"
+          ]
+        ],
+        "values": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "occupation_code": "15-1252.00",
+            "value": 3,
+            "supporting_count": null,
+            "assessed_count": null
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "occupation_code": "15-1253.00",
+            "value": 4,
+            "supporting_count": null,
+            "assessed_count": null
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {},
+          "source_outcomes": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "filtered_empty",
+    "heatmap": [],
+    "patterns": []
+  },
+  {
+    "name": "partial_coverage_qualified",
+    "heatmap": [],
+    "patterns": [
+      {
+        "kind": "common_sample",
+        "candidate_ids": [
+          "00000000-0000-0000-0000-000000000001"
+        ],
+        "occupation_codes": [],
+        "descriptor_keys": [],
+        "values": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "occupation_code": null,
+            "value": 50,
+            "supporting_count": 3,
+            "assessed_count": 10
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {
+            "status": "partial",
+            "assessed": 10,
+            "total": 20
+          },
+          "source_outcomes": {
+            "headhunter": {
+              "status": "partial",
+              "received_count": 20,
+              "usable_count": 10,
+              "warnings": [
+                "limited sample"
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "software_reference_not_numeric",
+    "heatmap": [],
+    "patterns": []
+  }
+]

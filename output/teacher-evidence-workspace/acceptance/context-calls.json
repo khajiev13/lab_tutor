@@ -1,0 +1,1073 @@
+[
+  {
+    "tools": [],
+    "evidence": {
+      "kind": "run_review",
+      "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+      "candidate_revision": 1,
+      "selection_revision": 2,
+      "release": "31.0",
+      "metric": "frequency",
+      "occupation_codes": [],
+      "coverage": {
+        "extraction_coverage": {
+          "status": "partial",
+          "acknowledged": false
+        },
+        "source_outcomes": {
+          "onet": {
+            "status": "success",
+            "received_count": 0,
+            "usable_count": 0,
+            "warnings": []
+          },
+          "headhunter": {
+            "status": "partial",
+            "received_count": 12,
+            "usable_count": 10,
+            "warnings": []
+          }
+        }
+      },
+      "patterns": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+            "803ff482-904c-4541-ae40-66150d2f91b9",
+            "6725c6d0-0623-4fed-97d9-31ce548d427a"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+              "occupation_code": null,
+              "value": 100,
+              "supporting_count": 10,
+              "assessed_count": 10
+            },
+            {
+              "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+              "occupation_code": null,
+              "value": 100,
+              "supporting_count": 10,
+              "assessed_count": 10
+            },
+            {
+              "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+              "occupation_code": null,
+              "value": 100,
+              "supporting_count": 10,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {
+              "status": "partial",
+              "acknowledged": false
+            },
+            "source_outcomes": {
+              "onet": {
+                "status": "success",
+                "received_count": 0,
+                "usable_count": 0,
+                "warnings": []
+              },
+              "headhunter": {
+                "status": "partial",
+                "received_count": 12,
+                "usable_count": 10,
+                "warnings": []
+              }
+            }
+          }
+        }
+      ],
+      "notices": [
+        "Unsaved shortlist changes are not included",
+        "Some context was omitted to fit the evidence budget"
+      ],
+      "candidates": [
+        {
+          "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+          "display_name": "Python",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 10,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 100,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": [
+            {
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "provider": "headhunter",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "title": "SYNTHETIC TEST posting 7",
+              "status": "active",
+              "excerpt": "SYNTHETIC TEST ONLY. Required: Python, Critical Thinking, Programming, Communication, Synthetic competency 05, Synthetic competency 06, Synthetic competency 07, Synthetic competency 08, Synthetic competency 09, Synthetic competency 10, Synthetic competency 11, Synthetic competency 12, Synthetic competency 13, Synthetic competency 14, Synthetic competency 15, Synthetic competency 16, Synthetic competency 17, Synthetic competency 18, Synthetic competency 19, Synthetic competency 20, Synthetic competency 21, Synthetic competency 22, Synthetic competency 23, Synthetic competency 24, Synthetic comp"
+            },
+            {
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "provider": "headhunter",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "title": "SYNTHETIC TEST posting 2",
+              "status": "active",
+              "excerpt": "SYNTHETIC TEST ONLY. Required: Python, Critical Thinking, Programming, Communication, Synthetic competency 05, Synthetic competency 06, Synthetic competency 07, Synthetic competency 08, Synthetic competency 09, Synthetic competency 10, Synthetic competency 11, Synthetic competency 12, Synthetic competency 13, Synthetic competency 14, Synthetic competency 15, Synthetic competency 16, Synthetic competency 17, Synthetic competency 18, Synthetic competency 19, Synthetic competency 20, Synthetic competency 21, Synthetic competency 22, Synthetic competency 23, Synthetic competency 24, Synthetic comp"
+            }
+          ]
+        },
+        {
+          "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+          "display_name": "Synthetic competency 11",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 10,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 100,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+          "display_name": "Synthetic competency 21",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 10,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 100,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+          "display_name": "Communication",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 7,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 70,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+          "display_name": "Critical Thinking",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 9,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 90,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+          "display_name": "Programming",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 8,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 80,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+          "display_name": "Synthetic competency 05",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 6,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 60,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+          "display_name": "Synthetic competency 06",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 5,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 50,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+          "display_name": "Synthetic competency 07",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 4,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 40,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+          "display_name": "Synthetic competency 08",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 3,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 30,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+          "display_name": "Synthetic competency 09",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 2,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 20,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+          "display_name": "Synthetic competency 10",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 1,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 10,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+          "display_name": "Synthetic competency 12",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 9,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 90,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+          "display_name": "Synthetic competency 13",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 8,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 80,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+          "display_name": "Synthetic competency 14",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 7,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 70,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+          "display_name": "Synthetic competency 15",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 6,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 60,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+          "display_name": "Synthetic competency 16",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 5,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 50,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+          "display_name": "Synthetic competency 17",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 4,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 40,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+          "display_name": "Synthetic competency 18",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 3,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 30,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+          "display_name": "Synthetic competency 19",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 2,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 20,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+          "display_name": "Synthetic competency 20",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 1,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 10,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+          "display_name": "Synthetic competency 22",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 9,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 90,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+          "display_name": "Synthetic competency 23",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 8,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 80,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+          "display_name": "Synthetic competency 24",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 7,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 70,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+          "display_name": "Synthetic competency 25",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 6,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 60,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+          "display_name": "Synthetic competency 26",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 5,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 50,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+          "display_name": "Synthetic competency 27",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 4,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 40,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+          "display_name": "Synthetic competency 28",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 3,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 30,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+          "display_name": "Synthetic competency 29",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 2,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 20,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+          "display_name": "Synthetic competency 30",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 0,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 0,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        }
+      ],
+      "included_count": 30,
+      "omitted_count": 0,
+      "evidence_included_count": 2,
+      "evidence_omitted_count": 162
+    },
+    "human": "Explain the displayed Python evidence."
+  },
+  {
+    "tools": [
+      "propose_skill_selection"
+    ],
+    "evidence": {
+      "kind": "run_review",
+      "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+      "candidate_revision": 1,
+      "selection_revision": 3,
+      "release": "31.0",
+      "metric": "frequency",
+      "occupation_codes": [],
+      "coverage": {
+        "extraction_coverage": {
+          "status": "partial",
+          "acknowledged": false
+        },
+        "source_outcomes": {
+          "onet": {
+            "status": "success",
+            "received_count": 0,
+            "usable_count": 0,
+            "warnings": []
+          },
+          "headhunter": {
+            "status": "partial",
+            "received_count": 12,
+            "usable_count": 10,
+            "warnings": []
+          }
+        }
+      },
+      "patterns": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+            "803ff482-904c-4541-ae40-66150d2f91b9",
+            "6725c6d0-0623-4fed-97d9-31ce548d427a"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+              "occupation_code": null,
+              "value": 100,
+              "supporting_count": 10,
+              "assessed_count": 10
+            },
+            {
+              "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+              "occupation_code": null,
+              "value": 100,
+              "supporting_count": 10,
+              "assessed_count": 10
+            },
+            {
+              "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+              "occupation_code": null,
+              "value": 100,
+              "supporting_count": 10,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {
+              "status": "partial",
+              "acknowledged": false
+            },
+            "source_outcomes": {
+              "onet": {
+                "status": "success",
+                "received_count": 0,
+                "usable_count": 0,
+                "warnings": []
+              },
+              "headhunter": {
+                "status": "partial",
+                "received_count": 12,
+                "usable_count": 10,
+                "warnings": []
+              }
+            }
+          }
+        }
+      ],
+      "notices": [
+        "Some context was omitted to fit the evidence budget"
+      ],
+      "candidates": [
+        {
+          "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+          "display_name": "Synthetic competency 17",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 4,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 40,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": [
+            {
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "provider": "headhunter",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "title": "SYNTHETIC TEST posting 2",
+              "status": "active",
+              "excerpt": "SYNTHETIC TEST ONLY. Required: Python, Critical Thinking, Programming, Communication, Synthetic competency 05, Synthetic competency 06, Synthetic competency 07, Synthetic competency 08, Synthetic competency 09, Synthetic competency 10, Synthetic competency 11, Synthetic competency 12, Synthetic competency 13, Synthetic competency 14, Synthetic competency 15, Synthetic competency 16, Synthetic competency 17, Synthetic competency 18, Synthetic competency 19, Synthetic competency 20, Synthetic competency 21, Synthetic competency 22, Synthetic competency 23, Synthetic competency 24, Synthetic comp"
+            },
+            {
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "provider": "headhunter",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "title": "SYNTHETIC TEST posting 4",
+              "status": "active",
+              "excerpt": "SYNTHETIC TEST ONLY. Required: Python, Critical Thinking, Programming, Communication, Synthetic competency 05, Synthetic competency 06, Synthetic competency 07, Synthetic competency 08, Synthetic competency 09, Synthetic competency 10, Synthetic competency 11, Synthetic competency 12, Synthetic competency 13, Synthetic competency 14, Synthetic competency 15, Synthetic competency 16, Synthetic competency 17, Synthetic competency 18, Synthetic competency 19, Synthetic competency 20, Synthetic competency 21, Synthetic competency 22, Synthetic competency 23, Synthetic competency 24, Synthetic comp"
+            }
+          ]
+        },
+        {
+          "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+          "display_name": "Python",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 10,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 100,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+          "display_name": "Synthetic competency 11",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 10,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 100,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+          "display_name": "Synthetic competency 21",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 10,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 100,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+          "display_name": "Communication",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 7,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 70,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+          "display_name": "Critical Thinking",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 9,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 90,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+          "display_name": "Programming",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 8,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 80,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+          "display_name": "Synthetic competency 05",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 6,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 60,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+          "display_name": "Synthetic competency 06",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 5,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 50,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+          "display_name": "Synthetic competency 07",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 4,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 40,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+          "display_name": "Synthetic competency 08",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 3,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 30,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+          "display_name": "Synthetic competency 09",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 2,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 20,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+          "display_name": "Synthetic competency 10",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 1,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 10,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+          "display_name": "Synthetic competency 12",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 9,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 90,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+          "display_name": "Synthetic competency 13",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 8,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 80,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+          "display_name": "Synthetic competency 14",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 7,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 70,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+          "display_name": "Synthetic competency 15",
+          "category_id": "programming",
+          "job_metrics": {
+            "supporting_posting_count": 6,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 60,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+          "display_name": "Synthetic competency 16",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 5,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 50,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+          "display_name": "Synthetic competency 18",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 3,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 30,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+          "display_name": "Synthetic competency 19",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 2,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 20,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+          "display_name": "Synthetic competency 20",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 1,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 10,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+          "display_name": "Synthetic competency 22",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 9,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 90,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+          "display_name": "Synthetic competency 23",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 8,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 80,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+          "display_name": "Synthetic competency 24",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 7,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 70,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+          "display_name": "Synthetic competency 25",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 6,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 60,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+          "display_name": "Synthetic competency 26",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 5,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 50,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+          "display_name": "Synthetic competency 27",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 4,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 40,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+          "display_name": "Synthetic competency 28",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 3,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 30,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+          "display_name": "Synthetic competency 29",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 2,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 20,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        },
+        {
+          "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+          "display_name": "Synthetic competency 30",
+          "category_id": "professional",
+          "job_metrics": {
+            "supporting_posting_count": 0,
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "percentage": 0,
+            "coverage_status": "partial"
+          },
+          "onet_associations": [],
+          "postings": []
+        }
+      ],
+      "included_count": 30,
+      "omitted_count": 0,
+      "evidence_included_count": 2,
+      "evidence_omitted_count": 162
+    },
+    "human": "Explain the evidence and unavailable values for Synthetic competency 17."
+  }
+]

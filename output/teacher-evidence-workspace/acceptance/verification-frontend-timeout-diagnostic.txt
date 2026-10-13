@@ -1,0 +1,21 @@
+COMMAND /Applications/Docker.app/Contents/Resources/bin/docker exec lab_tutor_workspace_frontend sh -lc 'cd /app && npm test -- --run src/features/market-demand/__tests__/MarketDemandConfiguration.test.tsx'
+
+> frontend@0.0.0 test
+> vitest --run src/features/market-demand/__tests__/MarketDemandConfiguration.test.tsx
+
+
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90m/app[39m
+
+ [32m✓[39m src/features/market-demand/__tests__/MarketDemandConfiguration.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 3245[2mms[22m[39m
+     [33m[2m✓[22m[39m restores sources and serializes them from suggestion, selection and typed replies [33m 1258[2mms[22m[39m
+   [33m[2m✓[22m[39m renders the durable nested review without treating extracted category prose as skill approval [33m 322[2mms[22m[39m
+   [33m[2m✓[22m[39m confirms pending enable configuration locally before the authoritative chat update [33m 417[2mms[22m[39m
+   [33m[2m✓[22m[39m confirms pending release configuration locally before the authoritative chat update [33m 698[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 22:16:37
+[2m   Duration [22m 5.14s[2m (transform 838ms, setup 70ms, import 1.36s, tests 3.25s, environment 363ms)[22m
+
+
+EXIT 0

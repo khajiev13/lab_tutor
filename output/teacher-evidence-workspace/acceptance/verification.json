@@ -1,0 +1,58 @@
+[
+  {
+    "name": "backend12-final",
+    "head": "62ab13ec792c8103b58c993b110d6184d896d2a4",
+    "command": "/Applications/Docker.app/Contents/Resources/bin/docker exec --env-file /tmp/task12-regression.env lab_tutor_workspace_backend sh -lc 'cd /app && /app/.venv/bin/python -m pytest -v tests/modules/test_market_workspace_context.py tests/modules/test_market_workspace_patterns.py tests/modules/test_market_workspace_chat.py tests/modules/test_market_demand.py tests/modules/test_market_demand_thread_state.py tests/modules/test_market_skill_review.py tests/modules/test_market_skill_recommendations.py tests/modules/test_market_vacancy_evidence.py tests/modules/test_market_skill_approval.py tests/modules/test_market_skill_student_access.py tests/modules/occupation_reference/test_routes.py tests/modules/test_market_checkpoint_startup.py'",
+    "exit": 0,
+    "seconds": 132.28,
+    "output": "verification-backend12-final.txt"
+  },
+  {
+    "name": "backend-ruff",
+    "head": "62ab13ec792c8103b58c993b110d6184d896d2a4",
+    "command": "/Applications/Docker.app/Contents/Resources/bin/docker exec lab_tutor_workspace_backend sh -lc 'cd /app && /app/.venv/bin/ruff check . && /app/.venv/bin/ruff format --check .'",
+    "exit": 0,
+    "seconds": 0.21,
+    "output": "verification-backend-ruff.txt"
+  },
+  {
+    "name": "frontend-tests",
+    "head": "62ab13ec792c8103b58c993b110d6184d896d2a4",
+    "command": "/Applications/Docker.app/Contents/Resources/bin/docker exec lab_tutor_workspace_frontend sh -lc 'cd /app && npm test -- --run src/features/market-demand src/test/AgentComponents.test.tsx src/App.test.tsx --maxWorkers 1 --no-file-parallelism'",
+    "exit": 0,
+    "seconds": 51.28,
+    "output": "verification-frontend-tests.txt"
+  },
+  {
+    "name": "frontend-lint-build",
+    "head": "62ab13ec792c8103b58c993b110d6184d896d2a4",
+    "command": "/Applications/Docker.app/Contents/Resources/bin/docker exec lab_tutor_workspace_frontend sh -lc 'cd /app && npm run lint && npm run build'",
+    "exit": 0,
+    "seconds": 46.25,
+    "output": "verification-frontend-lint-build.txt"
+  },
+  {
+    "name": "corpus-byte-parity",
+    "head": "62ab13ec792c8103b58c993b110d6184d896d2a4",
+    "command": "cmp backend/tests/fixtures/teacher-workspace-patterns.json frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json",
+    "exit": 0,
+    "seconds": 0.01,
+    "output": "verification-corpus-byte-parity.txt"
+  },
+  {
+    "name": "corpus-sha",
+    "head": "62ab13ec792c8103b58c993b110d6184d896d2a4",
+    "command": "shasum -a 256 backend/tests/fixtures/teacher-workspace-patterns.json frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json",
+    "exit": 0,
+    "seconds": 0.05,
+    "output": "verification-corpus-sha.txt"
+  },
+  {
+    "name": "browser-script-syntax",
+    "head": "62ab13ec792c8103b58c993b110d6184d896d2a4",
+    "command": "node --check frontend/e2e/teacher-evidence-workspace.cjs",
+    "exit": 0,
+    "seconds": 0.05,
+    "output": "verification-browser-script-syntax.txt"
+  }
+]

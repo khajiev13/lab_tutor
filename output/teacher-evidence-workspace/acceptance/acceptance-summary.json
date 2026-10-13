@@ -1,0 +1,136 @@
+{
+  "full_browser_proof_head": "d1a3660669f1ce64ef8851c2fca24c0179c1912f",
+  "final_product_head": "62ab13ec792c8103b58c993b110d6184d896d2a4",
+  "implementation_start": "1a720c7",
+  "fixture_run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+  "original_all_exit": 1,
+  "interruption": "Exact Architect disabled-Azure companion console message not yet classified",
+  "continuation_exits": {
+    "supplemental": 0,
+    "provenance": 0,
+    "reset-proof": 0
+  },
+  "same_fixture": true,
+  "passed_phases": [
+    "purge",
+    "layout",
+    "tooltip",
+    "tooltip-variants",
+    "tooltip-five-roles",
+    "context",
+    "workflow",
+    "corpus",
+    "approval",
+    "revisions",
+    "lifecycle",
+    "load-failures",
+    "recovery",
+    "supplemental",
+    "provenance",
+    "reset-proof"
+  ],
+  "backend": "391 passed, 90 warnings in 126.62s (0:02:06)",
+  "frontend": "22 passed (22) \u00b7 542 passed (542)",
+  "publication_digest": "c7474f9233871437e7a2f0b7c45bfa016c770382680daa6eb05800f1d2ac9538",
+  "cleanup": {
+    "completed": true,
+    "utc": "2026-10-13T02:48:07.167150+00:00",
+    "database": "lab_tutor_workspace_acceptance",
+    "verified_marker": "Task12 owned synthetic acceptance d1a3660 complete run",
+    "removed_containers": [
+      "lab_tutor_workspace_acceptance_api",
+      "lab_tutor_workspace_acceptance_ui",
+      "lab_tutor_workspace_acceptance_graph"
+    ],
+    "removed_owned_graph_volumes": [
+      "98ccf4653e0ef36d9fb6ba392e10c070ee488a2047dd90c21ba6cf68e7cfc89f",
+      "cf04dd244a5601494b757819c2b1f5db463533cf1a7df54f91f1c774a725f53d"
+    ],
+    "private_paths_verified_absent": [
+      "/tmp/task12-complete-runtime",
+      "/tmp/task12-final-runtime",
+      "/tmp/task12-api.env",
+      "/tmp/task12-graph.env",
+      "/tmp/task12-regression.env",
+      "/tmp/teacher-workspace-task12.json",
+      "/tmp/task12-model-calls.jsonl"
+    ],
+    "preserved_containers": [
+      "lab_tutor_workspace_backend",
+      "lab_tutor_workspace_frontend",
+      "lab_tutor_backend",
+      "lab_tutor_onet_neo4j",
+      "lab_tutor_onet_api",
+      "lab_tutor_onet_preview",
+      "lab_tutor_onet_frontend",
+      "lab_tutor_onet_backend",
+      "lab_tutor_azurite",
+      "lab_tutor_postgres",
+      "lab_tutor_frontend"
+    ],
+    "preserved": [
+      "lab_tutor_workspace_test database",
+      "original databases/graphs",
+      "lab_tutor_workspace_venv",
+      "lab_tutor_workspace_node_modules",
+      "worktree and SDD scratch"
+    ],
+    "graph_proof_scope": "Graph was cleared/reseeded by final tests; historical acceptance projection readbacks are preserved, not current graph state.",
+    "commands": [
+      "docker inspect owned container labels/mounts; verify acceptance SQL database ownership marker",
+      "docker rm -f lab_tutor_workspace_acceptance_api lab_tutor_workspace_acceptance_ui lab_tutor_workspace_acceptance_graph",
+      "docker volume rm 98ccf4653e0ef36d9fb6ba392e10c070ee488a2047dd90c21ba6cf68e7cfc89f",
+      "docker volume rm cf04dd244a5601494b757819c2b1f5db463533cf1a7df54f91f1c774a725f53d",
+      "docker exec lab_tutor_postgres psql -U labtutor -d postgres -c \"DROP DATABASE lab_tutor_workspace_acceptance\"",
+      "Explicit unlink of owned runtime/private/temp paths; no wildcard deletion",
+      "Recheck acceptance database count0, removed containers/volumes absent, all original/scoped containers preserved"
+    ],
+    "receipt_note": "Cleanup commands and preservation assertions succeeded. Host Python lacks datetime.UTC, so first receipt formatting failed after cleanup. Corrected timezone.utc receipt and independently rechecked absence/preserved resources; no cleanup commands repeated.",
+    "removed_report_temp_scripts": [
+      "/tmp/task12-report-build.py",
+      "/tmp/task12-report-qa.cjs"
+    ],
+    "preserved_other_container_count": 54,
+    "other_containers_verified_preserved": true,
+    "verified_owner_label": "task12.owner=teacher-workspace",
+    "absence_verified": {
+      "owned_containers": true,
+      "owned_graph_volumes": true,
+      "acceptance_database": true,
+      "private_paths": true
+    }
+  },
+  "limitations": [
+    "Reading/Video pages absent at unchanged baseline; cards redirect Home",
+    "Azure and embedding disabled; model inference and HH transport controlled",
+    "Synthetic corpus values are not official O*NET rating coverage"
+  ],
+  "review_status": "Fresh Task12 and final whole-branch review are coordinator gates",
+  "report_qa": {
+    "widths": [
+      1280,
+      390
+    ],
+    "local_links_images": true,
+    "actual_image_link_click": true,
+    "document_overflow": false,
+    "runtime_errors": 0
+  },
+  "frontend_timeout_history": {
+    "parallel": {
+      "passed": 541,
+      "timeouts": 1,
+      "seconds": 31.86
+    },
+    "focused_unchanged": {
+      "passed": 7,
+      "seconds": 5.14
+    },
+    "same_set_serialized": {
+      "passed": 542,
+      "files": 22,
+      "seconds": 50.58,
+      "timeout_ms": 5000
+    }
+  }
+}

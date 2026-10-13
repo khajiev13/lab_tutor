@@ -1,0 +1,11 @@
+{
+  "error": "Unexpected console error: {\"text\":\"Failed to fetch course materials: AxiosError\",\"url\":\"http://127.0.0.1:18773/src/components/CourseMaterialsTable.tsx\"}",
+  "runtimeErrors": [],
+  "mutations": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:18780/courses/18/market-demand/chat"
+    }
+  ],
+  "url": "http://127.0.0.1:18773/courses/1/market-analyst"
+}

@@ -1,0 +1,23 @@
+{
+  "error": "page.waitForResponse: Timeout 20000ms exceeded while waiting for event \"response\"",
+  "runtimeErrors": [],
+  "mutations": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:18780/courses/1/market-demand/chat"
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:18780/courses/1/market-demand/chat"
+    },
+    {
+      "method": "DELETE",
+      "url": "http://127.0.0.1:18780/courses/1/market-demand/history"
+    },
+    {
+      "method": "DELETE",
+      "url": "http://127.0.0.1:18780/courses/1/market-demand/history"
+    }
+  ],
+  "url": "http://127.0.0.1:18773/courses/1/market-analyst"
+}

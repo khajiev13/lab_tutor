@@ -1,0 +1,22 @@
+[
+  {
+    "cycle": 0,
+    "clickHandlers": 1,
+    "oldInstanceDisposed": true
+  },
+  {
+    "cycle": 1,
+    "clickHandlers": 1,
+    "oldInstanceDisposed": true
+  },
+  {
+    "cycle": 2,
+    "clickHandlers": 1,
+    "oldInstanceDisposed": true
+  },
+  {
+    "cycle": 3,
+    "clickHandlers": 1,
+    "oldInstanceDisposed": true
+  }
+]

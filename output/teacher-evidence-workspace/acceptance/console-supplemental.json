@@ -1,0 +1,25 @@
+{
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "url": "http://127.0.0.1:18780/courses/18/market-demand/execution-status"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "url": "http://127.0.0.1:18780/courses/1/presentations"
+    },
+    {
+      "text": "Failed to fetch course materials: AxiosError",
+      "url": "http://127.0.0.1:18773/src/components/CourseMaterialsTable.tsx"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "url": "http://127.0.0.1:18780/courses/1/presentations"
+    },
+    {
+      "text": "Failed to fetch course materials: AxiosError",
+      "url": "http://127.0.0.1:18773/src/components/CourseMaterialsTable.tsx"
+    }
+  ],
+  "runtimeErrors": []
+}

@@ -1,0 +1,4 @@
+HEAD62ab13ec792c8103b58c993b110d6184d896d2a4
+COMMAND node --check frontend/e2e/teacher-evidence-workspace.cjs
+
+EXIT 0

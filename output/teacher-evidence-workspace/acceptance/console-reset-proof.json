@@ -1,0 +1,21 @@
+{
+  "consoleErrors": [
+    {
+      "text": "Access to XMLHttpRequest at 'http://127.0.0.1:18780/courses/1/market-demand/history' from origin 'http://127.0.0.1:18773' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "url": "http://127.0.0.1:18773/courses/1/market-analyst"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "url": "http://127.0.0.1:18780/courses/1/market-demand/history"
+    },
+    {
+      "text": "Access to XMLHttpRequest at 'http://127.0.0.1:18780/courses/18/market-demand/history' from origin 'http://127.0.0.1:18773' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+      "url": "http://127.0.0.1:18773/courses/18/market-analyst"
+    },
+    {
+      "text": "Failed to load resource: net::ERR_FAILED",
+      "url": "http://127.0.0.1:18780/courses/18/market-demand/history"
+    }
+  ],
+  "runtimeErrors": []
+}

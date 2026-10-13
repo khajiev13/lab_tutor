@@ -1,0 +1,68 @@
+{
+  "completed": true,
+  "utc": "2026-10-13T02:48:07.167150+00:00",
+  "database": "lab_tutor_workspace_acceptance",
+  "verified_marker": "Task12 owned synthetic acceptance d1a3660 complete run",
+  "removed_containers": [
+    "lab_tutor_workspace_acceptance_api",
+    "lab_tutor_workspace_acceptance_ui",
+    "lab_tutor_workspace_acceptance_graph"
+  ],
+  "removed_owned_graph_volumes": [
+    "98ccf4653e0ef36d9fb6ba392e10c070ee488a2047dd90c21ba6cf68e7cfc89f",
+    "cf04dd244a5601494b757819c2b1f5db463533cf1a7df54f91f1c774a725f53d"
+  ],
+  "private_paths_verified_absent": [
+    "/tmp/task12-complete-runtime",
+    "/tmp/task12-final-runtime",
+    "/tmp/task12-api.env",
+    "/tmp/task12-graph.env",
+    "/tmp/task12-regression.env",
+    "/tmp/teacher-workspace-task12.json",
+    "/tmp/task12-model-calls.jsonl"
+  ],
+  "preserved_containers": [
+    "lab_tutor_workspace_backend",
+    "lab_tutor_workspace_frontend",
+    "lab_tutor_backend",
+    "lab_tutor_onet_neo4j",
+    "lab_tutor_onet_api",
+    "lab_tutor_onet_preview",
+    "lab_tutor_onet_frontend",
+    "lab_tutor_onet_backend",
+    "lab_tutor_azurite",
+    "lab_tutor_postgres",
+    "lab_tutor_frontend"
+  ],
+  "preserved": [
+    "lab_tutor_workspace_test database",
+    "original databases/graphs",
+    "lab_tutor_workspace_venv",
+    "lab_tutor_workspace_node_modules",
+    "worktree and SDD scratch"
+  ],
+  "graph_proof_scope": "Graph was cleared/reseeded by final tests; historical acceptance projection readbacks are preserved, not current graph state.",
+  "commands": [
+    "docker inspect owned container labels/mounts; verify acceptance SQL database ownership marker",
+    "docker rm -f lab_tutor_workspace_acceptance_api lab_tutor_workspace_acceptance_ui lab_tutor_workspace_acceptance_graph",
+    "docker volume rm 98ccf4653e0ef36d9fb6ba392e10c070ee488a2047dd90c21ba6cf68e7cfc89f",
+    "docker volume rm cf04dd244a5601494b757819c2b1f5db463533cf1a7df54f91f1c774a725f53d",
+    "docker exec lab_tutor_postgres psql -U labtutor -d postgres -c \"DROP DATABASE lab_tutor_workspace_acceptance\"",
+    "Explicit unlink of owned runtime/private/temp paths; no wildcard deletion",
+    "Recheck acceptance database count0, removed containers/volumes absent, all original/scoped containers preserved"
+  ],
+  "receipt_note": "Cleanup commands and preservation assertions succeeded. Host Python lacks datetime.UTC, so first receipt formatting failed after cleanup. Corrected timezone.utc receipt and independently rechecked absence/preserved resources; no cleanup commands repeated.",
+  "removed_report_temp_scripts": [
+    "/tmp/task12-report-build.py",
+    "/tmp/task12-report-qa.cjs"
+  ],
+  "preserved_other_container_count": 54,
+  "other_containers_verified_preserved": true,
+  "verified_owner_label": "task12.owner=teacher-workspace",
+  "absence_verified": {
+    "owned_containers": true,
+    "owned_graph_volumes": true,
+    "acceptance_database": true,
+    "private_paths": true
+  }
+}

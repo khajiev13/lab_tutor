@@ -1,0 +1,4 @@
+HEAD62ab13ec792c8103b58c993b110d6184d896d2a4
+COMMAND cmp backend/tests/fixtures/teacher-workspace-patterns.json frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json
+
+EXIT 0

@@ -1,0 +1,2293 @@
+{
+  "base": "8c59949cab30d1d8776a5dbe2a85f5dcf4af8a4f",
+  "actual_mouse_hover": true,
+  "market_mutations": 0,
+  "checks": [
+    {
+      "width": 320,
+      "theme": "Light",
+      "variant": "demand",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 supporting / assessed",
+      "box": {
+        "left": 16,
+        "right": 304,
+        "top": 488,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Sample frequency (%)",
+          "left": 148.8803253173828,
+          "right": 267.59906005859375,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "0",
+          "left": 170.14645385742188,
+          "right": 176.83395385742188,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 180.71031188964844,
+          "right": 194.06968688964844,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 194.610107421875,
+          "right": 207.969482421875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 208.50991821289062,
+          "right": 221.86929321289062,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 222.40980529785156,
+          "right": 235.76918029785156,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "50%",
+          "left": 213.2397003173828,
+          "right": 237.2709503173828,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 753,
+          "bottom": 767
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelU",
+          "left": 27,
+          "right": 279.84375,
+          "top": 775,
+          "bottom": 789
+        },
+        {
+          "text": "nbrokenLabelUnbrokenLabelUnbrokenLabelUn",
+          "left": 27,
+          "right": 277.859375,
+          "top": 797,
+          "bottom": 811
+        },
+        {
+          "text": "brokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 ",
+          "left": 27,
+          "right": 248.5,
+          "top": 819,
+          "bottom": 833
+        },
+        {
+          "text": "supporting / assessed",
+          "left": 27,
+          "right": 143.75,
+          "top": 841,
+          "bottom": 855
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 320,
+      "theme": "Light",
+      "variant": "scatter",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 50% sample frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0",
+      "box": {
+        "left": 16,
+        "right": 304,
+        "top": 616,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Importance (1\u20135)",
+          "left": -0.021512985229492188,
+          "right": 91.36911201477051,
+          "top": 634,
+          "bottom": 648
+        },
+        {
+          "text": "Sample frequency (%)",
+          "left": 94.97212219238281,
+          "right": 213.6908721923828,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "1",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 925,
+          "bottom": 939
+        },
+        {
+          "text": "2",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 857.5,
+          "bottom": 871.5
+        },
+        {
+          "text": "3",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 790,
+          "bottom": 804
+        },
+        {
+          "text": "4",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 722.5,
+          "bottom": 736.5
+        },
+        {
+          "text": "5",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 655,
+          "bottom": 669
+        },
+        {
+          "text": "0",
+          "left": 42.330047607421875,
+          "right": 49.017547607421875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 82.45721435546875,
+          "right": 95.81658935546875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 125.9203109741211,
+          "right": 139.27969360351562,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 169.38340759277344,
+          "right": 182.74278259277344,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 212.8465118408203,
+          "right": 226.2058868408203,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 252.9736785888672,
+          "right": 273.00494384765625,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 830,
+          "bottom": 844
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelU",
+          "left": 27,
+          "right": 279.84375,
+          "top": 852,
+          "bottom": 866
+        },
+        {
+          "text": "nbrokenLabelUnbrokenLabelUnbrokenLabelUn",
+          "left": 27,
+          "right": 277.859375,
+          "top": 874,
+          "bottom": 888
+        },
+        {
+          "text": "brokenLabelUnbrokenLabel \u00b7 SYNTHETIC ",
+          "left": 27,
+          "right": 255.796875,
+          "top": 896,
+          "bottom": 910
+        },
+        {
+          "text": "TEST CORPUS 15-1252.00: 50% sample ",
+          "left": 27,
+          "right": 252.234375,
+          "top": 918,
+          "bottom": 932
+        },
+        {
+          "text": "frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC ",
+          "left": 27,
+          "right": 257.765625,
+          "top": 940,
+          "bottom": 954
+        },
+        {
+          "text": "TEST CORPUS 2.B.3 \u00b7 30.0",
+          "left": 27,
+          "right": 176.84375,
+          "top": 962,
+          "bottom": 976
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 320,
+      "theme": "Light",
+      "variant": "heatmap",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 3 / 5 \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+      "box": {
+        "left": 16,
+        "right": 304,
+        "top": 381,
+        "bottom": 893
+      },
+      "texts": [
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "SYNTHETIC 1 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 142.65676879882812,
+          "right": 257.5786437988281,
+          "top": 452,
+          "bottom": 466
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 195.9116668701172,
+          "right": 310.83355712890625,
+          "top": 452,
+          "bottom": 466
+        },
+        {
+          "text": "5",
+          "left": 250.0288543701172,
+          "right": 256.71636962890625,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "3",
+          "left": 196.77395629882812,
+          "right": 203.46145629882812,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "4",
+          "left": 250.0288543701172,
+          "right": 256.71636962890625,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "3",
+          "left": 196.77395629882812,
+          "right": 203.46145629882812,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "3",
+          "left": 156.65625,
+          "right": 163.34375,
+          "top": 839,
+          "bottom": 853
+        },
+        {
+          "text": "Importance 1",
+          "left": 9.953125,
+          "right": 80,
+          "top": 861,
+          "bottom": 875
+        },
+        {
+          "text": "Importance 5",
+          "left": 240,
+          "right": 310.046875,
+          "top": 861,
+          "bottom": 875
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 593,
+          "bottom": 607
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelU",
+          "left": 27,
+          "right": 279.84375,
+          "top": 615,
+          "bottom": 629
+        },
+        {
+          "text": "nbrokenLabelUnbrokenLabelUnbrokenLabelUn",
+          "left": 27,
+          "right": 277.859375,
+          "top": 637,
+          "bottom": 651
+        },
+        {
+          "text": "brokenLabelUnbrokenLabel \u00b7 SYNTHETIC ",
+          "left": 27,
+          "right": 255.796875,
+          "top": 659,
+          "bottom": 673
+        },
+        {
+          "text": "TEST CORPUS 15-1252.00: 3 / 5 \u00b7 ",
+          "left": 27,
+          "right": 216.21875,
+          "top": 681,
+          "bottom": 695
+        },
+        {
+          "text": "SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 ",
+          "left": 27,
+          "right": 257.984375,
+          "top": 703,
+          "bottom": 717
+        },
+        {
+          "text": "2.B.3",
+          "left": 27,
+          "right": 55.03125,
+          "top": 725,
+          "bottom": 739
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 320,
+      "theme": "Dark",
+      "variant": "demand",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 supporting / assessed",
+      "box": {
+        "left": 16,
+        "right": 304,
+        "top": 488,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Sample frequency (%)",
+          "left": 148.8803253173828,
+          "right": 267.59906005859375,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "0",
+          "left": 170.14645385742188,
+          "right": 176.83395385742188,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 180.71031188964844,
+          "right": 194.06968688964844,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 194.610107421875,
+          "right": 207.969482421875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 208.50991821289062,
+          "right": 221.86929321289062,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 222.40980529785156,
+          "right": 235.76918029785156,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "50%",
+          "left": 213.2397003173828,
+          "right": 237.2709503173828,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 753,
+          "bottom": 767
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelU",
+          "left": 27,
+          "right": 279.84375,
+          "top": 775,
+          "bottom": 789
+        },
+        {
+          "text": "nbrokenLabelUnbrokenLabelUnbrokenLabelUn",
+          "left": 27,
+          "right": 277.859375,
+          "top": 797,
+          "bottom": 811
+        },
+        {
+          "text": "brokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 ",
+          "left": 27,
+          "right": 248.5,
+          "top": 819,
+          "bottom": 833
+        },
+        {
+          "text": "supporting / assessed",
+          "left": 27,
+          "right": 143.75,
+          "top": 841,
+          "bottom": 855
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 320,
+      "theme": "Dark",
+      "variant": "scatter",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 50% sample frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0",
+      "box": {
+        "left": 16,
+        "right": 304,
+        "top": 616,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Importance (1\u20135)",
+          "left": -0.021512985229492188,
+          "right": 91.36911201477051,
+          "top": 634,
+          "bottom": 648
+        },
+        {
+          "text": "Sample frequency (%)",
+          "left": 94.97212219238281,
+          "right": 213.6908721923828,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "1",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 925,
+          "bottom": 939
+        },
+        {
+          "text": "2",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 857.5,
+          "bottom": 871.5
+        },
+        {
+          "text": "3",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 790,
+          "bottom": 804
+        },
+        {
+          "text": "4",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 722.5,
+          "bottom": 736.5
+        },
+        {
+          "text": "5",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 655,
+          "bottom": 669
+        },
+        {
+          "text": "0",
+          "left": 42.330047607421875,
+          "right": 49.017547607421875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 82.45721435546875,
+          "right": 95.81658935546875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 125.9203109741211,
+          "right": 139.27969360351562,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 169.38340759277344,
+          "right": 182.74278259277344,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 212.8465118408203,
+          "right": 226.2058868408203,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 252.9736785888672,
+          "right": 273.00494384765625,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 830,
+          "bottom": 844
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelU",
+          "left": 27,
+          "right": 279.84375,
+          "top": 852,
+          "bottom": 866
+        },
+        {
+          "text": "nbrokenLabelUnbrokenLabelUnbrokenLabelUn",
+          "left": 27,
+          "right": 277.859375,
+          "top": 874,
+          "bottom": 888
+        },
+        {
+          "text": "brokenLabelUnbrokenLabel \u00b7 SYNTHETIC ",
+          "left": 27,
+          "right": 255.796875,
+          "top": 896,
+          "bottom": 910
+        },
+        {
+          "text": "TEST CORPUS 15-1252.00: 50% sample ",
+          "left": 27,
+          "right": 252.234375,
+          "top": 918,
+          "bottom": 932
+        },
+        {
+          "text": "frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC ",
+          "left": 27,
+          "right": 257.765625,
+          "top": 940,
+          "bottom": 954
+        },
+        {
+          "text": "TEST CORPUS 2.B.3 \u00b7 30.0",
+          "left": 27,
+          "right": 176.84375,
+          "top": 962,
+          "bottom": 976
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 320,
+      "theme": "Dark",
+      "variant": "heatmap",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 3 / 5 \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+      "box": {
+        "left": 16,
+        "right": 304,
+        "top": 381,
+        "bottom": 893
+      },
+      "texts": [
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "SYNTHETIC 1 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 142.65676879882812,
+          "right": 257.5786437988281,
+          "top": 452,
+          "bottom": 466
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 195.9116668701172,
+          "right": 310.83355712890625,
+          "top": 452,
+          "bottom": 466
+        },
+        {
+          "text": "5",
+          "left": 250.0288543701172,
+          "right": 256.71636962890625,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "3",
+          "left": 196.77395629882812,
+          "right": 203.46145629882812,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "4",
+          "left": 250.0288543701172,
+          "right": 256.71636962890625,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "3",
+          "left": 196.77395629882812,
+          "right": 203.46145629882812,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "3",
+          "left": 156.65625,
+          "right": 163.34375,
+          "top": 839,
+          "bottom": 853
+        },
+        {
+          "text": "Importance 1",
+          "left": 9.953125,
+          "right": 80,
+          "top": 861,
+          "bottom": 875
+        },
+        {
+          "text": "Importance 5",
+          "left": 240,
+          "right": 310.046875,
+          "top": 861,
+          "bottom": 875
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 593,
+          "bottom": 607
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelU",
+          "left": 27,
+          "right": 279.84375,
+          "top": 615,
+          "bottom": 629
+        },
+        {
+          "text": "nbrokenLabelUnbrokenLabelUnbrokenLabelUn",
+          "left": 27,
+          "right": 277.859375,
+          "top": 637,
+          "bottom": 651
+        },
+        {
+          "text": "brokenLabelUnbrokenLabel \u00b7 SYNTHETIC ",
+          "left": 27,
+          "right": 255.796875,
+          "top": 659,
+          "bottom": 673
+        },
+        {
+          "text": "TEST CORPUS 15-1252.00: 3 / 5 \u00b7 ",
+          "left": 27,
+          "right": 216.21875,
+          "top": 681,
+          "bottom": 695
+        },
+        {
+          "text": "SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 ",
+          "left": 27,
+          "right": 257.984375,
+          "top": 703,
+          "bottom": 717
+        },
+        {
+          "text": "2.B.3",
+          "left": 27,
+          "right": 55.03125,
+          "top": 725,
+          "bottom": 739
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 390,
+      "theme": "Light",
+      "variant": "demand",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 supporting / assessed",
+      "box": {
+        "left": 16,
+        "right": 374,
+        "top": 488,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Sample frequency (%)",
+          "left": 183.8803253173828,
+          "right": 302.59906005859375,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "0",
+          "left": 170.14645385742188,
+          "right": 176.83395385742188,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 194.71031188964844,
+          "right": 208.06968688964844,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 222.610107421875,
+          "right": 235.969482421875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 250.50991821289062,
+          "right": 263.8692932128906,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 278.4098205566406,
+          "right": 291.7691955566406,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 302.9736633300781,
+          "right": 323.0049133300781,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "50%",
+          "left": 248.2397003173828,
+          "right": 272.27093505859375,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 753,
+          "bottom": 767
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 775,
+          "bottom": 789
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 797,
+          "bottom": 811
+        },
+        {
+          "text": ": 50% \u00b7 3 / 10 supporting / assessed",
+          "left": 27,
+          "right": 217.78125,
+          "top": 819,
+          "bottom": 833
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 390,
+      "theme": "Light",
+      "variant": "scatter",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 50% sample frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0",
+      "box": {
+        "left": 16,
+        "right": 374,
+        "top": 616,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Importance (1\u20135)",
+          "left": -0.021512985229492188,
+          "right": 91.36911201477051,
+          "top": 634,
+          "bottom": 648
+        },
+        {
+          "text": "Sample frequency (%)",
+          "left": 129.9721221923828,
+          "right": 248.6908721923828,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "1",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 925,
+          "bottom": 939
+        },
+        {
+          "text": "2",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 857.5,
+          "bottom": 871.5
+        },
+        {
+          "text": "3",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 790,
+          "bottom": 804
+        },
+        {
+          "text": "4",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 722.5,
+          "bottom": 736.5
+        },
+        {
+          "text": "5",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 655,
+          "bottom": 669
+        },
+        {
+          "text": "0",
+          "left": 42.330047607421875,
+          "right": 49.017547607421875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 96.45721435546875,
+          "right": 109.81658935546875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 153.92031860351562,
+          "right": 167.27969360351562,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 211.38340759277344,
+          "right": 224.74278259277344,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 268.8465270996094,
+          "right": 282.2059020996094,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 322.9736633300781,
+          "right": 343.0049133300781,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 830,
+          "bottom": 844
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 852,
+          "bottom": 866
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 874,
+          "bottom": 888
+        },
+        {
+          "text": " \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 50% sample ",
+          "left": 27,
+          "right": 333.359375,
+          "top": 896,
+          "bottom": 910
+        },
+        {
+          "text": "frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS ",
+          "left": 27,
+          "right": 346.015625,
+          "top": 918,
+          "bottom": 932
+        },
+        {
+          "text": "2.B.3 \u00b7 30.0",
+          "left": 27,
+          "right": 88.390625,
+          "top": 940,
+          "bottom": 954
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 390,
+      "theme": "Light",
+      "variant": "heatmap",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 3 / 5 \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+      "box": {
+        "left": 16,
+        "right": 374,
+        "top": 381,
+        "bottom": 893
+      },
+      "texts": [
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "SYNTHETIC 1 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 160.15676879882812,
+          "right": 275.0786437988281,
+          "top": 452,
+          "bottom": 466
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 248.41165161132812,
+          "right": 363.3335266113281,
+          "top": 452,
+          "bottom": 466
+        },
+        {
+          "text": "5",
+          "left": 302.5288391113281,
+          "right": 309.2163391113281,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "3",
+          "left": 214.27395629882812,
+          "right": 220.96145629882812,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "4",
+          "left": 302.5288391113281,
+          "right": 309.2163391113281,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "3",
+          "left": 214.27395629882812,
+          "right": 220.96145629882812,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "3",
+          "left": 191.65625,
+          "right": 198.34375,
+          "top": 839,
+          "bottom": 853
+        },
+        {
+          "text": "Importance 1",
+          "left": 44.953125,
+          "right": 115,
+          "top": 861,
+          "bottom": 875
+        },
+        {
+          "text": "Importance 5",
+          "left": 275,
+          "right": 345.046875,
+          "top": 861,
+          "bottom": 875
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 593,
+          "bottom": 607
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 615,
+          "bottom": 629
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 637,
+          "bottom": 651
+        },
+        {
+          "text": " \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 3 / 5 \u00b7 ",
+          "left": 27,
+          "right": 297.34375,
+          "top": 659,
+          "bottom": 673
+        },
+        {
+          "text": "SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+          "left": 27,
+          "right": 286,
+          "top": 681,
+          "bottom": 695
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 390,
+      "theme": "Dark",
+      "variant": "demand",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 supporting / assessed",
+      "box": {
+        "left": 16,
+        "right": 374,
+        "top": 488,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Sample frequency (%)",
+          "left": 183.8803253173828,
+          "right": 302.59906005859375,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "0",
+          "left": 170.14645385742188,
+          "right": 176.83395385742188,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 194.71031188964844,
+          "right": 208.06968688964844,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 222.610107421875,
+          "right": 235.969482421875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 250.50991821289062,
+          "right": 263.8692932128906,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 278.4098205566406,
+          "right": 291.7691955566406,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 302.9736633300781,
+          "right": 323.0049133300781,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "50%",
+          "left": 248.2397003173828,
+          "right": 272.27093505859375,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 753,
+          "bottom": 767
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 775,
+          "bottom": 789
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 797,
+          "bottom": 811
+        },
+        {
+          "text": ": 50% \u00b7 3 / 10 supporting / assessed",
+          "left": 27,
+          "right": 217.78125,
+          "top": 819,
+          "bottom": 833
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 390,
+      "theme": "Dark",
+      "variant": "scatter",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 50% sample frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0",
+      "box": {
+        "left": 16,
+        "right": 374,
+        "top": 616,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Importance (1\u20135)",
+          "left": -0.021512985229492188,
+          "right": 91.36911201477051,
+          "top": 634,
+          "bottom": 648
+        },
+        {
+          "text": "Sample frequency (%)",
+          "left": 129.9721221923828,
+          "right": 248.6908721923828,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "1",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 925,
+          "bottom": 939
+        },
+        {
+          "text": "2",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 857.5,
+          "bottom": 871.5
+        },
+        {
+          "text": "3",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 790,
+          "bottom": 804
+        },
+        {
+          "text": "4",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 722.5,
+          "bottom": 736.5
+        },
+        {
+          "text": "5",
+          "left": 30.986299514770508,
+          "right": 37.673797607421875,
+          "top": 655,
+          "bottom": 669
+        },
+        {
+          "text": "0",
+          "left": 42.330047607421875,
+          "right": 49.017547607421875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 96.45721435546875,
+          "right": 109.81658935546875,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 153.92031860351562,
+          "right": 167.27969360351562,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 211.38340759277344,
+          "right": 224.74278259277344,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 268.8465270996094,
+          "right": 282.2059020996094,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 322.9736633300781,
+          "right": 343.0049133300781,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 830,
+          "bottom": 844
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 852,
+          "bottom": 866
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 874,
+          "bottom": 888
+        },
+        {
+          "text": " \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 50% sample ",
+          "left": 27,
+          "right": 333.359375,
+          "top": 896,
+          "bottom": 910
+        },
+        {
+          "text": "frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS ",
+          "left": 27,
+          "right": 346.015625,
+          "top": 918,
+          "bottom": 932
+        },
+        {
+          "text": "2.B.3 \u00b7 30.0",
+          "left": 27,
+          "right": 88.390625,
+          "top": 940,
+          "bottom": 954
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 390,
+      "theme": "Dark",
+      "variant": "heatmap",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 3 / 5 \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+      "box": {
+        "left": 16,
+        "right": 374,
+        "top": 381,
+        "bottom": 893
+      },
+      "texts": [
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "SYNTHETIC 1 {source|...",
+          "left": 30.990203857421875,
+          "right": 165.49020385742188,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 160.15676879882812,
+          "right": 275.0786437988281,
+          "top": 452,
+          "bottom": 466
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 248.41165161132812,
+          "right": 363.3335266113281,
+          "top": 452,
+          "bottom": 466
+        },
+        {
+          "text": "5",
+          "left": 302.5288391113281,
+          "right": 309.2163391113281,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "3",
+          "left": 214.27395629882812,
+          "right": 220.96145629882812,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "4",
+          "left": 302.5288391113281,
+          "right": 309.2163391113281,
+          "top": 727,
+          "bottom": 741
+        },
+        {
+          "text": "3",
+          "left": 214.27395629882812,
+          "right": 220.96145629882812,
+          "top": 553,
+          "bottom": 567
+        },
+        {
+          "text": "3",
+          "left": 191.65625,
+          "right": 198.34375,
+          "top": 839,
+          "bottom": 853
+        },
+        {
+          "text": "Importance 1",
+          "left": 44.953125,
+          "right": 115,
+          "top": 861,
+          "bottom": 875
+        },
+        {
+          "text": "Importance 5",
+          "left": 275,
+          "right": 345.046875,
+          "top": 861,
+          "bottom": 875
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 27,
+          "right": 245.40625,
+          "top": 593,
+          "bottom": 607
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 615,
+          "bottom": 629
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel",
+          "left": 27,
+          "right": 352.578125,
+          "top": 637,
+          "bottom": 651
+        },
+        {
+          "text": " \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 3 / 5 \u00b7 ",
+          "left": 27,
+          "right": 297.34375,
+          "top": 659,
+          "bottom": 673
+        },
+        {
+          "text": "SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+          "left": 27,
+          "right": 286,
+          "top": 681,
+          "bottom": 695
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 768,
+      "theme": "Light",
+      "variant": "demand",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 supporting / assessed",
+      "box": {
+        "left": 272,
+        "right": 752,
+        "top": 488,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Sample frequency (%)",
+          "left": 500.88031005859375,
+          "right": 619.5990600585938,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 286.9902038574219,
+          "right": 421.4902038574219,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "0",
+          "left": 426.1464538574219,
+          "right": 432.8339538574219,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 475.11029052734375,
+          "right": 488.46966552734375,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 527.41015625,
+          "right": 540.76953125,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 579.7098999023438,
+          "right": 593.0692749023438,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 632.0098266601562,
+          "right": 645.3692016601562,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 680.9736328125,
+          "right": 701.0048828125,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "50%",
+          "left": 565.2396850585938,
+          "right": 589.2709350585938,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 283,
+          "right": 501.40625,
+          "top": 753,
+          "bottom": 767
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrok",
+          "left": 283,
+          "right": 728.65625,
+          "top": 775,
+          "bottom": 789
+        },
+        {
+          "text": "enLabelUnbrokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 supporting / assessed",
+          "left": 283,
+          "right": 679.28125,
+          "top": 797,
+          "bottom": 811
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 768,
+      "theme": "Light",
+      "variant": "scatter",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 50% sample frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0",
+      "box": {
+        "left": 272,
+        "right": 752,
+        "top": 616,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Importance (1\u20135)",
+          "left": 255.97848510742188,
+          "right": 347.3691101074219,
+          "top": 634,
+          "bottom": 648
+        },
+        {
+          "text": "Sample frequency (%)",
+          "left": 446.97210693359375,
+          "right": 565.6908569335938,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "1",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 925,
+          "bottom": 939
+        },
+        {
+          "text": "2",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 857.5,
+          "bottom": 871.5
+        },
+        {
+          "text": "3",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 790,
+          "bottom": 804
+        },
+        {
+          "text": "4",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 722.5,
+          "bottom": 736.5
+        },
+        {
+          "text": "5",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 655,
+          "bottom": 669
+        },
+        {
+          "text": "0",
+          "left": 298.3300476074219,
+          "right": 305.0175476074219,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 376.8572082519531,
+          "right": 390.2165832519531,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 458.7203063964844,
+          "right": 472.0796813964844,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 540.5833740234375,
+          "right": 553.9427490234375,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 622.446533203125,
+          "right": 635.805908203125,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 700.9736328125,
+          "right": 721.0048828125,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 283,
+          "right": 501.40625,
+          "top": 830,
+          "bottom": 844
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrok",
+          "left": 283,
+          "right": 728.65625,
+          "top": 852,
+          "bottom": 866
+        },
+        {
+          "text": "enLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: ",
+          "left": 283,
+          "right": 725.484375,
+          "top": 874,
+          "bottom": 888
+        },
+        {
+          "text": "50% sample frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 ",
+          "left": 283,
+          "right": 709.40625,
+          "top": 896,
+          "bottom": 910
+        },
+        {
+          "text": "30.0",
+          "left": 283,
+          "right": 306.359375,
+          "top": 918,
+          "bottom": 932
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 768,
+      "theme": "Light",
+      "variant": "heatmap",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 3 / 5 \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+      "box": {
+        "left": 272,
+        "right": 752,
+        "top": 488,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 286.9902038574219,
+          "right": 421.4902038574219,
+          "top": 660,
+          "bottom": 674
+        },
+        {
+          "text": "SYNTHETIC 1 {source|...",
+          "left": 286.9902038574219,
+          "right": 421.4902038574219,
+          "top": 834,
+          "bottom": 848
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 446.6567687988281,
+          "right": 561.57861328125,
+          "top": 559,
+          "bottom": 573
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 595.91162109375,
+          "right": 710.83349609375,
+          "top": 559,
+          "bottom": 573
+        },
+        {
+          "text": "5",
+          "left": 650.02880859375,
+          "right": 656.71630859375,
+          "top": 660,
+          "bottom": 674
+        },
+        {
+          "text": "3",
+          "left": 500.7739562988281,
+          "right": 507.4614562988281,
+          "top": 834,
+          "bottom": 848
+        },
+        {
+          "text": "4",
+          "left": 650.02880859375,
+          "right": 656.71630859375,
+          "top": 834,
+          "bottom": 848
+        },
+        {
+          "text": "3",
+          "left": 500.7739562988281,
+          "right": 507.4614562988281,
+          "top": 660,
+          "bottom": 674
+        },
+        {
+          "text": "3",
+          "left": 508.65625,
+          "right": 515.34375,
+          "top": 946,
+          "bottom": 960
+        },
+        {
+          "text": "Importance 1",
+          "left": 361.953125,
+          "right": 432,
+          "top": 968,
+          "bottom": 982
+        },
+        {
+          "text": "Importance 5",
+          "left": 592,
+          "right": 662.046875,
+          "top": 968,
+          "bottom": 982
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 283,
+          "right": 501.40625,
+          "top": 700,
+          "bottom": 714
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrok",
+          "left": 283,
+          "right": 728.65625,
+          "top": 722,
+          "bottom": 736
+        },
+        {
+          "text": "enLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: ",
+          "left": 283,
+          "right": 725.484375,
+          "top": 744,
+          "bottom": 758
+        },
+        {
+          "text": "3 / 5 \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+          "left": 283,
+          "right": 575.34375,
+          "top": 766,
+          "bottom": 780
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 768,
+      "theme": "Dark",
+      "variant": "demand",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 supporting / assessed",
+      "box": {
+        "left": 272,
+        "right": 752,
+        "top": 488,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Sample frequency (%)",
+          "left": 500.88031005859375,
+          "right": 619.5990600585938,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 286.9902038574219,
+          "right": 421.4902038574219,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "0",
+          "left": 426.1464538574219,
+          "right": 432.8339538574219,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 475.11029052734375,
+          "right": 488.46966552734375,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 527.41015625,
+          "right": 540.76953125,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 579.7098999023438,
+          "right": 593.0692749023438,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 632.0098266601562,
+          "right": 645.3692016601562,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 680.9736328125,
+          "right": 701.0048828125,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "50%",
+          "left": 565.2396850585938,
+          "right": 589.2709350585938,
+          "top": 713,
+          "bottom": 727
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 283,
+          "right": 501.40625,
+          "top": 753,
+          "bottom": 767
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrok",
+          "left": 283,
+          "right": 728.65625,
+          "top": 775,
+          "bottom": 789
+        },
+        {
+          "text": "enLabelUnbrokenLabelUnbrokenLabel: 50% \u00b7 3 / 10 supporting / assessed",
+          "left": 283,
+          "right": 679.28125,
+          "top": 797,
+          "bottom": 811
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 768,
+      "theme": "Dark",
+      "variant": "scatter",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 50% sample frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0",
+      "box": {
+        "left": 272,
+        "right": 752,
+        "top": 616,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "Importance (1\u20135)",
+          "left": 255.97848510742188,
+          "right": 347.3691101074219,
+          "top": 634,
+          "bottom": 648
+        },
+        {
+          "text": "Sample frequency (%)",
+          "left": 446.97210693359375,
+          "right": 565.6908569335938,
+          "top": 961,
+          "bottom": 975
+        },
+        {
+          "text": "1",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 925,
+          "bottom": 939
+        },
+        {
+          "text": "2",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 857.5,
+          "bottom": 871.5
+        },
+        {
+          "text": "3",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 790,
+          "bottom": 804
+        },
+        {
+          "text": "4",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 722.5,
+          "bottom": 736.5
+        },
+        {
+          "text": "5",
+          "left": 286.9862976074219,
+          "right": 293.6737976074219,
+          "top": 655,
+          "bottom": 669
+        },
+        {
+          "text": "0",
+          "left": 298.3300476074219,
+          "right": 305.0175476074219,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "20",
+          "left": 376.8572082519531,
+          "right": 390.2165832519531,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "40",
+          "left": 458.7203063964844,
+          "right": 472.0796813964844,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "60",
+          "left": 540.5833740234375,
+          "right": 553.9427490234375,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "80",
+          "left": 622.446533203125,
+          "right": 635.805908203125,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "100",
+          "left": 700.9736328125,
+          "right": 721.0048828125,
+          "top": 939,
+          "bottom": 953
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 283,
+          "right": 501.40625,
+          "top": 830,
+          "bottom": 844
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrok",
+          "left": 283,
+          "right": 728.65625,
+          "top": 852,
+          "bottom": 866
+        },
+        {
+          "text": "enLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: ",
+          "left": 283,
+          "right": 725.484375,
+          "top": 874,
+          "bottom": 888
+        },
+        {
+          "text": "50% sample frequency \u00b7 3 / 5 Importance \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 ",
+          "left": 283,
+          "right": 709.40625,
+          "top": 896,
+          "bottom": 910
+        },
+        {
+          "text": "30.0",
+          "left": 283,
+          "right": 306.359375,
+          "top": 918,
+          "bottom": 932
+        }
+      ],
+      "complete_expected_source_text_present": true
+    },
+    {
+      "width": 768,
+      "theme": "Dark",
+      "variant": "heatmap",
+      "expected": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: 3 / 5 \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+      "box": {
+        "left": 272,
+        "right": 752,
+        "top": 488,
+        "bottom": 1000
+      },
+      "texts": [
+        {
+          "text": "SYNTHETIC 0 {source|...",
+          "left": 286.9902038574219,
+          "right": 421.4902038574219,
+          "top": 660,
+          "bottom": 674
+        },
+        {
+          "text": "SYNTHETIC 1 {source|...",
+          "left": 286.9902038574219,
+          "right": 421.4902038574219,
+          "top": 834,
+          "bottom": 848
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 446.6567687988281,
+          "right": 561.57861328125,
+          "top": 559,
+          "bottom": 573
+        },
+        {
+          "text": "SYNTHETIC TEST ...",
+          "left": 595.91162109375,
+          "right": 710.83349609375,
+          "top": 559,
+          "bottom": 573
+        },
+        {
+          "text": "5",
+          "left": 650.02880859375,
+          "right": 656.71630859375,
+          "top": 660,
+          "bottom": 674
+        },
+        {
+          "text": "3",
+          "left": 500.7739562988281,
+          "right": 507.4614562988281,
+          "top": 834,
+          "bottom": 848
+        },
+        {
+          "text": "4",
+          "left": 650.02880859375,
+          "right": 656.71630859375,
+          "top": 834,
+          "bottom": 848
+        },
+        {
+          "text": "3",
+          "left": 500.7739562988281,
+          "right": 507.4614562988281,
+          "top": 660,
+          "bottom": 674
+        },
+        {
+          "text": "3",
+          "left": 508.65625,
+          "right": 515.34375,
+          "top": 946,
+          "bottom": 960
+        },
+        {
+          "text": "Importance 1",
+          "left": 361.953125,
+          "right": 432,
+          "top": 968,
+          "bottom": 982
+        },
+        {
+          "text": "Importance 5",
+          "left": 592,
+          "right": 662.046875,
+          "top": 968,
+          "bottom": 982
+        },
+        {
+          "text": "SYNTHETIC 0 \uff5bsource|\u4e2d\u6587\u0420\u0443\u0441\u0441\u043a\u0438\u0439\uff5d ",
+          "left": 283,
+          "right": 501.40625,
+          "top": 700,
+          "bottom": 714
+        },
+        {
+          "text": "UnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrokenLabelUnbrok",
+          "left": 283,
+          "right": 728.65625,
+          "top": 722,
+          "bottom": 736
+        },
+        {
+          "text": "enLabelUnbrokenLabelUnbrokenLabel \u00b7 SYNTHETIC TEST CORPUS 15-1252.00: ",
+          "left": 283,
+          "right": 725.484375,
+          "top": 744,
+          "bottom": 758
+        },
+        {
+          "text": "3 / 5 \u00b7 SYNTHETIC TEST CORPUS 2.B.3 \u00b7 30.0 \u00b7 2.B.3",
+          "left": 283,
+          "right": 575.34375,
+          "top": 766,
+          "bottom": 780
+        }
+      ],
+      "complete_expected_source_text_present": true
+    }
+  ]
+}

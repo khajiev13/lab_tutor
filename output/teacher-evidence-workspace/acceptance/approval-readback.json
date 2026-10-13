@@ -1,0 +1,2959 @@
+{
+  "rejection": {
+    "detail": {
+      "code": "missing_job_evidence",
+      "candidate_ids": [
+        "deca39ce-4d21-473b-99f4-8fbb0d5bd92e"
+      ]
+    }
+  },
+  "submitted": {
+    "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+    "expected_candidate_revision": 1,
+    "expected_selection_revision": 6,
+    "review_digest": "c7474f9233871437e7a2f0b7c45bfa016c770382680daa6eb05800f1d2ac9538",
+    "approved_candidate_ids": [
+      "2a0e6a43-6bf8-4eec-88e1-10bc94717d96"
+    ]
+  },
+  "approved": {
+    "review": {
+      "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+      "analysis_metadata": {
+        "country": "Uzbekistan",
+        "job_sources": [
+          "headhunter"
+        ],
+        "evidence_sources": [
+          "jobs",
+          "onet"
+        ],
+        "onet_release": "31.0",
+        "occupations": [
+          {
+            "soc_code": "15-2051.00",
+            "title": "Data Scientists"
+          },
+          {
+            "soc_code": "15-1252.00",
+            "title": "Software Developers"
+          }
+        ],
+        "created_at": "2026-10-12T21:43:31.676950Z",
+        "updated_at": "2026-10-12T21:47:27.777747Z"
+      },
+      "candidate_revision": 1,
+      "selection_revision": 6,
+      "categories": [
+        {
+          "category_id": "programming",
+          "label": "Programming"
+        },
+        {
+          "category_id": "professional",
+          "label": "Professional"
+        }
+      ],
+      "candidates": [
+        {
+          "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+          "display_name": "Python",
+          "category_id": "programming",
+          "original_labels": [
+            "Python"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+              "original_url": "https://hh.uz/vacancy/99000008",
+              "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "a8f7fb47-2742-470e-b0da-01a28eac6669",
+              "original_url": "https://hh.uz/vacancy/99000009",
+              "retrieved_at": "2026-10-12T21:43:31.700111+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Python"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 100,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 10
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007",
+            "https://hh.uz/vacancy/99000008",
+            "https://hh.uz/vacancy/99000009"
+          ]
+        },
+        {
+          "candidate_id": "66f9731c-f642-4b45-b0db-d01ca600610c",
+          "display_name": "Critical Thinking",
+          "category_id": "programming",
+          "original_labels": [
+            "Critical Thinking"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Critical Thinking"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Critical Thinking"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Critical Thinking"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Critical Thinking"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Critical Thinking"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Critical Thinking"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Critical Thinking"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+              "original_url": "https://hh.uz/vacancy/99000008",
+              "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Critical Thinking"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 90,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 9
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007",
+            "https://hh.uz/vacancy/99000008"
+          ]
+        },
+        {
+          "candidate_id": "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+          "display_name": "Programming",
+          "category_id": "programming",
+          "original_labels": [
+            "Programming"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Programming"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Programming"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Programming"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Programming"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Programming"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Programming"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Programming"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 80,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 8
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007"
+          ]
+        },
+        {
+          "candidate_id": "041c9415-f8b6-446a-b872-275f577f9546",
+          "display_name": "Communication",
+          "category_id": "programming",
+          "original_labels": [
+            "Communication"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Communication"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Communication"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Communication"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Communication"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Communication"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Communication"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 70,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 7
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006"
+          ]
+        },
+        {
+          "candidate_id": "b855b591-22f8-4b76-b072-28338d207230",
+          "display_name": "Synthetic competency 05",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 05"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 05"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 05"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 05"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 05"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 05"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 60,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 6
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005"
+          ]
+        },
+        {
+          "candidate_id": "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+          "display_name": "Synthetic competency 06",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 06"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 06"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 06"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 06"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 06"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 50,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 5
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004"
+          ]
+        },
+        {
+          "candidate_id": "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+          "display_name": "Synthetic competency 07",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 07"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 07"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 07"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 07"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 40,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 4
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003"
+          ]
+        },
+        {
+          "candidate_id": "250983f1-502e-40b1-a812-1fcf2d936d71",
+          "display_name": "Synthetic competency 08",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 08"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 08"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 08"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 30,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 3
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002"
+          ]
+        },
+        {
+          "candidate_id": "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+          "display_name": "Synthetic competency 09",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 09"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 09"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 20,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 2
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001"
+          ]
+        },
+        {
+          "candidate_id": "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+          "display_name": "Synthetic competency 10",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 10"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            }
+          ],
+          "job_metrics": {
+            "percentage": 10,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 1
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000"
+          ]
+        },
+        {
+          "candidate_id": "803ff482-904c-4541-ae40-66150d2f91b9",
+          "display_name": "Synthetic competency 11",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 11"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+              "original_url": "https://hh.uz/vacancy/99000008",
+              "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "a8f7fb47-2742-470e-b0da-01a28eac6669",
+              "original_url": "https://hh.uz/vacancy/99000009",
+              "retrieved_at": "2026-10-12T21:43:31.700111+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 11"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 100,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 10
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007",
+            "https://hh.uz/vacancy/99000008",
+            "https://hh.uz/vacancy/99000009"
+          ]
+        },
+        {
+          "candidate_id": "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+          "display_name": "Synthetic competency 12",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 12"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 12"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 12"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 12"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 12"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 12"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 12"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 12"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+              "original_url": "https://hh.uz/vacancy/99000008",
+              "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 12"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 90,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 9
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007",
+            "https://hh.uz/vacancy/99000008"
+          ]
+        },
+        {
+          "candidate_id": "af085f68-fa88-4327-8383-4e96135e7db1",
+          "display_name": "Synthetic competency 13",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 13"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 13"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 13"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 13"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 13"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 13"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 13"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 13"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 80,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 8
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007"
+          ]
+        },
+        {
+          "candidate_id": "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+          "display_name": "Synthetic competency 14",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 14"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 14"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 14"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 14"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 14"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 14"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 14"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 70,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 7
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006"
+          ]
+        },
+        {
+          "candidate_id": "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+          "display_name": "Synthetic competency 15",
+          "category_id": "programming",
+          "original_labels": [
+            "Synthetic competency 15"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 15"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 15"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 15"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 15"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 15"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 60,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 6
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005"
+          ]
+        },
+        {
+          "candidate_id": "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+          "display_name": "Synthetic competency 16",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 16"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 16"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 16"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 16"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 16"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 50,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 5
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004"
+          ]
+        },
+        {
+          "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+          "display_name": "Synthetic competency 17",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 17"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 17"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 17"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 17"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 40,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 4
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003"
+          ]
+        },
+        {
+          "candidate_id": "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+          "display_name": "Synthetic competency 18",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 18"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 18"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 18"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 30,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 3
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002"
+          ]
+        },
+        {
+          "candidate_id": "89aec2fd-8564-45a8-94c7-70be8eba9950",
+          "display_name": "Synthetic competency 19",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 19"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 19"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 20,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 2
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001"
+          ]
+        },
+        {
+          "candidate_id": "8f6df141-71fe-43fd-9456-f9441b42d97f",
+          "display_name": "Synthetic competency 20",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 20"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            }
+          ],
+          "job_metrics": {
+            "percentage": 10,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 1
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000"
+          ]
+        },
+        {
+          "candidate_id": "6725c6d0-0623-4fed-97d9-31ce548d427a",
+          "display_name": "Synthetic competency 21",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 21"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+              "original_url": "https://hh.uz/vacancy/99000008",
+              "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "a8f7fb47-2742-470e-b0da-01a28eac6669",
+              "original_url": "https://hh.uz/vacancy/99000009",
+              "retrieved_at": "2026-10-12T21:43:31.700111+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 21"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 100,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 10
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007",
+            "https://hh.uz/vacancy/99000008",
+            "https://hh.uz/vacancy/99000009"
+          ]
+        },
+        {
+          "candidate_id": "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+          "display_name": "Synthetic competency 22",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 22"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 22"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 22"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 22"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 22"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 22"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 22"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 22"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+              "original_url": "https://hh.uz/vacancy/99000008",
+              "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 22"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 90,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 9
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007",
+            "https://hh.uz/vacancy/99000008"
+          ]
+        },
+        {
+          "candidate_id": "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+          "display_name": "Synthetic competency 23",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 23"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 23"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 23"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 23"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 23"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 23"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 23"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "original_url": "https://hh.uz/vacancy/99000007",
+              "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 23"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 80,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 8
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007"
+          ]
+        },
+        {
+          "candidate_id": "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+          "display_name": "Synthetic competency 24",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 24"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 24"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 24"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 24"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 24"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 24"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "original_url": "https://hh.uz/vacancy/99000006",
+              "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 24"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 70,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 7
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006"
+          ]
+        },
+        {
+          "candidate_id": "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+          "display_name": "Synthetic competency 25",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 25"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 25"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 25"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 25"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 25"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "original_url": "https://hh.uz/vacancy/99000005",
+              "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 25"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 60,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 6
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005"
+          ]
+        },
+        {
+          "candidate_id": "ea12b764-3f89-4655-9206-47cd05c2097b",
+          "display_name": "Synthetic competency 26",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 26"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 26"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 26"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 26"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "original_url": "https://hh.uz/vacancy/99000004",
+              "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 26"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 50,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 5
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004"
+          ]
+        },
+        {
+          "candidate_id": "539a788c-2172-47e6-b218-afa195a4f0bf",
+          "display_name": "Synthetic competency 27",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 27"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 27"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 27"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "original_url": "https://hh.uz/vacancy/99000003",
+              "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 27"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 40,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 4
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003"
+          ]
+        },
+        {
+          "candidate_id": "9830b62f-80dc-4a94-91b7-65c105f3941f",
+          "display_name": "Synthetic competency 28",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 28"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 28"
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "original_url": "https://hh.uz/vacancy/99000002",
+              "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 28"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 30,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 3
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002"
+          ]
+        },
+        {
+          "candidate_id": "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+          "display_name": "Synthetic competency 29",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 29"
+          ],
+          "aliases": [],
+          "evidence_references": [
+            {
+              "status": "purged",
+              "provider": "headhunter",
+              "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+              "original_url": "https://hh.uz/vacancy/99000000",
+              "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+              "evidence_kind": "provider_tag",
+              "content_removed": true,
+              "original_phrase": null
+            },
+            {
+              "status": "active",
+              "provider": "headhunter",
+              "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "original_url": "https://hh.uz/vacancy/99000001",
+              "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+              "evidence_kind": "provider_tag",
+              "original_phrase": "Synthetic competency 29"
+            }
+          ],
+          "job_metrics": {
+            "percentage": 20,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 2
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "supported",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000000",
+            "https://hh.uz/vacancy/99000001"
+          ]
+        },
+        {
+          "candidate_id": "deca39ce-4d21-473b-99f4-8fbb0d5bd92e",
+          "display_name": "Synthetic competency 30",
+          "category_id": "professional",
+          "original_labels": [
+            "Synthetic competency 30"
+          ],
+          "aliases": [],
+          "evidence_references": [],
+          "job_metrics": {
+            "percentage": 0,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 0
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "missing",
+          "qualifying_posting_links": []
+        }
+      ],
+      "selected_candidate_ids": [
+        "2a0e6a43-6bf8-4eec-88e1-10bc94717d96"
+      ],
+      "excluded_candidate_ids": [
+        "66f9731c-f642-4b45-b0db-d01ca600610c",
+        "dd2b69d5-0ea2-4b6f-8f03-ffdbab18ed60",
+        "041c9415-f8b6-446a-b872-275f577f9546",
+        "b855b591-22f8-4b76-b072-28338d207230",
+        "ef7d4ba2-150d-4836-bc48-4a23a4e12370",
+        "dc1ad13b-586e-4b89-bb68-d5064ef7adb9",
+        "250983f1-502e-40b1-a812-1fcf2d936d71",
+        "1abb0abd-8396-4866-98f8-1b9608b7fb6f",
+        "80005a8b-b444-4ad4-a72b-0fb3468904ef",
+        "803ff482-904c-4541-ae40-66150d2f91b9",
+        "8edec9e6-9914-4a9a-a1af-742e6c2f08f4",
+        "af085f68-fa88-4327-8383-4e96135e7db1",
+        "9e6847f3-1fbf-4da2-9a70-bcded2f80b7d",
+        "438385cc-1ce1-47a3-8c2a-37c81c9f300a",
+        "9894b011-fee4-4614-8ec5-0d94ada6f7ff",
+        "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+        "f117585b-f0ab-4565-a377-09bdd8f5cf80",
+        "89aec2fd-8564-45a8-94c7-70be8eba9950",
+        "8f6df141-71fe-43fd-9456-f9441b42d97f",
+        "6725c6d0-0623-4fed-97d9-31ce548d427a",
+        "3053c5cf-f54e-4aba-8f4a-83184729bb86",
+        "ac2bc6d7-1151-4ce5-9c4d-2c141baa4ba2",
+        "a62fea45-093f-46f3-9dc7-e37c31a55f99",
+        "69d103d6-6bfc-44cc-adb6-f84c949f30cd",
+        "ea12b764-3f89-4655-9206-47cd05c2097b",
+        "539a788c-2172-47e6-b218-afa195a4f0bf",
+        "9830b62f-80dc-4a94-91b7-65c105f3941f",
+        "3f09d235-a2a6-4fce-9b69-204a3d87d645",
+        "deca39ce-4d21-473b-99f4-8fbb0d5bd92e"
+      ],
+      "recommendations": [
+        {
+          "id": "76634ba7-3f30-42d9-b624-f33e34edeefb",
+          "candidate_revision": 1,
+          "base_selection_revision": 3,
+          "changes": [
+            {
+              "candidate_id": "c5156f3c-cc7a-42be-88cf-ad607c2bc5f2",
+              "action": "add",
+              "reason": "Synthetic evidence merits teacher review"
+            }
+          ]
+        }
+      ],
+      "reconciliations": [],
+      "source_outcomes": {
+        "onet": {
+          "status": "success",
+          "received_count": 0,
+          "usable_count": 0,
+          "warnings": []
+        },
+        "headhunter": {
+          "status": "partial",
+          "received_count": 12,
+          "usable_count": 10,
+          "warnings": [
+            "Synthetic provider: two postings unavailable"
+          ]
+        }
+      },
+      "extraction_coverage": {
+        "status": "partial",
+        "warnings": [
+          "Synthetic two-posting gap"
+        ],
+        "acknowledged": true
+      },
+      "integration_review": {
+        "items": [
+          {
+            "target": {
+              "label": "Python",
+              "origin": "market_demand",
+              "source": "market",
+              "identity": "career:3ab7f5c2-347a-54ce-a383-7d49da529b34"
+            },
+            "chapters": [
+              {
+                "title": "Programming",
+                "chapter_id": "chapter-1"
+              }
+            ],
+            "concepts": [],
+            "disposition": "new",
+            "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+            "evidence_snapshot_ids": [
+              "505e3ef1-0d27-4275-9b5a-894eab88f351",
+              "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+              "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+              "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+              "68a7a174-8933-411d-9d7f-7577b25c2acc",
+              "1f16f681-2b94-463b-af9a-14814bc2d222",
+              "cb65859e-7ced-4ce9-82ac-3929133e8245",
+              "60d8a6d0-468c-4606-8836-dc17acb0145b",
+              "a8f7fb47-2742-470e-b0da-01a28eac6669"
+            ],
+            "qualifying_posting_links": [
+              "https://hh.uz/vacancy/99000001",
+              "https://hh.uz/vacancy/99000002",
+              "https://hh.uz/vacancy/99000003",
+              "https://hh.uz/vacancy/99000004",
+              "https://hh.uz/vacancy/99000005",
+              "https://hh.uz/vacancy/99000006",
+              "https://hh.uz/vacancy/99000007",
+              "https://hh.uz/vacancy/99000008",
+              "https://hh.uz/vacancy/99000009"
+            ]
+          }
+        ],
+        "omissions": [
+          "Synthetic two-posting gap",
+          "extraction: partial",
+          "headhunter: Synthetic provider: two postings unavailable",
+          "headhunter: partial"
+        ],
+        "review_digest": "c7474f9233871437e7a2f0b7c45bfa016c770382680daa6eb05800f1d2ac9538",
+        "candidate_revision": 1,
+        "selection_revision": 6,
+        "omissions_acknowledged": true
+      },
+      "publication_revision": 1,
+      "approved_references": [
+        {
+          "label": "Python",
+          "origin": "market_demand",
+          "source": "market",
+          "category": "programming",
+          "reference_id": "2c6cb8bf-361d-402f-80ee-148e6135bd3f",
+          "projection_status": "projected",
+          "qualifying_posting_links": [
+            "https://hh.uz/vacancy/99000001",
+            "https://hh.uz/vacancy/99000002",
+            "https://hh.uz/vacancy/99000003",
+            "https://hh.uz/vacancy/99000004",
+            "https://hh.uz/vacancy/99000005",
+            "https://hh.uz/vacancy/99000006",
+            "https://hh.uz/vacancy/99000007",
+            "https://hh.uz/vacancy/99000008",
+            "https://hh.uz/vacancy/99000009"
+          ],
+          "available_for_new_selection": true
+        }
+      ]
+    },
+    "projection_status": "projected"
+  },
+  "sql": {
+    "run_id": "36e57ea6-290f-422b-8ebd-906e57fa4c8f",
+    "candidate_revision": 1,
+    "selection_revision": 6,
+    "publication_revision": 1,
+    "selected_candidate_ids": [
+      "2a0e6a43-6bf8-4eec-88e1-10bc94717d96"
+    ],
+    "approved_references": [
+      {
+        "label": "Python",
+        "origin": "market_demand",
+        "source": "market",
+        "category": "programming",
+        "reference_id": "2c6cb8bf-361d-402f-80ee-148e6135bd3f",
+        "projection_status": "projected",
+        "qualifying_posting_links": [
+          "https://hh.uz/vacancy/99000001",
+          "https://hh.uz/vacancy/99000002",
+          "https://hh.uz/vacancy/99000003",
+          "https://hh.uz/vacancy/99000004",
+          "https://hh.uz/vacancy/99000005",
+          "https://hh.uz/vacancy/99000006",
+          "https://hh.uz/vacancy/99000007",
+          "https://hh.uz/vacancy/99000008",
+          "https://hh.uz/vacancy/99000009"
+        ],
+        "available_for_new_selection": true
+      }
+    ],
+    "approvals": [
+      {
+        "review_digest": "c7474f9233871437e7a2f0b7c45bfa016c770382680daa6eb05800f1d2ac9538",
+        "items": [
+          {
+            "name": "Python",
+            "origin": "market_demand",
+            "target": {
+              "label": "Python",
+              "origin": "market_demand",
+              "source": "market",
+              "identity": "career:3ab7f5c2-347a-54ce-a383-7d49da529b34"
+            },
+            "chapters": [
+              {
+                "title": "Programming",
+                "chapter_id": "chapter-1"
+              }
+            ],
+            "concepts": [],
+            "candidate": {
+              "aliases": [],
+              "category_id": "programming",
+              "job_metrics": {
+                "percentage": 100,
+                "coverage_status": "partial",
+                "assessed_posting_count": 10,
+                "selected_posting_count": 12,
+                "supporting_posting_count": 10
+              },
+              "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+              "display_name": "Python",
+              "original_labels": [
+                "Python"
+              ],
+              "posting_support": "supported",
+              "onet_associations": [],
+              "evidence_references": [
+                {
+                  "status": "purged",
+                  "provider": "headhunter",
+                  "snapshot_id": "b3f80ee2-5c7d-4191-8ad9-ac3dee281180",
+                  "original_url": "https://hh.uz/vacancy/99000000",
+                  "retrieved_at": "2026-10-12T21:43:31.679299+00:00",
+                  "evidence_kind": "provider_tag",
+                  "content_removed": true,
+                  "original_phrase": null
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                  "original_url": "https://hh.uz/vacancy/99000001",
+                  "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+                  "original_url": "https://hh.uz/vacancy/99000002",
+                  "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+                  "original_url": "https://hh.uz/vacancy/99000003",
+                  "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+                  "original_url": "https://hh.uz/vacancy/99000004",
+                  "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+                  "original_url": "https://hh.uz/vacancy/99000005",
+                  "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                  "original_url": "https://hh.uz/vacancy/99000006",
+                  "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+                  "original_url": "https://hh.uz/vacancy/99000007",
+                  "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+                  "original_url": "https://hh.uz/vacancy/99000008",
+                  "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                },
+                {
+                  "status": "active",
+                  "provider": "headhunter",
+                  "snapshot_id": "a8f7fb47-2742-470e-b0da-01a28eac6669",
+                  "original_url": "https://hh.uz/vacancy/99000009",
+                  "retrieved_at": "2026-10-12T21:43:31.700111+00:00",
+                  "evidence_kind": "provider_tag",
+                  "original_phrase": "Python"
+                }
+              ],
+              "recommendation_reasons": [],
+              "qualifying_posting_links": [
+                "https://hh.uz/vacancy/99000000",
+                "https://hh.uz/vacancy/99000001",
+                "https://hh.uz/vacancy/99000002",
+                "https://hh.uz/vacancy/99000003",
+                "https://hh.uz/vacancy/99000004",
+                "https://hh.uz/vacancy/99000005",
+                "https://hh.uz/vacancy/99000006",
+                "https://hh.uz/vacancy/99000007",
+                "https://hh.uz/vacancy/99000008",
+                "https://hh.uz/vacancy/99000009"
+              ]
+            },
+            "chapter_ids": [
+              "chapter-1"
+            ],
+            "disposition": "new",
+            "candidate_id": "2a0e6a43-6bf8-4eec-88e1-10bc94717d96",
+            "identity_key": "jobs:Python",
+            "onet_bindings": [],
+            "vacancy_bindings": [
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "505e3ef1-0d27-4275-9b5a-894eab88f351",
+                "original_url": "https://hh.uz/vacancy/99000001",
+                "retrieved_at": "2026-10-12T21:43:31.685743+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "eb0f2823-e93b-4288-bba9-c5bdd99d5249",
+                "original_url": "https://hh.uz/vacancy/99000002",
+                "retrieved_at": "2026-10-12T21:43:31.687609+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "55395cb0-5c4e-4f7a-9d66-df10d460bae7",
+                "original_url": "https://hh.uz/vacancy/99000003",
+                "retrieved_at": "2026-10-12T21:43:31.689120+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "5d1a4043-f3e4-4afc-afea-60525fc49c9a",
+                "original_url": "https://hh.uz/vacancy/99000004",
+                "retrieved_at": "2026-10-12T21:43:31.690889+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "68a7a174-8933-411d-9d7f-7577b25c2acc",
+                "original_url": "https://hh.uz/vacancy/99000005",
+                "retrieved_at": "2026-10-12T21:43:31.692893+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "1f16f681-2b94-463b-af9a-14814bc2d222",
+                "original_url": "https://hh.uz/vacancy/99000006",
+                "retrieved_at": "2026-10-12T21:43:31.695140+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "cb65859e-7ced-4ce9-82ac-3929133e8245",
+                "original_url": "https://hh.uz/vacancy/99000007",
+                "retrieved_at": "2026-10-12T21:43:31.696765+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "60d8a6d0-468c-4606-8836-dc17acb0145b",
+                "original_url": "https://hh.uz/vacancy/99000008",
+                "retrieved_at": "2026-10-12T21:43:31.698447+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              },
+              {
+                "status": "active",
+                "provider": "headhunter",
+                "snapshot_id": "a8f7fb47-2742-470e-b0da-01a28eac6669",
+                "original_url": "https://hh.uz/vacancy/99000009",
+                "retrieved_at": "2026-10-12T21:43:31.700111+00:00",
+                "evidence_kind": "provider_tag",
+                "original_phrase": "Python"
+              }
+            ],
+            "skill_reference_id": "2c6cb8bf-361d-402f-80ee-148e6135bd3f",
+            "validated_observations": [],
+            "qualifying_posting_links": [
+              "https://hh.uz/vacancy/99000001",
+              "https://hh.uz/vacancy/99000002",
+              "https://hh.uz/vacancy/99000003",
+              "https://hh.uz/vacancy/99000004",
+              "https://hh.uz/vacancy/99000005",
+              "https://hh.uz/vacancy/99000006",
+              "https://hh.uz/vacancy/99000007",
+              "https://hh.uz/vacancy/99000008",
+              "https://hh.uz/vacancy/99000009"
+            ]
+          }
+        ],
+        "revision": 1,
+        "projection_status": "projected"
+      }
+    ]
+  },
+  "afterStudent": {
+    "path": {
+      "course_id": 1,
+      "course_title": "SYNTHETIC acceptance course",
+      "chapters": [
+        {
+          "title": "Programming",
+          "chapter_index": 1,
+          "description": null,
+          "learning_objectives": [],
+          "selected_skills": [
+            {
+              "skill_reference_id": "6c62808c-9212-47fa-9835-6e4fc7a7d8fd",
+              "source": "book",
+              "origin": "book",
+              "qualifying_posting_links": [],
+              "evidence_references": [],
+              "onet_associations": [],
+              "job_metrics": null,
+              "projection_status": "projected",
+              "available_for_new_selection": true,
+              "availability_reason": null,
+              "is_selected": false,
+              "peer_count": 0,
+              "name": "Saved synthetic book skill",
+              "description": null,
+              "concepts": [],
+              "readings": [
+                {
+                  "id": "task12-reading",
+                  "title": "Saved synthetic reading",
+                  "url": "https://example.invalid/task12-reading",
+                  "domain": "",
+                  "snippet": "",
+                  "search_content": "",
+                  "search_result_url": "",
+                  "search_result_domain": "",
+                  "source_engine": "",
+                  "source_engines": [],
+                  "search_metadata_json": "[]",
+                  "resource_type": "article",
+                  "final_score": 0.9,
+                  "concepts_covered": []
+                }
+              ],
+              "videos": [],
+              "questions": [
+                {
+                  "id": "task12-question",
+                  "text": "Synthetic: what is 2 + 2?",
+                  "difficulty": "easy",
+                  "options": [
+                    "4",
+                    "3",
+                    "2",
+                    "1"
+                  ]
+                }
+              ],
+              "resource_status": "loaded",
+              "is_known": true
+            }
+          ],
+          "quiz_status": "completed",
+          "easy_question_count": 1,
+          "answered_count": 1,
+          "correct_count": 1
+        }
+      ],
+      "total_selected_skills": 1,
+      "skills_with_resources": 1
+    },
+    "quiz": {
+      "course_id": 1,
+      "chapter_index": 1,
+      "chapter_title": "Programming",
+      "questions": [
+        {
+          "id": "task12-question",
+          "skill_name": "Saved synthetic book skill",
+          "text": "Synthetic: what is 2 + 2?",
+          "options": [
+            "4",
+            "3",
+            "2",
+            "1"
+          ]
+        }
+      ],
+      "previous_answers": {
+        "task12-question": {
+          "selected_option": "A",
+          "answered_right": true,
+          "answered_at": "2026-10-12T21:43:40.678000Z"
+        }
+      }
+    },
+    "reading": {
+      "id": "task12-reading",
+      "title": "Saved synthetic reading",
+      "url": "https://example.invalid/task12-reading",
+      "domain": "example.invalid",
+      "status": "ready",
+      "content_markdown": "# Synthetic saved reading\nRetained student resource.",
+      "fallback_summary": "We could not generate an in-app preview for this resource. Open the original source to keep studying.",
+      "error_message": null
+    }
+  }
+}

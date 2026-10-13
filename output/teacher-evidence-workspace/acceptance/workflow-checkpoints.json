@@ -1,0 +1,244 @@
+{
+  "history": {
+    "messages": [
+      {
+        "id": "user-29d84d8d1c2c49769ea8f5a5deb3db24",
+        "role": "user",
+        "content": "Find synthetic job evidence for this course.",
+        "toolCalls": [],
+        "isStreaming": false
+      },
+      {
+        "id": "lc_run--01a13214-2688-7b51-b20a-1da25ef77343-0",
+        "role": "agent",
+        "agent": "supervisor",
+        "agentDisplayName": "Supervisor",
+        "agentEmoji": "📊",
+        "content": "Search Terms: \"Python developer\" and \"Software engineer\". Please confirm the search queries.",
+        "toolCalls": [],
+        "isStreaming": false
+      },
+      {
+        "id": "user-e6b23200d91e4badb30e4aefb2aeddcc",
+        "role": "user",
+        "content": "\"Python developer\", \"Software engineer\"",
+        "toolCalls": [],
+        "isStreaming": false
+      },
+      {
+        "id": "lc_run--01a13214-4211-7433-869c-383d0fb12f01-0",
+        "role": "agent",
+        "agent": "supervisor",
+        "agentDisplayName": "Supervisor",
+        "agentEmoji": "📊",
+        "content": "",
+        "toolCalls": [
+          {
+            "id": "task12-handoff",
+            "name": "transfer_to_skill_finder",
+            "args": {},
+            "status": "finished",
+            "result": "Successfully transferred to skill_finder"
+          }
+        ],
+        "isStreaming": false
+      },
+      {
+        "id": "lc_run--01a13214-4221-76f1-966c-edd4e32da9e0-0",
+        "role": "agent",
+        "agent": "skill_finder",
+        "agentDisplayName": "Skill Finder",
+        "agentEmoji": "🔍",
+        "content": "Synthetic jobs are collected. Please confirm a job group.",
+        "toolCalls": [
+          {
+            "id": "task12-fetch",
+            "name": "fetch_jobs",
+            "args": {
+              "search_terms": "Python developer, Software engineer",
+              "country": "Uzbekistan"
+            },
+            "status": "finished",
+            "result": "Selected evidence sources: headhunter: success (3 received, 3 usable)\nFetched 3 extraction-eligible jobs.\n[1] Synthetic Python Developer (3 jobs)\nAsk the teacher which job groups to select before extracting vacancies."
+          }
+        ],
+        "isStreaming": false
+      },
+      {
+        "id": "user-6310a9987daa45399d74edc673d235e5",
+        "role": "user",
+        "content": "1",
+        "toolCalls": [],
+        "isStreaming": false
+      },
+      {
+        "id": "lc_run--01a13214-5473-7331-8e24-197873ec1aed-0",
+        "role": "agent",
+        "agent": "skill_finder",
+        "agentDisplayName": "Skill Finder",
+        "agentEmoji": "🔍",
+        "content": "The teacher-confirmed synthetic job group is selected.",
+        "toolCalls": [
+          {
+            "id": "task12-groups",
+            "name": "select_jobs_by_group",
+            "args": {
+              "group_names": "all"
+            },
+            "status": "finished",
+            "result": "Selected 3 jobs from all 1 groups:\n  ✓ Synthetic Python Developer (3)\n\nSelection complete. Transfer back to Coordinator."
+          }
+        ],
+        "isStreaming": false
+      }
+    ],
+    "threadId": "mda-1-course-18",
+    "outcome": "unknown"
+  },
+  "state": {
+    "teacher_id": 1,
+    "extraction_coverage": null,
+    "onet_evidence": [],
+    "sources": [
+      "headhunter"
+    ],
+    "evidence_sources": [
+      "jobs"
+    ],
+    "onet_release": null,
+    "selected_onet_occupations": [],
+    "onet_selection_confirmed": false,
+    "run_id": "ddab07fa-6015-47af-83f6-08d07ae157a9",
+    "candidate_revision": 0,
+    "source_outcomes": {
+      "headhunter": {
+        "status": "success",
+        "warnings": [],
+        "usable_count": 3,
+        "received_count": 3
+      }
+    },
+    "selection_revision": null,
+    "publication_revision": null,
+    "selected_candidate_ids": null,
+    "excluded_candidate_ids": null,
+    "selection_confirmation": null,
+    "review_stage": null,
+    "skill_review_change_id": null,
+    "course_id": 18,
+    "course_title": "SYNTHETIC acceptance — Workflow checkpoints 1791841537780",
+    "course_description": "",
+    "job_search_country": "Uzbekistan",
+    "job_search_country_confirmed": true,
+    "job_search_location": "Uzbekistan",
+    "fetched_jobs": [
+      {
+        "url": "https://hh.uz/vacancy/98000000",
+        "site": "headhunter",
+        "title": "SYNTHETIC Python developer",
+        "status": "active",
+        "company": "",
+        "skill_tags": [
+          "Python"
+        ],
+        "description": "SYNTHETIC TEST ONLY. Develop reliable Python programs and automated tests for data processing services.",
+        "snapshot_id": "3dfde080-e0f8-4ac5-b8c2-3ef82003ff79",
+        "retrieved_at": "2026-10-12T21:45:50.925962+00:00",
+        "demand_identity": "headhunter:id:98000000"
+      },
+      {
+        "url": "https://hh.uz/vacancy/98000001",
+        "site": "headhunter",
+        "title": "SYNTHETIC Python developer",
+        "status": "active",
+        "company": "",
+        "skill_tags": [
+          "Python"
+        ],
+        "description": "SYNTHETIC TEST ONLY. Develop reliable Python programs and automated tests for data processing services.",
+        "snapshot_id": "ff3a9132-0e4c-4eba-91d2-9ac76675296b",
+        "retrieved_at": "2026-10-12T21:45:50.925999+00:00",
+        "demand_identity": "headhunter:id:98000001"
+      },
+      {
+        "url": "https://hh.uz/vacancy/98000002",
+        "site": "headhunter",
+        "title": "SYNTHETIC Python developer",
+        "status": "active",
+        "company": "",
+        "skill_tags": [
+          "Python"
+        ],
+        "description": "SYNTHETIC TEST ONLY. Develop reliable Python programs and automated tests for data processing services.",
+        "snapshot_id": "fbe9b391-020a-4bcb-9a3a-15edfe13b496",
+        "retrieved_at": "2026-10-12T21:45:50.926012+00:00",
+        "demand_identity": "headhunter:id:98000002"
+      }
+    ],
+    "job_groups": {
+      "Synthetic Python Developer": [
+        0,
+        1,
+        2
+      ]
+    },
+    "selected_jobs": [
+      {
+        "url": "https://hh.uz/vacancy/98000000",
+        "site": "headhunter",
+        "title": "SYNTHETIC Python developer",
+        "status": "active",
+        "company": "",
+        "skill_tags": [
+          "Python"
+        ],
+        "description": "SYNTHETIC TEST ONLY. Develop reliable Python programs and automated tests for data processing services.",
+        "snapshot_id": "3dfde080-e0f8-4ac5-b8c2-3ef82003ff79",
+        "retrieved_at": "2026-10-12T21:45:50.925962+00:00",
+        "demand_identity": "headhunter:id:98000000"
+      },
+      {
+        "url": "https://hh.uz/vacancy/98000001",
+        "site": "headhunter",
+        "title": "SYNTHETIC Python developer",
+        "status": "active",
+        "company": "",
+        "skill_tags": [
+          "Python"
+        ],
+        "description": "SYNTHETIC TEST ONLY. Develop reliable Python programs and automated tests for data processing services.",
+        "snapshot_id": "ff3a9132-0e4c-4eba-91d2-9ac76675296b",
+        "retrieved_at": "2026-10-12T21:45:50.925999+00:00",
+        "demand_identity": "headhunter:id:98000001"
+      },
+      {
+        "url": "https://hh.uz/vacancy/98000002",
+        "site": "headhunter",
+        "title": "SYNTHETIC Python developer",
+        "status": "active",
+        "company": "",
+        "skill_tags": [
+          "Python"
+        ],
+        "description": "SYNTHETIC TEST ONLY. Develop reliable Python programs and automated tests for data processing services.",
+        "snapshot_id": "fbe9b391-020a-4bcb-9a3a-15edfe13b496",
+        "retrieved_at": "2026-10-12T21:45:50.926012+00:00",
+        "demand_identity": "headhunter:id:98000002"
+      }
+    ],
+    "extracted_skills": null,
+    "total_jobs_for_extraction": null,
+    "existing_graph_skills": null,
+    "existing_concepts": null,
+    "curated_skills": null,
+    "curriculum_mapping": null,
+    "mapped_skills": null,
+    "final_skills": null,
+    "selected_for_insertion": null,
+    "skill_concepts": null,
+    "_cleaned_results": null,
+    "insertion_results": null,
+    "skill_job_urls": null,
+    "_raw_skill_urls": null
+  }
+}

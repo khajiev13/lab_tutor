@@ -1,0 +1,6 @@
+HEAD62ab13ec792c8103b58c993b110d6184d896d2a4
+COMMAND shasum -a 256 backend/tests/fixtures/teacher-workspace-patterns.json frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json
+f3f687d19366302180485f27ed630d752885a7e313dd5453356f0af3846941a4  backend/tests/fixtures/teacher-workspace-patterns.json
+f3f687d19366302180485f27ed630d752885a7e313dd5453356f0af3846941a4  frontend/src/features/market-demand/__tests__/teacher-workspace-patterns.json
+
+EXIT 0

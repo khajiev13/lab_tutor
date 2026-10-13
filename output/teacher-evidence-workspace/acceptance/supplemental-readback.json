@@ -1,0 +1,209 @@
+{
+  "sourceState": {
+    "teacher_id": 1,
+    "extraction_coverage": null,
+    "onet_evidence": [],
+    "sources": [
+      "headhunter"
+    ],
+    "evidence_sources": [
+      "jobs"
+    ],
+    "onet_release": null,
+    "selected_onet_occupations": [],
+    "onet_selection_confirmed": false,
+    "run_id": "ddab07fa-6015-47af-83f6-08d07ae157a9",
+    "candidate_revision": 0,
+    "source_outcomes": {
+      "headhunter": {
+        "status": "error",
+        "warnings": [
+          "Synthetic provider unavailable"
+        ],
+        "usable_count": 0,
+        "received_count": 0
+      }
+    },
+    "selection_revision": null,
+    "publication_revision": null,
+    "selected_candidate_ids": null,
+    "excluded_candidate_ids": null,
+    "selection_confirmation": null,
+    "review_stage": null,
+    "skill_review_change_id": null,
+    "course_id": 18,
+    "course_title": "SYNTHETIC acceptance — Workflow checkpoints 1791841537780",
+    "course_description": "",
+    "job_search_country": "Uzbekistan",
+    "job_search_country_confirmed": true,
+    "job_search_location": "Uzbekistan",
+    "fetched_jobs": [],
+    "job_groups": {},
+    "selected_jobs": [],
+    "extracted_skills": null,
+    "total_jobs_for_extraction": null,
+    "existing_graph_skills": null,
+    "existing_concepts": null,
+    "curated_skills": null,
+    "curriculum_mapping": null,
+    "mapped_skills": null,
+    "final_skills": null,
+    "selected_for_insertion": null,
+    "skill_concepts": null,
+    "_cleaned_results": null,
+    "insertion_results": null,
+    "skill_job_urls": null,
+    "_raw_skill_urls": null
+  },
+  "unknownRequests": [
+    "http://127.0.0.1:18780/courses/18/market-demand/execution-status"
+  ],
+  "agentDestinations": [
+    {
+      "name": "Reading Agent",
+      "configuredRoute": "/courses/1/reading-agent",
+      "actualDestination": "/home",
+      "classification": "Verified unchanged baseline limitation: page route absent"
+    },
+    {
+      "name": "Video Agent",
+      "configuredRoute": "/courses/1/video-agent",
+      "actualDestination": "/home",
+      "classification": "Verified unchanged baseline limitation: page route absent"
+    },
+    {
+      "name": "Architect",
+      "actualDestination": "/courses/1/architect",
+      "directReload": true
+    }
+  ],
+  "storageUnavailable": {
+    "detail": "Failed to list presentations: Blob service is not configured"
+  },
+  "reconciliation": {
+    "course": {
+      "id": 21,
+      "title": "SYNTHETIC reconciliation b9c3cc2c-8b86-4fab-8802-cd1326a63de7",
+      "description": null,
+      "level": "bachelor",
+      "publication_status": "draft",
+      "market_gate_status": "not_started",
+      "teacher_id": 1,
+      "created_at": "2026-10-12T21:51:42.317550Z",
+      "extraction_status": "not_started"
+    },
+    "run_id": "fb9324e4-cc4e-4dc7-ba2e-5f1d189f6edc",
+    "original_ids": [
+      "0d4d2179-93a2-47c2-8b81-add344db23d9",
+      "2c5c440d-3000-464e-891b-4aeb46b7bdd1"
+    ],
+    "review": {
+      "run_id": "fb9324e4-cc4e-4dc7-ba2e-5f1d189f6edc",
+      "analysis_metadata": {
+        "country": null,
+        "job_sources": [
+          "headhunter"
+        ],
+        "evidence_sources": [
+          "jobs"
+        ],
+        "onet_release": null,
+        "occupations": [],
+        "created_at": "2026-10-12T21:51:42.435838Z",
+        "updated_at": "2026-10-12T21:51:46.927654Z"
+      },
+      "candidate_revision": 2,
+      "selection_revision": 1,
+      "categories": [
+        {
+          "category_id": "programming",
+          "label": "Programming"
+        }
+      ],
+      "candidates": [
+        {
+          "candidate_id": "55e00a66-ab2a-47f9-89bf-6dc734abdf5c",
+          "display_name": "SYNTHETIC merged identity",
+          "category_id": "programming",
+          "original_labels": [
+            "Python",
+            "SYNTHETIC merged identity"
+          ],
+          "aliases": [],
+          "evidence_references": [],
+          "job_metrics": {
+            "percentage": 100,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 10
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "missing",
+          "qualifying_posting_links": []
+        },
+        {
+          "candidate_id": "834eb31b-7cfb-4984-9a8a-8951aa32e8d2",
+          "display_name": "SYNTHETIC newly observed",
+          "category_id": "programming",
+          "original_labels": [
+            "Python",
+            "SYNTHETIC newly observed"
+          ],
+          "aliases": [],
+          "evidence_references": [],
+          "job_metrics": {
+            "percentage": 100,
+            "coverage_status": "partial",
+            "assessed_posting_count": 10,
+            "selected_posting_count": 12,
+            "supporting_posting_count": 10
+          },
+          "onet_associations": [],
+          "recommendation_reasons": [],
+          "posting_support": "missing",
+          "qualifying_posting_links": []
+        }
+      ],
+      "selected_candidate_ids": [],
+      "excluded_candidate_ids": [],
+      "recommendations": [],
+      "reconciliations": [
+        {
+          "reconciliation_id": "673aa69e-5d5c-413e-a21e-6de930422392",
+          "candidate_id": "55e00a66-ab2a-47f9-89bf-6dc734abdf5c",
+          "previous_candidate_ids": [
+            "0d4d2179-93a2-47c2-8b81-add344db23d9",
+            "2c5c440d-3000-464e-891b-4aeb46b7bdd1"
+          ],
+          "reason": "conflicting_teacher_decisions",
+          "previous_candidates": [
+            {
+              "candidate_id": "0d4d2179-93a2-47c2-8b81-add344db23d9",
+              "display_name": "SYNTHETIC original 0"
+            },
+            {
+              "candidate_id": "2c5c440d-3000-464e-891b-4aeb46b7bdd1",
+              "display_name": "SYNTHETIC original 1"
+            }
+          ],
+          "previous_selected_candidate_ids": [
+            "0d4d2179-93a2-47c2-8b81-add344db23d9"
+          ],
+          "previous_excluded_candidate_ids": [
+            "2c5c440d-3000-464e-891b-4aeb46b7bdd1"
+          ],
+          "resolved": false
+        }
+      ],
+      "source_outcomes": {},
+      "extraction_coverage": {
+        "acknowledged": true
+      },
+      "integration_review": null,
+      "publication_revision": 0,
+      "approved_references": []
+    }
+  }
+}
