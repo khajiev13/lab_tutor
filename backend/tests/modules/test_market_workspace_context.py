@@ -2,7 +2,7 @@
 
 import json
 from copy import deepcopy
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
@@ -10,7 +10,10 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 
 from app.modules.marketdemandanalyst import schemas
-from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+from app.modules.marketdemandanalyst.models import (
+    MarketAnalysisRun,
+    MarketVacancySnapshot,
+)
 from app.modules.marketdemandanalyst.repository import MarketReviewRepository
 from app.modules.marketdemandanalyst.routes import ChatRequest
 from app.modules.occupation_reference.models import (
@@ -259,6 +262,149 @@ def test_purged_postings_never_restore_source_content(owned, db_session):
     )
 
 
+@pytest.fixture
+def late_skill_passage(owned, db_session):
+    _, run, candidates, _ = owned
+    candidate = deepcopy(candidates[0])
+    ref = candidate["evidence_references"][0]
+    snapshot = db_session.get(MarketVacancySnapshot, UUID(ref["snapshot_id"]))
+    passage = "Design SQL ingestion pipelines and query PostgreSQL databases."
+    intro = ("General employer introduction. " * 30)[:865]
+    snapshot.description_text = intro + passage + " Additional employer information."
+    snapshot.original_description = snapshot.description_text
+    snapshot.original_url = "https://hh.uz/vacancy/qualified-sql-passage"
+    candidate["display_name"] = "Design SQL ingestion pipelines"
+    candidate["evidence_references"] = [
+        ref,
+        {
+            **ref,
+            "original_url": snapshot.original_url,
+            "original_phrase": "SQL ingestion pipelines",
+            "evidence_kind": "extracted_text",
+            "excerpt": passage,
+            "excerpt_start": 865,
+            "excerpt_end": 865 + len(passage),
+        },
+    ]
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": [candidate]}
+    db_session.commit()
+    return owned
+
+
+def test_focused_posting_uses_validated_skill_passage_beyond_intro(late_skill_passage):
+    _, _, candidates, _ = late_skill_passage
+    result = resolve(
+        late_skill_passage, focused_candidate_id=candidates[0]["candidate_id"]
+    )
+    posting = result.model_bundle["candidates"][0]["postings"][0]
+    assert posting["excerpt"] == (
+        "Design SQL ingestion pipelines and query PostgreSQL databases."
+    )
+    assert posting["excerpt_kind"] == "validated_skill_passage"
+    assert posting["original_url"] == "https://hh.uz/vacancy/qualified-sql-passage"
+    assert result.history_metadata.evidence_included_count == 1
+    assert len(posting["excerpt"]) <= 600
+    assert (
+        len(json.dumps(result.model_bundle, ensure_ascii=False).encode()) <= 24 * 1024
+    )
+
+
+def test_focused_invalid_passage_uses_labeled_introductory_context(
+    late_skill_passage, db_session
+):
+    _, run, candidates, _ = late_skill_passage
+    rows = deepcopy(run.candidate_manifest["candidates"])
+    rows[0]["evidence_references"][1]["excerpt"] = "Invented skill quotation."
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": rows}
+    db_session.commit()
+    result = resolve(
+        late_skill_passage, focused_candidate_id=candidates[0]["candidate_id"]
+    )
+    posting = result.model_bundle["candidates"][0]["postings"][0]
+    assert posting.get("excerpt_kind") == "introductory_context"
+    assert posting["excerpt"].startswith("General employer introduction.")
+    assert "Invented skill quotation." not in json.dumps(result.model_bundle)
+    assert len(posting["excerpt"]) <= 600
+
+
+def test_long_validated_passage_keeps_qualifying_phrase_within_excerpt_cap(
+    late_skill_passage, db_session
+):
+    _, run, candidates, _ = late_skill_passage
+    rows = deepcopy(run.candidate_manifest["candidates"])
+    ref = rows[0]["evidence_references"][1]
+    snapshot = db_session.get(MarketVacancySnapshot, UUID(ref["snapshot_id"]))
+    passage = (
+        "Detailed source requirement context. " * 25
+        + "Design SQL ingestion pipelines and query PostgreSQL databases."
+        + " More required work. " * 20
+    )
+    snapshot.description_text = snapshot.description_text[:865] + passage
+    ref.update(excerpt=passage, excerpt_end=865 + len(passage))
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": rows}
+    db_session.commit()
+    result = resolve(
+        late_skill_passage, focused_candidate_id=candidates[0]["candidate_id"]
+    )
+    posting = result.model_bundle["candidates"][0]["postings"][0]
+    assert "SQL ingestion pipelines" in posting["excerpt"]
+    assert len(posting["excerpt"]) <= 600
+    assert posting["excerpt"] in passage
+    assert posting["excerpt_kind"] == "validated_skill_passage"
+
+
+@pytest.mark.parametrize("phrase_length", [560, 599, 600, 640])
+def test_qualifying_phrase_takes_priority_over_left_context(
+    late_skill_passage, db_session, phrase_length
+):
+    _, run, candidates, _ = late_skill_passage
+    rows = deepcopy(run.candidate_manifest["candidates"])
+    ref = rows[0]["evidence_references"][1]
+    snapshot = db_session.get(MarketVacancySnapshot, UUID(ref["snapshot_id"]))
+    phrase = ("SQL ingestion pipelines. " * 30)[:phrase_length]
+    passage = (
+        "Detailed source requirement context. " * 25
+        + phrase
+        + " More required work. " * 40
+    )
+    snapshot.description_text = snapshot.description_text[:865] + passage
+    snapshot.original_description = snapshot.description_text
+    ref.update(original_phrase=phrase, excerpt=passage, excerpt_end=865 + len(passage))
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": rows}
+    db_session.commit()
+
+    result = resolve(
+        late_skill_passage, focused_candidate_id=candidates[0]["candidate_id"]
+    )
+    posting = result.model_bundle["candidates"][0]["postings"][0]
+    assert phrase[:600] in posting["excerpt"]
+    assert len(posting["excerpt"]) <= 600
+    assert posting["excerpt"] in passage
+    assert posting["excerpt_kind"] == "validated_skill_passage"
+    assert posting["original_url"] == "https://hh.uz/vacancy/qualified-sql-passage"
+
+
+def test_purged_late_passage_is_unavailable_in_focused_bundle(
+    late_skill_passage, db_session
+):
+    _, _, candidates, _ = late_skill_passage
+    repo = MarketReviewRepository(db_session)
+    repo.purge_vacancy_content(
+        candidates[0]["evidence_references"][0]["snapshot_id"], reason="test"
+    )
+    repo.commit()
+    result = resolve(
+        late_skill_passage, focused_candidate_id=candidates[0]["candidate_id"]
+    )
+    posting = result.model_bundle["candidates"][0]["postings"][0]
+    assert posting["status"] == "unavailable"
+    assert posting["excerpt"] is None
+    assert (
+        "Design SQL ingestion pipelines and query PostgreSQL databases."
+        not in json.dumps(result.model_bundle)
+    )
+
+
 def seed_onet(db):
     db.add(OnetRelease(version="30.0", manifest={}, attribution="O*NET", active=True))
     db.flush()
@@ -379,6 +525,12 @@ def test_per_occupation_evidence_ids_share_descriptor_identity_and_fresh_facts(
     assert len(result.model_bundle["candidates"][0]["onet_associations"]) == 2
     assert result.model_bundle["patterns"][0]["kind"] == "occupation_difference"
     assert [v["value"] for v in result.model_bundle["patterns"][0]["values"]] == [4, 5]
+    current = resolve(owned, focused_candidate_id=candidates[0]["candidate_id"])
+    assert current.model_bundle["occupation_codes"] == []
+    assert all(
+        candidate["onet_associations"] == []
+        for candidate in current.model_bundle["candidates"]
+    )
     with pytest.raises(HTTPException) as error:
         resolve(
             owned,

@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.modules.occupation_reference.importer import release_url
 from app.modules.occupation_reference.repository import OccupationReferenceRepository
 
+from .evidence import validated_passage
 from .repository import MarketReviewRepository
 from .review_service import SkillReviewService
 from .schemas import (
@@ -320,6 +321,48 @@ class WorkspaceContextService:
                             404, "context_not_found", "Posting evidence is inaccessible"
                         )
                     available = row.purged_at is None and row.status != "purged"
+                    text = row.description_text or ""
+                    excerpt = text[:600] if available else None
+                    excerpt_kind = (
+                        "introductory_context" if available else "unavailable"
+                    )
+                    if available:
+                        for source in candidate.evidence_references:
+                            if (
+                                source.get("snapshot_id") != identity
+                                or source.get("evidence_kind") != "extracted_text"
+                            ):
+                                continue
+                            start = source.get("excerpt_start")
+                            if (
+                                not isinstance(start, int)
+                                or isinstance(start, bool)
+                                or start < 0
+                            ):
+                                continue
+                            passage = validated_passage(
+                                text, source.get("excerpt"), start
+                            )
+                            phrase = source.get("original_phrase")
+                            if (
+                                passage is None
+                                or not isinstance(phrase, str)
+                                or not phrase.strip()
+                                or phrase not in passage["excerpt"]
+                            ):
+                                continue
+                            position = passage["excerpt"].find(phrase)
+                            left_context = min(120, max(0, 600 - len(phrase)))
+                            offset = max(
+                                0,
+                                min(
+                                    position - left_context,
+                                    len(passage["excerpt"]) - 600,
+                                ),
+                            )
+                            excerpt = passage["excerpt"][offset : offset + 600]
+                            excerpt_kind = "validated_skill_passage"
+                            break
                     postings.append(
                         {
                             "snapshot_id": identity,
@@ -327,9 +370,8 @@ class WorkspaceContextService:
                             "original_url": row.original_url,
                             "title": row.title,
                             "status": row.status if available else "unavailable",
-                            "excerpt": (row.description_text or "")[:600]
-                            if available
-                            else None,
+                            "excerpt": excerpt,
+                            "excerpt_kind": excerpt_kind,
                         }
                     )
             records.append(
