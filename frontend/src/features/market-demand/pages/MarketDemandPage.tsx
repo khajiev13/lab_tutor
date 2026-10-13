@@ -439,10 +439,8 @@ function MarketDemandContent() {
     if (sendPending.current || workflowDisabled) return;
     const groups = agentState.job_groups;
     if (!groups) return;
-    const groupKeys = Object.keys(groups);
-    const indices = selectedIds.map((id) => groupKeys.indexOf(id) + 1);
     setConfirmedSelection({ kind: "job_groups", ids: selectedIds });
-    handleSend(indices.join(", "));
+    handleSend(`Select these job groups by exact name: ${JSON.stringify(selectedIds)}. Preserve these names; do not convert them to indices.`);
   };
 
   const countrySelectorDisabled = settingsDisabled;
@@ -451,7 +449,9 @@ function MarketDemandContent() {
   const pending = detectPendingSelection(agentState, messages);
   const showSelection =
     pending &&
-    confirmedSelection?.kind !== pending.kind;
+    (pending.kind === "job_groups"
+      ? !workPending
+      : confirmedSelection?.kind !== pending.kind);
 
   // Map pending kind to confirm handler and labels
   const selectionConfig: Record<string, {

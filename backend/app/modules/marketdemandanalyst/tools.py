@@ -508,8 +508,10 @@ def show_current_state() -> str:
 @tool
 def select_jobs_by_group(group_names: str) -> str:
     """Select entire groups from the fetched jobs.
-    Accepts group names, numbers, or "all" intents (comma-separated).
-    Examples: "1, 2, 5", "Bioinformatics, Genetics", or "all".
+    Prefer a JSON array string of exact group names, especially names containing commas.
+    Pass supplied JSON names unchanged; do not replace them with group numbers.
+    Also accepts legacy comma-separated names/numbers or "all" intents.
+    Examples: '["Engineer, Platform", "Data Engineer"]', "1, 2, 5", or "all".
     """
     if tool_store.get("run_id"):
         try:
@@ -521,8 +523,16 @@ def select_jobs_by_group(group_names: str) -> str:
     if not groups:
         return "No job groups found. The coordinator needs to fetch jobs first."
 
-    group_list = list(groups.items())  # already sorted by count desc
-    requested = [g.strip() for g in group_names.split(",") if g.strip()]
+    group_list = list(groups.items())
+    try:
+        is_json_list = isinstance(json.loads(group_names), list)
+    except json.JSONDecodeError:
+        is_json_list = False
+    requested = (
+        _parse_string_list(group_names)
+        if is_json_list
+        else [g.strip() for g in group_names.split(",") if g.strip()]
+    )
 
     normalized_requested = {req.casefold() for req in requested}
     if normalized_requested & {"all", "all groups", "every group", "everything", "*"}:

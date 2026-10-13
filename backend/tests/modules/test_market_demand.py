@@ -868,6 +868,100 @@ class TestDeleteEndpoint:
 
 
 class TestSelectJobsByGroup:
+    @pytest.mark.parametrize(
+        "group_names",
+        [
+            "1, 3",
+            "Data Engineer, Backend Engineer",
+            "1, Backend Engineer",
+            "1,\n3",
+            "Data Engineer,\nBackend Engineer",
+        ],
+    )
+    def test_select_jobs_by_group_keeps_legacy_names_and_numbers(self, group_names):
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import select_jobs_by_group
+
+        state_mod.tool_store["fetched_jobs"] = [
+            {"title": "Data Job"},
+            {"title": "Analytics Job"},
+            {"title": "Backend Job"},
+        ]
+        state_mod.tool_store["job_groups"] = {
+            "Data Engineer": [0],
+            "Analytics Engineer": [1],
+            "Backend Engineer": [2],
+        }
+
+        select_jobs_by_group.invoke({"group_names": group_names})
+
+        assert state_mod.tool_store["selected_jobs"] == [
+            {"title": "Data Job"},
+            {"title": "Backend Job"},
+        ]
+
+    def test_select_jobs_by_group_json_names_preserve_commas_and_exact_matches(self):
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import select_jobs_by_group
+
+        state_mod.tool_store["fetched_jobs"] = [
+            {"title": "Cloud Job"},
+            {"title": "Data Job"},
+            {"title": "Cloud Lead Job"},
+            {"title": "Backend Job"},
+        ]
+        state_mod.tool_store["job_groups"] = {
+            "Data Platform Engineer, Cloud": [0],
+            "Data Platform Engineer": [1],
+            "Data Platform Engineer, Cloud Lead": [2],
+            "Backend Engineer": [3],
+        }
+
+        result = select_jobs_by_group.invoke(
+            {"group_names": '["Data Platform Engineer, Cloud", "Backend Engineer"]'}
+        )
+
+        assert state_mod.tool_store.get("selected_jobs") == [
+            {"title": "Cloud Job"},
+            {"title": "Backend Job"},
+        ], result
+
+    def test_select_jobs_by_group_json_names_survive_jsonb_reordering(self, db_session):
+        import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst.tools import select_jobs_by_group
+
+        initial_state = {
+            "fetched_jobs": [
+                {"title": "Analytics Senior Job"},
+                {"title": "Data Job"},
+                {"title": "Analytics Junior Job"},
+            ],
+            "job_groups": {
+                "Analytics Engineer": [0, 2],
+                "Data Engineer": [1],
+            },
+        }
+        state_mod.tool_store.update(initial_state)
+        select_jobs_by_group.invoke({"group_names": "Analytics Engineer"})
+        expected_jobs = [
+            {"title": "Analytics Senior Job"},
+            {"title": "Analytics Junior Job"},
+        ]
+        assert state_mod.tool_store["selected_jobs"] == expected_jobs
+
+        thread_id = f"mda-jsonb-selection-{uuid.uuid4()}"
+        db_session.add(MDAThreadState(thread_id=thread_id, state_json=initial_state))
+        db_session.commit()
+        db_session.expire_all()
+        restored_state = db_session.get(MDAThreadState, thread_id).state_json
+        assert list(restored_state["job_groups"]) != list(initial_state["job_groups"])
+        state_mod.tool_store.clear()
+        state_mod.tool_store.update(restored_state)
+
+        result = select_jobs_by_group.invoke({"group_names": '["Analytics Engineer"]'})
+
+        assert state_mod.tool_store.get("selected_jobs") == expected_jobs, result
+
     def test_select_jobs_by_group_all_selects_every_group(self):
         import app.modules.marketdemandanalyst.state as state_mod
         from app.modules.marketdemandanalyst.tools import select_jobs_by_group

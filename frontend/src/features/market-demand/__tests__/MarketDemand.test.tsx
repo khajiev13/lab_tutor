@@ -15,7 +15,7 @@ function TestRouter({children}: {children: React.ReactNode}) {
 }
 const workspaceObservers = new Map<Element,ResizeObserverCallback>();
 function measureWorkspace(entries: ResizeObserverEntry[], observer: ResizeObserver) {for (const entry of entries) workspaceObservers.get(entry.target)?.([entry],observer);}
-vi.stubGlobal("ResizeObserver", class {callback:ResizeObserverCallback; constructor(callback: ResizeObserverCallback){this.callback=callback;} observe(node:Element){workspaceObservers.set(node,this.callback);} disconnect(){}});
+vi.stubGlobal("ResizeObserver", class {callback:ResizeObserverCallback; constructor(callback: ResizeObserverCallback){this.callback=callback;} observe(node:Element){workspaceObservers.set(node,this.callback);} unobserve(node:Element){workspaceObservers.delete(node);} disconnect(){}});
 const compareFailure=vi.hoisted(() => ({enabled:false}));
 vi.mock('@/features/market-demand/components/WorkspaceCompare',async () => {
  const actual=await vi.importActual<typeof import('@/features/market-demand/components/WorkspaceCompare')>('@/features/market-demand/components/WorkspaceCompare');
@@ -393,6 +393,130 @@ describe("MarketDemandPage", () => {
     await screen.findByRole("checkbox", {name:"Indeed"});
     await user.click(suggestion);
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms displayed job group names without converting them to indices", async () => {
+    const send = vi.fn<(command: SendCommand) => Promise<SendResult>>()
+      .mockResolvedValue({ outcome: "completed" });
+    vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({
+      send,
+      agentState: {
+        ...EMPTY_STATE,
+        fetched_jobs: [
+          { title: "Software Engineer", company: "Acme" },
+          { title: "Reporting Analyst", company: "Acme" },
+          { title: "Data Scientist", company: "Acme" },
+        ],
+        job_groups: {
+          "Software Engineers": [0],
+          "Data Analysts, Reporting": [1],
+          "Data Scientists": [2],
+        },
+      },
+    }));
+    const { default: MarketDemandPage } = await import(
+      "@/features/market-demand/pages/MarketDemandPage"
+    );
+    const user = userEvent.setup();
+    render(<TestRouter><MarketDemandPage /></TestRouter>);
+
+    await user.click(screen.getByRole("tab", { name: "Conversation" }));
+    await user.type(screen.getByPlaceholderText("Type your response..."), "Keep this question");
+    await user.click(screen.getByRole("tab", { name: "Workspace" }));
+    await user.click(screen.getByRole("checkbox", { name: /^Data Scientists/ }));
+    await user.click(screen.getByRole("checkbox", { name: /^Data Analysts, Reporting/ }));
+    await user.click(screen.getByRole("button", { name: /Confirm Selection/ }));
+
+    await waitFor(() => expect(send).toHaveBeenCalledOnce());
+    const command = send.mock.calls[0][0];
+    expect(command.mode).toBe("workflow");
+    expect(command.text).toMatch(/\[[\s\S]*\]/);
+    const names = command.text?.match(/\[[\s\S]*\]/)?.[0];
+    expect(JSON.parse(names!)).toEqual(["Data Scientists", "Data Analysts, Reporting"]);
+    expect(command.text).toMatch(/preserve.*names.*do not convert.*indices/i);
+    await user.click(screen.getByRole("tab", { name: "Conversation" }));
+    expect(screen.getByPlaceholderText("Type your response...")).toHaveValue("Keep this question");
+  });
+
+  it("reopens fresh job group choices after a provider retry completes", async () => {
+    let finish!: (result: SendResult) => void;
+    const send = vi.fn<(command: SendCommand) => Promise<SendResult>>(
+      () => new Promise(resolve => { finish = resolve; })
+    );
+    const initialState: AgentState = {
+      ...EMPTY_STATE,
+      fetched_jobs: [{ title: "Data Scientist", company: "Acme" }],
+      job_groups: { "Data Scientists": [0] },
+      source_outcomes: {
+        indeed: { status: "success", received_count: 1, usable_count: 1, warnings: [] },
+      },
+    };
+    const stream = mockStreamReturn({ send, agentState: initialState });
+    vi.mocked(useAgentStream).mockReturnValue(stream);
+    const { default: MarketDemandPage } = await import(
+      "@/features/market-demand/pages/MarketDemandPage"
+    );
+    const { rerender } = render(<TestRouter><MarketDemandPage /></TestRouter>);
+    await act(async () => { await Promise.resolve(); });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /^Data Scientists/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Confirm Selection/ }));
+    expect(screen.queryByRole("button", { name: /Confirm Selection/ })).not.toBeInTheDocument();
+
+    const selectedState = { ...initialState, selected_jobs: initialState.fetched_jobs };
+    vi.mocked(useAgentStream).mockReturnValue({ ...stream, agentState: selectedState });
+    rerender(<TestRouter><MarketDemandPage /></TestRouter>);
+    await act(async () => finish({ outcome: "completed" }));
+    expect(screen.queryByRole("button", { name: /Confirm Selection/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry all providers and reassess" }));
+    expect(send).toHaveBeenCalledTimes(2);
+    const freshState: AgentState = {
+      ...initialState,
+      fetched_jobs: [{ title: "Reporting Analyst", company: "Beta" }],
+      job_groups: { "Data Analysts, Reporting": [0] },
+      selected_jobs: [],
+    };
+    vi.mocked(useAgentStream).mockReturnValue({
+      ...stream, agentState: freshState, isStreaming: true,
+      execution: { status: "busy", state_updated_at: null, outcome: "unknown" },
+    });
+    rerender(<TestRouter><MarketDemandPage /></TestRouter>);
+    expect(screen.queryByRole("button", { name: /Confirm Selection/ })).not.toBeInTheDocument();
+    await act(async () => finish({ outcome: "completed" }));
+    expect(screen.queryByRole("button", { name: /Confirm Selection/ })).not.toBeInTheDocument();
+
+    vi.mocked(useAgentStream).mockReturnValue({ ...stream, agentState: freshState });
+    rerender(<TestRouter><MarketDemandPage /></TestRouter>);
+    const choice = await screen.findByRole("checkbox", { name: /^Data Analysts, Reporting/ });
+    expect(choice).not.toBeChecked();
+    expect(screen.getByRole("button", { name: /Confirm Selection/ })).toBeDisabled();
+    fireEvent.click(choice);
+    expect(screen.getByRole("button", { name: /Confirm Selection/ })).toBeEnabled();
+  });
+
+  it("keeps confirmed search queries hidden before job results arrive", async () => {
+    const send = vi.fn<(command: SendCommand) => Promise<SendResult>>()
+      .mockResolvedValue({ outcome: "completed" });
+    vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({
+      send,
+      messages: [{
+        id: "queries", role: "agent", content: 'Search Terms: "Python" and "Data science"',
+        toolCalls: [], isStreaming: false,
+      }],
+    }));
+    const { default: MarketDemandPage } = await import(
+      "@/features/market-demand/pages/MarketDemandPage"
+    );
+    render(<TestRouter><MarketDemandPage /></TestRouter>);
+    await ensureSetup();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Python" }));
+    fireEvent.click(screen.getByRole("button", { name: /Confirm Selection/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Start an analysis" })).toBeEnabled());
+    expect(send).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("checkbox", { name: "Python" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Confirm Selection/ })).not.toBeInTheDocument();
   });
 
   it("renders messages when present", async () => {

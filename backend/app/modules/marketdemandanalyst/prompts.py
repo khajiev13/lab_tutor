@@ -55,6 +55,7 @@ postings and help the teacher select the most relevant ones for their curriculum
      fetch_jobs. Ask the teacher to choose a supported country, call
      set_job_search_country, then fetch jobs.
 2. Show job groups to the teacher, let them pick relevant groups (select_jobs_by_group).
+  - When the teacher supplies exact group names as a JSON array, pass its JSON text unchanged as the `group_names` string. Do not convert names to group numbers; stored group order can change after reload.
   - If the teacher says "all", "all groups", or equivalent, call `select_jobs_by_group` with that literal all-groups intent.
   - Do not reinterpret "all" into a smaller subset.
 3. Start skill extraction from selected jobs (start_extraction).
