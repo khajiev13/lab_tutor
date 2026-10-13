@@ -9,7 +9,7 @@ const API = process.env.WORKSPACE_API_URL;
 const manifestPath = process.env.WORKSPACE_FIXTURE_PATH;
 const phase = process.env.WORKSPACE_SCENARIO || 'all';
 const safeError = error => String(error.message ?? error).replace(/Bearer\s+[A-Za-z0-9_.-]+/g, 'Bearer [REDACTED]');
-const action = (name, payload) => JSON.parse(execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', '-i', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', '/tmp/teacher-workspace.json', '--action', name], { input: payload ? JSON.stringify(payload) : undefined, encoding: 'utf8' }));
+const action = (name, payload, extra = []) => JSON.parse(execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', '-i', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', '/tmp/teacher-workspace.json', '--action', name, ...extra], { input: payload ? JSON.stringify(payload) : undefined, encoding: 'utf8' }));
 const sourceFile = process.argv.find(arg => arg.endsWith('/teacher-evidence-workspace.cjs'));
 const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sourceFile), '../../output/teacher-evidence-workspace/acceptance');
 (async () => {
@@ -67,7 +67,7 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             await page.getByRole('region', { name: 'Demand overview' }).waitFor();
             await chart.locator('svg').waitFor();
             assert.equal(await page.getByLabel('Overview values').locator(':scope > li').count(), 12);
-            await page.screenshot({ path: path.join(output, 'initial-1440.png'), fullPage: true });
+            await page.screenshot({ path: path.join(output, ['tooltip-three-roles', 'tooltip-four-roles'].includes(phase) ? `${phase}-initial-1440.png` : 'initial-1440.png'), fullPage: true });
             const before = mutations.length;
             const bar = chart.locator('path[fill="#2563eb"]').first();
             await bar.scrollIntoViewIfNeeded();
@@ -163,9 +163,27 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             }
             console.log('PASS actual long-label tooltip hover fits all five widths in light/dark');
         }
-        if (['tooltip-variants', 'tooltip-five-roles'].includes(phase)) {
+        if (['tooltip-variants', 'tooltip-three-roles', 'tooltip-four-roles', 'tooltip-five-roles'].includes(phase)) {
+            const roleCount = { 'tooltip-variants': 2, 'tooltip-three-roles': 3, 'tooltip-four-roles': 4, 'tooltip-five-roles': 5 }[phase];
             const existing = process.env.WORKSPACE_EXISTING_TOOLTIP_COURSE;
-            const seeded = existing ? { course: { id: Number(existing) }, review: await (await context.request.get(`${API}/courses/${Number(existing)}/market-demand/skill-review`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } })).json() } : action(phase === 'tooltip-five-roles' ? 'seed-tooltip-five' : 'seed-tooltip');
+            const seeded = existing ? { course: { id: Number(existing) }, review: await (await context.request.get(`${API}/courses/${Number(existing)}/market-demand/skill-review`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } })).json() } : action('seed-tooltip', undefined, ['--role-count', String(roleCount)]);
+            assert.equal(seeded.review.analysis_metadata.occupations.length, roleCount);
+            const boundedRoleFix = [3, 4].includes(roleCount);
+            const modelCallsBefore = boundedRoleFix ? action('model-readback').length : null;
+            if (boundedRoleFix) {
+                assert(process.env.WORKSPACE_FIXTURE_GENERATION && process.env.WORKSPACE_PROOF_HEAD);
+                assert.equal(modelCallsBefore, 0);
+                const source = JSON.parse(fs.readFileSync(path.join(output, 'roles-fix-source.json')))[0].review;
+                assert.deepEqual(seeded.review.analysis_metadata.occupations.slice(0, 2), source.analysis_metadata.occupations);
+                seeded.review.candidates.forEach((candidate, index) => {
+                    assert.deepEqual(candidate.job_metrics, source.candidates[index].job_metrics);
+                    assert.deepEqual(candidate.onet_associations, source.candidates[index].onet_associations);
+                });
+                for (const role of seeded.review.analysis_metadata.occupations.slice(2)) {
+                    assert.match(role.title, /^SYNTHETIC NO-RATING LAYOUT ROLE/);
+                    assert(!seeded.review.candidates.some(candidate => candidate.onet_associations.some(a => a.evidence.soc_code === role.soc_code)));
+                }
+            }
             const records = [];
             await page.goto(`${UI}/courses/${seeded.course.id}/market-analyst`);
             const before = mutations.length;
@@ -215,13 +233,20 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
                             for (let i = 1; i < headers.length; i++)
                                 assert(headers[i - 1].right <= headers[i].left, 'Occupation headers overlap');
                         }
-                        records.push({ width, theme, variant, headers, expected: escaped, ...measured });
+                        records.push({ roleCount, width, theme, variant, headers, expected: escaped, ...measured });
                         if (width === 320)
                             await page.screenshot({ path: path.join(output, `${phase}-${variant}-${theme.toLowerCase()}.png`), fullPage: true });
                     }
                 }
             }
-            fs.writeFileSync(path.join(output, `${phase}.json`), JSON.stringify({ fixture: seeded, records }, null, 2));
+            fs.writeFileSync(path.join(output, `${phase}.json`), JSON.stringify({ fixture: seeded, records, ...(boundedRoleFix ? { fixtureGeneration: process.env.WORKSPACE_FIXTURE_GENERATION, proofHead: process.env.WORKSPACE_PROOF_HEAD, roleCount, modelCallsBefore, modelCallsAfter: action('model-readback').length, browserMutations: mutations.length } : {}) }, null, 2));
+            if (boundedRoleFix) {
+                assert.equal(action('model-readback').length, 0);
+                assert.equal(mutations.length, 0);
+                const current = await context.request.get(`${API}/courses/${seeded.course.id}/market-demand/skill-review`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } });
+                assert.equal(current.status(), 200);
+                assert.deepEqual(await current.json(), seeded.review, 'Read-only geometry must not change SQL-backed review');
+            }
             console.log('PASS demand/scatter/heatmap complete source-token/nonASCII/unbroken labels and exact metrics inside SVG at320/390/768 in both themes; readonly actual hover');
         }
         if (['all', 'layout'].includes(phase)) {
@@ -1029,10 +1054,11 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
                 }
                 await page.getByRole('button', { name: 'Overview', exact: true }).click();
                 await overview.waitFor();
-                assert.equal(await overview.locator('article').count(), item.source_case.expected.length, item.name + ' bounded rendered patterns');
-                assert(await overview.locator('article').count() <= 2);
+                const observedPatternCount = await overview.locator('article').count();
+                assert.equal(observedPatternCount, item.source_case.expected.length, item.name + ' bounded rendered patterns');
+                assert(observedPatternCount <= 2);
                 assert.equal(mutations.length, prior, 'Course/filter/occupation/descriptor changes must not mutate');
-                plotFacts.push({ name: item.name, heatmap: actual, patterns: item.source_case.expected });
+                plotFacts.push({ name: item.name, heatmap: actual, expectedPatterns: item.source_case.expected, observedPatternCount });
                 console.log(`PASS corpus SQL/server/heatmap/patterns ${item.name}`);
             }
             fs.writeFileSync(path.join(output, 'corpus-browser-facts.json'), JSON.stringify(plotFacts, null, 2));

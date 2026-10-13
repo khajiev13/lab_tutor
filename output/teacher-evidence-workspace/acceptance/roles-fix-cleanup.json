@@ -1,0 +1,118 @@
+{
+  "completed": true,
+  "utc": "2026-10-13T04:43:36.315758+00:00",
+  "fixtureGeneration": "roles-fix-db319f5-20261013T043505Z",
+  "proofHead": "db319f5695e2c6cf1b91644a01d0562df3b2cd5f",
+  "database": "lab_tutor_workspace_acceptance",
+  "verified_marker": "Task12 owned roles-fix-db319f5-20261013T043505Z",
+  "verified_labels": {
+    "task12.owner": "teacher-workspace",
+    "task12.generation": "roles-fix-db319f5-20261013T043505Z"
+  },
+  "removed_containers": [
+    "lab_tutor_workspace_acceptance_api",
+    "lab_tutor_workspace_acceptance_ui",
+    "lab_tutor_workspace_acceptance_graph"
+  ],
+  "removed_owned_graph_volumes": [
+    "8f4a0eb6b4d8987536eec805f92f3fb69ec8f7af0093a019f0c947167409297f",
+    "ca3a92b6439c9ccad7ddff600cb66dd03f19c08dbf8ad1a7a0ec8e0aa115c01e"
+  ],
+  "private_paths_removed": [
+    "/tmp/task12-roles-runtime/ownership.json",
+    "/tmp/task12-roles-runtime/api.env",
+    "/tmp/task12-roles-runtime/graph.env",
+    "/tmp/task12-roles-runtime/teacher-workspace.json",
+    "/tmp/task12-roles-runtime"
+  ],
+  "preserved_containers": [
+    "lab_tutor_azurite",
+    "lab_tutor_backend",
+    "lab_tutor_frontend",
+    "lab_tutor_onet_api",
+    "lab_tutor_onet_backend",
+    "lab_tutor_onet_frontend",
+    "lab_tutor_onet_neo4j",
+    "lab_tutor_onet_preview",
+    "lab_tutor_postgres",
+    "lab_tutor_workspace_backend",
+    "lab_tutor_workspace_frontend"
+  ],
+  "preserved_other_container_count": 54,
+  "other_containers_verified_preserved": true,
+  "absence_verified": {
+    "owned_containers": true,
+    "owned_graph_volumes": true,
+    "acceptance_database": true,
+    "private_paths": true,
+    "browser_runners": true,
+    "custom_triggers": true,
+    "report_temp_scripts": true
+  },
+  "preserved": [
+    "lab_tutor_workspace_test database",
+    "lab_tutor_workspace_venv",
+    "lab_tutor_workspace_node_modules",
+    "original databases/graphs",
+    "worktree and SDD scratch"
+  ],
+  "scope": "Only fresh3/4-role fixture; historical lifecycle and graph readbacks unchanged. No workflow/model call or lease acquired in this round.",
+  "commands": [
+    {
+      "command": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "exec",
+        "lab_tutor_postgres",
+        "psql",
+        "-U",
+        "labtutor",
+        "-d",
+        "lab_tutor_workspace_acceptance",
+        "-Atc",
+        "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal;"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "rm",
+        "-f",
+        "lab_tutor_workspace_acceptance_api",
+        "lab_tutor_workspace_acceptance_ui",
+        "lab_tutor_workspace_acceptance_graph"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "volume",
+        "rm",
+        "8f4a0eb6b4d8987536eec805f92f3fb69ec8f7af0093a019f0c947167409297f",
+        "ca3a92b6439c9ccad7ddff600cb66dd03f19c08dbf8ad1a7a0ec8e0aa115c01e"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "/Applications/Docker.app/Contents/Resources/bin/docker",
+        "exec",
+        "lab_tutor_postgres",
+        "psql",
+        "-U",
+        "labtutor",
+        "-d",
+        "postgres",
+        "-c",
+        "DROP DATABASE lab_tutor_workspace_acceptance"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "removed_report_temp_scripts": [
+    "/tmp/task12-roles-report.py",
+    "/tmp/task12-roles-cleanup.py",
+    "/tmp/task12-roles-qa.cjs"
+  ]
+}

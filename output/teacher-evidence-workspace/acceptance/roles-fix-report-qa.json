@@ -1,0 +1,19 @@
+{
+  "results": [
+    {
+      "width": 1280,
+      "localReferences": 81,
+      "imagesLoaded": true,
+      "noHorizontalOverflow": true,
+      "actualImageClick": true
+    },
+    {
+      "width": 390,
+      "localReferences": 81,
+      "imagesLoaded": true,
+      "noHorizontalOverflow": true,
+      "actualImageClick": true
+    }
+  ],
+  "runtimeErrors": []
+}

@@ -1,0 +1,8 @@
+M1 check attempts EXIT1: initially assumed13 totalrecords, then assumed everyrecord hadpatterns; actualartifact is13 heatmap/expectedpattern records plusone scatterrecord. Corrected checker shape afterinspection; noartifactvalue/assertionbehavior changed.
+PASS M1: all14 records unchanged except13 patterns→expectedPatterns keys; no retrospective observedcount. Future count captured separately.
+COMMAND ['node', '--check', 'frontend/e2e/teacher-evidence-workspace.cjs']
+EXIT0
+COMMAND ['/Applications/Docker.app/Contents/Resources/bin/docker', 'exec', 'lab_tutor_workspace_backend', 'sh', '-lc', 'cd /app && /app/.venv/bin/ruff check tests/acceptance && /app/.venv/bin/ruff format --check tests/acceptance']
+All checks passed!
+2 files already formatted
+EXIT0

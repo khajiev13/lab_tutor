@@ -1,0 +1,8 @@
+🎭 Playwright Skill - Universal Executor
+
+📄 Executing file: /Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/frontend/e2e/teacher-evidence-workspace.cjs
+🚀 Starting automation...
+
+locator.waitFor: Timeout 20000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('region', { name: 'Demand overview' }) to be visible[22m

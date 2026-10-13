@@ -132,5 +132,13 @@
       "seconds": 50.58,
       "timeout_ms": 5000
     }
+  },
+  "scoped_review_fix": {
+    "head": "db319f5695e2c6cf1b91644a01d0562df3b2cd5f",
+    "fixtureGeneration": "roles-fix-db319f5-20261013T043505Z",
+    "I1": "36 actual3/4-role cases passed; separate fresh fixture",
+    "M1": "13 patterns arrays renamedexpectedPatterns unchanged; historical DOM counts only; no invented observations",
+    "evidence": "roles-fix-verification.json",
+    "cleanup": "roles-fix-cleanup.json"
   }
 }

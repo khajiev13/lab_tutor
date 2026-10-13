@@ -2,12 +2,12 @@
   {
     "name": "denominator_9",
     "heatmap": [],
-    "patterns": []
+    "expectedPatterns": []
   },
   {
     "name": "denominator_10",
     "heatmap": [],
-    "patterns": [
+    "expectedPatterns": [
       {
         "kind": "common_sample",
         "candidate_ids": [
@@ -45,7 +45,7 @@
         4
       ]
     ],
-    "patterns": [
+    "expectedPatterns": [
       {
         "kind": "occupation_difference",
         "candidate_ids": [
@@ -94,7 +94,7 @@
         4
       ]
     ],
-    "patterns": []
+    "expectedPatterns": []
   },
   {
     "name": "suppressed_numeric_not_plotted",
@@ -105,7 +105,7 @@
         4
       ]
     ],
-    "patterns": []
+    "expectedPatterns": []
   },
   {
     "name": "ambiguous_cell",
@@ -116,7 +116,7 @@
         5
       ]
     ],
-    "patterns": []
+    "expectedPatterns": []
   },
   {
     "name": "explicit_descriptor_choice",
@@ -132,7 +132,7 @@
         5
       ]
     ],
-    "patterns": [
+    "expectedPatterns": [
       {
         "kind": "occupation_difference",
         "candidate_ids": [
@@ -175,7 +175,7 @@
   {
     "name": "tie_label_then_id",
     "heatmap": [],
-    "patterns": [
+    "expectedPatterns": [
       {
         "kind": "common_sample",
         "candidate_ids": [
@@ -218,7 +218,7 @@
   {
     "name": "same_denominator_only",
     "heatmap": [],
-    "patterns": [
+    "expectedPatterns": [
       {
         "kind": "common_sample",
         "candidate_ids": [
@@ -275,7 +275,7 @@
         4
       ]
     ],
-    "patterns": [
+    "expectedPatterns": [
       {
         "kind": "common_sample",
         "candidate_ids": [
@@ -339,12 +339,12 @@
   {
     "name": "filtered_empty",
     "heatmap": [],
-    "patterns": []
+    "expectedPatterns": []
   },
   {
     "name": "partial_coverage_qualified",
     "heatmap": [],
-    "patterns": [
+    "expectedPatterns": [
       {
         "kind": "common_sample",
         "candidate_ids": [
@@ -384,6 +384,6 @@
   {
     "name": "software_reference_not_numeric",
     "heatmap": [],
-    "patterns": []
+    "expectedPatterns": []
   }
 ]

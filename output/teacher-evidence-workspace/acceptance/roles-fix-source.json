@@ -1,0 +1,876 @@
+[
+  {
+    "name": "max_two_no_repeated_skill",
+    "course": {
+      "id": 3,
+      "title": "SYNTHETIC TEST CORPUS \u2014 max_two_no_repeated_skill",
+      "description": null,
+      "level": "bachelor",
+      "publication_status": "draft",
+      "market_gate_status": "not_started",
+      "teacher_id": 1,
+      "created_at": "2026-10-13T04:38:04.074767Z",
+      "extraction_status": "not_started"
+    },
+    "source_case": {
+      "name": "max_two_no_repeated_skill",
+      "review": {
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "analysis_metadata": {
+          "country": null,
+          "job_sources": [
+            "headhunter"
+          ],
+          "evidence_sources": [
+            "jobs",
+            "onet"
+          ],
+          "onet_release": "30.0",
+          "occupations": [
+            {
+              "soc_code": "15-1252.00",
+              "title": "15-1252.00"
+            },
+            {
+              "soc_code": "15-1253.00",
+              "title": "15-1253.00"
+            }
+          ],
+          "created_at": "2026-10-12T00:00:00Z",
+          "updated_at": "2026-10-12T00:00:00Z"
+        },
+        "categories": [
+          {
+            "category_id": "skills",
+            "label": "Skills"
+          }
+        ],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Programming",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "00000000-0000-0000-0000-000000000100",
+                  "release": "30.0",
+                  "soc_code": "15-1252.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "status": "reported",
+                      "value": 3,
+                      "minimum": 1,
+                      "maximum": 5
+                    }
+                  }
+                }
+              },
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "00000000-0000-0000-0000-000000000101",
+                  "release": "30.0",
+                  "soc_code": "15-1253.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "status": "reported",
+                      "value": 5,
+                      "minimum": 1,
+                      "maximum": 5
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "display_name": "Programming",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 0,
+              "percentage": 50
+            },
+            "onet_associations": [
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "00000000-0000-0000-0000-000000000200",
+                  "release": "30.0",
+                  "soc_code": "15-1252.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "status": "reported",
+                      "value": 3,
+                      "minimum": 1,
+                      "maximum": 5
+                    }
+                  }
+                }
+              },
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "00000000-0000-0000-0000-000000000201",
+                  "release": "30.0",
+                  "soc_code": "15-1253.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "status": "reported",
+                      "value": 4,
+                      "minimum": 1,
+                      "maximum": 5
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "context": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "00000000-0000-0000-0000-000000000099",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "expected": [
+        {
+          "kind": "common_sample",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ],
+          "occupation_codes": [],
+          "descriptor_keys": [],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000001",
+              "occupation_code": null,
+              "value": 50,
+              "supporting_count": 3,
+              "assessed_count": 10
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        },
+        {
+          "kind": "occupation_difference",
+          "candidate_ids": [
+            "00000000-0000-0000-0000-000000000002"
+          ],
+          "occupation_codes": [
+            "15-1252.00",
+            "15-1253.00"
+          ],
+          "descriptor_keys": [
+            [
+              "30.0",
+              "transferable",
+              "2.B.3"
+            ]
+          ],
+          "values": [
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000002",
+              "occupation_code": "15-1252.00",
+              "value": 3,
+              "supporting_count": null,
+              "assessed_count": null
+            },
+            {
+              "candidate_id": "00000000-0000-0000-0000-000000000002",
+              "occupation_code": "15-1253.00",
+              "value": 4,
+              "supporting_count": null,
+              "assessed_count": null
+            }
+          ],
+          "coverage": {
+            "extraction_coverage": {},
+            "source_outcomes": {}
+          }
+        }
+      ]
+    },
+    "id_mapping": {
+      "00000000-0000-0000-0000-000000000100": "7b073b1a-4c79-5ba2-ae35-b48c7489087d",
+      "00000000-0000-0000-0000-000000000101": "1c543438-3ede-57bf-90b4-ff26064897fc",
+      "00000000-0000-0000-0000-000000000200": "92676bec-11f4-53e8-9413-4f064d3aba55",
+      "00000000-0000-0000-0000-000000000201": "770d025b-ca4b-5a75-95e7-a77b9896241e"
+    },
+    "context": {
+      "kind": "run_review",
+      "version": 1,
+      "intent": "explain",
+      "run_id": "f8aae362-5717-4189-8930-a6ac9db1f2ae",
+      "expected_candidate_revision": 1,
+      "expected_selection_revision": 1,
+      "view": "overview",
+      "focused_candidate_id": null,
+      "candidate_ids": [],
+      "filters": {
+        "category_ids": [],
+        "search": "",
+        "scope": "all"
+      },
+      "occupation_codes": [
+        "15-1252.00",
+        "15-1253.00"
+      ],
+      "metric": "IM",
+      "descriptor_choices": [],
+      "insight_kind": null,
+      "has_unsaved_changes": false
+    },
+    "resolved": {
+      "request": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "f8aae362-5717-4189-8930-a6ac9db1f2ae",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1,
+        "view": "overview",
+        "focused_candidate_id": null,
+        "candidate_ids": [],
+        "filters": {
+          "category_ids": [],
+          "search": "",
+          "scope": "all"
+        },
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "metric": "IM",
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "has_unsaved_changes": false
+      },
+      "intent": "explain",
+      "revision": {
+        "run_id": "f8aae362-5717-4189-8930-a6ac9db1f2ae",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 1
+      },
+      "model_bundle": {
+        "kind": "run_review",
+        "run_id": "f8aae362-5717-4189-8930-a6ac9db1f2ae",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "release": "30.0",
+        "metric": "IM",
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "coverage": {
+          "extraction_coverage": {
+            "acknowledged": true
+          },
+          "source_outcomes": {}
+        },
+        "patterns": [
+          {
+            "kind": "common_sample",
+            "candidate_ids": [
+              "00000000-0000-0000-0000-000000000001"
+            ],
+            "occupation_codes": [],
+            "descriptor_keys": [],
+            "values": [
+              {
+                "candidate_id": "00000000-0000-0000-0000-000000000001",
+                "occupation_code": null,
+                "value": 50.0,
+                "supporting_count": 3,
+                "assessed_count": 10
+              }
+            ],
+            "coverage": {
+              "extraction_coverage": {
+                "acknowledged": true
+              },
+              "source_outcomes": {}
+            }
+          },
+          {
+            "kind": "occupation_difference",
+            "candidate_ids": [
+              "00000000-0000-0000-0000-000000000002"
+            ],
+            "occupation_codes": [
+              "15-1252.00",
+              "15-1253.00"
+            ],
+            "descriptor_keys": [
+              [
+                "30.0",
+                "transferable",
+                "2.B.3"
+              ]
+            ],
+            "values": [
+              {
+                "candidate_id": "00000000-0000-0000-0000-000000000002",
+                "occupation_code": "15-1252.00",
+                "value": 3.0,
+                "supporting_count": null,
+                "assessed_count": null
+              },
+              {
+                "candidate_id": "00000000-0000-0000-0000-000000000002",
+                "occupation_code": "15-1253.00",
+                "value": 4.0,
+                "supporting_count": null,
+                "assessed_count": null
+              }
+            ],
+            "coverage": {
+              "extraction_coverage": {
+                "acknowledged": true
+              },
+              "source_outcomes": {}
+            }
+          }
+        ],
+        "notices": [],
+        "candidates": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Programming",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "7b073b1a-4c79-5ba2-ae35-b48c7489087d",
+                  "release": "30.0",
+                  "soc_code": "15-1252.00",
+                  "occupation_title": "SYNTHETIC TEST CORPUS 15-1252.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                  "definition": "Exact reviewed fixture case max_two_no_repeated_skill",
+                  "workplace_example": null,
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "value": 3,
+                      "minimum": 1,
+                      "maximum": 5,
+                      "status": "reported"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_30_0_csv/transferable_skills.csv",
+                  "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings."
+                }
+              },
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "1c543438-3ede-57bf-90b4-ff26064897fc",
+                  "release": "30.0",
+                  "soc_code": "15-1253.00",
+                  "occupation_title": "SYNTHETIC TEST CORPUS 15-1253.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                  "definition": "Exact reviewed fixture case max_two_no_repeated_skill",
+                  "workplace_example": null,
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "value": 5,
+                      "minimum": 1,
+                      "maximum": 5,
+                      "status": "reported"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_30_0_csv/transferable_skills.csv",
+                  "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings."
+                }
+              }
+            ],
+            "postings": []
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "display_name": "Programming",
+            "category_id": "skills",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 0,
+              "percentage": 50
+            },
+            "onet_associations": [
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "92676bec-11f4-53e8-9413-4f064d3aba55",
+                  "release": "30.0",
+                  "soc_code": "15-1252.00",
+                  "occupation_title": "SYNTHETIC TEST CORPUS 15-1252.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                  "definition": "Exact reviewed fixture case max_two_no_repeated_skill",
+                  "workplace_example": null,
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "value": 3,
+                      "minimum": 1,
+                      "maximum": 5,
+                      "status": "reported"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_30_0_csv/transferable_skills.csv",
+                  "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings."
+                }
+              },
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "770d025b-ca4b-5a75-95e7-a77b9896241e",
+                  "release": "30.0",
+                  "soc_code": "15-1253.00",
+                  "occupation_title": "SYNTHETIC TEST CORPUS 15-1253.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                  "definition": "Exact reviewed fixture case max_two_no_repeated_skill",
+                  "workplace_example": null,
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "value": 4,
+                      "minimum": 1,
+                      "maximum": 5,
+                      "status": "reported"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_30_0_csv/transferable_skills.csv",
+                  "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings."
+                }
+              }
+            ],
+            "postings": []
+          }
+        ],
+        "included_count": 2,
+        "omitted_count": 0,
+        "evidence_included_count": 4,
+        "evidence_omitted_count": 0
+      },
+      "history_metadata": {
+        "kind": "run_review",
+        "version": 1,
+        "intent": "explain",
+        "run_id": "f8aae362-5717-4189-8930-a6ac9db1f2ae",
+        "candidate_revision": 1,
+        "selection_revision": 1,
+        "release": "30.0",
+        "view": "overview",
+        "metric": "IM",
+        "occupation_codes": [
+          "15-1252.00",
+          "15-1253.00"
+        ],
+        "occupations": [
+          {
+            "soc_code": "15-1252.00",
+            "title": "SYNTHETIC TEST CORPUS 15-1252.00"
+          },
+          {
+            "soc_code": "15-1253.00",
+            "title": "SYNTHETIC TEST CORPUS 15-1253.00"
+          }
+        ],
+        "candidate_ids": [],
+        "candidate_labels": {
+          "00000000-0000-0000-0000-000000000001": "Programming",
+          "00000000-0000-0000-0000-000000000002": "Programming"
+        },
+        "filters": {
+          "category_ids": [],
+          "search": "",
+          "scope": "all"
+        },
+        "descriptor_choices": [],
+        "insight_kind": null,
+        "matching_count": 2,
+        "included_count": 2,
+        "omitted_count": 0,
+        "evidence_included_count": 4,
+        "evidence_omitted_count": 0,
+        "facts": [
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000001",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 10,
+              "percentage": 50
+            },
+            "onet_associations": [
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "7b073b1a-4c79-5ba2-ae35-b48c7489087d",
+                  "release": "30.0",
+                  "soc_code": "15-1252.00",
+                  "occupation_title": "SYNTHETIC TEST CORPUS 15-1252.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "value": 3,
+                      "minimum": 1,
+                      "maximum": 5,
+                      "status": "reported"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_30_0_csv/transferable_skills.csv",
+                  "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings."
+                }
+              },
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "1c543438-3ede-57bf-90b4-ff26064897fc",
+                  "release": "30.0",
+                  "soc_code": "15-1253.00",
+                  "occupation_title": "SYNTHETIC TEST CORPUS 15-1253.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "value": 5,
+                      "minimum": 1,
+                      "maximum": 5,
+                      "status": "reported"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_30_0_csv/transferable_skills.csv",
+                  "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings."
+                }
+              }
+            ],
+            "postings": []
+          },
+          {
+            "candidate_id": "00000000-0000-0000-0000-000000000002",
+            "job_metrics": {
+              "supporting_posting_count": 3,
+              "assessed_posting_count": 0,
+              "percentage": 50
+            },
+            "onet_associations": [
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "92676bec-11f4-53e8-9413-4f064d3aba55",
+                  "release": "30.0",
+                  "soc_code": "15-1252.00",
+                  "occupation_title": "SYNTHETIC TEST CORPUS 15-1252.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "value": 3,
+                      "minimum": 1,
+                      "maximum": 5,
+                      "status": "reported"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_30_0_csv/transferable_skills.csv",
+                  "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings."
+                }
+              },
+              {
+                "relation": "equivalent",
+                "evidence": {
+                  "id": "770d025b-ca4b-5a75-95e7-a77b9896241e",
+                  "release": "30.0",
+                  "soc_code": "15-1253.00",
+                  "occupation_title": "SYNTHETIC TEST CORPUS 15-1253.00",
+                  "family": "transferable",
+                  "element_id": "2.B.3",
+                  "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                  "ratings": {
+                    "IM": {
+                      "scale_id": "IM",
+                      "value": 4,
+                      "minimum": 1,
+                      "maximum": 5,
+                      "status": "reported"
+                    }
+                  },
+                  "flags": {},
+                  "source_url": "https://www.onetcenter.org/dl_files/database/db_30_0_csv/transferable_skills.csv",
+                  "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings."
+                }
+              }
+            ],
+            "postings": []
+          }
+        ],
+        "coverage": {
+          "extraction_coverage": {
+            "acknowledged": true
+          },
+          "source_outcomes": {}
+        },
+        "notices": []
+      }
+    },
+    "review": {
+      "run_id": "f8aae362-5717-4189-8930-a6ac9db1f2ae",
+      "analysis_metadata": {
+        "country": null,
+        "job_sources": [
+          "headhunter"
+        ],
+        "evidence_sources": [
+          "jobs",
+          "onet"
+        ],
+        "onet_release": "30.0",
+        "occupations": [
+          {
+            "soc_code": "15-1252.00",
+            "title": "SYNTHETIC TEST CORPUS 15-1252.00"
+          },
+          {
+            "soc_code": "15-1253.00",
+            "title": "SYNTHETIC TEST CORPUS 15-1253.00"
+          }
+        ],
+        "created_at": "2026-10-13T04:38:04.315355Z",
+        "updated_at": "2026-10-13T04:38:04.315355Z"
+      },
+      "candidate_revision": 1,
+      "selection_revision": 1,
+      "categories": [
+        {
+          "category_id": "skills",
+          "label": "Skills"
+        }
+      ],
+      "candidates": [
+        {
+          "candidate_id": "00000000-0000-0000-0000-000000000001",
+          "display_name": "Programming",
+          "category_id": "skills",
+          "original_labels": [],
+          "aliases": [],
+          "evidence_references": [],
+          "job_metrics": {
+            "percentage": 50,
+            "assessed_posting_count": 10,
+            "supporting_posting_count": 3
+          },
+          "onet_associations": [
+            {
+              "evidence": {
+                "id": "7b073b1a-4c79-5ba2-ae35-b48c7489087d",
+                "flags": {},
+                "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                "family": "transferable",
+                "ratings": {
+                  "IM": {
+                    "value": 3,
+                    "status": "reported",
+                    "maximum": 5,
+                    "minimum": 1,
+                    "scale_id": "IM"
+                  }
+                },
+                "release": "30.0",
+                "soc_code": "15-1252.00",
+                "definition": "Exact reviewed fixture case max_two_no_repeated_skill",
+                "element_id": "2.B.3",
+                "source_url": "https://example.invalid/synthetic-test-corpus",
+                "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings.",
+                "occupation_title": "SYNTHETIC TEST CORPUS 15-1252.00",
+                "workplace_example": null
+              },
+              "relation": "equivalent"
+            },
+            {
+              "evidence": {
+                "id": "1c543438-3ede-57bf-90b4-ff26064897fc",
+                "flags": {},
+                "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                "family": "transferable",
+                "ratings": {
+                  "IM": {
+                    "value": 5,
+                    "status": "reported",
+                    "maximum": 5,
+                    "minimum": 1,
+                    "scale_id": "IM"
+                  }
+                },
+                "release": "30.0",
+                "soc_code": "15-1253.00",
+                "definition": "Exact reviewed fixture case max_two_no_repeated_skill",
+                "element_id": "2.B.3",
+                "source_url": "https://example.invalid/synthetic-test-corpus",
+                "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings.",
+                "occupation_title": "SYNTHETIC TEST CORPUS 15-1253.00",
+                "workplace_example": null
+              },
+              "relation": "equivalent"
+            }
+          ],
+          "recommendation_reasons": [],
+          "posting_support": "missing",
+          "qualifying_posting_links": []
+        },
+        {
+          "candidate_id": "00000000-0000-0000-0000-000000000002",
+          "display_name": "Programming",
+          "category_id": "skills",
+          "original_labels": [],
+          "aliases": [],
+          "evidence_references": [],
+          "job_metrics": {
+            "percentage": 50,
+            "assessed_posting_count": 0,
+            "supporting_posting_count": 3
+          },
+          "onet_associations": [
+            {
+              "evidence": {
+                "id": "92676bec-11f4-53e8-9413-4f064d3aba55",
+                "flags": {},
+                "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                "family": "transferable",
+                "ratings": {
+                  "IM": {
+                    "value": 3,
+                    "status": "reported",
+                    "maximum": 5,
+                    "minimum": 1,
+                    "scale_id": "IM"
+                  }
+                },
+                "release": "30.0",
+                "soc_code": "15-1252.00",
+                "definition": "Exact reviewed fixture case max_two_no_repeated_skill",
+                "element_id": "2.B.3",
+                "source_url": "https://example.invalid/synthetic-test-corpus",
+                "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings.",
+                "occupation_title": "SYNTHETIC TEST CORPUS 15-1252.00",
+                "workplace_example": null
+              },
+              "relation": "equivalent"
+            },
+            {
+              "evidence": {
+                "id": "770d025b-ca4b-5a75-95e7-a77b9896241e",
+                "flags": {},
+                "label": "SYNTHETIC TEST CORPUS 2.B.3",
+                "family": "transferable",
+                "ratings": {
+                  "IM": {
+                    "value": 4,
+                    "status": "reported",
+                    "maximum": 5,
+                    "minimum": 1,
+                    "scale_id": "IM"
+                  }
+                },
+                "release": "30.0",
+                "soc_code": "15-1253.00",
+                "definition": "Exact reviewed fixture case max_two_no_repeated_skill",
+                "element_id": "2.B.3",
+                "source_url": "https://example.invalid/synthetic-test-corpus",
+                "attribution": "SYNTHETIC TEST CORPUS. Not official O*NET ratings.",
+                "occupation_title": "SYNTHETIC TEST CORPUS 15-1253.00",
+                "workplace_example": null
+              },
+              "relation": "equivalent"
+            }
+          ],
+          "recommendation_reasons": [],
+          "posting_support": "missing",
+          "qualifying_posting_links": []
+        }
+      ],
+      "selected_candidate_ids": [],
+      "excluded_candidate_ids": [],
+      "recommendations": [],
+      "reconciliations": [],
+      "source_outcomes": {},
+      "extraction_coverage": {
+        "acknowledged": true
+      },
+      "integration_review": null,
+      "publication_revision": 0,
+      "approved_references": []
+    }
+  }
+]

@@ -1,0 +1,85 @@
+{
+  "proofHead": "db319f5695e2c6cf1b91644a01d0562df3b2cd5f",
+  "fixtureGeneration": "roles-fix-db319f5-20261013T043505Z",
+  "setupAttempts": [
+    {
+      "scenario": "tooltip-three-roles",
+      "command": [
+        "node",
+        "/Users/khajievroma/.codex/skills/playwright-skill/run.js",
+        "/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/frontend/e2e/teacher-evidence-workspace.cjs"
+      ],
+      "exitCode": 1,
+      "seconds": 52.88
+    }
+  ],
+  "browserCommands": [
+    {
+      "scenario": "tooltip-three-roles",
+      "command": [
+        "node",
+        "/Users/khajievroma/.codex/skills/playwright-skill/run.js",
+        "/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/frontend/e2e/teacher-evidence-workspace.cjs"
+      ],
+      "exitCode": 0,
+      "seconds": 60.93
+    },
+    {
+      "scenario": "tooltip-four-roles",
+      "command": [
+        "node",
+        "/Users/khajievroma/.codex/skills/playwright-skill/run.js",
+        "/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/frontend/e2e/teacher-evidence-workspace.cjs"
+      ],
+      "exitCode": 0,
+      "seconds": 45.51
+    }
+  ],
+  "measuredCases": 36,
+  "independentGeometryReadback": [
+    {
+      "roleCount": 3,
+      "records": 18,
+      "heatmapHeaderCounts": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ]
+    },
+    {
+      "roleCount": 4,
+      "records": 18,
+      "heatmapHeaderCounts": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ]
+    }
+  ],
+  "staticChecks": "roles-fix-static-checks.txt",
+  "historicalProofUnchanged": true,
+  "expectedPatternsRename": {
+    "patternArrays": 13,
+    "totalRecords": 14,
+    "valuesUnchanged": true,
+    "retrospectiveObservedDataAdded": false
+  },
+  "setupCorrection": "Initial browser exit1 at login: fresh private API env omitted18773 CORS origin. Exact preflight400; added only LAB_TUTOR_CORS_ALLOW_ORIGINS=http://127.0.0.1:18773 to owned API env, recreated ownedAPI, preflight200. Same fresh SQL fixture; product unchanged.",
+  "browserEnvironment": {
+    "WORKSPACE_UI_URL": "http://127.0.0.1:18773",
+    "WORKSPACE_API_URL": "http://127.0.0.1:18780",
+    "WORKSPACE_FIXTURE_PATH": "/tmp/task12-roles-runtime/teacher-workspace.json (private; removed)",
+    "WORKSPACE_FIXTURE_GENERATION": "roles-fix-db319f5-20261013T043505Z",
+    "WORKSPACE_PROOF_HEAD": "db319f5695e2c6cf1b91644a01d0562df3b2cd5f",
+    "WORKSPACE_SCENARIO": "each named browserCommands scenario"
+  },
+  "reportQA": "roles-fix-report-qa.json",
+  "publicAuthScan": "PASS no JWT/bearer/auth token payloads",
+  "cleanup": "roles-fix-cleanup.json"
+}

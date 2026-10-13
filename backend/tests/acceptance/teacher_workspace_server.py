@@ -406,7 +406,7 @@ def seed_student(manifest: dict) -> dict:
         return results
 
 
-def seed_corpus(manifest: dict) -> list[dict]:
+def seed_corpus(manifest: dict, only_names: set[str] | None = None) -> list[dict]:
     """Copy reviewed numerical cases verbatim; namespace IDs, never claim official data."""
     from copy import deepcopy
     from uuid import NAMESPACE_URL, UUID, uuid5
@@ -444,6 +444,9 @@ def seed_corpus(manifest: dict) -> list[dict]:
         "partial_coverage_qualified",
         "filtered_empty",
     }
+    if only_names is not None:
+        assert only_names <= names
+        names = only_names
     cases = json.loads((ROOT / "fixtures/teacher-workspace-patterns.json").read_text())[
         "cases"
     ]
@@ -832,6 +835,7 @@ def tooltip_fixture(manifest: dict, role_count: int = 2) -> dict:
     from app.modules.marketdemandanalyst.repository import MarketReviewRepository
     from app.modules.marketdemandanalyst.review_service import SkillReviewService
 
+    assert 2 <= role_count <= 5
     with httpx.Client(
         base_url="http://127.0.0.1:8000",
         headers={"Authorization": f"Bearer {manifest['teacher']['access_token']}"},
@@ -850,13 +854,13 @@ def tooltip_fixture(manifest: dict, role_count: int = 2) -> dict:
         assert source is not None
         repo = MarketReviewRepository(db)
         config = deepcopy(source.config)
-        if role_count == 5:
+        if role_count > 2:
             config["selected_onet_occupations"] += [
                 {
                     "soc_code": f"99-000{index}.00",
                     "title": f"SYNTHETIC NO-RATING LAYOUT ROLE {index}",
                 }
-                for index in range(3, 6)
+                for index in range(3, role_count + 1)
             ]
         run = repo.create_run(course["id"], course["teacher_id"], config)
         candidates = deepcopy(source.candidate_manifest["candidates"])
@@ -997,6 +1001,7 @@ def main() -> None:
         choices=[
             "purge-first-posting",
             "seed-corpus",
+            "seed-layout-source",
             "sql-readback",
             "restore-main-snapshot",
             "reset-readback",
@@ -1017,6 +1022,7 @@ def main() -> None:
             "disarm-reset-failure",
         ],
     )
+    parser.add_argument("--role-count", type=int, choices=range(2, 6), default=2)
     parser.add_argument("--snapshot-id")
     parser.add_argument("--snapshot-index", type=int, default=0)
     args = parser.parse_args()
@@ -1030,6 +1036,9 @@ def main() -> None:
 
         manifest = json.loads(args.manifest.read_text())
         assert manifest["database"] == DATABASE
+        if args.action == "seed-layout-source":
+            print(json.dumps(seed_corpus(manifest, {"max_two_no_repeated_skill"})))
+            return
         if args.action == "metadata-compatibility":
             print(
                 json.dumps(
@@ -1096,7 +1105,8 @@ def main() -> None:
             print(
                 json.dumps(
                     tooltip_fixture(
-                        manifest, 5 if args.action == "seed-tooltip-five" else 2
+                        manifest,
+                        5 if args.action == "seed-tooltip-five" else args.role_count,
                     )
                 )
             )
