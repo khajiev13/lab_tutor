@@ -423,6 +423,54 @@ def test_source_failure_requires_exact_ack_and_never_waives_posting_support(
     assert not run.candidate_manifest["candidates"]
 
 
+@pytest.mark.parametrize("source_failed", [False, True])
+def test_job_group_reselection_checks_sources_not_previous_extraction(
+    db_session, client, teacher_auth_headers, monkeypatch, source_failed
+):
+    from copy import deepcopy
+
+    from app.modules.marketdemandanalyst import tools
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+    from app.modules.marketdemandanalyst.service import MarketSourceService
+
+    course, run = owned_run(db_session, client, teacher_auth_headers)
+    run.source_outcomes = {
+        "linkedin": {"status": "error" if source_failed else "success"}
+    }
+    run.extraction_coverage = {
+        "status": "partial",
+        "association_coverage": {"rejected_mappings": 1},
+        "warnings": ["O*NET association inference rejected a mapping."],
+    }
+    db_session.commit()
+    previous_coverage = deepcopy(run.extraction_coverage)
+    svc = MarketSourceService(session_factory=lambda: db_session)
+    monkeypatch.setattr(tools, "get_market_source_service", lambda: svc)
+    jobs = [{"title": "Data Engineer"}, {"title": "Other role"}]
+    state = {
+        "run_id": str(run.id),
+        "course_id": course["id"],
+        "teacher_id": course["teacher_id"],
+        "job_groups": {"Data Engineer": [0], "Other role": [1]},
+        "fetched_jobs": jobs,
+        "selected_jobs": [jobs[1]],
+    }
+    with bind_tool_store(state):
+        result = tools.select_jobs_by_group.invoke({"group_names": '["Data Engineer"]'})
+    if source_failed:
+        assert "Continue with available evidence" in result
+        assert state["selected_jobs"] == [jobs[1]]
+    else:
+        assert "Selected 1 jobs from 1 groups" in result
+        assert state["selected_jobs"] == [jobs[0]]
+    stored = MarketReviewRepository(db_session).get_run(
+        UUID(state["run_id"]), course["id"], course["teacher_id"]
+    )
+    assert stored.extraction_coverage == previous_coverage
+    assert not stored.candidate_manifest.get("acknowledged_omissions")
+    assert stored.publication_revision == 0
+
+
 def test_actual_extraction_subgraph_commits_distinct_support_and_keeps_exclusion(
     db_session, client, teacher_auth_headers, monkeypatch
 ):

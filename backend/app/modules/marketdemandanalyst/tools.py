@@ -518,7 +518,9 @@ def select_jobs_by_group(group_names: str) -> str:
     """
     if tool_store.get("run_id"):
         try:
-            get_market_source_service().require_available_evidence(dict(tool_store))
+            get_market_source_service().require_available_evidence(
+                dict(tool_store), include_extraction=False
+            )
         except (ValueError, LookupError) as exc:
             return str(exc)
     groups = tool_store.get("job_groups", {})
