@@ -30,7 +30,7 @@ from .repository import MarketReviewRepository, RevisionConflict
 from .schemas import SourceOutcome
 
 # Advance when corrected extraction/grouping rules require one fresh assessment.
-_EXTRACTION_VERSION = 3
+_EXTRACTION_VERSION = 4
 
 
 class MarketSourceService:

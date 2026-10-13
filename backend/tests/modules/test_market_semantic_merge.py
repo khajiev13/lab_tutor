@@ -389,6 +389,7 @@ def test_invalid_model_membership_preserves_original_evidence(pipeline, invalid)
 
     pipeline.handler = groups
     result = save(pipeline)
+    assert len(pipeline.calls) == 2
     assert len(result["candidates"]) == 2
     refs = [ref for row in result["candidates"] for ref in row["evidence_references"]]
     assert refs == [row["evidence_references"][0] for row in pipeline.observations]
@@ -404,6 +405,7 @@ def test_model_failure_retains_sources_and_does_not_repeat_assessed_sample(pipel
 
     pipeline.handler = fail
     result = save(pipeline)
+    assert len(pipeline.calls) == 1
     assert len(result["candidates"]) == 2
     assert result["extraction_coverage"]["status"] == "full"
     status = result["extraction_coverage"]["semantic_grouping"]
@@ -1152,6 +1154,65 @@ def test_unrelated_missing_choice_does_not_force_historical_confirmation(pipelin
         not r["resolved"] and r["previous_candidate_ids"] == [missing]
         for r in stored(pipeline).candidate_manifest["reconciliations"]
     )
+
+
+def test_one_correction_attempt_repairs_invalid_partition_without_losing_refs(pipeline):
+    def groups(payload):
+        group = all_equivalent(payload)
+        if len(pipeline.calls) == 1:
+            group[0]["member_ids"].append(group[0]["member_ids"][0])
+        return group
+
+    pipeline.handler = groups
+    result = save(pipeline)
+    assert len(pipeline.calls) == 2
+    assert pipeline.calls[0] == pipeline.calls[1]
+    assert len(result["candidates"]) == 1
+    assert result["extraction_coverage"]["semantic_grouping"]["status"] == "full"
+    assert result["candidates"][0]["evidence_references"] == [
+        i["evidence_references"][0] for i in pipeline.observations
+    ]
+
+
+def test_large_historical_comparison_set_keeps_teacher_choices_without_duplicate_noise(
+    pipeline,
+):
+    from uuid import uuid4
+
+    previous = {"candidate_history": []}
+    for index in range(60):
+        previous["candidate_history"].append(
+            {
+                "candidate_id": str(uuid4()),
+                "identity_key": f"jobs:historical-{index}",
+                "display_name": "Configure ETL pipelines",
+                "category_id": "data_processing",
+                "selected": index == 0,
+                "excluded": index == 1,
+                "evidence_references": deepcopy(
+                    pipeline.observations[0]["evidence_references"]
+                ),
+            }
+        )
+    old = deepcopy(previous)
+
+    def confirm(payload):
+        assert len(payload["prior_candidates"]) == 2
+        result = all_equivalent(payload)
+        result[0]["prior_candidate_ids"] = [
+            row["candidate_id"] for row in payload["prior_candidates"]
+        ]
+        return result
+
+    pipeline.handler = confirm
+    result, coverage = extractor.merge_evidenced_skills(pipeline.observations, previous)
+    assert len(result) == 1
+    assert coverage["status"] == "full"
+    assert previous == old
+    assert set(result[0]["_confirmed_prior_candidate_ids"]) == {
+        candidate["candidate_id"] for candidate in previous["candidate_history"][:2]
+    }
+    assert coverage["historical_comparisons_omitted"] == 58
 
 
 @pytest.mark.parametrize("pipeline", ["inverse_mentoring"], indirect=True)
