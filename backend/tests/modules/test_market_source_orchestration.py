@@ -600,6 +600,154 @@ def test_partial_extraction_can_retry_without_acknowledging_failed_extraction(
     assert isinstance(result, Command) and result.goto == "skill_extractor"
 
 
+@pytest.mark.parametrize("sibling_order", [None, "before", "after"])
+def test_extraction_handoff_returns_completed_tool_history_to_skill_finder(
+    db_session, client, teacher_auth_headers, monkeypatch, sibling_order
+):
+    import json
+    from types import SimpleNamespace
+
+    from langchain.tools import tool
+    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+    from langgraph.graph import START, StateGraph
+    from langgraph.prebuilt import create_react_agent
+    from langgraph_swarm import SwarmState
+    from sqlalchemy.orm import sessionmaker
+
+    import app.modules.marketdemandanalyst.service as service_module
+    from app.modules.marketdemandanalyst import extractor, tools
+    from app.modules.marketdemandanalyst.graph import _make_prompt
+    from app.modules.marketdemandanalyst.job_sources import JobSourceService
+    from app.modules.marketdemandanalyst.prompts import SKILL_FINDER_PROMPT
+    from app.modules.marketdemandanalyst.service import MarketSourceService
+    from tests.modules.test_market_workspace_chat import ScriptedModel
+
+    course, run = owned_run(db_session, client, teacher_auth_headers)
+    svc = MarketSourceService(
+        jobs=JobSourceService(
+            jobspy_scraper=lambda **kwargs: pd.DataFrame(
+                [
+                    {
+                        "id": "completed-extraction",
+                        "title": "Engineer",
+                        "description": "Explain results to stakeholders. " * 10,
+                        "job_url": "https://www.linkedin.com/jobs/view/completed-extraction",
+                    }
+                ]
+            )
+        ),
+        session_factory=sessionmaker(bind=db_session.get_bind()),
+    )
+    config = {
+        "run_id": str(run.id),
+        "course_id": course["id"],
+        "teacher_id": course["teacher_id"],
+        **run.config,
+    }
+    fetched = svc.collect_sources(config, ["Engineer"])
+    monkeypatch.setattr(tools, "get_market_source_service", lambda: svc)
+    monkeypatch.setattr(service_module, "get_market_source_service", lambda: svc)
+    monkeypatch.setattr(
+        extractor,
+        "_get_extraction_llm",
+        lambda **kwargs: SimpleNamespace(
+            invoke=lambda *args, **kw: SimpleNamespace(
+                content=json.dumps(
+                    [
+                        {
+                            "name": "Explain results",
+                            "category": "communication",
+                            "original_phrase": "Explain results",
+                            "excerpt": "Explain results to stakeholders",
+                        }
+                    ]
+                )
+            )
+        ),
+    )
+
+    @tool
+    def read_only_probe() -> str:
+        """Inspect a read-only value while checking the extraction handoff."""
+        return "The original read-only value is preserved."
+
+    extraction_call = {
+        "name": "start_extraction",
+        "args": {},
+        "id": "completed-extraction",
+    }
+    sibling_call = {"name": "read_only_probe", "args": {}, "id": "read-only-call"}
+    calls = [extraction_call]
+    if sibling_order:
+        calls = (
+            [sibling_call, extraction_call]
+            if sibling_order == "before"
+            else [extraction_call, sibling_call]
+        )
+    replies = [AIMessage(content="", tool_calls=calls)]
+    completion_id = "completed-extraction"
+    if sibling_order:
+        completion_id = "completed-extraction-alone"
+        replies.append(
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "start_extraction", "args": {}, "id": completion_id}
+                ],
+            )
+        )
+    replies.append(
+        AIMessage(content="The assessed candidates are ready for teacher review.")
+    )
+    model = ScriptedModel(replies=replies)
+    finder = create_react_agent(
+        model,
+        tools=tools.owned_sync_tools([tools.start_extraction, read_only_probe]),
+        prompt=_make_prompt(SKILL_FINDER_PROMPT),
+        name="skill_finder",
+    )
+    parent = StateGraph(SwarmState)
+    parent.add_node("skill_finder", finder)
+    parent.add_node("skill_extractor", extractor.skill_extractor_subgraph)
+    parent.add_edge(START, "skill_finder")
+    state = {**config, "selected_jobs": fetched["jobs"]}
+    with bind_tool_store(state):
+        client.portal.call(
+            parent.compile().ainvoke,
+            {
+                "messages": [HumanMessage(content="Extract the approved job group.")],
+                "active_agent": "skill_finder",
+            },
+        )
+
+    resumed_messages = model.calls[-1][0]
+    assert any(
+        isinstance(message, AIMessage)
+        and any(call["id"] == completion_id for call in message.tool_calls)
+        for message in resumed_messages
+    ), "Extraction handoff lost the original tool request"
+    assert any(
+        isinstance(message, ToolMessage)
+        and message.tool_call_id == completion_id
+        and message.status == "success"
+        for message in resumed_messages
+    ), "Skill Finder did not receive extraction completion"
+    if sibling_order:
+        assert [
+            message.content
+            for message in resumed_messages
+            if isinstance(message, ToolMessage)
+            and message.tool_call_id == "read-only-call"
+        ] == ["The original read-only value is preserved."]
+        assert any(
+            isinstance(message, ToolMessage)
+            and message.tool_call_id == "completed-extraction"
+            and message.status == "error"
+            for message in resumed_messages
+        ), "The bundled extraction must be rejected before handing off"
+    assert state["extraction_coverage"]["assessed_postings"] == 1
+
+
 def test_id_pass_through_mapping_retains_exact_candidate_evidence(
     db_session, client, teacher_auth_headers, monkeypatch
 ):

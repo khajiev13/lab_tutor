@@ -68,6 +68,39 @@ class MarketSourceService:
                     "Retry or use Continue with available evidence to acknowledge current omissions before advancing"
                 )
 
+    def extraction_is_complete(self, state: dict, jobs: list[dict]) -> bool:
+        """Stop repeating the same assessed sample when only fixed bounds remain."""
+        with self._sessions() as db:
+            run = MarketReviewRepository(db).get_run(
+                UUID(state["run_id"]), state["course_id"], state["teacher_id"]
+            )
+            if run is None:
+                raise LookupError("Analysis run not found")
+            coverage = deepcopy(run.extraction_coverage)
+        assessments = coverage.get("assessments", [])
+        selected_ids = {job.get("snapshot_id") for job in jobs}
+        if (
+            coverage.get("status") not in {"full", "partial"}
+            or not assessments
+            or None in selected_ids
+            or selected_ids != {item.get("snapshot_id") for item in assessments}
+            or any(item.get("status") != "full" for item in assessments)
+        ):
+            return False
+        if coverage["status"] == "full":
+            return True
+        association = coverage.get("association_coverage", {})
+        if association.get("failed_calls") or association.get("rejected_mappings"):
+            return False
+        fixed_warnings = {
+            f"O*NET association inference omitted {association[f'omitted_{kind}']} {kind} at its bounded limit; exact identity matching still covered all selected rows."
+            for kind in ("observations", "catalog_rows")
+            if association.get(f"omitted_{kind}")
+        }
+        fixed_warnings.add("O*NET association inference reached its call limit.")
+        warnings = set(coverage.get("warnings", []))
+        return bool(warnings) and warnings <= fixed_warnings
+
     def prepare_extraction_jobs(
         self, state: dict, cached_jobs: list[dict]
     ) -> tuple[list[dict], list[dict]]:

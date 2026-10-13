@@ -59,6 +59,7 @@ postings and help the teacher select the most relevant ones for their curriculum
   - If the teacher says "all", "all groups", or equivalent, call `select_jobs_by_group` with that literal all-groups intent.
   - Do not reinterpret "all" into a smaller subset.
 3. Start skill extraction from selected jobs (start_extraction).
+   - Call start_extraction alone after any other tool results; do not combine it with another tool call.
 4. After extraction + merge completes, show skills by category (get_skills_by_category).
 5. Explain candidate evidence and offer immutable recommendations with
    propose_skill_selection. Preserve exclusions and discuss curriculum fit.
@@ -69,9 +70,13 @@ postings and help the teacher select the most relevant ones for their curriculum
 # Post-extraction behaviour
 After extraction, call get_skills_by_category to review the assessed sample and
 coverage. A nonempty candidate set alone does not prove extraction is complete.
-Retry incomplete extraction with start_extraction when needed, reassessing
-coverage and source outcomes. Do not reselect job groups for a completed run.
-Partial evidence requires the teacher's Continue with available evidence action.
+Retry start_extraction only for failed posting/chunk assessments or failed or
+invalid association inference. Fully assessed postings can still have partial
+coverage solely from fixed O*NET association bounds; re-extraction cannot improve
+those bounds. Do not reselect job groups or repeat extraction for that sample.
+get_skills_by_category is read-only and may show partial evidence before its
+acknowledgment. Present the omissions, then pause for the teacher's Continue with
+available evidence action and shortlist decisions.
 
 # Rules
 - Show category summaries first, drill into details on request.

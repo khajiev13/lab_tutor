@@ -15,9 +15,11 @@ from hashlib import sha256
 from threading import BoundedSemaphore
 from typing import Annotated, TypedDict
 
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.constants import START
 from langgraph.graph import StateGraph
+from langgraph.graph.message import add_messages
 from langgraph.types import Command, Send
 
 from .evidence import make_extraction_chunks, validated_passage
@@ -29,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExtractorState(TypedDict):
+    messages: Annotated[list[BaseMessage], add_messages]
     job: dict  # single job dict (populated by Send for each fan-out)
     skills: Annotated[list[dict], operator.add]  # reducer: accumulates across branches
     assessments: Annotated[list[dict], operator.add]
@@ -636,6 +639,39 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
+def _return_to_skill_finder(state: ExtractorState) -> Command:
+    messages = state.get("messages", [])
+    completed = {
+        message.tool_call_id for message in messages if isinstance(message, ToolMessage)
+    }
+    pending = [
+        call
+        for message in messages
+        if isinstance(message, AIMessage)
+        for call in message.tool_calls
+        if call["name"] == "start_extraction" and call["id"] not in completed
+    ]
+    update = {"active_agent": "skill_finder"}
+    if pending:
+        coverage = tool_store.get("extraction_coverage", {})
+        result = (
+            f"Extraction finished: {len(tool_store.get('extracted_skills', []))} candidates. "
+            f"Assessed {coverage.get('assessed_postings', '?')}/{coverage.get('selected_postings', '?')} postings "
+            f"and {coverage.get('assessed_chunks', '?')}/{coverage.get('total_chunks', '?')} chunks; "
+            f"coverage: {coverage.get('status', 'unknown')}. "
+            "Call get_skills_by_category for read-only teacher review. "
+            "Retry real posting/chunk or association inference failures, not fixed association bounds. "
+            "Pause for the teacher's required partial-evidence acknowledgment and selection."
+        )
+        update["messages"] = [
+            ToolMessage(
+                content=result, name="start_extraction", tool_call_id=call["id"]
+            )
+            for call in pending
+        ]
+    return Command(goto="skill_finder", graph=Command.PARENT, update=update)
+
+
 def normalize_skills_by_embedding(state: ExtractorState) -> Command:
     """Embedding-based deduplication of skills.
 
@@ -673,11 +709,7 @@ def normalize_skills_by_embedding(state: ExtractorState) -> Command:
         tool_store["skill_job_urls"] = {
             c["candidate_id"]: c["qualifying_posting_links"] for c in skills
         }
-        return Command(
-            goto="skill_finder",
-            graph=Command.PARENT,
-            update={"active_agent": "skill_finder"},
-        )
+        return _return_to_skill_finder(state)
 
     import time as _time
 
@@ -688,11 +720,7 @@ def normalize_skills_by_embedding(state: ExtractorState) -> Command:
 
     if not skills or len(skills) <= 1:
         tool_store["extracted_skills"] = skills or []
-        return Command(
-            goto="skill_finder",
-            graph=Command.PARENT,
-            update={"active_agent": "skill_finder"},
-        )
+        return _return_to_skill_finder(state)
 
     # Embed all skill names
     try:
@@ -706,11 +734,7 @@ def normalize_skills_by_embedding(state: ExtractorState) -> Command:
             "normalize_skills_by_embedding: embedding failed (%s), skipping", e
         )
         tool_store["extracted_skills"] = skills
-        return Command(
-            goto="skill_finder",
-            graph=Command.PARENT,
-            update={"active_agent": "skill_finder"},
-        )
+        return _return_to_skill_finder(state)
 
     # Union-Find for clustering similar skills
     parent = list(range(len(skills)))
@@ -790,11 +814,7 @@ def normalize_skills_by_embedding(state: ExtractorState) -> Command:
         elapsed_ms,
     )
 
-    return Command(
-        goto="skill_finder",
-        graph=Command.PARENT,
-        update={"active_agent": "skill_finder"},
-    )
+    return _return_to_skill_finder(state)
 
 
 # ── Assemble the subgraph ──────────────────────────────────────

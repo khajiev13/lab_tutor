@@ -153,6 +153,7 @@ def mixed_pipeline(db_session, client, teacher_auth_headers, monkeypatch, reques
         extracted=extracted,
         course=course,
         run=run,
+        jobs=collected["jobs"],
         catalog=collected["onet_evidence"],
         repo=repo,
     )
@@ -699,3 +700,83 @@ def test_failed_mapping_keeps_exact_matches_and_requires_omission_acknowledgemen
     )["onet_associations"]
     with pytest.raises(ValueError, match="acknowledge"):
         p.service.require_available_evidence(p.config)
+
+
+@pytest.mark.parametrize("bounded", [False, True])
+def test_completed_sample_stops_automatic_reextraction(
+    mixed_pipeline, db_session, monkeypatch, bounded
+):
+    from langgraph.types import Command
+
+    from app.modules.marketdemandanalyst import tools
+
+    p = mixed_pipeline
+    if bounded:
+        monkeypatch.setattr(associations, "MAX_MAPPING_OBSERVATIONS", 1)
+        monkeypatch.setattr(associations, "MAX_MAPPING_CATALOG_ROWS", 1)
+    saved = p.service.save_extraction(
+        p.config, p.extracted["skills"], p.extracted["assessments"]
+    )
+    coverage = saved["extraction_coverage"]
+    assert coverage["assessed_postings"] == coverage["selected_postings"] == 1
+    assert coverage["assessed_chunks"] == coverage["total_chunks"] == 1
+    assert coverage["status"] == ("partial" if bounded else "full")
+    assert coverage["association_coverage"]["failed_calls"] == 0
+    monkeypatch.setattr(tools, "get_market_source_service", lambda: p.service)
+    monkeypatch.setattr(
+        tools, "SessionLocal", lambda: Session(bind=db_session.get_bind())
+    )
+    state = {
+        **p.config,
+        "selected_jobs": p.jobs,
+        "extracted_skills": [],
+        "extraction_coverage": {"status": "pending"},
+    }
+    with bind_tool_store(state):
+        result = tools.start_extraction.invoke({})
+        assert not isinstance(result, Command), "Completed evidence was extracted again"
+        review = json.loads(tools.get_skills_by_category.invoke({}))
+    assert review["candidate_revision"] == saved["candidate_revision"]
+    assert review["extraction_coverage"]["status"] == coverage["status"]
+    if bounded:
+        assert review["extraction_coverage"]["acknowledged"] is False
+        with pytest.raises(ValueError, match="Continue"):
+            p.service.require_available_evidence(p.config)
+    db_session.refresh(p.run)
+    assert p.run.candidate_revision == saved["candidate_revision"]
+    assert not p.run.candidate_manifest.get("acknowledged_omissions")
+
+
+@pytest.mark.parametrize("retry_reason", ["posting", "association", "refetch"])
+def test_real_failure_or_provider_refetch_keeps_extraction_retry_available(
+    mixed_pipeline, monkeypatch, retry_reason
+):
+    from copy import deepcopy
+
+    from langgraph.types import Command
+
+    from app.modules.marketdemandanalyst import tools
+
+    p = mixed_pipeline
+    assessments = deepcopy(p.extracted["assessments"])
+    if retry_reason == "posting":
+        assessments[0].update(status="partial", total_chunks=2, assessed_chunks=1)
+    elif retry_reason == "association":
+
+        def failed_model(**kwargs):
+            raise TimeoutError("model failed")
+
+        monkeypatch.setattr(associations, "_get_extraction_llm", failed_model)
+    saved = p.service.save_extraction(p.config, p.extracted["skills"], assessments)
+    if retry_reason == "refetch":
+        p.service.collect_sources(p.config, ["Data scientist"])
+    monkeypatch.setattr(tools, "get_market_source_service", lambda: p.service)
+    state = {
+        **p.config,
+        "selected_jobs": p.jobs,
+        "extracted_skills": saved["candidates"],
+        "extraction_coverage": saved["extraction_coverage"],
+    }
+    with bind_tool_store(state):
+        result = tools.start_extraction.invoke({})
+    assert isinstance(result, Command) and result.goto == "skill_extractor"

@@ -6,10 +6,13 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from copy import deepcopy
+from typing import Annotated
 from uuid import UUID, uuid4
 
 import pandas as pd
-from langchain.tools import tool
+from langchain.tools import ToolRuntime, tool
+from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.tools import InjectedToolArg
 from langgraph.types import Command
 
 from app.core.database import SessionLocal
@@ -607,10 +610,13 @@ def select_jobs_by_group(group_names: str) -> str:
 
 
 @tool
-def start_extraction() -> Command | str:
+def start_extraction(
+    runtime: Annotated[ToolRuntime | None, InjectedToolArg] = None,
+) -> Command | str | ToolMessage:
     """Start parallel skill extraction from selected job groups.
     Fans out one LLM call per job, merges duplicates, then returns
-    control back to Skill Finder for teacher skill selection."""
+    control back to Skill Finder for teacher skill selection.
+    Call start_extraction alone after any other tool results."""
     # Guard: if extraction already ran, do NOT re-run.
     existing = tool_store.get("extracted_skills", [])
     if existing and not tool_store.get("run_id"):
@@ -622,17 +628,57 @@ def start_extraction() -> Command | str:
         )
     if tool_store.get("run_id"):
         try:
-            get_market_source_service().require_available_evidence(
+            service = get_market_source_service()
+            service.require_available_evidence(
                 dict(tool_store), include_extraction=False
             )
+            if service.extraction_is_complete(
+                dict(tool_store), tool_store.get("selected_jobs", [])
+            ):
+                return (
+                    "The selected posting sample is already assessed. "
+                    "Call get_skills_by_category for read-only teacher review. "
+                    "Fixed O*NET association bounds cannot improve by repeating extraction. "
+                    "Wait for the teacher's required Continue with available evidence action."
+                )
         except (ValueError, LookupError) as exc:
             return str(exc)
+    if runtime is not None and runtime.tool_call_id:
+        current_request = next(
+            (
+                message
+                for message in reversed(runtime.state.get("messages", []))
+                if isinstance(message, AIMessage)
+                and any(
+                    call["id"] == runtime.tool_call_id for call in message.tool_calls
+                )
+            ),
+            None,
+        )
+        if current_request is not None and len(current_request.tool_calls) > 1:
+            return ToolMessage(
+                content="Call start_extraction alone after any other tool results. This extraction handoff has not started.",
+                name="start_extraction",
+                tool_call_id=runtime.tool_call_id,
+                status="error",
+            )
+    update = {"active_agent": "skill_finder"}
+    if runtime is not None:
+        update["messages"] = list(runtime.state.get("messages", []))
     jobs = tool_store.get("selected_jobs", [])
     if not jobs:
+        if runtime is not None and runtime.tool_call_id:
+            update["messages"].append(
+                ToolMessage(
+                    content="No jobs selected. Ask the teacher to select a job group.",
+                    name="start_extraction",
+                    tool_call_id=runtime.tool_call_id,
+                )
+            )
         return Command(
             goto="skill_finder",
             graph=Command.PARENT,
-            update={"active_agent": "skill_finder"},
+            update=update,
         )
     logger.info("start_extraction: routing to skill_extractor (%d jobs)", len(jobs))
     return Command(
@@ -642,7 +688,7 @@ def start_extraction() -> Command | str:
         # subgraph detour, not a real swarm agent. This ensures the checkpoint
         # never stores "skill_extractor" as active_agent, preventing KeyError
         # on __start__ routing when a new message arrives mid-extraction.
-        update={"active_agent": "skill_finder"},
+        update=update,
     )
 
 
