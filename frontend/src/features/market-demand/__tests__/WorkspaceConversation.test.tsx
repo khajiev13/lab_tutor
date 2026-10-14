@@ -278,3 +278,22 @@ it("keeps only the recent exchange beside the decision and exposes full history 
  rerender(<WorkspaceConversation {...props} historyOpen/>);
  expect(screen.getByText("Old decision")).toBeInTheDocument();
 });
+
+it('bounds proposed changes across proposals to five with explicit ten-change review pages',async()=>{
+ const {largeReviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const review=largeReviewFixture();
+ review.recommendations=[{id:'large',candidate_revision:1,base_selection_revision:2,changes:review.candidates.slice(0,58).map(candidate=>({candidate_id:candidate.candidate_id,action:'add' as const,reason:'Supported recommendation'}))}];
+ render(<Harness incomingReview={review} withController/>);
+ expect(screen.getAllByText(/Add Job skill/)).toHaveLength(5);
+ await userEvent.click(screen.getByRole('button',{name:'Review all 58 proposed changes'}));
+ expect(screen.getByRole('dialog')).toBeVisible();
+ expect(screen.getAllByText(/Add Job skill/)).toHaveLength(15);
+ await userEvent.click(screen.getByRole('button',{name:'Next proposal page'}));
+ expect(screen.getByText(/Add Job skill 11/)).toBeVisible();
+ expect(review.selected_candidate_ids).toEqual([]);
+});
+it('keeps the latest meaningful agent explanation when a user or empty agent entry trails it',()=>{
+ const messages=[{id:'old',role:'agent' as const,content:'Old explanation',toolCalls:[],isStreaming:false},{id:'current',role:'agent' as const,content:'Useful explanation',toolCalls:[],isStreaming:false},{id:'user',role:'user' as const,content:'Follow-up',toolCalls:[],isStreaming:false},{id:'empty',role:'agent' as const,content:'',toolCalls:[],isStreaming:false}];
+ render(<WorkspaceConversation stream={stream({messages})} draft={draft()} onDraftChange={vi.fn()} onSubmit={vi.fn()} decision={<p>Current decision</p>}/>);
+ expect(screen.getByText('Useful explanation')).toBeVisible();
+ expect(screen.queryByText('Old explanation')).not.toBeInTheDocument();
+});

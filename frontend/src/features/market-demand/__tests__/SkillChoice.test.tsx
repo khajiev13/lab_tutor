@@ -85,11 +85,13 @@ it("labels proposals, never silently accepts advice, and protects excluded or un
   ]}]};
   const {getController, inspect} = setup(review);
   expect(getController().draft.selected_candidate_ids).toEqual([]);
+  expect(screen.queryByRole("button", {name: "Apply proposal for Python"})).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name: "Inspect Python"}));
+  expect(inspect).toHaveBeenCalledWith("python");
+  await user.click(screen.getByRole("button", {name: "Browse skills"}));
   expect(screen.getByRole("button", {name: "Apply proposal for SQL"})).toBeDisabled();
   expect(screen.getByRole("button", {name: "Apply proposal for Reference skill"})).toBeDisabled();
   expect(screen.getByText(/Needs supporting job posting/)).toBeInTheDocument();
-  await user.click(screen.getByRole("button", {name: "Inspect Python"}));
-  expect(inspect).toHaveBeenCalledWith("python");
   await user.click(screen.getByRole("button", {name: "Apply proposal for Python"}));
   expect(getController().draft.selected_candidate_ids).toEqual(["python"]);
   expect(getController().draft.excluded_candidate_ids).toEqual(["sql"]);

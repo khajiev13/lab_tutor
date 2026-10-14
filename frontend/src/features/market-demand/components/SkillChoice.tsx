@@ -7,10 +7,11 @@ import type { SkillReviewController } from "@/features/market-demand/hooks/useSk
 import { categorySelectionState, jobBackedCandidates } from "@/features/market-demand/selection";
 import type { SkillCandidate } from "@/features/market-demand/types";
 
-export function SkillChoice({controller, onInspect, secondaryAction}: {
+export function SkillChoice({controller, onInspect, secondaryAction, visibleLimit = 5}: {
   controller: SkillReviewController;
   onInspect: (candidateId: string) => void;
   secondaryAction?: ReactNode;
+  visibleLimit?: 3 | 5;
 }) {
   const [open, setOpen] = useState(false);
   const {review, draft, view} = controller;
@@ -46,15 +47,15 @@ export function SkillChoice({controller, onInspect, secondaryAction}: {
         onClick={() => controller.applyProposal(proposal.id, [candidate.candidate_id])}>Apply</Button>
     </div>;
   });
-  const skillRow = (candidate: SkillCandidate, checklist: boolean) => <div className="flex flex-wrap items-center justify-between gap-2">
+  const skillRow = (candidate: SkillCandidate, checklist: boolean, compact = false) => <div className="flex flex-wrap items-center justify-between gap-2">
     <div className="min-w-0 flex-1 space-y-1">
       {checklist ? <label className="flex items-center gap-2 text-sm">
         <Checkbox aria-label={`Select ${candidate.display_name}`} checked={selected.has(candidate.candidate_id)} disabled={locked}
           onCheckedChange={checked => controller.setCandidate(candidate.candidate_id, checked === true)}/>
         {candidate.display_name}
-      </label> : <p className="text-sm font-medium">{candidate.display_name} {selected.has(candidate.candidate_id) && <span className="font-normal text-muted-foreground">· chosen</span>}</p>}
+      </label> : <p className="truncate text-sm font-medium">{candidate.display_name} {selected.has(candidate.candidate_id) && <span className="font-normal text-muted-foreground">· chosen</span>}{compact && proposedIds.has(candidate.candidate_id) && <span className="font-normal text-muted-foreground"> · proposed change</span>}</p>}
       {selected.has(candidate.candidate_id) && !eligibleIds.has(candidate.candidate_id) && <p className="text-xs text-destructive">Needs supporting job posting; remove this choice before continuing.</p>}
-      {proposalActions(candidate)}
+      {!compact && proposalActions(candidate)}
     </div>
     <div className="flex gap-1">
       <Button size="sm" variant="ghost" aria-label={`Inspect ${candidate.display_name}`} onClick={() => {setOpen(false); onInspect(candidate.candidate_id);}}>{candidate.job_metrics.supporting_posting_count ?? 0} jobs ›</Button>
@@ -72,10 +73,10 @@ export function SkillChoice({controller, onInspect, secondaryAction}: {
       <p role="alert">Review required: {controller.reconciliation || "The saved review changed. Check your retained choices before continuing."}</p>
       <Button size="sm" variant="outline" disabled={locked} onClick={controller.acknowledgeIncomingReview}>I reviewed the changed choices</Button>
     </div>}
-    {mainRows.length > 0 ? <ul className="space-y-1">{mainRows.slice(0, 5).map(candidate => <li key={candidate.candidate_id} className="rounded-md border px-3 py-1">{skillRow(candidate, false)}</li>)}</ul> : <p className="text-sm text-muted-foreground">No skills chosen yet</p>}
+    {mainRows.length > 0 ? <ul className="space-y-1">{mainRows.slice(0, visibleLimit).map(candidate => <li key={candidate.candidate_id} className="rounded-md border px-3 py-1">{skillRow(candidate, false, true)}</li>)}</ul> : <p className="text-sm text-muted-foreground">No skills chosen yet</p>}
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button size="sm" variant="outline" disabled={controller.disabled}>
-        {draft.selected_candidate_ids.length > 5 ? `Review all ${draft.selected_candidate_ids.length}` : mainRows.length > 5 ? `Review all ${mainRows.length} chosen or proposed skills` : "Browse skills"}
+        {draft.selected_candidate_ids.length > visibleLimit ? `Review all ${draft.selected_candidate_ids.length}` : mainRows.length > visibleLimit ? `Review all ${mainRows.length} chosen or proposed skills` : "Browse skills"}
       </Button></DialogTrigger>
       <DialogContent className="max-h-[85dvh] overflow-y-auto" maxWidthClassName="sm:max-w-2xl">
         <DialogHeader><DialogTitle>Browse skills</DialogTitle><DialogDescription>Choose from {eligible.length} job-backed skills. Category checkboxes include every current member, across search and pages. Proposals require an explicit Apply.</DialogDescription></DialogHeader>

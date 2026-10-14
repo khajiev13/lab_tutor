@@ -420,3 +420,53 @@ it('keeps the current skill decision visible and the draft editable during Expla
  expect(screen.getByRole('textbox')).toHaveValue('Keep typing');
  expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
 });
+
+it('recovers a curriculum proposal after explicitly applying a draft change with save confirm and remap',async()=>{
+ const api=await import('@/features/market-demand/api');const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=integrationFixture();review.recommendations=[{id:'add-sql',candidate_revision:1,base_selection_revision:2,changes:[{candidate_id:'sql',action:'add',reason:'Add the SQL course skill'}]}];
+ const order:string[]=[];vi.mocked(api.saveSkillReviewDraft).mockImplementation(async(_id,body)=>{order.push('save');return {...review,...body,selection_revision:3};});
+ vi.mocked(api.confirmSkillReviewSelection).mockImplementation(async()=>{order.push('confirm');return {...review,selected_candidate_ids:['python','sql'],selection_revision:3};});
+ const send=vi.fn(async()=>{order.push('mapping-request');return {outcome:'completed' as const};});await openReviewWorkspace({skillReview:review,send});
+ fireEvent.click(screen.getByRole('button',{name:'Review all 1 proposed changes'}));
+ fireEvent.click(screen.getByRole('button',{name:'Apply proposal to draft'}));
+ expect(screen.getByRole('button',{name:'Undo local change'})).toBeEnabled();
+ expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled();
+ fireEvent.click(screen.getByRole('button',{name:'Remap skills'}));
+ await waitFor(()=>expect(order).toEqual(['save','confirm','mapping-request']));
+ expect(api.approveSkillIntegration).not.toHaveBeenCalled();
+});
+it.each(['stale','unsupported'] as const)('offers curriculum recovery for a %s proposal',async(kind)=>{
+ const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const review=integrationFixture();
+ if(kind==='stale')review.integration_review!.selection_revision=1;
+ else {review.candidates[0].posting_support='missing';review.candidates[0].qualifying_posting_links=[];}
+ await openReviewWorkspace({skillReview:review});
+ fireEvent.click(screen.getByRole('button',{name:'Edit skills'}));
+ expect(screen.getByRole('button',{name:'Browse skills'})).toBeVisible();
+ expect(screen.getByRole('button',{name:'Remap skills'})).toBeVisible();
+ if(kind==='unsupported'){expect(screen.getByRole('button',{name:'Remap skills'})).toBeDisabled();fireEvent.click(screen.getByRole('button',{name:'Remove Python'}));expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled();}
+});
+it('shows source failure retry and evidence acknowledgement with zero candidates',async()=>{
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const review=reviewFixture();
+ review.candidates=[];review.approved_references=[];review.source_outcomes={headhunter:{status:'error',received_count:0,usable_count:0,warnings:['HeadHunter rate limit reached']}};review.extraction_coverage={status:'failed',acknowledged:false};
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});await openReviewWorkspace({skillReview:review,send});
+ expect(screen.getByText(/headhunter: collection failed/)).toBeVisible();
+ expect(screen.getByRole('button',{name:'Acknowledge available evidence'})).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Retry failed sources'}));
+ await waitFor(()=>expect(send).toHaveBeenCalledWith(expect.objectContaining({mode:'workflow',text:expect.stringMatching(/Retry/)})));
+});
+
+it('retains the curriculum recovery editor and incoming-review acknowledgement when a dirty revision changes',async()=>{
+ const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const initial=integrationFixture();
+ const {rerender}=await openReviewWorkspace({skillReview:initial});
+ fireEvent.click(screen.getByRole('button',{name:'Edit skills'}));
+ fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select SQL'}));
+ fireEvent.click(screen.getByRole('button',{name:'Close'}));
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:{...initial,candidate_revision:2}}));
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.getByRole('button',{name:'I reviewed the changed choices'})).toBeVisible();
+ expect(screen.getByRole('button',{name:'Remap skills'})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'I reviewed the changed choices'}));
+ expect(screen.getByRole('button',{name:'Remap skills'})).toBeEnabled();
+ expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled();
+});

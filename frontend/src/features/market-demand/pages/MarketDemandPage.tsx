@@ -101,6 +101,8 @@ function MarketDemandContent() {
     courseId, review: agentState.run_id && skillReview?.run_id !== agentState.run_id ? null : skillReview, onReviewChange: applySkillReview,
     disabled: !isRestored || resetting || sending || isStreaming || stream.execution.status === "busy" || occupationConfirming,
   });
+  const [editingCurriculum, setEditingCurriculum] = useState(false);
+  const [executionChecked, setExecutionChecked] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [inspectId, setInspectId] = useState<string | null>(null);
@@ -218,7 +220,7 @@ function MarketDemandContent() {
     (configuration.evidence_sources.includes("jobs") && jobConfigurationInvalid) ||
     (configuration.evidence_sources.includes("onet") && onetConfigurationInvalid);
   const workPending = sending || isStreaming || stream.execution.status === "busy" || skillReviewController.busy || resetting || occupationConfirming;
-  const workflowDisabled = sourceInputDisabled || workPending;
+  const workflowDisabled = sourceInputDisabled || workPending || reconcileRequired || stream.execution.status === "unknown";
   const handleOccupationConfirm = async (release: string, codes: string[]) => {
     const generation = ++occupationGeneration.current;
     const isCurrent = () => generation === occupationGeneration.current;
@@ -263,6 +265,7 @@ function MarketDemandContent() {
 
   const handleSubmit = async (command: SendCommand, fromComposer = true): Promise<SendResult> => {
     if (sendPending.current || workPending || !isRestored || isLoadingHistory) return {outcome: "failed", error: {code: "workspace_busy", message: "The workspace is already processing an operation.", recovery: "Wait for the current operation to finish."}};
+    if (command.mode === "workflow" && (reconcileRequired || stream.execution.status !== "idle")) return {outcome:"failed",error:{code:"execution_unconfirmed",message:"Execution is not confirmed idle.",recovery:"Check workflow status before retrying."}};
     if (command.mode === "workflow" && sourceInputDisabled) return {outcome: "failed", error: {code: "configuration_unavailable", message: "Choose available sources before starting.", recovery: "Open analysis setup."}};
     const generation = pageGeneration.current;
     sendPending.current = true; setSending(true); setWorkflowActive(command.mode === "workflow");
@@ -310,7 +313,7 @@ function MarketDemandContent() {
       completedCommand.current = null; workflowExplicit.current = false;
       setConversationDraft({text: "", command: {mode: "workflow"}});
       skillReviewController.updateView({view: "overview", focusedCandidateId: null, filters: {category_ids: [], search: "", scope: "all"}, occupationCodes: [], activeOccupationCode: null, metric: "frequency", descriptorChoices: [], page: 1});
-      setReferenceOpen(false); setSetupOpen(true); setNewAnalysisOpen(false); setHistoryOpen(true); setActionError(null); setReconcileRequired(false);
+      setReferenceOpen(false); setSetupOpen(true); setNewAnalysisOpen(false); setHistoryOpen(true); setActionError(null); setReconcileRequired(false); setEditingCurriculum(false);
     } catch (cause) {
       if (pageGeneration.current === generation) setResetError(cause instanceof Error ? cause.message : "New analysis could not be started. Current workspace retained.");
     } finally {
@@ -344,6 +347,7 @@ function MarketDemandContent() {
       if (pageGeneration.current !== generation) return;
       if (result.outcome === "completed") {
         if (pending) setConfirmedSelection({kind: pending.kind, ids: chosen});
+        setEditingCurriculum(false);
       } else {
         setReconcileRequired(true);
         setActionError(result.error?.message ?? "The workflow outcome is unknown. Check its status before retrying.");
@@ -358,10 +362,17 @@ function MarketDemandContent() {
     if (decisionPending.current) return;
     decisionPending.current = true; setDecisionBusy(true);
     const generation = pageGeneration.current;
-    try {await stream.reconcile(); if (pageGeneration.current === generation) {setReconcileRequired(false); setActionError(null);}}
+    try {await stream.reconcile(); if (pageGeneration.current === generation) setExecutionChecked(true);}
     catch (cause) {if (pageGeneration.current === generation) setActionError(cause instanceof Error ? cause.message : "Status unavailable; check again before retrying.");}
     finally {if (pageGeneration.current === generation) {decisionPending.current = false; setDecisionBusy(false);}}
   };
+  useEffect(() => {
+    if (!executionChecked) return;
+    setExecutionChecked(false);
+    const idle = stream.isRestored && stream.execution.status === "idle";
+    setReconcileRequired(!idle);
+    setActionError(idle ? null : stream.execution.status === "busy" ? "The analysis is still running. Check again before retrying." : "Execution status is unknown. Check again before retrying.");
+  }, [executionChecked, stream.isRestored, stream.execution.status]);
   const acknowledgeEvidence = async () => {
     if (decisionPending.current || workPending) return;
     decisionPending.current = true; setDecisionBusy(true); setActionError(null);
@@ -398,10 +409,18 @@ function MarketDemandContent() {
   const focused = review?.candidates.find(candidate => candidate.candidate_id === inspectId);
   const selectionWaiting = !!pending && confirmedSelection?.kind === pending.kind && confirmedSelection.ids.every(id => chosen.includes(id));
   const gates = skillReviewController.reviewRequired || skillReviewController.needsEvidenceAcknowledgement || unresolved.length > 0;
+  const curriculum = decision === "curriculum";
+  const showSkillEditor = decision === "skills" || (curriculum && (editingCurriculum || skillReviewController.dirty || skillReviewController.reviewRequired));
+  const sourceFailures = Object.entries(review?.source_outcomes ?? agentState.source_outcomes ?? {}).filter(([,outcome]) => outcome.status === "error" || outcome.status === "partial");
+  const noCandidates = started && !review?.candidates.length && !pending;
   const decisionContent = <div aria-label="Current teacher decision" className="shrink-0 space-y-2 px-3">
-    {isLoadingHistory ? <p><Loader2 className="inline size-4 animate-spin"/> Restoring conversation...</p> : decision === "working" ? <p className="text-sm">{workPending || decisionBusy ? "Working on your current decision… You can keep typing below." : "Start an analysis to collect job evidence for this course."}</p> : null}
+    {isLoadingHistory ? <p><Loader2 className="inline size-4 animate-spin"/> Restoring conversation...</p> : decision === "working" ? <p className="text-sm">{workPending || decisionBusy ? "Working on your current decision… You can keep typing below." : started ? "No skills are ready yet. Review the collection result below." : "Start an analysis to collect job evidence for this course."}</p> : null}
     {!started && <Button disabled={workflowDisabled} onClick={() => handleSend("Analyze the job market for this course and find relevant postings")}>Start an analysis</Button>}
     {sourceInputDisabled && !isLoadingHistory && <div role="alert" className="text-sm">{catalogError ? `Source catalog unavailable: ${catalogError}` : "Review analysis setup before continuing."} <Button size="sm" variant="outline" onClick={() => {setHistoryOpen(true); setSetupOpen(true);}}>Open analysis setup</Button></div>}
+    {(sourceFailures.length > 0 || (noCandidates && !workPending && !isLoadingHistory)) && <section aria-label="Source recovery" className="flex items-center gap-2 text-xs">
+      <div role="alert" className="min-w-0 flex-1">{sourceFailures.length ? <p>{sourceFailures.map(([source,outcome]) => `${source}: ${outcome.status === "error" ? "collection failed" : "collection incomplete"}`).join("; ")}. Retry collection; details are in History.</p> : <p>No usable skills were collected. Retry sources or change setup in a new analysis.</p>}</div>
+      <Button size="sm" variant="outline" className="shrink-0" disabled={workflowDisabled || decisionBusy} onClick={() => handleSend("Retry all providers and reassess the collected evidence")}>Retry failed sources</Button>
+    </section>}
     {pending && decision !== "working" && <>
       <p className="text-sm">{pending.kind === "search_queries" ? "Which search terms should we use?" : "Which job groups should we analyze?"}</p>
       <div className="space-y-1">{choiceRows(false)}</div>
@@ -409,17 +428,18 @@ function MarketDemandContent() {
       {pending.items.length > 5 && <Button size="sm" variant="outline" onClick={() => {setChoicePage(1);setChoiceDialog(true);}}>Review all {pending.items.length}</Button>}<span className="self-center text-xs">{chosen.length} chosen</span></div>
       {selectionWaiting ? <p className="text-sm">Your choice was sent. Waiting for the next decision.</p> : <Button disabled={workflowDisabled || !chosen.length || reconcileRequired} onClick={() => void advance()}>Continue</Button>}
     </>}
-    {review && !pending && decision !== "working" && <>
-      {decision === "skills" && <><SkillChoice controller={skillReviewController} onInspect={setInspectId} secondaryAction={<Button size="sm" variant="ghost" onClick={() => setCompareOpen(true)}>Compare skills</Button>}/></>}
-      {skillReviewController.needsEvidenceAcknowledgement && <div role="alert" className="space-y-1 text-sm"><p>Some job evidence is incomplete. {review.extraction_coverage.assessed_postings ?? "Unknown"} of {review.extraction_coverage.selected_postings ?? "unknown"} postings assessed. Review the available evidence before continuing.</p><Button disabled={workPending || skillReviewController.reviewRequired || unresolved.length > 0} onClick={() => void acknowledgeEvidence()}>Acknowledge available evidence</Button></div>}
+    {review && !pending && <div className="space-y-2">
+      {curriculum && <div className="flex items-center gap-2"><Button size="sm" variant="outline" disabled={workPending} onClick={() => setEditingCurriculum(true)}>Edit skills</Button>{showSkillEditor && !skillReviewController.dirty && !skillReviewController.reviewRequired && <Button size="sm" variant="ghost" onClick={() => setEditingCurriculum(false)}>Back to curriculum fit</Button>}</div>}
+      {showSkillEditor && <><SkillChoice controller={skillReviewController} visibleLimit={reconcileRequired || skillReviewController.reviewRequired || !!skillReviewController.error || unresolved.length > 0 ? 3 : 5} onInspect={setInspectId} secondaryAction={<Button size="sm" variant="ghost" onClick={() => setCompareOpen(true)}>Compare skills</Button>}/></>}
+      {skillReviewController.needsEvidenceAcknowledgement && <div role="alert" className="flex items-center gap-2 text-xs"><p className="min-w-0 flex-1">Some job evidence is incomplete. {review.extraction_coverage.assessed_postings !== undefined && review.extraction_coverage.selected_postings !== undefined ? `${review.extraction_coverage.assessed_postings} of ${review.extraction_coverage.selected_postings} postings assessed.` : "Assessment counts unavailable."} Review before continuing.</p><Button size="sm" className="shrink-0" disabled={workPending || skillReviewController.reviewRequired || unresolved.length > 0} onClick={() => void acknowledgeEvidence()}>Acknowledge available evidence</Button></div>}
       {unresolved.length > 0 && <section aria-label="Candidate reconciliation" className="space-y-1 text-sm"><p role="alert">Review changed choices before continuing ({unresolved.length}).</p><div className="max-h-28 space-y-1 overflow-y-auto">{unresolved.map(record => <label key={record.reconciliation_id} className="flex items-center gap-2"><Checkbox aria-label={`Acknowledge reconciliation for ${record.previous_candidates.map(item=>item.display_name).join(", ")}`} checked={skillReviewController.pendingReconciliationIds.includes(record.reconciliation_id)} disabled={workPending} onCheckedChange={checked=>skillReviewController.acknowledgeReconciliation(record.reconciliation_id,checked===true)}/>{record.previous_candidates.map(item=>item.display_name).join(", ")} · {record.reason.replaceAll("_", " ")}</label>)}</div><Button disabled={workPending || skillReviewController.reviewRequired || !unresolved.every(record=>skillReviewController.pendingReconciliationIds.includes(record.reconciliation_id))} onClick={()=>void skillReviewController.save().catch(()=>{})}>Save reviewed choices</Button></section>}
-      {decision === "skills" && !skillReviewController.needsEvidenceAcknowledgement && unresolved.length === 0 && <Button disabled={workflowDisabled || gates || !skillReviewController.draft.selected_candidate_ids.length || reconcileRequired} onClick={() => void advance()}>Continue</Button>}
-      {<IntegrationReview courseId={courseId} review={review} onReviewChange={skillReviewController.onReviewChange} disabled={workPending} publicationDisabled={skillReviewController.dirty || gates}/>}
-    </>}
+      {(decision === "skills" || curriculum) && !skillReviewController.needsEvidenceAcknowledgement && unresolved.length === 0 && <Button variant={curriculum && !showSkillEditor ? "outline" : "default"} disabled={workflowDisabled || gates || !skillReviewController.draft.selected_candidate_ids.length || reconcileRequired} onClick={() => void advance()}>{curriculum ? "Remap skills" : "Continue"}</Button>}
+      <div hidden={decision === "working" || (curriculum && showSkillEditor)}><IntegrationReview courseId={courseId} review={review} onReviewChange={skillReviewController.onReviewChange} disabled={workPending} publicationDisabled={skillReviewController.dirty || gates}/></div>
+    </div>}
     {actionError && <p role="alert" className="text-sm text-destructive">{actionError} Your choices are retained.</p>}
     {askError && <p role="alert" className="text-sm text-destructive">{askError}</p>}
     {reconcileRequired && <Button disabled={decisionBusy || isStreaming} onClick={() => void checkExecution()}>Check workflow status before retrying</Button>}
-    {stream.execution.status === "busy" && !isStreaming && !reconcileRequired && <Button variant="outline" onClick={() => void checkExecution()}>Check workflow status</Button>}
+    {stream.execution.status !== "idle" && !isStreaming && !reconcileRequired && <Button variant="outline" onClick={() => void checkExecution()}>Check workflow status</Button>}
   </div>;
   return (<div aria-label="Teacher evidence workspace" className="flex h-dvh min-w-0 flex-col overflow-hidden bg-background">
     <header className="flex shrink-0 items-center justify-between px-5 py-3"><Link to={`/courses/${courseId}`} className="text-sm text-muted-foreground">← {course?.title ?? "Course"}</Link><ThemeToggle/></header>

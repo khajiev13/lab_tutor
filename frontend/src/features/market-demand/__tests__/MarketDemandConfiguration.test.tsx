@@ -33,6 +33,7 @@ vi.mock("@/features/market-demand/api", () => ({
   fetchOnetReleases: vi.fn(),
   searchOnetOccupations: vi.fn(),
   confirmOnetOccupations: vi.fn(),
+  confirmSkillReviewSelection: vi.fn(),
 }));
 import {
   fetchConversationHistory,
@@ -94,6 +95,7 @@ function closeSetup() {fireEvent.click(screen.getByRole("button",{name:"Close"})
 
 describe("shared teacher source configuration", () => {
   it("restores sources and serializes them from suggestion, selection and typed replies", async () => {
+    vi.mocked(streamMarketDemandChat).mockImplementation(async ({onEvent}) => {onEvent({type:"stream_end",outcome:"completed"});});
     vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({onEvent}) => {
       onEvent({type:"agent_start",agent:"supervisor",messageId:"a1",displayName:"Supervisor",emoji:""});
       onEvent({type:"text_delta",messageId:"a1",delta:'Search Terms: "data analyst", "data scientist"'});
@@ -217,4 +219,49 @@ it("prevents configuration changes after collection starts",async()=>{
  const provider=await screen.findByRole("checkbox",{name:"HeadHunter"},{timeout:10000});
  expect(screen.getByRole("checkbox",{name:"O*NET references"})).toBeDisabled();
  expect(provider).toBeDisabled();
+});
+
+it("keeps mapping retry blocked when only the execution status read fails after detachment", async()=>{
+ const {reviewFixture}=await import("@/features/market-demand/__tests__/review-fixtures");const api=await import("@/features/market-demand/api");
+ const review=reviewFixture();review.selected_candidate_ids=["python"];review.approved_references=[];
+ vi.mocked(fetchSkillReview).mockResolvedValue(review);vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1"});vi.mocked(api.confirmSkillReviewSelection).mockResolvedValue(review);
+ render(<TestRouter><MarketDemandPage/></TestRouter>);
+ await waitFor(()=>expect(screen.getByRole("button",{name:"Continue"})).toBeEnabled());
+ vi.mocked(getMarketExecutionStatus).mockRejectedValue(new Error("Only status offline"));
+ fireEvent.click(screen.getByRole("button",{name:"Continue"}));
+ await screen.findByRole("button",{name:"Check workflow status before retrying"});
+ fireEvent.click(screen.getByRole("button",{name:"Check workflow status before retrying"}));
+ await waitFor(()=>expect(getMarketExecutionStatus).toHaveBeenCalledTimes(3));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"Continue"})).toBeDisabled());
+ expect(streamMarketDemandChat).toHaveBeenCalledOnce();
+ expect(screen.getByRole("button",{name:"Check workflow status before retrying"})).toBeVisible();
+ vi.mocked(getMarketExecutionStatus).mockResolvedValue({status:"busy",state_updated_at:null});
+ fireEvent.click(screen.getByRole("button",{name:"Check workflow status before retrying"}));
+ await screen.findByText(/still running/);
+ expect(streamMarketDemandChat).toHaveBeenCalledOnce();
+ vi.mocked(getMarketExecutionStatus).mockResolvedValue({status:"idle",state_updated_at:null});
+ fireEvent.click(screen.getByRole("button",{name:"Check workflow status before retrying"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:"Continue"})).toBeEnabled());
+});
+
+it('ignores a prior course idle status that completes after switching to an unknown-status course',async()=>{
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const api=await import('@/features/market-demand/api');
+ const review={...reviewFixture(),selected_candidate_ids:['python'],approved_references:[]};
+ vi.mocked(fetchSkillReview).mockImplementation(async id=>({...review,run_id:`run-${id}`}));
+ vi.mocked(fetchAgentState).mockImplementation(async id=>({...restored,course_id:id,run_id:`run-${id}`}));
+ vi.mocked(api.confirmSkillReviewSelection).mockResolvedValue(review);
+ const {rerender}=render(<TestRouter><MarketDemandPage/></TestRouter>);
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Continue'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Continue'}));
+ await screen.findByRole('button',{name:'Check workflow status before retrying'});
+ let finishOld!:(status:{status:'idle';state_updated_at:null})=>void;
+ vi.mocked(getMarketExecutionStatus).mockImplementation(id=>id===1?new Promise(resolve=>{finishOld=resolve;}):Promise.reject(new Error('New course status offline')));
+ fireEvent.click(screen.getByRole('button',{name:'Check workflow status before retrying'}));
+ await waitFor(()=>expect(getMarketExecutionStatus).toHaveBeenCalledTimes(3));
+ context.courseId=2;rerender(<TestRouter><MarketDemandPage/></TestRouter>);
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Browse skills'})).toBeEnabled());
+ await act(async()=>finishOld({status:'idle',state_updated_at:null}));
+ expect(screen.getByRole('button',{name:'Continue'})).toBeDisabled();
+ expect(screen.getByRole('button',{name:'Check workflow status'})).toBeVisible();
+ expect(streamMarketDemandChat).toHaveBeenCalledOnce();
 });
