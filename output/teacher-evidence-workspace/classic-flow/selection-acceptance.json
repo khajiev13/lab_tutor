@@ -1,0 +1,85 @@
+{
+  "passed": true,
+  "course_id": 3,
+  "job_backed": 58,
+  "reference_only": 394,
+  "merged_etl_original_labels": 2,
+  "merged_etl_posting_links": 4,
+  "category_selection_across_pages": true,
+  "atomic_confirmation": true,
+  "explicit_publication": true,
+  "saved_student_data_preserved": true,
+  "compact_chart": true,
+  "ordinary_composer_workflow": true,
+  "bounds": [
+    {
+      "width": 1440,
+      "height": 900,
+      "bodyWidth": 1440,
+      "confirm": {
+        "x": 365,
+        "y": 596,
+        "width": 710,
+        "height": 32
+      },
+      "composer": {
+        "x": 345,
+        "y": 795,
+        "width": 750,
+        "height": 44
+      }
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "bodyWidth": 1280,
+      "confirm": {
+        "x": 285,
+        "y": 476,
+        "width": 710,
+        "height": 32
+      },
+      "composer": {
+        "x": 265,
+        "y": 615,
+        "width": 750,
+        "height": 44
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "bodyWidth": 390,
+      "confirm": {
+        "x": 29,
+        "y": 601,
+        "width": 332,
+        "height": 32
+      },
+      "composer": {
+        "x": 25,
+        "y": 739,
+        "width": 340,
+        "height": 44
+      }
+    },
+    {
+      "width": 320,
+      "height": 667,
+      "bodyWidth": 320,
+      "confirm": {
+        "x": 29,
+        "y": 423,
+        "width": 262,
+        "height": 32
+      },
+      "composer": {
+        "x": 25,
+        "y": 562,
+        "width": 270,
+        "height": 44
+      }
+    }
+  ],
+  "runtime_errors": []
+}

@@ -1,0 +1,170 @@
+{
+  "test": "Fresh independent teacher review",
+  "checks": [
+    {
+      "name": "1280 main bounds",
+      "viewport": 1280,
+      "document": 1280,
+      "dialogs": []
+    },
+    {
+      "name": "1280 category and evidence",
+      "selected": 57,
+      "excludedName": "Select Synthetic competency 11",
+      "originalLinks": [
+        "https://hh.uz/vacancy/960000040",
+        "https://hh.uz/vacancy/960000041",
+        "https://hh.uz/vacancy/960000042",
+        "https://hh.uz/vacancy/960000043"
+      ],
+      "etlPhraseCount": 4,
+      "eltPhraseCount": 4
+    },
+    {
+      "name": "1280 evidence bounds",
+      "viewport": 1280,
+      "document": 1280,
+      "dialogs": [
+        {
+          "client": 766,
+          "scroll": 766,
+          "height": 610,
+          "scrollHeight": 1318,
+          "left": 258.4230041503906,
+          "right": 1021.5769348144531
+        }
+      ]
+    },
+    {
+      "name": "1280 chart bounds",
+      "viewport": 1280,
+      "document": 1280,
+      "dialogs": [
+        {
+          "client": 670,
+          "scroll": 670,
+          "height": 610,
+          "scrollHeight": 1100,
+          "left": 320.79656982421875,
+          "right": 959.2034301757812
+        }
+      ]
+    },
+    {
+      "name": "1280 chart return",
+      "question": "Explain the collected job evidence for SQL.",
+      "focus": null
+    },
+    {
+      "name": "390 main bounds",
+      "viewport": 390,
+      "document": 390,
+      "dialogs": []
+    },
+    {
+      "name": "390 category and evidence",
+      "selected": 57,
+      "excludedName": "Select Synthetic competency 11",
+      "originalLinks": [
+        "https://hh.uz/vacancy/960000040",
+        "https://hh.uz/vacancy/960000041",
+        "https://hh.uz/vacancy/960000042",
+        "https://hh.uz/vacancy/960000043"
+      ],
+      "etlPhraseCount": 4,
+      "eltPhraseCount": 4
+    },
+    {
+      "name": "390 evidence bounds",
+      "viewport": 390,
+      "document": 390,
+      "dialogs": [
+        {
+          "client": 356,
+          "scroll": 356,
+          "height": 715,
+          "scrollHeight": 1546,
+          "left": 16.672876358032227,
+          "right": 373.327112197876
+        }
+      ]
+    },
+    {
+      "name": "390 chart bounds",
+      "viewport": 390,
+      "document": 390,
+      "dialogs": [
+        {
+          "client": 356,
+          "scroll": 356,
+          "height": 715,
+          "scrollHeight": 1208,
+          "left": 24.31824493408203,
+          "right": 365.68177032470703
+        }
+      ]
+    },
+    {
+      "name": "390 chart return",
+      "question": "Explain the collected job evidence for SQL.",
+      "focus": null
+    },
+    {
+      "name": "320 main bounds",
+      "viewport": 320,
+      "document": 320,
+      "dialogs": []
+    },
+    {
+      "name": "320 category and evidence",
+      "selected": 57,
+      "excludedName": "Select Synthetic competency 11",
+      "originalLinks": [
+        "https://hh.uz/vacancy/960000040",
+        "https://hh.uz/vacancy/960000041",
+        "https://hh.uz/vacancy/960000042",
+        "https://hh.uz/vacancy/960000043"
+      ],
+      "etlPhraseCount": 4,
+      "eltPhraseCount": 4
+    },
+    {
+      "name": "320 evidence bounds",
+      "viewport": 320,
+      "document": 320,
+      "dialogs": [
+        {
+          "client": 286,
+          "scroll": 286,
+          "height": 565,
+          "scrollHeight": 1802,
+          "left": 19.049022674560547,
+          "right": 300.95100021362305
+        }
+      ]
+    },
+    {
+      "name": "320 chart bounds",
+      "viewport": 320,
+      "document": 320,
+      "dialogs": [
+        {
+          "client": 286,
+          "scroll": 286,
+          "height": 565,
+          "scrollHeight": 1408,
+          "left": 22.690227508544922,
+          "right": 297.3097953796387
+        }
+      ]
+    },
+    {
+      "name": "320 chart return",
+      "question": "Explain the collected job evidence for SQL.",
+      "focus": null
+    }
+  ],
+  "errors": [],
+  "requests": [],
+  "emptyCourseId": 6
+}

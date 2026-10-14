@@ -1,0 +1,1465 @@
+{
+  "fixture": {
+    "courseId": 4,
+    "runId": "04b17a7a-c016-4744-b337-400b565780b8",
+    "totalCandidates": 452,
+    "selected": 1,
+    "publicationRevision": 0,
+    "technicalPosition": 39,
+    "omissions": 28,
+    "unresolvedReconciliations": 1
+  },
+  "viewports": [
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "checks": [
+        {
+          "name": "saved category visible first",
+          "storedPosition": 39,
+          "renderedPosition": 1
+        },
+        {
+          "name": "category members and exclusion",
+          "selected": 2,
+          "excluded": "Synthetic competency 39",
+          "mixed": true,
+          "stableOrder": true
+        },
+        {
+          "name": "ETL / ELT evidence",
+          "originalLinks": [
+            "https://hh.uz/vacancy/960000040",
+            "https://hh.uz/vacancy/960000041",
+            "https://hh.uz/vacancy/960000042",
+            "https://hh.uz/vacancy/960000043"
+          ],
+          "etlPhrases": 4,
+          "eltPhrases": 4,
+          "focusRestored": true
+        },
+        {
+          "name": "all category rows keyboard reachable",
+          "reached": 41
+        },
+        {
+          "name": "long evidence bounded and last omission reachable",
+          "omissions": 28,
+          "cardHeight": 400,
+          "scrollHeights": [
+            {
+              "tag": "DIV",
+              "role": "region",
+              "label": "Skill categories and saved choices",
+              "clientHeight": 142,
+              "scrollHeight": 4963,
+              "scrollTop": 4668
+            },
+            {
+              "tag": "DIV",
+              "role": "region",
+              "label": "Evidence limitations and changed choice details",
+              "clientHeight": 96,
+              "scrollHeight": 964,
+              "scrollTop": 0
+            }
+          ]
+        }
+      ],
+      "runtimeErrors": [],
+      "restore": {
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "documentWidth": 1280,
+        "heading": {
+          "top": 117,
+          "bottom": 137,
+          "left": 283,
+          "right": 997,
+          "height": 20,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "count": {
+          "top": 159,
+          "bottom": 175,
+          "left": 283,
+          "right": 997,
+          "height": 16,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "confirm": {
+          "top": 463,
+          "bottom": 495,
+          "left": 283,
+          "right": 997,
+          "height": 32,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "question": {
+          "top": 615,
+          "bottom": 659,
+          "left": 265,
+          "right": 1015,
+          "height": 44,
+          "width": 750,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 1280,
+            "bottom": 720
+          }
+        },
+        "card": {
+          "top": 106,
+          "bottom": 506,
+          "left": 272,
+          "right": 1008,
+          "height": 400,
+          "width": 736,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 238,
+            "scrollHeight": 1878,
+            "scrollTop": 0
+          }
+        ]
+      },
+      "allExpanded": {
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "documentWidth": 1280,
+        "heading": {
+          "top": 117,
+          "bottom": 137,
+          "left": 283,
+          "right": 997,
+          "height": 20,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "count": {
+          "top": 159,
+          "bottom": 175,
+          "left": 283,
+          "right": 997,
+          "height": 16,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "confirm": {
+          "top": 463,
+          "bottom": 495,
+          "left": 283,
+          "right": 997,
+          "height": 32,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "question": {
+          "top": 615,
+          "bottom": 659,
+          "left": 265,
+          "right": 1015,
+          "height": 44,
+          "width": 750,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 1280,
+            "bottom": 720
+          }
+        },
+        "card": {
+          "top": 106,
+          "bottom": 506,
+          "left": 272,
+          "right": 1008,
+          "height": 400,
+          "width": 736,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 238,
+            "scrollHeight": 4963,
+            "scrollTop": 4668
+          }
+        ]
+      },
+      "longEvidence": {
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "documentWidth": 1280,
+        "heading": {
+          "top": 117,
+          "bottom": 137,
+          "left": 283,
+          "right": 997,
+          "height": 20,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "count": {
+          "top": 159,
+          "bottom": 175,
+          "left": 283,
+          "right": 997,
+          "height": 16,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "confirm": {
+          "top": 463,
+          "bottom": 495,
+          "left": 283,
+          "right": 997,
+          "height": 32,
+          "width": 714,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "question": {
+          "top": 615,
+          "bottom": 659,
+          "left": 265,
+          "right": 1015,
+          "height": 44,
+          "width": 750,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 1280,
+            "bottom": 720
+          }
+        },
+        "card": {
+          "top": 106,
+          "bottom": 506,
+          "left": 272,
+          "right": 1008,
+          "height": 400,
+          "width": 736,
+          "fullyVisible": true,
+          "clip": {
+            "top": 57,
+            "left": 0,
+            "right": 1280,
+            "bottom": 594
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 142,
+            "scrollHeight": 4963,
+            "scrollTop": 4668
+          },
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Evidence limitations and changed choice details",
+            "clientHeight": 96,
+            "scrollHeight": 964,
+            "scrollTop": 0
+          }
+        ]
+      },
+      "keyboardEvidenceEnd": {
+        "top": 868,
+        "height": 96,
+        "total": 964
+      },
+      "evidenceEnd": {
+        "top": 868,
+        "height": 96,
+        "total": 964
+      },
+      "passed": true
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "checks": [
+        {
+          "name": "saved category visible first",
+          "storedPosition": 39,
+          "renderedPosition": 1
+        },
+        {
+          "name": "category members and exclusion",
+          "selected": 2,
+          "excluded": "Synthetic competency 39",
+          "mixed": true,
+          "stableOrder": true
+        },
+        {
+          "name": "ETL / ELT evidence",
+          "originalLinks": [
+            "https://hh.uz/vacancy/960000040",
+            "https://hh.uz/vacancy/960000041",
+            "https://hh.uz/vacancy/960000042",
+            "https://hh.uz/vacancy/960000043"
+          ],
+          "etlPhrases": 4,
+          "eltPhrases": 4,
+          "focusRestored": true
+        },
+        {
+          "name": "all category rows keyboard reachable",
+          "reached": 41
+        },
+        {
+          "name": "long evidence bounded and last omission reachable",
+          "omissions": 28,
+          "cardHeight": 460,
+          "scrollHeights": [
+            {
+              "tag": "DIV",
+              "role": "region",
+              "label": "Skill categories and saved choices",
+              "clientHeight": 242,
+              "scrollHeight": 4963,
+              "scrollTop": 4650
+            },
+            {
+              "tag": "DIV",
+              "role": "region",
+              "label": "Evidence limitations and changed choice details",
+              "clientHeight": 40,
+              "scrollHeight": 1732,
+              "scrollTop": 0
+            }
+          ]
+        }
+      ],
+      "runtimeErrors": [],
+      "restore": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "documentWidth": 390,
+        "heading": {
+          "top": 207,
+          "bottom": 227,
+          "left": 27,
+          "right": 363,
+          "height": 20,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "count": {
+          "top": 233,
+          "bottom": 249,
+          "left": 27,
+          "right": 363,
+          "height": 16,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "confirm": {
+          "top": 587,
+          "bottom": 619,
+          "left": 27,
+          "right": 363,
+          "height": 32,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "question": {
+          "top": 739,
+          "bottom": 783,
+          "left": 25,
+          "right": 365,
+          "height": 44,
+          "width": 340,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 390,
+            "bottom": 844
+          }
+        },
+        "card": {
+          "top": 196,
+          "bottom": 630,
+          "left": 16,
+          "right": 374,
+          "height": 434,
+          "width": 358,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 256,
+            "scrollHeight": 1878,
+            "scrollTop": 0
+          }
+        ]
+      },
+      "allExpanded": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "documentWidth": 390,
+        "heading": {
+          "top": 207,
+          "bottom": 227,
+          "left": 27,
+          "right": 363,
+          "height": 20,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "count": {
+          "top": 233,
+          "bottom": 249,
+          "left": 27,
+          "right": 363,
+          "height": 16,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "confirm": {
+          "top": 587,
+          "bottom": 619,
+          "left": 27,
+          "right": 363,
+          "height": 32,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "question": {
+          "top": 739,
+          "bottom": 783,
+          "left": 25,
+          "right": 365,
+          "height": 44,
+          "width": 340,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 390,
+            "bottom": 844
+          }
+        },
+        "card": {
+          "top": 196,
+          "bottom": 630,
+          "left": 16,
+          "right": 374,
+          "height": 434,
+          "width": 358,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 256,
+            "scrollHeight": 4963,
+            "scrollTop": 4650
+          }
+        ]
+      },
+      "longEvidence": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "documentWidth": 390,
+        "heading": {
+          "top": 181,
+          "bottom": 201,
+          "left": 27,
+          "right": 363,
+          "height": 20,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "count": {
+          "top": 207,
+          "bottom": 223,
+          "left": 27,
+          "right": 363,
+          "height": 16,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "confirm": {
+          "top": 587,
+          "bottom": 619,
+          "left": 27,
+          "right": 363,
+          "height": 32,
+          "width": 336,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "question": {
+          "top": 739,
+          "bottom": 783,
+          "left": 25,
+          "right": 365,
+          "height": 44,
+          "width": 340,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 390,
+            "bottom": 844
+          }
+        },
+        "card": {
+          "top": 170,
+          "bottom": 630,
+          "left": 16,
+          "right": 374,
+          "height": 460,
+          "width": 358,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 390,
+            "bottom": 718
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 242,
+            "scrollHeight": 4963,
+            "scrollTop": 4650
+          },
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Evidence limitations and changed choice details",
+            "clientHeight": 40,
+            "scrollHeight": 1732,
+            "scrollTop": 0
+          }
+        ]
+      },
+      "keyboardEvidenceEnd": {
+        "top": 1692,
+        "height": 40,
+        "total": 1732
+      },
+      "evidenceEnd": {
+        "top": 1692,
+        "height": 40,
+        "total": 1732
+      },
+      "passed": true
+    },
+    {
+      "viewport": {
+        "width": 375,
+        "height": 667
+      },
+      "checks": [
+        {
+          "name": "saved category visible first",
+          "storedPosition": 39,
+          "renderedPosition": 1
+        },
+        {
+          "name": "category members and exclusion",
+          "selected": 2,
+          "excluded": "Synthetic competency 39",
+          "mixed": true,
+          "stableOrder": true
+        },
+        {
+          "name": "ETL / ELT evidence",
+          "originalLinks": [
+            "https://hh.uz/vacancy/960000040",
+            "https://hh.uz/vacancy/960000041",
+            "https://hh.uz/vacancy/960000042",
+            "https://hh.uz/vacancy/960000043"
+          ],
+          "etlPhrases": 4,
+          "eltPhrases": 4,
+          "focusRestored": true
+        },
+        {
+          "name": "all category rows keyboard reachable",
+          "reached": 41
+        },
+        {
+          "name": "long evidence bounded and last omission reachable",
+          "omissions": 28,
+          "cardHeight": 283,
+          "scrollHeights": [
+            {
+              "tag": "DIV",
+              "role": "region",
+              "label": "Skill categories and saved choices",
+              "clientHeight": 65,
+              "scrollHeight": 4983,
+              "scrollTop": 4821
+            },
+            {
+              "tag": "DIV",
+              "role": "region",
+              "label": "Evidence limitations and changed choice details",
+              "clientHeight": 40,
+              "scrollHeight": 1732,
+              "scrollTop": 0
+            }
+          ]
+        }
+      ],
+      "runtimeErrors": [],
+      "restore": {
+        "viewport": {
+          "width": 375,
+          "height": 667
+        },
+        "documentWidth": 375,
+        "heading": {
+          "top": 181,
+          "bottom": 201,
+          "left": 27,
+          "right": 348,
+          "height": 20,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "count": {
+          "top": 207,
+          "bottom": 223,
+          "left": 27,
+          "right": 348,
+          "height": 16,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "confirm": {
+          "top": 410,
+          "bottom": 442,
+          "left": 27,
+          "right": 348,
+          "height": 32,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "question": {
+          "top": 562,
+          "bottom": 606,
+          "left": 25,
+          "right": 350,
+          "height": 44,
+          "width": 325,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 375,
+            "bottom": 667
+          }
+        },
+        "card": {
+          "top": 170,
+          "bottom": 453,
+          "left": 16,
+          "right": 359,
+          "height": 283,
+          "width": 343,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 105,
+            "scrollHeight": 1898,
+            "scrollTop": 0
+          }
+        ]
+      },
+      "allExpanded": {
+        "viewport": {
+          "width": 375,
+          "height": 667
+        },
+        "documentWidth": 375,
+        "heading": {
+          "top": 181,
+          "bottom": 201,
+          "left": 27,
+          "right": 348,
+          "height": 20,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "count": {
+          "top": 207,
+          "bottom": 223,
+          "left": 27,
+          "right": 348,
+          "height": 16,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "confirm": {
+          "top": 410,
+          "bottom": 442,
+          "left": 27,
+          "right": 348,
+          "height": 32,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "question": {
+          "top": 562,
+          "bottom": 606,
+          "left": 25,
+          "right": 350,
+          "height": 44,
+          "width": 325,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 375,
+            "bottom": 667
+          }
+        },
+        "card": {
+          "top": 170,
+          "bottom": 453,
+          "left": 16,
+          "right": 359,
+          "height": 283,
+          "width": 343,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 105,
+            "scrollHeight": 4983,
+            "scrollTop": 4821
+          }
+        ]
+      },
+      "longEvidence": {
+        "viewport": {
+          "width": 375,
+          "height": 667
+        },
+        "documentWidth": 375,
+        "heading": {
+          "top": 181,
+          "bottom": 201,
+          "left": 27,
+          "right": 348,
+          "height": 20,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "count": {
+          "top": 207,
+          "bottom": 223,
+          "left": 27,
+          "right": 348,
+          "height": 16,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "confirm": {
+          "top": 410,
+          "bottom": 442,
+          "left": 27,
+          "right": 348,
+          "height": 32,
+          "width": 321,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "question": {
+          "top": 562,
+          "bottom": 606,
+          "left": 25,
+          "right": 350,
+          "height": 44,
+          "width": 325,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 375,
+            "bottom": 667
+          }
+        },
+        "card": {
+          "top": 170,
+          "bottom": 453,
+          "left": 16,
+          "right": 359,
+          "height": 283,
+          "width": 343,
+          "fullyVisible": true,
+          "clip": {
+            "top": 145,
+            "left": 0,
+            "right": 375,
+            "bottom": 541
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 65,
+            "scrollHeight": 4983,
+            "scrollTop": 4821
+          },
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Evidence limitations and changed choice details",
+            "clientHeight": 40,
+            "scrollHeight": 1732,
+            "scrollTop": 0
+          }
+        ]
+      },
+      "keyboardEvidenceEnd": {
+        "top": 1692,
+        "height": 40,
+        "total": 1732
+      },
+      "evidenceEnd": {
+        "top": 1692,
+        "height": 40,
+        "total": 1732
+      },
+      "passed": true
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 667
+      },
+      "checks": [
+        {
+          "name": "saved category visible first",
+          "storedPosition": 39,
+          "renderedPosition": 1
+        },
+        {
+          "name": "category members and exclusion",
+          "selected": 2,
+          "excluded": "Synthetic competency 39",
+          "mixed": true,
+          "stableOrder": true
+        },
+        {
+          "name": "ETL / ELT evidence",
+          "originalLinks": [
+            "https://hh.uz/vacancy/960000040",
+            "https://hh.uz/vacancy/960000041",
+            "https://hh.uz/vacancy/960000042",
+            "https://hh.uz/vacancy/960000043"
+          ],
+          "etlPhrases": 4,
+          "eltPhrases": 4,
+          "focusRestored": true
+        },
+        {
+          "name": "all category rows keyboard reachable",
+          "reached": 41
+        },
+        {
+          "name": "long evidence bounded and last omission reachable",
+          "omissions": 28,
+          "cardHeight": 283,
+          "scrollHeights": [
+            {
+              "tag": "DIV",
+              "role": "region",
+              "label": "Skill categories and saved choices",
+              "clientHeight": 65,
+              "scrollHeight": 5527,
+              "scrollTop": 5357
+            },
+            {
+              "tag": "DIV",
+              "role": "region",
+              "label": "Evidence limitations and changed choice details",
+              "clientHeight": 40,
+              "scrollHeight": 2132,
+              "scrollTop": 0
+            }
+          ]
+        }
+      ],
+      "runtimeErrors": [],
+      "restore": {
+        "viewport": {
+          "width": 320,
+          "height": 667
+        },
+        "documentWidth": 320,
+        "heading": {
+          "top": 181,
+          "bottom": 201,
+          "left": 27,
+          "right": 293,
+          "height": 20,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "count": {
+          "top": 207,
+          "bottom": 223,
+          "left": 27,
+          "right": 293,
+          "height": 16,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "confirm": {
+          "top": 410,
+          "bottom": 442,
+          "left": 27,
+          "right": 293,
+          "height": 32,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "question": {
+          "top": 562,
+          "bottom": 606,
+          "left": 25,
+          "right": 295,
+          "height": 44,
+          "width": 270,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 320,
+            "bottom": 667
+          }
+        },
+        "card": {
+          "top": 170,
+          "bottom": 453,
+          "left": 16,
+          "right": 304,
+          "height": 283,
+          "width": 288,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 105,
+            "scrollHeight": 2018,
+            "scrollTop": 0
+          }
+        ]
+      },
+      "allExpanded": {
+        "viewport": {
+          "width": 320,
+          "height": 667
+        },
+        "documentWidth": 320,
+        "heading": {
+          "top": 181,
+          "bottom": 201,
+          "left": 27,
+          "right": 293,
+          "height": 20,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "count": {
+          "top": 207,
+          "bottom": 223,
+          "left": 27,
+          "right": 293,
+          "height": 16,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "confirm": {
+          "top": 410,
+          "bottom": 442,
+          "left": 27,
+          "right": 293,
+          "height": 32,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "question": {
+          "top": 562,
+          "bottom": 606,
+          "left": 25,
+          "right": 295,
+          "height": 44,
+          "width": 270,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 320,
+            "bottom": 667
+          }
+        },
+        "card": {
+          "top": 170,
+          "bottom": 453,
+          "left": 16,
+          "right": 304,
+          "height": 283,
+          "width": 288,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 105,
+            "scrollHeight": 5527,
+            "scrollTop": 5357
+          }
+        ]
+      },
+      "longEvidence": {
+        "viewport": {
+          "width": 320,
+          "height": 667
+        },
+        "documentWidth": 320,
+        "heading": {
+          "top": 181,
+          "bottom": 201,
+          "left": 27,
+          "right": 293,
+          "height": 20,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "count": {
+          "top": 207,
+          "bottom": 223,
+          "left": 27,
+          "right": 293,
+          "height": 16,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "confirm": {
+          "top": 410,
+          "bottom": 442,
+          "left": 27,
+          "right": 293,
+          "height": 32,
+          "width": 266,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "question": {
+          "top": 562,
+          "bottom": 606,
+          "left": 25,
+          "right": 295,
+          "height": 44,
+          "width": 270,
+          "fullyVisible": true,
+          "clip": {
+            "top": 0,
+            "left": 0,
+            "right": 320,
+            "bottom": 667
+          }
+        },
+        "card": {
+          "top": 170,
+          "bottom": 453,
+          "left": 16,
+          "right": 304,
+          "height": 283,
+          "width": 288,
+          "fullyVisible": true,
+          "clip": {
+            "top": 165,
+            "left": 0,
+            "right": 320,
+            "bottom": 541
+          }
+        },
+        "scrollContainers": [
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Skill categories and saved choices",
+            "clientHeight": 65,
+            "scrollHeight": 5527,
+            "scrollTop": 5357
+          },
+          {
+            "tag": "DIV",
+            "role": "region",
+            "label": "Evidence limitations and changed choice details",
+            "clientHeight": 40,
+            "scrollHeight": 2132,
+            "scrollTop": 0
+          }
+        ]
+      },
+      "keyboardEvidenceEnd": {
+        "top": 2092,
+        "height": 40,
+        "total": 2132
+      },
+      "evidenceEnd": {
+        "top": 2092,
+        "height": 40,
+        "total": 2132
+      },
+      "passed": true
+    }
+  ],
+  "errors": [],
+  "mutations": [],
+  "finalSavedState": {
+    "selectedIdsUnchanged": true,
+    "excludedIdsUnchanged": true,
+    "publicationRevision": 0
+  },
+  "readableEvidenceFollowup": {
+    "viewports": [
+      {
+        "width": 375,
+        "height": 667
+      },
+      {
+        "width": 320,
+        "height": 667
+      }
+    ],
+    "action": "Keyboard End in the named evidence scroll region after restoration reaches the bottom",
+    "visibleEndText": [
+      "headhunter: partial",
+      " \u00b7 merged evidence"
+    ],
+    "evidenceRegionTop": 364,
+    "evidenceRegionBottom": 404,
+    "confirmRemainsWithinConversation": true,
+    "screenshots": [
+      "fresh-review-many-categories-evidence-render-375.png",
+      "fresh-review-many-categories-evidence-render-320.png"
+    ]
+  }
+}

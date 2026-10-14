@@ -1,0 +1,239 @@
+[
+  {
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "categoryCount": 41,
+    "heading": {
+      "x": 285,
+      "y": -1391,
+      "width": 710,
+      "height": 20,
+      "bottom": -1371,
+      "fullyVisible": false,
+      "clip": {
+        "top": 57,
+        "left": 0,
+        "right": 1280,
+        "bottom": 594
+      }
+    },
+    "count": {
+      "x": 285,
+      "y": -1343,
+      "width": 710,
+      "height": 16,
+      "bottom": -1327,
+      "fullyVisible": false,
+      "clip": {
+        "top": 57,
+        "left": 0,
+        "right": 1280,
+        "bottom": 594
+      }
+    },
+    "confirm": {
+      "x": 285,
+      "y": 622,
+      "width": 710,
+      "height": 32,
+      "bottom": 654,
+      "fullyVisible": false,
+      "clip": {
+        "top": 57,
+        "left": 0,
+        "right": 1280,
+        "bottom": 594
+      }
+    },
+    "question": {
+      "x": 265,
+      "y": 615,
+      "width": 750,
+      "height": 44,
+      "bottom": 659,
+      "fullyVisible": true,
+      "clip": {
+        "top": 0,
+        "left": 0,
+        "right": 1280,
+        "bottom": 720
+      }
+    },
+    "card": {
+      "x": 272,
+      "y": -1437,
+      "width": 736,
+      "height": 2088,
+      "bottom": 651,
+      "fullyVisible": false,
+      "clip": {
+        "top": 57,
+        "left": 0,
+        "right": 1280,
+        "bottom": 594
+      }
+    },
+    "scrollContainers": [],
+    "historyMessages": 5
+  },
+  {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "categoryCount": 41,
+    "heading": {
+      "x": 29,
+      "y": -1352,
+      "width": 332,
+      "height": 20,
+      "bottom": -1332,
+      "fullyVisible": false,
+      "clip": {
+        "top": 145,
+        "left": 0,
+        "right": 390,
+        "bottom": 718
+      }
+    },
+    "count": {
+      "x": 29,
+      "y": -1288,
+      "width": 332,
+      "height": 16,
+      "bottom": -1272,
+      "fullyVisible": false,
+      "clip": {
+        "top": 145,
+        "left": 0,
+        "right": 390,
+        "bottom": 718
+      }
+    },
+    "confirm": {
+      "x": 29,
+      "y": 699,
+      "width": 332,
+      "height": 32,
+      "bottom": 731,
+      "fullyVisible": false,
+      "clip": {
+        "top": 145,
+        "left": 0,
+        "right": 390,
+        "bottom": 718
+      }
+    },
+    "question": {
+      "x": 25,
+      "y": 739,
+      "width": 340,
+      "height": 44,
+      "bottom": 783,
+      "fullyVisible": true,
+      "clip": {
+        "top": 0,
+        "left": 0,
+        "right": 390,
+        "bottom": 844
+      }
+    },
+    "card": {
+      "x": 16,
+      "y": -1376,
+      "width": 358,
+      "height": 2120,
+      "bottom": 744,
+      "fullyVisible": false,
+      "clip": {
+        "top": 145,
+        "left": 0,
+        "right": 390,
+        "bottom": 718
+      }
+    },
+    "scrollContainers": [],
+    "historyMessages": 5
+  },
+  {
+    "viewport": {
+      "width": 320,
+      "height": 667
+    },
+    "categoryCount": 41,
+    "heading": {
+      "x": 29,
+      "y": -1625,
+      "width": 262,
+      "height": 20,
+      "bottom": -1605,
+      "fullyVisible": false,
+      "clip": {
+        "top": 165,
+        "left": 0,
+        "right": 320,
+        "bottom": 541
+      }
+    },
+    "count": {
+      "x": 29,
+      "y": -1575,
+      "width": 262,
+      "height": 32,
+      "bottom": -1543,
+      "fullyVisible": false,
+      "clip": {
+        "top": 165,
+        "left": 0,
+        "right": 320,
+        "bottom": 541
+      }
+    },
+    "confirm": {
+      "x": 29,
+      "y": 635,
+      "width": 262,
+      "height": 32,
+      "bottom": 667,
+      "fullyVisible": false,
+      "clip": {
+        "top": 165,
+        "left": 0,
+        "right": 320,
+        "bottom": 541
+      }
+    },
+    "question": {
+      "x": 25,
+      "y": 562,
+      "width": 270,
+      "height": 44,
+      "bottom": 606,
+      "fullyVisible": true,
+      "clip": {
+        "top": 0,
+        "left": 0,
+        "right": 320,
+        "bottom": 667
+      }
+    },
+    "card": {
+      "x": 16,
+      "y": -1668,
+      "width": 288,
+      "height": 2348,
+      "bottom": 680,
+      "fullyVisible": false,
+      "clip": {
+        "top": 165,
+        "left": 0,
+        "right": 320,
+        "bottom": 541
+      }
+    },
+    "scrollContainers": [],
+    "historyMessages": 5
+  }
+]

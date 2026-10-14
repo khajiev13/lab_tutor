@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "receipts": [
+    {
+      "width": 1440,
+      "collapsed_overflow": false,
+      "expanded_overflow": false,
+      "images_loaded": true
+    },
+    {
+      "width": 390,
+      "collapsed_overflow": false,
+      "expanded_overflow": false,
+      "images_loaded": true
+    },
+    {
+      "width": 320,
+      "collapsed_overflow": false,
+      "expanded_overflow": false,
+      "images_loaded": true
+    }
+  ],
+  "runtime_errors": []
+}

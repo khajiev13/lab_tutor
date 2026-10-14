@@ -1,0 +1,518 @@
+[
+  {
+    "viewport": {
+      "width": 375,
+      "height": 667
+    },
+    "closed": {
+      "card": {
+        "x": 16,
+        "y": 263,
+        "width": 343,
+        "height": 283,
+        "top": 263,
+        "right": 359,
+        "bottom": 546,
+        "left": 16
+      },
+      "scrolls": [
+        {
+          "label": "Skill categories and saved choices",
+          "rect": {
+            "x": 29,
+            "y": 360,
+            "width": 317,
+            "height": 41,
+            "top": 360,
+            "right": 346,
+            "bottom": 401,
+            "left": 29
+          },
+          "clientHeight": 41,
+          "scrollHeight": 1898,
+          "scrollTop": 0,
+          "tabIndex": 0
+        },
+        {
+          "label": null,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "clientHeight": 96,
+          "scrollHeight": 1732,
+          "scrollTop": 0,
+          "tabIndex": -1
+        }
+      ],
+      "confirm": {
+        "x": 29,
+        "y": 501,
+        "width": 317,
+        "height": 32,
+        "top": 501,
+        "right": 346,
+        "bottom": 533,
+        "left": 29
+      },
+      "focus": {
+        "tag": "BODY",
+        "label": null,
+        "text": "\n    ((e, i, s, u, m, a, l, h) => {\n  let d = document.documentElement, w = [\"light\", \"dark\"];\n  function p(n) {\n    (Ar"
+      }
+    },
+    "open": {
+      "card": {
+        "x": 16,
+        "y": 257,
+        "width": 343,
+        "height": 283,
+        "top": 257,
+        "right": 359,
+        "bottom": 540,
+        "left": 16
+      },
+      "scrolls": [
+        {
+          "label": "Skill categories and saved choices",
+          "rect": {
+            "x": 29,
+            "y": 354,
+            "width": 317,
+            "height": 0,
+            "top": 354,
+            "right": 346,
+            "bottom": 354,
+            "left": 29
+          },
+          "clientHeight": 0,
+          "scrollHeight": 1898,
+          "scrollTop": 0,
+          "tabIndex": 0
+        },
+        {
+          "label": null,
+          "rect": {
+            "x": 29,
+            "y": 446,
+            "width": 317,
+            "height": 96,
+            "top": 446,
+            "right": 346,
+            "bottom": 542,
+            "left": 29
+          },
+          "clientHeight": 96,
+          "scrollHeight": 1732,
+          "scrollTop": 0,
+          "tabIndex": -1
+        }
+      ],
+      "confirm": {
+        "x": 29,
+        "y": 550,
+        "width": 317,
+        "height": 32,
+        "top": 550,
+        "right": 346,
+        "bottom": 582,
+        "left": 29
+      },
+      "focus": {
+        "tag": "SUMMARY",
+        "label": null,
+        "text": "Evidence and changed choice details"
+      }
+    },
+    "afterTab": {
+      "card": {
+        "x": 16,
+        "y": 256,
+        "width": 343,
+        "height": 283,
+        "top": 256,
+        "right": 359,
+        "bottom": 539,
+        "left": 16
+      },
+      "scrolls": [
+        {
+          "label": "Skill categories and saved choices",
+          "rect": {
+            "x": 29,
+            "y": 353,
+            "width": 317,
+            "height": 0,
+            "top": 353,
+            "right": 346,
+            "bottom": 353,
+            "left": 29
+          },
+          "clientHeight": 0,
+          "scrollHeight": 1898,
+          "scrollTop": 0,
+          "tabIndex": 0
+        },
+        {
+          "label": null,
+          "rect": {
+            "x": 29,
+            "y": 445,
+            "width": 317,
+            "height": 96,
+            "top": 445,
+            "right": 346,
+            "bottom": 541,
+            "left": 29
+          },
+          "clientHeight": 96,
+          "scrollHeight": 1732,
+          "scrollTop": 0,
+          "tabIndex": -1
+        }
+      ],
+      "confirm": {
+        "x": 29,
+        "y": 549,
+        "width": 317,
+        "height": 32,
+        "top": 549,
+        "right": 346,
+        "bottom": 581,
+        "left": 29
+      },
+      "focus": {
+        "tag": "DIV",
+        "label": null,
+        "text": "Two synthetic postings unavailableextraction: partialheadhunter: Synthetic availability note 01: The archived provider r"
+      }
+    },
+    "afterEnd": {
+      "card": {
+        "x": 16,
+        "y": 191,
+        "width": 343,
+        "height": 283,
+        "top": 191,
+        "right": 359,
+        "bottom": 474,
+        "left": 16
+      },
+      "scrolls": [
+        {
+          "label": "Skill categories and saved choices",
+          "rect": {
+            "x": 29,
+            "y": 288,
+            "width": 317,
+            "height": 0,
+            "top": 288,
+            "right": 346,
+            "bottom": 288,
+            "left": 29
+          },
+          "clientHeight": 0,
+          "scrollHeight": 1898,
+          "scrollTop": 0,
+          "tabIndex": 0
+        },
+        {
+          "label": null,
+          "rect": {
+            "x": 29,
+            "y": 380,
+            "width": 317,
+            "height": 96,
+            "top": 380,
+            "right": 346,
+            "bottom": 476,
+            "left": 29
+          },
+          "clientHeight": 96,
+          "scrollHeight": 1732,
+          "scrollTop": 1636,
+          "tabIndex": -1
+        }
+      ],
+      "confirm": {
+        "x": 29,
+        "y": 484,
+        "width": 317,
+        "height": 32,
+        "top": 484,
+        "right": 346,
+        "bottom": 516,
+        "left": 29
+      },
+      "focus": {
+        "tag": "DIV",
+        "label": null,
+        "text": "Two synthetic postings unavailableextraction: partialheadhunter: Synthetic availability note 01: The archived provider r"
+      }
+    }
+  },
+  {
+    "viewport": {
+      "width": 320,
+      "height": 667
+    },
+    "closed": {
+      "card": {
+        "x": 16,
+        "y": 247,
+        "width": 288,
+        "height": 283,
+        "top": 247,
+        "right": 304,
+        "bottom": 530,
+        "left": 16
+      },
+      "scrolls": [
+        {
+          "label": "Skill categories and saved choices",
+          "rect": {
+            "x": 29,
+            "y": 328,
+            "width": 262,
+            "height": 41,
+            "top": 328,
+            "right": 291,
+            "bottom": 369,
+            "left": 29
+          },
+          "clientHeight": 41,
+          "scrollHeight": 2038,
+          "scrollTop": 0,
+          "tabIndex": 0
+        },
+        {
+          "label": null,
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          },
+          "clientHeight": 40,
+          "scrollHeight": 2132,
+          "scrollTop": 0,
+          "tabIndex": -1
+        }
+      ],
+      "confirm": {
+        "x": 29,
+        "y": 485,
+        "width": 262,
+        "height": 32,
+        "top": 485,
+        "right": 291,
+        "bottom": 517,
+        "left": 29
+      },
+      "focus": {
+        "tag": "BODY",
+        "label": null,
+        "text": "\n    ((e, i, s, u, m, a, l, h) => {\n  let d = document.documentElement, w = [\"light\", \"dark\"];\n  function p(n) {\n    (Ar"
+      }
+    },
+    "open": {
+      "card": {
+        "x": 16,
+        "y": 239,
+        "width": 288,
+        "height": 283,
+        "top": 239,
+        "right": 304,
+        "bottom": 522,
+        "left": 16
+      },
+      "scrolls": [
+        {
+          "label": "Skill categories and saved choices",
+          "rect": {
+            "x": 29,
+            "y": 320,
+            "width": 262,
+            "height": 1,
+            "top": 320,
+            "right": 291,
+            "bottom": 321,
+            "left": 29
+          },
+          "clientHeight": 1,
+          "scrollHeight": 2038,
+          "scrollTop": 0,
+          "tabIndex": 0
+        },
+        {
+          "label": null,
+          "rect": {
+            "x": 29,
+            "y": 429,
+            "width": 262,
+            "height": 40,
+            "top": 429,
+            "right": 291,
+            "bottom": 469,
+            "left": 29
+          },
+          "clientHeight": 40,
+          "scrollHeight": 2132,
+          "scrollTop": 0,
+          "tabIndex": -1
+        }
+      ],
+      "confirm": {
+        "x": 29,
+        "y": 477,
+        "width": 262,
+        "height": 32,
+        "top": 477,
+        "right": 291,
+        "bottom": 509,
+        "left": 29
+      },
+      "focus": {
+        "tag": "SUMMARY",
+        "label": null,
+        "text": "Evidence and changed choice details"
+      }
+    },
+    "afterTab": {
+      "card": {
+        "x": 16,
+        "y": 239,
+        "width": 288,
+        "height": 283,
+        "top": 239,
+        "right": 304,
+        "bottom": 522,
+        "left": 16
+      },
+      "scrolls": [
+        {
+          "label": "Skill categories and saved choices",
+          "rect": {
+            "x": 29,
+            "y": 320,
+            "width": 262,
+            "height": 1,
+            "top": 320,
+            "right": 291,
+            "bottom": 321,
+            "left": 29
+          },
+          "clientHeight": 1,
+          "scrollHeight": 2038,
+          "scrollTop": 0,
+          "tabIndex": 0
+        },
+        {
+          "label": null,
+          "rect": {
+            "x": 29,
+            "y": 429,
+            "width": 262,
+            "height": 40,
+            "top": 429,
+            "right": 291,
+            "bottom": 469,
+            "left": 29
+          },
+          "clientHeight": 40,
+          "scrollHeight": 2132,
+          "scrollTop": 0,
+          "tabIndex": -1
+        }
+      ],
+      "confirm": {
+        "x": 29,
+        "y": 477,
+        "width": 262,
+        "height": 32,
+        "top": 477,
+        "right": 291,
+        "bottom": 509,
+        "left": 29
+      },
+      "focus": {
+        "tag": "DIV",
+        "label": null,
+        "text": "Two synthetic postings unavailableextraction: partialheadhunter: Synthetic availability note 01: The archived provider r"
+      }
+    },
+    "afterEnd": {
+      "card": {
+        "x": 16,
+        "y": 188,
+        "width": 288,
+        "height": 283,
+        "top": 188,
+        "right": 304,
+        "bottom": 471,
+        "left": 16
+      },
+      "scrolls": [
+        {
+          "label": "Skill categories and saved choices",
+          "rect": {
+            "x": 29,
+            "y": 269,
+            "width": 262,
+            "height": 1,
+            "top": 269,
+            "right": 291,
+            "bottom": 270,
+            "left": 29
+          },
+          "clientHeight": 1,
+          "scrollHeight": 2038,
+          "scrollTop": 0,
+          "tabIndex": 0
+        },
+        {
+          "label": null,
+          "rect": {
+            "x": 29,
+            "y": 378,
+            "width": 262,
+            "height": 40,
+            "top": 378,
+            "right": 291,
+            "bottom": 418,
+            "left": 29
+          },
+          "clientHeight": 40,
+          "scrollHeight": 2132,
+          "scrollTop": 2092,
+          "tabIndex": -1
+        }
+      ],
+      "confirm": {
+        "x": 29,
+        "y": 426,
+        "width": 262,
+        "height": 32,
+        "top": 426,
+        "right": 291,
+        "bottom": 458,
+        "left": 29
+      },
+      "focus": {
+        "tag": "DIV",
+        "label": null,
+        "text": "Two synthetic postings unavailableextraction: partialheadhunter: Synthetic availability note 01: The archived provider r"
+      }
+    }
+  }
+]

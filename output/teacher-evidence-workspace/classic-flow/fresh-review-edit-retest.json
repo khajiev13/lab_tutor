@@ -1,0 +1,90 @@
+{
+  "checks": [
+    {
+      "name": "stale",
+      "status": 409
+    },
+    {
+      "name": "cross-course",
+      "status": 422
+    },
+    {
+      "name": "changed-omissions",
+      "status": 409
+    },
+    {
+      "name": "overlap",
+      "status": 422
+    },
+    {
+      "name": "Rejected mutations retain complete review",
+      "unchanged": true
+    },
+    {
+      "name": "Completed stream without curriculum fit",
+      "integrationReview": null,
+      "selectionCardVisible": 1,
+      "changeSelectionVisible": 0
+    },
+    {
+      "name": "Change selection reuses inline checklist and saves exact choice",
+      "selected": [
+        "SQL"
+      ],
+      "excluded": [
+        "ETL / ELT",
+        "Python"
+      ],
+      "selectionRevision": 5,
+      "publicationRevision": 0,
+      "approvedReferences": 0,
+      "unsentQuestionRetained": true
+    }
+  ],
+  "requests": [
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:18000/courses/4/market-demand/skill-review/selection-confirmation",
+      "data": {
+        "run_id": "04b17a7a-c016-4744-b337-400b565780b8",
+        "expected_candidate_revision": 1,
+        "expected_selection_revision": 4,
+        "selected_candidate_ids": [
+          "e83733a6-53f7-4084-a8d7-23dcb1a6ca10"
+        ],
+        "excluded_candidate_ids": [
+          "30f24761-4e52-4acf-8c60-c81b594447be",
+          "3c3673d8-0133-4dbc-b192-ac8032d12d62"
+        ],
+        "confirm_current_evidence": true,
+        "expected_omissions": [
+          "Two synthetic postings unavailable",
+          "extraction: partial",
+          "headhunter: Two synthetic postings unavailable",
+          "headhunter: partial"
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "url": "http://127.0.0.1:18000/courses/4/market-demand/chat",
+      "data": {
+        "message": "Map the confirmed selected skills to the curriculum and prepare the curriculum fit review. Do not approve or publish.",
+        "country": "Uzbekistan",
+        "sources": [
+          "headhunter"
+        ],
+        "evidence_sources": [
+          "jobs",
+          "onet"
+        ],
+        "onet_release": "31.0",
+        "onet_occupation_codes": [
+          "15-2051.00",
+          "15-1252.00"
+        ]
+      }
+    }
+  ],
+  "errors": []
+}

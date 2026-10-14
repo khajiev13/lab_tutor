@@ -1,0 +1,17 @@
+{
+  "sseStatus": 200,
+  "sseTail": "event: agent_start\ndata: {\"type\": \"agent_start\", \"agent\": \"supervisor\", \"messageId\": \"msg-46255134355e\", \"displayName\": \"Supervisor\", \"emoji\": \"\\ud83d\\udcca\"}\n\nevent: text_delta\ndata: {\"type\": \"text_delta\", \"delta\": \"The revised confirmed skill selection is ready for the controlled curriculum fit resolver.\", \"messageId\": \"msg-46255134355e\"}\n\nevent: text_done\ndata: {\"type\": \"text_done\", \"messageId\": \"msg-46255134355e\"}\n\nevent: stream_end\ndata: {\"type\": \"stream_end\", \"outcome\": \"completed\"}\n\n",
+  "integrationReview": null,
+  "selectionCardVisible": 1,
+  "changeSelectionVisible": 0,
+  "publicationRevision": 0,
+  "question": "Retain this unsent question.",
+  "buttons": [
+    "Clear",
+    "Details",
+    "Data engineering (1/58)",
+    "Confirm Selection (1)",
+    "",
+    ""
+  ]
+}

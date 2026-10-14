@@ -1,0 +1,20 @@
+[
+  {
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "confirmVisible": 1,
+    "publishVisible": 0,
+    "changeSelectionVisible": 0
+  },
+  {
+    "viewport": {
+      "width": 320,
+      "height": 667
+    },
+    "confirmVisible": 1,
+    "publishVisible": 0,
+    "changeSelectionVisible": 0
+  }
+]

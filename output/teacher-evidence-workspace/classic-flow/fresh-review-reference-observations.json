@@ -1,0 +1,133 @@
+{
+  "course": 6,
+  "checks": [
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "labels": [
+        {
+          "label": "Programming",
+          "text": "Programming\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Programming"
+        },
+        {
+          "label": "Programming",
+          "text": "Programming\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Programming"
+        },
+        {
+          "label": "Reading Comprehension",
+          "text": "Reading Comprehension\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Reading Comprehension"
+        },
+        {
+          "label": "Social Perceptiveness",
+          "text": "Social Perceptiveness\nUnavailable\nDescriptor details\nO*NET source\nAsk about Social Perceptiveness"
+        }
+      ],
+      "bounds": {
+        "width": 1280,
+        "doc": 1280,
+        "dialog": [
+          {
+            "width": 670,
+            "scroll": 670,
+            "left": 304,
+            "right": 976
+          }
+        ]
+      },
+      "question": "Explain this O*NET descriptor and its reported evidence.",
+      "focus": {
+        "tag": "TEXTAREA",
+        "aria": "Question",
+        "text": "Explain this O*NET descriptor and its reported evidence."
+      }
+    },
+    {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "labels": [
+        {
+          "label": "Programming",
+          "text": "Programming\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Programming"
+        },
+        {
+          "label": "Programming",
+          "text": "Programming\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Programming"
+        },
+        {
+          "label": "Reading Comprehension",
+          "text": "Reading Comprehension\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Reading Comprehension"
+        },
+        {
+          "label": "Social Perceptiveness",
+          "text": "Social Perceptiveness\nUnavailable\nDescriptor details\nO*NET source\nAsk about Social Perceptiveness"
+        }
+      ],
+      "bounds": {
+        "width": 390,
+        "doc": 390,
+        "dialog": [
+          {
+            "width": 356,
+            "scroll": 356,
+            "left": 16,
+            "right": 374
+          }
+        ]
+      },
+      "question": "Explain this O*NET descriptor and its reported evidence.",
+      "focus": {
+        "tag": "TEXTAREA",
+        "aria": "Question",
+        "text": "Explain this O*NET descriptor and its reported evidence."
+      }
+    },
+    {
+      "viewport": {
+        "width": 320,
+        "height": 667
+      },
+      "labels": [
+        {
+          "label": "Programming",
+          "text": "Programming\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Programming"
+        },
+        {
+          "label": "Programming",
+          "text": "Programming\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Programming"
+        },
+        {
+          "label": "Reading Comprehension",
+          "text": "Reading Comprehension\n4.2 / 5\nDescriptor details\nO*NET source\nAsk about Reading Comprehension"
+        },
+        {
+          "label": "Social Perceptiveness",
+          "text": "Social Perceptiveness\nUnavailable\nDescriptor details\nO*NET source\nAsk about Social Perceptiveness"
+        }
+      ],
+      "bounds": {
+        "width": 320,
+        "doc": 320,
+        "dialog": [
+          {
+            "width": 286,
+            "scroll": 286,
+            "left": 16,
+            "right": 304
+          }
+        ]
+      },
+      "question": "Explain this O*NET descriptor and its reported evidence.",
+      "focus": {
+        "tag": "TEXTAREA",
+        "aria": "Question",
+        "text": "Explain this O*NET descriptor and its reported evidence."
+      }
+    }
+  ],
+  "errors": [],
+  "writes": []
+}

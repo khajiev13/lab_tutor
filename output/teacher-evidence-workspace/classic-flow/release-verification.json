@@ -1,0 +1,140 @@
+{
+  "checked_on": "2026-10-14",
+  "frontend_source": "506dee70e79e8f633e4667ba61fa6fb02f850110",
+  "backend_source": "4df0aa97a5a7dc319c9897e4aacf8881447dce79",
+  "apps": [
+    {
+      "app": "backend",
+      "environment_mode": "Express",
+      "image": "labtutoracr0d5762.azurecr.io/lab-tutor-backend@sha256:b71ce8128863a7140ee3ae86f634e156522b7bc0b0572355c014abf4c225ae94",
+      "revision": "backend--latest",
+      "ready_revision": null,
+      "running": "Running",
+      "provisioning": "Succeeded",
+      "configuration_preserved": true,
+      "template_fields_preserved": true
+    },
+    {
+      "app": "frontend",
+      "environment_mode": "Express",
+      "image": "labtutoracr0d5762.azurecr.io/lab-tutor-frontend@sha256:ca1a6bf4c8eeb47e47324f7c295e2883b618bd046ba86dab5fc9b1b5bf6555b0",
+      "revision": "frontend--latest",
+      "ready_revision": null,
+      "running": "Running",
+      "provisioning": "Succeeded",
+      "configuration_preserved": true,
+      "template_fields_preserved": true
+    },
+    {
+      "app": "frontend-domain",
+      "environment_mode": "WorkloadProfiles",
+      "image": "labtutoracr0d5762.azurecr.io/lab-tutor-frontend@sha256:ca1a6bf4c8eeb47e47324f7c295e2883b618bd046ba86dab5fc9b1b5bf6555b0",
+      "revision": "frontend-domain--classic-506dee70",
+      "ready_revision": "frontend-domain--classic-506dee70",
+      "running": "Running",
+      "provisioning": "Succeeded",
+      "configuration_preserved": true,
+      "template_fields_preserved": true
+    }
+  ],
+  "public_assets": [
+    {
+      "origin": "https://labtutor.app",
+      "entry": "/assets/index-BemGOwSY.js",
+      "sha256": "9caaafeab4b6293854024cbc5b35363a25a62343ec464132996bfcb75b13b638",
+      "matches_release_image": true
+    },
+    {
+      "origin": "https://frontend.wonderfulcoast-ed2697fe.polandcentral.azurecontainerapps.io",
+      "entry": "/assets/index-BemGOwSY.js",
+      "sha256": "9caaafeab4b6293854024cbc5b35363a25a62343ec464132996bfcb75b13b638",
+      "matches_release_image": true
+    }
+  ],
+  "backend_health_and_schema": {
+    "health_status": 200,
+    "new_atomic_confirmation_schema": true,
+    "review_evidence_omissions": true
+  },
+  "production_preservation": {
+    "source_sha": "4df0aa97a5a7dc319c9897e4aacf8881447dce79",
+    "unchanged": true,
+    "backend_files_verified": [
+      "evidence.py",
+      "extractor.py",
+      "prompts.py",
+      "review_service.py",
+      "service.py",
+      "tools.py",
+      "workspace_chat.py",
+      "workspace_service.py"
+    ],
+    "restoration_files_verified": [
+      "app/core/restoration_compression.py",
+      "main.py"
+    ],
+    "documents_unchanged": 38,
+    "saved_analysis_unchanged": true,
+    "publication_revision": 0,
+    "job_backed_skills": 58,
+    "reference_and_other_candidates": 394,
+    "saved_choices": [
+      {
+        "name": "Write and optimize SQL queries",
+        "original_posting_links": 4
+      },
+      {
+        "name": "Configure ETL/ELT processes",
+        "original_posting_links": 4
+      }
+    ],
+    "read_only": true
+  },
+  "signed_in_browser": {
+    "course_id": 2,
+    "read_only": true,
+    "restored_without_retry": true,
+    "selected_skills": 2,
+    "job_backed_skills": 58,
+    "visible_category_count": 41,
+    "merged_etl_original_labels": [
+      "Configure ETL/ELT processes",
+      "Work with ETL/ELT processes",
+      "Execute ETL/ELT processes",
+      "Create ETL processes",
+      "Configure and support ETL/ELT processes",
+      "Develop and maintain ETL/ELT processes",
+      "Optimize ETL processes"
+    ],
+    "merged_etl_original_posting_links": 4,
+    "density_before": {
+      "viewport_width": 1920,
+      "viewport_height": 963,
+      "card_height": 2060,
+      "heading_top": -1266,
+      "heading_visible": false
+    },
+    "final_density_check": {
+      "passed": true,
+      "source_sha": "506dee70e79e8f633e4667ba61fa6fb02f850110",
+      "restored_without_retry": true,
+      "viewport": {
+        "width": 1920,
+        "height": 963
+      },
+      "card_height": 417.3333435058594,
+      "heading_top": 373.3333435058594,
+      "heading_count_confirm_question_visible": true,
+      "first_category": "Technical (2/2)",
+      "categories": 41,
+      "scroll_region_height": 256,
+      "scroll_region_total": 1851,
+      "horizontal_overflow": false,
+      "question_empty": true,
+      "selection_unchanged": true,
+      "no_teacher_action_submitted": true
+    }
+  },
+  "release_complete": true,
+  "pr_merged": false
+}
