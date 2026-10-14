@@ -363,6 +363,22 @@ it('keeps reset recovery available when ordinary restoration is unavailable',asy
  expect(screen.getByRole('button',{name:'Confirm reset retry'})).toBeEnabled();
  expect(screen.queryByRole('button',{name:'Save and start new analysis'})).not.toBeInTheDocument();
 });
+it('offers restoration retry after timeout while retaining the question and unsaved choices',async()=>{
+ const {review,rerender}=await openReviewWorkspace();
+ fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));fireEvent.click(screen.getByRole('button',{name:'Close'}));
+ fireEvent.change(screen.getByRole('textbox'),{target:{value:'Keep my question'}});
+ const retryRestoration=vi.fn();
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:review,isRestored:false,error:'Conversation restoration timed out. Retry restoration to try again.',retryRestoration}));
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.getByText(/Conversation restoration timed out/)).toBeVisible();
+ expect(screen.queryByText('Restoring conversation...')).not.toBeInTheDocument();
+ expect(screen.getByRole('textbox')).toHaveValue('Keep my question');
+ expect(screen.getByRole('button',{name:'Remove Python'})).toBeVisible();
+ expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
+ expect(screen.getByRole('button',{name:'Continue'})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Retry restoration'}));
+ expect(retryRestoration).toHaveBeenCalledOnce();
+});
 it('retains a dirty draft and blocks confirmation after a newer review arrives',async()=>{
  const {review,rerender}=await openReviewWorkspace();
  fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));fireEvent.click(screen.getByRole('button',{name:'Close'}));

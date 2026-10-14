@@ -111,21 +111,30 @@ export function useAgentStream(
     snapshotAbortRef.current = abort;
     const request = ++snapshotRequestRef.current;
     const generation = generationRef.current;
-    const isCurrent = () => !abort.signal.aborted && courseRef.current === courseId &&
+    const ownsRequest = () => courseRef.current === courseId &&
       request === snapshotRequestRef.current && generation === generationRef.current;
+    const isCurrent = () => !abort.signal.aborted && ownsRequest();
     restoredRef.current = false;
     setIsRestored(false);
     resetRecoveryStatusRef.current = null;
     setResetRecovery("none");
     let partialResetSignature: string | null = null;
+    // One deadline covers both consistency reads, even if transport/auth ignores abort.
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timeout = setTimeout(() => {
+        reject(new Error("Conversation restoration timed out. Retry restoration to try again."));
+        abort.abort();
+      }, 30000);
+    });
     try {
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const [history, state, review, status] = await Promise.all([
+        const [history, state, review, status] = await Promise.race([Promise.all([
           fetchConversationHistory(courseId, abort.signal),
           fetchAgentState(courseId, abort.signal),
           fetchSkillReview(courseId, abort.signal),
           getMarketExecutionStatus(courseId, abort.signal).catch(() => ({status: "unknown" as const, state_updated_at: null})),
-        ]);
+        ]), deadline]);
         if (!isCurrent()) return;
         const runId = state.run_id ?? null;
         const historicalRuns = [...new Set(history.messages.flatMap(message =>
@@ -202,10 +211,11 @@ export function useAgentStream(
         break;
       }
     } catch (cause) {
-      if (isCurrent()) setError(cause instanceof Error ? cause.message : "Failed to restore conversation");
+      if (ownsRequest()) setError(cause instanceof Error ? cause.message : "Failed to restore conversation");
       throw cause;
     } finally {
-      if (isCurrent()) setIsLoadingHistory(false);
+      clearTimeout(timeout);
+      if (ownsRequest()) setIsLoadingHistory(false);
     }
   }, [courseId]);
 

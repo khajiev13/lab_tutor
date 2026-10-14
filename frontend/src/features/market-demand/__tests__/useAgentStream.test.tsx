@@ -179,6 +179,154 @@ it("keeps restoration unavailable after state loading fails", async () => {
   await waitFor(() => expect(result.current.isRestored).toBe(true));
 });
 
+it.each(["history", "state", "review", "status"] as const)("ends restoration when the %s read never settles, even if it ignores abort", async (read) => {
+  const reads = {history: fetchConversationHistory, state: fetchAgentState, review: fetchSkillReview, status: getMarketExecutionStatus};
+  vi.mocked(reads[read]).mockImplementationOnce(() => new Promise<never>(() => {}));
+  vi.useFakeTimers();
+  const {result, unmount} = renderHook(() => useAgentStream(1));
+  try {
+    await act(async () => {await vi.advanceTimersByTimeAsync(29999);});
+    expect(result.current.isLoadingHistory).toBe(true);
+    await act(async () => {await vi.advanceTimersByTimeAsync(1);});
+    expect(result.current.isLoadingHistory).toBe(false);
+    expect(result.current.isRestored).toBe(false);
+    expect(result.current.error).toMatch(/restor.*timed out/i);
+    expect(result.current.execution.outcome).toBe("unknown");
+    for (const fetchRead of Object.values(reads)) {
+      expect(vi.mocked(fetchRead).mock.calls[0][1]?.aborted).toBe(true);
+    }
+    await act(async () => {
+      expect(await result.current.send({mode: "workflow", text: "Wait for restoration"})).toEqual({outcome: "detached"});
+      await vi.advanceTimersByTimeAsync(60000);
+    });
+    expect(streamMarketDemandChat).not.toHaveBeenCalled();
+    expect(deleteConversation).not.toHaveBeenCalled();
+    for (const fetchRead of Object.values(reads)) expect(fetchRead).toHaveBeenCalledTimes(1);
+  } finally {unmount(); vi.useRealTimers();}
+});
+
+it("does not treat an aborted status read as successful restoration at the deadline", async () => {
+  vi.mocked(getMarketExecutionStatus).mockImplementationOnce((_courseId, signal) => new Promise((_resolve, reject) => {
+    signal?.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")), {once: true});
+  }));
+  vi.useFakeTimers();
+  const {result, unmount} = renderHook(() => useAgentStream(1));
+  try {
+    await act(async () => {await vi.advanceTimersByTimeAsync(30000);});
+    expect(result.current.isLoadingHistory).toBe(false);
+    expect(result.current.isRestored).toBe(false);
+    expect(result.current.error).toMatch(/restor.*timed out/i);
+  } finally {unmount(); vi.useRealTimers();}
+});
+
+it.each(["response", "error"] as const)("allows manual retry after timeout and ignores the old read's late %s", async (completion) => {
+  let resolveOld!: (history: Awaited<ReturnType<typeof fetchConversationHistory>>) => void;
+  let rejectOld!: (cause: Error) => void;
+  vi.mocked(fetchConversationHistory).mockImplementationOnce(() => new Promise((resolve, reject) => {
+    resolveOld = resolve;
+    rejectOld = reject;
+  }));
+  vi.useFakeTimers();
+  const {result, unmount} = renderHook(() => useAgentStream(1));
+  try {
+    await act(async () => {await vi.advanceTimersByTimeAsync(30000);});
+    expect(result.current.isLoadingHistory).toBe(false);
+    expect(result.current.error).toMatch(/restor.*timed out/i);
+
+    const restoredReview = reviewFixture();
+    vi.mocked(fetchSkillReview).mockResolvedValue(restoredReview);
+    vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: restoredReview.run_id, sources: ["headhunter"]});
+    vi.mocked(fetchConversationHistory).mockResolvedValue({threadId: "restored-thread", messages: [{
+      id: "restored-message", role: "agent", content: "Restored evidence", toolCalls: [], isStreaming: false,
+    }]});
+    await act(async () => {result.current.retryRestoration();});
+    expect(result.current.isRestored).toBe(true);
+    expect(result.current.isLoadingHistory).toBe(false);
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      if (completion === "response") resolveOld({threadId: "obsolete-thread", messages: []});
+      else rejectOld(new Error("Obsolete restoration failed"));
+      await vi.advanceTimersByTimeAsync(30000);
+    });
+    expect(result.current.isRestored).toBe(true);
+    expect(result.current.error).toBeNull();
+    expect(result.current.threadId).toBe("restored-thread");
+    expect(result.current.messages.map(message => message.content)).toEqual(["Restored evidence"]);
+    expect(result.current.agentState.sources).toEqual(["headhunter"]);
+    expect(result.current.skillReview).toEqual(restoredReview);
+    expect(result.current.execution.outcome).toBe("unknown");
+  } finally {unmount(); vi.useRealTimers();}
+});
+
+it("shares one restoration deadline across consistency reads without replacing acknowledged data", async () => {
+  const initial = reviewFixture();
+  const acknowledged = {...initial, selection_revision: initial.selection_revision + 1};
+  vi.mocked(fetchSkillReview).mockResolvedValue(initial);
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: initial.run_id, sources: ["headhunter"]});
+  const {result, unmount} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  act(() => result.current.applySkillReview(acknowledged));
+  let resolveFirst!: (review: SkillReview) => void;
+  vi.mocked(fetchSkillReview)
+    .mockImplementationOnce(() => new Promise(resolve => {resolveFirst = resolve;}))
+    .mockImplementationOnce(() => new Promise<never>(() => {}));
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: initial.run_id, sources: ["linkedin"]});
+  vi.mocked(fetchConversationHistory).mockResolvedValue({threadId: "obsolete-thread", messages: []});
+  vi.useFakeTimers();
+  try {
+    act(() => result.current.retryRestoration());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20000);
+      resolveFirst(initial);
+    });
+    expect(fetchSkillReview).toHaveBeenCalledTimes(3);
+    await act(async () => {await vi.advanceTimersByTimeAsync(9999);});
+    expect(result.current.isLoadingHistory).toBe(true);
+    await act(async () => {await vi.advanceTimersByTimeAsync(1);});
+    expect(result.current.isLoadingHistory).toBe(false);
+    expect(result.current.isRestored).toBe(false);
+    expect(result.current.error).toMatch(/restor.*timed out/i);
+    expect(result.current.skillReview).toEqual(acknowledged);
+    expect(result.current.agentState.sources).toEqual(["headhunter"]);
+    expect(result.current.threadId).toBe("thread-1");
+    expect(result.current.messages).toEqual([]);
+    expect(vi.mocked(fetchSkillReview).mock.calls.at(-1)![1]?.aborted).toBe(true);
+  } finally {unmount(); vi.useRealTimers();}
+});
+
+it("keeps a new course restoration pending past the previous course's deadline", async () => {
+  let resolveOld!: (history: Awaited<ReturnType<typeof fetchConversationHistory>>) => void;
+  let resolveCurrent!: (history: Awaited<ReturnType<typeof fetchConversationHistory>>) => void;
+  vi.mocked(fetchConversationHistory)
+    .mockImplementationOnce(() => new Promise(resolve => {resolveOld = resolve;}))
+    .mockImplementationOnce(() => new Promise(resolve => {resolveCurrent = resolve;}));
+  vi.mocked(fetchAgentState).mockImplementation(async id => ({...EMPTY_STATE, course_id: id}));
+  vi.useFakeTimers();
+  const {result, rerender, unmount} = renderHook(({id}) => useAgentStream(id), {initialProps: {id: 1}});
+  try {
+    await act(async () => {await vi.advanceTimersByTimeAsync(20000);});
+    rerender({id: 2});
+    expect(vi.mocked(fetchConversationHistory).mock.calls[0][1]?.aborted).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+      resolveOld({threadId: "obsolete-thread", messages: []});
+    });
+    expect(result.current.isLoadingHistory).toBe(true);
+    expect(result.current.isRestored).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(result.current.threadId).toBeNull();
+    await act(async () => {resolveCurrent({threadId: "current-thread", messages: []});});
+    expect(result.current.isRestored).toBe(true);
+    expect(result.current.agentState.course_id).toBe(2);
+    expect(result.current.threadId).toBe("current-thread");
+    await act(async () => {await vi.advanceTimersByTimeAsync(30000);});
+    expect(result.current.isLoadingHistory).toBe(false);
+    expect(result.current.isRestored).toBe(true);
+    expect(result.current.error).toBeNull();
+  } finally {unmount(); vi.useRealTimers();}
+});
+
 it.each(["response", "error"] as const)("rejects obsolete review %s after same-course stream replacement", async (completion) => {
   const review = {run_id: "run-1", candidate_revision: 1, selection_revision: 0, categories: [], candidates: [], selected_candidate_ids: [], excluded_candidate_ids: [], recommendations: [], source_outcomes: {}, extraction_coverage: {}, integration_review: null, publication_revision: 0, approved_references: []};
   let resolveReview!: (value: typeof review) => void;
