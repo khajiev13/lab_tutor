@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Keyboard evidence focus recheck</title><style>body{font:17px system-ui;max-width:1100px;margin:35px auto;padding:0 24px;color:#18212b}table{border-collapse:collapse;width:100%}td,th{padding:14px;border:1px solid #c5cbd1;text-align:left}img{max-width:100%;border:1px solid #c5cbd1}pre{white-space:pre-wrap}</style><h1>Keyboard evidence focus recheck</h1><p>Headless Chrome · 1280 × 720 · synthetic course 21 · 14 October 2026. Loaded evidence was opened with Enter and closed with Escape, using keyboard Tab navigation.</p><table><tr><th>Interaction</th><th>Result</th><th>Active element after Escape</th></tr><tr><td>Main SQL Inspect → Enter → loaded evidence → Escape</td><td>addressed</td><td>BUTTON / Inspect SQL<br>Connected: true; dialogs while evidence open: 1</td></tr><tr><td>Main ETL / ELT Inspect → Enter → loaded evidence → Escape</td><td>addressed</td><td>BUTTON / Inspect ETL / ELT<br>Connected: true; dialogs while evidence open: 1</td></tr><tr><td>Browse → keyboard Inspect SQL → loaded evidence → Escape → Enter</td><td>addressed</td><td>BUTTON / Browse skills<br>Connected: true; dialogs while evidence open: 1; Browse reopened with Enter: true</td></tr></table><p>New breakage: None observed in these three interactions.</p><p>Limits: scoped keyboard recheck only. No whole-UX score or broad regression. No saved application state, selections, acknowledgements, chat, mapping, publishing, or deletion changed. Browser context closed; shared synthetic fixture left under coordinator ownership.</p><h2>SQL origin restored</h2><img src="keyboard-sql-return.png" alt="SQL inspect button focused after closing evidence"><h2>Browse reopened with Enter</h2><img src="keyboard-browse-reopened.png" alt="Browse chooser reopened from returned keyboard focus"><details><summary>Active-element measurements</summary><pre>{
+  "viewport": "1280 × 720",
+  "interactions": [
+    {
+      "interaction": "Main SQL Inspect → Enter → loaded evidence → Escape",
+      "status": "addressed",
+      "before": {
+        "tag": "BUTTON",
+        "name": "Inspect SQL",
+        "connected": true,
+        "role": null
+      },
+      "after": {
+        "tag": "BUTTON",
+        "name": "Inspect SQL",
+        "connected": true,
+        "role": null
+      },
+      "dialogs": 1
+    },
+    {
+      "interaction": "Main ETL / ELT Inspect → Enter → loaded evidence → Escape",
+      "status": "addressed",
+      "before": {
+        "tag": "BUTTON",
+        "name": "Inspect ETL / ELT",
+        "connected": true,
+        "role": null
+      },
+      "after": {
+        "tag": "BUTTON",
+        "name": "Inspect ETL / ELT",
+        "connected": true,
+        "role": null
+      },
+      "dialogs": 1
+    },
+    {
+      "interaction": "Browse → keyboard Inspect SQL → loaded evidence → Escape → Enter",
+      "status": "addressed",
+      "before": {
+        "tag": "BUTTON",
+        "name": "Browse skills",
+        "connected": true,
+        "role": null
+      },
+      "chooserInspect": {
+        "tag": "BUTTON",
+        "name": "Inspect SQL",
+        "connected": true,
+        "role": null
+      },
+      "after": {
+        "tag": "BUTTON",
+        "name": "Browse skills",
+        "connected": true,
+        "role": null
+      },
+      "dialogs": 1,
+      "reopened": true
+    }
+  ],
+  "errors": []
+}</pre></details></html>

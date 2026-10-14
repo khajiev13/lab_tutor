@@ -1,0 +1,52 @@
+{
+  "deployed": true,
+  "source_sha": "b5d29107e6729e37887d1ab987491d32a28f2bb9",
+  "data_summary": "The isolated acceptance database matched the size of the saved Big Data sample: 58 job-backed skills and 394 O*NET reference candidates. Selecting a category included all 58 skills across six pages; excluding one retained the other 57 through save, failure recovery and reload. The reference candidates stayed outside the selectable market-skills list.",
+  "checks": [
+    [
+      "Simple selection",
+      "All 58 category members, filtered and off-page exclusions, real failed-save recovery and reload passed. The main conversation shows at most five choices."
+    ],
+    [
+      "Merged job evidence",
+      "Existing semantic-merge regressions passed. The acceptance example retained four original ETL posting links and eight validated passages; later purged content was withheld."
+    ],
+    [
+      "O*NET and charts",
+      "Actual ECharts SVG, exact occupation/release context, related versus direct evidence, unavailable ratings, ambiguous descriptors and chart-load fallback were exercised."
+    ],
+    [
+      "Workflow and students",
+      "The actual confirmation matched the saved 57 skills, exclusions, teacher and revisions; the agent stream ended completed before curriculum preparation. Negative checks rejected failed streams and missing confirmation. Explicit SQL/Neo4j publication was idempotent; nonempty learning paths, reading and quiz/mastery payloads stayed identical."
+    ],
+    [
+      "Layout and accessibility",
+      "The current decision and next action fit at 1280\u00d7720 and 1440\u00d7900 without main-page scrolling. Small-screen wrapping, dark mode and evidence-dialog focus return were checked."
+    ],
+    [
+      "Automated checks",
+      "547 integrated frontend tests passed; affected suites were rerun after fixes. Planned backend regression cases and additional context/pattern tests passed against the test database. Lint, build and Ruff passed with the disclosed existing warnings. Counts of overlapping runs are not added together."
+    ]
+  ],
+  "usability_summary": "A fresh reviewer first rated the running interface 8/10. We repaired narrow-screen Browse controls, coverage copy and recognizable posting labels. A fresh recheck rated that scope 8.5/10 and found a keyboard focus issue; a third independent keyboard check confirmed it was fixed. Every concrete finding was addressed. These scores describe the tested synthetic workflow, not a guarantee for every teacher.",
+  "production_summary": "Read-only checks after release confirmed all 38 Big Data documents, the complete saved analysis and the same SQL and ETL choices are unchanged. Each saved choice retains four original posting links. The course remains a draft with publication revision 0; nothing was published on your behalf. The backend is healthy, and the public frontend and chart assets match the reviewed release image.",
+  "limits": "Acceptance used controlled model/provider responses with real authentication, SQL, checkpoints, Neo4j and browser rendering; it does not establish uncontrolled live-model answer quality or new live-source extraction. O*NET importance is occupation-specific context, not a universal skill ranking or a student mastery score. Existing bundle-size and LangGraph deprecation warnings remain, plus an unrelated lint suppression warning. A brief setup warning may appear during snapshot restoration and then clears. The private test environment intentionally has no Azure storage credentials. The existing divergent main branch was not merged.",
+  "screens": [
+    {
+      "file": "coverage-1280.png",
+      "label": "The current teacher decision and visible next action."
+    },
+    {
+      "file": "onet-related-and-missing.png",
+      "label": "A settled O*NET chart labels related Programming context and unavailable skills."
+    },
+    {
+      "file": "review-posting-identities.png",
+      "label": "Merged evidence keeps recognizable original posting links."
+    },
+    {
+      "file": "review-browse-320.png",
+      "label": "Browse the complete skill list on a small screen."
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "source_sha": "b5d29107e6729e37887d1ab987491d32a28f2bb9",
+  "url": "https://labtutor.app/",
+  "index_matches_image": true,
+  "market_route_in_verified_entry": true,
+  "lazy_chart_modules_verified": 4,
+  "public_assets_verified": [
+    {
+      "asset": "/assets/charts-DnnHZlUE.js",
+      "bytes": 261108,
+      "sha256": "8dd39f3d24035f3b7c2d4b365a57883b594e44164330888fe6ccdb854d608c5b"
+    },
+    {
+      "asset": "/assets/components-BLLsaQeS.js",
+      "bytes": 261013,
+      "sha256": "08fa3faf439f084c367469b8fe8739ccec9ee4645f011d1d33bcbdac2a1cd4bc"
+    },
+    {
+      "asset": "/assets/core-DUCNJ7Q9.js",
+      "bytes": 4943,
+      "sha256": "df11a331cbf6dbc84e8b80134f9a11fe792678d8b0a44a5596e2f1deaf03a39b"
+    },
+    {
+      "asset": "/assets/index--jutgG8j.css",
+      "bytes": 211982,
+      "sha256": "127c0bf58e86a5a9e1c2038a0c3fbbc91e731952b55e8faaa31eb84eab80a452"
+    },
+    {
+      "asset": "/assets/index-PP0ZJupT.js",
+      "bytes": 2009201,
+      "sha256": "cd60a3150d80804ec30d158a96bc2449304ca07cf463a4d8d7d4d625d42bc686"
+    },
+    {
+      "asset": "/assets/renderers-BJcXDapw.js",
+      "bytes": 33968,
+      "sha256": "2db3bef4ca4409091785422580691f072402f76ca21a6d1575ab9fc5c576d158"
+    }
+  ]
+}

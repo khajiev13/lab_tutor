@@ -1,0 +1,29 @@
+{
+  "source_sha": "b5d29107e6729e37887d1ab987491d32a28f2bb9",
+  "backend_files_verified": [
+    "evidence.py",
+    "extractor.py",
+    "prompts.py",
+    "review_service.py",
+    "service.py",
+    "tools.py",
+    "workspace_chat.py",
+    "workspace_service.py"
+  ],
+  "documents_unchanged": 38,
+  "saved_analysis_unchanged": true,
+  "publication_revision": 0,
+  "job_backed_skills": 58,
+  "reference_and_other_candidates": 394,
+  "saved_choices": [
+    {
+      "name": "Write and optimize SQL queries",
+      "original_posting_links": 4
+    },
+    {
+      "name": "Configure ETL/ELT processes",
+      "original_posting_links": 4
+    }
+  ],
+  "read_only": true
+}

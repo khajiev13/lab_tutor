@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lab Tutor · A smaller Swarm flow</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#fafcfb;color:#263d32;font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:900px;margin:auto;padding:38px 24px 60px}h1{font-size:34px;line-height:1.2;letter-spacing:-.9px;margin:10px 0 14px}h2{font-size:18px;margin:24px 0 6px}p{color:#5c7064;margin:9px 0}.eyebrow{font-size:12px;color:#768b7d}.lead{font-size:19px;max-width:730px;color:#365644}a{color:#226c50;text-underline-offset:3px}.actions{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:22px 0}.button{padding:11px 17px;border-radius:8px;text-decoration:none;background:#226c50;color:white;font-size:14px;font-weight:600}.small{font-size:12px;color:#718478}.shot{width:100%;display:block;border:1px solid #dce5df;border-radius:10px}.changes{display:grid;grid-template-columns:1fr 1fr;gap:28px;border-top:1px solid #dce5df;margin-top:25px;padding-top:5px}.changes p{font-size:14px}.changes h2{font-size:16px}details{border-top:1px solid #dce5df;padding-top:15px;margin-top:20px}summary{cursor:pointer;font-size:14px;font-weight:600}details p,li{font-size:14px}li{margin:7px 0;color:#546d5c}ul,ol{padding-left:22px}footer{border-top:1px solid #dce5df;margin-top:25px;padding-top:14px}.steps{font-size:14px;color:#476652}.status{font-size:13px;color:#61756a}a:focus-visible,summary:focus-visible{outline:3px solid #a2c1b4;outline-offset:4px}@media(max-width:640px){main{padding:25px 17px 40px}h1{font-size:28px}.changes{grid-template-columns:1fr;gap:0}.lead{font-size:17px}}
+</style></head><body><main>
+<div class="eyebrow">Approved design · 14 October 2026</div>
+<h1>One question. A few choices. Continue.</h1>
+<p class="lead">The teacher works in a conversation. The agent presents the current decision, keeps the explanation short, and does the work between decisions.</p>
+<div class="actions"><a class="button" href="../../../output/teacher-evidence-workspace/simple-flow-acceptance/index.html">Open the verified implementation</a></div>
+<p class="status">Archived design approved on 14 October 2026. Requirements below are retained from the approved notes. The original local mock and provider quotations are not included in this archive.</p>
+
+<div class="changes">
+<section><h2>Always visible</h2><p>One short agent prompt, a small set of skills, the message box, and one clear Continue button. The current step is a small label.</p><p>The sidebar, long step bar, separate selection-panel title, source toolbar and repeated explanations are removed from this focused view.</p></section>
+<section><h2>Only when requested</h2><p><strong>Browse skills</strong> lets the teacher add a group and exclude individual skills. <strong>4 jobs</strong> opens the original evidence. <strong>Compare skills</strong> opens one small chart.</p><p>Previous decisions and source details sit behind the step label. The main desktop page stays within the screen.</p></section>
+</div>
+<h2>The same four teacher decisions</h2>
+<p class="steps">Confirm search terms → Choose job groups → Choose skills → Review curriculum fit.</p>
+<p>No new teacher stage is added for HeadHunter, O*NET or skill merging. The agent works between the existing checkpoints.</p>
+<details><summary>What the complete skill chooser will do</summary>
+<ul>
+<li>The main conversation shows at most five chosen or proposed skills at a time. Larger selections use a short summary and an explicit “Review all N” control; nothing is silently dropped. Proposed additions are clearly labelled and require teacher acceptance. Existing saved choices load as-is.</li>
+<li>The category dialog contains all 58 current job-backed groups, with search and short pages only inside this optional chooser. The mock uses two examples and an illustrative category; it does not claim to demonstrate the complete list.</li>
+<li>Selecting a category selects every current member, including other pages and filtered members. The teacher can uncheck individual skills. Reopening the chooser retains the local draft and shows mixed category state. Agent suggestions cannot reverse an explicit exclusion.</li>
+<li>There is no arbitrary requirement to choose a category. A teacher can select individual skills or make the choice in conversation, with an explicit review before saving agent-proposed changes.</li>
+<li>Continue saves and confirms the current selection using the existing guarded services, then requests curriculum suggestions. A failed save keeps the draft visible and gives one useful retry. It does not approve mappings or publish the course.</li>
+<li>Search terms, job groups and chapter review use the same short-question pattern. Earlier messages remain accessible through history; they do not form a second long page next to the current decision. Long replies scroll within the conversation when necessary.</li>
+</ul></details>
+<details><summary>Evidence, merging and O*NET stay trustworthy</summary>
+<ul>
+<li>Reuse the deployed canonical groups. “Create ETL processes” and “Develop ETL/ELT processes” stay one group, with every distinct original posting link, original label and validated passage. Count a posting once even if it supports several quotations.</li>
+<li>One evidence dialog groups all quotations by posting, with a unique identity for each quotation. Label external links with the saved title and employer when available; use the posting ID only as a fallback. The in-page evidence control uses a chevron; an external arrow belongs only on the original posting links. Preserve current availability and provider-data retention rules. Full descriptions are expandable.</li>
+<li>Charts use the existing ECharts integration in the app. Show at most five labelled bars, one measure and one sentence of interpretation. The standalone preview uses CSS bars to illustrate the layout; it is not an ECharts integration test.</li>
+<li>Keep sample job frequency separate from O*NET importance. Show the occupation and original scale. A mapped Programming rating is context for SQL, not an official SQL-specific score. Missing ETL ratings stay unavailable rather than zero. Level is not student mastery.</li>
+<li>O*NET’s 394 reference candidates do not enter the job-backed skills checklist. Relevant ratings are optional context for choosing skills; job links continue to come from postings.</li>
+<li>Required coverage or changed-choice decisions appear as the current short prompt, with a plain explanation and explicit teacher action. Do not silently acknowledge incomplete evidence, bypass backend review checks, or hide a blocking decision inside optional details. Optional missing O*NET context alone should not add a separate stage.</li>
+</ul></details>
+<details><summary>Implementation scope and acceptance</summary>
+<p>Reuse the current Swarm state, review controller, persistence and approval services. This is a presentation revision, not another extraction or graph architecture. Preserve ownership and revision guards, teacher exclusions, final approval, publication controls, student APIs, saved learning paths, learning resources and quiz-based mastery.</p>
+<p>Acceptance requires the real 58-skill list: category selection across pages, individual exclusions, save/reload, original links and multiple quotations, meaningful partial-coverage handling, a failed-save retry, and explicit mapping approval. At 1280×720 and 1440×900, the current decision and next action must fit without main-page scrolling. Small screens and keyboard navigation must remain usable.</p>
+<p>The preview checks exercise category/individual selection, four distinct links per example, optional charts, no-rating handling, next/back continuity, modal keyboard behavior and responsive fit. They do not establish backend persistence or full-list usability. The original preview receipt remains local; see the implementation report for current real-database verification.</p>
+</details>
+<details><summary>Why this approach</summary>
+<p><strong>Chosen approach:</strong> a conversation with a small visible decision and optional details. It keeps the teacher’s direct control while limiting what they must scan.</p>
+<p>A separate screen for every category would add more clicks. Free-text chat alone would make it harder to see exactly which skills are selected. The proposed checklist keeps that choice explicit without restoring the full dashboard.</p>
+<p>Assumption: this focused layout is for the current Swarm decision; ordinary course navigation remains available outside it. The selected SQL and ETL examples are saved teacher choices, not newly accepted recommendations.</p>
+</details>
+<footer><p class="small">This is the approved design record. The mock used two saved examples; acceptance later covered the complete 58-skill fixture. <a href="../../../output/teacher-evidence-workspace/simple-flow-acceptance/index.html">Implementation, independent review and release verification</a>.</p></footer>
+</main></body></html>
