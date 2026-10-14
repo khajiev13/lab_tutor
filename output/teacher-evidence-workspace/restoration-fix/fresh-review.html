@@ -1,0 +1,63 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Restoration fix technical record</title><style>body{font:16px/1.6 system-ui;margin:40px auto;max-width:960px;padding:0 20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}a{color:#056257}</style><a href="index.html">Back to verification</a><pre># Fresh review: restoration timeout
+
+Date: 2026-10-14
+
+Reviewed the uncommitted changes on `feat/teacher-evidence-workspace` against HEAD `4e6b48e6c2d82f696f2e33e03a3c0f479afbcc12`, limited to:
+
+- `frontend/src/features/market-demand/hooks/useAgentStream.ts`
+- `frontend/src/features/market-demand/__tests__/useAgentStream.test.tsx`
+- `frontend/src/features/market-demand/__tests__/MarketDemand.test.tsx`
+
+This was a read-only application-code review. The only authored file is this technical review record.
+
+## Strengths
+
+- `useAgentStream.ts:122-137` creates one deadline outside the two-attempt consistency loop and races the complete read group against it. A dependency that ignores abort cannot leave the restoration await pending indefinitely. Rejecting the deadline before aborting also prevents the status read&#x27;s existing abort-to-unknown fallback from winning the timeout race.
+- `useAgentStream.ts:114-116,213-218` separates request ownership from signal state. The owning timeout can expose the existing error/Retry flow and clear loading after it aborts its own requests. Superseded course, snapshot request, or generation cannot publish that timeout or clear a newer loading state. Every existing path that aborts a snapshot for replacement also invalidates its request or generation.
+- The existing coherent-run and revision-floor checks remain before any restored surfaces are published. Timeout does not clear retained transcript, configuration, or review data, and manual retry starts a new request with a fresh deadline.
+- Added hook cases exercise each of the four stalled reads, ignored abort, status abort timing, manual retry followed by late success/rejection, the shared consistency budget, retained acknowledged data, and course replacement. The page case verifies the existing timeout error and Retry UI, blocked actions, retained question, and unsaved selection.
+
+## Issues
+
+### Critical
+
+None found.
+
+### Important
+
+None found.
+
+### Minor
+
+None found.
+
+## Fresh verification
+
+Confirmed the Docker container&#x27;s `/app` bind mount points to this worktree&#x27;s `frontend/`, then ran:
+
+```sh
+docker exec lab_tutor_workspace_frontend sh -lc &#x27;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/useAgentStream.test.tsx src/features/market-demand/__tests__/MarketDemand.test.tsx&#x27;
+```
+
+Result: exit 0; 2 test files passed, 107/107 tests passed (74 hook, 33 page).
+
+Also ran the scoped `git diff --check`; exit 0, no whitespace errors.
+
+Lint/build results were reported by the implementer and were not rerun for this read-only review. The test suite uses controlled API responses to exercise the timeout and ownership behavior; it does not establish the cause of any production backend delay.
+
+## Recommendations
+
+No implementation changes requested. Keep the coordinator&#x27;s built-UI stalled-response → timeout → manual Retry evidence with the final verification record. Do not describe the production backend delay&#x27;s cause as established by this frontend fix.
+
+## Declined to judge
+
+- The cause of the original production backend delay: no production timing evidence was supplied, and the review is limited to the frontend deadline fix.
+- Independent correctness of unchanged reset, SSE, and authentication implementations: outside this narrow diff; their interaction with the new deadline and ownership checks was inspected, and the existing hook/page regression tests were run.
+- Real browser stalled-response recovery: assigned to the coordinator; this review does not claim to have run that separate check.
+
+## Assessment
+
+**Ready to merge? Yes, for the reviewed change.**
+
+No actionable correctness or race regression was found in the scoped diff. The deadline is bounded across consistency attempts, timeout publishes only for its owning request, and the affected tests pass independently. Final integration remains with the coordinator, including the separate built-UI verification and any existing deployment gates.
+</pre></html>

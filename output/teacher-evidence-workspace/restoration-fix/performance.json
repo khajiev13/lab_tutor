@@ -1,0 +1,26 @@
+{
+  "measured_at": "2026-10-14T15:25:06.915190+00:00",
+  "method": "Read-only isolated process on production backend; compact JSON serialization and gzip level5; exact byte roundtrip verified",
+  "payloads": {
+    "history": {
+      "json_bytes": 3833558,
+      "gzip_bytes": 340624,
+      "compression_ms": 30
+    },
+    "state": {
+      "json_bytes": 1640753,
+      "gzip_bytes": 185757,
+      "compression_ms": 15
+    },
+    "skill-review": {
+      "json_bytes": 1103073,
+      "gzip_bytes": 107669,
+      "compression_ms": 9
+    }
+  },
+  "total_json_bytes": 6577384,
+  "total_gzip_bytes": 634050,
+  "reduction_percent": 90.36,
+  "history_route_ms": 368,
+  "limits": "These measurements exclude HTTP transfer time, shared runtime queuing and browser rendering. State payload estimate uses the persisted snapshot."
+}

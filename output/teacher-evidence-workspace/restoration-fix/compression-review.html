@@ -1,0 +1,76 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Independent backend review</title><style>body{font:16px/1.65 system-ui;max-width:940px;margin:40px auto;padding:0 24px;color:#183634}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace}a{color:#086759}</style><a href="index.html">← Report</a><h1>Independent backend review</h1><pre># Fresh restoration compression review
+
+Reviewed the uncommitted changes based on `175a2d7802bdda0ca8e581f16e0cc6b434c0994b` in `/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor` on 2026-10-14.
+
+Final follow-up status: the complete-token negotiation fix is verified. **No actionable findings remain in the reviewed scope.**
+
+Scope: `backend/main.py`, `backend/app/core/restoration_compression.py`, `backend/tests/test_restoration_compression.py`, and the immediately relevant middleware ordering/route return types. No application code, git state, or production state was changed by this reviewer. This report is the only review artifact written.
+
+## Strengths
+
+- The middleware is limited to the exact three GET restoration paths, uses gzip level 5 and the requested 1,024-byte threshold, and performs no payload transformation beyond compression.
+- Registration inside `RequestTimingMiddleware` is correct for the existing `BaseHTTPMiddleware` wrapper: the compressor sees the original complete JSON body instead of a synthetic streaming body. Independent probes confirmed that 1,023 bytes remain plain and 1,024 bytes compress.
+- Tests inspect actual ASGI response messages, compare exact decompressed bytes, preserve `Vary: Origin`, and exercise both an in-scope SSE response and the real chat path with a producer paused after the first chunk.
+- The real state-route integration test checks the complete PostgreSQL payload and confirms that persisted data is not modified.
+
+## Issues
+
+### Critical
+
+None found.
+
+### Important
+
+None remain.
+
+### Minor
+
+None found.
+
+## Resolved finding — P2: Require a complete supported encoding token before enabling gzip
+
+- **Original location:** `backend/app/core/restoration_compression.py:40` before the follow-up fix.
+- **Original observed behavior:** `Accept-Encoding: xgzip` or `Accept-Encoding: gzip2` produced `Content-Encoding: gzip` for a large restoration response. Neither header offers the supported `gzip` encoding.
+- **Cause:** The explicit refusal guard fixed `gzip;q=0`, but all remaining inputs reached Starlette 0.50.0&#x27;s substring check. An unsupported token containing that substring therefore opted in accidentally.
+- **Original reproduction:** In `lab_tutor_workspace_backend`, loaded the test module with `runpy.run_path`, created `_response_app(Response(LARGE_JSON, media_type=&quot;application/json&quot;, headers={&quot;Vary&quot;: &quot;Origin&quot;}))`, then called `_wire_request` on `/courses/42/market-demand/state` with each header. Both unsupported values returned a 184-byte gzip body from 9,691 original bytes. `br` correctly returned the original 9,691 bytes without Content-Encoding. No pytest fixtures or database operations were involved.
+- **Fix reviewed:** `_GZIP_OFFERED` at current line 10 requires token boundaries; lines 34–42 route absent/unsupported offers or explicit refusals through the existing identity responder. Compression settings, exact path/method scope, middleware placement, and payload handling are unchanged.
+- **Regression scope:** `test_restoration_json_stays_plain_without_gzip_support` now includes `xgzip` and `gzip2`. Both require the exact original bytes, original Content-Length, no Content-Encoding, and preserved Origin plus Accept-Encoding Vary. Existing positive gzip/q=0.5 and explicit refusal cases remain in the same test file.
+- **Resolution:** Independently reran the complete affected test file after the fix: **29 passed in 0.83 seconds**, including both new cases and the real PostgreSQL-backed state route. The finding is resolved.
+
+## Observed verification
+
+- Read the actual installed `starlette.middleware.gzip` source inside `lab_tutor_workspace_backend`; version is 0.50.0.
+- During the first review, directly executed all **26 then-existing wire-level test cases** from `test_restoration_compression.py` in that container: all passed. This was direct function invocation, **not a pytest run**; the PostgreSQL test and autouse schema fixtures were not started.
+- Independently exercised 1,023/1,024-byte threshold behavior through the production middleware registrations: passed, with exact decoded bytes.
+- Before the fix, independently exercised unsupported `xgzip`/`gzip2` negotiation: both reproduced the finding above.
+- Independently exercised the two blocked-producer SSE cases: headers and the exact first chunk arrived while the producer remained incomplete.
+- Ran `git diff --check -- backend/main.py`: passed.
+- Avoided DB tests during the first review because the implementation worker was using the shared test database. After the worker finished and the coordinator confirmed no race remained, independently ran the affected file against the real test database: **29 passed in 0.83 seconds**.
+
+Final observed command:
+
+```sh
+docker exec \
+  -e LAB_TUTOR_DATABASE_URL=postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test \
+  -e LAB_TUTOR_NEO4J_URI= \
+  -e LAB_TUTOR_AZURE_STORAGE_CONNECTION_STRING= \
+  lab_tutor_workspace_backend sh -lc &#x27;cd /app &amp;&amp; /app/.venv/bin/python -m pytest -q tests/test_restoration_compression.py&#x27;
+```
+
+## Reported verification, not independently rerun here
+
+The worker&#x27;s `backend-compression.md` records **36 passed in 4.52 seconds** before the token fix: 27 new cases, including the real PostgreSQL state route, plus 9 existing history/state/review regressions. It also records **2 failed, 27 passed** for the added token cases before the fix, **29 passed** after the fix, and full backend Ruff lint/format success across 332 files. The worker&#x27;s RED run, the extra 9 route regressions, and full Ruff results were not independently rerun here; this review independently observed the final 29-case test file passing as recorded above.
+
+The coordinator supplied read-only measurements of 6,577,384 JSON bytes compressing to 634,050 bytes with exact roundtrips. This reviewer did not reproduce the production measurement or perform deployment/browser checks.
+
+## Declined to judge
+
+- Existing history/state business logic and checkpoint data transformations: outside this transport-only diff.
+- Frontend timeout/retry behavior: separately released work, outside this backend review.
+- Database/checkpoint latency and a guarantee that compression resolves every restoration delay: distinct from compression correctness and requiring production evidence.
+- Chat event semantics: only transport delivery before producer completion was relevant to this change.
+
+## Assessment
+
+**Ready to merge: Yes, for the reviewed scope.** The complete-token fix resolves the sole P2 finding, and the final 29-case test file passes independently. The scoped compressor and middleware ordering satisfy the payload, threshold, preservation, and streaming requirements under the exercised cases. Final deployment and real Chrome restoration verification remain with the coordinator.
+</pre></html>

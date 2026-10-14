@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "headless": true,
+  "sizes": [
+    {
+      "width": 1280,
+      "noOverflow": true,
+      "imagesLoaded": true,
+      "linksExist": true
+    },
+    {
+      "width": 390,
+      "noOverflow": true,
+      "imagesLoaded": true,
+      "linksExist": true
+    }
+  ],
+  "errors": []
+}

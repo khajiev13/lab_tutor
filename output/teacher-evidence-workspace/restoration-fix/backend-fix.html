@@ -1,0 +1,129 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Backend compression — implementation and tests</title><style>body{font:16px/1.65 system-ui;max-width:940px;margin:40px auto;padding:0 24px;color:#183634}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.65 ui-monospace,monospace}a{color:#086759}</style><a href="index.html">← Report</a><h1>Backend compression — implementation and tests</h1><pre># Backend restoration compression handoff
+
+## Scope and diagnosis
+
+The coordinator supplied Chrome evidence of multi-megabyte restoration responses
+transferred uncompressed, with a long download phase after initial server wait.
+Repository inspection confirmed that `backend/main.py` registered no compression
+middleware. This patch reduces this demonstrated transfer cost; it does not prove
+that every earlier restoration delay, including the first incident, has the same
+cause.
+
+Owned changes:
+
+- `backend/app/core/restoration_compression.py`
+- `backend/main.py`
+- `backend/tests/test_restoration_compression.py`
+
+No frontend changes, route business-logic changes, DTO changes, database schema
+changes, payload truncation, commits, pushes, deployments, or production actions
+were made by this worker.
+
+## Implementation
+
+`MarketRestorationCompressionMiddleware` applies the installed Starlette gzip
+implementation only to exact GET restoration paths:
+
+- `/courses/{course_id}/market-demand/history`
+- `/courses/{course_id}/market-demand/state`
+- `/courses/{course_id}/market-demand/skill-review`
+
+The threshold is 1,024 bytes and compression level is 5. Registration is inside
+`RequestTimingMiddleware`; its BaseHTTPMiddleware response wrapper would otherwise
+make even small JSON responses appear streamed and bypass the threshold.
+
+Starlette 0.50.0 (the version in `backend/uv.lock`) preserves pre-encoded responses
+and excludes `text/event-stream`. Its negotiation uses a substring check, so a
+small gate requires a complete `gzip` token and honors explicit `gzip;q=0`
+refusals. Absent, unsupported, and refused offers use the same module&#x27;s
+`IdentityResponder`. This preserves standard size, Vary, and SSE behavior without
+rewriting request headers or implementing another response compressor.
+
+## Verification
+
+All commands ran inside `lab_tutor_workspace_backend`, with the worktree mounted
+at `/app`. Test database: `lab_tutor_test` on `lab_tutor_postgres`; optional Neo4j
+and Azure integrations were disabled.
+
+RED evidence before production edits: 9 expected failures and 15 passes in the
+new test file. Failures demonstrated absent gzip on all three restoration paths
+and a real PostgreSQL-backed state response, and absent Accept-Encoding Vary.
+The first standard-gzip implementation then produced 22 passes and 2 expected
+failures: both explicit q=0 variants were incorrectly compressed. The refusal
+guard made those tests pass.
+
+Combined route regression command before the token-gate review follow-up:
+
+```sh
+docker exec \
+  -e LAB_TUTOR_DATABASE_URL=postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test \
+  -e LAB_TUTOR_NEO4J_URI= \
+  -e LAB_TUTOR_AZURE_STORAGE_CONNECTION_STRING= \
+  lab_tutor_workspace_backend sh -lc &#x27;cd /app &amp;&amp; /app/.venv/bin/python -m pytest -q tests/test_restoration_compression.py tests/modules/test_market_demand.py::TestGetState tests/modules/test_market_demand.py::TestHistoryEndpoint tests/modules/test_market_skill_review.py::test_review_reload_acknowledges_empty_and_pending_draft&#x27;
+```
+
+Result: **36 passed in 4.52 seconds** (27 new transport/integration cases plus 9
+existing history, state, and review restoration regressions).
+
+Fresh review found that unsupported tokens `xgzip` and `gzip2` also triggered
+Starlette&#x27;s substring match. Two added regression cases reproduced this exactly:
+**2 failed, 27 passed in 0.81 seconds**. The complete-token gate then produced
+**29 passed in 0.72 seconds** for the affected compression test file, including
+the real PostgreSQL state route, positive gzip/q=0.5 offers, q=0 refusals, and
+both new unsupported tokens. Full backend Ruff lint/format also passed again
+with 332 files already formatted.
+
+Latest verification command:
+
+```sh
+docker exec \
+  -e LAB_TUTOR_DATABASE_URL=postgresql://labtutor:labtutor@lab_tutor_postgres:5432/lab_tutor_test \
+  -e LAB_TUTOR_NEO4J_URI= \
+  -e LAB_TUTOR_AZURE_STORAGE_CONNECTION_STRING= \
+  lab_tutor_workspace_backend sh -lc &#x27;cd /app &amp;&amp; /app/.venv/bin/python -m pytest -q tests/test_restoration_compression.py &amp;&amp; /app/.venv/bin/ruff check . &amp;&amp; /app/.venv/bin/ruff format --check .&#x27;
+```
+
+The new tests consume actual ASGI wire messages through the middleware
+registrations from `main.py`, bypassing automatic client decompression. They
+verify reduced wire bytes, exact decompression byte equality, Content-Length,
+Vary preservation, absent/unsupported/refused gzip negotiation, positive q=0.5,
+small response preservation, pre-encoded preservation, and unchanged out-of-scope
+methods and paths. The SSE tests block their producer after the first chunk and
+require both headers and that exact chunk to arrive while the stream is still
+unfinished. The real authenticated state route test restores a PostgreSQL
+payload, compares identity and gzip response bytes, checks every evidence entry
+and URL, and verifies that the persisted payload remains unchanged.
+
+Full backend formatting and lint:
+
+```sh
+docker exec lab_tutor_workspace_backend sh -lc &#x27;cd /app &amp;&amp; /app/.venv/bin/ruff check . &amp;&amp; /app/.venv/bin/ruff format --check .&#x27;
+```
+
+Result: **All checks passed; 332 files already formatted.** `git diff --check`
+also passed. The full pytest suite was intentionally not run, following the
+coordinator&#x27;s instruction to keep verification narrow unless a new failure
+justifies expansion. No unexplained failures remain in the targeted set.
+
+The first RED run exposed an existing async-pool teardown diagnostic while the
+new database test failed. The test now disposes the application async engine in
+the TestClient&#x27;s owning event loop in `finally`, following the existing cold
+checkpoint test pattern; final runs are clean.
+
+## Production measurement supplied by coordinator
+
+The coordinator independently measured actual production payloads read-only:
+
+| Response | JSON bytes | Gzip bytes | Compression CPU time |
+| --- | ---: | ---: | ---: |
+| History | 3,833,558 | 340,624 | 30 ms |
+| State | 1,640,753 | 185,757 | 15 ms |
+| Skill review | 1,103,073 | 107,669 | 9 ms |
+| Total | 6,577,384 | 634,050 | 54 ms |
+
+That is approximately 90.36% fewer bytes for the measured sample, with exact byte
+roundtrips checked by the coordinator. The coordinator owns fresh review,
+deployment, and live browser transfer verification. These measurements are not
+a claim that this worker deployed the middleware or solved every source of
+server wait.
+</pre></html>

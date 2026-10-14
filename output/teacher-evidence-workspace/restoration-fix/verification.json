@@ -1,0 +1,237 @@
+{
+  "frontend_source_sha": "175a2d7802bdda0ca8e581f16e0cc6b434c0994b",
+  "backend_source_sha": "a3bed3326ff191d8cb56f31c70a19d04c0713abd",
+  "deployed_url": "https://labtutor.app/",
+  "frontend_release": {
+    "source_sha": "175a2d7802bdda0ca8e581f16e0cc6b434c0994b",
+    "ready": true,
+    "backend_unchanged": true,
+    "readiness_basis": "Environment-specific readiness: Express Running/Succeeded; WorkloadProfiles latest equals ready; active source, assets and health verified separately",
+    "apps": [
+      {
+        "app": "frontend",
+        "environment_mode": "Express",
+        "image": "labtutoracr0d5762.azurecr.io/lab-tutor-frontend@sha256:b03a342935b10b3973fe96fb18eb23afd4e6cdc973264ed3698bf0ec88230d97",
+        "revision": "frontend--latest",
+        "ready_revision": null,
+        "running": "Running",
+        "provisioning": "Succeeded",
+        "configuration_preserved": true,
+        "template_fields_preserved": true
+      },
+      {
+        "app": "frontend-domain",
+        "environment_mode": "WorkloadProfiles",
+        "image": "labtutoracr0d5762.azurecr.io/lab-tutor-frontend@sha256:b03a342935b10b3973fe96fb18eb23afd4e6cdc973264ed3698bf0ec88230d97",
+        "revision": "frontend-domain--restore-175a2d78",
+        "ready_revision": "frontend-domain--restore-175a2d78",
+        "running": "Running",
+        "provisioning": "Succeeded",
+        "configuration_preserved": true,
+        "template_fields_preserved": true
+      }
+    ]
+  },
+  "backend_release": {
+    "source_sha": "a3bed3326ff191d8cb56f31c70a19d04c0713abd",
+    "ready": true,
+    "frontend_unchanged": true,
+    "readiness_basis": "Environment-specific readiness: Express Running/Succeeded; WorkloadProfiles latest equals ready; active source, assets and health verified separately",
+    "apps": [
+      {
+        "app": "backend",
+        "environment_mode": "Express",
+        "image": "labtutoracr0d5762.azurecr.io/lab-tutor-backend@sha256:83c9f27dd318eb40c2ce355ea85bd4d5c959884ce20a2d18806c7549e9491fbb",
+        "revision": "backend--latest",
+        "ready_revision": null,
+        "running": "Running",
+        "provisioning": "Succeeded",
+        "configuration_preserved": true,
+        "template_fields_preserved": true
+      }
+    ]
+  },
+  "public_assets": {
+    "source_sha": "175a2d7802bdda0ca8e581f16e0cc6b434c0994b",
+    "url": "https://labtutor.app/",
+    "index_matches_image": true,
+    "market_route_in_verified_entry": true,
+    "lazy_chart_modules_verified": 4,
+    "public_assets_verified": [
+      {
+        "asset": "/assets/charts-DnnHZlUE.js",
+        "bytes": 261108,
+        "sha256": "8dd39f3d24035f3b7c2d4b365a57883b594e44164330888fe6ccdb854d608c5b"
+      },
+      {
+        "asset": "/assets/components-BLLsaQeS.js",
+        "bytes": 261013,
+        "sha256": "08fa3faf439f084c367469b8fe8739ccec9ee4645f011d1d33bcbdac2a1cd4bc"
+      },
+      {
+        "asset": "/assets/core-DUCNJ7Q9.js",
+        "bytes": 4943,
+        "sha256": "df11a331cbf6dbc84e8b80134f9a11fe792678d8b0a44a5596e2f1deaf03a39b"
+      },
+      {
+        "asset": "/assets/index--jutgG8j.css",
+        "bytes": 211982,
+        "sha256": "127c0bf58e86a5a9e1c2038a0c3fbbc91e731952b55e8faaa31eb84eab80a452"
+      },
+      {
+        "asset": "/assets/index-Bf9ixGNd.js",
+        "bytes": 2009406,
+        "sha256": "6b5cfab9d22cbc71aa722286a68561e8e466672d8781b6ca845567b067f6ca1a"
+      },
+      {
+        "asset": "/assets/renderers-BJcXDapw.js",
+        "bytes": 33968,
+        "sha256": "2db3bef4ca4409091785422580691f072402f76ca21a6d1575ab9fc5c576d158"
+      }
+    ]
+  },
+  "browser": {
+    "passed": true,
+    "fixture": "Synthetic HTTP responses; built real frontend; no production credentials or requests",
+    "timeoutElapsedMs": 30166,
+    "manualRetryRestoresTranscript": true,
+    "savedSelectionRestored": true,
+    "automaticRetries": 0,
+    "writes": 0,
+    "pageErrors": [],
+    "unrelatedUnavailableReads": [],
+    "requests": {
+      "/users/me": 1,
+      "/courses/2/market-demand/history": 2,
+      "/courses/2/market-demand/state": 2,
+      "/courses/2/market-demand/skill-review": 2,
+      "/courses/2/market-demand/execution-status": 2,
+      "/courses/2": 1,
+      "/courses/2/market-demand/sources": 2
+    }
+  },
+  "performance_sample": {
+    "measured_at": "2026-10-14T15:25:06.915190+00:00",
+    "method": "Read-only isolated process on production backend; compact JSON serialization and gzip level5; exact byte roundtrip verified",
+    "payloads": {
+      "history": {
+        "json_bytes": 3833558,
+        "gzip_bytes": 340624,
+        "compression_ms": 30
+      },
+      "state": {
+        "json_bytes": 1640753,
+        "gzip_bytes": 185757,
+        "compression_ms": 15
+      },
+      "skill-review": {
+        "json_bytes": 1103073,
+        "gzip_bytes": 107669,
+        "compression_ms": 9
+      }
+    },
+    "total_json_bytes": 6577384,
+    "total_gzip_bytes": 634050,
+    "reduction_percent": 90.36,
+    "history_route_ms": 368,
+    "limits": "These measurements exclude HTTP transfer time, shared runtime queuing and browser rendering. State payload estimate uses the persisted snapshot."
+  },
+  "real_teacher_preservation": {
+    "source_sha": "a3bed3326ff191d8cb56f31c70a19d04c0713abd",
+    "unchanged": true,
+    "backend_files_verified": [
+      "evidence.py",
+      "extractor.py",
+      "prompts.py",
+      "review_service.py",
+      "service.py",
+      "tools.py",
+      "workspace_chat.py",
+      "workspace_service.py"
+    ],
+    "restoration_files_verified": [
+      "app/core/restoration_compression.py",
+      "main.py"
+    ],
+    "documents_unchanged": 38,
+    "saved_analysis_unchanged": true,
+    "publication_revision": 0,
+    "job_backed_skills": 58,
+    "reference_and_other_candidates": 394,
+    "saved_choices": [
+      {
+        "name": "Write and optimize SQL queries",
+        "original_posting_links": 4
+      },
+      {
+        "name": "Configure ETL/ELT processes",
+        "original_posting_links": 4
+      }
+    ],
+    "read_only": true
+  },
+  "health": {
+    "source_sha": "a3bed3326ff191d8cb56f31c70a19d04c0713abd",
+    "checks": [
+      {
+        "service": "backend",
+        "status": 200,
+        "bytes": 32,
+        "elapsed_ms": 1295,
+        "health": "healthy"
+      },
+      {
+        "service": "frontend",
+        "status": 200,
+        "bytes": 455,
+        "elapsed_ms": 857
+      }
+    ]
+  },
+  "chrome": {
+    "loaded": true,
+    "url": "https://labtutor.app/courses/2/market-analyst",
+    "browser": "Existing signed-in Google Chrome tab",
+    "check": "Intentional reload after confirmed backend source deployment; no unsaved question or selection before reload",
+    "observed_after_ms": 10500,
+    "timing_note": "Upper bound from reload dispatch to subsequent DOM observation, not precise load or HTTP timing",
+    "choice_summary": "2 chosen \u00b7 58 job-backed skills",
+    "restoring": false,
+    "retry_visible": false,
+    "manual_retry_used": false,
+    "teacher_writes": 0,
+    "question_length_before_reload": 0,
+    "dirty_selection_before_reload": false,
+    "entry_script": "/assets/index-Bf9ixGNd.js",
+    "checked_at": "2026-10-14T15:41:45.881641+00:00"
+  },
+  "backend_image_smoke": {
+    "torch": "2.10.0+cpu",
+    "cpu_only": true,
+    "network": "disabled",
+    "database_connected": false,
+    "compression": {
+      "json_bytes": 25016,
+      "wire_bytes": 134,
+      "exact_roundtrip": true
+    },
+    "source_hashes": {
+      "main.py": "3cc5d908ea000a8c3b05a93a0ca5456c9ea098bb554fa1ecc9f5bc87fdfb32f6",
+      "app/core/restoration_compression.py": "aa17f9c345abb83da520ec587e2ab50099ed73b2e0909f17ccdc24149e5142ee"
+    },
+    "source_sha": "a3bed3326ff191d8cb56f31c70a19d04c0713abd",
+    "source_matches": true
+  },
+  "tests": {
+    "frontend_passed": 107,
+    "frontend_red_failures": 8,
+    "backend_compression_passed": 29,
+    "existing_backend_route_regressions_passed": 9,
+    "independent_reviews": "No actionable findings remain; both affected test sets independently rerun"
+  },
+  "limitations": [
+    "The exact first incident cannot be reconstructed; uncompressed downloads and an unbounded wait were observed and addressed.",
+    "The 90.36% reduction is a production-data compression sample, not a universal load-time guarantee.",
+    "Stalled-request screenshots use synthetic fixtures; signed-in Chrome was verified separately without teacher writes."
+  ]
+}

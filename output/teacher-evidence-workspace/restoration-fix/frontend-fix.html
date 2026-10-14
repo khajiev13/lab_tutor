@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Restoration fix technical record</title><style>body{font:16px/1.6 system-ui;margin:40px auto;max-width:960px;padding:0 20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}a{color:#056257}</style><a href="index.html">Back to verification</a><pre># Frontend restoration deadline — 2026-10-14
+
+## Scope and behavior
+
+- Changed `frontend/src/features/market-demand/hooks/useAgentStream.ts`, its hook test, and the existing `MarketDemand.test.tsx` page test only.
+- `reconcile()` previously awaited all four snapshot reads without a deadline. An unresolved history, state, review, or execution-status request therefore left initial `isLoadingHistory` true indefinitely.
+- One 30-second deadline now covers the complete reconciliation, including the optional second consistency read. The deadline independently rejects the wait and aborts all four request signals; an abort-ignoring dependency cannot retain the loading state.
+- A timed-out current request reports `Conversation restoration timed out. Retry restoration to try again.`, clears the loading indicator, and keeps ordinary mutations blocked. The existing page exposes Retry restoration. Retry starts fresh requests and can successfully restore.
+- Course/request/generation ownership remains separate from signal cancellation so the current timeout can publish its error while old requests cannot publish data, errors, or loading state. Existing revision floors, transcript retention, source settings, reset behavior, and stream duration remain unchanged.
+- No global API timeout, automatic retry, backend/API/schema changes, commits, push, or deployment.
+
+## RED evidence
+
+Ran before production edits:
+
+```sh
+docker exec lab_tutor_workspace_frontend sh -lc &#x27;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/useAgentStream.test.tsx -t &quot;ends restoration|aborted status|manual retry after timeout|one restoration deadline|new course restoration&quot;&#x27;
+```
+
+Result: 8 failed, 1 passed, 65 skipped. Each failure showed `isLoadingHistory` still true after the 30-second deadline. Failing cases covered all four unresolved reads, abort-aware execution status, retry followed by late response/error, and one deadline across two consistency reads. The already-correct cross-course ownership guard passed before the change and remains a regression check for the new timer.
+
+An intermediate implementation that settled every cancellation immediately exposed one reset-sequencing failure and three unhandled rejections in existing reset tests. Replaced that approach with an independent deadline race, preserving the existing cancellation/response sequencing. The final affected-file run has no failures or unhandled errors.
+
+## GREEN evidence
+
+```sh
+docker exec lab_tutor_workspace_frontend sh -lc &#x27;cd /app &amp;&amp; npm test -- --run src/features/market-demand/__tests__/useAgentStream.test.tsx src/features/market-demand/__tests__/MarketDemand.test.tsx&#x27;
+```
+
+Result: 107/107 tests passed (74 hook, 33 page), exit 0. New page coverage verifies the timeout error and Retry action while the question and unsaved selection remain visible and sending/confirmation stay disabled. Existing tests exercise revision floors, course/stream races, partial resets, acknowledged publication behavior, source settings, and recoverable questions.
+
+```sh
+docker exec lab_tutor_workspace_frontend sh -lc &#x27;cd /app &amp;&amp; npm run lint &amp;&amp; npm run build&#x27;
+```
+
+Result: exit 0; TypeScript and Vite production build passed. Lint has one existing warning in `src/features/arcd-agent/context/context.test.tsx:278` for an unused `eslint-disable`. Vite reports the existing auth static/dynamic import and large-chunk warnings. No unrelated fixes were made.
+
+`git diff --check` passed. Verification ran in the correctly mounted Docker container; no host dependencies were installed. Tests were limited to the affected hook/page files as requested.
+
+## Handoff and limits
+
+- The precise production request or external cause of the original delay remains unproven; this patch fixes the confirmed unbounded frontend wait.
+- An aborted transport or shared authentication dependency may still finish internally; it cannot publish a timed-out snapshot to this hook. No server-side work is assumed canceled.
+- Coordinator owns independent review, the headless browser timeout → Retry exercise, user-facing HTML report, and any release.
+</pre></html>

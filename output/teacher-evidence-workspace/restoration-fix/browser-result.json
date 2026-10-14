@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "fixture": "Synthetic HTTP responses; built real frontend; no production credentials or requests",
+  "timeoutElapsedMs": 30166,
+  "manualRetryRestoresTranscript": true,
+  "savedSelectionRestored": true,
+  "automaticRetries": 0,
+  "writes": 0,
+  "pageErrors": [],
+  "unrelatedUnavailableReads": [],
+  "requests": {
+    "/users/me": 1,
+    "/courses/2/market-demand/history": 2,
+    "/courses/2/market-demand/state": 2,
+    "/courses/2/market-demand/skill-review": 2,
+    "/courses/2/market-demand/execution-status": 2,
+    "/courses/2": 1,
+    "/courses/2/market-demand/sources": 2
+  }
+}
