@@ -267,3 +267,14 @@ describe("WorkspaceConversation", () => {
     expect(screen.queryByText(/PRIVATE SOURCE BODY/)).not.toBeInTheDocument();
   });
 });
+
+it("keeps only the recent exchange beside the decision and exposes full history on request", async () => {
+ const messages = ["Old decision", "Current decision"].map((content,index) => ({id:String(index),role:"agent" as const,content,agent:"supervisor" as const,toolCalls:[],isStreaming:false,timestamp:Date.now()}));
+ const props = {stream:stream({messages}),draft:draft(),onDraftChange:vi.fn(),onSubmit:vi.fn(),decision:<p>Choose skills now</p>};
+ const {rerender}=render(<WorkspaceConversation {...props} historyOpen={false}/>);
+ expect(screen.queryByText("Old decision")).not.toBeInTheDocument();
+ expect(screen.getByText("Current decision")).toBeInTheDocument();
+ expect(screen.getByText("Choose skills now")).toBeInTheDocument();
+ rerender(<WorkspaceConversation {...props} historyOpen/>);
+ expect(screen.getByText("Old decision")).toBeInTheDocument();
+});

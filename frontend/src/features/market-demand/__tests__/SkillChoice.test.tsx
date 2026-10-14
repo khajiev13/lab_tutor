@@ -127,3 +127,13 @@ it("surfaces lost posting evidence as a required review while preserving the sav
   expect(getController().draft.selected_candidate_ids).toEqual([]);
   expect(getController().draft.excluded_candidate_ids).toContain("python");
 });
+
+it("closes Browse before opening job evidence and retains its draft", async () => {
+ const {inspect, getController} = setup();
+ await userEvent.click(screen.getByRole("button", {name:"Browse skills"}));
+ await userEvent.click(screen.getByRole("checkbox", {name:"Select Job skill 01"}));
+ await userEvent.click(screen.getByRole("button", {name:"Inspect Job skill 01"}));
+ expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+ expect(inspect).toHaveBeenCalledWith("job-01");
+ expect(getController().draft.selected_candidate_ids).toEqual(["job-01"]);
+});

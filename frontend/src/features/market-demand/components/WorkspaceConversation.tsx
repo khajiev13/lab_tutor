@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/features/market-demand/components/ChatInput";
 import { AgentMessage } from "@/features/market-demand/components/AgentMessage";
@@ -20,6 +20,9 @@ interface Props {
   onDraftChange: (draft: ConversationDraft) => void;
   onSubmit: (command: SendCommand) => Promise<SendResult>;
   controller?: SkillReviewController;
+  decision?: ReactNode;
+  historyOpen?: boolean;
+  onHistoryOpenChange?: (open: boolean) => void;
 }
 function contextView(context: RunReviewContext): WorkspaceViewState {
   return {view: context.view, filters: context.filters, focusedCandidateId: context.focused_candidate_id,
@@ -32,7 +35,7 @@ function unfocused(context: WorkspaceContext): WorkspaceContext {
 }
 function errorText(error: unknown) {return error instanceof Error ? error.message : "The request failed. Your question has been retained.";}
 
-export function WorkspaceConversation({stream, draft, onDraftChange, onSubmit, controller}: Props) {
+export function WorkspaceConversation({stream, draft, onDraftChange, onSubmit, controller, decision, historyOpen = false, onHistoryOpenChange}: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detached, setDetached] = useState(false);
@@ -144,10 +147,11 @@ export function WorkspaceConversation({stream, draft, onDraftChange, onSubmit, c
   const shownError = error ?? (stream.streamError ? `${stream.streamError.message} ${stream.streamError.recovery}` : null);
   const review = controller?.review ?? stream.skillReview;
 
-  return <section aria-label="Workspace conversation" className="flex h-full min-h-0 flex-col gap-3">
-    <div className="space-y-1 px-3 text-sm" aria-live="polite">
-      <p>{stream.isStreaming ? `${activity} · ${currentTool ? `Using ${currentTool.name.replaceAll("_", " ")}` : "Preparing response"}` : stream.execution.status === "busy" ? "Server work is running" : "Conversation ready"}</p>
-      <p>{stream.execution.outcome === "completed" ? "Work completed" : stream.execution.outcome === "failed" ? "Work failed" : "Execution outcome unknown"}</p>
+  const shownMessages = decision && !historyOpen ? stream.messages.slice(-1) : stream.messages;
+  return <section aria-label="Workspace conversation" className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="shrink-0 space-y-1 px-3 text-sm" aria-live="polite">
+      <p hidden={!!decision && !busy}>{stream.isStreaming ? `${activity} · ${currentTool ? `Using ${currentTool.name.replaceAll("_", " ")}` : "Preparing response"}` : stream.execution.status === "busy" ? "Server work is running" : "Conversation ready"}</p>
+      <p hidden={!!decision && stream.execution.outcome !== "failed"}>{stream.execution.outcome === "completed" ? "Work completed" : stream.execution.outcome === "failed" ? "Work failed" : "Execution outcome unknown"}</p>
       {busy && <p className="text-xs text-muted-foreground">Waiting for the current work. You can edit or stage a question; send when it is ready.</p>}
       {detached && <p className="text-xs">Live response closed. Server work may continue; refresh to check its state before sending again.</p>}
     </div>
@@ -157,7 +161,7 @@ export function WorkspaceConversation({stream, draft, onDraftChange, onSubmit, c
       nearBottom.current = node.scrollHeight - node.clientHeight - node.scrollTop <= 80;
       if (nearBottom.current) setUnread(false);
     }}>
-      {stream.messages.map(message => message.role === "agent" ? <AgentMessage key={message.id} message={message}/> : <UserMessage key={message.id} content={message.content} context={message.workspace_context}
+      {shownMessages.map(message => message.role === "agent" ? <AgentMessage key={message.id} message={message}/> : <UserMessage key={message.id} content={message.content} context={message.workspace_context}
         evidenceUnavailable={!!message.workspace_context && message.workspace_context.run_id === review?.run_id && message.workspace_context.candidate_ids.some(id => {
           const candidate = review?.candidates.find(item => item.candidate_id === id);
           return !candidate || candidate.evidence_references.some(item => item.status !== "active");
@@ -172,9 +176,11 @@ export function WorkspaceConversation({stream, draft, onDraftChange, onSubmit, c
       </details>;
     })}
     </div>
+    {decision}
+    {onHistoryOpenChange && <Button variant="ghost" size="sm" onClick={() => onHistoryOpenChange(!historyOpen)}>{historyOpen ? "Recent conversation" : "Conversation history"}</Button>}
     {unread && <Button type="button" size="sm" variant="outline" onClick={scrollToBottom}>Show new messages</Button>}
-    <div className="space-y-2 px-3 pb-3">
-      {context && <div className="space-y-1 rounded-md border p-2 text-xs" aria-label="Attached context">
+    <div className="shrink-0 space-y-1 px-3 pb-1 [&_textarea]:max-h-20">
+      {context && <details className="space-y-1 rounded-md border p-2 text-xs" aria-label="Attached context" open={!decision}><summary>Question context · {context.intent === "explain" ? "Explain" : "Suggest changes"}</summary>
         <p>{context.kind === "run_review" ? `Review attachment · ${context.intent === "explain" ? "Explain" : "Suggest changes"}` : `Occupation reference · O*NET ${context.release}`}</p>
         <p>{context.kind === "run_review" ? [...new Set([context.focused_candidate_id, ...context.candidate_ids].filter(Boolean))].map(id => review?.candidates.find(item => item.candidate_id === id)?.display_name ?? id).join(", ") || "No focused skills" : context.element_ids.join(", ") || "No focused descriptors"}</p>
         <p>{context.occupation_codes.join(", ")} · {context.metric}</p>
@@ -183,7 +189,7 @@ export function WorkspaceConversation({stream, draft, onDraftChange, onSubmit, c
           <Button type="button" size="sm" variant="outline" disabled={pending || stream.isStreaming || controller?.busy} onClick={() => void refreshContext()}>Refresh context</Button>
           {context.kind === "run_review" && controller && <Button type="button" size="sm" variant="outline" disabled={busy || unavailable || controller.disabled || controller.reviewRequired || !draft.text.trim() || !isWorkspaceMessageValid(draft.text)} onClick={() => void submit(true)}>Save draft and suggest</Button>}
         </div>
-      </div>}
+      </details>}
       {unsaved && <p className="text-xs">Unsaved shortlist changes are not included</p>}
       {shownError && <p role="alert" className="text-sm text-destructive">{shownError}</p>}
       <ChatInput value={draft.text} onChange={text => onDraftChange({...draft, text})} onSend={() => void submit()} onCloseLiveResponse={closeLiveResponse} isStreaming={stream.isStreaming} disabled={unavailable} sendDisabled={busy}/>

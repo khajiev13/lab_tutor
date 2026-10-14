@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -7,9 +7,10 @@ import type { SkillReviewController } from "@/features/market-demand/hooks/useSk
 import { categorySelectionState, jobBackedCandidates } from "@/features/market-demand/selection";
 import type { SkillCandidate } from "@/features/market-demand/types";
 
-export function SkillChoice({controller, onInspect}: {
+export function SkillChoice({controller, onInspect, secondaryAction}: {
   controller: SkillReviewController;
   onInspect: (candidateId: string) => void;
+  secondaryAction?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const {review, draft, view} = controller;
@@ -56,14 +57,14 @@ export function SkillChoice({controller, onInspect}: {
       {proposalActions(candidate)}
     </div>
     <div className="flex gap-1">
-      <Button size="sm" variant="ghost" aria-label={`Inspect ${candidate.display_name}`} onClick={() => onInspect(candidate.candidate_id)}>Inspect</Button>
+      <Button size="sm" variant="ghost" aria-label={`Inspect ${candidate.display_name}`} onClick={() => {setOpen(false); onInspect(candidate.candidate_id);}}>{candidate.job_metrics.supporting_posting_count ?? 0} jobs ›</Button>
       {!checklist && selected.has(candidate.candidate_id) && <Button size="sm" variant="ghost" disabled={locked}
         aria-label={`Remove ${candidate.display_name}`} onClick={() => controller.setCandidate(candidate.candidate_id, false)}>Remove</Button>}
     </div>
   </div>;
-  return <section aria-label="Choose skills" className="space-y-3">
+  return <section aria-label="Choose skills" className="space-y-2">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="text-base font-semibold">Choose skills</h2>
+      <p className="text-sm">Which skills belong in this course?</p>
       <span className="text-xs text-muted-foreground">{draft.selected_candidate_ids.length} chosen · {eligible.length} job-backed skills</span>
     </div>
     {unsupported.length > 0 && <p role="alert" className="text-sm text-destructive">Review required: {unsupported.slice(0, 5).map(candidate => candidate.display_name).join(", ")}{unsupported.length > 5 ? ` and ${unsupported.length - 5} more saved choices` : ""} lost supporting job evidence. Remove these saved choices before continuing.</p>}
@@ -71,7 +72,7 @@ export function SkillChoice({controller, onInspect}: {
       <p role="alert">Review required: {controller.reconciliation || "The saved review changed. Check your retained choices before continuing."}</p>
       <Button size="sm" variant="outline" disabled={locked} onClick={controller.acknowledgeIncomingReview}>I reviewed the changed choices</Button>
     </div>}
-    {mainRows.length > 0 ? <ul className="space-y-2">{mainRows.slice(0, 5).map(candidate => <li key={candidate.candidate_id} className="rounded-md border px-3 py-2">{skillRow(candidate, false)}</li>)}</ul> : <p className="text-sm text-muted-foreground">No skills chosen yet</p>}
+    {mainRows.length > 0 ? <ul className="space-y-1">{mainRows.slice(0, 5).map(candidate => <li key={candidate.candidate_id} className="rounded-md border px-3 py-1">{skillRow(candidate, false)}</li>)}</ul> : <p className="text-sm text-muted-foreground">No skills chosen yet</p>}
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button size="sm" variant="outline" disabled={controller.disabled}>
         {draft.selected_candidate_ids.length > 5 ? `Review all ${draft.selected_candidate_ids.length}` : mainRows.length > 5 ? `Review all ${mainRows.length} chosen or proposed skills` : "Browse skills"}
@@ -91,7 +92,7 @@ export function SkillChoice({controller, onInspect}: {
           </label>;
         })}</div>
         {unsupported.length > 0 && <div className="space-y-2 rounded-md border border-destructive p-3"><p className="font-medium">Saved choices requiring review</p>{unsupported.map(candidate => <div key={candidate.candidate_id}>{skillRow(candidate, false)}</div>)}</div>}
-        <div className="space-y-2">{rows.map(candidate => <div key={candidate.candidate_id} className="rounded-md border px-3 py-2">{skillRow(candidate, true)}</div>)}
+        <div className="space-y-2">{rows.map(candidate => <div key={candidate.candidate_id} className="rounded-md border px-3 py-1">{skillRow(candidate, true)}</div>)}
           {!rows.length && <p className="text-sm">No matching job-backed skills. Category selection still includes every current member.</p>}
         </div>
         <div className="flex items-center justify-between gap-2">
@@ -106,10 +107,11 @@ export function SkillChoice({controller, onInspect}: {
     </Dialog>
     {controller.error && <p role="alert" className="text-sm text-destructive">{controller.error} · Local choices retained.</p>}
     {controller.success && <p role="status" className="text-sm">{controller.success}</p>}
-    <div className="flex flex-wrap gap-2">
+    <div className="ml-2 inline-flex flex-wrap gap-2">
       <Button size="sm" variant="outline" disabled={locked || !controller.canUndo} onClick={controller.undo}>Undo local change</Button>
-      <Button size="sm" disabled={locked || !controller.dirty || controller.reviewRequired}
+      <Button size="sm" variant="ghost" disabled={locked || !controller.dirty || controller.reviewRequired}
         onClick={() => void controller.save().catch(() => {})}>Save draft</Button>
+      {secondaryAction}
     </div>
   </section>;
 }

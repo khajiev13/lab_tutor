@@ -152,7 +152,7 @@ function AppRoutes() {
       <Route
         path="/courses/:id/market-analyst"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute withDashboardLayout={false}>
             <MarketDemandPage />
           </ProtectedRoute>
         }

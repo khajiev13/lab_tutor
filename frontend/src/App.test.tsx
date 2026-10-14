@@ -84,7 +84,7 @@ function renderAppAt(pathname: string) {
 describe('App routing', () => {
   it('protects a market deep link and redirects signed-out users to Login', async () => {auth.authenticated=false; renderAppAt('/courses/1/market-analyst'); expect(await screen.findByText('Login')).toBeInTheDocument(); expect(screen.queryByText('Market Demand')).not.toBeInTheDocument();});
   it('redirects authenticated users from public routes', async () => {renderAppAt('/login'); expect(await screen.findByText('Dashboard')).toBeInTheDocument();});
-  it('preserves the market workspace deep link', () => {renderAppAt('/courses/1/market-analyst'); expect(screen.getByText('Market Demand')).toBeInTheDocument();});
+  it('keeps the protected market decision focused without dashboard chrome', () => {renderAppAt('/courses/1/market-analyst'); expect(screen.getByText('Market Demand')).toBeInTheDocument(); expect(screen.queryByText('Mock Sidebar')).not.toBeInTheDocument();});
   it('preserves the agents hub route', () => {renderAppAt('/courses/1'); expect(screen.getByText('Agent Hub')).toBeInTheDocument();});
   beforeEach(() => {
     auth.authenticated=true; auth.loading=false;

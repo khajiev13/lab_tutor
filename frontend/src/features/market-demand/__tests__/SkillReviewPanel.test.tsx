@@ -59,10 +59,10 @@ it.each(["Connection lost","Stale revision"])("retains unsaved choices on %s wit
   const user = userEvent.setup();
   await user.click(screen.getByRole("checkbox",{name:"Select Python"}));
   await user.click(screen.getByRole("button",{name:"Save draft"}));
-  expect(await screen.findByRole("alert")).toHaveTextContent(message);
+  expect(await screen.findByText(message)).toBeVisible();
   expect(screen.getByRole("checkbox",{name:"Select Python"})).toBeChecked();
   expect(screen.queryByText("Draft saved")).not.toBeInTheDocument();
-  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.getAllByText("Published Python").length).toBeGreaterThan(0);
   expect(screen.getByRole("button",{name:"Confirm selection for mapping"})).toBeEnabled();
 });
 
@@ -196,27 +196,27 @@ it("keeps mapping blocked until delayed continuation acknowledgement and keeps u
   await user.click(screen.getByRole("button", {name: "Continue with available evidence"}));
   expect(continueWithAvailableEvidence).toHaveBeenCalledWith(1, {run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 2});
   expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
   await act(async () => {finish(acknowledgedContinuation(review));});
   expect(await screen.findByRole("status")).toHaveTextContent("Evidence omissions acknowledged; supporting postings are still required");
   expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
   expect(screen.getByRole("checkbox", {name: "Select Reference skill"})).toBeChecked();
-  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.getAllByText("Published Python").length).toBeGreaterThan(0);
 });
 
 it("retains partial-evidence gates and prior publication when continuation fails", async () => {
   vi.mocked(continueWithAvailableEvidence).mockRejectedValueOnce(new Error("Acknowledgement unavailable"));
   render(<ReviewParent initialReview={continuationFixture()}/>);
   await userEvent.setup().click(screen.getByRole("button", {name: "Continue with available evidence"}));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Acknowledgement unavailable");
+  expect(await screen.findByText("Acknowledgement unavailable")).toBeVisible();
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
   expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
   expect(screen.getByRole("button", {name: "Continue with available evidence"})).toBeEnabled();
   expect(screen.getByRole("checkbox", {name: "Select Reference skill"})).toBeChecked();
-  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.getAllByText("Published Python").length).toBeGreaterThan(0);
 });
 
 it("keeps an O*NET-only saved choice blocked after successful continuation", async () => {
@@ -227,10 +227,10 @@ it("keeps an O*NET-only saved choice blocked after successful continuation", asy
   await user.click(screen.getByRole("button", {name: "Continue with available evidence"}));
   expect(await screen.findByRole("status")).toHaveTextContent("Evidence omissions acknowledged; supporting postings are still required");
   expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
-  await user.click(screen.getByRole("button", {name: "Approve integration"}));
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
+  await user.click(screen.getByRole("button", {name: "Approve and publish"}));
   expect(approveSkillIntegration).not.toHaveBeenCalled();
-  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.getAllByText("Published Python").length).toBeGreaterThan(0);
 });
 
 it("durable reconciliation survives a fresh reload after its candidates disappear", () => {
@@ -311,7 +311,7 @@ it.each(["Connection lost", "Stale reconciliation revision"])("durable reconcili
   const user = userEvent.setup();
   await user.click(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"}));
   await user.click(screen.getByRole("button", {name: "Save draft"}));
-  expect(await screen.findByRole("alert")).toHaveTextContent(message);
+  expect(await screen.findByText(message)).toBeVisible();
   expect(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"})).toBeChecked();
   expect(screen.getByRole("button", {name: "Save draft"})).toBeEnabled();
   expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();

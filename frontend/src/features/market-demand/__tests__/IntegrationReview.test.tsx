@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { useSkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
@@ -25,22 +25,24 @@ it("reviewed concepts displays normalized server names and nullable descriptions
   ]};
   review.integration_review!.items[0] = item;
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
-  const target = screen.getByText("Python programming").closest("div")!;
+  fireEvent.click(screen.getByRole("button", {name:"Review target details"}));
+  const target = within(screen.getByRole("dialog")).getByText("Python programming").closest("div")!;
   expect(within(target).getByText("Chapters: Programming")).toBeInTheDocument();
   expect(within(target).getByText("Normalized Python functions")).toBeInTheDocument();
   expect(within(target).getByText("Call functions with <script>alert('description')</script> arguments")).toBeInTheDocument();
   expect(within(target).getByText("<img src=x onerror=alert('name')>")).toBeInTheDocument();
   expect(target.querySelector("script, img")).toBeNull();
   expect(within(target).queryByText("null")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeEnabled();
+  fireEvent.click(screen.getByRole("button",{name:"Close"}));
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeEnabled();
   expect(approveSkillIntegration).not.toHaveBeenCalled();
 });
 
 it("reviewed concepts keeps an absent concepts field compatible with target/chapter review and approval", () => {
   render(<IntegrationReview courseId={1} review={integrationFixture()} onReviewChange={vi.fn()}/>);
   expect(screen.getByText("Python programming")).toBeInTheDocument();
-  expect(screen.getByText("Chapters: Programming")).toBeInTheDocument();
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeEnabled();
+  expect(screen.getByText("Programming")).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeEnabled();
   expect(approveSkillIntegration).not.toHaveBeenCalled();
 });
 
@@ -50,17 +52,17 @@ it("shows reviewed targets/chapters and blocks final approval without every prop
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
   expect(screen.getByText("Python programming")).toBeInTheDocument();
   expect(screen.getByText(/Programming/)).toBeInTheDocument();
-  expect(screen.getByRole("button",{name:"Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button",{name:"Approve and publish"})).toBeDisabled();
   expect(screen.getByText(/Needs supporting job posting/)).toBeInTheDocument();
 });
 
 it("keeps the full proposal and prior publication visible on server evidence rejection", async () => {
   vi.mocked(approveSkillIntegration).mockRejectedValue(new Error("missing_job_evidence: python"));
   render(<IntegrationReview courseId={1} review={integrationFixture()} onReviewChange={vi.fn()}/>);
-  await userEvent.setup().click(screen.getByRole("button",{name:"Approve integration"}));
+  await userEvent.setup().click(screen.getByRole("button",{name:"Approve and publish"}));
   expect(await screen.findByRole("alert")).toHaveTextContent("missing_job_evidence: python");
   expect(screen.getByText("Python programming")).toBeInTheDocument();
-  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.getAllByText("Published Python").length).toBeGreaterThan(0);
   expect(screen.queryByText(/Approval saved/)).not.toBeInTheDocument();
 });
 
@@ -68,7 +70,7 @@ it("submits digest and exact IDs and distinguishes SQL approval from pending pro
   const review = integrationFixture();
   vi.mocked(approveSkillIntegration).mockResolvedValue({review:{...review,publication_revision:4},projection_status:"pending"});
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
-  await userEvent.setup().click(screen.getByRole("button",{name:"Approve integration"}));
+  await userEvent.setup().click(screen.getByRole("button",{name:"Approve and publish"}));
   expect(await screen.findByText("Approval saved; publication waiting for projection")).toBeInTheDocument();
   expect(approveSkillIntegration).toHaveBeenCalledWith(1,{run_id:"run-1",expected_candidate_revision:1,expected_selection_revision:2,review_digest:"digest-1",approved_candidate_ids:["python"]});
 });
@@ -77,7 +79,7 @@ it.each(["candidate_revision", "selection_revision"] as const)("blocks stale %s 
   const review = integrationFixture();
   review.integration_review = {...review.integration_review!, [revision]: 0};
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
   expect(screen.getByText(/Review revisions changed/)).toBeInTheDocument();
   expect(screen.queryByText(/Acknowledge the current evidence omissions/)).not.toBeInTheDocument();
 });
@@ -86,7 +88,7 @@ it("blocks unacknowledged omissions independently of current revisions", () => {
   const review = integrationFixture();
   review.integration_review = {...review.integration_review!, omissions: ["HeadHunter incomplete"], omissions_acknowledged: false};
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
   expect(screen.getByText("HeadHunter incomplete")).toBeInTheDocument();
   expect(screen.queryByText(/Review revisions changed/)).not.toBeInTheDocument();
 });
@@ -106,11 +108,11 @@ it.each([
     projection_status: projection,
   });
   render(<ReviewParent initialReview={review}/>);
-  await userEvent.setup().click(screen.getByRole("button", {name: "Approve integration"}));
+  await userEvent.setup().click(screen.getByRole("button", {name: "Approve and publish"}));
   expect(await screen.findByRole("status")).toHaveTextContent(acknowledgement);
   expect(screen.queryByText("Python programming")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", {name: "Approve integration"})).not.toBeInTheDocument();
-  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Approve and publish"})).not.toBeInTheDocument();
+  expect(screen.getAllByText("Published Python").length).toBeGreaterThan(0);
 });
 
 const unusableLinks = [
@@ -128,14 +130,14 @@ it.each(unusableLinks)("blocks approval when supported candidate links contain o
   const review = integrationFixture();
   review.candidates[0].qualifying_posting_links = urls;
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
 });
 
 it.each(unusableLinks)("blocks approval and renders no posting link when reviewed target links contain only $label", ({urls}) => {
   const review = integrationFixture();
   review.integration_review!.items[0].qualifying_posting_links = urls;
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
   expect(screen.queryByRole("link", {name: "Original job posting"})).not.toBeInTheDocument();
 });
 
@@ -149,7 +151,8 @@ it.each(["http://employer.example/job/123", "https://employer.example/job/123"])
   review.candidates[0].qualifying_posting_links = ["", url];
   review.integration_review!.items[0].qualifying_posting_links = ["/relative", url];
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeEnabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeEnabled();
+  fireEvent.click(screen.getByRole("button",{name:"Review target details"}));
   expect(screen.getByRole("link", {name: "Original job posting"})).toHaveAttribute("href", url);
 });
 
@@ -174,13 +177,14 @@ it.each([
   await user.click(screen.getByRole("checkbox", {name: "Select SQL"}));
   await user.click(screen.getByRole("checkbox", {name: "Acknowledge reconciliation for Prior Python"}));
   expect(screen.getByRole("button", {name: "Confirm selection for mapping"})).toBeDisabled();
+  fireEvent.click(screen.getByText("Published offering and withdrawal"));
   const prepareButton = screen.getByRole("button", {name: "Prepare withdrawal"});
   expect(prepareButton).toBeEnabled();
   expect(screen.getByText(/saved learning paths and resources.*preserved/i)).toBeInTheDocument();
   expect(screen.getByText(/other approvals.*keep.*available/i)).toBeInTheDocument();
   await user.click(prepareButton);
   expect(prepareSkillWithdrawal).toHaveBeenCalledWith(1, {run_id: "run-1", expected_candidate_revision: 1, expected_selection_revision: 2});
-  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.getAllByText("Published Python").length).toBeGreaterThan(0);
   expect(approveSkillIntegration).not.toHaveBeenCalled();
   expect(screen.queryByText(/Withdrawal saved/)).not.toBeInTheDocument();
   expect(prepareButton).toBeDisabled();
@@ -204,6 +208,7 @@ it.each(["pending", "error"] as const)("explicit withdrawal remains preparable f
   const review = reconciliationFixture();
   review.approved_references[0] = {...review.approved_references[0], projection_status: projection, available_for_new_selection: false};
   render(<ReviewParent initialReview={review}/>);
+  fireEvent.click(screen.getByText("Published offering and withdrawal"));
   expect(screen.getByRole("button", {name: "Prepare withdrawal"})).toBeEnabled();
 });
 
@@ -226,7 +231,7 @@ it("explicit withdrawal never treats an unmarked initial empty publication as a 
   render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
   expect(screen.queryByRole("button", {name: "Withdraw approval"})).not.toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "Prepare withdrawal"})).not.toBeInTheDocument();
-  expect(screen.getByRole("button", {name: "Approve integration"})).toBeDisabled();
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeDisabled();
 });
 
 it("explicit withdrawal uses active references rather than historical publication revision", () => {
@@ -237,6 +242,7 @@ it("explicit withdrawal uses active references rather than historical publicatio
 
 it("explicit withdrawal honors the panel external lock even though publication-only gates can be bypassed", () => {
   render(<SkillReviewPanel courseId={1} review={withdrawalFixture()} onReviewChange={vi.fn()} disabled/>);
+  fireEvent.click(screen.getByText("Published offering and withdrawal"));
   expect(screen.getByRole("button", {name: "Prepare withdrawal"})).toBeDisabled();
   expect(screen.getByRole("button", {name: "Withdraw approval"})).toBeDisabled();
 });
@@ -248,9 +254,10 @@ it.each(["prepare", "withdraw"] as const)("explicit withdrawal retains offering 
   render(<ReviewParent initialReview={review}/>);
   const user = userEvent.setup();
   await user.click(screen.getByRole("checkbox", {name: "Select SQL"}));
+  if (action === "prepare") fireEvent.click(screen.getByText("Published offering and withdrawal"));
   await user.click(screen.getByRole("button", {name: action === "prepare" ? "Prepare withdrawal" : "Withdraw approval"}));
   expect(await screen.findByRole("alert")).toHaveTextContent(action === "prepare" ? "Withdrawal preparation rejected" : "Withdrawal digest rejected");
-  expect(screen.getByText("Published Python")).toBeInTheDocument();
+  expect(screen.getAllByText("Published Python").length).toBeGreaterThan(0);
   expect(screen.getByRole("checkbox", {name: "Select SQL"})).toBeChecked();
   expect(screen.queryByText(/Withdrawal saved/)).not.toBeInTheDocument();
 });
@@ -263,6 +270,7 @@ it.each(["prepare", "withdraw"] as const)("explicit withdrawal ignores late %s c
   else vi.mocked(approveSkillIntegration).mockImplementationOnce(() => new Promise(resolve => {finishApprove = resolve;}));
   const changed = vi.fn();
   const {rerender} = render(<IntegrationReview courseId={1} review={review} onReviewChange={changed}/>);
+  if (action === "prepare") fireEvent.click(screen.getByText("Published offering and withdrawal"));
   await userEvent.setup().click(screen.getByRole("button", {name: action === "prepare" ? "Prepare withdrawal" : "Withdraw approval"}));
   const next = {...reconciliationFixture(), run_id: "run-2", candidate_revision: 2, selection_revision: 3, approved_references: []};
   rerender(<IntegrationReview courseId={1} review={next} onReviewChange={changed}/>);
@@ -273,4 +281,23 @@ it.each(["prepare", "withdraw"] as const)("explicit withdrawal ignores late %s c
   expect(changed).not.toHaveBeenCalled();
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", {name: "Withdraw approval"})).not.toBeInTheDocument();
+});
+
+it.each(['digest','mismatched IDs','duplicate IDs'] as const)('blocks final publication with %s',invalid=>{
+ const review=integrationFixture();
+ if(invalid==='digest')review.integration_review!.review_digest='';
+ if(invalid==='mismatched IDs')review.selected_candidate_ids=['sql'];
+ if(invalid==='duplicate IDs'){review.selected_candidate_ids=['python','sql'];review.integration_review!.items.push({...review.integration_review!.items[0]});}
+ render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
+ expect(screen.getByRole('button',{name:'Approve and publish'})).toBeDisabled();
+});
+it('bounds curriculum targets to five and preserves all targets in ten-item pages',()=>{
+ const review=integrationFixture();const item=review.integration_review!.items[0];
+ review.integration_review!.items=Array.from({length:58},(_,index)=>({...item,candidate_id:`id-${index}`,target:{...item.target,label:`Target ${index+1}`}}));
+ render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
+ expect(within(screen.getByRole('list',{name:'Curriculum targets'})).getAllByRole('listitem')).toHaveLength(5);
+ fireEvent.click(screen.getByRole('button',{name:'Review all 58'}));
+ const dialog=within(screen.getByRole('dialog'));
+ expect(dialog.getByText('Target 10')).toBeVisible();expect(dialog.queryByText('Target 11')).not.toBeInTheDocument();
+ fireEvent.click(dialog.getByRole('button',{name:'Next page'}));expect(dialog.getByText('Target 11')).toBeVisible();
 });
