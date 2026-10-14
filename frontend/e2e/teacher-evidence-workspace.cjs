@@ -12,6 +12,7 @@ const safeError = error => String(error.message ?? error).replace(/Bearer\s+[A-Z
 let fixtureManifest = process.env.WORKSPACE_SERVER_MANIFEST || '/tmp/teacher-workspace.json';
 const action = (name, payload, extra = []) => JSON.parse(execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', '-i', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', fixtureManifest, '--action', name, ...extra], { input: payload ? JSON.stringify(payload) : undefined, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
 const sourceFile = process.argv.find(arg => arg.endsWith('/teacher-evidence-workspace.cjs'));
+const { requireCompletedMapping, requireConfirmation } = require(path.join(path.dirname(sourceFile), 'teacher-workspace-boundary.cjs'));
 const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sourceFile), '../../output/teacher-evidence-workspace/acceptance');
 (async () => {
     assert(UI && API && manifestPath, 'Explicit isolated URLs and private manifest required');
@@ -35,7 +36,7 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
     if (phase === 'all' || legacyScenarios[phase]) {
         // Current presentation: retain data/security/recovery contracts through
         // the real simple-flow suites, rather than resurrecting the dashboard.
-        for (const scenario of legacyScenarios[phase] ?? ['simple-flow', 'simple-contracts', 'simple-workflow', 'simple-corpus', 'simple-layout']) {
+        for (const scenario of legacyScenarios[phase] ?? ['simple-boundary-negative', 'simple-flow', 'simple-contracts', 'simple-workflow', 'simple-corpus', 'simple-layout']) {
             console.log(`START ${scenario}`);
             execFileSync(process.execPath, [process.argv[1], sourceFile], { env: { ...process.env, WORKSPACE_SCENARIO: scenario }, stdio: 'inherit' });
             console.log(`EXIT 0 ${scenario}`);
@@ -73,6 +74,31 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
         localStorage.setItem('access_token', tokens.access_token);
         localStorage.setItem('refresh_token', tokens.refresh_token);
     }, fixture.teacher);
+    const validateMappingResponse = async (response, base) => {
+        assert.equal(response.url(), `${base}/chat`);
+        assert.equal(response.status(), 200);
+        const request = response.request().postDataJSON();
+        assert.equal(request.workspace_context ?? null, null, 'Mapping must use workflow mode, not contextual chat');
+        assert.equal(request.message, 'Map the confirmed selected skills to the curriculum and prepare the curriculum fit review. Do not approve or publish.');
+        await response.finished();
+        return requireCompletedMapping(await response.text());
+    };
+    const verifyBeforePreparation = async (base, headers, expected) => {
+        const get = async endpoint => {
+            const response = await context.request.get(`${base}/${endpoint}`, { headers });
+            assert.equal(response.status(), 200);
+            return response.json();
+        };
+        const state = await get('state');
+        const sql = action('sql-readback');
+        for (const actual of [state, sql]) {
+            assert.equal(actual.run_id, expected.run_id);
+            assert.equal(actual.publication_revision, 0);
+            requireConfirmation(actual.selection_confirmation, expected);
+        }
+        assert.deepEqual(sql.approvals, []);
+        assert.equal((await get('execution-status')).status, 'idle');
+    };
     const verifyInspectionFocus = async () => {
         const skills = page.getByRole('region', { name: 'Choose skills', exact: true });
         await skills.waitFor();
@@ -100,6 +126,45 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
         verifyConsole();
     };
     try {
+        if (phase === 'simple-boundary-negative') {
+            const seeded = action('seed-simple-flow');
+            fixtureManifest = '/tmp/teacher-workspace-simple.json';
+            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
+            const base = `${API}/courses/${seeded.course.id}/market-demand`;
+            await page.goto(`${UI}/courses/${seeded.course.id}/market-analyst`);
+            await page.getByRole('button', { name: 'Acknowledge available evidence', exact: true }).click();
+            const decision = page.getByLabel('Current teacher decision', { exact: true });
+            await decision.getByRole('button', { name: 'Continue', exact: true }).waitFor();
+            const unconfirmed = action('sql-readback');
+            assert.equal(unconfirmed.selection_confirmation, null);
+            assert.throws(() => action('prepare-review'), /Existing current teacher selection confirmation is required/);
+            assert.deepEqual(action('sql-readback'), unconfirmed, 'Rejected preparation must not write confirmation, review or publication');
+            console.log('PASS real SQL missing-confirmation preparation rejected without mutation');
+            action('model-queue', [{ exception: 'Controlled acceptance mapping terminal failure' }]);
+            const responsePromise = page.waitForResponse(r => r.url() === `${base}/chat` && r.request().method() === 'POST');
+            await decision.getByRole('button', { name: 'Continue', exact: true }).click();
+            const response = await responsePromise;
+            assert.equal(response.status(), 200);
+            await response.finished();
+            const body = await response.text();
+            assert.match(body, /event: error/);
+            assert.match(body, /event: stream_end\ndata:.*"outcome":\s*"failed"/);
+            let preparationCalls = 0;
+            await assert.rejects(async () => {
+                await validateMappingResponse(response, base);
+                await verifyBeforePreparation(base, headers, unconfirmed);
+                preparationCalls++;
+                action('prepare-review');
+            }, /Mapping SSE contains an error event/);
+            assert.equal(preparationCalls, 0);
+            const failed = action('sql-readback');
+            requireConfirmation(failed.selection_confirmation, unconfirmed);
+            assert.equal(failed.integration_review, null);
+            assert.equal(failed.publication_revision, 0);
+            assert.deepEqual(failed.approvals, []);
+            console.log('PASS real HTTP200 error/failed-terminal SSE rejected before preparation; confirmation retained, no review/approval/publication');
+            return;
+        }
         if (phase === 'simple-flow') {
             fs.mkdirSync(output, { recursive: true });
             const seeded = action('seed-simple-flow');
@@ -283,6 +348,21 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             assert.match(values, /Unavailable/);
             assert.equal(await dialog.locator('[aria-label="Comparison values"] strong').filter({ hasText: /^SQL$/ }).count(), 0, 'Related descriptor must never become an official SQL rating');
             assert.equal(await dialog.getByRole('combobox', { name: 'Confirmed occupation', exact: true }).locator('option').count(), 3);
+            const importanceChart = dialog.getByRole('img').first();
+            await importanceChart.locator('svg').waitFor();
+            const importanceOptions = await importanceChart.evaluate(async (e, url) => (await import(url)).getInstanceByDom(e).getOption(), chartModuleURL);
+            assert.deepEqual(importanceOptions.series[0].data.map(row => row.value), [4.2]);
+            assert.match(JSON.stringify(importanceOptions.yAxis), /Programming/);
+            await importanceChart.locator('svg text').filter({ hasText: /^Programming — related to SQL$/ }).waitFor();
+            const renderedImportanceBar = await importanceChart.evaluate(async (e, url) => {
+                const instance = (await import(url)).getInstanceByDom(e);
+                const mark = instance.getModel().getSeriesByIndex(0).getData().getItemGraphicEl(0);
+                return [...e.querySelectorAll('svg path')].some(path => {
+                    const bounds = path.getBBox();
+                    return path.getAttribute('fill') === mark.style.fill && bounds.width > 0 && bounds.height > 0;
+                });
+            }, chartModuleURL);
+            assert(renderedImportanceBar, 'The new IM numeric bar must be rendered in the actual SVG');
             await page.screenshot({ path: path.join(output, 'onet-related-and-missing.png'), fullPage: true });
             await dialog.getByRole('button', { name: 'Collected jobs', exact: true }).click();
             await dialog.getByRole('button', { name: 'Ask about SQL', exact: true }).click();
@@ -308,12 +388,25 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             await decision.getByRole('button', { name: 'Continue', exact: true }).waitFor();
             assert.equal(action('sql-readback').publication_revision, 0);
             action('model-queue', [{ content: 'Synthetic mapping work is ready for the controlled curriculum target resolver.' }]);
-            const mappingResponse = page.waitForResponse(r => r.url().endsWith('/chat'));
+            const expectedConfirmation = action('sql-readback');
+            assert.deepEqual(expectedConfirmation.selected_candidate_ids, savedSelectionIds);
+            const confirmationResponse = page.waitForResponse(r => r.url() === `${base}/skill-review/selection-confirmation` && r.request().method() === 'POST');
+            const mappingResponse = page.waitForResponse(r => r.url() === `${base}/chat` && r.request().method() === 'POST');
             await decision.getByRole('button', { name: 'Continue', exact: true }).click();
+            const confirmed = await confirmationResponse;
+            assert.equal(confirmed.status(), 200);
+            assert.deepEqual(confirmed.request().postDataJSON(), {
+                run_id: expectedConfirmation.run_id,
+                expected_candidate_revision: expectedConfirmation.candidate_revision,
+                expected_selection_revision: expectedConfirmation.selection_revision,
+            });
+            const confirmedReview = await confirmed.json();
+            for (const key of ['run_id', 'candidate_revision', 'selection_revision', 'selected_candidate_ids', 'excluded_candidate_ids'])
+                assert.deepEqual(confirmedReview[key], expectedConfirmation[key]);
             const mapped = await mappingResponse;
-            assert.equal(mapped.status(), 200, await mapped.text());
-            await mapped.finished();
-            assert.equal(action('sql-readback').publication_revision, 0);
+            const mappingEvents = await validateMappingResponse(mapped, base);
+            await verifyBeforePreparation(base, headers, expectedConfirmation);
+            console.log(`PASS UI selection-confirmation200 exact revisions/57IDs/exclusions/teacher; mapping200 terminal=${mappingEvents.at(-1).data.outcome}; authoritative confirmation idle/unpublished/noapproval before preparation`);
             const prepared = action('prepare-review');
             await page.reload();
             const integration = page.getByRole('region', { name: 'Final integration review', exact: true });
@@ -732,6 +825,8 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             const response = await mapping;
             assert.equal(response.status(), 200, await response.text());
             await response.finished();
+            requireCompletedMapping(await response.text());
+            await verifyBeforePreparation(base, headers, before);
             await page.getByText('Synthetic curriculum mapping request completed.', { exact: true }).waitFor();
             const prepared = action('prepare-review');
             await page.reload();

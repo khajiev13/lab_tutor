@@ -1550,6 +1550,9 @@ def main() -> None:
                             "publication_revision": run.publication_revision,
                             "selected_candidate_ids": run.selected_candidate_ids,
                             "excluded_candidate_ids": run.excluded_candidate_ids,
+                            "selection_confirmation": run.selection_confirmation,
+                            "teacher_id": run.teacher_id,
+                            "integration_review": run.integration_review,
                             "approved_references": run.approved_references,
                             "approvals": [
                                 {
@@ -1592,9 +1595,11 @@ def main() -> None:
                     expected_candidate_revision=run.candidate_revision,
                     expected_selection_revision=run.selection_revision,
                 )
-                service.confirm_selection(
-                    manifest["course"]["id"], manifest["course"]["teacher_id"], revision
+                assert service._confirmed(run), (
+                    "Existing current teacher selection confirmation is required; "
+                    "acceptance preparation never confirms selection"
                 )
+                assert run.publication_revision == 0, "Fixture must be unpublished"
                 candidates = [
                     row
                     for row in run.candidate_manifest["candidates"]
