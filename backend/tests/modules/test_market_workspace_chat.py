@@ -1,5 +1,6 @@
 """Restricted entry through the real swarm and PostgreSQL checkpoints."""
 
+import json
 from copy import deepcopy
 
 import pytest
@@ -152,6 +153,134 @@ def test_workflow_explain_workflow_preserves_active_agent_and_sql(
     assert [
         m.content for m in final.values["messages"] if isinstance(m, HumanMessage)
     ] == ["Start workflow", "Explain this skill", "Continue workflow"]
+
+
+def test_explain_related_programming_and_missing_etl_is_read_only(
+    db_session, client, teacher_auth_headers, live_graph
+):
+    from app.modules.marketdemandanalyst.schemas import (
+        SkillReviewDraft,
+        SkillReviewRevision,
+    )
+    from app.modules.occupation_reference.models import OnetOccupation
+    from tests.modules.test_market_workspace_context import seed_onet
+
+    course, run, candidates, service, _ = seed_review(
+        db_session, client, teacher_auth_headers, labels=("SQL", "ETL"), mixed=True
+    )
+    evidence = seed_onet(db_session)[0]
+    evidence.ratings = {
+        "IM": {
+            "scale_id": "IM",
+            "value": 3.38,
+            "minimum": 1,
+            "maximum": 5,
+            "status": "reported",
+        }
+    }
+    occupation = db_session.get(OnetOccupation, ("30.0", "15-1252.00"))
+    occupation.title = "Software Developers"
+    run.config = {
+        **run.config,
+        "onet_release": "30.0",
+        "selected_onet_occupations": [
+            {"soc_code": "15-1252.00", "title": "Software Developers"}
+        ],
+    }
+    manifest = deepcopy(run.candidate_manifest)
+    manifest["candidates"][0]["onet_associations"] = [
+        {
+            "relation": "related",
+            "evidence": {
+                "id": str(evidence.id),
+                "release": "30.0",
+                "soc_code": "15-1252.00",
+                "family": "transferable",
+                "element_id": evidence.element_id,
+            },
+        }
+    ]
+    run.candidate_manifest = manifest
+    db_session.commit()
+    service.save_draft(
+        course["id"],
+        course["teacher_id"],
+        SkillReviewDraft(
+            run_id=run.id,
+            expected_candidate_revision=1,
+            expected_selection_revision=1,
+            selected_candidate_ids=[candidates[0]["candidate_id"]],
+            excluded_candidate_ids=[candidates[1]["candidate_id"]],
+        ),
+    )
+    service.confirm_selection(
+        course["id"],
+        course["teacher_id"],
+        SkillReviewRevision(
+            run_id=run.id,
+            expected_candidate_revision=1,
+            expected_selection_revision=2,
+        ),
+    )
+    model, _, state = live_graph
+    thread = service.thread_id(course["id"], course["teacher_id"])
+    state(thread)
+    before = deepcopy(
+        (
+            run.selected_candidate_ids,
+            run.excluded_candidate_ids,
+            run.selection_confirmation,
+            run.publication_revision,
+            run.approved_references,
+            run.integration_review,
+        )
+    )
+    repo = MarketReviewRepository(db_session)
+    snapshot = deepcopy(repo.load_active_snapshot(thread))
+    reply = "O*NET 30.0 reports Programming importance 3.38/5 for Software Developers. This related descriptor gives context for SQL, not an official SQL rating. ETL importance is unavailable. Teaching suggestion: use the SQL posting evidence to discuss curriculum fit and keep the explicit ETL exclusion."
+
+    def explain_current_bundle():
+        messages, tools = model.calls[-1]
+        assert tools == []
+        bundle = json.loads(messages[1].content.split("\n", 1)[1])
+        by_name = {row["display_name"]: row for row in bundle["candidates"]}
+        association = by_name["SQL"]["onet_associations"][0]
+        assert association["relation"] == "related"
+        assert association["evidence"]["label"] == "Programming"
+        assert association["evidence"]["ratings"]["IM"]["value"] == 3.38
+        assert association["evidence"]["occupation_title"] == "Software Developers"
+        assert association["evidence"]["release"] == "30.0"
+        assert by_name["ETL"]["onet_associations"] == []
+        return AIMessage(content=reply)
+
+    model.replies.append(explain_current_bundle)
+    response = client.post(
+        f"/courses/{course['id']}/market-demand/chat",
+        headers=teacher_auth_headers,
+        json={
+            "message": "Explain SQL and ETL importance",
+            "workspace_context": context(
+                run_id=str(run.id),
+                expected_selection_revision=2,
+                candidate_ids=[row["candidate_id"] for row in candidates],
+                occupation_codes=["15-1252.00"],
+                metric="IM",
+            ),
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert state(thread).values["messages"][-1].content == reply
+    assert len(reply.split()) <= 180
+    db_session.expire_all()
+    assert (
+        run.selected_candidate_ids,
+        run.excluded_candidate_ids,
+        run.selection_confirmation,
+        run.publication_revision,
+        run.approved_references,
+        run.integration_review,
+    ) == before
+    assert repo.load_active_snapshot(thread) == snapshot
 
 
 @pytest.mark.parametrize("intent", ["explain", "propose_selection"])

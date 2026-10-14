@@ -205,6 +205,47 @@ def _digest(value: dict) -> str:
     ).hexdigest()
 
 
+def candidate_advice_summary(review: SkillReview) -> dict:
+    """Separate verified job skills from references without exposing posting bodies."""
+    summary = review.model_dump(
+        mode="json",
+        exclude={"integration_review", "approved_references", "recommendations"},
+    )
+    counts = {
+        "job_backed_candidates": 0,
+        "reference_only_candidates": 0,
+        "unavailable_candidates": 0,
+    }
+    for candidate in summary["candidates"]:
+        candidate.pop("evidence_references", None)
+        supported = False
+        if candidate["posting_support"] == "supported":
+            for url in candidate["qualifying_posting_links"]:
+                try:
+                    parsed = urlsplit(url)
+                    supported = bool(
+                        parsed.scheme in {"http", "https"}
+                        and parsed.hostname
+                        and not parsed.username
+                        and not parsed.password
+                    )
+                except ValueError:
+                    continue
+                if supported:
+                    break
+        if supported:
+            counts["job_backed_candidates"] += 1
+        elif candidate["onet_associations"]:
+            counts["reference_only_candidates"] += 1
+        else:
+            counts["unavailable_candidates"] += 1
+    for key in ("selected_postings", "assessed_postings"):
+        value = review.extraction_coverage.get(key)
+        counts[key] = value if type(value) is int and value >= 0 else None
+    summary["evidence_counts"] = counts
+    return summary
+
+
 class SkillReviewService:
     def __init__(self, repository: MarketReviewRepository):
         self._repo = repository

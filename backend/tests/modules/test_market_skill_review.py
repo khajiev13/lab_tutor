@@ -1,5 +1,6 @@
 """Real PostgreSQL revision, ownership, and durable-run regression tests."""
 
+import json
 from uuid import uuid4
 
 import pytest
@@ -299,6 +300,224 @@ def draft_body(run_id, selected, excluded, revision=0, candidate_revision=1):
         "selected_candidate_ids": selected,
         "excluded_candidate_ids": excluded,
     }
+
+
+def test_candidate_advice_summary_separates_job_skills_from_references(
+    db_session, client, teacher_auth_headers
+):
+    from copy import deepcopy
+
+    from app.modules.marketdemandanalyst import review_service
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+    from app.modules.marketdemandanalyst.schemas import ProviderVacancy
+    from app.modules.marketdemandanalyst.state import bind_tool_store
+    from app.modules.marketdemandanalyst.tools import get_skills_by_category
+
+    course, run_id, _ = active_review(db_session, client, teacher_auth_headers)
+    repo = MarketReviewRepository(db_session)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    postings = [
+        repo.upsert_vacancy_snapshot(
+            run_id,
+            ProviderVacancy(
+                provider="headhunter",
+                native_id=f"advice-{index}",
+                original_url=f"https://hh.uz/vacancy/advice-{index}",
+                title="Developer",
+                original_description="Retained posting body",
+                description_text="Retained posting body",
+                skill_tags=[f"Job skill {i}" for i in range(index, 58, 7)],
+                raw_payload={},
+            ),
+        )
+        for index in range(7)
+    ]
+    association = {
+        "relation": "related",
+        "evidence": {"label": "Programming", "ratings": {"IM": {"value": 3.38}}},
+    }
+    candidates = []
+    for index in range(452):
+        supported = index < 58
+        posting = postings[index % 7]
+        candidates.append(
+            {
+                "candidate_id": str(uuid4()),
+                "display_name": f"Job skill {index}"
+                if supported
+                else f"Reference {index}",
+                "category_id": "technical",
+                "original_labels": [f"Original {index}"],
+                "aliases": [f"Alias {index}"],
+                "recommendation_reasons": ["Consider curriculum fit"],
+                "onet_associations": [deepcopy(association)],
+                "posting_support": "supported" if supported else "missing",
+                "qualifying_posting_links": [posting.original_url] if supported else [],
+                "job_metrics": {"supporting_posting_count": 1 if supported else 0},
+                "evidence_references": [
+                    {
+                        "snapshot_id": str(posting.id),
+                        "provider": "headhunter",
+                        "original_url": posting.original_url,
+                        "original_phrase": f"Job skill {index}",
+                        "evidence_kind": "provider_tag",
+                    }
+                ]
+                if supported
+                else [],
+            }
+        )
+    repo.update_manifest(
+        run_id,
+        course["id"],
+        course["teacher_id"],
+        expected_candidate_revision=1,
+        candidates=candidates,
+        categories=[{"category_id": "technical", "label": "Technical"}],
+    )
+    repo.save_draft(
+        run_id,
+        course["id"],
+        course["teacher_id"],
+        expected_candidate_revision=2,
+        expected_selection_revision=0,
+        selected_candidate_ids=[candidates[0]["candidate_id"]],
+        excluded_candidate_ids=[candidates[1]["candidate_id"]],
+    )
+    run.extraction_coverage = {"selected_postings": 7, "assessed_postings": 7}
+    repo.commit()
+    review = review_service.SkillReviewService(repo).get_review(
+        course["id"], course["teacher_id"]
+    )
+    summary = review_service.candidate_advice_summary(review)
+    assert summary["evidence_counts"] == {
+        "job_backed_candidates": 58,
+        "reference_only_candidates": 394,
+        "unavailable_candidates": 0,
+        "selected_postings": 7,
+        "assessed_postings": 7,
+    }
+    assert len(summary["candidates"]) == 452
+    assert all("evidence_references" not in c for c in summary["candidates"])
+    assert summary["candidate_revision"] == 2
+    assert summary["selection_revision"] == 1
+    assert summary["selected_candidate_ids"] == [candidates[0]["candidate_id"]]
+    assert summary["excluded_candidate_ids"] == [candidates[1]["candidate_id"]]
+    assert summary["candidates"][0]["onet_associations"] == [association]
+    assert summary["candidates"][0]["aliases"] == ["Alias 0"]
+    assert summary["candidates"][0]["original_labels"] == ["Original 0"]
+    assert summary["candidates"][0]["recommendation_reasons"] == [
+        "Consider curriculum fit"
+    ]
+    assert summary["candidates"][0]["job_metrics"] == {"supporting_posting_count": 1}
+    assert (
+        not {"integration_review", "approved_references", "recommendations"}
+        & summary.keys()
+    )
+    assert "Retained posting body" not in json.dumps(summary)
+    assert review.candidates[0].evidence_references
+    with bind_tool_store(
+        {
+            "run_id": str(run_id),
+            "course_id": course["id"],
+            "teacher_id": course["teacher_id"],
+        }
+    ):
+        assert json.loads(get_skills_by_category.invoke({})) == summary
+
+
+@pytest.mark.parametrize(
+    "coverage,selected,assessed",
+    [
+        ({}, None, None),
+        ({"selected_postings": 0, "assessed_postings": 0}, 0, 0),
+        ({"selected_postings": 7}, 7, None),
+    ],
+)
+def test_candidate_advice_summary_does_not_invent_coverage(
+    db_session, client, teacher_auth_headers, coverage, selected, assessed
+):
+    from app.modules.marketdemandanalyst import review_service
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+
+    course, run_id, _ = active_review(db_session, client, teacher_auth_headers)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    run.extraction_coverage = coverage
+    db_session.commit()
+    review = review_service.SkillReviewService(
+        MarketReviewRepository(db_session)
+    ).get_review(course["id"], course["teacher_id"])
+    assert review_service.candidate_advice_summary(review)["evidence_counts"] == {
+        "job_backed_candidates": 0,
+        "reference_only_candidates": 1,
+        "unavailable_candidates": 1,
+        "selected_postings": selected,
+        "assessed_postings": assessed,
+    }
+
+
+@pytest.mark.parametrize(
+    "links",
+    [
+        [],
+        ["file:///tmp/posting"],
+        ["https:///vacancy/1"],
+        ["https://user:secret@hh.uz/vacancy/1"],
+    ],
+)
+def test_candidate_advice_summary_requires_valid_posting_url(
+    db_session, client, teacher_auth_headers, links
+):
+    from copy import deepcopy
+
+    from app.modules.marketdemandanalyst import review_service
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+
+    course, run_id, _ = active_review(db_session, client, teacher_auth_headers)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    manifest = deepcopy(run.candidate_manifest)
+    manifest["candidates"][1].update(
+        posting_support="supported", qualifying_posting_links=links
+    )
+    run.candidate_manifest = manifest
+    db_session.commit()
+    review = review_service.SkillReviewService(
+        MarketReviewRepository(db_session)
+    ).get_review(course["id"], course["teacher_id"])
+    counts = review_service.candidate_advice_summary(review)["evidence_counts"]
+    assert counts["job_backed_candidates"] == 0
+    assert counts["reference_only_candidates"] == 1
+    assert counts["unavailable_candidates"] == 1
+
+
+@pytest.mark.parametrize("foreign", ["run", "owner"])
+def test_candidate_advice_tool_rejects_wrong_run_or_owner(
+    db_session, client, teacher_auth_headers, foreign
+):
+    from app.modules.marketdemandanalyst.state import bind_tool_store
+    from app.modules.marketdemandanalyst.tools import get_skills_by_category
+
+    course, run_id, _ = active_review(db_session, client, teacher_auth_headers)
+    state = {
+        "run_id": str(run_id),
+        "course_id": course["id"],
+        "teacher_id": course["teacher_id"],
+    }
+    if foreign == "run":
+        state["run_id"] = str(uuid4())
+    else:
+        state["teacher_id"] += 1
+    with bind_tool_store(state):
+        result = get_skills_by_category.invoke({})
+    assert "candidate_id" not in result
+    assert (
+        result.startswith("Candidate review unavailable:")
+        if foreign == "owner"
+        else result == "Review must belong to the active analysis."
+    )
 
 
 def review_url(course):

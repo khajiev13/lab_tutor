@@ -1923,7 +1923,7 @@ def get_skills_by_category() -> str:
     Call this after extraction completes to present skills to the teacher."""
     if tool_store.get("run_id"):
         from .repository import MarketReviewRepository
-        from .review_service import SkillReviewService
+        from .review_service import SkillReviewService, candidate_advice_summary
 
         with SessionLocal() as db:
             service = SkillReviewService(MarketReviewRepository(db))
@@ -1933,17 +1933,7 @@ def get_skills_by_category() -> str:
                 )
                 if str(review.run_id) != tool_store["run_id"]:
                     return "Review must belong to the active analysis."
-                summary = review.model_dump(
-                    mode="json",
-                    exclude={
-                        "integration_review",
-                        "approved_references",
-                        "recommendations",
-                    },
-                )
-                for candidate in summary["candidates"]:
-                    candidate.pop("evidence_references", None)
-                return json.dumps(summary)
+                return json.dumps(candidate_advice_summary(review))
             except Exception as exc:
                 return f"Candidate review unavailable: {exc}"
     skills = tool_store.get("extracted_skills", [])
