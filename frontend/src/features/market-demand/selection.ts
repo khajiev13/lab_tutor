@@ -1,4 +1,4 @@
-import type { RecommendationProposal } from "@/features/market-demand/types";
+import type { RecommendationProposal, SkillCandidate, SkillReview } from "@/features/market-demand/types";
 
 export interface SelectionDraft {
   selected_candidate_ids: string[];
@@ -49,11 +49,17 @@ export function reconcileDraft(draft: SelectionDraft, candidateIds: string[]) {
 }
 
 export function isUsablePostingUrl(value: string): boolean {
-  if (!/^https?:\/\//i.test(value)) return false;
+  if (!/^https?:\/\/[^/\\]/i.test(value)) return false;
   try {
     const url = new URL(value);
-    return (url.protocol === "https:" || url.protocol === "http:") && !!url.hostname;
+    return (url.protocol === "https:" || url.protocol === "http:") && !!url.hostname && !url.username && !url.password;
   } catch {
     return false;
   }
+}
+
+export function jobBackedCandidates(review: SkillReview): SkillCandidate[] {
+  return review.candidates.filter(candidate => candidate.posting_support === "supported" &&
+    candidate.qualifying_posting_links.some(isUsablePostingUrl))
+    .sort((a, b) => a.display_name.localeCompare(b.display_name) || a.candidate_id.localeCompare(b.candidate_id));
 }

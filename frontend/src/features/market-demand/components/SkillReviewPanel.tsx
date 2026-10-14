@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { skillReviewErrorMessage } from "@/features/market-demand/api";
 import { SkillEvidencePanel } from "@/features/market-demand/components/SkillEvidencePanel";
 import { IntegrationReview } from "@/features/market-demand/components/IntegrationReview";
-import { categorySelectionState } from "@/features/market-demand/selection";
+import { categorySelectionState, jobBackedCandidates } from "@/features/market-demand/selection";
 import type { SkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
 import type { SkillCandidate } from "@/features/market-demand/types";
 
@@ -34,7 +34,9 @@ export function SkillReviewPanel({courseId, controller, onRefresh}: Props) {
   const reconciliations = snapshot.reconciliations ?? [];
   const unresolvedReconciliations = reconciliations.filter(record => !record.resolved);
   const locked = disabled || busy;
-  const missingCount = snapshot.candidates.filter(item => draft.selected_candidate_ids.includes(item.candidate_id) && item.posting_support === "missing").length;
+  const eligible = jobBackedCandidates(snapshot);
+  const eligibleIds = new Set(eligible.map(item => item.candidate_id));
+  const missingCount = snapshot.candidates.filter(item => draft.selected_candidate_ids.includes(item.candidate_id) && !eligibleIds.has(item.candidate_id)).length;
   const coverage = snapshot.extraction_coverage;
   const needsAcknowledgement = controller.needsEvidenceAcknowledgement;
   const occupations = [...new Map(snapshot.candidates.flatMap(item => item.onet_associations.map(({evidence}) => [evidence.soc_code,evidence.occupation_title] as const))).entries()];
@@ -70,7 +72,7 @@ export function SkillReviewPanel({courseId, controller, onRefresh}: Props) {
       {needsAcknowledgement && <Button size="sm" variant="outline" disabled={locked || dirty} onClick={() => void perform("continue")}>Continue with available evidence</Button>}
       {dirty && <p className="text-xs">Unsaved shortlist changes</p>}
       {controller.reconciliation && <p role="alert" className="text-xs text-destructive">{controller.reconciliation}</p>}
-      {reviewRequired && <div className="space-y-2 text-xs"><p>The review revisions changed. Check the refreshed candidates and saved decisions before saving your retained local choices.</p><Button size="sm" variant="outline" disabled={locked} onClick={controller.acknowledgeIncomingReview}>I reviewed the changed revisions</Button></div>}
+      {reviewRequired && <div className="space-y-2 text-xs"><p>Review required. Check changed candidates and remove saved choices without supporting job evidence before continuing.</p><Button size="sm" variant="outline" disabled={locked} onClick={controller.acknowledgeIncomingReview}>I reviewed the changed revisions</Button></div>}
       {reconciliations.length > 0 && <section aria-label="Candidate reconciliation" className="space-y-2 rounded-md border p-3 text-xs">
         <h3 className="font-medium">Candidate reconciliation</h3>
         {unresolvedReconciliations.length > 0 && <p>Review each changed candidate and save explicit acknowledgements before confirming for mapping.</p>}
@@ -91,21 +93,21 @@ export function SkillReviewPanel({courseId, controller, onRefresh}: Props) {
       </section>}
       {snapshot.categories.map(category => {
         const members = snapshot.candidates.filter(item => item.category_id === category.category_id);
-        const memberIds = members.map(item => item.candidate_id);
+        const memberIds = members.filter(item => eligibleIds.has(item.candidate_id)).map(item => item.candidate_id);
         const rows = members.filter(visible).sort(compare);
         const isCollapsed = collapsed.includes(category.category_id);
-        const selectedCount = members.filter(item => draft.selected_candidate_ids.includes(item.candidate_id)).length;
+        const selectedCount = memberIds.filter(id => draft.selected_candidate_ids.includes(id)).length;
         return (
           <div key={category.category_id} className="rounded-md border">
             <div className="flex items-center gap-2 p-2">
-              <Checkbox aria-label={`Select category ${category.label} (${members.length} current members)`} checked={categorySelectionState(memberIds,draft.selected_candidate_ids)} disabled={locked || members.length === 0} onCheckedChange={checked => controller.setCategory(category.category_id, checked === true)}/>
+              <Checkbox aria-label={`Select category ${category.label} (${memberIds.length} current members)`} checked={categorySelectionState(memberIds,draft.selected_candidate_ids)} disabled={locked || memberIds.length === 0} onCheckedChange={checked => controller.setCategory(category.category_id, checked === true)}/>
               <Button variant="ghost" size="sm" aria-expanded={!isCollapsed} onClick={() => setCollapsed(isCollapsed ? collapsed.filter(id => id !== category.category_id) : [...collapsed,category.category_id])}>{category.label}</Button>
-              <span className="text-xs text-muted-foreground">{selectedCount}/{members.length} selected · {rows.length} visible</span>
+              <span className="text-xs text-muted-foreground">{selectedCount}/{memberIds.length} selected · {rows.length} visible</span>
             </div>
             {!isCollapsed && <div className="space-y-2 p-2">{rows.map(candidate => (
               <div key={candidate.candidate_id} className={cn("space-y-2 rounded-md border p-2",candidate.posting_support === "missing" && "border-dashed")}>
-                <label className="flex items-center gap-2 text-sm font-medium"><Checkbox aria-label={`Select ${candidate.display_name}`} checked={draft.selected_candidate_ids.includes(candidate.candidate_id)} disabled={locked} onCheckedChange={checked => controller.setCandidate(candidate.candidate_id, checked === true)}/>{candidate.display_name}</label>
-                {candidate.posting_support === "missing" && <p className="text-xs text-destructive">Needs supporting job posting</p>}
+                <label className="flex items-center gap-2 text-sm font-medium"><Checkbox aria-label={`Select ${candidate.display_name}`} checked={draft.selected_candidate_ids.includes(candidate.candidate_id)} disabled={locked || (!eligibleIds.has(candidate.candidate_id) && !draft.selected_candidate_ids.includes(candidate.candidate_id))} onCheckedChange={checked => controller.setCandidate(candidate.candidate_id, checked === true)}/>{candidate.display_name}</label>
+                {!eligibleIds.has(candidate.candidate_id) && <p className="text-xs text-destructive">Needs supporting job posting</p>}
                 <p className="text-xs">Job sample: {candidate.job_metrics.supporting_posting_count ?? "unavailable"} supporting / {candidate.job_metrics.assessed_posting_count ?? "unavailable"} assessed / {candidate.job_metrics.selected_posting_count ?? "unavailable"} selected · frequency {candidate.job_metrics.percentage == null ? "unavailable" : `${candidate.job_metrics.percentage}%`} · coverage {candidate.job_metrics.coverage_status ?? "unavailable"}</p>
                 {candidate.onet_associations.map(association => (
                   <div key={`${association.evidence.id}:${association.relation}`} className="text-xs space-y-1">

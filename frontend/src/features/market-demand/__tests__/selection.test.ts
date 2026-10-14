@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applyCategorySelection, applyIndividualSelection, applyRecommendationChanges, categorySelectionState, reconcileDraft } from "@/features/market-demand/selection";
+import { applyCategorySelection, applyIndividualSelection, applyRecommendationChanges, categorySelectionState, reconcileDraft, jobBackedCandidates, isUsablePostingUrl } from "@/features/market-demand/selection";
+
+import { largeReviewFixture, reviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
 
 describe("explicit snapshot selection", () => {
   it("selects all current members and clears their exclusions without selecting later IDs", () => {
@@ -20,5 +22,33 @@ describe("explicit snapshot selection", () => {
   });
   it("reconciles removed IDs visibly without transferring a selection to a merged or late member", () => {
     expect(reconcileDraft({selected_candidate_ids:["a","removed"],excluded_candidate_ids:["b"]},["a","b","merged","late"])).toEqual({draft:{selected_candidate_ids:["a"],excluded_candidate_ids:["b"]},removed_ids:["removed"]});
+  });
+});
+
+
+describe("job-backed choices", () => {
+  it("excludes reference-only candidates and orders eligible skills by name then ID", () => {
+    const review = largeReviewFixture();
+    review.candidates.reverse();
+    const choices = jobBackedCandidates(review);
+    expect(choices).toHaveLength(58);
+    expect(choices[0].candidate_id).toBe("job-01");
+    expect(choices[57].candidate_id).toBe("job-58");
+  });
+  it.each(["https://user:pass@example.com/job", "http://user@example.com/job", "https:///", "https:///example.com/job", "https://\\example.com/job", "//example.com/job", "javascript:alert(1)"])("rejects unusable posting URL %s", url => {
+    expect(isUsablePostingUrl(url)).toBe(false);
+    const review = reviewFixture();
+    review.candidates[0].qualifying_posting_links = [url];
+    expect(jobBackedCandidates(review).map(item => item.candidate_id)).toEqual(["sql"]);
+  });
+  it("breaks equal-name ties by candidate ID", () => {
+    const review = reviewFixture();
+    review.candidates = [{...review.candidates[0], display_name: "Same", candidate_id: "z"}, {...review.candidates[0], display_name: "Same", candidate_id: "a"}];
+    expect(jobBackedCandidates(review).map(item => item.candidate_id)).toEqual(["a", "z"]);
+  });
+  it("requires supported status even with a valid URL", () => {
+    const review = reviewFixture();
+    review.candidates[0].posting_support = "missing";
+    expect(jobBackedCandidates(review).map(item => item.candidate_id)).toEqual(["sql"]);
   });
 });

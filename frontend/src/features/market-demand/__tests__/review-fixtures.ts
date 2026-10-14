@@ -78,3 +78,23 @@ export function workspaceEvidenceFixture(overrides: Partial<OnetEvidence> = {}):
       LV: {scale_id: "LV", value: 0, minimum: 0, maximum: 7, status: "reported", date: null, quality: {}}},
     flags: {}, source_url: "https://onetonline.org", attribution: "O*NET", ...overrides}};
 }
+
+export function largeReviewFixture(): SkillReview {
+  const base = reviewFixture();
+  return {
+    ...base,
+    categories: [{category_id: "tools", label: "Tools"}, {category_id: "other", label: "Other skills"}],
+    candidates: [
+      ...Array.from({length: 58}, (_, index) => ({...base.candidates[0],
+        candidate_id: `job-${String(index + 1).padStart(2, "0")}`,
+        display_name: `Job skill ${String(index + 1).padStart(2, "0")}`,
+        category_id: index < 12 ? "tools" : "other", aliases: [],
+      })),
+      ...Array.from({length: 394}, (_, index) => ({...base.candidates[2],
+        candidate_id: `reference-${index + 1}`, display_name: `Reference skill ${index + 1}`,
+        onet_associations: [workspaceEvidenceFixture()],
+      })),
+    ],
+    excluded_candidate_ids: ["reference-1"],
+  };
+}

@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { useSkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
-import { reconciliationA, reconciliationB, reconciliationFixture, reviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
+import { reconciliationA, reconciliationB, reconciliationFixture, reviewFixture, largeReviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
 import type { SkillReview } from "@/features/market-demand/types";
 
 vi.mock("@/features/market-demand/api", async () => ({
@@ -21,9 +21,9 @@ it("selects all current category members despite search and leaves empty categor
   const {result} = setup();
   act(() => result.current.updateView({filters: {category_ids: [], search: "Python", scope: "all"}}));
   act(() => result.current.setCategory("tools", true));
-  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "sql", "reference"]);
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "sql"]);
   act(() => result.current.setCategory("empty", false));
-  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "sql", "reference"]);
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "sql"]);
   act(() => result.current.undo());
   expect(result.current.draft.selected_candidate_ids).toEqual([]);
 });
@@ -258,7 +258,7 @@ it("composes category, exclusion and reconciliation acknowledgements in one turn
     result.current.acknowledgeReconciliation(reconciliationA);
     result.current.acknowledgeReconciliation(reconciliationB);
   });
-  expect(result.current.draft.selected_candidate_ids).toEqual(["python", "reference"]);
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python"]);
   expect(result.current.draft.excluded_candidate_ids).toEqual(["sql"]);
   expect(result.current.pendingReconciliationIds).toEqual([reconciliationA, reconciliationB]);
 });
@@ -299,4 +299,57 @@ it("a retained mapping action uses the current dirty flag and saves newer choice
   await act(async () => {await retainedMappings();});
   expect(saveSkillReviewDraft).toHaveBeenCalledWith(1, expect.objectContaining({selected_candidate_ids: ["python"]}));
   expect(confirmSkillReviewSelection).toHaveBeenCalledWith(1, expect.objectContaining({expected_selection_revision: 5}));
+});
+
+
+it("selects all 12 eligible category members and preserves unrelated reference exclusions", () => {
+  const {result} = setup(largeReviewFixture());
+  act(() => result.current.updateView({page: 2, filters: {category_ids: [], search: "Job skill 01", scope: "all"}}));
+  act(() => result.current.setCategory("tools", true));
+  expect(result.current.draft.selected_candidate_ids).toHaveLength(12);
+  act(() => result.current.setCandidate("job-12", false));
+  expect(result.current.draft.selected_candidate_ids).toHaveLength(11);
+  expect(result.current.draft.excluded_candidate_ids).toEqual(["reference-1", "job-12"]);
+});
+
+it("rejects new unsupported selections and add proposals while allowing unsupported removal", () => {
+  const review = {...reviewFixture(), recommendations: [{id: "proposal", candidate_revision: 1, base_selection_revision: 2, changes: [
+    {candidate_id: "reference", action: "add" as const, reason: "Context only"},
+  ]}]};
+  const {result} = setup(review);
+  act(() => {result.current.setCandidate("reference", true); result.current.applyProposal("proposal");});
+  expect(result.current.draft.selected_candidate_ids).toEqual([]);
+  const saved = setup({...review, selected_candidate_ids: ["reference"], recommendations: [{...review.recommendations[0], changes: [{candidate_id: "reference", action: "remove", reason: "Missing job evidence"}]}]});
+  expect(saved.result.current.reviewRequired).toBe(true);
+  act(() => saved.result.current.applyProposal("proposal"));
+  expect(saved.result.current.draft.selected_candidate_ids).toEqual([]);
+  expect(saved.result.current.draft.excluded_candidate_ids).toEqual(["reference"]);
+});
+
+it("keeps a saved skill that loses qualifying evidence visible and blocks acknowledgement bypass", async () => {
+  const review = {...reviewFixture(), selected_candidate_ids: ["python"]};
+  const {result, rerender, onReviewChange} = setup(review);
+  rerender({courseId: 1, review: {...review, candidate_revision: 2, candidates: review.candidates.map(item => item.candidate_id === "python" ? {...item, qualifying_posting_links: []} : item)}, onReviewChange});
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python"]);
+  expect(result.current.reviewRequired).toBe(true);
+  act(() => result.current.acknowledgeIncomingReview());
+  expect(result.current.reviewRequired).toBe(true);
+  await act(async () => {await expect(result.current.reviewMappings()).rejects.toThrow(/review|evidence/i);});
+  act(() => result.current.setCandidate("python", false));
+  act(() => result.current.acknowledgeIncomingReview());
+  expect(result.current.reviewRequired).toBe(false);
+  expect(result.current.draft.excluded_candidate_ids).toContain("python");
+});
+
+
+it("records explicit evidence acknowledgement without allowing unsupported confirmation", async () => {
+  const review = {...reviewFixture(), selected_candidate_ids: ["reference"], extraction_coverage: {status: "partial" as const, acknowledged: false}};
+  const {result} = setup(review);
+  vi.mocked(continueWithAvailableEvidence).mockResolvedValue({...review, extraction_coverage: {...review.extraction_coverage, acknowledged: true}});
+  await act(async () => {await result.current.acknowledgeAvailableEvidence();});
+  expect(result.current.needsEvidenceAcknowledgement).toBe(false);
+  expect(result.current.draft.selected_candidate_ids).toEqual(["reference"]);
+  expect(result.current.reviewRequired).toBe(true);
+  await act(async () => {await expect(result.current.reviewMappings()).rejects.toThrow(/review/i);});
+  expect(confirmSkillReviewSelection).not.toHaveBeenCalled();
 });

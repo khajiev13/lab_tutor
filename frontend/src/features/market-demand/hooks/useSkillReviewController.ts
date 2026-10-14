@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { confirmSkillReviewSelection, continueWithAvailableEvidence, saveSkillReviewDraft, skillReviewErrorMessage } from "@/features/market-demand/api";
-import { applyCategorySelection, applyIndividualSelection, applyRecommendationChanges, reconcileDraft } from "@/features/market-demand/selection";
+import { applyCategorySelection, applyIndividualSelection, applyRecommendationChanges, reconcileDraft, jobBackedCandidates } from "@/features/market-demand/selection";
 import type { SelectionDraft } from "@/features/market-demand/selection";
 import type { SkillReview, WorkspaceViewState } from "@/features/market-demand/types";
 
@@ -46,6 +46,10 @@ function sameDraft(a: SelectionDraft, b: SelectionDraft) {
 }
 function draftOf(review: SkillReview | null): SelectionDraft {
   return {selected_candidate_ids: review?.selected_candidate_ids ?? [], excluded_candidate_ids: review?.excluded_candidate_ids ?? []};
+}
+function hasUnsupportedSelection(review: SkillReview | null, draft: SelectionDraft) {
+  const eligible = new Set(review ? jobBackedCandidates(review).map(item => item.candidate_id) : []);
+  return draft.selected_candidate_ids.some(id => !eligible.has(id));
 }
 function sameRevision(a: SkillReview | null, b: SkillReview | null) {
   return a?.run_id === b?.run_id && a?.candidate_revision === b?.candidate_revision && a?.selection_revision === b?.selection_revision;
@@ -133,7 +137,7 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
     const current = live.current.model;
     const requestDirty = !sameDraft(current.draft, draftOf(current.snapshot)) || current.reconciliationIds.length > 0;
     if (!current.snapshot?.run_id || live.current.disabled || activeRequest.current !== null) throw new Error("Skill review is unavailable or busy");
-    if (current.reviewRequired) throw new Error("Review the changed revisions before saving");
+    if (current.reviewRequired || (action !== "continue" && hasUnsupportedSelection(current.snapshot, current.draft))) throw new Error("Review the changed revisions before saving");
     if (action === "continue" && requestDirty) throw new Error("Save the draft before acknowledging evidence");
     const request = ++generation.current;
     activeRequest.current = request;
@@ -156,7 +160,7 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
       }
       if (action === "confirm") {
         assertCurrent();
-        if (needsEvidenceAcknowledgement(acknowledged) || acknowledged.reconciliations?.some(record => !record.resolved) || !acknowledged.selected_candidate_ids.length) {
+        if (hasUnsupportedSelection(acknowledged, draftOf(acknowledged)) || needsEvidenceAcknowledgement(acknowledged) || acknowledged.reconciliations?.some(record => !record.resolved) || !acknowledged.selected_candidate_ids.length) {
           throw new Error("Review reconciliation and evidence omissions before confirming a selection");
         }
         acknowledged = accept(await confirmSkillReviewSelection(courseId, revision(acknowledged)));
@@ -178,17 +182,20 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
 
   return {
     review: model.snapshot, draft: model.draft, view: model.view, dirty, busy: model.busy, disabled,
-    reviewRequired: model.reviewRequired, error: model.error, success: model.success, canUndo: !!model.undo,
+    reviewRequired: model.reviewRequired || hasUnsupportedSelection(model.snapshot, model.draft), error: model.error, success: model.success, canUndo: !!model.undo,
     reconciliation: model.reconciliation, pendingReconciliationIds,
     needsEvidenceAcknowledgement: needsEvidenceAcknowledgement(model.snapshot),
-    setCandidate: (id, checked) => mutate(current => current.snapshot?.candidates.some(item => item.candidate_id === id)
+    setCandidate: (id, checked) => mutate(current => current.snapshot?.candidates.some(item => item.candidate_id === id) &&
+      (!checked || jobBackedCandidates(current.snapshot).some(item => item.candidate_id === id))
       ? applyIndividualSelection(current.draft, id, checked) : current.draft),
     setCategory: (id, checked) => mutate(current => applyCategorySelection(current.draft,
-      current.snapshot?.candidates.filter(item => item.category_id === id).map(item => item.candidate_id) ?? [], checked)),
+      (current.snapshot ? jobBackedCandidates(current.snapshot) : []).filter(item => item.category_id === id).map(item => item.candidate_id), checked)),
     applyProposal: (id, chosenIds) => mutate(current => {
       const proposal = current.snapshot?.recommendations.find(item => item.id === id);
       if (!proposal || proposal.candidate_revision !== current.snapshot?.candidate_revision || proposal.base_selection_revision !== current.snapshot.selection_revision) return current.draft;
-      const changes = proposal.changes.filter(change => current.snapshot!.candidates.some(item => item.candidate_id === change.candidate_id));
+      const eligible = new Set(jobBackedCandidates(current.snapshot).map(item => item.candidate_id));
+      const changes = proposal.changes.filter(change => current.snapshot!.candidates.some(item => item.candidate_id === change.candidate_id) &&
+        (change.action === "remove" || eligible.has(change.candidate_id)));
       return applyRecommendationChanges(current.draft, changes, chosenIds ?? changes.map(change => change.candidate_id));
     }),
     acknowledgeReconciliation: (id, checked = true) => updateLocal(current => {
