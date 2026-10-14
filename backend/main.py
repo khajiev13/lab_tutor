@@ -51,6 +51,9 @@ from app.core.neo4j import (  # noqa: E402
     verify_neo4j_connectivity,
 )
 from app.core.request_timing_middleware import RequestTimingMiddleware  # noqa: E402
+from app.core.restoration_compression import (  # noqa: E402
+    MarketRestorationCompressionMiddleware,
+)
 from app.core.settings import settings  # noqa: E402
 from app.modules.auth import routes as auth_routes  # noqa: E402
 from app.modules.cognitive_diagnosis import (  # noqa: E402
@@ -716,6 +719,10 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
 )
+
+# Register inside RequestTimingMiddleware so its streaming wrapper cannot bypass
+# the compression threshold for small JSON responses.
+app.add_middleware(MarketRestorationCompressionMiddleware)
 
 # Lightweight per-request timing instrumentation (headers + optional logging).
 app.add_middleware(
