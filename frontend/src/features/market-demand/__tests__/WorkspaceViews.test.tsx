@@ -484,7 +484,7 @@ it.each(["course", "snapshot", "candidate"] as const)("pending posting response 
   let resolvePrevious!: (posting: PostingEvidence) => void;
   vi.mocked(fetchPostingEvidence).mockReset()
     .mockImplementationOnce(() => new Promise(resolve => {resolvePrevious = resolve;}))
-    .mockResolvedValueOnce(purgedPostingFixture());
+    .mockResolvedValueOnce({...purgedPostingFixture(), snapshot_id: identity === "snapshot" ? "snapshot-2" : "snapshot-1"});
   const candidate = reviewFixture().candidates[0];
   const {rerender} = render(<SkillEvidencePanel courseId={1} candidate={candidate}/>);
   const user = userEvent.setup();

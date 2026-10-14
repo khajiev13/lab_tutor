@@ -1,67 +1,104 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import {ArrowUpRight, ChevronRight} from "lucide-react";
+import {Dialog, DialogContent, DialogDescription, DialogTitle} from "@/components/ui/dialog";
+import {groupPostingEvidence, postingPassageKey} from "@/features/market-demand/posting-evidence";
+import type {PostingEvidenceGroup} from "@/features/market-demand/posting-evidence";
 import {DescriptorChooser} from "@/features/market-demand/components/WorkspaceDataTable";
 import { Button } from "@/components/ui/button";
 import { isUsablePostingUrl } from "@/features/market-demand/selection";
 import { fetchPostingEvidence } from "@/features/market-demand/api";
-import type { DescriptorChoice, OnetMetric, PostingEvidence, RatingResolution, SkillCandidate, VacancyEvidenceReference } from "@/features/market-demand/types";
+import type { DescriptorChoice, OnetMetric, PostingEvidence, RatingResolution, SkillCandidate } from "@/features/market-demand/types";
 
 export function EvidenceLink({url, label}: {url: string; label: string}) {
   if (!isUsablePostingUrl(url)) return null;
-  return <a href={url} target="_blank" rel="noopener noreferrer" className="break-all text-primary underline">{label}</a>;
+  return <a href={url} target="_blank" rel="noopener noreferrer" className="break-all text-primary underline">{label}<ArrowUpRight aria-hidden="true" className="ml-1 inline size-3"/></a>;
 }
 
-function PostingDetails({courseId, evidence, recheck, onRequested}: {
-  courseId: number; evidence: VacancyEvidenceReference; recheck: boolean; onRequested: () => void;
+interface SnapshotCheck {
+  posting?: PostingEvidence;
+  loading: boolean;
+  error?: string;
+}
+
+function isPurged(posting: PostingEvidence) {
+  return !!posting.purged_at || posting.status === "purged";
+}
+
+function PostingDetails({group, checks, load, dialog}: {
+  group: PostingEvidenceGroup; checks: Record<string, SnapshotCheck>; load: (ids: string[]) => void; dialog: boolean;
 }) {
-  const [posting, setPosting] = useState<PostingEvidence | null>(null);
-  const [renewOnMount] = useState(recheck);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const load = async () => {
-    onRequested();
-    abortRef.current?.abort();
-    const abort = new AbortController();
-    abortRef.current = abort;
-    setPosting(null);
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetchPostingEvidence(courseId, evidence.snapshot_id, abort.signal);
-      if (!abort.signal.aborted) setPosting(response);
-    } catch (cause) {
-      if (!abort.signal.aborted) setError(cause instanceof Error ? cause.message : "Posting evidence unavailable");
-    } finally {
-      if (!abort.signal.aborted) setLoading(false);
-    }
+  const loaded = group.snapshotIds.map(id => checks[id]?.posting).filter((posting): posting is PostingEvidence => !!posting);
+  const current = loaded.find(posting => !isPurged(posting));
+  const loading = group.snapshotIds.some(id => checks[id]?.loading);
+  return <article className="space-y-2 rounded-md border p-3">
+    <h3 className="font-medium">{current?.title ?? `Posting ${group.snapshotIds.join(", ") || "link"}`}{current?.company && ` · ${current.company}`}</h3>
+    {group.originalUrls.map(url => <p key={url}><EvidenceLink url={url} label={dialog ? "Original posting" : "Original job posting"}/></p>)}
+    {!group.snapshotIds.length && <p>No retained posting content. Retained provenance only.</p>}
+    {group.snapshotIds.map(id => {
+      const check = checks[id];
+      const posting = check?.posting;
+      const purged = !!posting && isPurged(posting);
+      const reference = group.references.find(item => item.snapshot_id === id)!;
+      const availability = posting ? purged ? "purged" : posting.status : check?.loading ? "checking current availability" : check?.error ? "current availability unavailable" : "current availability not checked";
+      return <div key={id} className="space-y-2">
+        <p>{reference.provider} · retrieved {posting?.retrieved_at ?? reference.retrieved_at} · {availability}</p>
+        {check?.error && <p role="alert" className="text-destructive">{check.error}</p>}
+        {purged && <p>Posting content unavailable: purged {posting!.purged_at ?? "(date not reported)"}. Retained provenance only.</p>}
+        {posting && !purged && <>
+          {group.references.filter(item => item.snapshot_id === id).map(item => <div key={postingPassageKey(item)} className="space-y-1">
+            <p>{item.evidence_kind === "provider_tag" ? "Provider tag" : "Validated source passage"}: {item.original_phrase}</p>
+            {item.excerpt && <blockquote className="border-l-2 pl-2">{item.excerpt}</blockquote>}
+            {item.excerpt_start != null && <p>Cleaned text offsets: {item.excerpt_start}–{item.excerpt_end} (end exclusive)</p>}
+          </div>)}
+          <details><summary className="cursor-pointer"><ChevronRight aria-hidden="true" className="mr-1 inline size-3"/>Full posting description · {posting.title ?? id}</summary>
+            <p className="whitespace-pre-wrap">{posting.description_text}</p>
+            <details><summary className="cursor-pointer">Original description (text)</summary><pre className="whitespace-pre-wrap break-all">{posting.original_description}</pre></details>
+            <details><summary className="cursor-pointer">Full returned provider data</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(posting.raw_payload, null, 2)}</pre></details>
+          </details>
+        </>}
+      </div>;
+    })}
+    {!!group.snapshotIds.length && <Button variant="outline" size="sm" disabled={loading} onClick={() => load(group.snapshotIds)}>{loading ? "Loading evidence…" : loaded.length ? "Reload full posting evidence" : "Load full posting evidence"}</Button>}
+  </article>;
+}
+
+// This component lives for one open inspection only. Neither bodies nor pending
+// responses survive closing, course/candidate changes, or changed references.
+function PostingInspection({courseId, groups, initialIds, onRequested, dialog}: {
+  courseId: number; groups: PostingEvidenceGroup[]; initialIds: string[]; onRequested: (id: string) => void; dialog: boolean;
+}) {
+  const [checks, setChecks] = useState<Record<string, SnapshotCheck>>({});
+  const session = useRef<{abort: AbortController; queue: string[]; requested: Set<string>; active: number} | null>(null);
+  const load = (ids: string[], reload = true) => {
+    const current = session.current;
+    if (!current || current.abort.signal.aborted) return;
+    const queued = [...new Set(ids)].filter(id => reload || !current.requested.has(id));
+    queued.forEach(id => {current.requested.add(id); onRequested(id);});
+    setChecks(previous => ({...previous, ...Object.fromEntries(queued.map(id => [id, {loading: true}]))}));
+    current.queue.push(...queued);
+    const pump = () => {
+      while (!current.abort.signal.aborted && current.active < 3 && current.queue.length) {
+        const id = current.queue.shift()!;
+        current.active++;
+        void fetchPostingEvidence(courseId, id, current.abort.signal).then(posting => {
+          if (current.abort.signal.aborted) return;
+          if (posting.snapshot_id !== id) throw new Error("Posting evidence unavailable: snapshot identity mismatch");
+          setChecks(previous => ({...previous, [id]: {posting, loading: false}}));
+        }).catch(cause => {
+          if (!current.abort.signal.aborted) setChecks(previous => ({...previous, [id]: {loading: false, error: cause instanceof Error ? cause.message : "Posting evidence unavailable"}}));
+        }).finally(() => {current.active--; pump();});
+      }
+    };
+    pump();
   };
-  const renewInspection = useEffectEvent(load);
+  const initialize = useEffectEvent(() => load(initialIds, false));
   useEffect(() => {
-    if (renewOnMount) void renewInspection();
-    return () => abortRef.current?.abort();
-  }, [courseId, evidence.snapshot_id, renewOnMount]);
-  const purged = !!posting && (!!posting.purged_at || posting.status === "purged");
-  const sourceAvailable = !!posting && !purged && !loading && !error;
-  const availability = posting ? purged ? "purged" : posting.status : loading ? "checking current availability" : error ? "current availability unavailable" : "current availability not checked";
-  return (
-    <div className="space-y-2 rounded-md border p-3">
-      <EvidenceLink url={evidence.original_url} label="Original job posting"/>
-      <p>{evidence.provider} · retrieved {posting?.retrieved_at ?? evidence.retrieved_at} · {availability}</p>
-      {sourceAvailable && <><p>{evidence.evidence_kind === "provider_tag" ? "Provider tag" : "Validated source passage"}: {evidence.original_phrase}</p>
-      {evidence.excerpt && <blockquote className="border-l-2 pl-2">{evidence.excerpt}</blockquote>}
-      {evidence.excerpt_start != null && <p>Cleaned text offsets: {evidence.excerpt_start}–{evidence.excerpt_end} (end exclusive)</p>}</>}
-      <Button variant="outline" size="sm" disabled={loading} onClick={() => void load()}>{loading ? "Loading evidence…" : posting ? "Reload full posting evidence" : "Load full posting evidence"}</Button>
-      {error && <p role="alert" className="text-destructive">{error}</p>}
-      {posting && (purged ? <p>Posting content unavailable: purged {posting.purged_at ?? "(date not reported)"}. Retained provenance only.</p> : (
-        <div className="space-y-2">
-          <p>{posting.title} · {posting.company}</p>
-          <p className="whitespace-pre-wrap">{posting.description_text}</p>
-          <details><summary className="cursor-pointer">Original description (text)</summary><pre className="whitespace-pre-wrap break-all">{posting.original_description}</pre></details>
-          <details><summary className="cursor-pointer">Full returned provider data</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(posting.raw_payload, null, 2)}</pre></details>
-        </div>
-      ))}
-    </div>
-  );
+    const current = {abort: new AbortController(), queue: [], requested: new Set<string>(), active: 0};
+    session.current = current;
+    initialize();
+    return () => current.abort.abort();
+  }, []);
+  return groups.map(group => <PostingDetails key={group.key} group={group} checks={checks} load={load} dialog={dialog}/>);
 }
 
 function metricText(metric: OnetMetric | undefined, name: "IM" | "LV") {
@@ -78,6 +115,8 @@ function metricText(metric: OnetMetric | undefined, name: "IM" | "LV") {
 interface Props {
   courseId: number;
   candidate: SkillCandidate;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   focusedEvidenceId?: string | null;
   ratings?: Record<string, RatingResolution>;
   descriptorChoices?: DescriptorChoice[];
@@ -85,24 +124,19 @@ interface Props {
   onChooseDescriptor?: (evidenceId: string, occupationCode: string) => void;
 }
 
-export function SkillEvidencePanel({courseId, candidate, focusedEvidenceId, ratings, descriptorChoices, release, onChooseDescriptor}: Props) {
+export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, focusedEvidenceId, ratings, descriptorChoices, release, onChooseDescriptor}: Props) {
   const associations = [...new Map(candidate.onet_associations.map(item => [item.evidence.id, item])).values()];
   // Only request identities survive a disclosure session. Full bodies are
   // discarded on close and previously requested snapshots re-resolve on reopen.
   const [requestedPostings, setRequestedPostings] = useState<string[]>([]);
   const [inspecting, setInspecting] = useState(false);
-  return (
-    <details className="space-y-2 text-xs" onToggle={event => {
-      if (event.target !== event.currentTarget) return;
-      setInspecting(event.currentTarget.open);
-    }}>
-      <summary className="cursor-pointer font-medium">Evidence for {candidate.display_name}</summary>
-      {inspecting && candidate.evidence_references.map(item => {
-        const key = `${courseId}-${item.snapshot_id}`;
-        return <PostingDetails key={`${candidate.candidate_id}-${key}`} courseId={courseId} evidence={item} recheck={requestedPostings.includes(key)}
-          onRequested={() => setRequestedPostings(previous => previous.includes(key) ? previous : [...previous, key])}/>;
-      })}
-      {candidate.qualifying_posting_links.filter(url => !candidate.evidence_references.some(item => item.original_url === url)).map(url => <p key={url}><EvidenceLink url={url} label="Original job posting"/></p>)}
+  const groups = groupPostingEvidence(candidate);
+  const sessionKey = JSON.stringify([courseId, candidate.candidate_id, candidate.evidence_references, candidate.qualifying_posting_links]);
+  const content = <div className="space-y-2 text-xs">
+      {!!candidate.original_labels.length && <p>Original skill labels: {[...new Set(candidate.original_labels)].join(" · ")}</p>}
+      <PostingInspection key={sessionKey} courseId={courseId} groups={groups} dialog={open !== undefined}
+        initialIds={groups.flatMap(group => group.snapshotIds).filter(id => open !== undefined || requestedPostings.includes(`${courseId}-${id}`))}
+        onRequested={id => setRequestedPostings(previous => previous.includes(`${courseId}-${id}`) ? previous : [...previous, `${courseId}-${id}`])}/>
       {candidate.posting_support === "missing" && <p>Needs job evidence — no qualifying posting evidence available.</p>}
       {!associations.length && <p>O*NET unavailable: no association.</p>}
       {ratings && Object.entries(ratings).map(([code, rating]) => <div key={code} className="space-y-1">
@@ -129,6 +163,18 @@ export function SkillEvidencePanel({courseId, candidate, focusedEvidenceId, rati
         {!!Object.keys(evidence.flags).length && <pre className="whitespace-pre-wrap break-all">Flags: {JSON.stringify(evidence.flags, null, 2)}</pre>}
         <p>{evidence.attribution}</p>
       </div>)}
-    </details>
-  );
+    </div>;
+  if (open !== undefined) return <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent maxWidthClassName="sm:max-w-3xl" className="max-h-[85dvh] overflow-y-auto">
+      <DialogTitle>Evidence for {candidate.display_name}</DialogTitle>
+      <DialogDescription>Original postings and O*NET reference details for this skill.</DialogDescription>
+      {open && content}
+    </DialogContent>
+  </Dialog>;
+  return <details className="space-y-2 text-xs" onToggle={event => {
+    if (event.target === event.currentTarget) setInspecting(event.currentTarget.open);
+  }}>
+    <summary className="cursor-pointer font-medium"><ChevronRight aria-hidden="true" className="mr-1 inline size-3"/>Evidence for {candidate.display_name}</summary>
+    {inspecting && content}
+  </details>;
 }
