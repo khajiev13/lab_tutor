@@ -439,6 +439,9 @@ class WorkspaceContextService:
             "release": release,
             "metric": request.metric,
             "occupation_codes": request.occupation_codes,
+            "descriptor_choices": [
+                choice.model_dump(mode="json") for choice in request.descriptor_choices
+            ],
             "coverage": coverage,
             "patterns": [row.model_dump(mode="json") for row in patterns],
             "notices": metadata.notices,
@@ -457,6 +460,9 @@ class WorkspaceContextService:
 
     @staticmethod
     def _choices(request, candidates, official):
+        allowed_relations = {"equivalent"}
+        if request.intent == "explain":
+            allowed_relations.update({"broader", "related"})
         seen = set()
         keys = {}
         for choice in request.descriptor_choices:
@@ -483,13 +489,15 @@ class WorkspaceContextService:
                 _error(404, "context_not_found", "Descriptor evidence is inaccessible")
             evidence = association["evidence"]
             if (
-                association["relation"] != "equivalent"
+                association["relation"] not in allowed_relations
+                or evidence["family"] not in {"essential", "transferable"}
+                or not evidence["element_id"]
                 or evidence["soc_code"] not in request.occupation_codes
             ):
                 _error(
                     422,
                     "invalid_context",
-                    "Descriptor choice requires an equivalent compared occupation",
+                    "Descriptor choice requires an allowed skill descriptor and compared occupation",
                 )
             cell = (candidate_id, evidence["soc_code"])
             if cell in seen:

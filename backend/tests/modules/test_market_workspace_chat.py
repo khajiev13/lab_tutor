@@ -245,6 +245,12 @@ def test_explain_related_programming_and_missing_etl_is_read_only(
         bundle = json.loads(messages[1].content.split("\n", 1)[1])
         by_name = {row["display_name"]: row for row in bundle["candidates"]}
         association = by_name["SQL"]["onet_associations"][0]
+        assert bundle["descriptor_choices"] == [
+            {
+                "candidate_id": candidates[0]["candidate_id"],
+                "evidence_id": str(evidence.id),
+            }
+        ]
         assert association["relation"] == "related"
         assert association["evidence"]["label"] == "Programming"
         assert association["evidence"]["ratings"]["IM"]["value"] == 3.38
@@ -265,6 +271,12 @@ def test_explain_related_programming_and_missing_etl_is_read_only(
                 candidate_ids=[row["candidate_id"] for row in candidates],
                 occupation_codes=["15-1252.00"],
                 metric="IM",
+                descriptor_choices=[
+                    {
+                        "candidate_id": candidates[0]["candidate_id"],
+                        "evidence_id": str(evidence.id),
+                    }
+                ],
             ),
         },
     )

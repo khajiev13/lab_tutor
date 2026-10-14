@@ -446,6 +446,267 @@ def seed_onet(db):
     return rows
 
 
+@pytest.fixture
+def descriptor_context(owned, db_session):
+    """Job-backed SQL with deliberately untrusted Programming manifest ratings."""
+    _, run, candidates, _ = owned
+    rows = seed_onet(db_session)
+    for row, value in zip(rows, [3.38, 4.8], strict=True):
+        row.ratings = {"IM": {**row.ratings["IM"], "value": value}}
+    run.config = {
+        **run.config,
+        "evidence_sources": ["jobs", "onet"],
+        "onet_release": "30.0",
+        "selected_onet_occupations": [
+            {"soc_code": row.soc_code, "title": "Untrusted title"} for row in rows
+        ],
+    }
+    candidate = {
+        **candidates[0],
+        "display_name": "SQL",
+        "onet_associations": [
+            {
+                "relation": "related",
+                "evidence": {
+                    "id": str(row.id),
+                    "release": row.release,
+                    "soc_code": row.soc_code,
+                    "family": row.family,
+                    "element_id": row.element_id,
+                    "label": "SQL",
+                    "ratings": {"IM": {"value": 99}},
+                },
+            }
+            for row in rows
+        ],
+    }
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": [candidate]}
+    db_session.commit()
+    return rows, candidate
+
+
+@pytest.mark.parametrize(
+    "relation,intent",
+    [
+        ("related", "explain"),
+        ("broader", "explain"),
+        ("equivalent", "explain"),
+        ("equivalent", "propose_selection"),
+    ],
+)
+def test_explain_choices_reach_model_with_canonical_descriptor_facts(
+    owned, descriptor_context, db_session, relation, intent
+):
+    _, run, _, _ = owned
+    rows, candidate = descriptor_context
+    for association in candidate["onet_associations"]:
+        association["relation"] = relation
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": [candidate]}
+    db_session.commit()
+    before = deepcopy(
+        (
+            run.candidate_manifest,
+            run.selection_revision,
+            run.publication_revision,
+            run.selected_candidate_ids,
+            run.excluded_candidate_ids,
+            run.selection_confirmation,
+        )
+    )
+    choices = [
+        {"candidate_id": candidate["candidate_id"], "evidence_id": str(row.id)}
+        for row in rows
+    ]
+    result = resolve(
+        owned,
+        intent=intent,
+        candidate_ids=[candidate["candidate_id"]],
+        occupation_codes=[row.soc_code for row in rows],
+        metric="IM",
+        descriptor_choices=choices,
+    )
+    assert not db_session.in_transaction()
+    bundle = result.model_bundle
+    assert bundle["descriptor_choices"] == choices
+    assert bundle["occupation_codes"] == ["15-1252.00", "15-1253.00"]
+    assert bundle["release"] == "30.0"
+    fact = bundle["candidates"][0]
+    assert fact["candidate_id"] == candidate["candidate_id"]
+    assert fact["display_name"] == "SQL"
+    for index, association in enumerate(fact["onet_associations"]):
+        assert association["relation"] == relation
+        evidence = association["evidence"]
+        assert evidence["id"] == choices[index]["evidence_id"]
+        assert evidence["label"] == "Programming"
+        assert evidence["release"] == "30.0"
+        assert evidence["soc_code"] == ["15-1252.00", "15-1253.00"][index]
+        assert evidence["occupation_title"] == evidence["soc_code"]
+        assert evidence["ratings"]["IM"] == {
+            "scale_id": "IM",
+            "value": [3.38, 4.8][index],
+            "minimum": 1,
+            "maximum": 5,
+            "status": "reported",
+            "date": None,
+        }
+    if relation != "equivalent":
+        assert bundle["patterns"] == []
+    assert (
+        run.candidate_manifest,
+        run.selection_revision,
+        run.publication_revision,
+        run.selected_candidate_ids,
+        run.excluded_candidate_ids,
+        run.selection_confirmation,
+    ) == before
+
+
+def test_explain_chosen_descriptor_obeys_utf8_budget_with_explicit_omission(
+    owned, descriptor_context, db_session
+):
+    rows, candidate = descriptor_context
+    rows[0].definition = "界" * 9000
+    choice = {"candidate_id": candidate["candidate_id"], "evidence_id": str(rows[0].id)}
+    db_session.commit()
+    result = resolve(
+        owned,
+        candidate_ids=[candidate["candidate_id"]],
+        occupation_codes=["15-1252.00"],
+        metric="IM",
+        descriptor_choices=[choice],
+    )
+    bundle = result.model_bundle
+    assert len(json.dumps(bundle, ensure_ascii=False).encode()) <= 24 * 1024
+    assert bundle["descriptor_choices"] == [choice]
+    assert bundle["candidates"] == []
+    assert bundle["omitted_count"] == 1
+    assert bundle["evidence_omitted_count"] == 2
+    assert bundle["notices"] == ["Some context was omitted to fit the evidence budget"]
+    assert result.history_metadata.notices == bundle["notices"]
+
+
+@pytest.mark.parametrize(
+    "relation,intent",
+    [
+        ("related", "propose_selection"),
+        ("broader", "propose_selection"),
+        ("unmatched", "explain"),
+        ("unmatched", "propose_selection"),
+    ],
+)
+def test_descriptor_choices_keep_proposals_equivalent_only_and_unmatched_invalid(
+    owned, descriptor_context, db_session, relation, intent
+):
+    _, run, _, _ = owned
+    rows, candidate = descriptor_context
+    candidate["onet_associations"][0]["relation"] = relation
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": [candidate]}
+    db_session.commit()
+    with pytest.raises(HTTPException) as error:
+        resolve(
+            owned,
+            intent=intent,
+            occupation_codes=[rows[0].soc_code],
+            descriptor_choices=[
+                {
+                    "candidate_id": candidate["candidate_id"],
+                    "evidence_id": str(rows[0].id),
+                }
+            ],
+        )
+    assert error.value.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "invalid,status",
+    [
+        ("candidate", 422),
+        ("evidence", 404),
+        ("occupation", 422),
+        ("release", 404),
+        ("element", 404),
+        ("software", 422),
+        ("empty_element", 422),
+    ],
+)
+def test_explain_choices_preserve_catalog_and_actual_descriptor_guards(
+    owned, descriptor_context, db_session, invalid, status
+):
+    _, run, _, _ = owned
+    rows, candidate = descriptor_context
+    evidence = candidate["onet_associations"][0]["evidence"]
+    # Equivalent proves software/empty-element rejection is independent of relation.
+    candidate["onet_associations"][0]["relation"] = "equivalent"
+    choice = {"candidate_id": candidate["candidate_id"], "evidence_id": str(rows[0].id)}
+    codes = [rows[0].soc_code]
+    if invalid in {"candidate", "evidence"}:
+        choice[f"{invalid}_id"] = str(uuid4())
+    elif invalid == "occupation":
+        codes = [rows[1].soc_code]
+    elif invalid == "release":
+        evidence["release"] = "31.0"
+    elif invalid == "element":
+        evidence["element_id"] = "different"
+    elif invalid == "software":
+        rows[0].family = evidence["family"] = "software"
+        rows[0].workplace_example = "Database application"
+        rows[0].flags = {"hot_technology": True}
+    else:
+        rows[0].element_id = evidence["element_id"] = ""
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": [candidate]}
+    db_session.commit()
+    with pytest.raises(HTTPException) as error:
+        resolve(owned, occupation_codes=codes, descriptor_choices=[choice])
+    assert error.value.status_code == status
+
+
+def test_explain_related_choice_does_not_cross_course_ownership(
+    owned, descriptor_context
+):
+    course, run, _, service = owned
+    rows, candidate = descriptor_context
+    with pytest.raises(HTTPException) as error:
+        service.resolve(
+            course["id"],
+            course["teacher_id"] + 1000,
+            parse(
+                context(
+                    run_id=str(run.id),
+                    occupation_codes=[rows[0].soc_code],
+                    descriptor_choices=[
+                        {
+                            "candidate_id": candidate["candidate_id"],
+                            "evidence_id": str(rows[0].id),
+                        }
+                    ],
+                )
+            ),
+        )
+    assert error.value.status_code == 404
+
+
+def test_explain_related_choices_reject_different_descriptor_across_occupations(
+    owned, descriptor_context, db_session
+):
+    _, run, _, _ = owned
+    rows, candidate = descriptor_context
+    rows[1].element_id = "2.B.4"
+    candidate["onet_associations"][1]["evidence"]["element_id"] = "2.B.4"
+    run.candidate_manifest = {**run.candidate_manifest, "candidates": [candidate]}
+    db_session.commit()
+    with pytest.raises(HTTPException) as error:
+        resolve(
+            owned,
+            occupation_codes=[row.soc_code for row in rows],
+            descriptor_choices=[
+                {"candidate_id": candidate["candidate_id"], "evidence_id": str(row.id)}
+                for row in rows
+            ],
+        )
+    assert error.value.status_code == 422
+    assert "same descriptor identity" in error.value.detail["message"]
+
+
 def test_reference_resolution_does_not_create_run(owned, db_session):
     course, _, _, service = owned
     seed_onet(db_session)
