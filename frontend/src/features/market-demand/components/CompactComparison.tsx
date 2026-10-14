@@ -40,7 +40,10 @@ function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonPro
       candidateIds: [...row.candidateIds], occupationCodes: model.occupation ? [model.occupation.soc_code] : []}, exactChoices);
   };
   const valueText = (row: CompactComparisonRow) => {
-    if (row.value === null) return row.status === "ambiguous" ? "Choose a descriptor to compare" : `Unavailable · ${row.status.replaceAll("_", " ")}`;
+    if (row.value === null) {
+      if (row.status === "ambiguous") return row.mappings.length ? "Unavailable · conflicting saved descriptor values" : "Choose a descriptor to compare";
+      return `Unavailable · ${row.status.replaceAll("_", " ")}`;
+    }
     if (metric === "IM") return `${row.value} / 5 importance`;
     const counts = candidates.get(row.candidateIds[0])!.job_metrics;
     return `${row.value}% · ${counts.supporting_posting_count} of ${counts.assessed_posting_count} assessed postings${counts.selected_posting_count !== undefined ? ` · ${counts.selected_posting_count} selected` : ""}${counts.coverage_status ? ` · ${counts.coverage_status} coverage` : ""}`;

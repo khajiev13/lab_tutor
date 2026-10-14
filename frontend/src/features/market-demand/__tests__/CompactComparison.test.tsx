@@ -125,3 +125,19 @@ it("requires a named occupation and stored release before asking about O*NET con
   await user.click(ask);
   expect(onAsk).not.toHaveBeenCalled();
 });
+it("describes conflicting shared descriptor values as unavailable without offering a phantom choice", async () => {
+  const review = fixture();
+  review.candidates = review.candidates.slice(0, 2);
+  review.candidates.forEach((candidate, index) => {
+    const association = workspaceEvidenceFixture({id: `shared-${index}`});
+    association.evidence.ratings.IM!.value = index === 0 ? 3.38 : 4.2;
+    candidate.onet_associations = [association];
+  });
+  render(<CompactComparison review={review} candidateIds={["skill-0", "skill-1"]} open onOpenChange={vi.fn()} onAsk={vi.fn()}/>);
+  await userEvent.setup().click(screen.getByRole("button", {name: "O*NET importance"}));
+  const list = screen.getByRole("list", {name: "Comparison values"});
+  expect(list).toHaveTextContent("Unavailable · conflicting saved descriptor values");
+  expect(list).not.toHaveTextContent("Choose a descriptor");
+  expect(within(list).queryByRole("combobox")).not.toBeInTheDocument();
+  expect(screen.queryByRole("img", {name: "O*NET importance for Developer"})).not.toBeInTheDocument();
+});
