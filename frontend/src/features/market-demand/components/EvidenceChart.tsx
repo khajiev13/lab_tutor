@@ -147,6 +147,6 @@ export function EvidenceChart({option, label, className, onFocus, onError}: Prop
 
   return <div className="space-y-2">
     <div ref={container} role="img" aria-label={label} className={cn("h-96 min-w-0 w-full", className)}/>
-    {error && <p role="alert" className="text-sm text-destructive">Chart unavailable. Use the values below, Data, or the shortlist to inspect evidence.</p>}
+    {error && <p role="alert" className="text-sm text-destructive">Chart unavailable. Use the values below to inspect evidence.</p>}
   </div>;
 }

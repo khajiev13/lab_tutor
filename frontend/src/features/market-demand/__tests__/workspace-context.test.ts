@@ -85,6 +85,21 @@ describe("context builders", () => {
     expect(buildRunReviewContext(args)).toEqual({ok: true, context: {...expected, metric: "frequency", occupation_codes: []}});
     expect(validateWorkspaceContext({...expected, metric: "frequency", occupation_codes: []})).toBe(true);
   });
+  it.each(["related", "broader"] as const)("accepts exact %s descriptor context only for explanation", relation => {
+    const args = input();
+    const association = workspaceEvidenceFixture();
+    association.relation = relation;
+    args.review.candidates[0].onet_associations = [association];
+    args.view.descriptorChoices = [{candidate_id: workspaceCandidateId, evidence_id: workspaceEvidenceId}];
+    expect(buildRunReviewContext(args)).toEqual({ok: true, context: {...expected, descriptor_choices: args.view.descriptorChoices}});
+    expect(buildRunReviewContext({...args, intent: "propose_selection"})).toEqual({ok: false, reason: "invalid_context"});
+    for (const patch of [{release: "29.0"}, {family: "software" as const}, {element_id: ""}, {soc_code: "99-9999.00"}]) {
+      const invalidAssociation = {...association, evidence: {...association.evidence, ...patch}};
+      expect(buildRunReviewContext({...args, review: {...args.review, candidates: [{...args.review.candidates[0], onet_associations: [invalidAssociation]}]}})).toEqual({ok: false, reason: "invalid_context"});
+    }
+    association.relation = "unmatched";
+    expect(buildRunReviewContext(args)).toEqual({ok: false, reason: "invalid_context"});
+  });
   it("validates confirmed occupations, member IDs, categories and eligible descriptor choices", () => {
     const args = input();
     args.review.candidates[0].onet_associations = [workspaceEvidenceFixture()];

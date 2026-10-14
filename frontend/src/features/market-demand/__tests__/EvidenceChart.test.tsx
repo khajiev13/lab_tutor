@@ -137,7 +137,7 @@ it("disposes a failing instance once and keeps render failures from taking down 
   runtime.setOption.mockImplementationOnce(() => {throw new Error("bad option");});
   const onError = vi.fn();
   const {unmount} = render(<><EvidenceChart label="Demand" option={{}} onFocus={vi.fn()} onError={onError}/><button>Select Python</button></>);
-  expect(await screen.findByRole("alert")).toHaveTextContent(/Chart unavailable/);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Chart unavailable. Use the values below to inspect evidence.");
   expect(runtime.dispose).toHaveBeenCalledTimes(1);
   expect(screen.getByRole("button", {name: "Select Python"})).toBeEnabled();
   act(() => resize([], {} as ResizeObserver));

@@ -77,7 +77,8 @@ export function buildRunReviewContext(input: {
   for (const choice of context.descriptor_choices) {
     const candidate = candidates.get(choice.candidate_id);
     const association = candidate?.onet_associations.find(row => row.evidence.id === choice.evidence_id);
-    if (!association || association.relation !== "equivalent" || association.evidence.release !== review.analysis_metadata?.onet_release ||
+    const allowedRelation = association?.relation === "equivalent" || (intent === "explain" && ["related", "broader"].includes(association?.relation ?? ""));
+    if (!association || !allowedRelation || association.evidence.release !== review.analysis_metadata?.onet_release ||
       !["essential", "transferable"].includes(association.evidence.family) || !association.evidence.element_id ||
       !context.occupation_codes.includes(association.evidence.soc_code)) return invalid;
     const evidence = association.evidence;
