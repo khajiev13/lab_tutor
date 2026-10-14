@@ -76,7 +76,8 @@ it("reports lost candidate names and never transfers selections to merged/new ca
   const {result, rerender, onReviewChange} = setup(review);
   const next = {...review, candidate_revision: 2, candidates: [review.candidates[1], {...review.candidates[0], candidate_id: "merged", display_name: "Merged Python"}], selected_candidate_ids: ["merged"]};
   rerender({courseId: 1, review: next, onReviewChange});
-  expect(result.current.draft.selected_candidate_ids).toEqual([]);
+  expect(result.current.draft.selected_candidate_ids).toEqual(["python"]);
+  expect(result.current.draft.selected_candidate_ids).not.toContain("merged");
   expect(result.current.draft.excluded_candidate_ids).toEqual(["sql"]);
   expect(result.current.reconciliation).toMatch(/Python/);
   expect(result.current.reviewRequired).toBe(true);
@@ -352,4 +353,43 @@ it("records explicit evidence acknowledgement without allowing unsupported confi
   expect(result.current.reviewRequired).toBe(true);
   await act(async () => {await expect(result.current.reviewMappings()).rejects.toThrow(/review/i);});
   expect(confirmSkillReviewSelection).not.toHaveBeenCalled();
+});
+
+it('confirms exact current choices and displayed omissions atomically without save or acknowledgement chores', async () => {
+ const review = {...reconciliationFixture(), evidence_omissions:['LinkedIn collection incomplete'], extraction_coverage:{status:'partial' as const,acknowledged:false}};
+ const {result} = setup(review);
+ act(()=>{result.current.setCategory('tools',true);result.current.setCandidate('sql',false);});
+ vi.mocked(confirmSkillReviewSelection).mockResolvedValue({...review,selection_revision:3,selected_candidate_ids:['python'],excluded_candidate_ids:['sql']});
+ await act(async()=>{await result.current.confirmCurrentSelection();});
+ expect(confirmSkillReviewSelection).toHaveBeenCalledWith(1,{
+  run_id:'run-1',expected_candidate_revision:1,expected_selection_revision:2,
+  selected_candidate_ids:['python'],excluded_candidate_ids:['sql'],confirm_current_evidence:true,
+  expected_omissions:['LinkedIn collection incomplete'],
+ });
+ expect(saveSkillReviewDraft).not.toHaveBeenCalled();
+ expect(continueWithAvailableEvidence).not.toHaveBeenCalled();
+ expect(result.current.dirty).toBe(false);
+});
+
+it('retains removed selected identities visibly until the teacher removes them', async () => {
+ const review = reviewFixture();
+ const {result,rerender,onReviewChange}=setup(review);
+ act(()=>result.current.setCandidate('python',true));
+ const changed={...review,candidate_revision:2,candidates:review.candidates.filter(item=>item.candidate_id!=='python')};
+ rerender({courseId:1,review:changed,onReviewChange});
+ expect(result.current.draft.selected_candidate_ids).toEqual(['python']);
+ await act(async()=>{await expect(result.current.confirmCurrentSelection()).rejects.toThrow(/support|removed/i);});
+ act(()=>result.current.setCandidate('python',false));
+ expect(result.current.draft.selected_candidate_ids).toEqual([]);
+ expect(result.current.draft.excluded_candidate_ids).not.toContain('python');
+});
+
+it.each(['candidates','choices'] as const)('rejects an atomic confirmation that changes %s instead of confirming the exact displayed selection', async change=>{
+ const review={...reviewFixture(),selected_candidate_ids:['python']};
+ const {result}=setup(review);
+ vi.mocked(confirmSkillReviewSelection).mockResolvedValue({...review,
+  candidate_revision:change==='candidates'?2:1,selected_candidate_ids:change==='choices'?['sql']:['python'],
+ });
+ await act(async()=>{await expect(result.current.confirmCurrentSelection()).rejects.toThrow(/changed|confirm/i);});
+ expect(result.current.draft.selected_candidate_ids).toEqual(['python']);
 });

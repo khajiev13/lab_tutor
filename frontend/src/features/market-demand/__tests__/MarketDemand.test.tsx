@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 
@@ -48,7 +48,6 @@ import type {
   AgentState,
   PipelineStageId,
   StageStatus,
-  SendResult,
 } from "@/features/market-demand/types";
 import type { UseAgentStreamReturn } from "@/features/market-demand/hooks/useAgentStream";
 import { useAgentStream } from "@/features/market-demand/hooks/useAgentStream";
@@ -129,12 +128,6 @@ beforeEach(() => {
   vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
 });
 
-async function ensureSetup() {
- if (!screen.queryByRole("dialog")) fireEvent.click(screen.getByRole("button",{name:/History and setup/}));
- if (!screen.queryByRole("region",{name:"Analysis setup"})) fireEvent.click(screen.getByRole("button",{name:"Analysis setup"}));
- await screen.findByRole("checkbox",{name:"Job postings"});
- await act(async () => {await Promise.resolve();});
-}
 // ── ChatInput ───────────────────────────────────────────────
 
 function ControlledChatInput({onSend, isStreaming}: {onSend: (text: string) => void; isStreaming: boolean}) {
@@ -248,241 +241,255 @@ async function openReviewWorkspace(overrides: Partial<UseAgentStreamReturn> = {}
  await act(async () => {await Promise.resolve();});
  return {review,...rendered};
 }
-it('shows five chosen skills and continues save then confirm then explicit mapping without publishing', async () => {
- const api = await import('@/features/market-demand/api');
- const {largeReviewFixture} = await import('@/features/market-demand/__tests__/review-fixtures');
- const review = largeReviewFixture(); review.selected_candidate_ids=review.candidates.slice(0,58).map(item=>item.candidate_id);
- const order:string[]=[];
- const send=vi.fn(async()=>{order.push('mapping-request');return {outcome:'completed' as const};});
- vi.mocked(api.saveSkillReviewDraft).mockImplementation(async(_id,body)=>{order.push('save');return {...review,selected_candidate_ids:body.selected_candidate_ids,selection_revision:3};});
- vi.mocked(api.confirmSkillReviewSelection).mockImplementation(async()=>{order.push('confirm');return {...review,selected_candidate_ids:review.selected_candidate_ids.slice(1),selection_revision:3};});
- await openReviewWorkspace({skillReview:review,send});
- expect(within(screen.getByRole('region',{name:'Choose skills'})).getAllByRole('listitem')).toHaveLength(5);
- expect(screen.getByRole('button',{name:'Review all 58'})).toBeVisible();
- fireEvent.click(screen.getByRole('button',{name:'Remove Job skill 01'}));
- fireEvent.click(screen.getByRole('button',{name:'Continue'}));
- await waitFor(()=>expect(order).toEqual(['save','confirm','mapping-request']));
- expect(send).toHaveBeenCalledWith(expect.objectContaining({mode:'workflow',text:expect.stringMatching(/curriculum/)}));
- expect(api.approveSkillIntegration).not.toHaveBeenCalled();
-});
-it('retains a failed-save draft without confirming mapping or publishing', async () => {
- const api=await import('@/features/market-demand/api');
- const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
- const review=reviewFixture();review.selected_candidate_ids=['python','sql'];
- vi.mocked(api.saveSkillReviewDraft).mockRejectedValue(new Error('Save offline'));
- const send=vi.fn(); await openReviewWorkspace({skillReview:review,send});
- fireEvent.click(screen.getByRole('button',{name:'Remove SQL'}));
- fireEvent.click(screen.getByRole('button',{name:'Continue'}));
- await screen.findAllByText(/Save offline/);
- expect(screen.getByText('Python')).toBeVisible();
- expect(api.confirmSkillReviewSelection).not.toHaveBeenCalled();expect(send).not.toHaveBeenCalled();expect(api.approveSkillIntegration).not.toHaveBeenCalled();
+it('keeps the full original agent conversation and current choices inline with ordinary workflow replies', async () => {
+ const send = vi.fn().mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({skillReview:null,send,messages:[
+  {id:'earlier',role:'agent',content:'Earlier market finding',agent:'supervisor',toolCalls:[],isStreaming:false},
+  {id:'teacher',role:'user',content:'Find relevant jobs',toolCalls:[],isStreaming:false},
+  {id:'latest',role:'agent',content:'Search Terms: "Data analyst", "Data scientist"',agent:'skill_finder',toolCalls:[],isStreaming:false},
+ ]});
+ expect(screen.getByText('Earlier market finding')).toBeVisible();
+ expect(screen.getByText('Find relevant jobs')).toBeVisible();
+ expect(screen.getByRole('combobox',{name:'Market country'})).toBeVisible();
+ expect(screen.getByRole('checkbox',{name:'Data analyst'})).toBeVisible();
+ expect(screen.queryByRole('button',{name:/History and setup|Stage workflow response|Browse skills|Save draft|Undo local change/})).not.toBeInTheDocument();
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Explain these search terms'}});
+ fireEvent.keyDown(screen.getByRole('textbox',{name:'Question'}),{key:'Enter',code:'Enter'});
+ await waitFor(()=>expect(send).toHaveBeenCalledWith({mode:'workflow',text:'Explain these search terms'}));
 });
 
-it('sends exact job-group names, keeps typed text and requires status reconciliation before retrying a failed send', async()=>{
- const send=vi.fn().mockResolvedValueOnce({outcome:'failed',error:{message:'Request offline'}}).mockResolvedValueOnce({outcome:'completed'});
+it('expands categories in place, keeps exclusions across pages and confirms partial changed evidence in one click', async () => {
+ const api = await import('@/features/market-demand/api');
+ const {largeReviewFixture,reconciliationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review={...largeReviewFixture(),reconciliations:reconciliationFixture().reconciliations,evidence_omissions:['Indeed unavailable in this market'],extraction_coverage:{status:'partial' as const,acknowledged:false}};
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ vi.mocked(api.confirmSkillReviewSelection).mockImplementation(async(_id,body)=>({...review,...body,selection_revision:3}));
+ await openReviewWorkspace({skillReview:review,send});
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (12 current members)'}));
+ fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select Job skill 01'}));
+ fireEvent.click(screen.getByRole('button',{name:'Next Tools page'}));
+ expect(screen.getByRole('checkbox',{name:'Select Job skill 12'})).toBeChecked();
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select Job skill 12'}));
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Keep this question'}});
+ expect(screen.queryByRole('button',{name:/Save draft|Undo local change|Browse skills|Acknowledge available evidence|Save reviewed choices/})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ await waitFor(()=>expect(send).toHaveBeenCalledOnce());
+ expect(api.confirmSkillReviewSelection).toHaveBeenCalledWith(1,expect.objectContaining({
+  expected_candidate_revision:1,expected_selection_revision:2,confirm_current_evidence:true,
+  selected_candidate_ids:['job-02','job-03','job-04','job-05','job-06','job-07','job-08','job-09','job-10','job-11'],
+  excluded_candidate_ids:['reference-1','job-01','job-12'],expected_omissions:['Indeed unavailable in this market'],
+ }));
+ expect(api.saveSkillReviewDraft).not.toHaveBeenCalled();expect(api.continueWithAvailableEvidence).not.toHaveBeenCalled();expect(api.approveSkillIntegration).not.toHaveBeenCalled();
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Keep this question');
+});
+
+it('sends exact job-group names and retains the choice and question through unknown-outcome recovery',async()=>{
+ const send=vi.fn().mockResolvedValueOnce({outcome:'detached'}).mockResolvedValueOnce({outcome:'completed'});
  const reconcile=vi.fn().mockResolvedValue(undefined);
  await openReviewWorkspace({skillReview:null,send,reconcile,agentState:{...EMPTY_STATE,fetched_jobs:[{title:'Analyst'}],job_groups:{'BI / Data & Reporting':[0],'Data Scientists':[0]}}});
- fireEvent.change(screen.getByRole('textbox'),{target:{value:'Keep my question'}});
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Keep my question'}});
  fireEvent.click(screen.getByRole('checkbox',{name:'BI / Data & Reporting'}));
- fireEvent.click(screen.getByRole('button',{name:'Continue'}));
- await screen.findByRole('button',{name:'Check workflow status before retrying'});
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ await screen.findByRole('button',{name:'Check analysis status'});
  expect(send).toHaveBeenCalledWith({mode:'workflow',text:'Select these job groups by exact name: ["BI / Data & Reporting"]. Preserve these names; do not convert them to indices.'});
- expect(screen.getByRole('textbox')).toHaveValue('Keep my question');
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Keep my question');
  expect(screen.getByRole('checkbox',{name:'BI / Data & Reporting'})).toBeChecked();
- expect(screen.getByRole('button',{name:'Continue'})).toBeDisabled();
- fireEvent.click(screen.getByRole('button',{name:'Check workflow status before retrying'}));
- await waitFor(()=>expect(screen.getByRole('button',{name:'Continue'})).toBeEnabled());
- fireEvent.click(screen.getByRole('button',{name:'Continue'}));
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Check analysis status'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
  await waitFor(()=>expect(send).toHaveBeenCalledTimes(2));
- expect(reconcile).toHaveBeenCalledOnce();
-});
-it('keeps double-click Continue single flight and leaves detached work unretried until checked',async()=>{
- const api=await import('@/features/market-demand/api'); const {workspaceReviewFixture,workspaceCandidateId}=await import('@/features/market-demand/__tests__/review-fixtures');
- const review=workspaceReviewFixture();review.selected_candidate_ids=[workspaceCandidateId];
- let finish!:(value:SendResult)=>void;const send=vi.fn(()=>new Promise<SendResult>(resolve=>{finish=resolve;}));
- vi.mocked(api.confirmSkillReviewSelection).mockResolvedValue(review);
- const reconcile=vi.fn().mockRejectedValue(new Error('Status offline'));
- await openReviewWorkspace({skillReview:review,send,reconcile});
- const button=screen.getByRole('button',{name:'Continue'});
- fireEvent.click(button);fireEvent.click(button);
- await waitFor(()=>expect(send).toHaveBeenCalledOnce());
- fireEvent.change(screen.getByRole('textbox'),{target:{value:'A follow-up while mapping'}});
- await act(async()=>finish({outcome:'detached'}));
- expect(screen.getByRole('textbox')).toHaveValue('A follow-up while mapping');
- fireEvent.click(screen.getByRole('button',{name:'Check workflow status before retrying'}));
- await screen.findByText(/Status offline/);
- expect(send).toHaveBeenCalledOnce(); expect(api.confirmSkillReviewSelection).toHaveBeenCalledOnce();
- expect(screen.getByRole('button',{name:'Continue'})).toBeDisabled();
-});
-it('blocks zero choices and does not treat missing optional ONet ratings as a checkpoint',async()=>{
- await openReviewWorkspace();
- expect(screen.getByRole('button',{name:'Continue'})).toBeDisabled();
- expect(screen.queryByRole('button',{name:'Acknowledge available evidence'})).not.toBeInTheDocument();
- fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));
- fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));
- fireEvent.click(screen.getByRole('button',{name:'Close'}));
- expect(screen.getByRole('button',{name:'Continue'})).toBeEnabled();
-});
-it('exposes coverage as an explicit save-then-acknowledge action without confirmation or workflow',async()=>{
- const api=await import('@/features/market-demand/api'); const {workspaceReviewFixture,workspaceCandidateId}=await import('@/features/market-demand/__tests__/review-fixtures');
- const review=workspaceReviewFixture(); review.extraction_coverage={status:'partial',selected_postings:7,assessed_postings:4,acknowledged:false};
- const order:string[]=[];vi.mocked(api.saveSkillReviewDraft).mockImplementation(async(_id,body)=>{order.push('save');return {...review,selected_candidate_ids:body.selected_candidate_ids,selection_revision:3};});
- vi.mocked(api.continueWithAvailableEvidence).mockImplementation(async()=>{order.push('acknowledge');return {...review,selected_candidate_ids:[workspaceCandidateId],selection_revision:3,extraction_coverage:{...review.extraction_coverage,acknowledged:true}};});
- const send=vi.fn();await openReviewWorkspace({skillReview:review,send});
- expect(screen.getByText(/Some job evidence is incomplete/)).toBeVisible();
- fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));fireEvent.click(screen.getByRole('button',{name:'Close'}));
- fireEvent.click(screen.getByRole('button',{name:'Acknowledge available evidence'}));
- await waitFor(()=>expect(order).toEqual(['save','acknowledge']));
- expect(api.confirmSkillReviewSelection).not.toHaveBeenCalled();expect(send).not.toHaveBeenCalled();
-});
-it('requires explicit reconciliation checks and saving before Continue',async()=>{
- const {reconciliationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
- const review=reconciliationFixture();await openReviewWorkspace({skillReview:review});
- expect(screen.getByRole('region',{name:'Candidate reconciliation'})).toBeVisible();
- expect(screen.queryByRole('button',{name:'Continue'})).not.toBeInTheDocument();
- expect(screen.getByRole('button',{name:'Save reviewed choices'})).toBeDisabled();
- fireEvent.click(screen.getByRole('checkbox',{name:'Acknowledge reconciliation for Prior Python'}));
- fireEvent.click(screen.getByRole('checkbox',{name:'Acknowledge reconciliation for Removed SQL'}));
- expect(screen.getByRole('button',{name:'Save reviewed choices'})).toBeEnabled();
-});
-it('keeps source locks in history, preserves dirty choices and question after failed reset',async()=>{
- const clear=vi.fn().mockRejectedValue(new Error('Reset offline'));
- await openReviewWorkspace({clearConversation:clear});
- fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));fireEvent.click(screen.getByRole('button',{name:'Close'}));
- fireEvent.change(screen.getByRole('textbox'),{target:{value:'Keep my question'}});
- await ensureSetup();expect(screen.getByRole('checkbox',{name:'Job postings'})).toBeDisabled();
- fireEvent.click(screen.getByRole('button',{name:'New analysis'}));
- fireEvent.click(screen.getByRole('button',{name:'Discard and start new analysis'}));
- await screen.findByText('Reset offline');fireEvent.click(screen.getByRole('button',{name:'Cancel'}));
- expect(screen.getByRole('textbox')).toHaveValue('Keep my question');expect(screen.getByText('Python')).toBeVisible();
-});
-it('keeps reset recovery available when ordinary restoration is unavailable',async()=>{
- await openReviewWorkspace({isRestored:false,resetRecovery:'required',error:'Restore unavailable'});
- expect(screen.getByRole('button',{name:'Retry restoration'})).toBeVisible();
- fireEvent.click(screen.getByRole('button',{name:'Retry reset'}));
- expect(screen.getByRole('button',{name:'Confirm reset retry'})).toBeEnabled();
- expect(screen.queryByRole('button',{name:'Save and start new analysis'})).not.toBeInTheDocument();
-});
-it('offers restoration retry after timeout while retaining the question and unsaved choices',async()=>{
- const {review,rerender}=await openReviewWorkspace();
- fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));fireEvent.click(screen.getByRole('button',{name:'Close'}));
- fireEvent.change(screen.getByRole('textbox'),{target:{value:'Keep my question'}});
- const retryRestoration=vi.fn();
- vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:review,isRestored:false,error:'Conversation restoration timed out. Retry restoration to try again.',retryRestoration}));
- const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');rerender(<TestRouter><Page/></TestRouter>);
- expect(screen.getByText(/Conversation restoration timed out/)).toBeVisible();
- expect(screen.queryByText('Restoring conversation...')).not.toBeInTheDocument();
- expect(screen.getByRole('textbox')).toHaveValue('Keep my question');
- expect(screen.getByRole('button',{name:'Remove Python'})).toBeVisible();
- expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
- expect(screen.getByRole('button',{name:'Continue'})).toBeDisabled();
- fireEvent.click(screen.getByRole('button',{name:'Retry restoration'}));
- expect(retryRestoration).toHaveBeenCalledOnce();
-});
-it('retains a dirty draft and blocks confirmation after a newer review arrives',async()=>{
- const {review,rerender}=await openReviewWorkspace();
- fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));fireEvent.click(screen.getByRole('checkbox',{name:'Select Python'}));fireEvent.click(screen.getByRole('button',{name:'Close'}));
- vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:{...review,candidate_revision:2}}));
- const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');rerender(<TestRouter><Page/></TestRouter>);
- expect(screen.getByText(/Review required:/)).toBeVisible();expect(screen.getByRole('button',{name:'Continue'})).toBeDisabled();
- expect(screen.getByRole('button',{name:'Remove Python'})).toBeVisible();
-});
-it('rejects a late review from another active run',async()=>{
- await openReviewWorkspace({agentState:{...EMPTY_STATE,run_id:'other-run'}});
- expect(screen.queryByRole('region',{name:'Choose skills'})).not.toBeInTheDocument();
-});
-it('ordinary review questions use Explain and never confirm or publish',async()=>{
- const api=await import('@/features/market-demand/api');const send=vi.fn().mockResolvedValue({outcome:'completed'});await openReviewWorkspace({send});
- fireEvent.change(screen.getByRole('textbox'),{target:{value:'Why these skills?'}});fireEvent.click(screen.getByRole('button',{name:'Send message'}));
- await waitFor(()=>expect(send).toHaveBeenCalledWith(expect.objectContaining({mode:'contextual',context:expect.objectContaining({intent:'explain',candidate_ids:[],metric:'frequency'})})));
- expect(api.confirmSkillReviewSelection).not.toHaveBeenCalled();expect(api.approveSkillIntegration).not.toHaveBeenCalled();
-});
-it('keeps primary curriculum approval distinct and hides skill Continue',async()=>{
- const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');await openReviewWorkspace({skillReview:integrationFixture()});
- expect(screen.getByRole('button',{name:'Approve and publish'})).toBeVisible();expect(screen.queryByRole('button',{name:'Continue'})).not.toBeInTheDocument();
 });
 
-it.each(['publication','withdrawal'] as const)('retains %s acknowledgement when the saved proposal clears',async(kind)=>{
+it('keeps double-click confirmation single-flight and never maps when confirmation fails',async()=>{
  const api=await import('@/features/market-demand/api');
- const {integrationFixture,withdrawalFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
- const review=kind==='publication'?integrationFixture():withdrawalFixture();
- vi.mocked(api.approveSkillIntegration).mockResolvedValue({review:{...review,integration_review:null,approved_references:kind==='withdrawal'?[]:review.approved_references},projection_status:'pending'});
- vi.mocked(useAgentStream).mockImplementation(()=>{
-   const [saved,setSaved]=useState(review);return mockStreamReturn({skillReview:saved,applySkillReview:setSaved});
- });
- const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');render(<TestRouter><Page/></TestRouter>);
- fireEvent.click(screen.getByRole('button',{name:kind==='publication'?'Approve and publish':'Withdraw approval'}));
- expect(await screen.findByRole('status')).toHaveTextContent(kind==='publication'?'Approval saved; publication waiting for projection':'Withdrawal saved; removal waiting for projection');
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review={...reviewFixture(),selected_candidate_ids:['python']};
+ let reject!:(cause:Error)=>void;
+ vi.mocked(api.confirmSkillReviewSelection).mockImplementation(()=>new Promise((_resolve,failure)=>{reject=failure;}));
+ const send=vi.fn();await openReviewWorkspace({skillReview:review,send});
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Retain this'}});
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ expect(api.confirmSkillReviewSelection).toHaveBeenCalledOnce();
+ await act(async()=>reject(new Error('Confirmation offline')));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Confirmation offline');
+ fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
+ expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Retain this');
+ expect(send).not.toHaveBeenCalled();expect(api.approveSkillIntegration).not.toHaveBeenCalled();
 });
 
-it('stages exact comparison descriptor context as Explain and derives IM from the selected occupation',async()=>{
- const {workspaceReviewFixture,workspaceEvidenceFixture,workspaceCandidateId,workspaceEvidenceId,workspaceSoc}=await import('@/features/market-demand/__tests__/review-fixtures');
- const review=workspaceReviewFixture();review.selected_candidate_ids=[workspaceCandidateId];review.candidates[0].onet_associations=[{...workspaceEvidenceFixture(),relation:'related'}];
- const send=vi.fn().mockResolvedValue({outcome:'completed'});await openReviewWorkspace({skillReview:review,send});
- fireEvent.click(screen.getByRole('button',{name:'Compare skills'}));
- fireEvent.click(screen.getByRole('button',{name:'O*NET importance'}));
- fireEvent.click(screen.getByRole('button',{name:/Ask about Programming/ }));
- expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(send).not.toHaveBeenCalled();
+it('keeps the question and current choices through restoration timeout and offers retry',async()=>{
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=reviewFixture();const retryRestoration=vi.fn();
+ const {rerender}=await openReviewWorkspace({skillReview:review,retryRestoration});
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'}));
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Keep my question'}});
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:review,isRestored:false,error:'Restoration timed out',retryRestoration}));
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Keep my question');
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Retry restoration'}));expect(retryRestoration).toHaveBeenCalledOnce();
+});
+
+it('keeps final publication distinct from selection confirmation and ordinary workflow chat',async()=>{
+ const api=await import('@/features/market-demand/api');
+ const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=integrationFixture();const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({skillReview:review,send});
+ expect(screen.queryByRole('button',{name:/Confirm Selection/})).not.toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Approve and publish'})).toBeEnabled();
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Discuss the mapping'}});
  fireEvent.click(screen.getByRole('button',{name:'Send message'}));
- await waitFor(()=>expect(send).toHaveBeenCalledWith(expect.objectContaining({mode:'contextual',context:expect.objectContaining({intent:'explain',metric:'IM',view:'demand_importance',occupation_codes:[workspaceSoc],descriptor_choices:[{candidate_id:workspaceCandidateId,evidence_id:workspaceEvidenceId}]})})));
- fireEvent.click(screen.getByRole('button',{name:'Compare skills'}));fireEvent.click(screen.getByRole('button',{name:'Ask about Python'}));fireEvent.click(screen.getByRole('button',{name:'Send message'}));
- await waitFor(()=>expect(send).toHaveBeenLastCalledWith(expect.objectContaining({mode:'contextual',context:expect.objectContaining({intent:'explain',metric:'frequency',occupation_codes:[],descriptor_choices:[]})})));
-});
-
-it('keeps the current skill decision visible and the draft editable during Explain streaming',async()=>{
- await openReviewWorkspace({isStreaming:true});
- expect(screen.getByRole('region',{name:'Choose skills'})).toBeVisible();
- fireEvent.change(screen.getByRole('textbox'),{target:{value:'Keep typing'}});
- expect(screen.getByRole('textbox')).toHaveValue('Keep typing');
- expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
-});
-
-it('recovers a curriculum proposal after explicitly applying a draft change with save confirm and remap',async()=>{
- const api=await import('@/features/market-demand/api');const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
- const review=integrationFixture();review.recommendations=[{id:'add-sql',candidate_revision:1,base_selection_revision:2,changes:[{candidate_id:'sql',action:'add',reason:'Add the SQL course skill'}]}];
- const order:string[]=[];vi.mocked(api.saveSkillReviewDraft).mockImplementation(async(_id,body)=>{order.push('save');return {...review,...body,selection_revision:3};});
- vi.mocked(api.confirmSkillReviewSelection).mockImplementation(async()=>{order.push('confirm');return {...review,selected_candidate_ids:['python','sql'],selection_revision:3};});
- const send=vi.fn(async()=>{order.push('mapping-request');return {outcome:'completed' as const};});await openReviewWorkspace({skillReview:review,send});
- fireEvent.click(screen.getByRole('button',{name:'Review all 1 proposed changes'}));
- fireEvent.click(screen.getByRole('button',{name:'Apply proposal to draft'}));
- expect(screen.getByRole('button',{name:'Undo local change'})).toBeEnabled();
- expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled();
- fireEvent.click(screen.getByRole('button',{name:'Remap skills'}));
- await waitFor(()=>expect(order).toEqual(['save','confirm','mapping-request']));
+ await waitFor(()=>expect(send).toHaveBeenCalledWith({mode:'workflow',text:'Discuss the mapping'}));
  expect(api.approveSkillIntegration).not.toHaveBeenCalled();
 });
-it.each(['stale','unsupported'] as const)('offers curriculum recovery for a %s proposal',async(kind)=>{
- const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const review=integrationFixture();
- if(kind==='stale')review.integration_review!.selection_revision=1;
- else {review.candidates[0].posting_support='missing';review.candidates[0].qualifying_posting_links=[];}
- await openReviewWorkspace({skillReview:review});
- fireEvent.click(screen.getByRole('button',{name:'Edit skills'}));
- expect(screen.getByRole('button',{name:'Browse skills'})).toBeVisible();
- expect(screen.getByRole('button',{name:'Remap skills'})).toBeVisible();
- if(kind==='unsupported'){expect(screen.getByRole('button',{name:'Remap skills'})).toBeDisabled();fireEvent.click(screen.getByRole('button',{name:'Remove Python'}));expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled();}
-});
-it('shows source failure retry and evidence acknowledgement with zero candidates',async()=>{
- const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const review=reviewFixture();
- review.candidates=[];review.approved_references=[];review.source_outcomes={headhunter:{status:'error',received_count:0,usable_count:0,warnings:['HeadHunter rate limit reached']}};review.extraction_coverage={status:'failed',acknowledged:false};
- const send=vi.fn().mockResolvedValue({outcome:'completed'});await openReviewWorkspace({skillReview:review,send});
- expect(screen.getByText(/headhunter: collection failed/)).toBeVisible();
- expect(screen.getByRole('button',{name:'Acknowledge available evidence'})).toBeVisible();
- fireEvent.click(screen.getByRole('button',{name:'Retry failed sources'}));
- await waitFor(()=>expect(send).toHaveBeenCalledWith(expect.objectContaining({mode:'workflow',text:expect.stringMatching(/Retry/)})));
+
+it('does not attach chart context to ordinary questions and returns to workflow after a chart question',async()=>{
+ const {workspaceReviewFixture,workspaceEvidenceFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=workspaceReviewFixture();review.selected_candidate_ids=[review.candidates[0].candidate_id];review.candidates[0].onet_associations=[workspaceEvidenceFixture()];
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({skillReview:review,send});
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Analysis details'}));
+ fireEvent.click(await screen.findByRole('button',{name:/Ask about Python/}));
+ expect(screen.getByText('Chart evidence attached for this question')).toBeVisible();
+ await waitFor(()=>expect(screen.getByRole('textbox',{name:'Question'})).toHaveFocus());
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(()=>expect(send).toHaveBeenCalledWith(expect.objectContaining({mode:'contextual',context:expect.objectContaining({candidate_ids:[review.candidates[0].candidate_id],intent:'explain'})})));
+ await waitFor(()=>expect(screen.queryByText('Chart evidence attached for this question')).not.toBeInTheDocument());
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Continue with the agents'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(()=>expect(send).toHaveBeenLastCalledWith({mode:'workflow',text:'Continue with the agents'}));
 });
 
-it('retains the curriculum recovery editor and incoming-review acknowledgement when a dirty revision changes',async()=>{
- const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const initial=integrationFixture();
- const {rerender}=await openReviewWorkspace({skillReview:initial});
- fireEvent.click(screen.getByRole('button',{name:'Edit skills'}));
- fireEvent.click(screen.getByRole('button',{name:'Browse skills'}));
+it('rejects a late review from a different active run',async()=>{
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ await openReviewWorkspace({skillReview:reviewFixture(),agentState:{...EMPTY_STATE,run_id:'new-run'}});
+ expect(screen.queryByRole('region',{name:'Choose skills'})).not.toBeInTheDocument();
+});
+
+it('refreshes stale confirmation evidence while retaining the exact current choices and typed question',async()=>{
+ const api=await import('@/features/market-demand/api');const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=reviewFixture();const refreshSkillReview=vi.fn().mockResolvedValue(undefined);const send=vi.fn();
+ vi.mocked(api.confirmSkillReviewSelection).mockRejectedValue(new Error('Evidence changed. Refresh before confirming.'));
+ await openReviewWorkspace({skillReview:review,refreshSkillReview,send});
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'}));
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'My retained question'}});
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ fireEvent.click(await screen.findByRole('button',{name:'Refresh current evidence'}));
+ await waitFor(()=>expect(refreshSkillReview).toHaveBeenCalledOnce());
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('My retained question');
+ expect(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'})).toBeChecked();
+ expect(send).not.toHaveBeenCalled();
+});
+
+it('lets a new jobs-only run explore compact O*NET occupation importance in Details without changing sources or selecting skills',async()=>{
+ const api=await import('@/features/market-demand/api');const {reviewFixture,workspaceEvidenceFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=reviewFixture();const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ const labels=['Planning','Decision Making','Writing','Critical Thinking','Math','Logic','Low Priority'];
+ const values=[2,5,4,4.5,3.5,3,1];
+ const items=labels.map((label,index)=>{
+  const item=workspaceEvidenceFixture({id:`descriptor-${index}`,label,element_id:`element-${index}`,soc_code:'15-2051.00',occupation_title:'Data Scientists',release:'31.0'}).evidence;
+  return {...item,ratings:{IM:{...item.ratings.IM!,value:values[index]}}};
+ });
+ vi.mocked(api.getOccupationSkills).mockResolvedValue({release:'31.0',soc_code:'15-2051.00',items});
+ await openReviewWorkspace({skillReview:review,send,agentState:{...EMPTY_STATE,run_id:'run-1',sources:['indeed','linkedin','headhunter'],evidence_sources:['jobs']}});
+ fireEvent.click(screen.getByRole('button',{name:'Analysis details'}));
+ fireEvent.click(screen.getByRole('button',{name:'O*NET importance'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Search'})).toBeEnabled());
+ fireEvent.change(screen.getByRole('textbox',{name:'Search occupations'}),{target:{value:'data'}});
+ fireEvent.click(screen.getByRole('button',{name:'Search'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Browse Data Scientists'}));
+ const rows=await screen.findAllByRole('article');expect(rows).toHaveLength(5);
+ expect(rows.map(row=>row.getAttribute('aria-label'))).toEqual(['Decision Making','Critical Thinking','Writing','Math','Logic']);
+ expect(screen.getByText(/Occupation reference.*not.*individual job skill/i)).toBeVisible();
+ expect(screen.queryByRole('combobox',{name:'Reference question metric'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Next reference page'}));
+ expect(screen.getAllByRole('article')).toHaveLength(2);
+ fireEvent.click(screen.getByRole('button',{name:'Ask about Planning'}));
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Explain this O*NET descriptor and its reported evidence.');
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(()=>expect(send).toHaveBeenCalledWith(expect.objectContaining({mode:'contextual',context:{kind:'occupation_reference',version:1,intent:'explain',release:'31.0',occupation_codes:['15-2051.00'],element_ids:['element-0'],metric:'IM'}})));
+ expect(api.confirmOnetOccupations).not.toHaveBeenCalled();expect(api.confirmSkillReviewSelection).not.toHaveBeenCalled();expect(api.approveSkillIntegration).not.toHaveBeenCalled();
+ expect(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'})).not.toBeChecked();
+});
+
+it('retains typed follow-up and releases submitted chart context when the prior answer completes',async()=>{
+ const {workspaceReviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=workspaceReviewFixture();review.selected_candidate_ids=[review.candidates[0].candidate_id];
+ let complete!:(value:{outcome:'completed'})=>void;
+ const send=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve;})).mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({skillReview:review,send});
+ fireEvent.click(screen.getByRole('button',{name:'Analysis details'}));
+ fireEvent.click(await screen.findByRole('button',{name:/Ask about Python/}));
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'My next workflow question'}});
+ await act(async()=>complete({outcome:'completed'}));
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('My next workflow question');
+ expect(screen.queryByText('Chart evidence attached for this question')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(()=>expect(send).toHaveBeenLastCalledWith({mode:'workflow',text:'My next workflow question'}));
+});
+
+it('lets the teacher change a current curriculum-fit selection inline and hides publication until confirmed again',async()=>{
+ const api=await import('@/features/market-demand/api');const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=integrationFixture();const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ vi.mocked(api.confirmSkillReviewSelection).mockImplementation(async(_id,body)=>({...review,...body,selection_revision:3,integration_review:null}));
+ await openReviewWorkspace({skillReview:review,send});
+ expect(screen.getByRole('button',{name:'Approve and publish'})).toBeEnabled();
+ fireEvent.click(screen.getByRole('button',{name:'Change selection'}));
+ fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
+ expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
+ expect(screen.queryByRole('button',{name:'Approve and publish'})).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole('checkbox',{name:'Select SQL'}));
- fireEvent.click(screen.getByRole('button',{name:'Close'}));
- vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:{...initial,candidate_revision:2}}));
- const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');rerender(<TestRouter><Page/></TestRouter>);
- expect(screen.getByRole('button',{name:'I reviewed the changed choices'})).toBeVisible();
- expect(screen.getByRole('button',{name:'Remap skills'})).toBeDisabled();
- fireEvent.click(screen.getByRole('button',{name:'I reviewed the changed choices'}));
- expect(screen.getByRole('button',{name:'Remap skills'})).toBeEnabled();
- expect(screen.getByRole('button',{name:'Save draft'})).toBeEnabled();
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ await waitFor(()=>expect(send).toHaveBeenCalledWith({mode:'workflow',text:'Map the confirmed selected skills to the curriculum and prepare the curriculum fit review. Do not approve or publish.'}));
+ expect(api.confirmSkillReviewSelection).toHaveBeenCalledWith(1,expect.objectContaining({selected_candidate_ids:['python','sql'],confirm_current_evidence:true}));
+ expect(api.approveSkillIntegration).not.toHaveBeenCalled();
+});
+
+it('automatically reveals current choices when the displayed curriculum-fit review is stale',async()=>{
+ const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review={...integrationFixture(),candidate_revision:2};
+ await openReviewWorkspace({skillReview:review});
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeEnabled();
+ fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
+ expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
+ expect(screen.queryByRole('button',{name:'Approve and publish'})).not.toBeInTheDocument();
+});
+
+it('keeps removed saved choices visibly repairable even when no current candidates remain',async()=>{
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review={...reviewFixture(),candidates:[],selected_candidate_ids:['removed-python']};
+ await openReviewWorkspace({skillReview:review});
+ expect(screen.getByRole('alert')).toHaveTextContent(/removed or lack supporting job postings/);
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Remove unsupported removed-python'}));
+ expect(screen.queryByRole('button',{name:'Remove unsupported removed-python'})).not.toBeInTheDocument();
+});
+
+it('keeps current choices editable after a completed reply that has not prepared a curriculum-fit review',async()=>{
+ const api=await import('@/features/market-demand/api');const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review={...reviewFixture(),selected_candidate_ids:['python']};
+ vi.mocked(api.confirmSkillReviewSelection).mockResolvedValue({...review,selection_revision:3,integration_review:null});
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({skillReview:review,send});
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ await waitFor(()=>expect(send).toHaveBeenCalledOnce());
+ expect(screen.getByRole('region',{name:'Choose skills'})).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
+ expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
+ expect(screen.getByRole('checkbox',{name:'Select SQL'})).toBeEnabled();
+ expect(screen.queryByRole('button',{name:'Approve and publish'})).not.toBeInTheDocument();
+});
+
+it('compares only job-backed skills in Details when none are selected',async()=>{
+ const {largeReviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ await openReviewWorkspace({skillReview:largeReviewFixture()});
+ fireEvent.click(screen.getByRole('button',{name:'Analysis details'}));
+ expect(screen.getByText('Showing 5 of 58 skills · entries 1–5')).toBeVisible();
+ expect(screen.getByText('Page 1 of 12')).toBeVisible();
 });

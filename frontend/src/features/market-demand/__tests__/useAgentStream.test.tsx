@@ -1123,3 +1123,10 @@ it("does not classify a null-run occupation-reference conversation as contextles
   expect(result.current.resetRecovery).toBe("none");
   expect(deleteConversation).not.toHaveBeenCalled();
 });
+
+it('searches all three job providers together for a new analysis without source setup', async () => {
+ const {result}=renderHook(()=>useAgentStream(1));
+ await waitFor(()=>expect(result.current.isRestored).toBe(true));
+ await act(async()=>{await result.current.send({mode:'workflow',text:'Analyze the job market'});});
+ expect(streamMarketDemandChat).toHaveBeenCalledWith(expect.objectContaining({sources:['indeed','linkedin','headhunter'],evidence_sources:['jobs']}));
+});

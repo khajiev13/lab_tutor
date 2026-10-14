@@ -210,14 +210,14 @@ def set_job_search_country(country: str) -> str:
     existing_jobs = tool_store.get("fetched_jobs")
     existing_country = str(tool_store.get("job_search_country", "")).strip()
 
-    if existing_jobs and existing_country != selected_country.jobspy_country:
+    if existing_jobs and existing_country != selected_country.key:
         return (
             "Jobs have already been fetched for "
             f"{existing_country or 'the current country'}. "
             "Clear the conversation before changing the job market country."
         )
 
-    tool_store["job_search_country"] = selected_country.jobspy_country
+    tool_store["job_search_country"] = selected_country.key
     tool_store["job_search_location"] = selected_country.location
     tool_store["job_search_country_confirmed"] = True
     return f"Job search country set to {selected_country.label}."
@@ -230,7 +230,7 @@ def fetch_jobs(
     results_per_site: int = 15,
     location: str = "",
 ) -> str:
-    """Fetch real job postings from Indeed and LinkedIn.
+    """Fetch real job postings from configured Indeed, LinkedIn, and HeadHunter sources.
     search_terms: comma-separated queries (e.g. "Bioinformatics Researcher, Lab Technician").
     Scrapes all terms, deduplicates by title+company.
     country: target market country; if blank, uses the country configured for this course.
@@ -453,7 +453,7 @@ def _fetch_selected_sources(search_terms: str, explicit_country: str, cap: int) 
         o["status"] in {"partial", "error"} for o in result["source_outcomes"].values()
     ):
         lines.append(
-            "Retry or use Continue with available evidence before advancing. Supporting postings remain required for publication."
+            "Some providers returned incomplete or unavailable evidence. Continue with the available job groups; disclose omissions with the skill selection. Supporting postings remain required for publication."
         )
     if "jobs" not in config["evidence_sources"]:
         lines.append(
@@ -516,13 +516,6 @@ def select_jobs_by_group(group_names: str) -> str:
     Also accepts legacy comma-separated names/numbers or "all" intents.
     Examples: '["Engineer, Platform", "Data Engineer"]', "1, 2, 5", or "all".
     """
-    if tool_store.get("run_id"):
-        try:
-            get_market_source_service().require_available_evidence(
-                dict(tool_store), include_extraction=False
-            )
-        except (ValueError, LookupError) as exc:
-            return str(exc)
     groups = tool_store.get("job_groups", {})
     jobs = tool_store.get("fetched_jobs", [])
     if not groups:
@@ -631,9 +624,6 @@ def start_extraction(
     if tool_store.get("run_id"):
         try:
             service = get_market_source_service()
-            service.require_available_evidence(
-                dict(tool_store), include_extraction=False
-            )
             if service.extraction_is_complete(
                 dict(tool_store), tool_store.get("selected_jobs", [])
             ):
@@ -641,7 +631,7 @@ def start_extraction(
                     "The selected posting sample is already assessed. "
                     "Call get_skills_by_category for read-only teacher review. "
                     "Fixed O*NET association bounds cannot improve by repeating extraction. "
-                    "Wait for the teacher's required Continue with available evidence action."
+                    "Present current skills and evidence notes for the teacher's Confirm Selection action."
                 )
         except (ValueError, LookupError) as exc:
             return str(exc)
@@ -1992,7 +1982,7 @@ def _durable_selection_tool(changes: list[dict] | None = None) -> str:
                 review, fields = service.create_recommendation(
                     course_id, teacher_id, revisions, changes
                 )
-                result = f"Saved proposal {review.recommendations[-1].id}. The teacher must explicitly apply changes through Save draft."
+                result = f"Saved proposal {review.recommendations[-1].id}. The teacher chooses the exact skills through Confirm Selection."
         except Exception as exc:
             service.rollback()
             if changes is None:

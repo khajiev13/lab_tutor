@@ -131,6 +131,7 @@ export function SelectionCard({
                 className="flex items-center gap-2.5 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
               >
                 <Checkbox
+                  aria-label={item.label}
                   checked={checked}
                   onCheckedChange={() => toggle(item.id)}
                   disabled={disabled}

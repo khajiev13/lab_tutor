@@ -34,10 +34,21 @@ def test_uzbekistan_aliases_and_catalog_without_network():
     assert service().catalog(country())[2].availability == "available"
 
 
+def test_uzbek_country_confirmation_keeps_the_configured_country_key():
+    from app.modules.marketdemandanalyst.state import bind_tool_store
+    from app.modules.marketdemandanalyst.tools import set_job_search_country
+
+    state = {"run_id": "owned-run", "job_search_country": "Uzbekistan"}
+    with bind_tool_store(state):
+        set_job_search_country.invoke({"country": "Uzbekistan"})
+    assert state["job_search_country"] == "Uzbekistan"
+    assert state["job_search_country_confirmed"] is True
+
+
 def test_normalize_sources_rejects_empty_unknown_and_deduplicates():
     from app.modules.marketdemandanalyst.job_sources import normalize_job_sources
 
-    assert normalize_job_sources(None) == ("indeed", "linkedin")
+    assert normalize_job_sources(None) == ("indeed", "linkedin", "headhunter")
     assert normalize_job_sources(["headhunter", "linkedin", "headhunter"]) == (
         "linkedin",
         "headhunter",
@@ -197,6 +208,49 @@ def test_onet_only_skips_unavailable_provider_validation_and_fetch():
         evidence_sources=("onet",),
     )
     assert not result.records and not result.outcomes
+
+
+def test_automatic_sources_keep_uzbek_jobs_when_other_providers_unavailable():
+    def scrape(**kwargs):
+        assert kwargs["site_name"] == ["linkedin"]
+        assert kwargs["location"] == "Uzbekistan"
+        assert "country_indeed" not in kwargs
+        return pd.DataFrame(
+            [
+                {
+                    "id": "uz1",
+                    "title": "Engineer",
+                    "company": "Local",
+                    "description": "SQL Python " * 10,
+                    "job_url": "https://www.linkedin.com/jobs/view/uz1",
+                }
+            ]
+        )
+
+    result = service(scrape=scrape, configured=False).fetch(
+        search_terms=["Engineer"],
+        country=country(),
+        sources=("indeed", "linkedin", "headhunter"),
+    )
+    assert len(result.jobs) == 1
+    assert result.outcomes["linkedin"].status == "success"
+    assert result.outcomes["indeed"].status == "error"
+    assert "country" in " ".join(result.outcomes["indeed"].warnings)
+    assert result.outcomes["headhunter"].status == "error"
+    assert "configured" in " ".join(result.outcomes["headhunter"].warnings)
+
+
+def test_all_unavailable_providers_fail_before_network_work():
+    svc = service(
+        scrape=lambda **kwargs: pytest.fail("unavailable provider request"),
+        configured=False,
+    )
+    with pytest.raises(ValueError, match="No available job provider"):
+        svc.fetch(
+            search_terms=["Engineer"],
+            country=country(),
+            sources=("indeed", "headhunter"),
+        )
 
 
 def test_partial_failure_preserves_other_query_results_with_safe_outcomes():

@@ -549,7 +549,7 @@ export function useAgentStream(
       } else {
         const country = countryOverride ?? (agentStateRef.current.job_search_country_confirmed ? agentStateRef.current.job_search_country : null);
         const configuration = configurationOverride ?? {
-          sources: agentStateRef.current.sources ?? ["indeed", "linkedin"],
+          sources: agentStateRef.current.sources ?? ["indeed", "linkedin", "headhunter"],
           evidence_sources: agentStateRef.current.evidence_sources ?? ["jobs"],
           onet_release: agentStateRef.current.onet_release ?? null,
           onet_occupation_codes: agentStateRef.current.selected_onet_occupations ?? [],

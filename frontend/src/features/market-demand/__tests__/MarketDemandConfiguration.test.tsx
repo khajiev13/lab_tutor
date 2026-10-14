@@ -42,9 +42,6 @@ import {
   fetchSkillReview,
   fetchJobSources,
   streamMarketDemandChat,
-  fetchOnetReleases,
-  searchOnetOccupations,
-  confirmOnetOccupations,
 } from "@/features/market-demand/api";
 import MarketDemandPage from "@/features/market-demand/pages/MarketDemandPage";
 
@@ -87,181 +84,123 @@ beforeEach(() => {
   vi.mocked(streamMarketDemandChat).mockResolvedValue(undefined);
 });
 
-async function openSetup() {
- fireEvent.click(screen.getByRole("button",{name:/History and setup/}));
- if (!screen.queryByRole("region",{name:"Analysis setup"})) fireEvent.click(screen.getByRole("button",{name:"Analysis setup"}));
-}
-function closeSetup() {fireEvent.click(screen.getByRole("button",{name:"Close"}));}
+describe("automatic job sources in the original chat flow", () => {
+  it("starts without setup and sends all three providers together when no configuration was saved", async()=>{
+    vi.mocked(fetchAgentState).mockResolvedValue({...restored,sources:undefined});
+    vi.mocked(streamMarketDemandChat).mockImplementation(async({onEvent})=>{onEvent({type:"stream_end",outcome:"completed"});});
+    render(<TestRouter><MarketDemandPage/></TestRouter>);
+    await waitFor(()=>expect(screen.getByRole("button",{name:"Send message"})).toBeDisabled());
+    await waitFor(()=>expect(screen.getByRole("textbox",{name:"Question"})).toBeEnabled());
+    expect(screen.getByRole("combobox",{name:"Market country"})).toBeVisible();
+    expect(screen.queryByRole("checkbox",{name:"HeadHunter"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:/History and setup|Analysis setup/})).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox",{name:"Question"}),{target:{value:"Analyze the market"}});
+    fireEvent.click(screen.getByRole("button",{name:"Send message"}));
+    await waitFor(()=>expect(streamMarketDemandChat).toHaveBeenCalledWith(expect.objectContaining({
+      mode:"workflow",country:"Uzbekistan",sources:["indeed","linkedin","headhunter"],evidence_sources:["jobs"],
+    })));
+    expect(fetchJobSources).not.toHaveBeenCalled();
+  });
 
-describe("shared teacher source configuration", () => {
-  it("restores sources and serializes them from suggestion, selection and typed replies", async () => {
-    vi.mocked(streamMarketDemandChat).mockImplementation(async ({onEvent}) => {onEvent({type:"stream_end",outcome:"completed"});});
-    vi.mocked(streamMarketDemandChat).mockImplementationOnce(async ({onEvent}) => {
+  it("preserves saved provider settings in suggestions, inline selection and typed workflow replies",async()=>{
+    vi.mocked(streamMarketDemandChat).mockImplementation(async({onEvent})=>{onEvent({type:"stream_end",outcome:"completed"});});
+    vi.mocked(streamMarketDemandChat).mockImplementationOnce(async({onEvent})=>{
       onEvent({type:"agent_start",agent:"supervisor",messageId:"a1",displayName:"Supervisor",emoji:""});
       onEvent({type:"text_delta",messageId:"a1",delta:'Search Terms: "data analyst", "data scientist"'});
-      onEvent({type:"text_done",messageId:"a1"});
-      onEvent({type:"stream_end", outcome:"completed"});
+      onEvent({type:"text_done",messageId:"a1"});onEvent({type:"stream_end",outcome:"completed"});
     });
     render(<TestRouter><MarketDemandPage/></TestRouter>);
-    await openSetup();
-    const user = userEvent.setup();
-    expect(await screen.findByRole("checkbox", {name:"HeadHunter"}, {timeout: 10000})).toBeChecked();
-    expect(screen.getByRole("checkbox", {name:"Indeed"})).toBeDisabled();
-    expect(screen.getByRole("checkbox", {name:"LinkedIn"})).not.toBeChecked();
-    closeSetup();
-    await user.click(screen.getByRole("button",{name:"Start an analysis"}));
-    await user.click(await screen.findByRole("button", {name:"Select all"}));
-    await user.click(screen.getByRole("button", {name:"Continue"}));
-    await user.type(screen.getByPlaceholderText("Type your response..."), "Continue with my selected sources{enter}");
-    await waitFor(() => expect(streamMarketDemandChat).toHaveBeenCalledTimes(3));
-    expect(vi.mocked(streamMarketDemandChat).mock.calls.map(([args]) => ({
-      country: args.country,
-      sources: args.sources,
-      evidence_sources: args.evidence_sources,
-      onet_release: args.onet_release,
-      onet_occupation_codes: args.onet_occupation_codes,
-    }))).toEqual([
-      {country:"Uzbekistan",sources:["headhunter"],evidence_sources:["jobs"],onet_release:null,onet_occupation_codes:[]},
-      {country:"Uzbekistan",sources:["headhunter"],evidence_sources:["jobs"],onet_release:null,onet_occupation_codes:[]},
-      {country:"Uzbekistan",sources:["headhunter"],evidence_sources:["jobs"],onet_release:null,onet_occupation_codes:[]},
+    await waitFor(()=>expect(screen.getByRole("textbox",{name:"Question"})).toBeEnabled());
+    await userEvent.click(screen.getByRole("button",{name:"Analyze the job market for this course and find relevant postings"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Select all"}));
+    fireEvent.click(screen.getByRole("button",{name:/Confirm Selection/}));
+    await waitFor(()=>expect(streamMarketDemandChat).toHaveBeenCalledTimes(2));
+    fireEvent.change(screen.getByRole("textbox",{name:"Question"}),{target:{value:"Continue using the saved configuration"}});
+    fireEvent.click(screen.getByRole("button",{name:"Send message"}));
+    await waitFor(()=>expect(streamMarketDemandChat).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(streamMarketDemandChat).mock.calls.map(([args])=>({country:args.country,sources:args.sources,evidence_sources:args.evidence_sources}))).toEqual([
+      {country:"Uzbekistan",sources:["headhunter"],evidence_sources:["jobs"]},
+      {country:"Uzbekistan",sources:["headhunter"],evidence_sources:["jobs"]},
+      {country:"Uzbekistan",sources:["headhunter"],evidence_sources:["jobs"]},
     ]);
   });
 
-  it("blocks collection when provider catalog fails instead of using defaults", async () => {
-    vi.mocked(fetchJobSources).mockRejectedValueOnce(new Error("Catalog offline"));
+  it("lets available sources proceed when a configured provider is unsupported in this market",async()=>{
+    vi.mocked(fetchAgentState).mockResolvedValue({...restored,sources:["indeed","linkedin","headhunter"]});
+    vi.mocked(fetchJobSources).mockRejectedValue(new Error("Catalog offline"));
+    vi.mocked(streamMarketDemandChat).mockImplementation(async({onEvent})=>{onEvent({type:"stream_end",outcome:"completed"});});
     render(<TestRouter><MarketDemandPage/></TestRouter>);
-    await openSetup();
-    expect((await screen.findAllByText(/Source catalog unavailable: Catalog offline/)).length).toBeGreaterThan(0);
-    closeSetup();
-    expect(screen.getByPlaceholderText("Type your response...")).toBeDisabled();
+    await waitFor(()=>expect(screen.getByRole("textbox",{name:"Question"})).toBeEnabled());
+    fireEvent.change(screen.getByRole("textbox",{name:"Question"}),{target:{value:"Collect available postings"}});
+    fireEvent.click(screen.getByRole("button",{name:"Send message"}));
+    await waitFor(()=>expect(streamMarketDemandChat).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(fetchJobSources).not.toHaveBeenCalled();
+  });
+
+  it("locks the original country selector after collection starts",async()=>{
+    const saved = await fetchSkillReview(1);
+    vi.mocked(fetchSkillReview).mockResolvedValue({...saved,run_id:"run-1"});
+    vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",source_outcomes:{headhunter:{status:"success",received_count:1,usable_count:1,warnings:[]}}});
+    render(<TestRouter><MarketDemandPage/></TestRouter>);
+    await waitFor(()=>expect(screen.getByRole("textbox",{name:"Question"})).toBeEnabled());
+    expect(screen.getByRole("combobox",{name:"Market country"})).toBeDisabled();
+    expect(screen.queryByRole("checkbox",{name:"O*NET references"})).not.toBeInTheDocument();
+  });
+
+  it("renders durable candidate categories inline without treating extracted category prose as approval",async()=>{
+    const {reviewFixture}=await import("@/features/market-demand/__tests__/review-fixtures");
+    vi.mocked(fetchSkillReview).mockResolvedValue(reviewFixture());
+    vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",extracted_skills:[{name:"Legacy Python",category:"legacy",frequency:1,pct:100}]});
+    render(<TestRouter><MarketDemandPage/></TestRouter>);
+    fireEvent.click(await screen.findByRole("button",{name:"Expand Tools"}));
+    expect(screen.getByRole("checkbox",{name:"Select Python"})).toBeVisible();
+    expect(screen.queryByRole("checkbox",{name:/Legacy Python/})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox",{name:"Select Python"}));
     expect(streamMarketDemandChat).not.toHaveBeenCalled();
   });
-
-  it("does not apply an old course provider catalog to the new course", async () => {
-    let finishOld!: (items: JobSourceAvailability[]) => void;
-    vi.mocked(fetchJobSources).mockImplementationOnce(() => new Promise(resolve => {finishOld = resolve;}));
-    const {rerender} = render(<TestRouter><MarketDemandPage/></TestRouter>);
-    await openSetup();
-    await waitFor(() => expect(fetchJobSources).toHaveBeenCalledWith(1, "Uzbekistan", expect.any(AbortSignal)));
-    context.courseId = 2;
-    rerender(<TestRouter><MarketDemandPage/></TestRouter>);
-    await openSetup();
-    expect(await screen.findByRole("checkbox", {name:"HeadHunter"}, {timeout: 10000})).toBeInTheDocument();
-    await act(async () => {finishOld([{id:"indeed",label:"Old course provider",availability:"available",reason:null}]);});
-    expect(screen.queryByRole("checkbox", {name:"Old course provider"})).not.toBeInTheDocument();
-  });
 });
 
-it("renders the durable nested review without treating extracted category prose as skill approval", async () => {
-  const {reviewFixture} = await import("@/features/market-demand/__tests__/review-fixtures");
-  vi.mocked(fetchSkillReview).mockResolvedValue(reviewFixture());
-  vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",extracted_skills:[{name:"Legacy Python",category:"legacy",frequency:1,pct:100}]});
-  render(<TestRouter><MarketDemandPage/></TestRouter>);
-    await openSetup();
-  closeSetup();
-  await userEvent.click(await screen.findByRole("button",{name:"Browse skills"},{timeout:10000}));
-  expect(screen.getByRole("checkbox",{name:"Select Python"})).toBeInTheDocument();
-  closeSetup();
-  expect(screen.queryByText("Select Skill Categories")).not.toBeInTheDocument();
-  await openSetup();
-  expect(screen.getByRole("checkbox",{name:"O*NET references"})).toBeDisabled();
-  closeSetup();
-  await userEvent.click(screen.getByRole("button",{name:"Browse skills"}));
-  await userEvent.setup().click(screen.getByRole("checkbox",{name:"Select Python"}));
-  expect(streamMarketDemandChat).not.toHaveBeenCalled();
-});
-
-
-it.each(["enable", "release"])("confirms pending %s configuration locally before the authoritative chat update", async (change) => {
- const state: AgentState = {...restored,run_id:"run-1",candidate_revision:0};
- if (change === "release") {
-  state.evidence_sources = ["jobs", "onet"];
-  state.onet_release = "30.0";
-  state.selected_onet_occupations = ["15-1252.00"];
- }
- vi.mocked(fetchAgentState).mockResolvedValue(state);
- const saved = await fetchSkillReview(1);
- vi.mocked(fetchSkillReview).mockResolvedValue({...saved,run_id:"run-1"});
- vi.mocked(fetchOnetReleases).mockResolvedValue({items:[{version:"30.0",active:false,attribution:"O*NET"},{version:"31.0",active:true,attribution:"O*NET"}]});
- vi.mocked(searchOnetOccupations).mockResolvedValue({items:[{soc_code:"15-2051.00",title:"Data Scientists",description:"Analyze data"}],total:1,release:"31.0"});
- vi.mocked(confirmOnetOccupations).mockRejectedValue(new Error("Durable configuration has not enabled this release"));
- render(<TestRouter><MarketDemandPage/></TestRouter>);
-    await openSetup();
- const user=userEvent.setup();
- await screen.findByRole("checkbox",{name:"HeadHunter"},{timeout:10000});
- if(change==="enable") await user.click(screen.getByRole("checkbox",{name:"O*NET references"}));
- else {
-  await waitFor(()=>expect(screen.getByRole("combobox",{name:"O*NET release"})).toBeEnabled());
-  await user.selectOptions(screen.getByRole("combobox",{name:"O*NET release"}),"31.0");
- }
- fireEvent.change(screen.getByRole("textbox",{name:"Search occupations"}),{target:{value:"data"}});
- await user.click(screen.getByRole("button",{name:"Search"}));
- await user.click(await screen.findByRole("checkbox",{name:/Data Scientists/}));
- await user.click(screen.getByRole("button",{name:"Confirm occupations"}));
- closeSetup();
- await waitFor(()=>expect(screen.getByPlaceholderText("Type your response...")).toBeEnabled());
- expect(confirmOnetOccupations).not.toHaveBeenCalled();
- fireEvent.change(screen.getByPlaceholderText("Type your response..."),{target:{value:"Collect using this configuration"}});
- fireEvent.keyDown(screen.getByPlaceholderText("Type your response..."),{key:"Enter",code:"Enter"});
- await waitFor(()=>expect(streamMarketDemandChat).toHaveBeenCalled());
- expect(vi.mocked(streamMarketDemandChat).mock.calls[0][0]).toMatchObject({sources:["headhunter"],evidence_sources:["jobs","onet"],onet_release:"31.0",onet_occupation_codes:["15-2051.00"]});
-});
-
-it("prevents configuration changes after collection starts",async()=>{
- const saved = await fetchSkillReview(1);
- vi.mocked(fetchSkillReview).mockResolvedValue({...saved,run_id:"run-1"});
- vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",source_outcomes:{headhunter:{status:"success",received_count:1,usable_count:1,warnings:[]}}});
- render(<TestRouter><MarketDemandPage/></TestRouter>);
-    await openSetup();
- await waitFor(()=>expect(fetchAgentState).toHaveBeenCalled());
- if (!screen.queryByRole("region",{name:"Analysis setup"})) fireEvent.click(screen.getByRole("button",{name:"Analysis setup"}));
- await screen.findByText(/Source settings/);
- const provider=await screen.findByRole("checkbox",{name:"HeadHunter"},{timeout:10000});
- expect(screen.getByRole("checkbox",{name:"O*NET references"})).toBeDisabled();
- expect(provider).toBeDisabled();
-});
-
-it("keeps mapping retry blocked when only the execution status read fails after detachment", async()=>{
+it("keeps mapping retry blocked when the execution-status read fails after detachment",async()=>{
  const {reviewFixture}=await import("@/features/market-demand/__tests__/review-fixtures");const api=await import("@/features/market-demand/api");
- const review=reviewFixture();review.selected_candidate_ids=["python"];review.approved_references=[];
+ const review={...reviewFixture(),selected_candidate_ids:["python"],approved_references:[]};
  vi.mocked(fetchSkillReview).mockResolvedValue(review);vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1"});vi.mocked(api.confirmSkillReviewSelection).mockResolvedValue(review);
  render(<TestRouter><MarketDemandPage/></TestRouter>);
- await waitFor(()=>expect(screen.getByRole("button",{name:"Continue"})).toBeEnabled());
+ await waitFor(()=>expect(screen.getByRole("button",{name:/Confirm Selection/})).toBeEnabled());
  vi.mocked(getMarketExecutionStatus).mockRejectedValue(new Error("Only status offline"));
- fireEvent.click(screen.getByRole("button",{name:"Continue"}));
- await screen.findByRole("button",{name:"Check workflow status before retrying"});
- fireEvent.click(screen.getByRole("button",{name:"Check workflow status before retrying"}));
+ fireEvent.click(screen.getByRole("button",{name:/Confirm Selection/}));
+ await screen.findByRole("button",{name:"Check analysis status"});
+ fireEvent.click(screen.getByRole("button",{name:"Check analysis status"}));
  await waitFor(()=>expect(getMarketExecutionStatus).toHaveBeenCalledTimes(3));
- await waitFor(()=>expect(screen.getByRole("button",{name:"Continue"})).toBeDisabled());
+ expect(screen.getByRole("button",{name:/Confirm Selection/})).toBeDisabled();
  expect(streamMarketDemandChat).toHaveBeenCalledOnce();
- expect(screen.getByRole("button",{name:"Check workflow status before retrying"})).toBeVisible();
  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status:"busy",state_updated_at:null});
- fireEvent.click(screen.getByRole("button",{name:"Check workflow status before retrying"}));
+ fireEvent.click(screen.getByRole("button",{name:"Check analysis status"}));
  await screen.findByText(/still running/);
  expect(streamMarketDemandChat).toHaveBeenCalledOnce();
  vi.mocked(getMarketExecutionStatus).mockResolvedValue({status:"idle",state_updated_at:null});
- fireEvent.click(screen.getByRole("button",{name:"Check workflow status before retrying"}));
- await waitFor(()=>expect(screen.getByRole("button",{name:"Continue"})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:"Check analysis status"}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:/Confirm Selection/})).toBeEnabled());
 });
 
-it('ignores a prior course idle status that completes after switching to an unknown-status course',async()=>{
- const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');const api=await import('@/features/market-demand/api');
- const review={...reviewFixture(),selected_candidate_ids:['python'],approved_references:[]};
+it("ignores a prior course idle status after switching to an unknown-status course",async()=>{
+ const {reviewFixture}=await import("@/features/market-demand/__tests__/review-fixtures");const api=await import("@/features/market-demand/api");
+ const review={...reviewFixture(),selected_candidate_ids:["python"],approved_references:[]};
  vi.mocked(fetchSkillReview).mockImplementation(async id=>({...review,run_id:`run-${id}`}));
  vi.mocked(fetchAgentState).mockImplementation(async id=>({...restored,course_id:id,run_id:`run-${id}`}));
  vi.mocked(api.confirmSkillReviewSelection).mockResolvedValue(review);
  const {rerender}=render(<TestRouter><MarketDemandPage/></TestRouter>);
- await waitFor(()=>expect(screen.getByRole('button',{name:'Continue'})).toBeEnabled());
- fireEvent.click(screen.getByRole('button',{name:'Continue'}));
- await screen.findByRole('button',{name:'Check workflow status before retrying'});
- let finishOld!:(status:{status:'idle';state_updated_at:null})=>void;
- vi.mocked(getMarketExecutionStatus).mockImplementation(id=>id===1?new Promise(resolve=>{finishOld=resolve;}):Promise.reject(new Error('New course status offline')));
- fireEvent.click(screen.getByRole('button',{name:'Check workflow status before retrying'}));
+ await waitFor(()=>expect(screen.getByRole("button",{name:/Confirm Selection/})).toBeEnabled());
+ fireEvent.click(screen.getByRole("button",{name:/Confirm Selection/}));
+ await screen.findByRole("button",{name:"Check analysis status"});
+ let finishOld!:(status:{status:"idle";state_updated_at:null})=>void;
+ vi.mocked(getMarketExecutionStatus).mockImplementation(id=>id===1?new Promise(resolve=>{finishOld=resolve;}):Promise.reject(new Error("New course status offline")));
+ fireEvent.click(screen.getByRole("button",{name:"Check analysis status"}));
  await waitFor(()=>expect(getMarketExecutionStatus).toHaveBeenCalledTimes(3));
  context.courseId=2;rerender(<TestRouter><MarketDemandPage/></TestRouter>);
- await waitFor(()=>expect(screen.getByRole('button',{name:'Browse skills'})).toBeEnabled());
- await act(async()=>finishOld({status:'idle',state_updated_at:null}));
- expect(screen.getByRole('button',{name:'Continue'})).toBeDisabled();
- expect(screen.getByRole('button',{name:'Check workflow status'})).toBeVisible();
+ await waitFor(()=>expect(screen.getByRole("button",{name:"Expand Tools"})).toBeEnabled());
+ await act(async()=>finishOld({status:"idle",state_updated_at:null}));
+ expect(screen.getByRole("button",{name:/Confirm Selection/})).toBeDisabled();
+ expect(screen.getByRole("button",{name:"Check analysis status"})).toBeVisible();
  expect(streamMarketDemandChat).toHaveBeenCalledOnce();
 });

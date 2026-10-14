@@ -59,6 +59,7 @@ from .schemas import (
     SkillReview,
     SkillReviewDraft,
     SkillReviewRevision,
+    SkillSelectionConfirmation,
     VacancyEvidence,
     WorkspaceContext,
 )
@@ -952,7 +953,7 @@ async def save_skill_review_draft(
 )
 async def confirm_skill_review_selection(
     course_id: int,
-    body: SkillReviewRevision,
+    body: SkillSelectionConfirmation,
     teacher: TeacherDep,
     service: SkillReviewService = Depends(get_skill_review_service),
     state_service: ThreadStateService = Depends(get_thread_state_service),

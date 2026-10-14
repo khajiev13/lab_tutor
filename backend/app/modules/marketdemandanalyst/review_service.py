@@ -22,6 +22,7 @@ from .schemas import (
     SkillReview,
     SkillReviewDraft,
     SkillReviewRevision,
+    SkillSelectionConfirmation,
 )
 from .service import available_evidence_omissions
 
@@ -314,6 +315,7 @@ class SkillReviewService:
             recommendations=run.recommendations,
             reconciliations=records,
             source_outcomes=run.source_outcomes,
+            evidence_omissions=omissions,
             extraction_coverage={
                 **deepcopy(run.extraction_coverage),
                 "acknowledged": manifest.get("acknowledged_omissions", []) == omissions,
@@ -757,6 +759,59 @@ class SkillReviewService:
         self, course_id: int, teacher_id: int, body: SkillReviewRevision
     ) -> SkillReview:
         run, snapshot = self._active_run(course_id, teacher_id, body)
+        current_selection = (
+            isinstance(body, SkillSelectionConfirmation)
+            and body.selected_candidate_ids is not None
+        )
+        if current_selection:
+            if body.expected_omissions != available_evidence_omissions(run):
+                raise HTTPException(
+                    409,
+                    {
+                        "code": "evidence_changed",
+                        "message": "Evidence changed; reload before confirming",
+                    },
+                )
+            if not body.selected_candidate_ids:
+                raise HTTPException(
+                    422, "Choose at least one candidate before confirmation"
+                )
+            current_ids = {
+                candidate["candidate_id"]
+                for candidate in run.candidate_manifest.get("candidates", [])
+            }
+            try:
+                run = self._repo.save_draft(
+                    body.run_id,
+                    course_id,
+                    teacher_id,
+                    expected_candidate_revision=body.expected_candidate_revision,
+                    expected_selection_revision=body.expected_selection_revision,
+                    selected_candidate_ids=[
+                        str(value) for value in body.selected_candidate_ids
+                    ],
+                    excluded_candidate_ids=[
+                        str(value) for value in body.excluded_candidate_ids
+                    ],
+                    resolved_reconciliation_ids=[
+                        record["reconciliation_id"]
+                        for record in run.candidate_manifest.get("reconciliations", [])
+                        if not record.get("resolved")
+                        and record.get("candidate_id") in current_ids
+                    ],
+                )
+            except InvalidCandidateIds as exc:
+                raise HTTPException(422, str(exc)) from exc
+            except RevisionConflict as exc:
+                raise HTTPException(409, str(exc)) from exc
+            # Missing candidates have no current target. Acknowledge their
+            # bookkeeping without transferring IDs or erasing historical choices.
+            manifest = deepcopy(run.candidate_manifest)
+            for record in manifest.get("reconciliations", []):
+                record["resolved"] = True
+            manifest["reconciliation_required"] = False
+            run.candidate_manifest = manifest
+            self._repo.acknowledge_omissions(run, available_evidence_omissions(run))
         if any(
             not r.get("resolved")
             for r in run.candidate_manifest.get("reconciliations", [])
@@ -792,7 +847,9 @@ class SkillReviewService:
                 "confirmed_at": datetime.now(UTC).isoformat(),
             },
         )
-        review, _ = self._commit_snapshot(run, snapshot)
+        review, _ = self._commit_snapshot(
+            run, snapshot, reset_mapping=current_selection
+        )
         return review
 
     def continue_with_available_evidence(

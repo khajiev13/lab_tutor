@@ -154,3 +154,8 @@ it("loads occupation reference evidence with the exact GET DTO, release and abor
     expect(get).toHaveBeenCalledWith("/courses/7/occupation-reference/occupations/15-2051.00/skills", {params: {release: "31.0"}, signal});
   } finally {get.mockRestore();}
 });
+
+it('shows the human recovery message from structured review errors without serializing internal codes',()=>{
+ const cause={isAxiosError:true,response:{data:{detail:{code:'stale_candidate_revision',message:'The evidence changed. Refresh before confirming.',recovery:'Reload the review.'}}}};
+ expect(marketDemandApi.skillReviewErrorMessage(cause,'Request failed')).toBe('The evidence changed. Refresh before confirming.');
+});

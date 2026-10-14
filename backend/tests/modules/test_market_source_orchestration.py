@@ -30,6 +30,70 @@ def owned_run(db_session, client, teacher_auth_headers, config=None):
     return course, run
 
 
+def test_default_configuration_collects_all_provider_outcomes_without_setup(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.job_sources import JobSourceService
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+    from app.modules.marketdemandanalyst.service import (
+        MarketConfigurationService,
+        MarketSourceService,
+    )
+
+    course = client.post(
+        "/courses",
+        json={"title": "Automatic source collection"},
+        headers=teacher_auth_headers,
+    ).json()
+
+    def scraper(**kwargs):
+        assert kwargs["site_name"] == ["linkedin"]
+        return pd.DataFrame(
+            [
+                {
+                    "id": "default-uz",
+                    "title": "Engineer",
+                    "company": "Local",
+                    "description": "Use SQL to query data. " * 10,
+                    "job_url": "https://www.linkedin.com/jobs/view/default-uz",
+                }
+            ]
+        )
+
+    jobs = JobSourceService(jobspy_scraper=scraper)
+    repository = MarketReviewRepository(db_session)
+    config_service = MarketConfigurationService(repository, jobs, occupations=None)
+    state = {}
+    run = config_service.configure(
+        course["id"], course["teacher_id"], state, {"country": "Uzbekistan"}
+    )
+    db_session.commit()
+    result = MarketSourceService(
+        jobs=jobs, session_factory=lambda: db_session
+    ).collect_sources(
+        {
+            "run_id": str(run.id),
+            "course_id": course["id"],
+            "teacher_id": course["teacher_id"],
+            **run.config,
+        },
+        ["Engineer"],
+    )
+    assert set(result["source_outcomes"]) == {"indeed", "linkedin", "headhunter"}
+    assert len(result["jobs"]) == 1
+    assert result["source_outcomes"]["linkedin"]["status"] == "success"
+    assert result["source_outcomes"]["indeed"]["status"] == "error"
+    assert result["source_outcomes"]["headhunter"]["status"] == "error"
+    state.update(course_id=course["id"], teacher_id=course["teacher_id"])
+    restored = config_service.configure(course["id"], course["teacher_id"], state, {})
+    assert restored.config["sources"] == ["indeed", "linkedin", "headhunter"]
+    with pytest.raises(ValueError, match="locked"):
+        config_service.configure(
+            course["id"], course["teacher_id"], state, {"sources": ["linkedin"]}
+        )
+    db_session.rollback()
+
+
 def test_coordinator_persists_short_and_long_full_records_before_filter(
     db_session, client, teacher_auth_headers
 ):
@@ -424,7 +488,7 @@ def test_source_failure_requires_exact_ack_and_never_waives_posting_support(
 
 
 @pytest.mark.parametrize("source_failed", [False, True])
-def test_job_group_reselection_checks_sources_not_previous_extraction(
+def test_job_groups_and_extraction_defer_evidence_consent_to_skill_selection(
     db_session, client, teacher_auth_headers, monkeypatch, source_failed
 ):
     from copy import deepcopy
@@ -457,12 +521,11 @@ def test_job_group_reselection_checks_sources_not_previous_extraction(
     }
     with bind_tool_store(state):
         result = tools.select_jobs_by_group.invoke({"group_names": '["Data Engineer"]'})
-    if source_failed:
-        assert "Continue with available evidence" in result
-        assert state["selected_jobs"] == [jobs[1]]
-    else:
-        assert "Selected 1 jobs from 1 groups" in result
-        assert state["selected_jobs"] == [jobs[0]]
+    assert "Selected 1 jobs from 1 groups" in result
+    assert state["selected_jobs"] == [jobs[0]]
+    with bind_tool_store(state):
+        extraction = tools.start_extraction.invoke({})
+    assert extraction.goto == "skill_extractor"
     stored = MarketReviewRepository(db_session).get_run(
         UUID(state["run_id"]), course["id"], course["teacher_id"]
     )

@@ -1,16 +1,20 @@
 import {useState} from "react";
 import {Button} from "@/components/ui/button";
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog";
+import {OccupationReferencePanel} from "@/features/market-demand/components/OccupationReferencePanel";
 import {EvidenceChart} from "@/features/market-demand/components/EvidenceChart";
 import {buildCompactComparison} from "@/features/market-demand/compact-comparison";
 import type {CompactComparisonRow} from "@/features/market-demand/compact-comparison";
-import type {DescriptorChoice, SkillReview, WorkspaceQuestion} from "@/features/market-demand/types";
+import type {DescriptorChoice, SkillReview, WorkspaceQuestion, OccupationReferenceContext} from "@/features/market-demand/types";
 
 export interface CompactComparisonProps {
+  courseId?: number;
+  onCloseAutoFocus?: (event: Event) => void;
+  onReferenceAsk?: (context: OccupationReferenceContext, text: string) => void;
   review: SkillReview; candidateIds: string[]; open: boolean; onOpenChange: (open: boolean) => void;
   onAsk: (question: WorkspaceQuestion, descriptorChoices?: DescriptorChoice[]) => void;
 }
-function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonProps, "review" | "candidateIds" | "onAsk">) {
+function ComparisonBody({review, candidateIds, onAsk, courseId, onReferenceAsk}: Pick<CompactComparisonProps, "review" | "candidateIds" | "onAsk" | "courseId" | "onReferenceAsk">) {
   const [metric, setMetric] = useState<"frequency" | "IM">("frequency");
   const [occupationCode, setOccupationCode] = useState<string | null>(review.analysis_metadata?.occupations[0]?.soc_code ?? null);
   const [choices, setChoices] = useState<DescriptorChoice[]>([]);
@@ -48,11 +52,17 @@ function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonPro
     const counts = candidates.get(row.candidateIds[0])!.job_metrics;
     return `${row.value}% · ${counts.supporting_posting_count} of ${counts.assessed_posting_count} assessed postings${counts.selected_posting_count !== undefined ? ` · ${counts.selected_posting_count} selected` : ""}${counts.coverage_status ? ` · ${counts.coverage_status} coverage` : ""}`;
   };
-  return <div className="min-w-0 space-y-3 break-words [overflow-wrap:anywhere]">
-    <div className="flex flex-wrap gap-2" aria-label="Comparison measure">
+  const measureControls = <div className="flex flex-wrap gap-2" aria-label="Comparison measure">
       <Button size="sm" variant={metric === "frequency" ? "secondary" : "outline"} aria-pressed={metric === "frequency"} onClick={() => {setMetric("frequency"); setPage(1); setFocused(null);}}>Collected jobs</Button>
       <Button size="sm" variant={metric === "IM" ? "secondary" : "outline"} aria-pressed={metric === "IM"} onClick={() => {setMetric("IM"); setPage(1); setFocused(null);}}>O*NET importance</Button>
-    </div>
+    </div>;
+  if (metric === "IM" && (!model.occupation || !model.release) && courseId && onReferenceAsk) {
+    return <div className="min-w-0 space-y-3 break-words [overflow-wrap:anywhere]">{measureControls}
+      <OccupationReferencePanel courseId={courseId} compact onAsk={onReferenceAsk}/>
+    </div>;
+  }
+  return <div className="min-w-0 space-y-3 break-words [overflow-wrap:anywhere]">
+    {measureControls}
     {metric === "IM" && <div className="space-y-2 text-sm">
       <label className="block space-y-1"><span>Confirmed occupation</span>
         <select aria-label="Confirmed occupation" className="min-w-0 max-w-full w-full rounded-md border bg-background p-2" value={model.occupation?.soc_code ?? ""}
@@ -63,7 +73,7 @@ function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonPro
       <p>O*NET release {model.release ?? "unavailable"} · Importance (IM), original 1–5 scale. Related and broader descriptors provide mapping context.</p>
       {(!model.occupation || !model.release) && <p>Choose a confirmed occupation with a stored release to ask about O*NET evidence.</p>}
     </div>}
-    {!model.rows.length ? <p className="text-sm">Choose skills to compare from Browse skills.</p> : <>
+    {!model.rows.length ? <p className="text-sm">Choose skills in the conversation to compare.</p> : <>
       <p className="text-xs text-muted-foreground" aria-live="polite">Showing {visibleIds.length} of {comparedIds.length} skills · entries {offset + 1}–{offset + visibleIds.length}</p>
       {numeric.length && model.scale ? <EvidenceChart key={metric} label={metric === "frequency" ? "Collected job sample frequency" : `O*NET importance for ${model.occupation!.title}`}
         className="h-64 sm:h-72" onFocus={({candidateId}) => setFocused(candidateId)} option={width => ({
@@ -86,7 +96,6 @@ function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonPro
           </select>
         </label>)}
         <div className="flex flex-wrap items-center gap-2">{row.sourceUrl && <a href={row.sourceUrl} target="_blank" rel="noreferrer" aria-label={`Original source for ${row.label}`} className="underline">Original source</a>}
-          <Button size="sm" variant="ghost" aria-label={`Inspect ${row.label}`} onClick={() => setFocused(row.candidateIds[0])}>Inspect</Button>
           <Button size="sm" variant="outline" disabled={metric === "IM" && (!model.occupation || !model.release)} aria-label={`Ask about ${row.label}`} onClick={() => ask(row)}>Ask the agent</Button>
         </div>
       </li>)}</ul>
@@ -98,11 +107,11 @@ function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonPro
     </>}
   </div>;
 }
-export function CompactComparison({review, candidateIds, open, onOpenChange, onAsk}: CompactComparisonProps) {
+export function CompactComparison({review, candidateIds, open, onOpenChange, onAsk, courseId, onReferenceAsk, onCloseAutoFocus}: CompactComparisonProps) {
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent maxWidthClassName="sm:max-w-2xl" className="max-h-[85dvh] grid-cols-1 overflow-y-auto">
+    <DialogContent onCloseAutoFocus={onCloseAutoFocus} maxWidthClassName="sm:max-w-2xl" className="max-h-[85dvh] grid-cols-1 overflow-y-auto">
       <DialogHeader><DialogTitle>Compare skills</DialogTitle><DialogDescription>Inspect one measure at a time for your chosen skills. Questions explain evidence; choices remain yours.</DialogDescription></DialogHeader>
-      {open && <ComparisonBody review={review} candidateIds={candidateIds} onAsk={onAsk}/>}
+      {open && <ComparisonBody review={review} candidateIds={candidateIds} onAsk={onAsk} courseId={courseId} onReferenceAsk={onReferenceAsk}/>}
     </DialogContent>
   </Dialog>;
 }

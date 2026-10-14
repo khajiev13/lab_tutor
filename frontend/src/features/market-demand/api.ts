@@ -9,6 +9,7 @@ import type {
   SkillReview,
   SkillReviewDraft,
   SkillReviewRevision,
+  SkillSelectionConfirmation,
   IntegrationApproval,
   IntegrationApprovalResponse,
   PostingEvidence,
@@ -303,7 +304,7 @@ export async function saveSkillReviewDraft(courseId: number, body: SkillReviewDr
   return data;
 }
 
-export async function confirmSkillReviewSelection(courseId: number, body: SkillReviewRevision): Promise<SkillReview> {
+export async function confirmSkillReviewSelection(courseId: number, body: SkillReviewRevision | SkillSelectionConfirmation): Promise<SkillReview> {
   const { data } = await api.post<SkillReview>(
     `/courses/${courseId}/market-demand/skill-review/selection-confirmation`, body,
   );
@@ -342,7 +343,8 @@ export function skillReviewErrorMessage(cause: unknown, fallback: string): strin
   if (isAxiosError(cause)) {
     const detail = cause.response?.data?.detail;
     if (typeof detail === "string") return detail;
-    if (detail) return JSON.stringify(detail);
+    if (detail && typeof detail.message === "string") return detail.message;
+    if (detail) return fallback;
   }
   return cause instanceof Error ? cause.message : fallback;
 }

@@ -156,6 +156,7 @@ def test_empty_review_dto_is_coherent_and_detached():
         "reconciliations": [],
         "source_outcomes": {},
         "extraction_coverage": {},
+        "evidence_omissions": [],
         "integration_review": None,
         "publication_revision": 0,
         "approved_references": [],
@@ -300,6 +301,202 @@ def draft_body(run_id, selected, excluded, revision=0, candidate_revision=1):
         "selected_candidate_ids": selected,
         "excluded_candidate_ids": excluded,
     }
+
+
+def test_inline_confirmation_saves_exact_choices_evidence_and_reconciliation(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun, MDAThreadState
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    old_id, reconciliation_id = str(uuid4()), str(uuid4())
+    run.source_outcomes = {
+        "headhunter": {"status": "error", "warnings": ["Application unavailable"]}
+    }
+    run.candidate_manifest = {
+        **run.candidate_manifest,
+        "reconciliations": [
+            {
+                "reconciliation_id": reconciliation_id,
+                "candidate_id": ids[0],
+                "previous_candidate_ids": [old_id],
+                "previous_selected_candidate_ids": [old_id],
+                "previous_excluded_candidate_ids": [],
+                "reason": "ambiguous_equivalent_merge",
+                "resolved": False,
+            }
+        ],
+    }
+    db_session.commit()
+    base = review_url(course)
+    omissions = ["headhunter: Application unavailable", "headhunter: error"]
+    assert (
+        client.get(base, headers=teacher_auth_headers).json().get("evidence_omissions")
+        == omissions
+    )
+    body = {
+        **draft_body(run_id, [ids[1]], [ids[0]]),
+        "confirm_current_evidence": True,
+        "expected_omissions": omissions,
+    }
+    response = client.post(
+        base + "/selection-confirmation", headers=teacher_auth_headers, json=body
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["selected_candidate_ids"] == [ids[1]]
+    assert response.json()["excluded_candidate_ids"] == [ids[0]]
+    assert response.json()["reconciliations"][0]["resolved"] is True
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    assert run.selection_revision == 1
+    assert run.selection_confirmation["selected_candidate_ids"] == [ids[1]]
+    assert run.selection_confirmation["excluded_candidate_ids"] == [ids[0]]
+    assert run.selection_confirmation["acknowledged_omissions"] == omissions
+    assert run.publication_revision == 0
+    assert run.approved_references == []
+    snapshot = db_session.get(
+        MDAThreadState, f"mda-{course['teacher_id']}-course-{course['id']}"
+    ).state_json
+    assert snapshot["curated_skills"][0]["candidate_id"] == ids[1]
+    assert snapshot["curriculum_mapping"] is None
+
+
+@pytest.mark.parametrize(
+    "kind,status",
+    [
+        ("consent", 422),
+        ("missing_exclusions", 422),
+        ("missing_omissions", 422),
+        ("changed_omissions", 409),
+        ("foreign", 422),
+        ("overlap", 422),
+        ("duplicate", 422),
+        ("stale", 409),
+        ("empty", 422),
+    ],
+)
+def test_inline_confirmation_rejects_invalid_payload_without_draft_write(
+    db_session, client, teacher_auth_headers, kind, status
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    body = {
+        **draft_body(run_id, [ids[0]], [ids[1]]),
+        "confirm_current_evidence": True,
+        "expected_omissions": [],
+    }
+    if kind == "consent":
+        body["confirm_current_evidence"] = False
+    elif kind == "missing_exclusions":
+        body.pop("excluded_candidate_ids")
+    elif kind == "missing_omissions":
+        body.pop("expected_omissions")
+    elif kind == "changed_omissions":
+        body["expected_omissions"] = ["old source warning"]
+    elif kind == "foreign":
+        body["selected_candidate_ids"] = [str(uuid4())]
+    elif kind == "overlap":
+        body["excluded_candidate_ids"] = [ids[0]]
+    elif kind == "duplicate":
+        body["selected_candidate_ids"] = [ids[0], ids[0]]
+    elif kind == "stale":
+        body["expected_candidate_revision"] = 0
+    elif kind == "empty":
+        body["selected_candidate_ids"] = []
+    response = client.post(
+        review_url(course) + "/selection-confirmation",
+        headers=teacher_auth_headers,
+        json=body,
+    )
+    assert response.status_code == status, response.text
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    assert run.selected_candidate_ids == []
+    assert run.selection_revision == 0
+    assert run.selection_confirmation is None
+
+
+def test_inline_confirmation_snapshot_failure_rolls_back_all_decisions(
+    db_session, client, teacher_auth_headers
+):
+    from sqlalchemy import event
+
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    body = {
+        **draft_body(run_id, [ids[0]], [ids[1]]),
+        "confirm_current_evidence": True,
+        "expected_omissions": [],
+    }
+
+    def fail_snapshot(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().startswith("UPDATE mda_thread_state"):
+            raise RuntimeError("simulated inline snapshot failure")
+
+    event.listen(db_session.get_bind(), "before_cursor_execute", fail_snapshot)
+    try:
+        with pytest.raises(RuntimeError, match="inline snapshot failure"):
+            client.post(
+                review_url(course) + "/selection-confirmation",
+                headers=teacher_auth_headers,
+                json=body,
+            )
+    finally:
+        event.remove(db_session.get_bind(), "before_cursor_execute", fail_snapshot)
+    db_session.rollback()
+    run = db_session.get(MarketAnalysisRun, run_id, populate_existing=True)
+    assert run.selected_candidate_ids == []
+    assert run.excluded_candidate_ids == []
+    assert run.selection_revision == 0
+    assert run.selection_confirmation is None
+    assert "acknowledged_omissions" not in run.candidate_manifest
+
+
+def test_inline_confirmation_keeps_removed_exclusions_in_history_without_transfer(
+    db_session, client, teacher_auth_headers
+):
+    from app.modules.marketdemandanalyst.models import MarketAnalysisRun
+
+    course, run_id, ids = active_review(db_session, client, teacher_auth_headers)
+    run = db_session.get(MarketAnalysisRun, run_id)
+    old_id = str(uuid4())
+    run.candidate_manifest = {
+        **run.candidate_manifest,
+        "candidate_history": [
+            {"candidate_id": old_id, "selected": False, "excluded": True}
+        ],
+        "reconciliations": [
+            {
+                "reconciliation_id": str(uuid4()),
+                "candidate_id": None,
+                "previous_candidate_ids": [old_id],
+                "reason": "candidate_no_longer_observed",
+                "previous_excluded_candidate_ids": [old_id],
+                "resolved": False,
+            }
+        ],
+    }
+    db_session.commit()
+    response = client.post(
+        review_url(course) + "/selection-confirmation",
+        headers=teacher_auth_headers,
+        json={
+            **draft_body(run_id, [ids[0]], [ids[1]]),
+            "confirm_current_evidence": True,
+            "expected_omissions": [],
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["selected_candidate_ids"] == [ids[0]]
+    assert response.json()["excluded_candidate_ids"] == [ids[1]]
+    assert response.json()["reconciliations"][0]["resolved"] is True
+    db_session.expire_all()
+    run = db_session.get(MarketAnalysisRun, run_id)
+    assert run.candidate_manifest["candidate_history"][0]["excluded"] is True
+    assert run.candidate_manifest["candidate_history"][0]["selected"] is False
 
 
 def test_candidate_advice_summary_separates_job_skills_from_references(

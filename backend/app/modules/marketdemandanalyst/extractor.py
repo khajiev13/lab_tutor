@@ -1224,7 +1224,7 @@ def _return_to_skill_finder(state: ExtractorState) -> Command:
             f"coverage: {coverage.get('status', 'unknown')}. "
             "Call get_skills_by_category for read-only teacher review. "
             "Retry real posting/chunk or association inference failures, not fixed association bounds. "
-            "Pause for the teacher's required partial-evidence acknowledgment and selection."
+            "Present skills by category and current evidence notes for the teacher's Confirm Selection action."
         )
         update["messages"] = [
             ToolMessage(

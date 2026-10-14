@@ -101,6 +101,7 @@ class SkillReview(BaseModel):
     reconciliations: list[CandidateReconciliation] = Field(default_factory=list)
     source_outcomes: dict[str, SourceOutcome] = Field(default_factory=dict)
     extraction_coverage: dict[str, Any] = Field(default_factory=dict)
+    evidence_omissions: list[str] = Field(default_factory=list)
     integration_review: dict[str, Any] | None = None
     publication_revision: int = 0
     approved_references: list[dict[str, Any]] = Field(default_factory=list)
@@ -116,6 +117,36 @@ class SkillReviewDraft(SkillReviewRevision):
     selected_candidate_ids: list[UUID]
     excluded_candidate_ids: list[UUID]
     resolved_reconciliation_ids: list[UUID] = Field(default_factory=list)
+
+
+class SkillSelectionConfirmation(SkillReviewRevision):
+    selected_candidate_ids: list[UUID] | None = None
+    excluded_candidate_ids: list[UUID] | None = None
+    confirm_current_evidence: bool = Field(default=False, strict=True)
+    expected_omissions: list[str] | None = None
+
+    @model_validator(mode="after")
+    def explicit_current_selection(self):
+        supplied = self.model_fields_set & {
+            "selected_candidate_ids",
+            "excluded_candidate_ids",
+        }
+        if supplied and (
+            self.selected_candidate_ids is None
+            or self.excluded_candidate_ids is None
+            or not self.confirm_current_evidence
+            or self.expected_omissions is None
+        ):
+            raise ValueError(
+                "Confirm current selection with both ID lists, explicit evidence consent, and displayed omissions"
+            )
+        if not supplied and (
+            self.confirm_current_evidence or self.expected_omissions is not None
+        ):
+            raise ValueError(
+                "Evidence consent requires both current selection ID lists"
+            )
+        return self
 
 
 class JobSourceOption(BaseModel):

@@ -28,7 +28,7 @@ SOURCES: tuple[JobSource, ...] = ("indeed", "linkedin", "headhunter")
 
 def normalize_job_sources(raw: Sequence[str] | None) -> tuple[JobSource, ...]:
     if raw is None:
-        return ("indeed", "linkedin")
+        return SOURCES
     if not raw or set(raw) - set(SOURCES):
         raise ValueError("Select at least one supported job provider")
     return tuple(source for source in SOURCES if source in raw)
@@ -122,9 +122,12 @@ class JobSourceService:
             return
         normalized = normalize_job_sources(sources)
         options = {item.id: item for item in self.catalog(country)}
-        for source in normalized:
-            if options[source].availability != "available":
-                raise ValueError(f"{options[source].label}: {options[source].reason}")
+        if not any(
+            options[source].availability == "available" for source in normalized
+        ):
+            raise ValueError(
+                "No available job provider for this market. Configure provider access or choose another country."
+            )
 
     def _collect(
         self,
@@ -257,8 +260,12 @@ class JobSourceService:
             raise ValueError("At least one nonblank search query is required")
         selected = normalize_job_sources(sources)
         self.validate_compatibility(country, selected)
-        # Initial workers must include every selected provider even for many queries.
-        tasks = [(source, term) for term in terms for source in selected]
+        options = {item.id: item for item in self.catalog(country)}
+        available = tuple(
+            source for source in selected if options[source].availability == "available"
+        )
+        # Initial workers include every available selected provider for many queries.
+        tasks = [(source, term) for term in terms for source in available]
         with ThreadPoolExecutor(max_workers=min(8, len(tasks))) as pool:
             futures = [
                 pool.submit(
@@ -270,6 +277,14 @@ class JobSourceService:
         result = FetchJobsResult()
         seen = {}
         for source in selected:
+            if options[source].availability != "available":
+                result.outcomes[source] = SourceOutcome(
+                    status="error",
+                    warnings=[
+                        f"{options[source].label} unavailable: {options[source].reason}"
+                    ],
+                )
+                continue
             warnings = []
             failed = False
             provider_records = []

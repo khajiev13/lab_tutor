@@ -25,7 +25,7 @@ from .evidence import (
     reference_fingerprint,
 )
 from .extractor import merge_evidenced_skills
-from .job_sources import get_job_source_service
+from .job_sources import SOURCES, get_job_source_service
 from .repository import MarketReviewRepository, RevisionConflict
 from .schemas import SourceOutcome
 
@@ -233,7 +233,7 @@ class MarketSourceService:
         ):
             raise ValueError("At least one nonblank search query is required")
         country = normalize_job_search_country(config.get("country"))
-        sources = tuple(config.get("sources", ["indeed", "linkedin"]))
+        sources = tuple(config.get("sources", SOURCES))
         self._jobs.validate_compatibility(
             country, sources, evidence_sources=evidence_sources
         )
@@ -684,7 +684,7 @@ class MarketConfigurationService:
         original = deepcopy(run.config if run else {})
         config = {
             "country": state.get("job_search_country") or "USA",
-            "sources": ["indeed", "linkedin"],
+            "sources": list(SOURCES),
             "evidence_sources": ["jobs"],
             "onet_release": None,
             **original,

@@ -34,6 +34,7 @@ export interface SkillReviewController {
   undo: () => void;
   save: () => Promise<SkillReview>;
   reviewMappings: () => Promise<SkillReview>;
+  confirmCurrentSelection: () => Promise<SkillReview>;
   acknowledgeAvailableEvidence: () => Promise<SkillReview>;
   onReviewChange: (review: SkillReview) => void;
 }
@@ -84,8 +85,9 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
     // New identities must be explicitly selected even if a refreshed snapshot suggests them.
     const knownIds = new Set(model.snapshot?.candidates.map(item => item.candidate_id));
     const serverDraft = draftOf(review);
-    const nextDraft = sameRun && previousDirty ? reconciled.draft : sameRun ? {
-      ...serverDraft, selected_candidate_ids: serverDraft.selected_candidate_ids.filter(id => knownIds.has(id)),
+    const nextDraft = sameRun && previousDirty ? {...reconciled.draft, selected_candidate_ids: model.draft.selected_candidate_ids} : sameRun ? {
+      ...serverDraft, selected_candidate_ids: [...new Set([...serverDraft.selected_candidate_ids.filter(id => knownIds.has(id)),
+        ...model.draft.selected_candidate_ids.filter(id => !review.candidates.some(item => item.candidate_id === id))])],
     } : serverDraft;
     const acknowledged = model.snapshot === review;
     setModel({...model, courseId, incoming: review, snapshot: review, draft: nextDraft,
@@ -132,12 +134,12 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
   };
   const revision = (snapshot: SkillReview) => ({run_id: snapshot.run_id!, expected_candidate_revision: snapshot.candidate_revision, expected_selection_revision: snapshot.selection_revision});
 
-  const perform = async (action: "save" | "confirm" | "continue"): Promise<SkillReview> => {
+  const perform = async (action: "save" | "confirm" | "continue" | "confirm_current"): Promise<SkillReview> => {
     if (!hasCurrentIdentity()) throw new Error("Skill review changed; use the current review actions");
     const current = live.current.model;
     const requestDirty = !sameDraft(current.draft, draftOf(current.snapshot)) || current.reconciliationIds.length > 0;
     if (!current.snapshot?.run_id || live.current.disabled || activeRequest.current !== null) throw new Error("Skill review is unavailable or busy");
-    if (current.reviewRequired || (action !== "continue" && hasUnsupportedSelection(current.snapshot, current.draft))) throw new Error("Review the changed revisions before saving");
+    if ((action !== "confirm_current" && current.reviewRequired) || (action !== "continue" && hasUnsupportedSelection(current.snapshot, current.draft))) throw new Error("Review changed choices or remove skills without supporting job postings before saving");
     if (action === "continue" && requestDirty) throw new Error("Save the draft before acknowledging evidence");
     const request = ++generation.current;
     activeRequest.current = request;
@@ -165,9 +167,19 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
         }
         acknowledged = accept(await confirmSkillReviewSelection(courseId, revision(acknowledged)));
       }
+      if (action === "confirm_current") {
+        if (!current.draft.selected_candidate_ids.length) throw new Error("Choose at least one skill");
+        const response = await confirmSkillReviewSelection(courseId, {...revision(acknowledged), ...current.draft,
+          confirm_current_evidence: true, expected_omissions: acknowledged.evidence_omissions ?? []});
+        assertCurrent();
+        if (response.candidate_revision !== current.snapshot.candidate_revision || !sameDraft(draftOf(response), current.draft)) {
+          throw new Error("The evidence or choices changed before confirmation. Refresh the current review and retry.");
+        }
+        acknowledged = accept(response);
+      }
       if (action === "continue") acknowledged = accept(await continueWithAvailableEvidence(courseId, revision(acknowledged)));
       assertCurrent();
-      writeModel(current => ({...current, success: action === "save" ? "Draft saved" : action === "confirm" ? "Selection confirmed for mapping" : "Evidence omissions acknowledged; supporting postings are still required"}));
+      writeModel(current => ({...current, success: action === "save" ? "Draft saved" : (action === "confirm" || action === "confirm_current") ? "Selection confirmed for mapping" : "Evidence omissions acknowledged; supporting postings are still required"}));
       return acknowledged;
     } catch (cause) {
       if (request === generation.current) writeModel(current => ({...current, error: skillReviewErrorMessage(cause, "Skill review request failed")}));
@@ -185,9 +197,13 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
     reviewRequired: model.reviewRequired || hasUnsupportedSelection(model.snapshot, model.draft), error: model.error, success: model.success, canUndo: !!model.undo,
     reconciliation: model.reconciliation, pendingReconciliationIds,
     needsEvidenceAcknowledgement: needsEvidenceAcknowledgement(model.snapshot),
-    setCandidate: (id, checked) => mutate(current => current.snapshot?.candidates.some(item => item.candidate_id === id) &&
-      (!checked || jobBackedCandidates(current.snapshot).some(item => item.candidate_id === id))
-      ? applyIndividualSelection(current.draft, id, checked) : current.draft),
+    setCandidate: (id, checked) => mutate(current => {
+      const exists = current.snapshot?.candidates.some(item => item.candidate_id === id);
+      if (!exists) return !checked ? {selected_candidate_ids: current.draft.selected_candidate_ids.filter(item => item !== id),
+        excluded_candidate_ids: current.draft.excluded_candidate_ids.filter(item => item !== id)} : current.draft;
+      return !checked || jobBackedCandidates(current.snapshot!).some(item => item.candidate_id === id)
+        ? applyIndividualSelection(current.draft, id, checked) : current.draft;
+    }),
     setCategory: (id, checked) => mutate(current => applyCategorySelection(current.draft,
       (current.snapshot ? jobBackedCandidates(current.snapshot) : []).filter(item => item.category_id === id).map(item => item.candidate_id), checked)),
     applyProposal: (id, chosenIds) => mutate(current => {
@@ -205,6 +221,7 @@ export function useSkillReviewController({courseId, review, onReviewChange, disa
     acknowledgeIncomingReview: () => updateLocal(current => ({...current, reviewRequired: false})),
     updateView: update => updateLocal(current => ({...current, view: {...current.view, ...update}}), true),
     undo: () => updateLocal(current => current.undo ? {...current, draft: current.undo, undo: null, success: null, error: null} : current),
+    confirmCurrentSelection: () => perform("confirm_current"),
     save: () => perform("save"), reviewMappings: () => perform("confirm"), acknowledgeAvailableEvidence: () => perform("continue"),
     onReviewChange,
   };

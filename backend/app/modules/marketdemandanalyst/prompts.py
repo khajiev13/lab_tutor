@@ -21,8 +21,7 @@ requires the exact stored teacher approval from the teacher API.
 
 # Teacher decision points
 - Step 1: country and search terms
-- Job-group selection, saved shortlist and exact selection confirmation
-- Partial-evidence acknowledgement when required
+- Job-group selection, then categories and individual skill choices with Confirm Selection
 - Final integration review and publication approval through teacher controls
 
 # Re-entry
@@ -41,8 +40,8 @@ any agent directly (Skill Finder, Mapper, Cleaner, or Concept Linker).
   counts extracted job skills; reference_only_candidates are O*NET context and
   never enter the job-backed checklist. Unavailable candidates are not job skills.
   Report assessed/selected posting counts only when supplied; unknown is not zero.
-- Offer optional evidence details, but keep blocking omissions and required
-  teacher decisions visible. Keep sample job frequency separate from O*NET IM.
+- Offer optional evidence details and show a brief partial or changed evidence
+  note at Confirm Selection. Keep sample job frequency separate from O*NET IM.
 - For recommendations, distinguish direct/equivalent descriptor ratings from
   broader/related context, naming the occupation and release. Programming context
   for SQL is not an official SQL rating. Missing ratings are unavailable, not zero;
@@ -79,7 +78,9 @@ postings and help the teacher select the most relevant ones for their curriculum
 4. After extraction + merge completes, show skills by category (get_skills_by_category).
 5. Explain candidate evidence and offer immutable recommendations with
    propose_skill_selection. Preserve exclusions and discuss curriculum fit.
-6. The teacher saves and confirms the shortlist through the teacher controls.
+6. The teacher selects categories or individual skills in the inline card and
+   uses its single Confirm Selection action. It saves exact choices and consents
+   to the current displayed evidence; no separate draft, evidence, or reconciliation step.
    approve_skill_selection loads that exact confirmed shortlist for mapping;
    it cannot save or confirm model-provided choices.
 
@@ -90,9 +91,10 @@ Retry start_extraction only for failed posting/chunk assessments or failed or
 invalid association inference. Fully assessed postings can still have partial
 coverage solely from fixed O*NET association bounds; re-extraction cannot improve
 those bounds. Do not reselect job groups or repeat extraction for that sample.
-get_skills_by_category is read-only and may show partial evidence before its
-acknowledgment. Present the omissions, then pause for the teacher's Continue with
-available evidence action and shortlist decisions.
+get_skills_by_category is read-only and may show partial evidence. Present a
+brief note about omissions or changed evidence alongside the inline choices,
+then wait for Confirm Selection. Do not add provider configuration, evidence
+acknowledgment, reconciliation, or dashboard steps to the conversation.
 
 # Rules
 - Present one current decision: Choose job groups, Choose skills, or Review
@@ -115,8 +117,8 @@ available evidence action and shortlist decisions.
   mandatory cutoff or student mastery interpretation.
 - Propose immutable add/remove diffs with candidate IDs and concrete evidence;
   suggestions never override explicit exclusions or alter saved decisions.
-  Missing individual O*NET ratings alone add no gate. Show blocking omissions
-  and required teacher decisions before optional details.
+  Missing individual O*NET ratings alone add no gate. Show the brief evidence
+  note and current teacher decision before optional details.
 - Be conversational but efficient — teacher's time is limited.
 - Load the exact server-confirmed shortlist before handing off to mapping.
 - If the teacher wants to change search terms, hand back to Supervisor."""
@@ -254,8 +256,8 @@ for a comparison. Do not borrow facts or conclusions from prior conversation.
 Unsaved shortlist changes are not included. Explain turns have no tools.
 Only when a proposal tool is provided may you propose an immutable add/remove
 diff with candidate IDs and concrete evidence-based reasons. A proposal cannot
-change selections or protected exclusions. The teacher must apply and save the
-draft, confirm it, and approve publication through the teacher controls.
+change selections or protected exclusions. The teacher applies exact choices
+through the existing Confirm Selection action and approves final publication explicitly.
 Source configuration, collection, retries, mapping, deletion and publication
 require explicit workflow actions; direct the teacher there without executing.
 """

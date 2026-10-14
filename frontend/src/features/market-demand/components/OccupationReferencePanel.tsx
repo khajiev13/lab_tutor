@@ -12,6 +12,7 @@ import type {OccupationReferenceContext, OnetEvidence, OnetMetric, OnetOccupatio
 
 interface Props {
   courseId: number;
+  compact?: boolean;
   onAsk: (context: OccupationReferenceContext, suggestedQuestion: string) => void;
 }
 const searchSchema = z.object({q: z.string().trim().min(2, "Search must contain 2–120 characters.").max(120, "Search must contain 2–120 characters.")});
@@ -32,7 +33,7 @@ function metricText(rating: OnetMetric | undefined, name: "IM" | "LV") {
 export function OccupationReferencePanel(props: Props) {
   return <ReferenceSession key={props.courseId} {...props}/>;
 }
-function ReferenceSession({courseId, onAsk}: Props) {
+function ReferenceSession({courseId, onAsk, compact = false}: Props) {
   const [releases, setReleases] = useState<OnetRelease[]>([]);
   const [release, setRelease] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -47,6 +48,8 @@ function ReferenceSession({courseId, onAsk}: Props) {
   const [items, setItems] = useState<OnetEvidence[]>([]);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [referencePage, setReferencePage] = useState(1);
+  const [occupationPage, setOccupationPage] = useState(1);
   const [metric, setMetric] = useState<"IM" | "LV">("IM");
   const searchAbort = useRef<AbortController | null>(null);
   const evidenceAbort = useRef<AbortController | null>(null);
@@ -67,6 +70,7 @@ function ReferenceSession({courseId, onAsk}: Props) {
 
   function changeRelease(value: string) {
     searchAbort.current?.abort(); evidenceAbort.current?.abort();
+    setReferencePage(1); setOccupationPage(1);
     setRelease(value); setQuery(""); reset({q: ""}); setOccupations([]); setTotal(0); setOccupation(null); setItems([]);
     setSearchLoading(false); setEvidenceLoading(false); setSearchError(null); setEvidenceError(null);
   }
@@ -74,7 +78,7 @@ function ReferenceSession({courseId, onAsk}: Props) {
     if (!release) return;
     searchAbort.current?.abort();
     const abort = new AbortController(); searchAbort.current = abort;
-    setQuery(value); setOccupations([]); setTotal(0); setSearchError(null); setSearchLoading(true);
+    setOccupationPage(1); setQuery(value); setOccupations([]); setTotal(0); setSearchError(null); setSearchLoading(true);
     try {
       const data = await searchOnetOccupations(courseId, release, value, 0, 20, abort.signal);
       if (abort.signal.aborted) return;
@@ -87,7 +91,7 @@ function ReferenceSession({courseId, onAsk}: Props) {
   async function browse(choice: OnetOccupation) {
     evidenceAbort.current?.abort();
     const abort = new AbortController(); evidenceAbort.current = abort;
-    setOccupation(choice); setItems([]); setEvidenceError(null); setEvidenceLoading(true);
+    setReferencePage(1); setOccupation(choice); setItems([]); setEvidenceError(null); setEvidenceLoading(true);
     try {
       const data = await getOccupationSkills(courseId, release, choice.soc_code, abort.signal);
       if (abort.signal.aborted) return;
@@ -107,6 +111,73 @@ function ReferenceSession({courseId, onAsk}: Props) {
     if (result.ok && items.length && !evidenceLoading && !evidenceError) {
       onAsk(result.context, elementIds.length ? "Explain this O*NET descriptor and its reported evidence." : "Explain the O*NET reference evidence for this occupation.");
     }
+  }
+  if (compact) {
+    const importance = (item: OnetEvidence) => {
+      const value = item.ratings.IM;
+      return value?.status === "reported" && value.scale_id === "IM" && value.minimum === 1 && value.maximum === 5 &&
+        typeof value.value === "number" && Number.isFinite(value.value) && value.value >= 1 && value.value <= 5 ? value.value : null;
+    };
+    const references = items.filter(item => item.family !== "software").sort((a, b) =>
+      (importance(b) ?? -1) - (importance(a) ?? -1) || a.label.localeCompare(b.label));
+    const referencePages = Math.max(1, Math.ceil(references.length / 5));
+    const currentReferencePage = Math.min(referencePage, referencePages);
+    const occupationPages = Math.max(1, Math.ceil(occupations.length / 5));
+    const currentOccupationPage = Math.min(occupationPage, occupationPages);
+    return <section aria-label="O*NET occupation reference" className="space-y-3 text-sm">
+      <p className="text-xs text-muted-foreground">Occupation reference importance; these ratings describe the occupation, not an individual job skill. Original 1–5 scale.</p>
+      {catalogLoading ? <p role="status">Loading O*NET catalog…</p> : catalogError || !releases.length ? <div className="space-y-2">
+        <p role={catalogError ? "alert" : "status"}>{catalogError ?? "No imported O*NET release is ready."}</p>
+        <Button size="sm" variant="outline" onClick={() => {setCatalogError(null); setCatalogLoading(true); setCatalogRetry(value => value + 1);}}>Retry catalog</Button>
+      </div> : <>
+        {release && <p className="text-xs text-muted-foreground">O*NET release {release}</p>}
+        {(!release || releases.length > 1) && <details open={!release}><summary className="cursor-pointer text-xs">Choose imported release</summary>
+          <select aria-label="O*NET release" className="mt-2 rounded-md border bg-background p-2" value={release} onChange={event => changeRelease(event.target.value)}>
+            {!release && <option value="">Choose an imported release</option>}{releases.map(item => <option key={item.version} value={item.version}>{item.version}</option>)}
+          </select>
+        </details>}
+        <form onSubmit={handleSubmit(values => search(values.q))} className="flex flex-wrap gap-2">
+          <Input aria-label="Search occupations" {...register("q")} placeholder="Search occupations" className="min-w-0 flex-1"/>
+          <Button size="sm" type="submit" variant="outline" disabled={!release}>Search</Button>
+        </form>
+        {errors.q && <p role="alert" className="text-xs text-destructive">{errors.q.message}</p>}
+        {searchLoading && <p role="status">Searching occupations…</p>}
+        {searchError && <p role="alert">{searchError}</p>}
+        {query && !searchLoading && !occupations.length && !searchError && <p>No matching imported occupations.</p>}
+        {query && !searchLoading && (searchError || !occupations.length) && <Button size="sm" variant="outline" onClick={() => void search(query)}>Retry search</Button>}
+        {occupations.length > 0 && <ul aria-label="Occupation search results" className="space-y-1">{occupations.slice((currentOccupationPage - 1) * 5, currentOccupationPage * 5).map(item => <li key={item.soc_code}>
+          <Button size="sm" variant="outline" aria-pressed={occupation?.soc_code === item.soc_code} className="h-auto w-full justify-start whitespace-normal text-left" onClick={() => void browse(item)}>Browse {item.title}</Button>
+        </li>)}</ul>}
+        {occupationPages > 1 && <div className="flex items-center justify-between gap-2 text-xs">
+          <Button size="sm" variant="outline" aria-label="Previous occupation page" disabled={currentOccupationPage === 1} onClick={() => setOccupationPage(currentOccupationPage - 1)}>Previous</Button>
+          <span>Page {currentOccupationPage} of {occupationPages}</span>
+          <Button size="sm" variant="outline" aria-label="Next occupation page" disabled={currentOccupationPage === occupationPages} onClick={() => setOccupationPage(currentOccupationPage + 1)}>Next</Button>
+        </div>}
+        {occupation && <div className="space-y-2">
+          <h3 className="font-medium">{occupation.title}</h3>
+          {evidenceLoading && <p role="status">Loading occupation evidence…</p>}
+          {evidenceError && <p role="alert">{evidenceError}</p>}
+          {!evidenceLoading && !references.length && !evidenceError && <p>No imported importance descriptors for this occupation.</p>}
+          {!evidenceLoading && (evidenceError || !items.length) && <Button size="sm" variant="outline" onClick={() => void browse(occupation)}>Retry evidence</Button>}
+          {references.slice((currentReferencePage - 1) * 5, currentReferencePage * 5).map(item => <article key={item.id} aria-label={item.label} className="space-y-1 rounded-md border p-2">
+            <div className="flex items-start justify-between gap-2"><h4 className="min-w-0 break-words font-medium">{item.label}</h4><span className="shrink-0 text-xs">{importance(item) !== null ? `${importance(item)} / 5` : "Unavailable"}</span></div>
+            <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Descriptor details</summary>
+              <p>{item.definition}</p><p>{item.release} · {item.family} · {item.element_id} · {item.id}</p>
+              <p>{metricText(item.ratings.IM, "IM")}</p>{item.ratings.IM && <p>Reported date: {item.ratings.IM.date ?? "unavailable"} · quality: {JSON.stringify(item.ratings.IM.quality)}</p>}
+              {item.workplace_example && <p>{item.workplace_example}</p>}<p>{item.attribution}</p>
+            </details>
+            <div className="flex flex-wrap items-center gap-2 text-xs"><EvidenceLink url={item.source_url} label="O*NET source"/>
+              <Button size="sm" variant="ghost" className="h-auto max-w-full justify-start whitespace-normal text-left" disabled={!context([item.element_id]).ok} onClick={() => ask([item.element_id])}>Ask about {item.label}</Button>
+            </div>
+          </article>)}
+          {referencePages > 1 && <div className="flex items-center justify-between gap-2 text-xs">
+            <Button size="sm" variant="outline" aria-label="Previous reference page" disabled={currentReferencePage === 1} onClick={() => setReferencePage(currentReferencePage - 1)}>Previous</Button>
+            <span>Page {currentReferencePage} of {referencePages} · {references.length} occupation descriptors</span>
+            <Button size="sm" variant="outline" aria-label="Next reference page" disabled={currentReferencePage === referencePages} onClick={() => setReferencePage(currentReferencePage + 1)}>Next</Button>
+          </div>}
+        </div>}
+      </>}
+    </section>;
   }
   return <section aria-label="O*NET occupation reference" className="space-y-4 rounded-lg border p-4 text-sm">
     <div><h2 className="font-semibold">Explore O*NET occupations</h2>

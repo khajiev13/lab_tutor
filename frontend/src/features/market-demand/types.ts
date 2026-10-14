@@ -174,6 +174,7 @@ export interface SkillReview {
   excluded_candidate_ids: string[];
   recommendations: RecommendationProposal[];
   reconciliations?: CandidateReconciliation[];
+  evidence_omissions?: string[];
   source_outcomes: Record<string, SourceOutcome>;
   extraction_coverage: ExtractionCoverage;
   integration_review: IntegrationReviewPayload | null;
@@ -285,6 +286,12 @@ export interface SkillReviewRevision {
   run_id: string;
   expected_candidate_revision: number;
   expected_selection_revision: number;
+}
+export interface SkillSelectionConfirmation extends SkillReviewRevision {
+  selected_candidate_ids: string[];
+  excluded_candidate_ids: string[];
+  confirm_current_evidence: true;
+  expected_omissions: string[];
 }
 export interface IntegrationApproval extends SkillReviewRevision {
   review_digest: string;
