@@ -29,9 +29,12 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
       categories.push({category_id: candidate.category_id, label: candidate.category_id.replaceAll("_", " ")});
     }
   }
-  return <section aria-label="Choose skills" className="w-full space-y-3 rounded-lg border bg-card p-3">
-    <div><h2 className="text-sm font-semibold">Select Skills</h2><p className="text-xs text-muted-foreground">Choose categories to map against your curriculum. Expand a category to adjust individual skills.</p></div>
-    <p className="text-xs text-muted-foreground">{selected.size} selected · {eligible.length} skills supported by job postings</p>
+  const savedCategoryIds = new Set(eligible.filter(candidate => review.selected_candidate_ids.includes(candidate.candidate_id)).map(candidate => candidate.category_id));
+  categories.sort((a, b) => Number(savedCategoryIds.has(b.category_id)) - Number(savedCategoryIds.has(a.category_id)));
+  return <section aria-label="Choose skills" className="flex max-h-[min(30rem,calc(100dvh-24rem))] min-h-0 w-full flex-col gap-1.5 rounded-lg border bg-card p-2.5 sm:max-h-[min(30rem,calc(100dvh-20rem))]">
+    <div className="shrink-0"><h2 className="text-sm font-semibold">Select Skills</h2><p className="hidden text-xs text-muted-foreground sm:block">Expand categories to adjust individual skills.</p></div>
+    <p className="shrink-0 text-xs text-muted-foreground">{selected.size} selected · {eligible.length} skills from jobs</p>
+    <div role="region" aria-label="Skill categories and saved choices" tabIndex={0} className="max-h-64 min-h-16 space-y-2 overflow-y-auto overscroll-contain">
     {unsupported.length > 0 && <div role="alert" className="space-y-2 text-sm">
       <p>These saved choices were removed or lack supporting job postings. Remove them and choose a current replacement.</p>
       {unsupported.map(id => <div key={id} className="flex items-center justify-between gap-2 rounded-md border px-2 py-1">
@@ -79,15 +82,18 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
         </div>}
       </div>;
     })}</div>
-    {(limited || changed) && <div className="space-y-1 text-xs text-muted-foreground">
-      <p>{limited ? "Some job evidence is incomplete. " : ""}{changed ? "Some choices were merged or changed. " : ""}Confirm Selection saves these current choices and accepts the displayed evidence limitations for mapping.</p>
+    </div>
+    {(limited || changed) && <div className="shrink-0 text-xs text-muted-foreground">
+      <p>{limited ? "Incomplete job evidence. " : ""}{changed ? "Changed choices. " : ""}Confirm Selection saves your choices and accepts stated evidence limitations.</p>
       <details><summary className="cursor-pointer">Evidence and changed choice details</summary>
+        <div role="region" aria-label="Evidence limitations and changed choice details" tabIndex={0} className="max-h-10 overflow-y-auto overscroll-contain sm:max-h-24">
         {omissions.map((item, index) => <p key={index} className="mt-1">{item}</p>)}
         {limited && !omissions.length && <p className="mt-1">{review.extraction_coverage.assessed_postings ?? "Unknown"} of {review.extraction_coverage.selected_postings ?? "unknown"} selected postings assessed.</p>}
         {controller.reconciliation && <p className="mt-1">{controller.reconciliation}</p>}
         {review.reconciliations?.filter(item => !item.resolved).map(item => <p key={item.reconciliation_id} className="mt-1">{item.previous_candidates.map(value => value.display_name).join(", ")} · {item.reason.replaceAll("_", " ")}</p>)}
+        </div>
       </details>
     </div>}
-    <Button size="sm" className="w-full" disabled={locked || !selected.size || unsupported.length > 0} onClick={onConfirm}>Confirm Selection{selected.size > 0 ? ` (${selected.size})` : ""}</Button>
+    <Button size="sm" className="w-full shrink-0" disabled={locked || !selected.size || unsupported.length > 0} onClick={onConfirm}>Confirm Selection{selected.size > 0 ? ` (${selected.size})` : ""}</Button>
   </section>;
 }

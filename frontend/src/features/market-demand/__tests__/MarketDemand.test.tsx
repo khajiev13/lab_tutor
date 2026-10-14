@@ -493,3 +493,19 @@ it('compares only job-backed skills in Details when none are selected',async()=>
  expect(screen.getByText('Showing 5 of 58 skills · entries 1–5')).toBeVisible();
  expect(screen.getByText('Page 1 of 12')).toBeVisible();
 });
+
+it('shows persisted selected categories first and keeps category order stable through local checkbox edits',async()=>{
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const base=reviewFixture();
+ const review={...base,categories:[{category_id:'general',label:'General'},{category_id:'technical',label:'Technical'},{category_id:'reference',label:'Reference only'}],
+  candidates:base.candidates.map(item=>({...item,category_id:item.candidate_id==='sql'?'technical':item.candidate_id==='reference'?'reference':'general'})),
+  selected_candidate_ids:['sql']};
+ await openReviewWorkspace({skillReview:review});
+ const headings=()=>screen.getAllByRole('button',{name:/^Expand /}).map(button=>button.getAttribute('aria-label'));
+ expect(headings()).toEqual(['Expand Technical','Expand General']);
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select category General (1 current members)'}));
+ expect(headings()).toEqual(['Expand Technical','Expand General']);
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select category Technical (1 current members)'}));
+ expect(headings()).toEqual(['Expand Technical','Expand General']);
+ expect(screen.queryByRole('button',{name:'Expand Reference only'})).not.toBeInTheDocument();
+});
