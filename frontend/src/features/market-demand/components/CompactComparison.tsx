@@ -48,14 +48,14 @@ function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonPro
     const counts = candidates.get(row.candidateIds[0])!.job_metrics;
     return `${row.value}% · ${counts.supporting_posting_count} of ${counts.assessed_posting_count} assessed postings${counts.selected_posting_count !== undefined ? ` · ${counts.selected_posting_count} selected` : ""}${counts.coverage_status ? ` · ${counts.coverage_status} coverage` : ""}`;
   };
-  return <div className="min-w-0 space-y-3">
+  return <div className="min-w-0 space-y-3 break-words [overflow-wrap:anywhere]">
     <div className="flex flex-wrap gap-2" aria-label="Comparison measure">
       <Button size="sm" variant={metric === "frequency" ? "secondary" : "outline"} aria-pressed={metric === "frequency"} onClick={() => {setMetric("frequency"); setPage(1); setFocused(null);}}>Collected jobs</Button>
       <Button size="sm" variant={metric === "IM" ? "secondary" : "outline"} aria-pressed={metric === "IM"} onClick={() => {setMetric("IM"); setPage(1); setFocused(null);}}>O*NET importance</Button>
     </div>
     {metric === "IM" && <div className="space-y-2 text-sm">
       <label className="block space-y-1"><span>Confirmed occupation</span>
-        <select aria-label="Confirmed occupation" className="w-full rounded-md border bg-background p-2" value={model.occupation?.soc_code ?? ""}
+        <select aria-label="Confirmed occupation" className="min-w-0 max-w-full w-full rounded-md border bg-background p-2" value={model.occupation?.soc_code ?? ""}
           onChange={event => {setOccupationCode(event.target.value || null); setChoices([]); setPage(1); setFocused(null);}}>
           <option value="">Choose occupation</option>{review.analysis_metadata?.occupations.map(role => <option key={role.soc_code} value={role.soc_code}>{role.title} ({role.soc_code})</option>)}
         </select>
@@ -79,7 +79,7 @@ function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonPro
         <strong className="block break-words">{row.label}</strong><p>{valueText(row)}</p>
         {row.candidateIds.filter(id => descriptorOptions.has(id)).map(id => <label key={id} className="block space-y-1">
           <span>Choose a descriptor for {candidates.get(id)!.display_name}</span>
-          <select aria-label={`Descriptor for ${candidates.get(id)!.display_name}`} className="w-full rounded-md border bg-background p-2" value={choices.find(choice => choice.candidate_id === id)?.evidence_id ?? ""}
+          <select aria-label={`Descriptor for ${candidates.get(id)!.display_name}`} className="min-w-0 max-w-full w-full rounded-md border bg-background p-2" value={choices.find(choice => choice.candidate_id === id)?.evidence_id ?? ""}
             onChange={event => setChoices([...choices.filter(choice => choice.candidate_id !== id), ...(event.target.value ? [{candidate_id: id, evidence_id: event.target.value}] : [])])}>
             <option value="">Choose a descriptor</option>{candidates.get(id)!.onet_associations.filter(item => descriptorOptions.get(id)!.includes(item.evidence.id)).map(item =>
               <option key={item.evidence.id} value={item.evidence.id}>{item.evidence.label} · {item.relation} · {item.evidence.element_id}</option>)}
@@ -100,7 +100,7 @@ function ComparisonBody({review, candidateIds, onAsk}: Pick<CompactComparisonPro
 }
 export function CompactComparison({review, candidateIds, open, onOpenChange, onAsk}: CompactComparisonProps) {
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent maxWidthClassName="sm:max-w-2xl" className="max-h-[85dvh] overflow-y-auto">
+    <DialogContent maxWidthClassName="sm:max-w-2xl" className="max-h-[85dvh] grid-cols-1 overflow-y-auto">
       <DialogHeader><DialogTitle>Compare skills</DialogTitle><DialogDescription>Inspect one measure at a time for your chosen skills. Questions explain evidence; choices remain yours.</DialogDescription></DialogHeader>
       {open && <ComparisonBody review={review} candidateIds={candidateIds} onAsk={onAsk}/>}
     </DialogContent>

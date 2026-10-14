@@ -294,10 +294,38 @@ it.each(['digest','mismatched IDs','duplicate IDs'] as const)('blocks final publ
 it('bounds curriculum targets to five and preserves all targets in ten-item pages',()=>{
  const review=integrationFixture();const item=review.integration_review!.items[0];
  review.integration_review!.items=Array.from({length:58},(_,index)=>({...item,candidate_id:`id-${index}`,target:{...item.target,label:`Target ${index+1}`}}));
+ review.candidates=review.integration_review!.items.map(target=>({...review.candidates[0],candidate_id:target.candidate_id}));
+ review.selected_candidate_ids=review.candidates.map(candidate=>candidate.candidate_id);
  render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
  expect(within(screen.getByRole('list',{name:'Curriculum targets'})).getAllByRole('listitem')).toHaveLength(5);
  fireEvent.click(screen.getByRole('button',{name:'Review all 58'}));
  const dialog=within(screen.getByRole('dialog'));
  expect(dialog.getByText('Target 10')).toBeVisible();expect(dialog.queryByText('Target 11')).not.toBeInTheDocument();
  fireEvent.click(dialog.getByRole('button',{name:'Next page'}));expect(dialog.getByText('Target 11')).toBeVisible();
+});
+
+it("keeps a large curriculum review compact while retaining every target, omission and approval ID", async () => {
+  const review = integrationFixture();
+  review.approved_references = [];
+  const candidate = review.candidates[0];
+  const item = review.integration_review!.items[0];
+  review.candidates = Array.from({length: 57}, (_, index) => ({...candidate, candidate_id: `skill-${index}`, display_name: `Skill ${index}`}));
+  review.selected_candidate_ids = review.candidates.map(row => row.candidate_id);
+  review.integration_review!.items = review.candidates.map(row => ({...item, candidate_id: row.candidate_id, target: {...item.target, label: row.display_name}}));
+  review.integration_review!.omissions = ["Two postings unavailable", "Extraction partial", "Provider warning", "Provider partial"];
+  review.integration_review!.omissions_acknowledged = true;
+  vi.mocked(approveSkillIntegration).mockResolvedValue({review, projection_status: "projected"});
+  render(<IntegrationReview courseId={1} review={review} onReviewChange={vi.fn()}/>);
+  expect(within(screen.getByRole("list", {name: "Curriculum targets"})).getAllByRole("listitem")).toHaveLength(3);
+  expect(screen.getByRole("button", {name: "Approve and publish"})).toBeEnabled();
+  expect(screen.getByText("Two postings unavailable")).toBeInTheDocument();
+  expect(screen.getByText(/3 more evidence limitations/)).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole("button", {name: "Review all 57"}));
+  const dialog = screen.getByRole("dialog", {name: "Curriculum fit details"});
+  for (const omission of review.integration_review!.omissions) expect(within(dialog).getByText(omission)).toBeInTheDocument();
+  for (let page = 1; page < 6; page++) fireEvent.click(within(dialog).getByRole("button", {name: "Next page"}));
+  expect(within(dialog).getByText("Skill 56")).toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole("button", {name: "Close"}));
+  await userEvent.setup().click(screen.getByRole("button", {name: "Approve and publish"}));
+  expect(approveSkillIntegration).toHaveBeenCalledWith(1, expect.objectContaining({review_digest: "digest-1", approved_candidate_ids: review.selected_candidate_ids}));
 });

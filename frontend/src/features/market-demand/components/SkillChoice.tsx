@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,11 +9,12 @@ import type { SkillCandidate } from "@/features/market-demand/types";
 
 export function SkillChoice({controller, onInspect, secondaryAction, visibleLimit = 5}: {
   controller: SkillReviewController;
-  onInspect: (candidateId: string) => void;
+  onInspect: (candidateId: string, returnFocusTo: HTMLElement | null) => void;
   secondaryAction?: ReactNode;
   visibleLimit?: 3 | 5;
 }) {
   const [open, setOpen] = useState(false);
+  const browseTrigger = useRef<HTMLButtonElement>(null);
   const {review, draft, view} = controller;
   if (!review) return null;
   const locked = controller.disabled || controller.busy;
@@ -49,16 +50,16 @@ export function SkillChoice({controller, onInspect, secondaryAction, visibleLimi
   });
   const skillRow = (candidate: SkillCandidate, checklist: boolean, compact = false) => <div className="flex flex-wrap items-center justify-between gap-2">
     <div className="min-w-0 flex-1 space-y-1">
-      {checklist ? <label className="flex items-center gap-2 text-sm">
+      {checklist ? <label className="flex min-w-0 items-center gap-2 break-all text-sm">
         <Checkbox aria-label={`Select ${candidate.display_name}`} checked={selected.has(candidate.candidate_id)} disabled={locked}
           onCheckedChange={checked => controller.setCandidate(candidate.candidate_id, checked === true)}/>
         {candidate.display_name}
-      </label> : <p className="truncate text-sm font-medium">{candidate.display_name} {selected.has(candidate.candidate_id) && <span className="font-normal text-muted-foreground">· chosen</span>}{compact && proposedIds.has(candidate.candidate_id) && <span className="font-normal text-muted-foreground"> · proposed change</span>}</p>}
+      </label> : <p className={compact ? "truncate text-sm font-medium" : "break-all text-sm font-medium"}>{candidate.display_name} {selected.has(candidate.candidate_id) && <span className="font-normal text-muted-foreground">· chosen</span>}{compact && proposedIds.has(candidate.candidate_id) && <span className="font-normal text-muted-foreground"> · proposed change</span>}</p>}
       {selected.has(candidate.candidate_id) && !eligibleIds.has(candidate.candidate_id) && <p className="text-xs text-destructive">Needs supporting job posting; remove this choice before continuing.</p>}
       {!compact && proposalActions(candidate)}
     </div>
     <div className="flex gap-1">
-      <Button size="sm" variant="ghost" aria-label={`Inspect ${candidate.display_name}`} onClick={() => {setOpen(false); onInspect(candidate.candidate_id);}}>{candidate.job_metrics.supporting_posting_count ?? 0} jobs ›</Button>
+      <Button size="sm" variant="ghost" aria-label={`Inspect ${candidate.display_name}`} onClick={event => {const returnFocusTo = compact ? event.currentTarget : browseTrigger.current; setOpen(false); onInspect(candidate.candidate_id, returnFocusTo);}}>{candidate.job_metrics.supporting_posting_count ?? 0} jobs ›</Button>
       {!checklist && selected.has(candidate.candidate_id) && <Button size="sm" variant="ghost" disabled={locked}
         aria-label={`Remove ${candidate.display_name}`} onClick={() => controller.setCandidate(candidate.candidate_id, false)}>Remove</Button>}
     </div>
@@ -68,24 +69,24 @@ export function SkillChoice({controller, onInspect, secondaryAction, visibleLimi
       <p className="text-sm">Which skills belong in this course?</p>
       <span className="text-xs text-muted-foreground">{draft.selected_candidate_ids.length} chosen · {eligible.length} job-backed skills</span>
     </div>
-    {unsupported.length > 0 && <p role="alert" className="text-sm text-destructive">Review required: {unsupported.slice(0, 5).map(candidate => candidate.display_name).join(", ")}{unsupported.length > 5 ? ` and ${unsupported.length - 5} more saved choices` : ""} lost supporting job evidence. Remove these saved choices before continuing.</p>}
+    {unsupported.length > 0 && <p role="alert" className="text-sm text-destructive">Review required: {unsupported.length} saved {unsupported.length === 1 ? "choice" : "choices"} lost supporting job evidence. Review and remove these choices in Browse skills before continuing.</p>}
     {controller.reviewRequired && unsupported.length === 0 && <div className="space-y-2 text-sm">
       <p role="alert">Review required: {controller.reconciliation || "The saved review changed. Check your retained choices before continuing."}</p>
       <Button size="sm" variant="outline" disabled={locked} onClick={controller.acknowledgeIncomingReview}>I reviewed the changed choices</Button>
     </div>}
     {mainRows.length > 0 ? <ul className="space-y-1">{mainRows.slice(0, visibleLimit).map(candidate => <li key={candidate.candidate_id} className="rounded-md border px-3 py-1">{skillRow(candidate, false, true)}</li>)}</ul> : <p className="text-sm text-muted-foreground">No skills chosen yet</p>}
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button size="sm" variant="outline" disabled={controller.disabled}>
+      <DialogTrigger asChild><Button ref={browseTrigger} size="sm" variant="outline" disabled={controller.disabled}>
         {draft.selected_candidate_ids.length > visibleLimit ? `Review all ${draft.selected_candidate_ids.length}` : mainRows.length > visibleLimit ? `Review all ${mainRows.length} chosen or proposed skills` : "Browse skills"}
       </Button></DialogTrigger>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto" maxWidthClassName="sm:max-w-2xl">
+      <DialogContent className="max-h-[85dvh] grid-cols-1 overflow-y-auto" maxWidthClassName="sm:max-w-2xl">
         <DialogHeader><DialogTitle>Browse skills</DialogTitle><DialogDescription>Choose from {eligible.length} job-backed skills. Category checkboxes include every current member, across search and pages. Proposals require an explicit Apply.</DialogDescription></DialogHeader>
         <Input aria-label="Search skills" placeholder="Search skills" value={view.filters.search}
           onChange={event => controller.updateView({page: 1, filters: {...view.filters, search: event.target.value}})}/>
         <div className="flex flex-wrap gap-3">{review.categories.map(category => {
           const ids = eligible.filter(candidate => candidate.category_id === category.category_id).map(candidate => candidate.candidate_id);
           if (!ids.length) return null;
-          return <label key={category.category_id} className="flex items-center gap-2 text-sm">
+          return <label key={category.category_id} className="flex min-w-0 items-center gap-2 break-all text-sm">
             <Checkbox aria-label={`Select category ${category.label} (${ids.length} current members)`}
               checked={categorySelectionState(ids, draft.selected_candidate_ids)} disabled={locked}
               onCheckedChange={checked => controller.setCategory(category.category_id, checked === true)}/>
@@ -96,9 +97,9 @@ export function SkillChoice({controller, onInspect, secondaryAction, visibleLimi
         <div className="space-y-2">{rows.map(candidate => <div key={candidate.candidate_id} className="rounded-md border px-3 py-1">{skillRow(candidate, true)}</div>)}
           {!rows.length && <p className="text-sm">No matching job-backed skills. Category selection still includes every current member.</p>}
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Button size="sm" variant="outline" disabled={page === 1} onClick={() => controller.updateView({page: page - 1})}>Previous page</Button>
-          <span className="text-xs">Page {page} of {pages} · {filtered.length} matching skills</span>
+          <span className="order-first w-full text-center text-xs sm:order-none sm:w-auto">Page {page} of {pages} · {filtered.length} matching skills</span>
           <Button size="sm" variant="outline" disabled={page === pages} onClick={() => controller.updateView({page: page + 1})}>Next page</Button>
         </div>
         {referenceProposals.length > 0 && <div className="space-y-2 rounded-md border p-3"><p className="text-sm font-medium">Proposals needing job evidence ({referenceProposals.length})</p>

@@ -111,7 +111,7 @@ it("keeps every original skill label visible with provenance-only links", () => 
   const row = {...candidate(), evidence_references: [], qualifying_posting_links: ["https://jobs.test/retained-link"]};
   render(<SkillEvidencePanel courseId={1} candidate={row} open onOpenChange={vi.fn()}/>);
   expect(screen.getByText("Original skill labels: Create ETL · Develop ETL/ELT")).toBeInTheDocument();
-  expect(screen.getByRole("link", {name: "Original posting"})).toHaveAttribute("href", "https://jobs.test/retained-link");
+  expect(screen.getByRole("link", {name: "Original posting · Posting retained-link"})).toHaveAttribute("href", "https://jobs.test/retained-link");
   expect(fetchPostingEvidence).not.toHaveBeenCalled();
 });
 
@@ -141,4 +141,40 @@ it("stops queued checks on close even when an aborted transport resolves later",
   await act(async () => resolveOld(posting("a")));
   expect(fetchPostingEvidence).toHaveBeenCalledTimes(3);
   expect(screen.queryByText("Create ETL in practice")).not.toBeInTheDocument();
+});
+
+it("names original links from current title and employer but drops both during recheck and purge", async () => {
+  const row = {...candidate(), evidence_references: [reference("a", "https://jobs.test/1", "Create ETL")]};
+  let resolveRecheck!: (value: PostingEvidence) => void;
+  vi.mocked(fetchPostingEvidence).mockResolvedValueOnce(posting("a")).mockImplementationOnce(() => new Promise(resolve => {resolveRecheck = resolve;}));
+  const {rerender} = render(<SkillEvidencePanel courseId={1} candidate={row} open onOpenChange={vi.fn()}/>);
+  expect(await screen.findByRole("link", {name: "Original posting · Developer a · Acme"})).toHaveAttribute("href", "https://jobs.test/1");
+  rerender(<SkillEvidencePanel courseId={1} candidate={row} open={false} onOpenChange={vi.fn()}/>);
+  rerender(<SkillEvidencePanel courseId={1} candidate={row} open onOpenChange={vi.fn()}/>);
+  expect(screen.getByRole("link", {name: "Original posting · Posting a"})).toBeInTheDocument();
+  expect(screen.queryByRole("link", {name: /Developer a|Acme/})).not.toBeInTheDocument();
+  await act(async () => resolveRecheck(posting("a", {status: "purged", purged_at: "2026-10-15"})));
+  expect(screen.getByRole("link", {name: "Original posting · Posting a"})).toBeInTheDocument();
+  expect(screen.queryByRole("link", {name: /Developer a|Acme/})).not.toBeInTheDocument();
+});
+
+it("returns keyboard focus to the supplied surviving trigger on close", async () => {
+  const trigger = document.createElement("button"); trigger.textContent = "Inspect ETL"; document.body.append(trigger); trigger.focus();
+  const row = {...candidate(), evidence_references: [], qualifying_posting_links: []};
+  const {rerender} = render(<SkillEvidencePanel courseId={1} candidate={row} open onOpenChange={vi.fn()} returnFocusTo={trigger}/>);
+  rerender(<SkillEvidencePanel courseId={1} candidate={row} open={false} onOpenChange={vi.fn()} returnFocusTo={trigger}/>);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(trigger).toHaveFocus();
+  trigger.remove();
+});
+
+it("does not focus a removed trigger when the course or inspection closes", async () => {
+  const trigger = document.createElement("button"); document.body.append(trigger);
+  const focus = vi.spyOn(trigger, "focus");
+  const row = {...candidate(), evidence_references: [], qualifying_posting_links: []};
+  const {rerender} = render(<SkillEvidencePanel courseId={1} candidate={row} open returnFocusTo={trigger}/>);
+  trigger.remove();
+  rerender(<SkillEvidencePanel courseId={2} candidate={row} open={false} returnFocusTo={trigger}/>);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(focus).not.toHaveBeenCalled();
 });

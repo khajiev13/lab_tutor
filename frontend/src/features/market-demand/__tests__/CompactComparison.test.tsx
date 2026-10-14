@@ -141,3 +141,14 @@ it("describes conflicting shared descriptor values as unavailable without offeri
   expect(within(list).queryByRole("combobox")).not.toBeInTheDocument();
   expect(screen.queryByRole("img", {name: "O*NET importance for Developer"})).not.toBeInTheDocument();
 });
+
+it("retains complete Unicode source labels and exact candidate context while wrapping long text", async () => {
+  const review = fixture();
+  const label = "中文Русский " + "UnbrokenLabel".repeat(20);
+  review.candidates[0].display_name = label;
+  const onAsk = vi.fn();
+  render(<CompactComparison review={review} candidateIds={["skill-0"]} open onOpenChange={vi.fn()} onAsk={onAsk}/>);
+  expect(within(screen.getByRole("list", {name:"Comparison values"})).getByText(label, {selector:"strong"})).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", {name:`Ask about ${label}`}));
+  expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({candidateIds:["skill-0"],text:expect.stringContaining(label)}), []);
+});

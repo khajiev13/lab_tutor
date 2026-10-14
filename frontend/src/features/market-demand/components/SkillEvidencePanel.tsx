@@ -32,7 +32,11 @@ function PostingDetails({group, checks, load, dialog}: {
   const loading = group.snapshotIds.some(id => checks[id]?.loading);
   return <article className="space-y-2 rounded-md border p-3">
     <h3 className="font-medium">{current?.title ?? `Posting ${group.snapshotIds.join(", ") || "link"}`}{current?.company && ` · ${current.company}`}</h3>
-    {group.originalUrls.map(url => <p key={url}><EvidenceLink url={url} label={dialog ? "Original posting" : "Original job posting"}/></p>)}
+    {group.originalUrls.map(url => {
+      const identity = current?.title?.trim() || `Posting ${group.snapshotIds.join(", ") || new URL(url).pathname.split("/").filter(Boolean).at(-1) || new URL(url).hostname}`;
+      const employer = current?.company?.trim();
+      return <p key={url}><EvidenceLink url={url} label={`${dialog ? "Original posting" : "Original job posting"} · ${identity}${employer ? ` · ${employer}` : ""}`}/></p>;
+    })}
     {!group.snapshotIds.length && <p>No retained posting content. Retained provenance only.</p>}
     {group.snapshotIds.map(id => {
       const check = checks[id];
@@ -118,13 +122,14 @@ interface Props {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   focusedEvidenceId?: string | null;
+  returnFocusTo?: HTMLElement | null;
   ratings?: Record<string, RatingResolution>;
   descriptorChoices?: DescriptorChoice[];
   release?: string | null;
   onChooseDescriptor?: (evidenceId: string, occupationCode: string) => void;
 }
 
-export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, focusedEvidenceId, ratings, descriptorChoices, release, onChooseDescriptor}: Props) {
+export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, focusedEvidenceId, returnFocusTo, ratings, descriptorChoices, release, onChooseDescriptor}: Props) {
   const associations = [...new Map(candidate.onet_associations.map(item => [item.evidence.id, item])).values()];
   // Only request identities survive a disclosure session. Full bodies are
   // discarded on close and previously requested snapshots re-resolve on reopen.
@@ -165,7 +170,7 @@ export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, foc
       </div>)}
     </div>;
   if (open !== undefined) return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent maxWidthClassName="sm:max-w-3xl" className="max-h-[85dvh] overflow-y-auto">
+    <DialogContent maxWidthClassName="sm:max-w-3xl" className="max-h-[85dvh] overflow-y-auto" onCloseAutoFocus={event => {if (returnFocusTo?.isConnected) {event.preventDefault(); returnFocusTo.focus();}}}>
       <DialogTitle>Evidence for {candidate.display_name}</DialogTitle>
       <DialogDescription>Original postings and O*NET reference details for this skill.</DialogDescription>
       {open && content}

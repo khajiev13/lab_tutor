@@ -87,7 +87,7 @@ it("labels proposals, never silently accepts advice, and protects excluded or un
   expect(getController().draft.selected_candidate_ids).toEqual([]);
   expect(screen.queryByRole("button", {name: "Apply proposal for Python"})).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", {name: "Inspect Python"}));
-  expect(inspect).toHaveBeenCalledWith("python");
+  expect(inspect).toHaveBeenCalledWith("python", screen.getByRole("button", {name:"Inspect Python"}));
   await user.click(screen.getByRole("button", {name: "Browse skills"}));
   expect(screen.getByRole("button", {name: "Apply proposal for SQL"})).toBeDisabled();
   expect(screen.getByRole("button", {name: "Apply proposal for Reference skill"})).toBeDisabled();
@@ -123,7 +123,7 @@ it("surfaces lost posting evidence as a required review while preserving the sav
   const unsupported = {...review, candidate_revision: 2, candidates: review.candidates.map(item => item.candidate_id === "python" ? {...item, qualifying_posting_links: []} : item)};
   rerenderReview(unsupported);
   expect(getController().draft.selected_candidate_ids).toEqual(["python"]);
-  expect(screen.getByRole("alert")).toHaveTextContent(/Review required.*Python/);
+  expect(screen.getByRole("alert")).toHaveTextContent(/Review required.*1 saved choice lost supporting job evidence/);
   expect(screen.getByRole("button", {name: "Save draft"})).toBeDisabled();
   await user.click(screen.getByRole("button", {name: "Remove Python"}));
   expect(getController().draft.selected_candidate_ids).toEqual([]);
@@ -136,6 +136,25 @@ it("closes Browse before opening job evidence and retains its draft", async () =
  await userEvent.click(screen.getByRole("checkbox", {name:"Select Job skill 01"}));
  await userEvent.click(screen.getByRole("button", {name:"Inspect Job skill 01"}));
  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
- expect(inspect).toHaveBeenCalledWith("job-01");
+ expect(inspect).toHaveBeenCalledWith("job-01", screen.getByRole("button", {name:"Browse skills"}));
  expect(getController().draft.selected_candidate_ids).toEqual(["job-01"]);
+});
+
+it("bounds unsupported warnings while retaining full Unicode names and exact removal IDs in Browse", async () => {
+  const review = reviewFixture();
+  const name = "中文Русский " + "UnbrokenLabel".repeat(20);
+  review.candidates = [{...review.candidates[0], candidate_id: "long-saved", display_name: name, qualifying_posting_links: []}];
+  review.selected_candidate_ids = ["long-saved"];
+  const {getController, inspect} = setup(review);
+  expect(screen.getByRole("alert")).toHaveTextContent("1 saved choice lost supporting job evidence");
+  expect(screen.getByRole("alert")).not.toHaveTextContent(name);
+  await userEvent.click(screen.getByRole("button", {name: "Browse skills"}));
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByText(name, {exact: false})).not.toHaveClass("truncate");
+  await userEvent.click(within(dialog).getByRole("button", {name: `Inspect ${name}`}));
+  expect(inspect).toHaveBeenCalledWith("long-saved", screen.getByRole("button", {name:"Browse skills"}));
+  await userEvent.click(screen.getByRole("button", {name: "Browse skills"}));
+  await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", {name: `Remove ${name}`}));
+  expect(getController().draft.selected_candidate_ids).toEqual([]);
+  expect(getController().draft.excluded_candidate_ids).toContain("long-saved");
 });

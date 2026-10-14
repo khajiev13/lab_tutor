@@ -11,7 +11,7 @@ import os
 import secrets
 from pathlib import Path
 from urllib.parse import urlsplit
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 DATABASE = "lab_tutor_workspace_acceptance"
 ROOT = Path(__file__).resolve().parents[1]
@@ -356,6 +356,8 @@ def seed_student(manifest: dict) -> dict:
     from tests.modules.test_market_skill_projection import seed_graph
 
     course_id = manifest["course"]["id"]
+    question_id = manifest.get("student_question_id", "task12-question")
+    reading_id = manifest.get("student_reading_id", "task12-reading")
     with SessionLocal() as db:
         student = db.scalar(
             select(User).where(User.email == "student@workspace-acceptance.example")
@@ -385,7 +387,10 @@ def seed_student(manifest: dict) -> dict:
             course=course_id,
         ).consume()
         session.run(
-            "MATCH (s:BOOK_SKILL {id:$skill}) MERGE (u:USER:STUDENT {id:$student}) MERGE (u)-[r:SELECTED_SKILL]->(s) SET r.source='book',r.course_id=$course,r.chapter_ids=[$chapter] MERGE (q:QUESTION {id:'task12-question'}) SET q.text='Synthetic: what is 2 + 2?',q.difficulty='easy',q.options=['4','3','2','1'],q.correct_option='A' MERGE (s)-[:HAS_QUESTION]->(q) MERGE (reading:READING_RESOURCE {id:'task12-reading'}) SET reading.url='https://example.invalid/task12-reading',reading.title='Saved synthetic reading',reading.resource_type='article',reading.final_score=0.9,reading.reader_status='ready',reading.reader_content_markdown='# Synthetic saved reading\nRetained student resource.',reading.reader_extracted_at=$now MERGE (s)-[:HAS_READING]->(reading)",
+            "MATCH (s:BOOK_SKILL {id:$skill}) MERGE (u:USER:STUDENT {id:$student}) MERGE (u)-[r:SELECTED_SKILL]->(s) SET r.source='book',r.course_id=$course,r.chapter_ids=[$chapter] MERGE (q:QUESTION {id:$question}) SET q.text='Synthetic: what is 2 + 2?',q.difficulty='easy',q.options=['4','3','2','1'],q.correct_option='A' MERGE (s)-[:HAS_QUESTION]->(q) MERGE (reading:READING_RESOURCE {id:$reading}) SET reading.url=$reading_url,reading.title='Saved synthetic reading',reading.resource_type='article',reading.final_score=0.9,reading.reader_status='ready',reading.reader_content_markdown='# Synthetic saved reading\nRetained student resource.',reading.reader_extracted_at=$now MERGE (s)-[:HAS_READING]->(reading)",
+            question=question_id,
+            reading=reading_id,
+            reading_url=f"https://example.invalid/{reading_id}",
             skill=f"book-{course_id}",
             student=student_id,
             course=course_id,
@@ -399,16 +404,14 @@ def seed_student(manifest: dict) -> dict:
     ) as client:
         response = client.post(
             f"/student-learning-path/{course_id}/chapters/1/quiz/submit",
-            json={
-                "answers": [{"question_id": "task12-question", "selected_option": "A"}]
-            },
+            json={"answers": [{"question_id": question_id, "selected_option": "A"}]},
         )
         assert response.status_code == 200, response.text
         results = {}
         for name, endpoint in {
             "path": "path",
             "quiz": "chapters/1/quiz",
-            "reading": "readings/task12-reading/content",
+            "reading": f"readings/{reading_id}/content",
         }.items():
             response = client.get(f"/student-learning-path/{course_id}/{endpoint}")
             assert response.status_code == 200, response.text
@@ -501,7 +504,8 @@ def seed_corpus(manifest: dict, only_names: set[str] | None = None) -> list[dict
                 continue
             case = deepcopy(original)
             response = client.post(
-                "/courses", json={"title": f"SYNTHETIC TEST CORPUS — {case['name']}"}
+                "/courses",
+                json={"title": f"SYNTHETIC TEST CORPUS — {case['name']} — {uuid4()}"},
             )
             assert response.status_code == 201, response.status_code
             course = response.json()
@@ -859,7 +863,11 @@ def tooltip_fixture(manifest: dict, role_count: int = 2) -> dict:
         source = db.scalar(
             select(MarketAnalysisRun)
             .join(Course, Course.id == MarketAnalysisRun.course_id)
-            .where(Course.title == "SYNTHETIC TEST CORPUS — max_two_no_repeated_skill")
+            .where(
+                Course.title.startswith(
+                    "SYNTHETIC TEST CORPUS — max_two_no_repeated_skill"
+                )
+            )
         )
         assert source is not None
         repo = MarketReviewRepository(db)
@@ -921,15 +929,19 @@ def verify_metadata_compatibility(manifest: dict, private_dir: Path) -> dict:
             select(MarketAnalysisRun)
             .join(Course, Course.id == MarketAnalysisRun.course_id)
             .where(
-                Course.title == "SYNTHETIC TEST CORPUS — max_two_no_repeated_skill",
+                Course.title.startswith(
+                    "SYNTHETIC TEST CORPUS — max_two_no_repeated_skill"
+                ),
                 Course.teacher_id == manifest["course"]["teacher_id"],
                 MarketAnalysisRun.publication_revision == 0,
             )
+            .order_by(Course.id.desc())
+            .limit(1)
         )
         assert run is not None
         original = deepcopy(run.config)
         assert len(original["selected_onet_occupations"]) == 2
-        backup = private_dir / "task12-metadata-original.json"
+        backup = private_dir / f"task12-metadata-original-{uuid4()}.json"
         descriptor = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as stream:
             json.dump({"run_id": str(run.id), "config": original}, stream)
@@ -1002,6 +1014,298 @@ def verify_metadata_compatibility(manifest: dict, private_dir: Path) -> dict:
         }
 
 
+def seed_simple_flow(manifest: dict, destination: Path) -> dict:
+    """Dedicated synthetic sample; provider evidence is real persisted test data."""
+    from copy import deepcopy
+
+    import httpx
+
+    from app.core.database import SessionLocal
+    from app.modules.marketdemandanalyst.evidence import (
+        calculate_job_metrics,
+        reconcile_candidates,
+        reference_fingerprint,
+        validated_passage,
+    )
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+    from app.modules.marketdemandanalyst.review_service import SkillReviewService
+    from app.modules.marketdemandanalyst.schemas import ProviderVacancy, SourceOutcome
+    from app.modules.occupation_reference.repository import (
+        OccupationReferenceRepository,
+    )
+    from app.modules.occupation_reference.service import OccupationReferenceService
+
+    with httpx.Client(
+        base_url="http://127.0.0.1:8000",
+        headers={"Authorization": f"Bearer {manifest['teacher']['access_token']}"},
+    ) as client:
+        response = client.post(
+            "/courses", json={"title": f"SYNTHETIC simple teacher flow {uuid4()}"}
+        )
+        assert response.status_code == 201, response.status_code
+        course = response.json()
+    with SessionLocal() as db:
+        repo = MarketReviewRepository(db)
+        occupations = [
+            {"soc_code": "15-2051.00", "title": "Data Scientists"},
+            {
+                "soc_code": "15-1252.00",
+                "title": "Software Developers",
+            },
+        ]
+        config = {
+            "sources": ["headhunter"],
+            "evidence_sources": ["jobs", "onet"],
+            "country": "Uzbekistan",
+            "onet_release": "31.0",
+            "selected_onet_occupations": occupations,
+            "onet_selection_confirmed": True,
+        }
+        run = repo.create_run(course["id"], course["teacher_id"], config)
+        labels = [
+            "SQL",
+            "ETL / ELT",
+            "Critical Thinking",
+            "Communication",
+            "Python",
+        ] + [f"Synthetic competency {index:02}" for index in range(6, 59)]
+        body = (
+            "SYNTHETIC TEST ONLY. Create ETL pipelines. Develop ETL/ELT services. Query SQL databases. "
+            + ", ".join(labels)
+        )
+        snapshots = [
+            repo.upsert_vacancy_snapshot(
+                run.id,
+                ProviderVacancy(
+                    provider="headhunter",
+                    native_id=f"96{course['id']:06}{index}",
+                    title=f"SYNTHETIC data posting {index + 1}",
+                    original_url=f"https://hh.uz/vacancy/96{course['id']:06}{index}",
+                    original_description=body,
+                    description_text=body,
+                    skill_tags=labels,
+                ),
+            )
+            for index in range(4)
+        ]
+        onet = OccupationReferenceService(
+            OccupationReferenceRepository(db)
+        ).get_skill_evidence(
+            course["id"],
+            course["teacher_id"],
+            "31.0",
+            [o["soc_code"] for o in occupations],
+        )
+        from app.modules.occupation_reference.models import OnetEvidence
+
+        programming = deepcopy(onet[0].model_dump(mode="json"))
+        programming.update(
+            id=str(uuid4()),
+            label="Programming",
+            element_id="2.B.3.e",
+            family="transferable",
+            definition="SYNTHETIC programming descriptor",
+            source_url="https://example.invalid/synthetic-programming",
+            attribution="SYNTHETIC TEST ONLY. Not an official O*NET rating.",
+        )
+        programming["ratings"] = {
+            "IM": {
+                "scale_id": "IM",
+                "value": 4.2,
+                "minimum": 1,
+                "maximum": 5,
+                "status": "reported",
+                "date": "08/2026",
+                "quality": {},
+            }
+        }
+        db.add(
+            OnetEvidence(
+                id=UUID(programming["id"]),
+                release="31.0",
+                soc_code="15-2051.00",
+                family="transferable",
+                element_id="2.B.3.e",
+                label="Programming",
+                definition=programming["definition"],
+                ratings=programming["ratings"],
+                flags={},
+                source_rows=[{"synthetic": True}],
+                source_key="simple-flow:" + programming["id"],
+            )
+        )
+        db.flush()
+        candidates = []
+        for index, label in enumerate(labels):
+            refs = []
+            for snapshot in snapshots:
+                phrases = (
+                    ["Create ETL pipelines", "Develop ETL/ELT services"]
+                    if index == 1
+                    else [label]
+                )
+                for phrase in phrases:
+                    refs.append(
+                        {
+                            "snapshot_id": str(snapshot.id),
+                            "provider": snapshot.provider,
+                            "original_url": snapshot.original_url,
+                            "original_phrase": phrase,
+                            "evidence_kind": "extracted_text",
+                            "retrieved_at": snapshot.retrieved_at.isoformat(),
+                            "status": snapshot.status,
+                            **validated_passage(body, phrase),
+                        }
+                    )
+            associations = [
+                {
+                    "evidence": row.model_dump(mode="json"),
+                    "relation": "related" if label == "SQL" else "equivalent",
+                    "mapping_method": "synthetic_reviewed_mapping",
+                    "rationale": "SYNTHETIC mapping fixture",
+                }
+                for row in onet
+                if row.label.casefold()
+                == ("programming" if label == "SQL" else label.casefold())
+            ]
+            if label == "SQL":
+                associations = [
+                    {
+                        "evidence": programming,
+                        "relation": "related",
+                        "mapping_method": "synthetic_reviewed_mapping",
+                        "rationale": "Programming is related context for SQL, not an official SQL rating",
+                    }
+                ]
+            candidates.append(
+                {
+                    "candidate_id": str(uuid4()),
+                    "identity_key": f"synthetic-simple:{label}",
+                    "display_name": label,
+                    "category_id": "data",
+                    "original_labels": ["Create ETL", "Develop ETL/ELT"]
+                    if index == 1
+                    else [label],
+                    "evidence_references": refs,
+                    "job_metrics": {
+                        **calculate_job_metrics(
+                            [ref["snapshot_id"] for ref in refs],
+                            [str(s.id) for s in snapshots],
+                        ),
+                        "selected_posting_count": 6,
+                        "coverage_status": "partial",
+                    },
+                    "onet_associations": associations,
+                }
+            )
+        for index in range(394):
+            candidates.append(
+                {
+                    "candidate_id": str(uuid4()),
+                    "identity_key": f"synthetic-reference:{index}",
+                    "display_name": f"SYNTHETIC reference-only {index + 1:03}",
+                    "category_id": "reference",
+                    "original_labels": [f"SYNTHETIC reference-only {index + 1:03}"],
+                    "evidence_references": [],
+                    "job_metrics": {
+                        "supporting_posting_count": 0,
+                        "assessed_posting_count": 4,
+                        "percentage": 0,
+                    },
+                    "onet_associations": [
+                        {
+                            "evidence": deepcopy(
+                                onet[index % len(onet)].model_dump(mode="json")
+                            ),
+                            "relation": "related",
+                            "mapping_method": "synthetic_reference",
+                            "rationale": "Synthetic reference only",
+                        }
+                    ],
+                }
+            )
+        candidates = reconcile_candidates(candidates, {"candidates": candidates})[
+            "candidates"
+        ]
+        repo.update_manifest(
+            run.id,
+            course["id"],
+            course["teacher_id"],
+            expected_candidate_revision=0,
+            candidates=candidates,
+            categories=[
+                {"category_id": "data", "label": "Data engineering"},
+                {"category_id": "reference", "label": "Reference only"},
+            ],
+        )
+        repo.save_draft(
+            run.id,
+            course["id"],
+            course["teacher_id"],
+            expected_candidate_revision=1,
+            expected_selection_revision=0,
+            selected_candidate_ids=[row["candidate_id"] for row in candidates[:5]],
+            excluded_candidate_ids=[candidates[58]["candidate_id"]],
+        )
+        run.candidate_manifest = {
+            **run.candidate_manifest,
+            "validated_observations": [
+                {
+                    "reference_hash": reference_fingerprint(ref),
+                    "identity_key": candidate["identity_key"],
+                    "competency": candidate["display_name"],
+                }
+                for candidate in candidates[:58]
+                for ref in candidate["evidence_references"]
+            ],
+        }
+        run.source_outcomes = {
+            "headhunter": {
+                "status": "partial",
+                "received_count": 6,
+                "usable_count": 4,
+                "warnings": ["Two synthetic postings unavailable"],
+            },
+            "onet": {"status": "success"},
+        }
+        run.source_outcomes = {
+            provider: SourceOutcome.model_validate(outcome).model_dump(mode="json")
+            for provider, outcome in run.source_outcomes.items()
+        }
+        run.extraction_coverage = {
+            "status": "partial",
+            "selected_postings": 6,
+            "assessed_postings": 4,
+            "warnings": ["Two synthetic postings unavailable"],
+        }
+        repo.save_configuration_snapshot(
+            SkillReviewService.thread_id(course["id"], course["teacher_id"]),
+            {
+                **config,
+                **SkillReviewService.state_fields(run),
+                "job_search_country": "Uzbekistan",
+                "job_search_country_confirmed": True,
+                "selected_onet_occupations": [role["soc_code"] for role in occupations],
+                "source_outcomes": run.source_outcomes,
+            },
+        )
+        repo.commit()
+        public = {
+            "course": course,
+            "student_question_id": f"task6-question-{course['id']}",
+            "student_reading_id": f"task6-reading-{course['id']}",
+            "run_id": str(run.id),
+            "candidate_ids": [c["candidate_id"] for c in candidates],
+            "snapshot_ids": [str(s.id) for s in snapshots],
+        }
+    private = {**manifest, **public}
+    fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        json.dump(private, stream)
+    destination.chmod(0o600)
+    return public
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8000)
@@ -1011,6 +1315,9 @@ def main() -> None:
         choices=[
             "purge-first-posting",
             "seed-corpus",
+            "seed-simple-flow",
+            "arm-save-failure",
+            "disarm-save-failure",
             "seed-layout-source",
             "sql-readback",
             "restore-main-snapshot",
@@ -1049,6 +1356,42 @@ def main() -> None:
 
         manifest = json.loads(args.manifest.read_text())
         assert manifest["database"] == DATABASE
+        if args.action == "seed-simple-flow":
+            print(
+                json.dumps(
+                    seed_simple_flow(
+                        manifest,
+                        args.manifest.with_name("teacher-workspace-simple.json"),
+                    )
+                )
+            )
+            return
+        if args.action in {"arm-save-failure", "disarm-save-failure"}:
+            from sqlalchemy import text
+
+            with SessionLocal() as db:
+                db.execute(
+                    text(
+                        "DROP TRIGGER IF EXISTS task6_reject_save ON market_analysis_runs"
+                    )
+                )
+                db.execute(text("DROP FUNCTION IF EXISTS task6_reject_save()"))
+                if args.action == "arm-save-failure":
+                    db.execute(
+                        text(
+                            "CREATE FUNCTION task6_reject_save() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.id = '"
+                            + str(UUID(manifest["run_id"]))
+                            + "'::uuid AND NEW.selection_revision != OLD.selection_revision THEN RAISE EXCEPTION 'Synthetic acceptance save failure'; END IF; RETURN NEW; END $$"
+                        )
+                    )
+                    db.execute(
+                        text(
+                            "CREATE TRIGGER task6_reject_save BEFORE UPDATE ON market_analysis_runs FOR EACH ROW EXECUTE FUNCTION task6_reject_save()"
+                        )
+                    )
+                db.commit()
+            print(json.dumps({"action": args.action}))
+            return
         if args.action == "seed-layout-source":
             print(json.dumps(seed_corpus(manifest, {"max_two_no_repeated_skill"})))
             return
@@ -1206,6 +1549,7 @@ def main() -> None:
                             "selection_revision": run.selection_revision,
                             "publication_revision": run.publication_revision,
                             "selected_candidate_ids": run.selected_candidate_ids,
+                            "excluded_candidate_ids": run.excluded_candidate_ids,
                             "approved_references": run.approved_references,
                             "approvals": [
                                 {

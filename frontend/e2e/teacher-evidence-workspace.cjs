@@ -1,7 +1,7 @@
 /* Controlled real-database acceptance. No API response mocks. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { execFileSync, spawn } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const { chromium } = require('playwright');
 const UI = process.env.WORKSPACE_UI_URL;
@@ -9,7 +9,8 @@ const API = process.env.WORKSPACE_API_URL;
 const manifestPath = process.env.WORKSPACE_FIXTURE_PATH;
 const phase = process.env.WORKSPACE_SCENARIO || 'all';
 const safeError = error => String(error.message ?? error).replace(/Bearer\s+[A-Za-z0-9_.-]+/g, 'Bearer [REDACTED]');
-const action = (name, payload, extra = []) => JSON.parse(execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', '-i', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', '/tmp/teacher-workspace.json', '--action', name, ...extra], { input: payload ? JSON.stringify(payload) : undefined, encoding: 'utf8' }));
+let fixtureManifest = process.env.WORKSPACE_SERVER_MANIFEST || '/tmp/teacher-workspace.json';
+const action = (name, payload, extra = []) => JSON.parse(execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', '-i', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', fixtureManifest, '--action', name, ...extra], { input: payload ? JSON.stringify(payload) : undefined, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
 const sourceFile = process.argv.find(arg => arg.endsWith('/teacher-evidence-workspace.cjs'));
 const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sourceFile), '../../output/teacher-evidence-workspace/acceptance');
 (async () => {
@@ -17,17 +18,29 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
     assert.equal(fs.statSync(manifestPath).mode & 0o777, 0o600, 'Manifest must be private');
     const fixture = JSON.parse(fs.readFileSync(manifestPath));
     assert.equal(fixture.database, 'lab_tutor_workspace_acceptance');
-    if (phase === 'all') {
-        assert.equal(action('sql-readback').publication_revision, 0, 'Full orchestration requires fresh owned fixture');
-        fs.mkdirSync(output, { recursive: true });
-        fs.writeFileSync(path.join(output, 'student-before.json'), JSON.stringify(action('seed-student'), null, 2));
-        fs.writeFileSync(path.join(output, 'corpus-sql-readback.json'), JSON.stringify(action('seed-corpus'), null, 2));
-        for (const scenario of ['purge', 'layout', 'tooltip', 'tooltip-variants', 'tooltip-five-roles', 'context', 'workflow', 'corpus', 'approval', 'revisions', 'lifecycle', 'load-failures', 'recovery', 'supplemental', 'provenance', 'reset-proof']) {
+    // Historical callers may retain these names; all use current presentation contracts.
+    const legacyScenarios = {
+        purge: ['simple-contracts'], provenance: ['simple-flow', 'simple-layout'],
+        layout: ['simple-layout'], context: ['simple-flow', 'simple-contracts'],
+        workflow: ['simple-workflow'], 'pending-composer': ['simple-flow', 'simple-workflow'],
+        lifecycle: ['simple-contracts'], revisions: ['simple-contracts'],
+        recovery: ['simple-workflow'], 'reset-proof': ['simple-workflow'],
+        supplemental: ['simple-contracts', 'simple-workflow'],
+        approval: ['simple-flow'], 'approval-readback': ['simple-flow'],
+        corpus: ['simple-corpus'], metadata: ['simple-corpus'],
+        tooltip: ['simple-corpus'], 'tooltip-variants': ['simple-corpus'],
+        'tooltip-three-roles': ['simple-corpus'], 'tooltip-four-roles': ['simple-corpus'],
+        'tooltip-five-roles': ['simple-corpus'], 'load-failures': ['simple-contracts'],
+    };
+    if (phase === 'all' || legacyScenarios[phase]) {
+        // Current presentation: retain data/security/recovery contracts through
+        // the real simple-flow suites, rather than resurrecting the dashboard.
+        for (const scenario of legacyScenarios[phase] ?? ['simple-flow', 'simple-contracts', 'simple-workflow', 'simple-corpus', 'simple-layout']) {
             console.log(`START ${scenario}`);
             execFileSync(process.execPath, [process.argv[1], sourceFile], { env: { ...process.env, WORKSPACE_SCENARIO: scenario }, stdio: 'inherit' });
             console.log(`EXIT 0 ${scenario}`);
         }
-        console.log('PASS every controlled real-database acceptance phase');
+        console.log('PASS current real-database acceptance suites');
         return;
     }
     const browser = await chromium.launch({ headless: true, channel: "chrome" });
@@ -35,8 +48,14 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
     const errors = [];
     const consoleErrors = [];
     const mutations = [];
+    const verifyConsole = (expectedPath = null) => {
+        for (const entry of consoleErrors) {
+            assert(expectedPath && (entry.url.includes(expectedPath) || entry.text.includes(expectedPath)) && /CORS|ERR_FAILED|500|Failed to fetch/.test(entry.text), `Unexpected browser console error: ${JSON.stringify(entry)}`);
+        }
+        assert.deepEqual(errors, [], 'Unexpected main-page runtime errors');
+        fs.writeFileSync(path.join(path.dirname(manifestPath), `task6-console-${phase}.json`), JSON.stringify({ consoleErrors, runtimeErrors: errors }, null, 2));
+    };
     let chartModuleURL;
-    let disabledStorageVerified = false;
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
     page.on('console', message => {
@@ -54,1127 +73,791 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
         localStorage.setItem('access_token', tokens.access_token);
         localStorage.setItem('refresh_token', tokens.refresh_token);
     }, fixture.teacher);
-    try {
-        let review;
-        const chart = page.getByRole('region', { name: 'Demand overview' }).locator('[role=img]').first();
-        if (!['supplemental', 'reset-proof'].includes(phase)) {
-            const read = await context.request.get(`${API}/courses/${fixture.course.id}/market-demand/skill-review`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } });
-            assert.equal(read.status(), 200);
-            review = await read.json();
-            assert.equal(review.candidates.length, 30);
-            assert.equal(review.candidate_revision, 1);
-            await page.goto(`${UI}/courses/${fixture.course.id}/market-analyst`);
-            await page.getByRole('region', { name: 'Demand overview' }).waitFor();
-            await chart.locator('svg').waitFor();
-            assert.equal(await page.getByLabel('Overview values').locator(':scope > li').count(), 12);
-            await page.screenshot({ path: path.join(output, ['tooltip-three-roles', 'tooltip-four-roles'].includes(phase) ? `${phase}-initial-1440.png` : 'initial-1440.png'), fullPage: true });
-            const before = mutations.length;
-            const bar = chart.locator('path[fill="#2563eb"]').first();
-            await bar.scrollIntoViewIfNeeded();
-            const mark = await bar.boundingBox();
-            assert(mark && mark.width > 0 && mark.height > 0);
-            await page.mouse.click(mark.x + mark.width / 2, mark.y + mark.height / 2);
-            await page.getByRole('region', { name: 'Focused evidence' }).getByRole('heading', { name: 'Python', exact: true }).waitFor();
-            assert.equal(mutations.length, before, 'Actual ECharts mark focus must not write or chat');
-            console.log('PASS actual SVG bar click focuses Python without mutation');
-        }
-        if (phase === 'pending-composer') {
-            const records = [];
-            const sqlBefore = action('sql-readback');
-            for (const width of [1440, 390]) {
-                await page.setViewportSize({ width, height: 1000 });
-                const workspaceTab = page.getByRole('tab', { name: 'Workspace', exact: true });
-                if (await workspaceTab.count()) await workspaceTab.click();
-                await page.getByRole('button', { name: 'Inspect Python', exact: true }).click();
-                await page.getByRole('region', { name: 'Focused evidence' }).getByRole('button', { name: 'Ask about Python', exact: true }).click();
-                const conversationTab = page.getByRole('tab', { name: /^Conversation/ });
-                if (await conversationTab.count()) await conversationTab.click();
-                const question = page.getByRole('textbox', { name: 'Question', exact: true });
-                const gateId = `pending${width}`;
-                const reply = `Synthetic gated explanation at ${width}.`;
-                action('model-gate-arm', { id: gateId });
-                action('model-queue', [{ content: reply, gate: gateId }]);
-                const chatCount = () => mutations.filter(item => item.method === 'POST' && item.url.endsWith('/market-demand/chat')).length;
-                const priorCount = chatCount();
-                let responseFinished = false;
-                const responsePromise = page.waitForResponse(r => r.url().endsWith('/market-demand/chat'));
-                await page.getByRole('button', { name: 'Send message', exact: true }).click();
-                const response = await responsePromise;
-                const completion = response.finished().then(() => { responseFinished = true; });
-                const gateWaiting = async () => {
-                    for (let attempt = 0; attempt < 60; attempt++) {
-                        const state = action('model-gate-status');
-                        if (state.status === 'waiting') return state;
-                        await page.waitForTimeout(50);
-                    }
-                    throw new Error('Model did not reach the deterministic gate');
-                };
-                const beforeInput = await gateWaiting();
-                assert.deepEqual(beforeInput, { id: gateId, status: 'waiting' });
-                assert.equal(responseFinished, false, 'Response must remain pending before typing');
-                assert.equal(await question.isEnabled(), true, 'Textarea enabled before native keyboard input');
-                await question.click();
-                await page.keyboard.press('ControlOrMeta+A');
-                const followUp = `Retained gated follow-up at ${width}.`;
-                await page.keyboard.insertText(followUp);
-                await page.keyboard.press('Enter');
-                const afterInput = action('model-gate-status');
-                assert.deepEqual(afterInput, beforeInput, 'Model remains held after typing and Enter');
-                assert.equal(responseFinished, false, 'No EOF before follow-up');
-                assert.equal(await question.inputValue(), followUp);
-                assert.equal(chatCount() - priorCount, 1, 'Pending Enter cannot dispatch a duplicate chat');
-                assert.equal(await page.getByRole('button', { name: 'Send message', exact: true }).isDisabled(), true);
-                await page.screenshot({ path: path.join(output, `pending-${width}.png`), fullPage: true });
-                action('model-gate-release');
-                await completion;
-                await page.getByText(reply, { exact: true }).waitFor();
-                assert.equal(await question.inputValue(), followUp);
-                assert.match(await page.getByLabel('Attached context', { exact: true }).innerText(), /No focused skills/);
-                assert.equal(chatCount() - priorCount, 1);
-                records.push({ width, gate: gateId, beforeInput, afterInput, enabledBeforeTyping: true, responsePendingBeforeAndAfterInput: true, nativeKeyboard: true, chatPosts: 1, retainedFollowUp: true, unchangedAttachmentCleared: true, responseCompletedAfterRelease: true });
-                await page.screenshot({ path: path.join(output, `completed-${width}.png`), fullPage: true });
-            }
-            assert.deepEqual(action('sql-readback'), sqlBefore, 'Read-only explanations retain authoritative run selection/publication');
-            assert.equal(action('model-readback').length, 2, 'Exactly two gated inference calls');
-            fs.writeFileSync(path.join(output, 'pending-proof.json'), JSON.stringify({ records, sqlBefore, sqlAfter: action('sql-readback'), inferenceCalls: 2, actualAuthRoutesGraphCheckpointer: true, workflowBrowserReplay: false }, null, 2));
-            console.log('PASS desktop and narrow native typing while deterministic model gate holds SSE; one POST each; retained text and cleared attachment after release');
-        }
-        if (phase === 'metadata') {
-            const proof = action('metadata-compatibility');
-            const prior = JSON.parse(fs.readFileSync(path.join(output, 'corpus-sql-readback.json'))).find(item => item.name === 'max_two_no_repeated_skill');
-            assert.deepEqual(proof.normal_review, prior.review, 'Later HEAD normal API must equal original d1a3660 corpus facts');
-            await page.goto(`${UI}/courses/${proof.course_id}/market-analyst`);
-            await page.getByRole('region', { name: 'Demand overview' }).waitFor();
-            await page.getByRole('button', { name: 'Compare', exact: true }).click();
-            const compare = page.getByRole('region', { name: 'Occupation comparison' });
-            await compare.getByRole('button', { name: 'Across occupations', exact: true }).click();
-            const roles = proof.normal_review.analysis_metadata.occupations;
-            for (const role of roles)
-                await compare.getByRole('checkbox', { name: `Display ${role.title}`, exact: true }).check();
-            const plot = compare.locator('[role=img]').first();
-            await plot.locator('svg').waitFor();
-            const values = await plot.evaluate(async (element, url) => {
-                const core = await import(url);
-                return core.getInstanceByDom(element).getOption().series[0].data.map(item => item.value);
-            }, chartModuleURL);
-            const expected = [];
-            [...proof.normal_review.candidates].sort((a, b) => a.display_name.localeCompare(b.display_name)).forEach((candidate, y) => roles.forEach((role, x) => {
-                const association = candidate.onet_associations.find(item => item.relation === 'equivalent' && item.evidence.soc_code === role.soc_code);
-                expected.push([x, y, association.evidence.ratings.IM.value]);
-            }));
-            assert.deepEqual(values, expected);
-            assert.equal(mutations.length, 0, 'Metadata and chart inspection are read-only');
-            fs.writeFileSync(path.join(output, 'metadata-compatibility.json'), JSON.stringify({ productHead: '62ab13ec792c8103b58c993b110d6184d896d2a4', ...proof, chartValues: values, baselineEquality: true }, null, 2));
-            await page.screenshot({ path: path.join(output, 'metadata-current-head.png'), fullPage: true });
-            console.log('PASS later HEAD real authenticated missing/null/blank title fallback; exact SQL config restored; normal metadata/evidence/chart identical to d1a3660; no writes');
-        }
-        if (['all', 'purge'].includes(phase)) {
-            const focused = page.getByRole('region', { name: 'Focused evidence' });
-            const disclosure = focused.getByText('Evidence for Python', { exact: true });
-            await disclosure.click();
-            const activeRef = review.candidates.find(c => c.display_name === 'Python').evidence_references.find(ref => ref.status === 'active');
-            assert(activeRef, 'An active synthetic posting is required');
-            const snapshotIndex = fixture.snapshot_ids.indexOf(activeRef.snapshot_id);
-            const original = await (await context.request.get(`${API}/courses/${fixture.course.id}/market-demand/skill-review/postings/${activeRef.snapshot_id}`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } })).json();
-            assert(original.description_text);
-            await focused.getByRole('button', { name: 'Load full posting evidence' }).nth(snapshotIndex).click();
-            await focused.getByText(original.description_text, { exact: true }).first().waitFor();
-            console.log('PASS owned full posting inspected');
-            execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', '/tmp/teacher-workspace.json', '--action', 'purge-first-posting', '--snapshot-index', String(snapshotIndex)], { stdio: 'pipe' });
-            const purged = await context.request.get(`${API}/courses/${fixture.course.id}/market-demand/skill-review/postings/${activeRef.snapshot_id}`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } });
-            assert.equal(purged.status(), 200);
-            const posting = await purged.json();
-            assert(posting.purged_at);
-            assert(!posting.description_text);
-            await disclosure.click();
-            await focused.getByRole('button', { name: /Load|Reload full posting evidence/ }).first().waitFor({ state: 'detached' });
-            await disclosure.click();
-            await page.screenshot({ path: path.join(output, 'posting-after-purge.png'), fullPage: true });
-            assert.equal(await focused.getByText(original.description_text, { exact: true }).count(), 0, 'Reopening purged posting must not show cached source body');
-            await focused.getByText(/Posting content unavailable: purged/).waitFor();
-            assert.deepEqual(errors, [], 'Unexpected runtime errors');
-            console.log('PASS current purged inspection has no cached source body');
-        }
-        if (phase === 'tooltip') {
-            const results = [];
-            for (const width of [320, 390, 768, 1024, 1440]) {
-                await page.setViewportSize({ width, height: 1000 });
-                for (const theme of ['Light', 'Dark']) {
-                    await page.getByRole('button', { name: 'Toggle theme', exact: true }).click();
-                    await page.getByRole('menuitem', { name: theme, exact: true }).click();
-                    const pane = page.getByRole('tab', { name: 'Workspace', exact: true });
-                    if (await pane.isVisible())
-                        await pane.click();
-                    await chart.scrollIntoViewIfNeeded();
-                    await chart.locator('svg').waitFor();
-                    const mark = await chart.locator('path[fill="#2563eb"]').last().boundingBox();
-                    await page.mouse.move(mark.x + mark.width / 2, mark.y + mark.height / 2);
-                    await chart.locator('text').filter({ hasText: 'supporting / assessed' }).waitFor();
-                    const measured = await chart.evaluate(element => {
-                        const box = element.getBoundingClientRect();
-                        return { chart: { left: box.left, right: box.right, width: box.width }, texts: [...element.querySelectorAll('svg text')].map(node => { const r = node.getBoundingClientRect(); return { text: node.textContent, left: r.left, right: r.right, width: r.width }; }) };
-                    });
-                    assert(measured.texts.map(row => row.text).join('').replace(/\s/g, '').includes('Synthetic competency 24: 70% · 7 / 10 supporting / assessed'.replace(/\s/g, '')), 'Complete demand label, metric and denominator visible in SVG');
-                    results.push({ width, theme, ...measured });
-                    fs.writeFileSync(path.join(output, 'tooltip-geometry.json'), JSON.stringify(results, null, 2));
-                    await page.screenshot({ path: path.join(output, `tooltip-${width}-${theme.toLowerCase()}.png`), fullPage: true });
-                    for (const text of measured.texts)
-                        assert(text.left >= measured.chart.left - 1 && text.right <= measured.chart.right + 1, `Clipped chart text at ${width}/${theme}: ${JSON.stringify(text)} chart=${JSON.stringify(measured.chart)}`);
-                }
-            }
-            console.log('PASS actual long-label tooltip hover fits all five widths in light/dark');
-        }
-        if (['tooltip-variants', 'tooltip-three-roles', 'tooltip-four-roles', 'tooltip-five-roles'].includes(phase)) {
-            const roleCount = { 'tooltip-variants': 2, 'tooltip-three-roles': 3, 'tooltip-four-roles': 4, 'tooltip-five-roles': 5 }[phase];
-            const existing = process.env.WORKSPACE_EXISTING_TOOLTIP_COURSE;
-            const seeded = existing ? { course: { id: Number(existing) }, review: await (await context.request.get(`${API}/courses/${Number(existing)}/market-demand/skill-review`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } })).json() } : action('seed-tooltip', undefined, ['--role-count', String(roleCount)]);
-            assert.equal(seeded.review.analysis_metadata.occupations.length, roleCount);
-            const boundedRoleFix = [3, 4].includes(roleCount);
-            const modelCallsBefore = boundedRoleFix ? action('model-readback').length : null;
-            if (boundedRoleFix) {
-                assert(process.env.WORKSPACE_FIXTURE_GENERATION && process.env.WORKSPACE_PROOF_HEAD);
-                assert.equal(modelCallsBefore, 0);
-                const source = JSON.parse(fs.readFileSync(path.join(output, 'roles-fix-source.json')))[0].review;
-                assert.deepEqual(seeded.review.analysis_metadata.occupations.slice(0, 2), source.analysis_metadata.occupations);
-                seeded.review.candidates.forEach((candidate, index) => {
-                    assert.deepEqual(candidate.job_metrics, source.candidates[index].job_metrics);
-                    assert.deepEqual(candidate.onet_associations, source.candidates[index].onet_associations);
-                });
-                for (const role of seeded.review.analysis_metadata.occupations.slice(2)) {
-                    assert.match(role.title, /^SYNTHETIC NO-RATING LAYOUT ROLE/);
-                    assert(!seeded.review.candidates.some(candidate => candidate.onet_associations.some(a => a.evidence.soc_code === role.soc_code)));
-                }
-            }
-            const records = [];
-            await page.goto(`${UI}/courses/${seeded.course.id}/market-analyst`);
-            const before = mutations.length;
-            for (const width of [320, 390, 768]) {
-                await page.setViewportSize({ width, height: 1000 });
-                for (const theme of ['Light', 'Dark']) {
-                    await page.getByRole('button', { name: 'Toggle theme', exact: true }).click();
-                    await page.getByRole('menuitem', { name: theme, exact: true }).click();
-                    const pane = page.getByRole('tab', { name: 'Workspace', exact: true });
-                    if (await pane.isVisible())
-                        await pane.click();
-                    for (const variant of ['demand', 'scatter', 'heatmap']) {
-                        await page.getByRole('button', { name: variant === 'demand' ? 'Overview' : 'Compare', exact: true }).click();
-                        const region = page.getByRole('region', { name: variant === 'demand' ? 'Demand overview' : 'Occupation comparison' });
-                        if (variant !== 'demand') {
-                            await region.getByRole('button', { name: variant === 'scatter' ? 'Demand and importance' : 'Across occupations', exact: true }).click();
-                            for (const role of seeded.review.analysis_metadata.occupations)
-                                await region.getByRole('checkbox', { name: `Display ${role.title}`, exact: true }).check();
-                            if (variant === 'scatter')
-                                await region.getByLabel('Compare occupation', { exact: true }).selectOption('15-1252.00');
-                        }
-                        const element = region.locator('[role=img]').first();
-                        await element.locator('svg').waitFor();
-                        await element.scrollIntoViewIfNeeded();
-                        await page.waitForFunction(() => [...document.querySelectorAll('[role=img]')].filter(e => e.querySelector('svg')).every(e => Math.abs(e.clientWidth - Number(e.querySelector('svg').getAttribute('width'))) <= 1));
-                        if (width < 768) {
-                            await page.getByRole('tab', { name: /^Conversation/ }).click();
-                            await page.getByRole('tab', { name: 'Workspace', exact: true }).click();
-                            await element.locator('svg').waitFor();
-                        }
-                        await element.scrollIntoViewIfNeeded();
-                        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-                        const point = await element.evaluate(async (e, url) => { const instance = (await import(url)).getInstanceByDom(e); const data = instance.getOption().series[0].data[0]; const type = instance.getOption().series[0].type; return { pixel: instance.convertToPixel({ seriesIndex: 0 }, type === 'bar' ? [data.value, 0] : data.value), expected: data.tooltipText }; }, chartModuleURL);
-                        const box = await element.boundingBox();
-                        await page.mouse.move(0, 0);
-                        await page.mouse.move(box.x + point.pixel[0] - (variant === 'demand' ? 5 : 0), box.y + point.pixel[1]);
-                        const escaped = point.expected.replaceAll('{', '｛').replaceAll('}', '｝');
-                        await page.waitForFunction(({ expected }) => [...document.querySelectorAll('[role=img] svg text')].map(e => e.textContent).join('').replace(/\s/g, '').includes(expected.replace(/\s/g, '')), { expected: escaped });
-                        const measured = await element.evaluate(e => { const r = e.getBoundingClientRect(); return { box: { left: r.left, right: r.right, top: r.top, bottom: r.bottom }, texts: [...e.querySelectorAll('svg text')].map(t => { const r = t.getBoundingClientRect(); return { text: t.textContent, left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }) }; });
-                        for (const text of measured.texts)
-                            assert(text.left >= measured.box.left - 1 && text.right <= measured.box.right + 1 && text.top >= measured.box.top - 1 && text.bottom <= measured.box.bottom + 1, `Clipped ${variant} tooltip text ${width}/${theme}: ${JSON.stringify(text)}`);
-                        assert.equal(await element.locator('script').count(), 0);
-                        assert.equal(mutations.length, before, 'Hover is readonly');
-                        const headers = variant === 'heatmap' ? measured.texts.filter(t => t.top > measured.box.top + 50 && t.bottom < measured.box.top + 100).sort((a, b) => a.left - b.left) : [];
-                        if (variant === 'heatmap') {
-                            assert.equal(headers.length, seeded.review.analysis_metadata.occupations.length, 'Every occupation header rendered');
-                            for (let i = 1; i < headers.length; i++)
-                                assert(headers[i - 1].right <= headers[i].left, 'Occupation headers overlap');
-                        }
-                        records.push({ roleCount, width, theme, variant, headers, expected: escaped, ...measured });
-                        if (width === 320)
-                            await page.screenshot({ path: path.join(output, `${phase}-${variant}-${theme.toLowerCase()}.png`), fullPage: true });
-                    }
-                }
-            }
-            fs.writeFileSync(path.join(output, `${phase}.json`), JSON.stringify({ fixture: seeded, records, ...(boundedRoleFix ? { fixtureGeneration: process.env.WORKSPACE_FIXTURE_GENERATION, proofHead: process.env.WORKSPACE_PROOF_HEAD, roleCount, modelCallsBefore, modelCallsAfter: action('model-readback').length, browserMutations: mutations.length } : {}) }, null, 2));
-            if (boundedRoleFix) {
-                assert.equal(action('model-readback').length, 0);
-                assert.equal(mutations.length, 0);
-                const current = await context.request.get(`${API}/courses/${seeded.course.id}/market-demand/skill-review`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } });
-                assert.equal(current.status(), 200);
-                assert.deepEqual(await current.json(), seeded.review, 'Read-only geometry must not change SQL-backed review');
-            }
-            console.log('PASS demand/scatter/heatmap complete source-token/nonASCII/unbroken labels and exact metrics inside SVG at320/390/768 in both themes; readonly actual hover');
-        }
-        if (['all', 'layout'].includes(phase)) {
-            const geometry = [];
-            for (const width of [1440, 1024, 768, 390, 320]) {
-                await page.setViewportSize({ width, height: 1000 });
-                for (const theme of ['Light', 'Dark']) {
-                    await page.getByRole('button', { name: 'Toggle theme', exact: true }).click();
-                    await page.getByRole('menuitem', { name: theme, exact: true }).click();
-                    await page.waitForFunction(dark => document.documentElement.classList.contains('dark') === dark, theme === 'Dark');
-                    const pane = page.getByRole('tab', { name: 'Workspace', exact: true });
-                    if (await pane.isVisible())
-                        await pane.click();
-                    await chart.scrollIntoViewIfNeeded();
-                    await chart.locator('svg').waitFor();
-                    await page.waitForFunction(() => { const e = document.querySelector('[aria-label="Demand overview"] [role=img]'); return e && Math.abs(e.clientWidth - Number(e.querySelector('svg')?.getAttribute('width'))) <= 1; });
-                    const measure = await chart.evaluate(element => {
-                        const svg = element.querySelector('svg');
-                        const box = element.getBoundingClientRect();
-                        const ticks = [...svg.querySelectorAll('text')].filter(node => /^\d+$/.test(node.textContent)).map(node => { const r = node.getBoundingClientRect(); return { text: node.textContent, left: r.left, right: r.right, top: r.top }; }).sort((a, b) => a.left - b.left);
-                        return { ticks, width: innerWidth, documentWidth: document.documentElement.scrollWidth, boxWidth: box.width, svgWidth: Number(svg.getAttribute('width')), svgHeight: Number(svg.getAttribute('height')), bars: svg.querySelectorAll('path[fill="#2563eb"]').length };
-                    });
-                    geometry.push({ theme, ...measure });
-                    assert(measure.documentWidth <= width, `Document overflow at ${width}/${theme}: ${measure.documentWidth}`);
-                    assert(measure.boxWidth > 0 && measure.svgWidth > 0 && measure.svgHeight > 0);
-                    assert(Math.abs(measure.boxWidth - measure.svgWidth) <= 1, `ResizeObserver chart width stale at ${width}/${theme}`);
-                    assert.equal(measure.bars, 12);
-                    for (let i = 1; i < measure.ticks.length; i++)
-                        assert(measure.ticks[i - 1].right <= measure.ticks[i].left, `Overlapping chart tick labels at ${width}/${theme}: ${JSON.stringify(measure.ticks)}`);
-                    await page.screenshot({ path: path.join(output, `chart-${width}-${theme.toLowerCase()}.png`), fullPage: true });
-                    if (width >= 768) {
-                        await page.locator('[data-sidebar=trigger]').click();
-                        await page.waitForFunction(() => {
-                            const e = document.querySelector('[aria-label="Demand overview"] [role=img]');
-                            return e && Math.abs(e.clientWidth - Number(e.querySelector('svg')?.getAttribute('width'))) <= 1;
-                        });
-                        const size = await chart.boundingBox();
-                        assert(size.width > 0);
-                    }
-                }
-                console.log(`PASS chart resize/theme/sidebar at ${width}`);
-            }
-            fs.writeFileSync(path.join(output, 'geometry.json'), JSON.stringify(geometry, null, 2));
-        }
-        if (['all', 'context'].includes(phase)) {
-            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
-            const reviewURL = `${API}/courses/${fixture.course.id}/market-demand/skill-review`;
-            const fresh = async () => { const r = await context.request.get(reviewURL, { headers }); assert.equal(r.status(), 200); return r.json(); };
-            const pane = page.getByRole('region', { name: 'Skill draft review' });
-            const question = page.getByRole('textbox', { name: 'Question', exact: true });
-            await page.getByRole('button', { name: 'Data', exact: true }).click();
-            const table = page.getByRole('region', { name: 'Evidence data' });
-            assert.equal(await table.locator('tbody tr').count(), 25);
-            await table.getByRole('button', { name: 'Next rows', exact: true }).click();
-            assert.equal(await table.locator('tbody tr').count(), 5);
-            await table.getByRole('button', { name: 'Previous rows', exact: true }).click();
-            await table.getByRole('button', { name: 'Inspect Python', exact: true }).focus();
+    const verifyInspectionFocus = async () => {
+        const skills = page.getByRole('region', { name: 'Choose skills', exact: true });
+        await skills.waitFor();
+        for (const name of ['SQL', 'ETL / ELT']) {
+            const trigger = skills.getByRole('button', { name: `Inspect ${name}`, exact: true });
+            await trigger.focus();
             await page.keyboard.press('Enter');
-            await page.getByRole('region', { name: 'Focused evidence' }).getByRole('heading', { name: 'Python', exact: true }).waitFor();
-            const withoutWrites = mutations.length;
-            await table.getByRole('button', { name: 'Ask about Python', exact: true }).click();
-            assert.match(await question.inputValue(), /Python/);
-            assert.equal(mutations.length, withoutWrites);
-            await page.getByRole('textbox', { name: 'Filter evidence', exact: true }).fill('Python');
-            await pane.getByRole('checkbox', { name: 'Select category Programming (15 current members)', exact: true }).check();
-            assert.match(await pane.innerText(), /15 selected/);
-            await page.getByRole('textbox', { name: 'Filter evidence', exact: true }).fill('');
-            await pane.getByRole('checkbox', { name: 'Select Critical Thinking', exact: true }).uncheck();
-            assert.match(await pane.innerText(), /14 selected/);
-            await pane.getByRole('button', { name: 'Undo local change', exact: true }).click();
-            await pane.getByRole('checkbox', { name: 'Select Critical Thinking', exact: true }).uncheck();
-            assert.equal((await fresh()).selected_candidate_ids.length, review.selected_candidate_ids.length, 'Local category/exclusion controls must not save');
-            await pane.getByRole('button', { name: 'Save draft', exact: true }).click();
-            await pane.getByText('Draft saved', { exact: false }).waitFor();
-            const saved = await fresh();
-            assert.equal(saved.selected_candidate_ids.length, 14);
-            assert(saved.excluded_candidate_ids.includes(fixture.candidate_ids[1]));
-            await pane.getByRole('checkbox', { name: 'Select Synthetic competency 16', exact: true }).check();
-            await page.getByRole('button', { name: 'Refresh context', exact: true }).click();
-            assert.equal(await pane.getByRole('checkbox', { name: 'Select Synthetic competency 16', exact: true }).isChecked(), true, 'Dirty same-run refresh retains local choices');
-            assert.equal((await fresh()).selected_candidate_ids.length, 14);
-            console.log('PASS keyboard Data/paging, filter/category/exclusion/undo, real save and dirty refresh');
-            action('model-queue', [{ content: 'Controlled explanation of the saved Python evidence.', delay: 1 }]);
-            await question.fill('Explain the displayed Python evidence.');
-            const chatResponse = page.waitForResponse(r => r.url().endsWith('/market-demand/chat'));
-            await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await (await chatResponse).finished();
-            await page.getByText('Controlled explanation of the saved Python evidence.', { exact: true }).waitFor();
-            await page.waitForFunction(() => document.querySelector('textarea[aria-label="Question"]')?.value === '');
-            let calls = action('model-readback');
-            assert.deepEqual(calls.at(-1).tools, []);
-            assert.equal((await fresh()).selected_candidate_ids.length, 14);
-            assert(calls.at(-1).evidence.candidates.some(c => c.candidate_id === fixture.candidate_ids[0]));
-            console.log('PASS contextual Explain used real graph/checkpointer, zero model tools, no selection write');
-            await table.getByRole('button', { name: 'Ask about Synthetic competency 17', exact: true }).click();
-            const proposalCandidate = fixture.candidate_ids[16];
-            action('model-queue', [{ tool_calls: [{ id: 'task12-proposal', name: 'propose_skill_selection', args: { changes: [{ candidate_id: proposalCandidate, action: 'add', reason: 'Synthetic evidence merits teacher review' }] } }] }]);
-            await page.getByRole('button', { name: 'Save draft and suggest', exact: true }).click();
-            await page.getByRole('button', { name: 'Apply proposal to draft', exact: true }).waitFor();
-            const proposed = await fresh();
-            assert.equal(proposed.selected_candidate_ids.length, 15);
-            assert(!proposed.selected_candidate_ids.includes(proposalCandidate));
-            assert.equal(proposed.recommendations.length, 1);
-            calls = action('model-readback');
-            assert.deepEqual(calls.at(-1).tools, ['propose_skill_selection']);
-            await page.getByRole('button', { name: 'Apply proposal to draft', exact: true }).click();
-            assert.equal((await fresh()).selected_candidate_ids.length, 15, 'Proposal apply stays local');
-            assert.equal(await pane.getByRole('checkbox', { name: 'Select Synthetic competency 17', exact: true }).isChecked(), true);
-            await pane.getByRole('button', { name: 'Save draft', exact: true }).click();
-            await pane.getByText('Draft saved', { exact: false }).waitFor();
-            assert.equal((await fresh()).selected_candidate_ids.length, 16);
-            fs.writeFileSync(path.join(output, 'context-calls.json'), JSON.stringify(calls, null, 2));
-            console.log('PASS Save and suggest persists exact dirty draft, immutable proposal only, explicit local apply/save');
+            await page.getByRole('dialog', { name: `Evidence for ${name}`, exact: true }).waitFor();
+            assert.equal(await page.getByRole('dialog').count(), 1);
+            await page.keyboard.press('Escape');
+            await page.waitForFunction(label => document.activeElement?.getAttribute('aria-label') === label, `Inspect ${name}`);
         }
-        if (['all', 'workflow'].includes(phase)) {
-            const created = await context.request.post(`${API}/courses`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` }, data: { title: `SYNTHETIC acceptance — Workflow checkpoints ${Date.now()}` } });
-            assert.equal(created.status(), 201);
-            fixture.empty_course = await created.json();
-            await page.goto(`${UI}/courses/${fixture.empty_course.id}/market-analyst`);
-            await page.getByText('Start an analysis to collect job evidence for this course.', { exact: true }).waitFor();
-            assert.equal(await page.getByRole('region', { name: 'Demand overview' }).count(), 0, 'Genuine empty analysis has no fallback chart');
-            const noWrites = mutations.length;
-            await page.getByRole('button', { name: 'Explore O*NET occupations', exact: true }).click();
-            const reference = page.getByRole('region', { name: 'O*NET occupation reference' });
-            await reference.getByLabel('O*NET release', { exact: true }).selectOption('31.0');
-            await reference.getByRole('textbox', { name: 'Search occupations', exact: true }).fill('Data');
-            await reference.getByRole('button', { name: 'Search', exact: true }).click();
-            await reference.getByRole('button', { name: 'Browse Data Scientists (15-2051.00)', exact: true }).click();
-            await reference.getByRole('article', { name: 'Reading Comprehension', exact: true }).waitFor();
-            assert.match(await reference.innerText(), /IM: 4/);
-            await reference.getByRole('button', { name: 'Ask about Reading Comprehension', exact: true }).click();
-            assert.match(await page.getByLabel('Attached context', { exact: true }).innerText(), /Occupation reference · O\*NET 31.0/);
-            assert.equal(mutations.length, noWrites, 'Imported reference browsing/staging never starts analysis');
-            await page.screenshot({ path: path.join(output, 'imported-reference-31.png'), fullPage: true });
-            await page.reload();
-            await page.getByRole('button', { name: 'Analysis setup', exact: true }).click();
-            await page.getByRole('combobox', { name: 'Market country', exact: true }).click();
-            await page.getByRole('option', { name: 'Uzbekistan', exact: true }).click();
-            for (const name of ['Indeed', 'LinkedIn'])
-                await page.getByRole('checkbox', { name, exact: true }).uncheck();
-            await page.getByRole('checkbox', { name: 'HeadHunter', exact: true }).check();
-            const question = page.getByRole('textbox', { name: 'Question', exact: true });
-            action('model-queue', [{ content: 'Search Terms: "Python developer" and "Software engineer". Please confirm the search queries.', delay: 3 }]);
-            await question.fill('Find synthetic job evidence for this course.');
-            const first = page.waitForResponse(r => r.url().endsWith('/market-demand/chat'));
-            await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await page.getByText(/Waiting for the current work/).waitFor();
-            assert.equal(await page.getByRole('button', { name: 'Start an analysis', exact: true }).isDisabled(), true, 'Repeat Start is guarded during initial workflow');
-            await question.fill('Retained follow-up while initial run arrives.');
-            await (await first).finished();
-            await page.getByText('Search Terms: "Python developer" and "Software engineer". Please confirm the search queries.', { exact: true }).waitFor();
-            assert.equal(await question.inputValue(), 'Retained follow-up while initial run arrives.');
-            await question.fill('');
-            action('model-queue', [{ tool_calls: [{ id: 'task12-handoff', name: 'transfer_to_skill_finder', args: {} }] }, { tool_calls: [{ id: 'task12-fetch', name: 'fetch_jobs', args: { search_terms: 'Python developer, Software engineer', country: 'Uzbekistan' } }] }, { content: 'Synthetic jobs are collected. Please confirm a job group.' }]);
-            await page.getByRole('button', { name: 'Select all', exact: true }).click();
-            await page.getByRole('button', { name: /Confirm Selection/ }).click();
-            await page.getByText('Synthetic jobs are collected. Please confirm a job group.', { exact: true }).waitFor();
-            await page.getByText('Select Job Groups', { exact: true }).waitFor();
-            action('model-queue', [{ tool_calls: [{ id: 'task12-groups', name: 'select_jobs_by_group', args: { group_names: 'all' } }] }, { content: 'The teacher-confirmed synthetic job group is selected.' }]);
-            await page.getByRole('button', { name: 'Select all', exact: true }).click();
-            await page.getByRole('button', { name: /Confirm Selection/ }).click();
-            await page.getByText('The teacher-confirmed synthetic job group is selected.', { exact: true }).waitFor();
-            const history = await context.request.get(`${API}/courses/${fixture.empty_course.id}/market-demand/history`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } });
-            assert.equal(history.status(), 200);
-            const state = { history: await history.json(), state: await (await context.request.get(`${API}/courses/${fixture.empty_course.id}/market-demand/state`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` } })).json() };
-            fs.writeFileSync(path.join(output, 'workflow-checkpoints.json'), JSON.stringify(state, null, 2));
-            assert(state.state.selected_jobs.length === 3, 'Repeated provider query identities must deduplicate to 3 jobs');
-            assert(state.state.fetched_jobs.length === 3);
-            assert(state.state.run_id);
-            await page.screenshot({ path: path.join(output, 'workflow-confirmed.png'), fullPage: true });
-            const secondCourse = await context.request.post(`${API}/courses`, { headers: { Authorization: `Bearer ${fixture.teacher.access_token}` }, data: { title: 'SYNTHETIC unchanged initial composer completion' } });
-            assert.equal(secondCourse.status(), 201);
-            const secondId = (await secondCourse.json()).id;
-            await page.goto(`${UI}/courses/${secondId}/market-analyst`);
-            await page.getByRole('button', { name: 'Analysis setup', exact: true }).click();
-            await page.getByRole('combobox', { name: 'Market country', exact: true }).click();
-            await page.getByRole('option', { name: 'Uzbekistan', exact: true }).click();
-            for (const name of ['Indeed', 'LinkedIn'])
-                await page.getByRole('checkbox', { name, exact: true }).uncheck();
-            await page.getByRole('checkbox', { name: 'HeadHunter', exact: true }).check();
-            action('model-queue', [{ content: 'Synthetic initial completion without a typed follow-up.' }]);
-            await question.fill('Unchanged initial workflow question.');
-            await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await page.getByText('Work completed', { exact: true }).waitFor();
-            assert.equal(await question.inputValue(), '', 'Initial submitted text clears after acknowledged completion');
-            console.log('PASS unchanged initial composer clears only after completion; modified follow-up retained in first workflow');
-            console.log('PASS genuine empty/imported 31.0 reference, initial workflow retains follow-up, Start guard, real query and group tool checkpoints/deduplication');
-        }
-        if (phase === 'provenance') {
-            const expected = action('seed-provenance');
-            const id = expected.course.id;
+        const browse = skills.getByRole('button', { name: /^(Browse skills|Review all \d+)$/ });
+        await browse.focus();
+        await page.keyboard.press('Enter');
+        const dialog = page.getByRole('dialog', { name: 'Browse skills', exact: true });
+        await dialog.getByRole('button', { name: 'Inspect SQL', exact: true }).focus();
+        await page.keyboard.press('Enter');
+        await page.getByRole('dialog', { name: 'Evidence for SQL', exact: true }).waitFor();
+        assert.equal(await page.getByRole('dialog').count(), 1);
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => /^(Browse skills|Review all \d+)$/.test(document.activeElement?.textContent ?? ''));
+        assert(await browse.evaluate(e => document.activeElement === e));
+        await page.screenshot({ path: path.join(output, 'keyboard-focus-restored.png'), fullPage: true });
+        verifyConsole();
+    };
+    try {
+        if (phase === 'simple-flow') {
+            fs.mkdirSync(output, { recursive: true });
+            const seeded = action('seed-simple-flow');
+            fixtureManifest = '/tmp/teacher-workspace-simple.json';
             const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
-            assert.equal(expected.input_reference_count, 3);
-            assert.equal(expected.unique_snapshot_count, 10);
-            assert.deepEqual(expected.query_membership, ['first query', 'second query']);
-            await page.goto(`${UI}/courses/${id}/market-analyst`);
-            const overview = page.getByRole('region', { name: 'Demand overview' });
-            await overview.locator('[role=img] svg').waitFor();
-            const values = await overview.getByLabel('Overview values').innerText();
-            assert.match(values, /20% · 2 \/ 10/);
-            const options = await overview.locator('[role=img]').first().evaluate(async (element, url) => (await import(url)).getInstanceByDom(element).getOption(), chartModuleURL);
-            assert.deepEqual(options.series[0].data.map(row => row.value), [20]);
-            await overview.getByRole('button', { name: 'Inspect SYNTHETIC Python services', exact: true }).click();
-            const focused = page.getByRole('region', { name: 'Focused evidence' });
-            await focused.getByText('Evidence for SYNTHETIC Python services', { exact: true }).click();
-            const ref = expected.review.candidates[0].evidence_references[0];
-            const response = await context.request.get(`${API}/courses/${id}/market-demand/skill-review/postings/${ref.snapshot_id}`, { headers });
-            assert.equal(response.status(), 200);
-            const posting = await response.json();
-            assert.equal(posting.description_text.slice(ref.excerpt_start, ref.excerpt_end), ref.excerpt);
-            assert.equal(await focused.getByText(`Validated source passage: ${ref.original_phrase}`, { exact: true }).count(), 0, 'Source phrase withheld until current inspection');
-            await focused.getByRole('button', { name: 'Load full posting evidence', exact: true }).first().click();
-            await focused.getByText(`Validated source passage: ${ref.original_phrase}`, { exact: true }).waitFor();
-            await focused.getByText(`Cleaned text offsets: ${ref.excerpt_start}–${ref.excerpt_end} (end exclusive)`, { exact: true }).waitFor();
-            assert.equal(await focused.getByRole('link', { name: 'Original job posting', exact: true }).first().getAttribute('href'), ref.original_url);
-            assert.match(await focused.innerText(), new RegExp('retrieved ' + posting.retrieved_at.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-            await page.screenshot({ path: path.join(output, 'duplicate-provenance.png'), fullPage: true });
-            fs.writeFileSync(path.join(output, 'provenance-readback.json'), JSON.stringify({ expected, posting, barValues: options.series[0].data.map(row => row.value) }, null, 2));
-            execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', '/tmp/teacher-workspace.json', '--action', 'purge-first-posting', '--snapshot-id', ref.snapshot_id], { stdio: 'pipe' });
-            const purged = await (await context.request.get(`${API}/courses/${id}/market-demand/skill-review/postings/${ref.snapshot_id}`, { headers })).json();
-            assert(purged.purged_at);
-            assert.equal(purged.description_text, null);
-            assert.deepEqual(purged.raw_payload, {});
-            await focused.getByText('Evidence for SYNTHETIC Python services', { exact: true }).click();
-            await focused.getByRole('button', { name: /Load|Reload full posting evidence/ }).first().waitFor({ state: 'detached' });
-            await focused.getByText('Evidence for SYNTHETIC Python services', { exact: true }).click();
-            await focused.getByText(/Posting content unavailable: purged/).waitFor();
-            assert.equal(await focused.getByText(`Validated source passage: ${ref.original_phrase}`, { exact: true }).count(), 0);
-            assert.equal(await focused.getByText(/Cleaned text offsets/).count(), 0);
-            assert.equal(await focused.getByText(posting.description_text, { exact: true }).count(), 0);
-            assert.equal(await focused.getByText('Full returned provider data', { exact: true }).count(), 0);
-            assert.equal(await focused.getByRole('link', { name: 'Original job posting', exact: true }).first().getAttribute('href'), ref.original_url);
-            await page.screenshot({ path: path.join(output, 'provenance-current-purged.png'), fullPage: true });
-            fs.writeFileSync(path.join(output, 'provenance-purged-readback.json'), JSON.stringify(purged, null, 2));
-            console.log('PASS duplicate observations/references count 2/10 not 3/10, exact SVG 20%, real source link/full posting/Unicode offsets/current-inspection gate');
-        }
-        if (phase === 'reset-proof') {
-            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
-            const durable = action('sql-readback');
-            const beforeSQL = action('reset-readback');
-            const calls = action('model-readback').length;
-            const read = async (id, name) => { const response = await context.request.get(`${API}/courses/${id}/market-demand/${name}`, { headers }); assert.equal(response.status(), 200); return response.json(); };
-            const records = [];
-            const retry = async (id, label) => {
-                const beforeCalls = action('model-readback').length;
-                await page.getByRole('button', { name: 'Retry reset', exact: true }).waitFor();
-                assert(await page.getByRole('button', { name: 'Send message', exact: true }).isDisabled());
-                const start = page.getByRole('button', { name: 'Start an analysis', exact: true });
-                if (await start.count())
-                    assert(await start.isDisabled());
-                const before = action('reset-readback');
-                const thread = `mda-${fixture.course.teacher_id}-course-${id}`;
-                assert(!before.active_threads.includes(thread));
-                assert(before.checkpoints.some(row => row.thread_id === thread && row.count > 0));
-                const history = await read(id, 'history');
-                await page.getByRole('button', { name: 'Retry reset', exact: true }).click();
-                let release;
-                let arrived;
-                const gate = new Promise(resolve => { release = resolve; });
-                const captured = new Promise(resolve => { arrived = resolve; });
-                await page.route(`**/courses/${id}/market-demand/history`, async (route) => {
-                    if (route.request().method() !== 'DELETE')
-                        return route.continue();
-                    const response = await route.fetch();
-                    assert.equal(response.status(), 200);
-                    arrived();
-                    await gate;
-                    await route.fulfill({ response });
-                });
-                await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm reset retry', exact: true }).click();
-                await captured;
-                assert(await page.getByRole('alertdialog').isVisible(), 'No UI clear before acknowledgement');
-                release();
-                await page.getByRole('alertdialog').waitFor({ state: 'hidden' });
-                await page.unroute(`**/courses/${id}/market-demand/history`);
-                await page.getByText('Start an analysis to collect job evidence for this course.', { exact: true }).waitFor();
-                assert.equal(await page.getByRole('textbox', { name: 'Question', exact: true }).inputValue(), '');
-                const after = action('reset-readback');
-                assert(!after.checkpoints.some(row => row.thread_id === thread));
-                assert.equal(action('model-readback').length, beforeCalls);
-                records.push({ label, history, before, after, healthyRetryStatus: 200 });
-                await page.screenshot({ path: path.join(output, `reset-${label}-recovered.png`), fullPage: true });
-            };
-            await page.goto(`${UI}/courses/${fixture.course.id}/market-analyst`);
-            if (!beforeSQL.active_threads.includes(`mda-${fixture.course.teacher_id}-course-${fixture.course.id}`))
-                await retry(fixture.course.id, 'preserved-contextual');
-            action('restore-main-snapshot');
-            await page.reload();
-            await page.getByRole('region', { name: 'Demand overview' }).waitFor();
-            await page.getByLabel('Overview values').getByRole('button', { name: 'Inspect Python', exact: true }).click();
-            await page.getByRole('region', { name: 'Focused evidence' }).getByRole('button', { name: 'Ask about Python', exact: true }).click();
-            action('model-queue', [{ content: 'Synthetic contextual checkpoint for physical reset acceptance.' }]);
-            await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await page.getByText('Work completed', { exact: true }).waitFor();
-            const workflow = JSON.parse(fs.readFileSync(path.join(output, 'workflow-checkpoints.json')));
-            for (const [id, label] of [[fixture.course.id, 'contextual'], [workflow.state.course_id, 'workflow-only']]) {
-                await page.goto(`${UI}/courses/${id}/market-analyst`);
-                await page.getByRole('button', { name: 'New analysis', exact: true }).waitFor();
-                const question = page.locator('textarea[aria-label=Question]');
-                await question.fill(`Retain ${label} question until acknowledged reset.`);
-                if (label === 'contextual')
-                    await page.getByRole('button', { name: 'Data', exact: true }).click();
-                const history = await read(id, 'history');
-                assert(history.messages.length > 0);
-                assert.equal(history.messages.some(row => row.workspace_context?.run_id), label === 'contextual');
-                action('arm-reset-failure');
-                try {
-                    await page.getByRole('button', { name: 'New analysis', exact: true }).click();
-                    const failed = page.waitForEvent('requestfailed', r => r.url().endsWith('/market-demand/history') && r.method() === 'DELETE');
-                    await page.getByRole('alertdialog').getByRole('button', { name: 'Start new analysis', exact: true }).click();
-                    await failed;
-                    await page.getByRole('alertdialog').getByRole('alert').waitFor();
-                    assert.equal(await question.inputValue(), `Retain ${label} question until acknowledged reset.`);
-                    if (label === 'contextual')
-                        assert(await page.getByRole('region', { name: 'Evidence data' }).isVisible());
-                    await page.screenshot({ path: path.join(output, `reset-${label}-failed-retained.png`), fullPage: true });
-                }
-                finally {
-                    action('disarm-reset-failure');
-                }
-                await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-                await page.getByRole('button', { name: 'Retry reset', exact: true }).waitFor();
-                assert.equal(await question.inputValue(), `Retain ${label} question until acknowledged reset.`);
-                await page.reload();
-                await retry(id, label);
-            }
-            assert.deepEqual(action('sql-readback'), durable);
-            assert.deepEqual(action('reset-readback').durable_counts, beforeSQL.durable_counts);
-            const student = {};
-            for (const [name, endpoint] of Object.entries({ path: 'path', quiz: 'chapters/1/quiz', reading: 'readings/task12-reading/content' })) {
-                const response = await context.request.get(`${API}/student-learning-path/${fixture.course.id}/${endpoint}`, { headers: { Authorization: `Bearer ${fixture.student.access_token}` } });
+            const base = `${API}/courses/${seeded.course.id}/market-demand`;
+            const fresh = async () => {
+                const response = await context.request.get(`${base}/skill-review`, { headers });
                 assert.equal(response.status(), 200);
-                student[name] = await response.json();
+                return response.json();
+            };
+            const initial = await fresh();
+            const beforeExplainState = await (await context.request.get(`${base}/state`, { headers })).json();
+            assert.equal(beforeExplainState.job_search_country, 'Uzbekistan');
+            assert.equal(beforeExplainState.job_search_country_confirmed, true);
+            assert.deepEqual(beforeExplainState.selected_onet_occupations, ['15-2051.00', '15-1252.00']);
+            for (const outcome of Object.values(beforeExplainState.source_outcomes)) {
+                assert(Array.isArray(outcome.warnings));
+                assert.equal(typeof outcome.received_count, 'number');
+                assert.equal(typeof outcome.usable_count, 'number');
             }
-            assert.deepEqual(student, JSON.parse(fs.readFileSync(path.join(output, 'student-before.json'))));
-            assert.equal(action('model-readback').length, calls + 1);
-            fs.writeFileSync(path.join(output, 'reset-recovery-readback.json'), JSON.stringify({ records, durable, student, automaticModelCalls: 0 }, null, 2));
-            action('restore-main-snapshot');
-            console.log('PASS preserved/contextual/workflow-only physical partial resets, retained input/view, fresh confirmed healthy retry, no auto model/collection, durable run/evidence/approval/student preservation');
-        }
-        if (phase === 'supplemental') {
-            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
-            const workflow = JSON.parse(fs.readFileSync(path.join(output, 'workflow-checkpoints.json')));
-            const courseId = workflow.state.course_id;
-            await page.goto(`${UI}/courses/${courseId}/market-analyst`);
-            await page.getByText('Workflow progress and actions', { exact: true }).click();
-            await page.getByRole('button', { name: 'Stage workflow response', exact: true }).click();
-            action('model-queue', [{ tool_calls: [{ id: 'task12-source-error', name: 'fetch_jobs', args: { search_terms: 'sourceerror', country: 'Uzbekistan' } }] }, { content: 'The synthetic provider failed. No fallback provider was used.' }]);
+            const jobBackedIds = initial.candidates.filter(row => row.posting_support === 'supported').map(row => row.candidate_id);
+            assert.equal(jobBackedIds.length, 58);
+            assert.equal(initial.candidates.length - jobBackedIds.length, 394);
+            const referenceExclusionId = seeded.candidate_ids[58];
+            const etl = initial.candidates.find(row => row.display_name === 'ETL / ELT');
+            const etlOriginalLinks = etl.evidence_references.map(ref => ref.original_url);
+            assert.equal(new Set(etlOriginalLinks).size, 4);
+            assert.equal(etl.evidence_references.length, 8);
+            assert(etl.original_labels.includes('Create ETL') && etl.original_labels.includes('Develop ETL/ELT'));
+            const studentBefore = action('seed-student');
+            assert(studentBefore.path.total_selected_skills > 0);
+            assert(studentBefore.path.chapters.some(chapter => chapter.selected_skills.some(skill => skill.readings.length > 0)));
+            assert.match(JSON.stringify(studentBefore.reading), /Retained student resource/);
+            assert.equal(studentBefore.quiz.previous_answers[seeded.student_question_id].answered_right, true);
+            assert(studentBefore.path.chapters.some(chapter => chapter.correct_count > 0 && chapter.selected_skills.some(skill => skill.is_known)));
+            fs.writeFileSync(path.join(output, 'student-before.json'), JSON.stringify(studentBefore, null, 2));
+            const studentRead = async () => {
+                const result = {};
+                for (const [name, endpoint] of Object.entries({ path: 'path', quiz: 'chapters/1/quiz', reading: `readings/${seeded.student_reading_id}/content` })) {
+                    const response = await context.request.get(`${API}/student-learning-path/${seeded.course.id}/${endpoint}`, { headers: { Authorization: `Bearer ${fixture.student.access_token}` } });
+                    assert.equal(response.status(), 200);
+                    result[name] = await response.json();
+                }
+                return result;
+            };
+            const decision = page.getByLabel('Current teacher decision', { exact: true });
+            const skills = page.getByRole('region', { name: 'Choose skills', exact: true });
+            const question = page.getByRole('textbox', { name: 'Question', exact: true });
+            const navigate = async () => { await page.goto(`${UI}/courses/${seeded.course.id}/market-analyst`); await skills.waitFor(); };
+            await navigate();
+            const bounds = [];
+            const capture = async (name, width, height, actionName) => {
+                await page.setViewportSize({ width, height });
+                await page.getByRole('button', { name: actionName, exact: true }).waitFor();
+                const measured = await page.evaluate(({ actionName }) => {
+                    const main = document.querySelector('main[aria-label="Evidence workspace"]');
+                    const decision = document.querySelector('[aria-label="Current teacher decision"]');
+                    const action = [...decision.querySelectorAll('button')].find(e => e.textContent === actionName);
+                    const box = e => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, bottom: r.bottom, right: r.right }; };
+                    return { main: { ...box(main), clientHeight: main.clientHeight, scrollHeight: main.scrollHeight, scrollTop: main.scrollTop }, decision: box(decision), action: box(action), bodyWidth: document.body.scrollWidth, viewport: innerWidth, rows: document.querySelectorAll('[aria-label="Choose skills"] > ul > li').length };
+                }, { actionName });
+                assert(measured.rows <= 5);
+                assert(measured.bodyWidth <= width + 1, `${name}: horizontal page overflow`);
+                if (width >= 1024) {
+                    assert(measured.main.scrollHeight <= measured.main.clientHeight + 1, `${name}: main scroll ${JSON.stringify(measured)}`);
+                    assert(measured.action.bottom <= height && measured.decision.bottom <= height, `${name}: clipped current decision/action`);
+                }
+                bounds.push({ name, width, height, ...measured });
+                await page.screenshot({ path: path.join(output, `${name}.png`), fullPage: true });
+                if (width < 1024) {
+                    const action = page.getByRole('button', { name: actionName, exact: true });
+                    await action.scrollIntoViewIfNeeded();
+                    await action.focus();
+                    const visible = await action.boundingBox();
+                    assert(visible.y >= 0 && visible.y + visible.height <= height, `${name}: mobile next action must be reachable`);
+                    await page.screenshot({ path: path.join(output, `${name}-action.png`), fullPage: true });
+                    await page.getByRole('main').evaluate(element => { element.scrollTop = 0; });
+                }
+            };
+            for (const [width, height] of [[1280, 720], [1440, 900], [1024, 768], [390, 844], [320, 667]])
+                await capture(`coverage-${width}`, width, height, 'Acknowledge available evidence');
+            await page.setViewportSize({ width: 1280, height: 720 });
+            await page.evaluate(() => document.documentElement.classList.add('dark'));
+            await capture('coverage-dark', 1280, 720, 'Acknowledge available evidence');
+            await page.evaluate(() => document.documentElement.classList.remove('dark'));
+            const browse = async () => { await skills.getByRole('button', { name: /^(Browse skills|Review all \d+)$/ }).click(); return page.getByRole('dialog', { name: 'Browse skills', exact: true }); };
+            let dialog = await browse();
+            assert.equal(await dialog.getByRole('checkbox', { name: /^Select SYNTHETIC reference-only/ }).count(), 0);
+            await dialog.getByRole('textbox', { name: 'Search skills', exact: true }).fill('SQL');
+            const category = dialog.getByRole('checkbox', { name: 'Select category Data engineering (58 current members)', exact: true });
+            await category.focus();
+            await page.keyboard.press('Space');
+            assert(await category.isChecked());
+            await page.keyboard.press('Escape');
+            assert.match(await skills.innerText(), /58 chosen/);
+            assert.deepEqual(action('sql-readback').selected_candidate_ids, initial.selected_candidate_ids, 'Category selection is local');
+            await skills.getByRole('button', { name: 'Save draft', exact: true }).click();
+            await skills.getByRole('status').waitFor();
+            assert.deepEqual(new Set(action('sql-readback').selected_candidate_ids), new Set(jobBackedIds), 'Category selects the exact 58 supported members across filters and pages');
+            dialog = await browse();
+            await dialog.getByRole('textbox', { name: 'Search skills', exact: true }).fill('');
+            const visited = new Set();
+            for (;;) {
+                const rows = dialog.getByRole('checkbox', { name: /^Select (SQL|ETL|Critical Thinking|Communication|Python|Synthetic competency)/ });
+                for (const row of await rows.all()) {
+                    assert(await row.isChecked());
+                    visited.add(await row.getAttribute('aria-label'));
+                }
+                const next = dialog.getByRole('button', { name: 'Next page', exact: true });
+                if (await next.isDisabled())
+                    break;
+                await next.click();
+            }
+            assert.equal(visited.size, 58, 'Every supported member remains inspectable and selected across all pages');
+            while (await dialog.getByRole('button', { name: 'Previous page', exact: true }).isEnabled())
+                await dialog.getByRole('button', { name: 'Previous page', exact: true }).click();
+            await dialog.getByRole('button', { name: 'Next page', exact: true }).click();
+            const excludedName = await dialog.getByRole('checkbox', { name: /^Select Synthetic competency/ }).first().getAttribute('aria-label');
+            await dialog.getByRole('checkbox', { name: excludedName, exact: true }).focus();
+            await page.keyboard.press('Space');
+            await page.keyboard.press('Escape');
+            const beforeFailure = action('sql-readback');
+            action('arm-save-failure');
+            try {
+                const failed = page.waitForEvent('requestfailed', r => r.url().endsWith('/skill-review/draft') && r.method() === 'PUT');
+                await skills.getByRole('button', { name: 'Save draft', exact: true }).click();
+                assert((await failed).failure(), 'Controlled SQL trigger must reject the actual browser save');
+                await skills.getByRole('alert').filter({ hasText: 'Local choices retained' }).waitFor();
+                assert.match(await skills.innerText(), /57 chosen/);
+                assert.deepEqual(action('sql-readback'), beforeFailure);
+                await capture('save-failure', 1280, 720, 'Acknowledge available evidence');
+            }
+            finally {
+                action('disarm-save-failure');
+            }
+            await skills.getByRole('button', { name: 'Save draft', exact: true }).click();
+            await skills.getByRole('status').waitFor();
+            const saved = action('sql-readback');
+            const savedSelectionIds = saved.selected_candidate_ids;
+            assert.equal(savedSelectionIds.length, 57);
+            assert(saved.excluded_candidate_ids.includes(referenceExclusionId));
+            await page.reload();
+            await skills.waitFor();
+            const afterReload = await fresh();
+            assert.deepEqual(afterReload.selected_candidate_ids, savedSelectionIds);
+            assert(afterReload.excluded_candidate_ids.includes(referenceExclusionId));
+            assert.match(await skills.innerText(), /57 chosen/);
+            dialog = await browse();
+            await dialog.getByRole('textbox', { name: 'Search skills', exact: true }).fill(excludedName.replace('Select ', ''));
+            assert.equal(await dialog.getByRole('checkbox', { name: excludedName, exact: true }).isChecked(), false);
+            await page.keyboard.press('Escape');
+            await skills.getByRole('button', { name: 'Inspect ETL / ELT', exact: true }).click();
+            dialog = page.getByRole('dialog', { name: 'Evidence for ETL / ELT', exact: true });
+            await page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].filter(e => e.textContent === 'Reload full posting evidence').length === 4);
+            assert.equal(await dialog.getByRole('link', { name: /^Original posting ·/ }).count(), 4);
+            assert.equal(await dialog.getByText('Validated source passage: Create ETL pipelines', { exact: true }).count(), 4);
+            assert.equal(await dialog.getByText('Validated source passage: Develop ETL/ELT services', { exact: true }).count(), 4);
+            await page.screenshot({ path: path.join(output, 'etl-all-original-links.png'), fullPage: true });
+            await page.keyboard.press('Escape');
+            console.log('PASS saved58/57, off-page exclusion, failure/retry/reload, four original ETL postings/eight passages');
+            const beforeCharts = mutations.length;
+            await skills.getByRole('button', { name: 'Compare skills', exact: true }).click();
+            dialog = page.getByRole('dialog', { name: 'Compare skills', exact: true });
+            const chart = dialog.getByRole('img').first();
+            await chart.locator('svg').waitFor();
+            const options = await chart.evaluate(async (e, url) => { const core = await import(url); const i = core.getInstanceByDom(e); window.acceptanceChart = { i, e, core }; return i.getOption(); }, chartModuleURL);
+            assert.equal(options.series.length, 1);
+            assert(options.series[0].data.length <= 5);
+            const mark = await chart.boundingBox();
+            assert(mark && mark.width > 0);
+            const pixel = await page.evaluate(() => window.acceptanceChart.i.convertToPixel({ seriesIndex: 0 }, [50, 0]));
+            await page.mouse.click(mark.x + pixel[0], mark.y + pixel[1]);
+            await dialog.locator('[aria-current="true"]').waitFor();
+            assert.equal(mutations.length, beforeCharts);
+            await dialog.getByRole('button', { name: 'O*NET importance', exact: true }).click();
+            await dialog.getByRole('list', { name: 'Comparison values', exact: true }).waitFor();
+            const values = await dialog.getByRole('list', { name: 'Comparison values', exact: true }).innerText();
+            assert.match(values, /Programming/);
+            assert.match(values, /4.2 \/ 5 importance/);
+            assert.match(values, /Unavailable/);
+            assert.equal(await dialog.locator('[aria-label="Comparison values"] strong').filter({ hasText: /^SQL$/ }).count(), 0, 'Related descriptor must never become an official SQL rating');
+            assert.equal(await dialog.getByRole('combobox', { name: 'Confirmed occupation', exact: true }).locator('option').count(), 3);
+            await page.screenshot({ path: path.join(output, 'onet-related-and-missing.png'), fullPage: true });
+            await dialog.getByRole('button', { name: 'Collected jobs', exact: true }).click();
+            await dialog.getByRole('button', { name: 'Ask about SQL', exact: true }).click();
+            await page.getByLabel('Attached context', { exact: true }).waitFor();
+            action('model-queue', [{ content: 'Synthetic explanation of SQL collected job evidence.', delay: 1 }]);
+            const explainResponse = page.waitForResponse(r => r.url().endsWith('/chat'));
             await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await page.getByText('The synthetic provider failed. No fallback provider was used.', { exact: true }).last().waitFor();
-            await page.getByText('Work completed', { exact: true }).waitFor();
-            await page.getByRole('region', { name: 'Source progress' }).getByText('headhunter: error', { exact: true }).waitFor();
-            const sourceState = await (await context.request.get(`${API}/courses/${courseId}/market-demand/state`, { headers })).json();
-            assert.equal(sourceState.source_outcomes.headhunter.status, 'error');
-            assert.deepEqual(sourceState.sources, ['headhunter']);
-            assert.equal(sourceState.fetched_jobs.length, 0);
-            const unknownRequests = [];
-            await page.route('**/market-demand/execution-status', async (route) => { unknownRequests.push(route.request().url()); await route.abort('failed'); });
+            await question.fill('Retain my next question during streaming.');
+            await (await explainResponse).finished();
+            assert.equal(await question.inputValue(), 'Retain my next question during streaming.');
+            const calls = action('model-readback');
+            assert.deepEqual(calls.at(-1).tools, []);
+            assert(calls.at(-1).evidence.candidates.some(c => c.display_name === 'SQL'));
+            assert.deepEqual(action('sql-readback'), saved, 'Explain must not mutate selection/publication');
+            await page.getByText('Review analysis setup before continuing.', { exact: true }).waitFor({ state: 'hidden' });
+            const afterExplainState = await (await context.request.get(`${base}/state`, { headers })).json();
+            for (const key of ['run_id', 'sources', 'evidence_sources', 'onet_release', 'selected_onet_occupations', 'job_search_country', 'job_search_country_confirmed'])
+                assert.deepEqual(afterExplainState[key], beforeExplainState[key], `Explain preserves ${key}`);
+            console.log('PASS actual SVG, related/missing ONet, readonly contextual Explain, streaming draft retention');
+            await question.fill('');
+            await skills.getByRole('button', { name: 'Acknowledge available evidence', exact: true }).count();
+            await page.getByRole('button', { name: 'Acknowledge available evidence', exact: true }).click();
+            await decision.getByRole('button', { name: 'Continue', exact: true }).waitFor();
+            assert.equal(action('sql-readback').publication_revision, 0);
+            action('model-queue', [{ content: 'Synthetic mapping work is ready for the controlled curriculum target resolver.' }]);
+            const mappingResponse = page.waitForResponse(r => r.url().endsWith('/chat'));
+            await decision.getByRole('button', { name: 'Continue', exact: true }).click();
+            const mapped = await mappingResponse;
+            assert.equal(mapped.status(), 200, await mapped.text());
+            await mapped.finished();
+            assert.equal(action('sql-readback').publication_revision, 0);
+            const prepared = action('prepare-review');
             await page.reload();
-            await page.waitForEvent('requestfailed', r => r.url().endsWith('/execution-status'));
-            await page.getByText('Execution outcome unknown', { exact: true }).waitFor();
-            assert(unknownRequests.length);
-            assert.equal(await page.getByText('Work completed', { exact: true }).count(), 0);
-            await page.screenshot({ path: path.join(output, 'source-error-unknown-status.png'), fullPage: true });
-            await page.unroute('**/market-demand/execution-status');
-            await page.goto(`${UI}/courses/${fixture.course.id}`);
-            const agentDestinations = [];
-            for (const [name, route] of [['Reading Agent', 'reading-agent'], ['Video Agent', 'video-agent']]) {
-                await page.goto(`${UI}/courses/${fixture.course.id}`);
-                await page.getByText(name, { exact: true }).click();
-                await page.waitForURL(`${UI}/home`);
-                agentDestinations.push({ name, configuredRoute: `/courses/${fixture.course.id}/${route}`, actualDestination: '/home', classification: 'Verified unchanged baseline limitation: page route absent' });
-            }
-            await page.goto(`${UI}/courses/${fixture.course.id}`);
-            await page.getByText('Curricular Alignment Architect', { exact: true }).click();
-            const agentDialog = page.getByRole('dialog');
-            await agentDialog.waitFor();
-            await agentDialog.getByRole('link', { name: 'Open architect workspace', exact: true }).click();
-            await page.waitForURL(`**/courses/${fixture.course.id}/architect`);
-            await page.getByText('Curricular Alignment Architect', { exact: true }).first().waitFor();
-            await page.reload();
-            await page.getByText('Curricular Alignment Architect', { exact: true }).first().waitFor();
-            agentDestinations.push({ name: 'Architect', actualDestination: `/courses/${fixture.course.id}/architect`, directReload: true });
-            const storageResponse = await context.request.get(`${API}/courses/${fixture.course.id}/presentations`, { headers });
-            assert.equal(storageResponse.status(), 500);
-            const storageUnavailable = await storageResponse.json();
-            assert.equal(storageUnavailable.detail, 'Failed to list presentations: Blob service is not configured');
-            disabledStorageVerified = true;
-            const seeded = action('seed-reconciliation');
+            const integration = page.getByRole('region', { name: 'Final integration review', exact: true });
+            await integration.waitFor();
+            const beforeExplicitApproval = action('sql-readback');
+            assert.equal(beforeExplicitApproval.publication_revision, 0);
+            for (const [width, height] of [[1280, 720], [1440, 900]])
+                await capture(`curriculum-${width}`, width, height, 'Approve and publish');
+            assert.equal(await integration.getByRole('button', { name: 'Approve and publish', exact: true }).isEnabled(), true);
+            const approvalResponse = page.waitForResponse(r => r.url().endsWith('/integration-approval') && r.request().method() === 'POST');
+            await integration.getByRole('button', { name: 'Approve and publish', exact: true }).click();
+            const approved = await approvalResponse;
+            assert.equal(approved.status(), 200);
+            assert.equal((await approved.json()).projection_status, 'projected');
+            const sql = action('sql-readback');
+            assert.equal(sql.publication_revision, 1);
+            assert.equal(sql.approvals.length, 1);
+            assert.equal(sql.approvals[0].review_digest, prepared.integration_review.review_digest);
+            assert.deepEqual(approved.request().postDataJSON().approved_candidate_ids, savedSelectionIds);
+            assert.equal(sql.approvals[0].items.length, savedSelectionIds.length);
+            for (const item of sql.approvals[0].items)
+                assert.equal(item.qualifying_posting_links.length, 4);
+            const repeat = await context.request.post(`${base}/integration-approval`, { headers, data: approved.request().postDataJSON() });
+            assert.equal(repeat.status(), 200);
+            assert.equal(action('sql-readback').approvals.length, 1, 'Repeated explicit approval is idempotent');
+            assert.equal((await fresh()).candidates.find(candidate => candidate.candidate_id === etl.candidate_id).evidence_references.length, 8);
+            const archive = path.join(path.dirname(manifestPath), 'published-simple-manifest.json');
+            execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['cp', `lab_tutor_workspace_acceptance_api:${fixtureManifest}`, archive]);
+            fs.chmodSync(archive, 0o600);
+            const afterStudent = await studentRead();
+            fs.writeFileSync(path.join(path.dirname(manifestPath), 'approval-student-readback.json'), JSON.stringify({ sql, afterStudent }, null, 2));
+            assert.deepEqual(afterStudent.path, studentBefore.path);
+            assert.deepEqual(afterStudent.reading, studentBefore.reading);
+            assert.deepEqual(afterStudent.quiz, studentBefore.quiz);
+            await page.screenshot({ path: path.join(output, 'approved-disposable-fixture.png'), fullPage: true });
+            assert.deepEqual(errors, []);
+            fs.writeFileSync(path.join(output, 'simple-flow-summary.json'), JSON.stringify({ jobBacked: 58, referenceOnly: 394, etlDistinctLinks: 4, etlValidatedPassages: 8, bounds, selected: savedSelectionIds.length, publicationRevision: sql.publication_revision, studentPreserved: true }, null, 2));
+            verifyConsole('/skill-review/draft');
+            console.log('PASS simple-flow real SQL/auth/checkpoints/Neo4j, complete categories, saved exclusions, controlled save failure, SVG/ONet/provenance, explicit approval and student preservation');
+            return;
+        }
+        if (phase === 'simple-contracts') {
+            fs.mkdirSync(output, { recursive: true });
+            const seeded = action('seed-simple-flow');
+            fixtureManifest = '/tmp/teacher-workspace-simple.json';
+            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
+            const base = `${API}/courses/${seeded.course.id}/market-demand`;
+            const fresh = async () => (await context.request.get(`${base}/skill-review`, { headers })).json();
             await page.goto(`${UI}/courses/${seeded.course.id}/market-analyst`);
-            const pane = page.getByRole('region', { name: 'Skill draft review' });
-            await pane.waitFor();
-            await pane.getByRole('checkbox', { name: 'Select SYNTHETIC original 1', exact: true }).check();
+            const skills = page.getByRole('region', { name: 'Choose skills', exact: true });
+            await skills.waitFor();
+            const initial = await fresh();
+            const revision = { run_id: initial.run_id, expected_candidate_revision: initial.candidate_revision, expected_selection_revision: initial.selection_revision };
+            const denied = await context.request.get(`${base}/skill-review`, { headers: { Authorization: `Bearer ${fixture.student.access_token}` } });
+            assert.equal(denied.status(), 403);
+            const otherEmail = `teacher-${Date.now()}@workspace-acceptance.example`;
+            const otherPassword = require('node:crypto').randomBytes(24).toString('base64url');
+            const registered = await context.request.post(`${API}/auth/register`, { data: { email: otherEmail, password: otherPassword, first_name: 'Synthetic', last_name: 'Other teacher', role: 'teacher' } });
+            assert.equal(registered.status(), 201);
+            const logged = await context.request.post(`${API}/auth/jwt/login`, { form: { username: otherEmail, password: otherPassword } });
+            assert.equal(logged.status(), 200);
+            const otherToken = (await logged.json()).access_token;
+            const foreign = await context.request.get(`${base}/skill-review`, { headers: { Authorization: `Bearer ${otherToken}` } });
+            assert([403, 404].includes(foreign.status()), 'Another teacher must not inspect this course');
+            const stale = await context.request.put(`${base}/skill-review/draft`, { headers, data: { ...revision, expected_candidate_revision: 0, selected_candidate_ids: initial.selected_candidate_ids, excluded_candidate_ids: initial.excluded_candidate_ids } });
+            assert.equal(stale.status(), 409);
+            const blocked = await context.request.post(`${base}/skill-review/selection-confirmation`, { headers, data: revision });
+            assert.equal(blocked.status(), 409);
+            const callsBefore = action('model-readback').length;
+            const attach = { kind: 'run_review', version: 1, intent: 'explain', ...revision, view: 'overview', focused_candidate_id: seeded.candidate_ids[0], candidate_ids: [], filters: { category_ids: [], search: '', scope: 'all' }, occupation_codes: [], metric: 'frequency', descriptor_choices: [], insight_kind: null, has_unsaved_changes: false };
+            for (const change of [{ focused_candidate_id: '00000000-0000-0000-0000-000000009999' }, { expected_selection_revision: 0 }, { candidate_ids: seeded.candidate_ids.slice(0, 21) }]) {
+                const response = await context.request.post(`${base}/chat`, { headers, data: { message: 'Reject before inference', workspace_context: { ...attach, ...change } } });
+                assert([409, 422].includes(response.status()));
+            }
+            assert.equal(action('model-readback').length, callsBefore);
+            const proposalChanges = [...initial.selected_candidate_ids.map(candidate_id => ({ candidate_id, action: 'remove', reason: 'Synthetic proposal for explicit teacher review' })), { candidate_id: seeded.candidate_ids[58], action: 'add', reason: 'Synthetic protected reference exclusion' }];
+            action('model-queue', [{ tool_calls: [{ id: 'simple-proposal', name: 'propose_skill_selection', args: { changes: proposalChanges } }] }]);
+            const suggestion = await context.request.post(`${base}/chat`, { headers, data: { message: 'Suggest changes for teacher review only', workspace_context: { ...attach, intent: 'propose_selection', candidate_ids: initial.selected_candidate_ids } } });
+            assert.equal(suggestion.status(), 200);
+            await suggestion.body();
+            const proposed = await fresh();
+            assert.deepEqual(proposed.selected_candidate_ids, initial.selected_candidate_ids);
+            assert.equal(proposed.recommendations.length, 1);
+            await page.reload();
+            await skills.waitFor();
+            await page.setViewportSize({ width: 1280, height: 720 });
+            const proposalBounds = await page.getByRole('main').evaluate(e => ({ client: e.clientHeight, scroll: e.scrollHeight }));
+            assert(proposalBounds.scroll <= proposalBounds.client + 1, 'Five rows plus proposals and required coverage gate must fit');
+            assert.equal(await skills.locator(':scope > ul > li').count(), 5);
+            await page.screenshot({ path: path.join(output, 'five-rows-proposals-coverage.png'), fullPage: true });
+            await page.getByRole('button', { name: 'Review all 6 proposed changes', exact: true }).click();
+            await page.getByRole('dialog', { name: 'Proposed draft changes', exact: true }).getByRole('button', { name: 'Apply proposal to draft', exact: true }).click();
+            assert.deepEqual((await fresh()).selected_candidate_ids, initial.selected_candidate_ids, 'Applying advice stays local');
+            assert.match(await skills.innerText(), /0 chosen/);
+            await skills.getByRole('button', { name: 'Undo local change', exact: true }).click();
+            assert.match(await skills.innerText(), /5 chosen/);
+            assert((await fresh()).excluded_candidate_ids.includes(seeded.candidate_ids[58]));
+            await skills.getByRole('button', { name: 'Remove SQL', exact: true }).click();
+            await page.getByRole('link', { name: `← ${seeded.course.title}`, exact: true }).click();
+            await page.getByRole('alertdialog').getByRole('heading', { name: 'Unsaved shortlist', exact: true }).waitFor();
+            await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+            assert.match(await skills.innerText(), /4 chosen/);
+            await skills.getByRole('button', { name: 'Undo local change', exact: true }).click();
+            // Repeated open/close uses the actual ECharts instance; no leaked handlers.
+            for (let cycle = 0; cycle < 3; cycle++) {
+                await skills.getByRole('button', { name: 'Compare skills', exact: true }).click();
+                const chart = page.getByRole('dialog', { name: 'Compare skills', exact: true }).getByRole('img').first();
+                await chart.locator('svg').waitFor();
+                assert.equal(await chart.evaluate(async (e, url) => { const core = await import(url); const i = core.getInstanceByDom(e); window.disposalProbe = { i, e, core }; return i._$handlers.click.length; }, chartModuleURL), 1);
+                await page.keyboard.press('Escape');
+                assert(await page.evaluate(() => window.disposalProbe.i.isDisposed() && !window.disposalProbe.core.getInstanceByDom(window.disposalProbe.e)));
+            }
+            const isolated = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+            const fallback = await isolated.newPage();
+            await fallback.addInitScript(t => { localStorage.setItem('access_token', t.access_token); localStorage.setItem('refresh_token', t.refresh_token); }, fixture.teacher);
+            const imported = [];
+            const importErrors = [];
+            fallback.on('pageerror', e => importErrors.push(e.message));
+            await fallback.route('**/*echarts_core*', route => { imported.push(route.request().url()); return route.abort('failed'); });
+            await fallback.goto(`${UI}/courses/${seeded.course.id}/market-analyst`);
+            await fallback.getByRole('button', { name: 'Compare skills', exact: true }).click();
+            await fallback.getByRole('alert').filter({ hasText: 'Chart unavailable' }).waitFor();
+            assert(imported.length > 0);
+            assert.equal(await fallback.getByRole('list', { name: 'Comparison values', exact: true }).locator(':scope > li').count(), 5);
+            await fallback.screenshot({ path: path.join(output, 'chart-import-failure.png'), fullPage: true });
+            await fallback.keyboard.press('Escape');
+            await fallback.getByRole('button', { name: /^(Browse skills|Review all \d+ chosen or proposed skills)$/ }).click();
+            const fallbackDialog = fallback.getByRole('dialog', { name: 'Browse skills', exact: true });
+            const checkbox = fallbackDialog.getByRole('checkbox', { name: 'Select SQL', exact: true });
+            await checkbox.uncheck();
+            assert(!await checkbox.isChecked());
+            assert.deepEqual(importErrors, []);
+            await isolated.close();
+            // Closing transport never retries server work or drops the next question.
+            action('model-queue', [{ content: 'Synthetic detached explanation completed.', delay: 3 }]);
+            const question = page.getByRole('textbox', { name: 'Question', exact: true });
+            await question.fill('Retain this question after detaching.');
+            const streamed = page.waitForResponse(r => r.url().endsWith('/chat'));
+            await page.getByRole('button', { name: 'Send message', exact: true }).click();
+            await streamed;
+            await page.getByRole('button', { name: 'Close live response', exact: true }).click();
+            await page.getByText(/Live response closed\. Server work may continue/).waitFor();
+            assert.equal(await question.inputValue(), 'Retain this question after detaching.');
+            const chatCount = mutations.filter(row => row.url.endsWith('/chat')).length;
+            for (let attempt = 0; attempt < 60; attempt++) {
+                const state = await (await context.request.get(`${base}/execution-status`, { headers })).json();
+                if (state.status === 'idle')
+                    break;
+                assert(attempt < 59);
+                await page.waitForTimeout(100);
+            }
+            assert.equal(mutations.filter(row => row.url.endsWith('/chat')).length, chatCount, 'Detached transport must not resubmit');
+            const attachment = page.getByLabel('Attached context', { exact: true });
+            await attachment.locator('summary').click();
+            await attachment.getByRole('button', { name: 'Refresh context', exact: true }).click();
+            assert.equal(await question.inputValue(), 'Retain this question after detaching.');
+            await question.fill('');
+            // Recheck content availability on every inspector open; old passages must disappear.
+            await skills.getByRole('button', { name: 'Inspect ETL / ELT', exact: true }).click();
+            let dialog = page.getByRole('dialog', { name: 'Evidence for ETL / ELT', exact: true });
+            await page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].filter(e => e.textContent === 'Reload full posting evidence').length === 4);
+            assert.equal(await dialog.getByText('Validated source passage: Create ETL pipelines', { exact: true }).count(), 4);
+            await page.keyboard.press('Escape');
+            action('purge-first-posting', undefined, ['--snapshot-id', seeded.snapshot_ids[0]]);
+            await skills.getByRole('button', { name: 'Inspect ETL / ELT', exact: true }).click();
+            dialog = page.getByRole('dialog', { name: 'Evidence for ETL / ELT', exact: true });
+            await dialog.getByText(/Posting content unavailable: purged/).waitFor();
+            assert.equal(await dialog.getByText('Validated source passage: Create ETL pipelines', { exact: true }).count(), 3);
+            assert.equal(await dialog.getByRole('link', { name: /^Original posting ·/ }).count(), 4);
+            const purgedArticle = dialog.getByRole('article').filter({ hasText: 'Posting content unavailable: purged' });
+            assert.equal(await purgedArticle.locator('blockquote').count(), 0);
+            assert.equal(await purgedArticle.locator('details').count(), 0);
+            await page.screenshot({ path: path.join(output, 'purged-posting-no-body.png'), fullPage: true });
+            await page.keyboard.press('Escape');
+            // Real revision change retains explicit conflict handling instead of silently selecting a merge.
+            const recon = action('seed-reconciliation');
+            await page.goto(`${UI}/courses/${recon.course.id}/market-analyst`);
+            await skills.waitFor();
             const merged = action('merge-reconciliation');
             assert.equal(merged.review.candidate_revision, 2);
-            assert.equal(merged.review.selected_candidate_ids.length, 0);
             assert.equal(merged.review.reconciliations.length, 1);
-            await page.getByRole('button', { name: 'Refresh context', exact: true }).click();
-            await pane.getByRole('checkbox', { name: 'Select SYNTHETIC merged identity', exact: true }).waitFor();
-            assert.equal(await pane.getByRole('checkbox', { name: 'Select SYNTHETIC merged identity', exact: true }).isChecked(), false);
-            assert.equal(await pane.getByRole('checkbox', { name: 'Select SYNTHETIC newly observed', exact: true }).isChecked(), false);
-            assert.match(await pane.innerText(), /Candidates removed or merged/);
-            await page.screenshot({ path: path.join(output, 'candidate-reconciliation.png'), fullPage: true });
-            // Delay an actual response across a client-side course navigation. Return its original bytes only after leaving.
-            await pane.getByRole('button', { name: 'I reviewed the changed revisions', exact: true }).click();
-            let release;
-            let captured;
-            const delayed = new Promise(resolve => { captured = resolve; });
-            const gate = new Promise(resolve => { release = resolve; });
-            await page.route(`**/courses/${seeded.course.id}/market-demand/skill-review`, async (route) => { const response = await route.fetch(); captured(); await gate; await route.fulfill({ response }); });
-            await page.getByRole('button', { name: 'Refresh context', exact: true }).click();
-            await delayed;
-            await page.getByRole('link', { name: 'My Courses', exact: true }).click();
-            if (await page.getByRole('alertdialog').count())
-                await page.getByRole('alertdialog').getByRole('button', { name: 'Discard', exact: true }).click();
-            await page.waitForURL(`${UI}/courses`);
-            const courseCard = page.locator('[data-slot=card]').filter({ has: page.getByText(fixture.course.title, { exact: true }) });
-            await courseCard.getByRole('button', { name: 'Manage', exact: true }).click();
-            await page.getByText('Market Demand Analyst', { exact: true }).click();
-            await page.getByRole('link', { name: 'Open market analyst', exact: true }).click();
-            release();
-            await page.waitForURL(`**/courses/${fixture.course.id}/market-analyst`);
-            await page.unroute(`**/courses/${seeded.course.id}/market-demand/skill-review`);
-            assert.equal(await page.getByRole('checkbox', { name: 'Select SYNTHETIC merged identity', exact: true }).count(), 0, 'Late previous-course response cannot populate new course');
-            fs.writeFileSync(path.join(output, 'supplemental-readback.json'), JSON.stringify({ sourceState, unknownRequests, agentDestinations, storageUnavailable, reconciliation: merged }, null, 2));
-            console.log('PASS actual provider error/no fallback, unknown status request failure, other agent entry points, merged/new candidate reconciliation, late response ignored across course navigation');
+            await page.reload();
+            await page.getByRole('region', { name: 'Candidate reconciliation', exact: true }).waitFor();
+            const gate = page.getByRole('region', { name: 'Candidate reconciliation', exact: true });
+            assert.equal(await gate.getByRole('button', { name: 'Save reviewed choices', exact: true }).isDisabled(), true);
+            await gate.getByRole('checkbox').check();
+            await gate.getByRole('button', { name: 'Save reviewed choices', exact: true }).click();
+            await gate.waitFor({ state: 'detached' });
+            const mergedRead = await (await context.request.get(`${API}/courses/${recon.course.id}/market-demand/skill-review`, { headers })).json();
+            assert.deepEqual(mergedRead.selected_candidate_ids, []);
+            await page.screenshot({ path: path.join(output, 'revised-candidates-reviewed.png'), fullPage: true });
+            assert.deepEqual(errors, []);
+            verifyConsole();
+            console.log('PASS ownership/revisions/context rejection, chart disposal/import failure, purge availability recheck, explicit candidate reconciliation');
+            return;
         }
-        if (['all', 'lifecycle'].includes(phase)) {
-            await page.goto(`${UI}/courses/${fixture.course.id}`);
-            await page.getByText('Market Demand Analyst', { exact: true }).click();
-            await page.getByRole('link', { name: 'Open market analyst', exact: true }).click();
-            await page.getByRole('region', { name: 'Demand overview' }).waitFor();
-            assert.equal(new URL(page.url()).pathname, `/courses/${fixture.course.id}/market-analyst`);
-            const before = mutations.length;
-            const lifecycle = [];
-            for (let i = 0; i < 4; i++) {
-                const element = page.getByRole('region', { name: 'Demand overview' }).locator('[role=img]').first();
-                await element.locator('svg').waitFor();
-                const handlers = await element.evaluate(async (element, url) => { const core = await import(url); const instance = core.getInstanceByDom(element); window.task12LastChart = { instance, element, core }; return instance._$handlers.click.length; }, chartModuleURL);
-                assert.equal(handlers, 1);
-                await page.getByRole('button', { name: 'Data', exact: true }).click();
-                assert(await page.evaluate(() => window.task12LastChart.instance.isDisposed() && !window.task12LastChart.core.getInstanceByDom(window.task12LastChart.element)));
-                await page.getByRole('button', { name: 'Compare', exact: true }).click();
-                await page.getByRole('region', { name: 'Occupation comparison' }).waitFor();
-                await page.getByRole('button', { name: 'Overview', exact: true }).click();
-                lifecycle.push({ cycle: i, clickHandlers: handlers, oldInstanceDisposed: true });
-            }
-            assert.equal(mutations.length, before);
-            await page.getByLabel('Overview values').getByRole('button', { name: 'Inspect Python', exact: true }).click();
-            await page.getByRole('region', { name: 'Focused evidence' }).getByRole('button', { name: 'Ask about Python', exact: true }).click();
-            const question = page.getByRole('textbox', { name: 'Question', exact: true });
-            await question.fill('Retain focused question across hidden panes.');
-            await question.evaluate(e => { window.task12Composer = e; });
-            await page.setViewportSize({ width: 390, height: 844 });
-            await page.getByRole('tab', { name: 'Workspace', exact: true }).click();
-            await page.locator('[data-sidebar=trigger]').click();
-            await page.getByRole('dialog').waitFor();
+        if (phase === 'simple-workflow') {
+            fs.mkdirSync(output, { recursive: true });
+            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
+            const created = await context.request.post(`${API}/courses`, { headers, data: { title: `SYNTHETIC four decision workflow ${Date.now()}` } });
+            assert.equal(created.status(), 201);
+            const course = await created.json();
+            await page.goto(`${UI}/courses/${course.id}/market-analyst`);
+            await page.getByRole('button', { name: /History and setup/ }).click();
+            let dialog = page.getByRole('dialog', { name: 'History and analysis setup', exact: true });
+            await dialog.getByRole('combobox', { name: 'Market country', exact: true }).click();
+            await page.getByRole('option', { name: 'Uzbekistan', exact: true }).click();
+            for (const name of ['Indeed', 'LinkedIn'])
+                await dialog.getByRole('checkbox', { name, exact: true }).uncheck();
+            await dialog.getByRole('checkbox', { name: 'HeadHunter', exact: true }).check();
             await page.keyboard.press('Escape');
-            await page.getByRole('tab', { name: 'Conversation', exact: true }).click();
-            assert.equal(await question.inputValue(), 'Retain focused question across hidden panes.');
-            assert(await question.evaluate(e => e === window.task12Composer));
-            await page.getByRole('tab', { name: 'Workspace', exact: true }).click();
-            await page.getByRole('region', { name: 'Focused evidence' }).getByRole('heading', { name: 'Python', exact: true }).waitFor();
-            await page.getByRole('button', { name: 'Overview', exact: true }).click();
-            const shown = page.getByRole('region', { name: 'Demand overview' }).locator('[role=img]').first();
-            await shown.locator('svg').waitFor();
-            assert((await shown.boundingBox()).width > 0);
-            await page.screenshot({ path: path.join(output, 'hidden-pane-reopened.png'), fullPage: true });
-            await page.setViewportSize({ width: 1440, height: 1000 });
-            await question.fill('');
-            const pane = page.getByRole('region', { name: 'Skill draft review' });
-            await pane.getByRole('checkbox', { name: 'Select Synthetic competency 18', exact: true }).check();
-            await page.getByRole('link', { name: 'My Courses', exact: true }).click();
-            const guard = page.getByRole('alertdialog');
-            await guard.getByText('Unsaved shortlist', { exact: true }).waitFor();
-            await guard.getByRole('button', { name: 'Cancel', exact: true }).click();
-            await page.evaluate(() => history.back());
-            await guard.getByText('Unsaved shortlist', { exact: true }).waitFor();
-            await guard.getByRole('button', { name: 'Cancel', exact: true }).click();
-            const unload = page.waitForEvent('dialog');
-            await page.evaluate(() => setTimeout(() => location.reload(), 0));
-            const confirmation = await unload;
-            assert.equal(confirmation.type(), 'beforeunload');
-            await confirmation.dismiss();
-            assert(await pane.getByRole('checkbox', { name: 'Select Synthetic competency 18', exact: true }).isChecked());
-            await page.getByRole('link', { name: 'My Courses', exact: true }).click();
-            await guard.getByRole('button', { name: 'Save', exact: true }).click();
-            await page.waitForURL(`${UI}/courses`);
-            await page.goto(`${UI}/courses/${fixture.course.id}/market-analyst`);
-            await pane.getByRole('checkbox', { name: 'Select Synthetic competency 18', exact: true }).waitFor();
-            assert(await pane.getByRole('checkbox', { name: 'Select Synthetic competency 18', exact: true }).isChecked());
-            action('model-queue', [{ content: Array.from({ length: 70 }, (_, i) => `Synthetic explanation paragraph ${i + 1}: the saved sample is limited to the assessed postings and does not imply complete market coverage.`).join('\n\n') }]);
-            await question.fill('Create a long controlled explanation for transcript scroll acceptance.');
-            await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await page.getByText('Work completed', { exact: true }).waitFor();
-            const log = page.getByRole('log', { name: 'Conversation messages', exact: true });
-            await log.evaluate(e => { e.scrollTop = 0; e.dispatchEvent(new Event('scroll')); });
-            action('model-queue', [{ content: 'Newest synthetic response below the retained scroll position.' }]);
-            await question.fill('Add one controlled reply.');
-            await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await page.getByRole('button', { name: 'Show new messages', exact: true }).waitFor();
-            assert.equal(await log.evaluate(e => e.scrollTop), 0);
-            await page.getByRole('button', { name: 'Show new messages', exact: true }).click();
-            assert((await log.evaluate(e => e.scrollTop)) > 0);
-            await page.getByText('Work completed', { exact: true }).waitFor();
-            fs.writeFileSync(path.join(output, 'lifecycle.json'), JSON.stringify(lifecycle, null, 2));
-            console.log('PASS hub/deep link, live/disposed ECharts instances and single handlers, mobile sidebar/hidden panes/composer, link/back/reload guards, save navigation, unread transcript attention');
-        }
-        if (['all', 'revisions'].includes(phase)) {
-            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
-            const base = `${API}/courses/${fixture.course.id}/market-demand`;
-            const fresh = async () => (await context.request.get(`${base}/skill-review`, { headers })).json();
-            const initial = await fresh();
-            const valid = { kind: 'run_review', version: 1, intent: 'explain', run_id: initial.run_id, expected_candidate_revision: initial.candidate_revision, expected_selection_revision: initial.selection_revision, view: 'overview', focused_candidate_id: fixture.candidate_ids[0], candidate_ids: [], filters: { category_ids: [], search: '', scope: 'all' }, occupation_codes: [], metric: 'frequency', descriptor_choices: [], insight_kind: null, has_unsaved_changes: false };
-            const count = action('model-readback').length;
-            const rejected = [];
-            for (const [name, body] of [['foreign', { ...valid, focused_candidate_id: '00000000-0000-0000-0000-000000009999' }], ['stale', { ...valid, expected_selection_revision: 0 }], ['oversized', { ...valid, candidate_ids: Array.from({ length: 21 }, (_, i) => fixture.candidate_ids[i]) }]]) {
-                const response = await context.request.post(`${base}/chat`, { headers, data: { message: 'Should be rejected before inference', workspace_context: body } });
-                assert([409, 422].includes(response.status()));
-                rejected.push({ name, status: response.status(), body: await response.json() });
-            }
-            assert.equal(action('model-readback').length, count, 'Rejected context must never invoke model');
-            action('adversarial-source');
-            action('model-queue', [{ content: 'Source text remains evidence and cannot grant tool authority.' }]);
-            await page.getByRole('region', { name: 'Focused evidence' }).getByRole('button', { name: 'Ask about Python', exact: true }).click();
             const question = page.getByRole('textbox', { name: 'Question', exact: true });
-            const attached = await page.getByLabel('Attached context', { exact: true }).innerText();
-            assert.match(attached, /Python/);
+            action('model-queue', [{ content: 'Search Terms: "Python developer", "Software engineer", "Data engineer", "SQL developer", "ETL developer". Confirm these search terms.', delay: 1 }]);
+            const initialResponse = page.waitForResponse(r => r.url().endsWith('/chat'));
+            await page.getByRole('button', { name: 'Start an analysis', exact: true }).click();
+            await question.fill('Retain next question while collecting.');
+            await (await initialResponse).finished();
+            await page.getByRole('button', { name: 'Confirm search terms · History and setup', exact: true }).waitFor();
+            assert.equal(await question.inputValue(), 'Retain next question while collecting.');
+            await question.fill('');
+            const decision = page.getByLabel('Current teacher decision', { exact: true });
+            assert.equal(await decision.getByRole('checkbox').count(), 5);
+            for (const [width, height] of [[1280, 720], [1440, 900]]) {
+                await page.setViewportSize({ width, height });
+                const measured = await page.getByRole('main').evaluate(e => ({ client: e.clientHeight, scroll: e.scrollHeight }));
+                assert(measured.scroll <= measured.client + 1);
+                const bound = await decision.getByRole('button', { name: 'Continue', exact: true }).boundingBox();
+                assert(bound.y + bound.height <= height);
+                await page.screenshot({ path: path.join(output, `search-terms-${width}.png`), fullPage: true });
+            }
+            action('model-queue', [{ tool_calls: [{ id: 'simple-handoff', name: 'transfer_to_skill_finder', args: {} }] }, { tool_calls: [{ id: 'simple-fetch', name: 'fetch_jobs', args: { search_terms: 'Python developer, Software engineer', country: 'Uzbekistan' } }] }, { content: 'Synthetic postings collected; choose the job group.' }]);
+            await decision.getByRole('button', { name: 'Select all', exact: true }).click();
+            await decision.getByRole('button', { name: 'Continue', exact: true }).click();
+            await page.getByRole('button', { name: 'Choose job groups · History and setup', exact: true }).waitFor();
+            action('model-queue', [{ tool_calls: [{ id: 'simple-select', name: 'select_jobs_by_group', args: { group_names: 'all' } }] }, { content: 'The teacher-confirmed job group is selected.' }]);
+            await decision.getByRole('button', { name: 'Select all', exact: true }).click();
+            await decision.getByRole('button', { name: 'Continue', exact: true }).click();
+            await page.getByText('The teacher-confirmed job group is selected.', { exact: true }).waitFor();
+            const state = await (await context.request.get(`${API}/courses/${course.id}/market-demand/state`, { headers })).json();
+            assert.equal(state.fetched_jobs.length, 3);
+            assert.equal(state.selected_jobs.length, 3);
+            await page.getByRole('button', { name: /History and setup/ }).click();
+            dialog = page.getByRole('dialog', { name: 'History and analysis setup', exact: true });
+            await dialog.getByRole('button', { name: 'Analysis setup', exact: true }).click();
+            assert.equal(await dialog.getByRole('combobox', { name: 'Market country', exact: true }).isDisabled(), true);
+            await dialog.getByRole('button', { name: 'Stage workflow response', exact: true }).click();
+            action('model-queue', [{ tool_calls: [{ id: 'simple-source-error', name: 'fetch_jobs', args: { search_terms: 'sourceerror', country: 'Uzbekistan' } }] }, { content: 'The synthetic source failed. No fallback source was used.' }]);
             await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await page.getByText('Source text remains evidence and cannot grant tool authority.', { exact: true }).waitFor();
-            const model = action('model-readback').at(-1);
-            assert.deepEqual(model.tools, []);
-            assert(model.evidence.candidates.find(c => c.candidate_id === fixture.candidate_ids[0]).postings.some(p => p.excerpt.includes('SYNTHETIC ADVERSARIAL SOURCE')));
-            assert.equal((await fresh()).selection_revision, initial.selection_revision);
-            const second = await context.newPage();
-            await second.goto(`${UI}/courses/${fixture.course.id}/market-analyst`);
-            const other = second.getByRole('region', { name: 'Skill draft review' });
-            await other.waitFor();
-            await other.getByRole('checkbox', { name: 'Select Critical Thinking', exact: true }).check();
-            await other.getByRole('button', { name: 'Save draft', exact: true }).click();
-            await other.getByText('Draft saved', { exact: false }).waitFor();
-            const local = page.getByRole('region', { name: 'Skill draft review' });
-            await local.getByRole('checkbox', { name: 'Select Communication', exact: true }).check();
-            const stale = page.waitForResponse(r => r.url().endsWith('/skill-review/draft') && r.request().method() === 'PUT');
-            await local.getByRole('button', { name: 'Save draft', exact: true }).click();
-            assert.equal((await stale).status(), 409);
-            await local.getByRole('alert').waitFor();
-            assert(await local.getByRole('checkbox', { name: 'Select Communication', exact: true }).isChecked());
-            await page.getByRole('button', { name: 'Refresh context', exact: true }).click();
-            await local.getByRole('button', { name: 'I reviewed the changed revisions', exact: true }).waitFor();
-            assert(await local.getByRole('checkbox', { name: 'Select Communication', exact: true }).isChecked());
-            const proposal = page.getByRole('button', { name: 'Apply proposal to draft', exact: true });
-            if (await proposal.count())
-                assert(await proposal.isDisabled(), 'Stale immutable proposal cannot apply');
-            await local.getByRole('button', { name: 'I reviewed the changed revisions', exact: true }).click();
-            await local.getByRole('button', { name: 'Save draft', exact: true }).click();
-            await local.getByText('Draft saved', { exact: false }).waitFor();
-            await second.close();
-            fs.writeFileSync(path.join(output, 'context-rejections.json'), JSON.stringify({ rejected, adversarialModel: model, final: await fresh() }, null, 2));
-            assert.equal(await question.inputValue(), '');
-            console.log('PASS invalid/foreign/stale/oversized context before inference, adversarial source has zero tools, stale second-tab save/proposal rejected, dirty choices retained');
-        }
-        if (['all', 'recovery'].includes(phase)) {
-            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
-            const base = `${API}/courses/${fixture.course.id}/market-demand`;
-            const question = page.locator('textarea[aria-label=Question]');
-            await page.getByRole('region', { name: 'Focused evidence' }).getByRole('button', { name: 'Ask about Python', exact: true }).click();
-            action('model-queue', [{ exception: 'Synthetic inference outage' }]);
-            await question.fill('Retain this question after failed inference.');
-            await page.getByRole('button', { name: 'Send message', exact: true }).click();
+            await page.getByText('The synthetic source failed. No fallback source was used.', { exact: true }).waitFor();
+            await page.getByRole('region', { name: 'Source recovery', exact: true }).getByText(/collection failed/).waitFor();
+            const failedState = await (await context.request.get(`${API}/courses/${course.id}/market-demand/state`, { headers })).json();
+            assert.equal(failedState.source_outcomes.headhunter.status, 'error');
+            assert.equal(failedState.fetched_jobs.length, 0);
+            assert.deepEqual(failedState.sources, ['headhunter']);
+            await page.screenshot({ path: path.join(output, 'source-failure-recovery.png'), fullPage: true });
+            action('model-queue', [{ exception: 'Synthetic retry failure' }]);
+            await page.getByRole('button', { name: 'Retry failed sources', exact: true }).click();
             await page.getByText('Work failed', { exact: true }).waitFor();
-            assert.equal(await question.inputValue(), 'Retain this question after failed inference.');
-            const calls = action('model-readback').length;
-            action('model-queue', [{ content: 'Synthetic delayed response after detachment.', delay: 6 }]);
-            await page.getByRole('button', { name: 'Send message', exact: true }).click();
-            await page.getByRole('button', { name: 'Close live response', exact: true }).click();
-            await page.getByText('Live response closed. Server work may continue; refresh to check its state before sending again.', { exact: true }).waitFor();
-            assert.equal(await question.inputValue(), 'Retain this question after failed inference.');
-            await page.getByText('Execution outcome unknown', { exact: true }).waitFor();
-            const beforeDetachCount = mutations.filter(r => r.url.endsWith('/chat')).length;
-            await page.waitForTimeout(7000);
-            const status = await (await context.request.get(`${base}/execution-status`, { headers })).json();
-            assert.equal(status.status, 'idle');
-            assert.equal(action('model-readback').length, calls + 1);
-            assert.equal(mutations.filter(r => r.url.endsWith('/chat')).length, beforeDetachCount, 'Detachment does not retry');
-            await page.getByRole('button', { name: 'Refresh context', exact: true }).click();
-            await page.getByText('Execution outcome unknown', { exact: true }).waitFor();
-            await page.screenshot({ path: path.join(output, 'detached-unknown.png'), fullPage: true });
+            assert.equal(mutations.filter(row => row.url.endsWith('/chat')).length, 5, 'A known failed source retry must not resubmit itself');
+            await page.reload();
+            await page.getByRole('region', { name: 'Source recovery', exact: true }).waitFor();
+            assert.equal(action('model-readback').at(-1).human, 'Retry all providers and reassess the collected evidence');
+            await question.fill('Retain this reset draft until acknowledged.');
+            await page.getByRole('button', { name: /History and setup/ }).click();
             await page.getByRole('button', { name: 'New analysis', exact: true }).click();
-            const dialog = page.getByRole('alertdialog');
-            await dialog.waitFor();
-            const lease = spawn('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', '/tmp/teacher-workspace.json', '--action', 'hold-lease'], { stdio: ['ignore', 'pipe', 'pipe'] });
-            await new Promise((resolve, reject) => {
-                lease.stdout.on('data', data => {
-                    if (data.toString().includes('lease held'))
-                        resolve();
-                });
-                lease.on('error', reject);
-                lease.on('exit', code => {
-                    if (code)
-                        reject(Error('Lease helper failed'));
-                });
-            });
-            const busy = await (await context.request.get(`${base}/execution-status`, { headers })).json();
-            assert.equal(busy.status, 'busy');
-            const resetResponse = page.waitForResponse(r => r.url().endsWith('/market-demand/history') && r.request().method() === 'DELETE');
-            await dialog.getByRole('button', { name: 'Start new analysis', exact: true }).click();
-            assert.equal((await resetResponse).status(), 409);
-            await dialog.getByRole('alert').waitFor();
-            assert.equal(await question.inputValue(), 'Retain this question after failed inference.');
-            assert.equal(await page.getByLabel('Overview values').locator(':scope > li').count(), 12);
-            await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-            await page.getByRole('button', { name: 'Refresh context', exact: true }).click();
-            await page.getByText('Server work is running', { exact: true }).waitFor();
-            assert.equal(await page.getByRole('button', { name: 'New analysis', exact: true }).isDisabled(), true);
-            if (lease.exitCode === null)
-                await new Promise((resolve, reject) => { lease.on('exit', code => code === 0 ? resolve() : reject(Error('Lease helper release failed'))); });
-            else
-                assert.equal(lease.exitCode, 0);
-            await page.getByRole('button', { name: 'Refresh context', exact: true }).click();
-            fs.writeFileSync(path.join(output, 'recovery-readback.json'), JSON.stringify({ busy, status, chatRequests: beforeDetachCount }, null, 2));
-            console.log('PASS failed stream retention, real detach/idle-unknown, cross-process busy 409 and UI guards');
+            action('arm-reset-failure');
+            try {
+                await page.getByRole('alertdialog').getByRole('button', { name: 'Start new analysis', exact: true }).click();
+                await page.getByRole('alertdialog').getByRole('alert').waitFor();
+            }
+            finally {
+                action('disarm-reset-failure');
+            }
+            await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+            assert.equal(await question.inputValue(), 'Retain this reset draft until acknowledged.');
+            await page.getByRole('button', { name: 'Retry reset', exact: true }).click();
+            await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm reset retry', exact: true }).click();
+            await page.getByText('Start an analysis to collect job evidence for this course.', { exact: true }).waitFor();
+            assert.deepEqual(errors, []);
+            fs.writeFileSync(path.join(output, 'workflow-summary.json'), JSON.stringify({ courseId: course.id, searchTerms: 5, selectedJobs: state.selected_jobs.length, sourceError: failedState.source_outcomes.headhunter.status, resetRecovered: true }, null, 2));
+            verifyConsole('/market-demand/history');
+            console.log('PASS real graph/checkpointer search terms and job groups, five-row layout, source locks/error, failed execution and explicit reset recovery');
+            return;
         }
-        if (['all', 'approval'].includes(phase)) {
+        if (phase === 'simple-corpus') {
+            fs.mkdirSync(output, { recursive: true });
             const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
-            const base = `${API}/courses/${fixture.course.id}/market-demand`;
-            const fresh = async () => { const response = await context.request.get(`${base}/skill-review`, { headers }); assert.equal(response.status(), 200); return response.json(); };
-            const revision = review => ({ run_id: review.run_id, expected_candidate_revision: review.candidate_revision, expected_selection_revision: review.selection_revision });
-            const pane = page.getByRole('region', { name: 'Skill draft review' });
-            for (const label of ['Programming', 'Professional']) {
-                const box = pane.getByRole('checkbox', { name: `Select category ${label} (15 current members)`, exact: true });
-                await box.check();
-                await box.uncheck();
-            }
-            await pane.getByRole('checkbox', { name: 'Select Python', exact: true }).check();
-            await pane.getByRole('checkbox', { name: 'Select Synthetic competency 30', exact: true }).check();
-            if (await pane.getByRole('button', { name: 'Save draft', exact: true }).isEnabled()) {
-                await pane.getByRole('button', { name: 'Save draft', exact: true }).click();
-                await pane.getByText('Draft saved', { exact: false }).waitFor();
-            }
-            assert.equal((await fresh()).selected_candidate_ids.length, 2);
-            if (await pane.getByRole('button', { name: 'Continue with available evidence', exact: true }).count())
-                await pane.getByRole('button', { name: 'Continue with available evidence', exact: true }).click();
-            await pane.getByRole('button', { name: 'Continue with available evidence', exact: true }).waitFor({ state: 'detached' });
-            let prepared = action('prepare-review');
-            const unsupportedRequest = { ...revision(prepared), review_digest: prepared.integration_review.review_digest, approved_candidate_ids: prepared.selected_candidate_ids };
-            let rejected = await context.request.post(`${base}/integration-approval`, { headers, data: unsupportedRequest });
-            assert.equal(rejected.status(), 422);
-            const rejection = await rejected.json();
-            assert.equal(rejection.detail.code, 'missing_job_evidence');
-            assert(rejection.detail.candidate_ids.includes(fixture.candidate_ids[29]));
-            assert.equal(action('sql-readback').publication_revision, 0);
-            await page.reload();
-            await pane.getByRole('checkbox', { name: 'Select Synthetic competency 30', exact: true }).uncheck();
-            await pane.getByRole('button', { name: 'Save draft', exact: true }).click();
-            await pane.getByText('Draft saved', { exact: false }).waitFor();
-            prepared = action('prepare-review');
-            await page.reload();
-            const integration = page.getByRole('region', { name: 'Final integration review' });
-            await integration.waitFor();
-            const approvalResponse = page.waitForResponse(r => r.url().endsWith('/integration-approval') && r.request().method() === 'POST');
-            await integration.getByRole('button', { name: 'Approve integration', exact: true }).click();
-            const approvedResponse = await approvalResponse;
-            assert.equal(approvedResponse.status(), 200);
-            const submitted = approvedResponse.request().postDataJSON();
-            assert.equal(submitted.review_digest, prepared.integration_review.review_digest);
-            assert.deepEqual(submitted.approved_candidate_ids, [fixture.candidate_ids[0]]);
-            const approved = await approvedResponse.json();
-            assert.equal(approved.projection_status, 'projected');
-            await integration.getByText('Approval saved; publication projected', { exact: true }).waitFor();
-            const sql = action('sql-readback');
-            assert.equal(sql.publication_revision, 1);
-            assert.equal(sql.approvals.length, 1);
-            assert.equal(sql.approvals[0].review_digest, submitted.review_digest);
-            for (const [index, item] of prepared.integration_review.items.entries()) {
-                const stored = sql.approvals[0].items[index];
-                for (const key of ['candidate_id', 'disposition', 'target', 'chapters', 'concepts', 'qualifying_posting_links'])
-                    assert.deepEqual(stored[key], item[key], key);
-                assert.deepEqual(stored.vacancy_bindings.map(b => b.snapshot_id).sort(), [...item.evidence_snapshot_ids].sort());
-            }
-            const repeated = await context.request.post(`${base}/integration-approval`, { headers, data: submitted });
-            assert.equal(repeated.status(), 200);
-            assert.equal(action('sql-readback').approvals.length, 1);
-            const beforeStudent = JSON.parse(fs.readFileSync(path.join(output, 'student-before.json')));
-            const afterStudent = {};
-            for (const [name, endpoint] of Object.entries({ path: 'path', quiz: 'chapters/1/quiz', reading: 'readings/task12-reading/content' })) {
-                const response = await context.request.get(`${API}/student-learning-path/${fixture.course.id}/${endpoint}`, { headers: { Authorization: `Bearer ${fixture.student.access_token}` } });
-                assert.equal(response.status(), 200);
-                afterStudent[name] = await response.json();
-            }
-            assert.deepEqual(afterStudent, beforeStudent, 'Saved graph-backed student path, quiz mastery and reading unchanged by teacher publication');
-            fs.writeFileSync(path.join(output, 'approval-readback.json'), JSON.stringify({ rejection, submitted, approved, sql, afterStudent }, null, 2));
-            await page.screenshot({ path: path.join(output, 'approval-projected.png'), fullPage: true });
-            console.log('PASS final missing_job_evidence 422, exact digest/mappings, actual Neo4j projection, idempotency, unchanged student APIs');
-        }
-        if (phase === 'approval-readback') {
-            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
-            const base = `${API}/courses/${fixture.course.id}/market-demand`;
-            const prepared = await (await context.request.get(`${base}/skill-review`, { headers })).json();
-            const sql = action('sql-readback');
-            assert.equal(sql.publication_revision, 1);
-            assert.equal(sql.approvals.length, 1);
-            assert.equal(sql.approvals[0].projection_status, 'projected');
-            assert.equal(sql.approvals[0].review_digest, prepared.integration_review.review_digest);
-            for (const [index, item] of prepared.integration_review.items.entries()) {
-                const stored = sql.approvals[0].items[index];
-                for (const key of ['candidate_id', 'disposition', 'target', 'chapters', 'concepts', 'qualifying_posting_links'])
-                    assert.deepEqual(stored[key], item[key], key);
-                assert.deepEqual(stored.vacancy_bindings.map(b => b.snapshot_id).sort(), [...item.evidence_snapshot_ids].sort());
-            }
-            const submitted = { run_id: prepared.run_id, expected_candidate_revision: prepared.candidate_revision, expected_selection_revision: prepared.selection_revision, review_digest: prepared.integration_review.review_digest, approved_candidate_ids: prepared.selected_candidate_ids };
-            const repeat = await context.request.post(`${base}/integration-approval`, { headers, data: submitted });
-            assert.equal(repeat.status(), 200);
-            assert.equal(action('sql-readback').approvals.length, 1);
-            const afterStudent = {};
-            for (const [name, endpoint] of Object.entries({ path: 'path', quiz: 'chapters/1/quiz', reading: 'readings/task12-reading/content' })) {
-                const response = await context.request.get(`${API}/student-learning-path/${fixture.course.id}/${endpoint}`, { headers: { Authorization: `Bearer ${fixture.student.access_token}` } });
-                assert.equal(response.status(), 200);
-                afterStudent[name] = await response.json();
-            }
-            assert.deepEqual(afterStudent, JSON.parse(fs.readFileSync(path.join(output, 'student-before.json'))));
-            fs.writeFileSync(path.join(output, 'approval-readback.json'), JSON.stringify({ submitted, sql, afterStudent }, null, 2));
-            await page.getByRole('region', { name: 'Final integration review' }).scrollIntoViewIfNeeded();
-            await page.screenshot({ path: path.join(output, 'approval-projected.png'), fullPage: true });
-            console.log('PASS actual projection, exact durable approved mapping/digest, idempotency, unchanged student path/quiz/resource');
-        }
-        if (['all', 'corpus'].includes(phase)) {
-            const corpus = JSON.parse(fs.readFileSync(path.join(output, 'corpus-sql-readback.json')));
-            const plotFacts = [];
-            const chartOptions = async (region) => {
-                const element = region.locator('[role=img]').first();
-                await element.locator('svg').waitFor();
-                return element.evaluate(async (element, url) => {
-                    if (!url)
-                        throw Error('Loaded ECharts module URL not observed');
-                    const core = await import(url);
-                    const instance = core.getInstanceByDom(element);
-                    if (!instance)
-                        throw Error('Rendered chart has no live ECharts instance');
-                    window.task12ChartInstances ??= [];
-                    window.task12ChartInstances.push(instance);
-                    return instance.getOption();
-                }, chartModuleURL);
-            };
+            const corpus = action('seed-corpus');
+            const checked = [];
             for (const item of corpus) {
                 const canonical = patterns => patterns.map(({ coverage, ...fact }) => fact);
-                assert.deepEqual(canonical(item.resolved.model_bundle.patterns), canonical(item.source_case.expected), item.name + ' server pattern facts');
-                const prior = mutations.length;
+                assert.deepEqual(canonical(item.resolved.model_bundle.patterns), canonical(item.source_case.expected), `${item.name}: canonical backend facts`);
+                const review = item.review;
+                const base = `${API}/courses/${item.course.id}/market-demand`;
+                const saved = await context.request.put(`${base}/skill-review/draft`, { headers, data: { run_id: review.run_id, expected_candidate_revision: review.candidate_revision, expected_selection_revision: review.selection_revision, selected_candidate_ids: review.candidates.map(c => c.candidate_id), excluded_candidate_ids: [] } });
+                assert.equal(saved.status(), 200);
                 await page.goto(`${UI}/courses/${item.course.id}/market-analyst`);
-                await page.getByRole('region', { name: 'Demand overview' }).waitFor();
-                if (item.context.filters.search) {
-                    await page.getByRole('button', { name: 'Data', exact: true }).click();
-                    await page.getByRole('textbox', { name: 'Filter evidence', exact: true }).fill(item.context.filters.search);
-                    await page.getByRole('button', { name: 'Overview', exact: true }).click();
+                await page.getByRole('button', { name: 'Compare skills', exact: true }).click();
+                const dialog = page.getByRole('dialog', { name: 'Compare skills', exact: true });
+                await dialog.getByRole('button', { name: 'O*NET importance', exact: true }).click();
+                const roles = review.analysis_metadata.occupations;
+                for (const role of roles) {
+                    await dialog.getByRole('combobox', { name: 'Confirmed occupation', exact: true }).selectOption(role.soc_code);
+                    if (item.name === 'explicit_descriptor_choice') {
+                        const selector = dialog.getByRole('combobox', { name: `Descriptor for ${review.candidates[0].display_name}`, exact: true });
+                        if (await selector.count())
+                            await selector.selectOption(item.context.descriptor_choices[0].evidence_id);
+                    }
+                    const values = await dialog.getByRole('list', { name: 'Comparison values', exact: true }).innerText();
+                    const descriptorValues = review.candidates.flatMap(candidate => {
+                        const rows = candidate.onet_associations.filter(a => a.relation === 'equivalent' && ['essential', 'transferable'].includes(a.evidence.family) && a.evidence.soc_code === role.soc_code && a.evidence.release === review.analysis_metadata.onet_release);
+                        const choice = item.context.descriptor_choices.find(c => c.candidate_id === candidate.candidate_id && rows.some(row => row.evidence.id === c.evidence_id));
+                        const unique = [...new Set(rows.map(a => a.evidence.id))];
+                        const row = choice ? rows.find(a => a.evidence.id === choice.evidence_id) : unique.length === 1 ? rows[0] : null;
+                        const rating = row?.evidence.ratings.IM;
+                        return row ? [{ key: [row.evidence.release, row.evidence.soc_code, row.evidence.family, row.evidence.element_id].join('|'), value: rating?.status === 'reported' && rating.value >= 1 && rating.value <= 5 ? rating.value : null }] : [];
+                    });
+                    const grouped = new Map();
+                    for (const row of descriptorValues) {
+                        if (!grouped.has(row.key))
+                            grouped.set(row.key, new Set());
+                        grouped.get(row.key).add(row.value);
+                    }
+                    const eligible = [...grouped.values()].filter(values => values.size === 1 && !values.has(null)).map(values => [...values][0]);
+                    const chart = dialog.locator('[role=img]');
+                    if (eligible.length) {
+                        await chart.locator('svg').waitFor();
+                        const actual = await chart.evaluate(async (e, url) => (await import(url)).getInstanceByDom(e).getOption().series[0].data.map(d => d.value), chartModuleURL);
+                        assert.deepEqual(actual, eligible, `${item.name}/${role.soc_code}`);
+                    }
+                    else {
+                        assert.equal(await chart.count(), 0);
+                        assert.match(values, /Unavailable|Choose a descriptor/);
+                    }
                 }
-                const overview = page.getByRole('region', { name: 'Demand overview' });
-                if (item.name === 'denominator_10') {
-                    const option = await chartOptions(overview);
-                    assert.deepEqual(option.series[0].data.map(d => d.value), [50]);
-                    assert.match(await overview.getByLabel('Overview values').innerText(), /50% · 3 \/ 10/);
-                }
-                await page.getByRole('button', { name: 'Compare', exact: true }).click();
-                const compare = page.getByRole('region', { name: 'Occupation comparison' });
-                await compare.getByRole('button', { name: 'Across occupations', exact: true }).click();
-                for (const code of item.context.occupation_codes)
-                    await compare.getByRole('checkbox', { name: `Display SYNTHETIC TEST CORPUS ${code}`, exact: true }).check();
-                if (item.name === 'explicit_descriptor_choice') {
-                    const mapped = item.context.descriptor_choices[0].evidence_id;
-                    await compare.getByLabel('Descriptor for Programming · SYNTHETIC TEST CORPUS 15-1252.00', { exact: true }).selectOption(mapped);
-                }
-                const expected = [];
-                const filtered = item.context.filters.search ? [] : [...item.review.candidates].sort((a, b) => a.display_name.trim().toLowerCase().localeCompare(b.display_name.trim().toLowerCase()) || a.candidate_id.localeCompare(b.candidate_id));
-                filtered.forEach((candidate, y) => item.context.occupation_codes.forEach((code, x) => {
-                    const eligible = candidate.onet_associations.filter(a => a.relation === 'equivalent' && a.evidence.family !== 'software' && a.evidence.soc_code === code && a.evidence.release === item.review.analysis_metadata.onet_release);
-                    const chosen = item.context.descriptor_choices.find(c => c.candidate_id === candidate.candidate_id && eligible.some(a => a.evidence.id === c.evidence_id));
-                    const eligibleIds = [...new Set(eligible.map(a => a.evidence.id))];
-                    const association = chosen ? eligible.find(a => a.evidence.id === chosen.evidence_id) : eligibleIds.length === 1 ? eligible[0] : null;
-                    const rating = association?.evidence.ratings.IM;
-                    if (rating?.status === 'reported' && rating.value >= 1 && rating.value <= 5)
-                        expected.push([x, y, rating.value]);
-                }));
-                let actual = [];
-                if (expected.length)
-                    actual = (await chartOptions(compare)).series[0].data.map(d => d.value);
-                else {
-                    await compare.getByText(item.context.filters.search ? 'No matching skills. Change the filters to inspect evidence.' : 'No reported comparable ratings available. Inspect unavailable reasons below.', { exact: true }).waitFor();
-                    assert.equal(await compare.locator('[role=img] svg').count(), 0);
-                }
-                assert.deepEqual(actual, expected, item.name + ' heatmap values');
-                if (item.name === 'ambiguous_cell')
-                    await compare.getByText(/Multiple matched descriptors/).waitFor();
-                if (item.name === 'suppressed_numeric_not_plotted')
-                    await compare.getByText('Unavailable: suppressed', { exact: true }).waitFor();
-                if (item.name === 'missing_cell')
-                    await compare.getByText('Unavailable: no equivalent association in this release', { exact: true }).waitFor();
-                if (['spread_1_0_distinct_role_ids', 'ambiguous_cell', 'software_reference_not_numeric'].includes(item.name))
-                    await page.screenshot({ path: path.join(output, `corpus-${item.name}.png`), fullPage: true });
-                if (item.name === 'max_two_no_repeated_skill') {
-                    await compare.getByRole('button', { name: 'Demand and importance', exact: true }).click();
-                    await compare.getByLabel('Compare occupation', { exact: true }).selectOption('15-1252.00');
-                    const option = await chartOptions(compare);
-                    const source = item.review.candidates[0].onet_associations[0].evidence.ratings.IM.value;
-                    assert.deepEqual(option.series[0].data.map(d => d.value), [[50, source]]);
-                    plotFacts.push({ name: item.name, scatter: option.series[0].data.map(d => d.value) });
-                }
-                await page.getByRole('button', { name: 'Overview', exact: true }).click();
-                await overview.waitFor();
-                const observedPatternCount = await overview.locator('article').count();
-                assert.equal(observedPatternCount, item.source_case.expected.length, item.name + ' bounded rendered patterns');
-                assert(observedPatternCount <= 2);
-                assert.equal(mutations.length, prior, 'Course/filter/occupation/descriptor changes must not mutate');
-                plotFacts.push({ name: item.name, heatmap: actual, expectedPatterns: item.source_case.expected, observedPatternCount });
-                console.log(`PASS corpus SQL/server/heatmap/patterns ${item.name}`);
+                checked.push(item.name);
+                await page.keyboard.press('Escape');
             }
-            fs.writeFileSync(path.join(output, 'corpus-browser-facts.json'), JSON.stringify(plotFacts, null, 2));
-        }
-        if (['all', 'load-failures'].includes(phase)) {
-            const failures = [];
-            for (const kind of ['chart', 'comparison']) {
-                const isolated = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
-                await isolated.addInitScript(tokens => { localStorage.setItem('access_token', tokens.access_token); localStorage.setItem('refresh_token', tokens.refresh_token); }, fixture.teacher);
-                const current = await isolated.newPage();
-                const injected = [];
-                const consoleErrors = [];
-                const pageErrors = [];
-                current.on('console', message => {
-                    if (message.type() === 'error')
-                        consoleErrors.push(message.text());
-                });
-                current.on('pageerror', error => pageErrors.push(error.message));
-                await current.route(kind === 'chart' ? '**/echarts_core.js*' : '**/WorkspaceCompare.tsx*', async (route) => { injected.push(route.request().url()); await route.abort('failed'); });
-                await current.goto(`${UI}/courses/${fixture.course.id}/market-analyst`);
-                await current.getByRole('region', { name: 'Demand overview' }).waitFor();
-                if (kind === 'comparison')
-                    await current.getByRole('button', { name: 'Compare', exact: true }).click();
-                await current.getByRole('alert').filter({ hasText: kind === 'chart' ? 'Chart unavailable.' : 'Charts unavailable.' }).waitFor();
-                assert(injected.length > 0, 'Actual lazy import network request must be rejected');
-                await current.getByRole('button', { name: 'Data', exact: true }).click();
-                const fallback = current.getByRole('region', { name: 'Evidence data' });
-                assert.equal(await fallback.locator('tbody tr').count(), 25);
-                await fallback.getByRole('button', { name: 'Inspect Python', exact: true }).click();
-                await current.getByRole('region', { name: 'Focused evidence' }).getByRole('heading', { name: 'Python', exact: true }).waitFor();
-                const box = fallback.getByRole('checkbox', { name: 'Select Communication', exact: true });
-                const selected = await box.isChecked();
-                await box.setChecked(!selected);
-                assert.equal(await box.isChecked(), !selected);
-                assert.deepEqual(pageErrors, [], 'Expected import failure must be contained by UI');
-                for (const error of consoleErrors)
-                    assert(/net::ERR_FAILED|Failed to fetch dynamically imported module|WorkspaceCompare|error occurred in the <.*> component/.test(error), `Unexpected console error: ${error}`);
-                await current.screenshot({ path: path.join(output, `network-failure-${kind}.png`), fullPage: true });
-                failures.push({ kind, injected, consoleErrors, pageErrors, dataRows: 25 });
-                await isolated.close();
-                console.log(`PASS actual ${kind} import rejection leaves Data/shortlist usable`);
+            const metadata = action('metadata-compatibility');
+            assert(metadata.approved_main_review_unchanged);
+            assert.deepEqual(metadata.restored_config, metadata.original_config);
+            const tooltip = action('seed-tooltip-five');
+            const review = tooltip.review;
+            const saved = await context.request.put(`${API}/courses/${tooltip.course.id}/market-demand/skill-review/draft`, { headers, data: { run_id: review.run_id, expected_candidate_revision: review.candidate_revision, expected_selection_revision: review.selection_revision, selected_candidate_ids: review.candidates.map(c => c.candidate_id), excluded_candidate_ids: [] } });
+            assert.equal(saved.status(), 200);
+            await page.goto(`${UI}/courses/${tooltip.course.id}/market-analyst`);
+            await page.getByRole('region', { name: 'Choose skills', exact: true }).waitFor();
+            for (const [width, height] of [[1280, 720], [1440, 900]]) {
+                await page.setViewportSize({ width, height });
+                const main = page.getByRole('main');
+                const bounds = await main.evaluate(e => ({ client: e.clientHeight, scroll: e.scrollHeight, width: e.clientWidth, contentWidth: e.scrollWidth }));
+                assert(bounds.scroll <= bounds.client + 1 && bounds.contentWidth <= bounds.width + 1, 'Unicode labels must not overflow the main decision');
+                const decision = await page.getByLabel('Current teacher decision', { exact: true }).boundingBox();
+                assert(decision.y + decision.height <= height);
+                await page.screenshot({ path: path.join(output, `unicode-main-${width}.png`), fullPage: true });
             }
-            fs.writeFileSync(path.join(output, 'network-failures.json'), JSON.stringify(failures, null, 2));
+            await page.getByRole('button', { name: 'Browse skills', exact: true }).click();
+            const browse = page.getByRole('dialog', { name: 'Browse skills', exact: true });
+            for (const candidate of review.candidates) {
+                const label = browse.getByText(candidate.display_name, { exact: false }).first();
+                assert.equal(await label.evaluate(e => getComputedStyle(e).textOverflow), 'clip');
+                assert(await label.evaluate(e => e.scrollWidth <= e.clientWidth + 1));
+            }
+            await page.keyboard.press('Escape');
+            await page.getByRole('button', { name: 'Compare skills', exact: true }).click();
+            const dialog = page.getByRole('dialog', { name: 'Compare skills', exact: true });
+            await dialog.getByRole('button', { name: 'O*NET importance', exact: true }).click();
+            assert.equal(await dialog.getByRole('combobox', { name: 'Confirmed occupation', exact: true }).locator('option').count(), 6);
+            for (const [width, height] of [[1280, 720], [390, 844], [320, 667]]) {
+                await page.setViewportSize({ width, height });
+                assert(await dialog.evaluate(e => e.scrollWidth <= e.clientWidth + 1));
+                const graph = dialog.locator('[role=img]');
+                await graph.locator('svg').waitFor();
+                const box = await graph.boundingBox();
+                const point = await graph.evaluate(async (e, url) => (await import(url)).getInstanceByDom(e).convertToPixel({ seriesIndex: 0 }, [3, 0]), chartModuleURL);
+                await page.mouse.move(box.x + point[0], box.y + point[1]);
+                assert.equal(await dialog.locator('svg script, svg foreignObject').count(), 0);
+                await page.screenshot({ path: path.join(output, `unicode-five-roles-${width}.png`), fullPage: true });
+            }
+            for (const role of review.analysis_metadata.occupations.slice(2)) {
+                await dialog.getByRole('combobox', { name: 'Confirmed occupation', exact: true }).selectOption(role.soc_code);
+                assert.equal(await dialog.locator('[role=img]').count(), 0);
+                assert.match(await dialog.innerText(), /Unavailable/);
+            }
+            assert.deepEqual(errors, []);
+            fs.writeFileSync(path.join(output, 'corpus-summary.json'), JSON.stringify({ checked, roles: 5 }, null, 2));
+            verifyConsole();
+            console.log('PASS retained numerical corpus, one-measure compact SVG values, missing/suppressed/software/ambiguous values, five roles and Unicode labels');
+            return;
         }
-        for (const item of consoleErrors) {
-            const expectedConflict = /409 \(Conflict\)|422 \(Unprocessable/.test(item.text) && ['revisions', 'recovery', 'approval'].includes(phase);
-            const expectedReset = ['recovery', 'reset-proof'].includes(phase) && (/market-demand\/history/.test(item.url) || /market-demand\/history/.test(item.text)) && /CORS|ERR_FAILED|500/.test(item.text);
-            const expectedStorage = phase === 'supplemental' && item.url === `${API}/courses/${fixture.course.id}/presentations` && item.text === 'Failed to load resource: the server responded with a status of 500 (Internal Server Error)';
-            const expectedStorageCompanion = phase === 'supplemental' && disabledStorageVerified && consoleErrors.some(error => error.url === `${API}/courses/${fixture.course.id}/presentations` && error.text === 'Failed to load resource: the server responded with a status of 500 (Internal Server Error)') && item.url === `${UI}/src/components/CourseMaterialsTable.tsx` && item.text === 'Failed to fetch course materials: AxiosError';
-            const expectedStatus = phase === 'supplemental' && /execution-status/.test(item.url + item.text) && /ERR_FAILED/.test(item.text);
-            assert(expectedConflict || expectedReset || expectedStatus || expectedStorage || expectedStorageCompanion, `Unexpected console error: ${JSON.stringify(item)}`);
+        if (phase === 'simple-mapping') {
+            fs.mkdirSync(output, { recursive: true });
+            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
+            const base = `${API}/courses/${fixture.course.id}/market-demand`;
+            const get = async (endpoint) => { const response = await context.request.get(`${base}/${endpoint}`, { headers }); assert.equal(response.status(), 200); return response.json(); };
+            const state = await get('state');
+            assert.equal(state.job_search_country, 'Uzbekistan');
+            assert.equal(state.job_search_country_confirmed, true);
+            assert.deepEqual(state.selected_onet_occupations, ['15-2051.00', '15-1252.00']);
+            for (const outcome of Object.values(state.source_outcomes)) {
+                assert(Array.isArray(outcome.warnings));
+                assert.equal(typeof outcome.received_count, 'number');
+                assert.equal(typeof outcome.usable_count, 'number');
+            }
+            const before = action('sql-readback');
+            assert.equal(before.publication_revision, 0);
+            assert.equal(before.selected_candidate_ids.length, 57);
+            const studentBefore = JSON.parse(fs.readFileSync(path.join(output, 'student-before.json')));
+            assert.equal(studentBefore.path.course_id, fixture.course.id);
+            assert.equal(studentBefore.path.total_selected_skills, 1);
+            assert.equal(studentBefore.path.chapters[0].correct_count, 1);
+            await page.goto(`${UI}/courses/${fixture.course.id}/market-analyst`);
+            const mapping = page.waitForResponse(r => r.url().endsWith('/chat'));
+            action('model-queue', [{ content: 'Synthetic curriculum mapping request completed.' }]);
+            await page.getByRole('button', { name: 'Remap skills', exact: true }).click();
+            const response = await mapping;
+            assert.equal(response.status(), 200, await response.text());
+            await response.finished();
+            await page.getByText('Synthetic curriculum mapping request completed.', { exact: true }).waitFor();
+            const prepared = action('prepare-review');
+            await page.reload();
+            const integration = page.getByRole('region', { name: 'Final integration review', exact: true });
+            await integration.waitFor();
+            const measured = [];
+            for (const [width, height] of [[1280, 720], [1440, 900]]) {
+                await page.setViewportSize({ width, height });
+                const main = await page.getByRole('main').evaluate(e => ({ client: e.clientHeight, scroll: e.scrollHeight }));
+                const decision = await page.getByLabel('Current teacher decision', { exact: true }).boundingBox();
+                const action = await integration.getByRole('button', { name: 'Approve and publish', exact: true }).boundingBox();
+                assert(main.scroll <= main.client + 1);
+                assert(decision.y + decision.height <= height);
+                assert(action.y + action.height <= height);
+                measured.push({ width, height, main, action });
+                await page.screenshot({ path: path.join(output, `curriculum-${width}.png`), fullPage: true });
+            }
+            assert.equal(action('sql-readback').publication_revision, 0);
+            const approvedResponse = page.waitForResponse(r => r.url().endsWith('/integration-approval'));
+            await integration.getByRole('button', { name: 'Approve and publish', exact: true }).click();
+            const approved = await approvedResponse;
+            assert.equal(approved.status(), 200);
+            assert.equal((await approved.json()).projection_status, 'projected');
+            assert.deepEqual(approved.request().postDataJSON().approved_candidate_ids, before.selected_candidate_ids);
+            const sql = action('sql-readback');
+            assert.equal(sql.publication_revision, 1);
+            assert.equal(sql.approvals.length, 1);
+            assert.equal(sql.approvals[0].review_digest, prepared.integration_review.review_digest);
+            assert.equal(sql.approvals[0].items.length, 57);
+            for (const item of sql.approvals[0].items)
+                assert.equal(item.qualifying_posting_links.length, 4);
+            const repeat = await context.request.post(`${base}/integration-approval`, { headers, data: approved.request().postDataJSON() });
+            assert.equal(repeat.status(), 200);
+            assert.equal(action('sql-readback').approvals.length, 1);
+            assert.equal((await get('skill-review')).candidates.find(c => c.display_name === 'ETL / ELT').evidence_references.length, 8);
+            const studentAfter = {};
+            for (const [name, endpoint] of Object.entries({ path: 'path', quiz: 'chapters/1/quiz', reading: `readings/${fixture.student_reading_id}/content` })) {
+                const response = await context.request.get(`${API}/student-learning-path/${fixture.course.id}/${endpoint}`, { headers: { Authorization: `Bearer ${fixture.student.access_token}` } });
+                assert.equal(response.status(), 200);
+                studentAfter[name] = await response.json();
+            }
+            assert.deepEqual(studentAfter, studentBefore);
+            const archive = path.join(path.dirname(manifestPath), 'published-simple-manifest.json');
+            execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['cp', `lab_tutor_workspace_acceptance_api:${fixtureManifest}`, archive]);
+            fs.chmodSync(archive, 0o600);
+            fs.writeFileSync(path.join(path.dirname(manifestPath), 'approval-student-readback.json'), JSON.stringify({ sql, afterStudent: studentAfter }, null, 2));
+            fs.writeFileSync(path.join(output, 'mapping-summary.json'), JSON.stringify({ course: fixture.course.id, mappingStatus: 200, selected: 57, publicationRevision: 1, studentPreserved: true, measured }, null, 2));
+            await page.screenshot({ path: path.join(output, 'approved-disposable-fixture.png'), fullPage: true });
+            verifyConsole();
+            console.log('PASS corrected state DTOs, mapping200, explicit57-ID/digest approval, idempotency, complete ETL provenance and nonempty student preservation');
+            return;
         }
-        fs.writeFileSync(path.join(output, `console-${phase}.json`), JSON.stringify({ consoleErrors, runtimeErrors: errors }, null, 2));
-        assert.deepEqual(errors, [], 'Unexpected main-page runtime errors');
-        console.log('PASS initial saved SQL review and rendered chart');
+        if (phase === 'simple-keyboard') {
+            await page.goto(`${UI}/courses/${fixture.course.id}/market-analyst`);
+            await verifyInspectionFocus();
+            console.log('PASS main SQL/ETL and Browse-to-inspect keyboard focus without stacked dialogs');
+            return;
+        }
+        if (phase === 'simple-layout') {
+            fs.mkdirSync(output, { recursive: true });
+            const seeded = action('seed-simple-flow');
+            fixtureManifest = '/tmp/teacher-workspace-simple.json';
+            await page.goto(`${UI}/courses/${seeded.course.id}/market-analyst`);
+            const skills = page.getByRole('region', { name: 'Choose skills', exact: true });
+            await skills.waitFor();
+            await verifyInspectionFocus();
+            const checked = [];
+            for (const [width, height] of [[320, 667], [390, 844], [1280, 720], [1440, 900]]) {
+                await page.setViewportSize({ width, height });
+                const main = await page.getByRole('main').evaluate(e => ({ client: e.clientHeight, scroll: e.scrollHeight, width: e.clientWidth, content: e.scrollWidth }));
+                assert(main.content <= main.width + 1);
+                if (width >= 1280)
+                    assert(main.scroll <= main.client + 1);
+                const action = page.getByRole('button', { name: 'Acknowledge available evidence', exact: true });
+                const prompt = page.getByRole('alert').filter({ hasText: 'Some job evidence is incomplete.' }).locator('p');
+                const p = await prompt.boundingBox(), a = await action.boundingBox();
+                if (width < 640) {
+                    assert(p.width >= 200);
+                    assert(a.y >= p.y + p.height);
+                }
+                await action.scrollIntoViewIfNeeded();
+                const reached = await action.boundingBox();
+                assert(reached.y + reached.height <= height);
+                await page.screenshot({ path: path.join(output, `review-layout-${width}.png`), fullPage: true });
+                await skills.getByRole('button', { name: 'Browse skills', exact: true }).click();
+                const dialog = page.getByRole('dialog', { name: 'Browse skills', exact: true });
+                const d = await dialog.evaluate(e => ({ client: e.clientWidth, scroll: e.scrollWidth }));
+                assert(d.scroll <= d.client + 1, `Browse ${width}: ${JSON.stringify(d)}`);
+                await dialog.getByRole('button', { name: 'Next page', exact: true }).click();
+                for (const name of ['Previous page', 'Next page']) {
+                    const button = dialog.getByRole('button', { name, exact: true });
+                    await button.scrollIntoViewIfNeeded();
+                    const b = await button.boundingBox(), box = await dialog.boundingBox();
+                    assert(b.x >= box.x && b.x + b.width <= box.x + box.width);
+                }
+                assert.equal(await dialog.getByRole('checkbox', { name: /^Select Synthetic competency/ }).count(), 10);
+                await page.screenshot({ path: path.join(output, `review-browse-${width}.png`), fullPage: true });
+                await dialog.getByRole('button', { name: 'Previous page', exact: true }).click();
+                await page.keyboard.press('Escape');
+                checked.push({ width, height, main, browse: d, promptWidth: p.width });
+            }
+            await skills.getByRole('button', { name: 'Inspect ETL / ELT', exact: true }).click();
+            let evidence = page.getByRole('dialog', { name: 'Evidence for ETL / ELT', exact: true });
+            await page.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].filter(e => e.textContent === 'Reload full posting evidence').length === 4);
+            const links = evidence.getByRole('link', { name: /^Original posting ·/ });
+            assert.equal(await links.count(), 4);
+            const labels = await links.allTextContents();
+            assert(labels.every(label => label.includes('SYNTHETIC')));
+            assert.equal(new Set(await links.evaluateAll(elements => elements.map(e => e.href))).size, 4);
+            assert.equal(await evidence.locator('blockquote').count(), 8);
+            await page.screenshot({ path: path.join(output, 'review-posting-identities.png'), fullPage: true });
+            await page.keyboard.press('Escape');
+            action('purge-first-posting', undefined, ['--snapshot-id', seeded.snapshot_ids[0]]);
+            await skills.getByRole('button', { name: 'Inspect ETL / ELT', exact: true }).click();
+            evidence = page.getByRole('dialog', { name: 'Evidence for ETL / ELT', exact: true });
+            await evidence.getByText(/Posting content unavailable: purged/).waitFor();
+            const purged = evidence.getByRole('article').filter({ hasText: 'Posting content unavailable: purged' });
+            assert.match(await purged.getByRole('link', { name: /^Original posting ·/ }).innerText(), /^Original posting · Posting /);
+            assert.equal(await purged.locator('blockquote, details').count(), 0);
+            await page.screenshot({ path: path.join(output, 'review-purged-identity.png'), fullPage: true });
+            verifyConsole();
+            fs.writeFileSync(path.join(output, 'review-layout-summary.json'), JSON.stringify({ checked, postingLabels: labels, purgeWithholdsContent: true }, null, 2));
+            console.log('PASS narrow/mobile coverage stack, complete Browse bounds and pagination, descriptive posting identities and purged fallback');
+            return;
+        }
+        throw new Error(`Unknown acceptance scenario: ${phase}`);
     }
     catch (error) {
         fs.mkdirSync(output, { recursive: true });
@@ -1183,6 +866,8 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
         throw error;
     }
     finally {
+        await context.request.dispose();
+        await context.close();
         await browser.close();
     }
-})().catch(error => { console.error(safeError(error)); process.exitCode = 1; });
+})().catch(error => { console.error(safeError(error.stack ?? error)); process.exitCode = 1; });

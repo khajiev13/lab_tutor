@@ -107,9 +107,10 @@ it("renders full evidence as safe text/JSON with genuine posting links", async (
   const user = userEvent.setup();
   const pythonEvidence = screen.getByText("Evidence for Python").closest("details")!;
   await user.click(within(pythonEvidence).getByText("Evidence for Python"));
-  expect(within(pythonEvidence).getByRole("link",{name:"Original job posting"})).toHaveAttribute("href","https://hh.uz/vacancy/123");
+  expect(within(pythonEvidence).getByRole("link",{name:"Original job posting · Posting snapshot-1"})).toHaveAttribute("href","https://hh.uz/vacancy/123");
   await user.click(screen.getByRole("button",{name:"Load full posting evidence"}));
   expect(await screen.findByText("<script>alert('x')</script>")).toBeInTheDocument();
+  expect(within(pythonEvidence).getByRole("link", {name:"Original job posting · Developer · Acme"})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
   expect(container.querySelector("script,img")).toBeNull();
   expect(screen.getByText(/"description": "<img/)).toBeInTheDocument();
 });

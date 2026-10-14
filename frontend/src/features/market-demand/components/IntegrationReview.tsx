@@ -43,6 +43,7 @@ export function IntegrationReview({courseId, review, onReviewChange, disabled, p
     const candidate = review.candidates.find(value => value.candidate_id === item.candidate_id);
     return candidate?.posting_support !== "supported" || !candidate.qualifying_posting_links.some(isUsablePostingUrl) || !item.qualifying_posting_links.some(isUsablePostingUrl) || !item.evidence_snapshot_ids.length;
   }) ?? [];
+  const visibleTargetLimit = proposal?.omissions.length || missing.length ? 3 : 5;
   const current = !!proposal && proposal.candidate_revision === review.candidate_revision &&
     proposal.selection_revision === review.selection_revision && !!proposal.review_digest &&
     (withdrawal ? ids.length === 0 : new Set(ids).size === ids.length && ids.length === review.selected_candidate_ids.length && ids.every(id => review.selected_candidate_ids.includes(id)));
@@ -108,9 +109,10 @@ export function IntegrationReview({courseId, review, onReviewChange, disabled, p
       </details>}
       {proposal && <>
       <p className="text-xs text-muted-foreground">{withdrawal ? "Review withdrawal of the current offering before confirming removal." : "Review the exact targets and chapter relationships before publishing. Draft changes leave the previous offering available."}</p>
-      <ul aria-label="Curriculum targets" className="space-y-1">{proposal.items.slice(0,5).map((item,index) => <li key={`${item.candidate_id}:${index}`} className="rounded-md border px-3 py-2"><p className="truncate font-medium">{item.target.label}</p><p className="truncate text-xs">{item.chapters.map(chapter=>chapter.title).join(", ") || "No chapter relationship"}</p></li>)}</ul>
-      <Button size="sm" variant="outline" onClick={()=>{setPage(1);setOpen(true);}}>{proposal.items.length > 5 ? `Review all ${proposal.items.length}` : "Review target details"}</Button>
+      <ul aria-label="Curriculum targets" className="space-y-1">{proposal.items.slice(0,visibleTargetLimit).map((item,index) => <li key={`${item.candidate_id}:${index}`} className="rounded-md border px-3 py-0.5"><p className="truncate font-medium">{item.target.label}</p><p className="truncate text-xs">{item.chapters.map(chapter=>chapter.title).join(", ") || "No chapter relationship"}</p></li>)}</ul>
+      <Button size="sm" variant="outline" onClick={()=>{setPage(1);setOpen(true);}}>{proposal.items.length > visibleTargetLimit ? `Review all ${proposal.items.length}` : "Review target details"}</Button>
       <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[85dvh] overflow-y-auto" maxWidthClassName="sm:max-w-2xl"><DialogHeader><DialogTitle>Curriculum fit details</DialogTitle><DialogDescription>Exact targets, chapter relationships and original supporting postings.</DialogDescription></DialogHeader>
+      {!!proposal.omissions.length && <section aria-label="Evidence limitations" className="space-y-1 text-xs">{proposal.omissions.map((omission, index) => <p key={index}>{omission}</p>)}</section>}
       {proposal.items.slice((page - 1) * 10, page * 10).map((item,index) => (
         <div key={`${item.candidate_id}:${index}`} className="space-y-1 rounded-md border p-2">
           <p className="font-medium">{item.target.label}</p>
@@ -130,7 +132,7 @@ export function IntegrationReview({courseId, review, onReviewChange, disabled, p
       <div className="flex justify-between"><Button size="sm" disabled={page===1} onClick={()=>setPage(page-1)}>Previous page</Button><span>Page {page} of {Math.max(1,Math.ceil(proposal.items.length/10))}</span><Button size="sm" disabled={page*10>=proposal.items.length} onClick={()=>setPage(page+1)}>Next page</Button></div>
       </DialogContent></Dialog>
       {!!missing.length && <p role="alert" className="text-xs text-destructive">Needs supporting job posting for {missing.length} curriculum targets. Review target details before approval.</p>}
-      {proposal.omissions.map((omission, index) => <p key={index} className="text-xs">{omission}</p>)}
+      {!!proposal.omissions.length && <p className="text-xs"><span>{proposal.omissions[0]}</span>{proposal.omissions.length > 1 && <span> · {proposal.omissions.length - 1} more evidence limitations in target details</span>}</p>}
       {!current && <p className="text-xs text-destructive">{withdrawal ? "Review revisions changed or withdrawal review is invalid. Prepare withdrawal again." : "Review revisions changed. Confirm the current selection for a new mapping review."}</p>}
       {!withdrawal && !!proposal.omissions.length && !proposal.omissions_acknowledged && <p className="text-xs text-destructive">Acknowledge the current evidence omissions before approval.</p>}
       <Button size="sm" disabled={!canApprove || disabled || busy || !!success} onClick={() => void approve()}>{busy ? "Approving…" : withdrawal ? "Withdraw approval" : "Approve and publish"}</Button>
