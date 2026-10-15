@@ -45,7 +45,7 @@ from .thread_state_service import ThreadLease
 # A complete oversized input abstains rather than silently truncating a catalog.
 MAX_INPUT_BYTES = 200_000
 MAX_OUTPUT_BYTES = 200_000
-PROMPT_VERSION = "2"
+PROMPT_VERSION = "3"
 SCORING_BATCH_SIZE = 2
 POLICY_VERSION = "1"
 
@@ -406,9 +406,15 @@ class SkillPriorityService:
         responsibilities = [
             {"id": key, **value} for key, value in inputs["passages"].items()
         ]
+        # Short aliases prevent lossy copying of long immutable hashes. Only
+        # these exact request-local IDs may round-trip; storage keeps originals.
+        alias_to_group = {f"G{index}": group for index, group in enumerate(groups, 1)}
+        transport_groups = [
+            {**group, "group_id": alias} for alias, group in alias_to_group.items()
+        ]
         payload = {
             "phase": "choose",
-            "groups": groups,
+            "groups": transport_groups,
             "responsibilities": responsibilities,
             "catalog": [
                 {"soc_code": item.soc_code, "title": item.title} for item in catalog
@@ -420,7 +426,9 @@ class SkillPriorityService:
                 payload, SKILL_PRIORITY_CONTEXT_PROMPT, adapter, deadline, slots
             )
             allowed = {item.soc_code for item in catalog}
-            self._check_context_decisions(chosen, groups, allowed, verified_postings)
+            self._check_context_decisions(
+                chosen, transport_groups, allowed, verified_postings
+            )
             proposed = {item.group_id: item.soc_code for item in chosen}
             codes = list({item.soc_code for item in chosen if item.soc_code})
             if not codes:
@@ -438,7 +446,7 @@ class SkillPriorityService:
             checked = await self._request(
                 {
                     "phase": "validate",
-                    "groups": groups,
+                    "groups": transport_groups,
                     "responsibilities": responsibilities,
                     "proposals": [item.model_dump(mode="json") for item in chosen],
                     "occupations": [
@@ -452,20 +460,16 @@ class SkillPriorityService:
             )
             self._check_context_decisions(
                 checked,
-                groups,
+                transport_groups,
                 {item.soc_code for item in occupations},
                 verified_postings,
             )
             titles = {item.soc_code: item.title for item in occupations}
             by_group = {item.group_id: item for item in checked}
             contexts = []
-            for group in groups:
-                item = by_group[group["group_id"]]
-                code = (
-                    item.soc_code
-                    if item.soc_code == proposed[group["group_id"]]
-                    else None
-                )
+            for alias, group in alias_to_group.items():
+                item = by_group[alias]
+                code = item.soc_code if item.soc_code == proposed[alias] else None
                 contexts.append(
                     PriorityContext(
                         group_id=group["group_id"],
@@ -684,6 +688,23 @@ class SkillPriorityService:
                     decisions = await self._request(
                         {
                             "phase": "score",
+                            "scoring_rubric": {
+                                "1": "Little importance to the role.",
+                                "2": "Supporting or secondary to the role's primary responsibilities.",
+                                "3": "Important to the role.",
+                                "4": "Central to multiple primary responsibilities.",
+                                "5": "Essential: core work cannot be performed without this capability.",
+                            },
+                            "evidence_consistency_rules": [
+                                "An equivalent association requires the same complete action, object, outcome and scope as the candidate competency, compared by meaning.",
+                                "Related concepts or partial overlap are broader/related associations, not an official rating; shared words or tools do not establish equivalence.",
+                                "For basis ai_estimate, cite only broader/related anchors, never equivalent associations, and keep direct_reference_id null.",
+                                "For basis onet, cite exactly one equivalent direct reference for the complete competency and return its ID, never an official numeric value.",
+                                "A missing or suppressed measurement is distinct from no suitable direct descriptor. Do not reconstruct that withheld measurement; only independently supported specific competencies may use other valid broader/related anchors.",
+                                "Assess importance to the whole validated occupation, not urgency in one posting. Use independent occupation context and anchors to assess the specific capability.",
+                                "Do not escalate a skill merely because a posting mentions it. Mention or use does not itself establish essential importance, and core technologies do not all deserve 5.",
+                                "When the evidence cannot establish defensible occupational importance, return unavailable rather than choosing a high rating.",
+                            ],
                             "release": assessment.release,
                             "pairs": [pair.model_dump(mode="json") for pair in batch],
                             "candidates": [

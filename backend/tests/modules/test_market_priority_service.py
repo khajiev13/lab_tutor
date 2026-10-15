@@ -851,7 +851,7 @@ def test_agent_model_identity_is_saved_and_invalidates_cached_assessment(
     monkeypatch.setenv("LAB_TUTOR_LLM_MODEL", "different-extraction-model")
     first = assess(case)
     assert first.model_id == "configured-agent-model"
-    assert first.prompt_version == "2"
+    assert first.prompt_version == "3"
     count = len(case.model.calls)
     assert assess(case) == first
     assert len(case.model.calls) == count
@@ -885,3 +885,98 @@ def test_two_pair_batches_account_for_all_candidates_and_request_concise_evidenc
             "minimal sufficient reference and passage IDs"
             in payload["response_instruction"]
         )
+
+
+def test_context_group_aliases_round_trip_both_phases_to_immutable_saved_ids(
+    service_case,
+):
+    case = service_case
+    with case.factory() as db:
+        from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+
+        groups = MarketReviewRepository(db).load_priority_inputs(case.scope)["groups"]
+    result = assess(case)
+    assert result.status == "ready"
+    assert result.prompt_version == "3"
+    choose = next(call for call in case.model.calls if call["phase"] == "choose")
+    validate = next(call for call in case.model.calls if call["phase"] == "validate")
+    assert [group["group_id"] for group in choose["groups"]] == ["G1", "G2", "G3"]
+    assert validate["groups"] == choose["groups"]
+    assert {row["group_id"] for row in validate["proposals"]} == {"G1", "G2", "G3"}
+    assert {context.group_id for context in result.contexts} == {
+        group["group_id"] for group in groups
+    }
+    persisted = case.reload().priority_assessment["contexts"]
+    assert {context["group_id"] for context in persisted} == {
+        group["group_id"] for group in groups
+    }
+    for group in groups:
+        context = next(
+            item for item in result.contexts if item.group_id == group["group_id"]
+        )
+        assert {str(value) for value in context.posting_ids} == set(
+            group["posting_ids"]
+        )
+        assert group["group_id"] not in json.dumps(choose)
+        assert group["group_id"] not in json.dumps(validate)
+
+
+@pytest.mark.parametrize("phase", ["choose", "validate"])
+@pytest.mark.parametrize("invalid", ["foreign", "duplicate", "original_id"])
+def test_unknown_or_duplicate_context_aliases_are_rejected_without_repair(
+    service_case, phase, invalid
+):
+    case = service_case
+    with case.factory() as db:
+        from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+
+        saved_id = MarketReviewRepository(db).load_priority_inputs(case.scope)[
+            "groups"
+        ][0]["group_id"]
+    original = case.model.ainvoke
+
+    async def damaged_alias(messages, *, config):
+        response = await original(messages, config=config)
+        if json.loads(messages[1].content)["phase"] == phase:
+            records = json.loads(response.content)
+            records[0]["group_id"] = {
+                "foreign": "G999",
+                "duplicate": records[1]["group_id"],
+                "original_id": saved_id,
+            }[invalid]
+            response.content = json.dumps(records)
+        return response
+
+    case.model.ainvoke = damaged_alias
+    result = assess(case)
+    assert result.status == "unavailable"
+    assert len(result.results) == 24
+    assert all(item.value is None for item in result.results)
+    assert all(item.soc_code is None for item in result.contexts)
+    assert all(item.group_id.startswith("group:") for item in result.contexts)
+    assert not any(call["phase"] == "score" for call in case.model.calls)
+
+
+def test_scoring_payload_states_general_rubric_and_evidence_consistency(service_case):
+    assert assess(service_case).status == "ready"
+    for payload in service_case.model.calls:
+        if payload["phase"] != "score":
+            continue
+        assert payload["scoring_rubric"] == {
+            "1": "Little importance to the role.",
+            "2": "Supporting or secondary to the role's primary responsibilities.",
+            "3": "Important to the role.",
+            "4": "Central to multiple primary responsibilities.",
+            "5": "Essential: core work cannot be performed without this capability.",
+        }
+        rules = " ".join(payload["evidence_consistency_rules"])
+        assert "same complete action, object, outcome and scope" in rules
+        assert "partial overlap" in rules and "not an official rating" in rules
+        assert "ai_estimate" in rules and "never equivalent" in rules
+        assert (
+            "missing or suppressed measurement" in rules
+            and "no suitable direct descriptor" in rules
+        )
+        assert "Do not escalate" in rules and "mentions" in rules
+        assert "whole validated occupation" in rules
+        assert "independent occupation context and anchors" in rules
