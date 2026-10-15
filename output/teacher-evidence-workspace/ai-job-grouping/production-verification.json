@@ -1,0 +1,50 @@
+{
+  "source_sha": "1195a916ddb4844f35a3b0d030ab37c75ae938c5",
+  "ready": true,
+  "changed_backend_source_verified": true,
+  "public_health": 200,
+  "frontend_unchanged": true,
+  "saved_course_unchanged": true,
+  "documents_preserved": 38,
+  "saved_selections_preserved": 5,
+  "live_sources": {
+    "seconds": 2.14,
+    "outcomes": {
+      "indeed": {
+        "status": "skipped",
+        "received_count": 0,
+        "usable_count": 0,
+        "warnings": []
+      },
+      "linkedin": {
+        "status": "success",
+        "received_count": 2,
+        "usable_count": 2,
+        "warnings": []
+      },
+      "headhunter": {
+        "status": "success",
+        "received_count": 2,
+        "usable_count": 2,
+        "warnings": []
+      }
+    },
+    "jobs": 4,
+    "jobs_with_original_links": 4
+  },
+  "live_role_groups": {
+    "seconds": 4.55,
+    "groups": {
+      "Data Engineer": [
+        "Data Engineer",
+        "Lead Data Software Engineer",
+        "Junior Data Engineer/\u041c\u043b\u0430\u0434\u0448\u0438\u0439 \u0438\u043d\u0436\u0435\u043d\u0435\u0440 \u0434\u0430\u043d\u043d\u044b\u0445"
+      ],
+      "Full Stack Engineer": [
+        "Founding Full-Stack Engineer"
+      ]
+    },
+    "every_posting_retained": true,
+    "original_links_retained": true
+  }
+}

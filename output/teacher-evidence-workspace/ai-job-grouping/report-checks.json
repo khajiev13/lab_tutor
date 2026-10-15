@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "width": 1440,
+      "no_horizontal_overflow": true,
+      "images_loaded": true,
+      "relative_links_exist": true
+    },
+    {
+      "width": 390,
+      "no_horizontal_overflow": true,
+      "images_loaded": true,
+      "relative_links_exist": true
+    }
+  ],
+  "runtime_errors": []
+}
