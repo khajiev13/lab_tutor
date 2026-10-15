@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "layouts": [
+    {
+      "width": 1440,
+      "all_tabs_visible_without_page_overflow": true,
+      "diagram_loaded": true
+    },
+    {
+      "width": 390,
+      "all_tabs_visible_without_page_overflow": true,
+      "diagram_loaded": true
+    }
+  ],
+  "exact_prompts": true,
+  "copy_buttons": true,
+  "keyboard_tabs": true,
+  "accepted_and_rejected_examples_preserve_all_four_records": true,
+  "original_posting_links": 4,
+  "relative_links_exist": true,
+  "runtime_errors": [],
+  "remote_requests": []
+}

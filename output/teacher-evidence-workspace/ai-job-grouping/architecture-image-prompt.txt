@@ -1,0 +1,75 @@
+Use case: infographic-diagram
+Asset type: technical implementation architecture diagram for the existing Lab Tutor codebase. Generate a single crisp 16:9 image, preferably 1920x1080.
+
+Primary request: Show ONLY the implemented job-role grouping area of the Market Demand Analyst LangGraph swarm. This is an implementation map, not a narrated business process or a generic linear pipeline. A central fetch_jobs tool connects parallel job sources, an AI grouping helper, shared state, PostgreSQL and the existing Skill Finder / teacher decision.
+
+Visual constraints: pure WHITE background everywhere; every card, sub-card, cylinder and container white-filled with thin BLACK outlines. Absolutely no gray or colored fills, gradients, shadows, textures or decorative blobs. Crisp BLACK text and arrows. Use readable Times New Roman-style serif typography, with code names also in a clear serif typeface. Monochrome outline robot, person and database icons only. No title, footer, legend, numbered sections or explanatory bottom arrows. Generous whitespace, large text, no clipping. Solid arrows for actual control/tool calls; dashed arrows for state/database read/write. Labels sit in whitespace and never overlap boxes or arrows. No decorative extra connections.
+
+Composition: balanced hub-and-spoke, three columns. Top-center is the SKILL FINDER agent. Top-left is the existing TEACHER decision. Middle-center is the fetch_jobs tool hub. Middle-left is concurrent source collection with three source branches. Middle-right is one large AI grouping helper container, with its model and validation as two internal components. Bottom-center is shared tool_store state. Bottom-left is a PostgreSQL cylinder. The right helper can extend down into the bottom-right area. Keep all content inside generous margins.
+
+Exact components and text:
+A. Top-center white agent card, small robot near large uppercase heading "SKILL FINDER".
+Small global framework text near this card: "LangGraph · create_react_agent".
+Under the heading write: SYSTEM_PROMPT = "You are the Skill Finder..."
+Thin black divider. Wrench icon and "Relevant tools", then black bullets:
+"fetch_jobs()"
+"select_jobs_by_group()"
+"start_extraction()"
+
+B. Top-left small white card with person icon, "TEACHER", "Choose job groups".
+Connect Skill Finder to Teacher with solid arrow labeled "show groups".
+Connect Teacher to Skill Finder with a separate solid return arrow labeled "confirm selection". Clearly distinguish both directions.
+
+C. Middle-center hub white card:
+"fetch_jobs()"
+"tools.py"
+Thin divider, then:
+"collect_sources(...)"
+"group_jobs_by_title(jobs)"
+Skill Finder connects downward to this hub with a thin solid arrow labeled "tool call".
+
+D. Middle-left white collection container:
+"JobSourceService.fetch()"
+"ThreadPoolExecutor · up to 8 workers"
+Inside, clearly show three parallel white outlined source blocks labelled "LinkedIn", "Indeed", "HeadHunter" branching from a common request connector and joining back to the common result connector. Use neat thin black fan-out / fan-in arrows. One compact text line beneath them: "Unavailable sources → skipped"
+Connect central fetch_jobs hub to the collection container with a thin solid arrow labelled "collect".
+Connect collection back to hub with a distinct thicker solid arrow labelled "original postings".
+This container is a provider service, not an LLM agent; no robot or system prompt here.
+
+E. Middle/right large white helper container:
+"group_jobs_by_title(jobs)"
+"job_groups.py"
+Inside upper part, a white model card:
+"ChatOpenAI"
+"system: _GROUPING_PROMPT"
+"human: job_id + title + full description"
+"returns: [{name, job_ids}]"
+A thin solid arrow down inside the container goes to the lower component:
+"_validated_groups()"
+"Every posting ID exactly once"
+"No missing or invented IDs"
+"Name → original list indices"
+At the bottom of this helper container, within its border:
+"Failure → keep original postings separate"
+Connect fetch_jobs hub to helper with solid arrow labelled "titles + descriptions".
+Connect helper back to fetch_jobs hub with a separate solid arrow labelled "validated groups".
+This is one bounded model call inside a tool, not another autonomous swarm agent; do NOT label it as an agent or add tools to the model.
+
+F. Bottom-center white shared-state card:
+"tool_store · ContextVar"
+"fetched_jobs"
+"job_groups"
+"selected_jobs"
+Dashed arrow from fetch_jobs hub down to this state card, labeled "write originals + groups".
+Dashed connection from Skill Finder to shared state, routed around the hub rather than through its box, labeled "read / update".
+The state keys are references to original posting objects; do not show the AI generating URLs.
+
+G. Bottom-left white PostgreSQL cylinder:
+"POSTGRESQL"
+"MarketVacancySnapshot"
+"MDAThreadState"
+Dashed arrow from central fetch_jobs hub to database, routed cleanly through whitespace, labelled "snapshot writes".
+Dashed double-headed arrow between shared state and PostgreSQL, labelled "save / restore".
+Do not draw a model-to-database arrow: the model does not own evidence or persistence.
+
+Only these components and actual connections. The full exact grouping prompt will be presented as selectable text in the surrounding HTML, so do not cram the full prompt into the image. No O*NET, Neo4j, fabricated components, later curriculum stages, or extra agents in this focused diagram.

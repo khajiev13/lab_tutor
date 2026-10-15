@@ -1,0 +1,12 @@
+{
+  "source_sha": "1195a916ddb4844f35a3b0d030ab37c75ae938c5",
+  "job_grouping_prompt": {
+    "path": "backend/app/modules/marketdemandanalyst/job_groups.py",
+    "line": 10
+  },
+  "skill_merge_prompt": {
+    "path": "backend/app/modules/marketdemandanalyst/extractor.py",
+    "line": 437
+  },
+  "docs_only": true
+}
