@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Skill Priority Analyst — implementation plan</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#202823;background:#fff;font-synthesis:none}*{box-sizing:border-box}body{margin:0}main{max-width:960px;margin:auto;padding:32px 28px 56px}.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#627067;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}h1{font-size:clamp(30px,4.3vw,42px);line-height:1.12;letter-spacing:-.035em;margin:14px 0 12px}.lead{font-size:17px;line-height:1.55;max-width:770px;margin:0 0 18px}a{color:#146b4c;text-underline-offset:3px}.example{display:flex;align-items:center;justify-content:space-between;gap:15px;border:1px solid #d7ded8;border-radius:10px;padding:13px 17px;margin:18px 0 9px}.example p{margin:0;font-size:14px;line-height:1.65}.example strong{font-weight:600}.example .values{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.badge{border:1px solid #cbd6ce;border-radius:6px;padding:4px 9px;font-size:12px;white-space:nowrap}.note{font-size:12px;color:#627067;line-height:1.6;margin:0 0 22px}h2{font-size:17px;line-height:1.4;margin:22px 0 8px}h3{font-size:16px}.section-note{font-size:12px;font-weight:400;color:#627067;margin-left:9px}.steps{border-bottom:1px solid #d7ded8}.step{border-top:1px solid #d7ded8}.step>summary{display:flex;align-items:center;gap:15px;padding:13px 0;list-style:none;cursor:pointer}.step>summary::-webkit-details-marker{display:none}.step>summary::after{content:'+';margin-left:auto;align-self:center;font-size:23px;font-weight:300;color:#627067;padding:0 3px}.step[open]>summary::after{content:'−'}.number{font:12px/1 ui-monospace,SFMono-Regular,Consolas,monospace;color:#627067;width:26px;flex:none}.summary-text{display:flex;flex-direction:column;gap:4px}.summary-text strong{font-size:16px;letter-spacing:-.01em}.summary-text>span{font-size:13px;line-height:1.45;color:#627067}.detail-body{padding:2px 0 18px 41px;min-width:0;font-size:14px;line-height:1.65}.detail-body p{margin:10px 0}.detail-body h2{margin-top:24px}.detail-body ul,.detail-body ol{padding-left:22px}.detail-body li{margin:8px 0}.detail-body code{font: .87em/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.detail-body pre{white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid #d7ded8;border-radius:8px;padding:14px;margin:14px 0;line-height:1.6}.detail-body pre code{font-size:12px}.detail-body blockquote{margin:12px 0;border-left:2px solid #9baa9f;padding-left:15px;color:#536259}.check{font-size:17px;color:#627067}.table-wrap{overflow-x:auto;max-width:100%;margin:14px 0}table{border-collapse:collapse;width:100%;min-width:540px;font-size:13px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #d7ded8;padding:10px 12px 10px 0}th{font-weight:650}.acceptance{margin:20px 0 24px;padding:0 0 0 14px;border-left:3px solid #273b2f;font-size:13px;line-height:1.65}.acceptance p{margin:0}.technical{border-top:1px solid #e2e7e3}.technical>summary{font-size:13px;padding:13px 0;cursor:pointer;line-height:1.4}.technical .detail-body{padding-left:0}.technical-title{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#627067;margin:28px 0 12px}footer{border-top:1px solid #d7ded8;padding-top:16px;margin-top:13px;font-size:12px;line-height:1.7;color:#627067}footer p{margin:6px 0}a:focus-visible,summary:focus-visible,.table-wrap:focus-visible{outline:3px solid #39795b;outline-offset:4px}body,summary,p,li,td{overflow-wrap:break-word}@media(max-width:600px){main{padding:24px 17px 36px}.lead{font-size:16px}.example{display:block;padding:12px 14px}.example .values{justify-content:flex-start;margin-top:9px}.step>summary{gap:9px;padding:14px 0}.number{width:24px}.summary-text strong{font-size:15px}.summary-text>span{font-size:12px}.detail-body{padding-left:0}.section-note{display:block;margin:3px 0 0}.eyebrow{font-size:10px}.note{margin-bottom:20px}}@media print{main{max-width:none;padding:0}details>.detail-body{display:block!important}summary{break-after:avoid}pre{font-size:10px}.table-wrap{overflow:visible}table{min-width:0}.example{break-inside:avoid}}
+</style>
+</head>
+<body><main>
+<header>
+<div class="eyebrow"><span>Lab Tutor · implementation plan</span><span>15 October 2026 · Ready for review</span></div>
+<h1>Skill importance, kept simple.</h1>
+<p class="lead">Add O*NET ratings and clearly labeled AI estimates to the existing skill checklist. The analyst works automatically before the teacher selects skills.</p>
+<div class="example" aria-label="Illustrative importance labels"><p><strong>One small label beside each skill</strong><br>Details stay in the existing job-evidence view.</p><div class="values"><span class="badge">4.2/5 · O*NET</span><span class="badge">4/5 · AI estimate</span></div></div>
+<p class="note">Illustrative values. Categories use an average; missing or partial evidence is labeled. The four teacher decisions and original posting links stay intact.</p>
+</header>
+<section aria-labelledby="steps-title">
+<h2 id="steps-title">Six implementation steps <span class="section-note">Open any step for files, tests and acceptance checks.</span></h2>
+<div class="steps"><details class="step" id="step-1"><summary><span class="number" aria-hidden="true">01</span><span class="summary-text"><strong>Save the assessment</strong><span>Store guidance separately so teacher choices stay intact.</span></span></summary><div class="detail-body"><p><strong>Deliverable:</strong> Owned, revision-checked assessment persistence; old analyses still load.</p>
+<p><strong>Files:</strong> Step 1 file-map row. Add the model column beside <code>MarketAnalysisRun.candidate_manifest</code>; extend the existing startup upgrade mechanism in <code>backend/main.py</code> rather than introducing a migration framework.</p>
+<p><strong>Interfaces:</strong></p>
+<ul>
+<li>
+<p>Produce the Shared Contract DTOs.</p>
+</li>
+<li>
+<p><code>MarketReviewRepository.load_priority_inputs(scope: PriorityScope) -&gt; dict[str, Any]</code>: require the active owned run and expected revision. Return keys <code>candidates</code> (detached <code>SkillCandidate</code> DTOs), <code>categories</code> (<code>SkillCategory</code> DTOs), <code>groups</code> (group ID, label and snapshot-ID membership), <code>passages</code> (ID-keyed snapshot/offset/text records), <code>posting_hashes</code> (snapshot ID to content hash), <code>configured_release</code>, <code>prior_assessment</code>, and <code>thread_id</code>. Use the current owned thread snapshot, not client-supplied job IDs. The service closes this read transaction before external work.</p>
+</li>
+<li>
+<p><code>MarketReviewRepository.save_priority_assessment(scope: PriorityScope, assessment: PriorityAssessment, *, expected_assessment_id: UUID | None) -&gt; None</code>: compare-and-set under the run row lock; enforce active run/revision and current source hashes; flush without changing teacher/manifest revisions. Service owns commit/rollback and active lease checks.</p>
+</li>
+<li>
+<p><code>backend/main.py:_ensure_market_priority_assessment(conn: Connection) -&gt; None</code>: idempotent nullable JSONB addition, called by <code>_ensure_sql_schema_upgrades()</code>.</p>
+</li>
+<li>
+<p>Test helper <code>seed_priority_case(db_session, client, headers, *, skill_count: int = 5)</code> in <code>backend/tests/market_priority_fixtures.py</code>: build on <code>seed_review</code>, with real saved passages, groups, owned scope, reference rows and a baseline of teacher choices/revisions. Return named fields used by the tests; do not mock SQL.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>1. Write failing storage tests.</strong> Cover absent/null legacy assessments, foreign ownership, inactive run, stale candidate revision, competing assessment IDs and idempotent upgrade on an old-shaped table in an isolated test schema. Snapshot all selected/excluded IDs and three revision numbers before writing.</p>
+</li>
+</ul>
+<pre><code class="language-python">def test_assessment_preserves_teacher_decisions(case):
+    case.repo.save_priority_assessment(
+        case.scope, case.assessment, expected_assessment_id=None
+    )
+    case.repo.commit()
+    assert case.reload().priority_assessment[&quot;assessment_id&quot;] == str(case.assessment.assessment_id)
+    assert case.teacher_decisions() == case.before
+</code></pre>
+<p>The <code>case</code> fixture wraps <code>seed_priority_case</code> and exposes <code>reload()</code> and <code>teacher_decisions()</code> using a fresh SQL session.</p>
+<ul>
+<li><span class="check" aria-label="Not started">□</span> <strong>2. Run red:</strong> <code>priority_btest tests/modules/test_market_priority_storage.py</code>. Expected: new storage/schema behavior fails before implementation.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>3. Implement the column, DTOs and repository interfaces.</strong> Derive stable group IDs from saved membership, not semantic title normalization. Allocate request-local passage IDs from validated snapshot/offset records; provider tags alone do not satisfy the estimate's job-passage requirement.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>4. Run green:</strong> repeat the storage suite; also run <code>priority_btest tests/modules/test_market_skill_review.py tests/test_main.py</code>. Expected: all pass, old rows and ownership protections preserved.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>5. Commit only Step 1 files:</strong> <code>git commit -m &quot;Add durable skill priority assessments&quot;</code> after explicit file staging and staged-diff review.</li>
+</ul>
+</div></details>
+<details class="step" id="step-2"><summary><span class="number" aria-hidden="true">02</span><span class="summary-text"><strong>Calculate honest scores</strong><span>Use O*NET values, labeled estimates and simple category averages.</span></span></summary><div class="detail-body"><p><strong>Deliverable:</strong> Reproducible averages and honest labels, independent of the model.</p>
+<p><strong>Files:</strong> Create <code>B/priority.py</code>, <code>backend/tests/modules/test_market_priority_policy.py</code>; extend the Step 1 fixtures.</p>
+<p><strong>Interfaces:</strong></p>
+<ul>
+<li>
+<p><code>validate_priority_decisions(decisions: list[PriorityDecision], *, pairs: list[PriorityPair], references: list[OnetEvidence], passages: dict[str, dict[str, Any]], candidates: list[SkillCandidate]) -&gt; list[PriorityResult]</code>.</p>
+</li>
+<li>
+<p><code>build_priority_summaries(candidates: list[SkillCandidate], categories: list[SkillCategory], contexts: list[PriorityContext], results: list[PriorityResult]) -&gt; PrioritySummarySet</code>.</p>
+</li>
+<li>
+<p><code>priority_input_fingerprint(inputs: dict[str, Any], contexts: list[PriorityContext], *, release: str | None, model_id: str, prompt_version: str, policy_version: str) -&gt; str</code>.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>1. Write failing policy tests.</strong> Use direct official 4.5/3.5 values, one estimate 4 and two unavailable members. Cover duplicate SOCs, duplicate candidates, mixed direct/estimated roles, partial roles, one-member/empty categories, out-of-range/boolean/NaN values, foreign references/passages, conflicting duplicate decisions and IM versus LV.</p>
+</li>
+</ul>
+<pre><code class="language-python">def test_partial_category_mean_does_not_zero_fill(policy_case):
+    result = build_priority_summaries(**policy_case)
+    category = result.categories[&quot;data&quot;]
+    assert category.value == 4.0
+    assert category.scored_count == 3 and category.eligible_count == 5
+    assert category.estimated_count == 1
+    assert category.basis == &quot;ai_estimate&quot; and not category.complete
+</code></pre>
+<p>Define <code>policy_case</code> in this test module using Step 1 DTOs. Add <code>test_unknown_positions_remain_fixed</code>: input order <code>[unknown, low, partial, high]</code> must become <code>[unknown, high, partial, low]</code>. <code>test_checkbox_changes_do_not_change_fingerprint</code> must keep the hash unchanged; passage/category/group/model/policy changes must change it.</p>
+<ul>
+<li><span class="check" aria-label="Not started">□</span> <strong>2. Run red:</strong> <code>priority_btest tests/modules/test_market_priority_policy.py</code>. Expected: required arithmetic/validation behavior fails.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>3. Implement the three pure functions.</strong> Validate exact pair coverage and replace rejected/missing decisions with unavailable outcomes. Retrieve official numbers from the provided validated catalog only. Compute means over unique keys, round display/sort values to one decimal using decimal half-up rounding, and sort only completely assessed entries into their previous slots. Break ties by distinct supporting posting count, then existing order. Use full stored precision for averaging. Fingerprints exclude checkbox choices and contain no raw credentials.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>4. Run green:</strong> policy and storage suites together. Expected: invalid evidence cannot produce a score; estimates and partial coverage remain distinguishable; duplicates never increase importance.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>5. Commit:</strong> <code>git commit -m &quot;Calculate evidence-backed skill priority summaries&quot;</code> with only Step 2 files staged.</li>
+</ul>
+</div></details>
+<details class="step" id="step-3"><summary><span class="number" aria-hidden="true">03</span><span class="summary-text"><strong>Run the analyst</strong><span>Assess every skill, with a 60-second limit and a usable result on failure.</span></span></summary><div class="detail-body"><p><strong>Deliverable:</strong> All eligible skills receive a score or an explicit unavailable reason within the deadline.</p>
+<p><strong>Files:</strong> Step 3 file-map row. Add <code>market_skill_priority_enabled: bool = False</code> with environment name <code>LAB_TUTOR_MARKET_SKILL_PRIORITY_ENABLED</code> to existing settings. Copy the two approved prompts exactly from the spec; no new general-purpose agent framework.</p>
+<p><strong>Interfaces:</strong></p>
+<ul>
+<li>
+<p><code>OccupationReferenceRepository.list_priority_occupations(version: str) -&gt; list[OccupationChoice]</code>: full ordered imported catalog, no keyword filtering or hidden row cap. Reuse <code>get_occupations</code> and <code>get_evidence</code> for selected descriptions/descriptor rows.</p>
+</li>
+<li>
+<p><code>SkillPriorityService(session_factory=SessionLocal, llm_factory=_get_extraction_llm)</code> and <code>async assess(scope: PriorityScope, lease: ThreadLease) -&gt; PriorityAssessment</code> in <code>B/priority_service.py</code>. The existing factory already uses zero retries; call its async interface with a per-request timeout and callbacks disabled.</p>
+</li>
+<li>
+<p><code>get_skill_priority_service() -&gt; SkillPriorityService</code> for graph-side construction. No new route requires injection.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>1. Write failing service tests with a controlled model transport and real SQL.</strong> Include at least 24 candidates; two different SOCs plus two groups mapping to the same SOC; non-English job wording; an empty catalog; an incompatible occupation description; unavailable IM; a tag without a verified passage; and a jobs-only configuration. Reuse the exact accepted prompts in test payload inspection.</p>
+</li>
+</ul>
+<pre><code class="language-python">async def test_deadline_keeps_results_and_accounts_for_every_pair(service_case):
+    result = await service_case.service.assess(service_case.scope, service_case.lease)
+    assert len(result.results) == service_case.expected_pairs
+    assert result.status == &quot;partial&quot;
+    assert service_case.model.maximum_in_flight &lt;= 2
+    assert max(service_case.model.scoring_batch_sizes) &lt;= 8
+    assert service_case.model.maximum_timeout &lt;= 20
+    assert service_case.elapsed_seconds &lt;= 60
+</code></pre>
+<p>Use an injected/fake monotonic clock or patched clock for timing tests; do not sleep 60 seconds. Add <code>test_same_terminal_assessment_makes_no_model_calls</code>, <code>test_late_completion_cannot_overwrite_new_assessment</code>, <code>test_purge_during_inference_discards_result</code>, and <code>test_empty_candidates_make_no_model_call</code>.</p>
+<ul>
+<li><span class="check" aria-label="Not started">□</span> <strong>2. Run red:</strong> <code>priority_btest tests/modules/test_market_priority_service.py</code>. Expected: orchestration and deadline contracts fail.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>3. Implement <code>assess</code>.</strong> Read and detach owned inputs, pin/reuse the release, choose then validate occupation contexts, build one pair per candidate/distinct relevant SOC plus unmapped-group outcomes, then score batches. Never hold a SQL transaction across model calls. Use one 60-second monotonic budget covering context resolution and scoring, an async semaphore of two, batch size eight and bounded provider calls. No silent first-N cap; oversized/incomplete scans are unavailable. Each estimate requires a valid rated O*NET anchor and a verified relevant job passage. Do not copy a broad score to every technology.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>4. Persist and recover correctly.</strong> Save the running envelope, completed batches and terminal result through Step 1 CAS under the same live lease. Recheck source hashes/ownership and the existing lease connection's ownership before each write; an in-memory active flag alone cannot authorize a write after its SQL session loses the lock. The service may finalize partial results after its model-work deadline, but cannot accept late model completions. Store the original deadline; resume does not reset it. Pin existing contexts for cache comparison; never call the model to discover whether a cached result is reusable. Cache partial/unavailable outcomes too. Disabled feature leaves storage and calls untouched.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>5. Run green:</strong> service, policy and storage suites. Expected: terminal result for every pair, no stale writes, no transaction held during model transport, no source-configuration change.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>6. Commit:</strong> <code>git commit -m &quot;Add bounded O*NET skill priority analyst&quot;</code> with only Step 3 files staged.</li>
+</ul>
+</div></details>
+<details class="step" id="step-4"><summary><span class="number" aria-hidden="true">04</span><span class="summary-text"><strong>Connect the existing flow</strong><span>Run after skill merging, before the teacher chooses skills.</span></span></summary><div class="detail-body"><p><strong>Deliverable:</strong> The analyst runs once before skill review and failure still returns a usable checklist.</p>
+<p><strong>Files:</strong> Step 4 file-map row. Extend the existing stream and state machinery; no public endpoint or replacement SSE protocol.</p>
+<p><strong>Interfaces:</strong></p>
+<ul>
+<li>
+<p><code>graph.py: async skill_priority_analyst(state: SwarmState, runtime: Runtime[WorkspaceRuntimeContext]) -&gt; Command</code> calls Step 3 and returns <code>Command(goto='skill_finder', update=...)</code>.</p>
+</li>
+<li>
+<p>Add <code>lease: ThreadLease | None = None</code> to <code>WorkspaceRuntimeContext</code>; inject the existing owned lease in <code>_sse_stream</code>, including ordinary workflow calls. Never serialize the lease into checkpoints or <code>tool_store</code>.</p>
+</li>
+<li>
+<p>Add a persisted minimal state key <code>skill_priority_status</code> with <code>assessment_id</code>, <code>status</code>, <code>deadline_at</code>, and <code>message</code>; use existing <code>state_update</code> events. Running copy is exactly <code>Assessing skill importance…</code>. The node emits start/terminal progress through the existing <code>langgraph.config.get_stream_writer()</code> pattern; changing state alone cannot stream progress during a silent model call.</p>
+</li>
+<li>
+<p>After commit, set existing <code>skill_review_change_id</code> to the assessment ID so <code>skill_review_changed</code> refreshes guidance without changing candidate/selection/publication revisions.</p>
+</li>
+<li>
+<p><code>SkillReviewService.review_from_run</code> adds the matching current assessment and summary DTOs; stale/disabled results have no sortable score. <code>get_skills_by_category</code> returns this same validated guidance.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>1. Write failing graph/route tests.</strong> Exercise the real compiled routing with controlled external model calls. Assert ordered visits to extractor, analyst and Skill Finder; one <code>ToolMessage</code> per pending <code>start_extraction</code>; no curriculum handoff before teacher confirmation; and one completed stream terminal. Simulate timeout, dropped client, reload, expired running assessment, disabled feature and a legacy run without durable IDs.</p>
+</li>
+</ul>
+<pre><code class="language-python">async def test_priority_timeout_returns_to_existing_review(flow_case):
+    events = await flow_case.run_with_priority_timeout()
+    assert flow_case.visited == [&quot;skill_extractor&quot;, &quot;skill_priority_analyst&quot;, &quot;skill_finder&quot;]
+    assert flow_case.completed_extraction_tool_calls == 1
+    assert flow_case.teacher_decisions() == flow_case.before
+    assert events[-1] == {&quot;type&quot;: &quot;stream_end&quot;, &quot;outcome&quot;: &quot;completed&quot;}
+</code></pre>
+<p>Define <code>flow_case</code> in the new flow test module around Step 1 real-SQL fixtures and existing stream helpers. Test <code>test_progress_arrives_before_delayed_model_finishes</code>, ordinary message-stream compatibility, <code>test_review_get_never_calls_model</code>, <code>test_pending_guidance_cannot_be_skipped_after_new_extraction</code>, and <code>test_removed_evidence_redacts_priority_explanation</code>.</p>
+<ul>
+<li><span class="check" aria-label="Not started">□</span> <strong>2. Run red:</strong> <code>priority_btest tests/modules/test_market_priority_flow.py</code>. Expected: the new handoff/progress/recovery assertions fail.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>3. Wire the node and read path.</strong> Change the durable extractor completion path to finish tool results then route to the analyst; preserve the legacy branch. Persist selected group membership before loading priority inputs. Add the node to graph destinations/re-entry validation. Handle restored pending status before a new skill-choice response, but never launch inference from GET/history reads. For an expired orphan attempt, return terminal unavailable guidance without re-running extraction. Do not release the outer execution lease early.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>4. Connect progress and protect evidence.</strong> Consume <code>stream_mode=['messages', 'custom']</code> in <code>_sse_stream</code>, normalizing the namespace/mode/data envelope with <code>subgraphs=True</code>. Translate only the analyst's allowlisted custom progress into the existing public <code>state_update</code>; preserve ordinary messages, keepalives and finalization. Emit only the short status, never model JSON or chain text; clear progress on success/failure. On source purge, clear affected rationale and invalidate the assessment. Scope advice-prompt changes to the stored new policy: retain teacher-only confirmation/publication rules, legacy source behavior and mandatory job-evidence acknowledgment rules. Priority-only omissions do not require acknowledgment.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>5. Run green:</strong> <code>priority_btest tests/modules/test_market_priority_flow.py tests/modules/test_market_demand_thread_state.py tests/modules/test_market_skill_pipeline.py tests/modules/test_market_vacancy_evidence.py tests/modules/test_market_skill_approval.py</code>. Expected: all pass; recovery, publication and posting retention contracts unchanged.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>6. Commit:</strong> <code>git commit -m &quot;Run skill prioritization before teacher review&quot;</code> with only Step 4 files staged.</li>
+</ul>
+</div></details>
+<details class="step" id="step-5"><summary><span class="number" aria-hidden="true">05</span><span class="summary-text"><strong>Add compact labels</strong><span>Show one small score; explain it in the existing evidence view.</span></span></summary><div class="detail-body"><p><strong>Deliverable:</strong> Clear importance labels and stable order, without another button or decision.</p>
+<p><strong>Files:</strong> Step 5 file-map row. The live page uses <code>SkillSelectionCard.tsx</code>, not the older <code>SkillChoice.tsx</code>; test the active component.</p>
+<p><strong>Interfaces:</strong></p>
+<ul>
+<li>
+<p>Mirror the public priority DTOs from Step 1 and add optional <code>AgentState.skill_priority_status</code>. Do not add a new teacher pipeline stage.</p>
+</li>
+<li>
+<p><code>selection.ts: priorityLabel(priority: CandidatePriority | CategoryPriority | null | undefined) -&gt; string | null</code> and <code>priorityOrder(review: SkillReview) -&gt; {categoryIds: string[]; candidateIdsByCategory: Record&lt;string, string[]&gt;}</code>. Formatting only: backend owns scores and ordering.</p>
+</li>
+<li>
+<p>Labels: <code>4.2/5 · O*NET</code>, <code>4/5 · AI estimate</code>, <code>4/5 · O*NET average</code>, category <code>4/5 · Estimated</code>, partial category <code>4/5 · Estimate · Partial</code>, and <code>Not assessed</code> for an unavailable result. Null priority on an older/disabled run renders no new label. Explain all aggregates as Lab Tutor summaries in the evidence view.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>1. Write failing UI tests.</strong> Create <code>SkillSelectionCard.test.tsx</code> with 24 supported skills, a category spanning several pages, one unsupported reference-only item and saved exclusions. Test official/estimated/partial labels; source links; pending progress; and no new button or approval. Extend the controller test for a priority-only refresh with unchanged review revisions and a dirty local draft.</p>
+</li>
+</ul>
+<pre><code class="language-tsx">it(&quot;preserves dirty choices and row order when guidance refreshes&quot;, async () =&gt; {
+  const view = setupPriorityReview();
+  await view.exclude(&quot;etl&quot;);
+  const before = view.visibleCandidateIds();
+  view.refreshPriorityOnly();
+  expect(view.visibleCandidateIds()).toEqual(before);
+  expect(view.controller().draft.excluded_candidate_ids).toContain(&quot;etl&quot;);
+  expect(view.confirmButtonCount()).toBe(1);
+});
+</code></pre>
+<p>Define <code>setupPriorityReview</code> locally in the new active-component test using <code>useSkillReviewController</code> and existing review fixtures. Add assertions that category selection includes off-page members and reopening/reload retains an individual exclusion. Compare available controls against the current unscored card.</p>
+<ul>
+<li><span class="check" aria-label="Not started">□</span> <strong>2. Run red:</strong> <code>priority_ftest src/features/market-demand/__tests__/SkillSelectionCard.test.tsx src/features/market-demand/__tests__/useSkillReviewController.test.tsx</code>. Expected: the label/order/refresh behavior fails.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>3. Implement the compact display.</strong> Render a small non-interactive label beside each scored skill/category using existing styling utilities. Add provenance, role, source value/estimate, coverage and limitations inside <code>SkillEvidencePanel</code>; retain original posting links. Capture order on the first render of a mounted review session, keyed by run and candidate revision, using the current assessment when available. A later assessment-ID change may update labels but must not move rows; a new session or candidate revision captures a new order. Do not recalculate priority after checkbox changes. When disabled/stale at entry, preserve the pre-existing ordering behavior.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>4. Connect progress and review refresh.</strong> Reuse <code>state_update</code> and <code>skill_review_changed</code>; the controller must accept new assessment data at unchanged selection revisions without resetting a dirty draft. Show the running copy in the existing activity area and clear it at terminal status/expired recovery. Treat the analyst as background work, not a new conversational message.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>5. Run green:</strong> <code>priority_ftest src/features/market-demand/__tests__/SkillSelectionCard.test.tsx src/features/market-demand/__tests__/selection.test.ts src/features/market-demand/__tests__/SkillEvidencePanel.test.tsx src/features/market-demand/__tests__/useSkillReviewController.test.tsx src/features/market-demand/__tests__/useAgentStream.test.tsx src/features/market-demand/__tests__/MarketDemand.test.tsx</code>. Then run frontend lint/build in the isolated container. Expected: all relevant behavior passes; exactly the existing teacher controls remain.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>6. Commit:</strong> <code>git commit -m &quot;Show compact importance guidance in skill selection&quot;</code> with only Step 5 files staged.</li>
+</ul>
+</div></details>
+<details class="step" id="step-6"><summary><span class="number" aria-hidden="true">06</span><span class="summary-text"><strong>Test with Big Data</strong><span>Check estimate quality, try the teacher flow and get a fresh review.</span></span></summary><div class="detail-body"><p><strong>Deliverable:</strong> A concise HTML acceptance report with measured results and a fresh independent review.</p>
+<p><strong>Files:</strong> Step 6 file-map row. Keep copied Big Data source material, login tokens and private manifests outside Git; report only sanitized counts/screenshots. Reuse the existing acceptance server and headless browser harness, preserving its external-model/provider guards.</p>
+<p><strong>Test environments:</strong> Keep pytest on <code>lab_tutor_test</code>. Browser fixtures require a separate <code>lab_tutor_workspace_acceptance</code> database on the isolated PostgreSQL instance and the disposable Neo4j hostname <code>lab_tutor_market_projection_test</code>, using <code>backend/tests/docker-compose.market-projection.yml</code>. Never point either harness at an application database. Live-model evaluation runs in a separate process against the isolated snapshot; the browser server continues to disable external model/provider calls. It may load validated saved evaluation results through a test-only fixture action, while controlled responses exercise timeouts and failures.</p>
+<p><strong>Interfaces:</strong></p>
+<ul>
+<li>
+<p><code>skill_priority_evaluation.py: evaluate_priority_cases(case_path: Path, output_dir: Path) -&gt; dict[str, Any]</code>, CLI <code>--cases</code> and <code>--output</code>. JSON output includes case count, occupation count, weak-control count, fabricated-reference count, mislabeled-estimate count, within-one-point rate, abstention rate, coverage and elapsed time. Refuse databases other than the isolated acceptance database; acquire the normal lease for each copied analysis. Use the real configured model only in this runner, with no source collection or production writes.</p>
+</li>
+<li>
+<p>In the same runner, <code>async assess_copied_snapshot(scope: PriorityScope, output_dir: Path) -&gt; PriorityAssessment</code>, CLI <code>--snapshot-scope</code> (private JSON file, mutually exclusive with <code>--cases</code>). Reuse Step 3's service and the normal lease; record coverage/latency separately from evaluation accuracy because real-course skills have no assumed gold scores.</p>
+</li>
+<li>
+<p>Extend the acceptance harness with <code>WORKSPACE_SCENARIO=skill-priority</code>, reusing its explicit isolated URLs and private manifest. Remove the hardcoded acceptance-container name for this scenario by accepting <code>WORKSPACE_BACKEND_CONTAINER=lab_tutor_priority_backend</code>; preserve the existing default for other scenarios.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>1. Write failing evaluation checks.</strong> Reject fewer than 20 cases, fewer than three roles, fewer than five weak controls, leaked held-out target ratings in model input, fabricated references or wrong basis labels. Make the evaluator fail below either 80% threshold. Divide correct-within-one-point estimates by all scorable target cases, counting an abstention on such a case as not correct; divide correct abstentions by all weak controls. For 15 scored targets and five weak controls, 12 accurate estimates and four correct abstentions meet both thresholds exactly. Define reviewed target provenance in the fixture; never generate gold target scores with the agent being evaluated.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>2. Run red:</strong> <code>priority_btest tests/modules/test_market_priority_evaluation.py</code>. Expected: the evaluator/threshold checks fail before implementation.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>3. Implement and run the evaluator.</strong> Use held-out official descriptor ratings as sourced human-research targets where appropriate, plus reviewed weak controls and specific-technology examples. Keep exact target ratings out of assessment inputs. Clearly separate synthetic test transport, live-model evaluation and copied real-course results. If suitable reviewed targets are unavailable, report that limit and keep the flag disabled; do not claim calibration.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>4. Run the copied Big Data scenario.</strong> Copy course context/material metadata plus the saved job-backed candidates, groups and evidence into the isolated acceptance database. Reuse the saved analysis; no document re-upload or re-extraction is needed. Record current counts rather than hardcoding the historical 38 documents/60 candidates. Run the separate live-model runner on that copy and inspect every result for evidence ownership/basis. Load the validated results in the guarded browser fixture; exercise category choice/exclusion/save/reload, original links and keyboard access. Capture headless views at 1280×720, 1440×900 and a narrow mobile viewport. Verify finite timeout, no extra teacher question or main-page scrolling, and no row movement on selection. Compare pre/post live-course fingerprints read-only; live choices/publication must not change.</p>
+</li>
+<li>
+<p><span class="check" aria-label="Not started">□</span> <strong>5. Run green and final checks.</strong> Evaluation tests and all affected backend/frontend suites must pass. Execute the evaluator command and the headless <code>skill-priority</code> scenario against the isolated services; success requires the report's acceptance predicates, not merely exit zero from a build. Run:</p>
+</li>
+</ul>
+<pre><code class="language-bash">docker exec -w /app lab_tutor_priority_backend /app/.venv/bin/ruff check .
+docker exec -w /app lab_tutor_priority_backend /app/.venv/bin/ruff format --check .
+docker exec -w /app lab_tutor_priority_frontend npm run lint
+docker exec -w /app lab_tutor_priority_frontend npm run build
+docker exec -w /app -e LAB_TUTOR_DATABASE_URL='postgresql://labtutor:labtutor@lab_tutor_priority_postgres:5432/lab_tutor_workspace_acceptance' lab_tutor_priority_backend /app/.venv/bin/python -m tests.acceptance.skill_priority_evaluation --cases tests/fixtures/skill_priority/evaluation.json --output /tmp/skill-priority-evaluation
+</code></pre>
+<p>Use the installed browser-testing runtime to run <code>frontend/e2e/teacher-evidence-workspace.cjs</code> with <code>WORKSPACE_SCENARIO=skill-priority</code>, <code>WORKSPACE_BACKEND_CONTAINER</code>, <code>WORKSPACE_UI_URL</code>, <code>WORKSPACE_API_URL</code>, <code>WORKSPACE_FIXTURE_PATH</code>, <code>WORKSPACE_SERVER_MANIFEST</code> and <code>WORKSPACE_OUTPUT_DIR</code> pointing to this isolated run. Do not install browser dependencies on the host. Store the exact resolved invocation in the acceptance receipt.</p>
+<ul>
+<li><span class="check" aria-label="Not started">□</span> <strong>6. Request a fresh-context final review.</strong> Supply the approved spec, code diff and acceptance evidence, not the implementer's conclusions. Ask the reviewer to try the normal teacher flow, judge simplicity and verify estimated/official labels, restoration and selection preservation. Fix actionable findings and rerun affected checks; repeat until no unresolved material findings remain. Summarize measured results and any limits in <code>output/teacher-evidence-workspace/skill-priority/index.html</code>.</li>
+<li><span class="check" aria-label="Not started">□</span> <strong>7. Commit the final tested changes and sanitized report.</strong> Enable the backend flag only for the validated release; document the flag-off rollback. Do not mix unreviewed source-collection changes or live-course edits into this release. Deployment uses the project's existing workflow after implementation is complete and verified.</li>
+</ul>
+</div></details></div>
+</section>
+<aside class="acceptance"><p><strong>Ready to release when:</strong> estimates meet the agreed quality checks, the copied Big Data flow works, and a fresh reviewer finds the experience clear and simple.</p></aside>
+<section aria-labelledby="technical-title"><h2 class="technical-title" id="technical-title">Technical reference</h2><details class="technical" id="approach"><summary>Scope and execution approach</summary><div class="detail-body"><blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development, preserving the previously selected execution method, or superpowers:executing-plans if subagents are unavailable. Steps use checkbox (<code>- <span class="check" aria-label="Not started">□</span></code>) syntax for tracking. Follow AGENTS.md ownership: one coordinator; backend and frontend workers only across clear boundaries; a fresh final review and fixes before completion.</p>
+</blockquote>
+<p><strong>Goal:</strong> Add understandable O*NET importance and clearly labeled AI estimates to the existing teacher skill checklist.</p>
+<p><strong>Architecture:</strong> Insert one bounded <code>skill_priority_analyst</code> node after canonical extraction/merging. Reuse the O*NET catalog, review API, execution lease, selection controller and evidence dialog; store assessments separately from teacher decisions. Application code validates evidence and calculates averages; the model interprets meaning and estimates missing scores.</p>
+<p><strong>Tech Stack:</strong> Existing Python 3.12, FastAPI, Pydantic v2, SQLAlchemy/PostgreSQL and LangGraph; React 19, TypeScript and Tailwind/shadcn. No new dependencies, public endpoints, graph database writes or dashboard.</p>
+<p><strong>Spec:</strong> <a href="../specs/2026-10-15-skill-priority-analyst-design.html">Approved Skill Priority Analyst design</a>. Approved by the user on 15 October 2026. Read the specification and its exact prompts before implementing.</p>
+<p><strong>Status:</strong> Plan ready for review; no implementation task has started. Worktree <code>/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor</code>, branch <code>feat/teacher-evidence-workspace</code>, inspected code/spec base <code>0943bf4</code>.</p>
+<h2>Global Constraints</h2>
+<ul>
+<li>“No new confirmation, source selector, occupation picker, chart, score slider or agent conversation is added.” Keep the four teacher decisions and category/individual selection behavior.</li>
+<li>“Preserve existing categories, candidate IDs, original labels, posting links, evidence passages, teacher selections and exclusions.” Every selectable skill remains job-backed.</li>
+<li>“No regular expression, title alias table or lexical shortcut may decide semantic equivalence.” Existing lexical search may retrieve records; the analyst judges meaning.</li>
+<li>“Retrieve official values unchanged”; only reported, finite IM values in 1–5 qualify. Estimates are integers 1–5, stored separately. Missing is null, never zero. LV, sample frequency and mastery do not enter importance.</li>
+<li>“A category containing estimates is labeled Estimated”; partial coverage is explicit. Use equal weight per distinct occupation, then per unique complete candidate. Unknown positions stay fixed; checkbox changes never reorder rows.</li>
+<li>“A 60-second total assessment deadline including occupation resolution”; at most two model calls in flight, eight candidate/occupation pairs per batch, request timeout <code>min(20, remaining_seconds)</code>, provider retries disabled. Account for every pair, including unfinished work.</li>
+<li>“Refresh and ordinary read APIs never trigger inference.” Pin the release, cache terminal results including degraded ones, reject late/stale writes, preserve ownership and existing execution leases.</li>
+<li>“Priority failure alone neither restarts extraction nor adds a required evidence-consent checkpoint.” Do not weaken the separate job-evidence or publication guards.</li>
+<li>“Never increment candidate/selection/publication revisions solely for adding guidance.” SQL is authoritative; no new Neo4j projection or changes to student APIs, resources, paths or quizzes.</li>
+<li>Keep the feature off until behavioral and estimate-quality checks pass. Estimates need at least 20 evaluation cases, three occupations, five weak controls, zero fabricated references/mislabeled estimates, at least 80% of scored estimates within one point and at least 80% of weak controls abstaining.</li>
+<li>Run app checks in Docker against this worktree, using a real isolated PostgreSQL test database. No host app-dependency installation. Use headless browsers; test 1280×720 and 1440×900 plus mobile/keyboard usability.</li>
+</ul>
+</div></details>
+<details class="technical" id="files"><summary>Files and ownership</summary><div class="detail-body"><p>All paths below are relative to the worktree. <code>B</code> means <code>backend/app/modules/marketdemandanalyst</code>; <code>O</code> means <code>backend/app/modules/occupation_reference</code>; <code>F</code> means <code>frontend/src/features/market-demand</code>. These are notation, not shell variables. New production modules are only <code>B/priority.py</code> and <code>B/priority_service.py</code>; extend existing files for wiring and display.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Technical reference table"><table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Owner</th>
+<th>Files and responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Save assessments</td>
+<td>Backend</td>
+<td>Modify <code>B/models.py</code>, <code>B/schemas.py</code>, <code>B/repository.py</code>, <code>backend/main.py</code>; create <code>backend/tests/market_priority_fixtures.py</code>, <code>backend/tests/modules/test_market_priority_storage.py</code>.</td>
+</tr>
+<tr>
+<td>2. Calculate guidance</td>
+<td>Backend</td>
+<td>Create <code>B/priority.py</code>, <code>backend/tests/modules/test_market_priority_policy.py</code>; extend Step 1 test fixtures. Pure validation, means and ordering.</td>
+</tr>
+<tr>
+<td>3. Run the analyst</td>
+<td>Backend</td>
+<td>Create <code>B/priority_service.py</code>, <code>backend/tests/modules/test_market_priority_service.py</code>; modify <code>B/prompts.py</code>, <code>O/repository.py</code>, <code>backend/app/core/settings.py</code>.</td>
+</tr>
+<tr>
+<td>4. Connect the workflow</td>
+<td>Backend</td>
+<td>Modify <code>B/graph.py</code>, <code>B/extractor.py</code>, <code>B/state.py</code>, <code>B/workspace_chat.py</code>, <code>B/routes.py</code>, <code>B/review_service.py</code>, <code>B/tools.py</code>, <code>B/repository.py</code>; create <code>backend/tests/modules/test_market_priority_flow.py</code>; extend existing thread-state/evidence tests where appropriate.</td>
+</tr>
+<tr>
+<td>5. Keep the UI compact</td>
+<td>Frontend</td>
+<td>Modify <code>F/types.ts</code>, <code>F/selection.ts</code>, <code>F/hooks/useAgentStream.ts</code>, <code>F/hooks/useSkillReviewController.ts</code>, <code>F/pages/MarketDemandPage.tsx</code>, <code>F/components/SkillSelectionCard.tsx</code>, <code>F/components/SkillEvidencePanel.tsx</code>; create <code>F/__tests__/SkillSelectionCard.test.tsx</code>; extend selection, stream, controller, evidence and page tests.</td>
+</tr>
+<tr>
+<td>6. Prove it with real data</td>
+<td>Coordinator</td>
+<td>Create <code>backend/tests/acceptance/skill_priority_evaluation.py</code>, <code>backend/tests/modules/test_market_priority_evaluation.py</code>, <code>backend/tests/fixtures/skill_priority/evaluation.json</code>; extend <code>backend/tests/acceptance/teacher_workspace_server.py</code> and <code>frontend/e2e/teacher-evidence-workspace.cjs</code>; write a sanitized HTML acceptance report under <code>output/teacher-evidence-workspace/skill-priority/</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p>Order: 1 → 2 → 3 → 4 → 5 → 6. Frontend work may start after Step 1 freezes the DTOs, using fixtures; the coordinator owns final integration. Do not parallelize tasks that edit the same backend files or share the test database.</p>
+</div></details>
+<details class="technical" id="contract"><summary>Shared data contract</summary><div class="detail-body"><p>Define these Pydantic DTOs in <code>B/schemas.py</code> in Step 1; mirror only public DTOs in <code>F/types.ts</code> in Step 5. Use <code>extra='forbid'</code> and strict numeric validation on model outputs. Preserve the exact prompt output fields from the approved spec.</p>
+<div class="table-wrap" tabindex="0" role="region" aria-label="Technical reference table"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Required shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PriorityScope</code></td>
+<td><code>run_id: UUID</code>, <code>course_id: int</code>, <code>teacher_id: int</code>, <code>expected_candidate_revision: int</code>.</td>
+</tr>
+<tr>
+<td><code>PriorityContext</code></td>
+<td><code>group_id: str</code>, <code>soc_code: str | None</code>, <code>occupation_title: str | None</code>, <code>posting_ids: list[UUID]</code>, <code>rationale: str</code>, <code>inferred: bool</code>, <code>unavailable_reason: str | None</code>.</td>
+</tr>
+<tr>
+<td><code>PriorityPair</code></td>
+<td><code>candidate_id: UUID</code>, <code>context_key: str</code>, <code>soc_code: str | None</code>. Use the SOC code as the mapped key; an unmapped group uses <code>unmapped:&lt;group_id&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>PriorityDecision</code></td>
+<td>Model fields: <code>candidate_id</code>, <code>soc_code</code>, <code>basis</code> (<code>onet</code>, <code>ai_estimate</code>, <code>unavailable</code>), <code>direct_reference_id</code>, integer <code>estimate</code> or null, <code>associations</code>, <code>supporting_evidence_ids</code>, <code>explanation</code>, <code>limitations</code>, <code>unavailable_reason</code>.</td>
+</tr>
+<tr>
+<td><code>PriorityResult</code></td>
+<td>Validated decision plus <code>context_key</code>, server-populated <code>official_value</code> or null and <code>value</code> or null. Retain reference IDs and limitations. Never accept official numbers supplied by the model.</td>
+</tr>
+<tr>
+<td><code>CandidatePriority</code></td>
+<td><code>value: float | None</code>, basis (<code>onet</code>, <code>onet_aggregate</code>, <code>ai_estimate</code>, <code>unavailable</code>), <code>complete: bool</code>, <code>expected_contexts: int</code>, <code>scored_contexts: int</code>, <code>display_order: int</code>.</td>
+</tr>
+<tr>
+<td><code>CategoryPriority</code></td>
+<td><code>value: float | None</code>, basis (<code>derived</code>, <code>ai_estimate</code>, <code>unavailable</code>), <code>complete: bool</code>, <code>eligible_count</code>, <code>scored_count</code>, <code>onet_count</code>, <code>estimated_count</code>, <code>partial_count</code>, <code>unavailable_count</code>, <code>display_order</code>.</td>
+</tr>
+<tr>
+<td><code>PrioritySummarySet</code></td>
+<td><code>candidates: dict[str, CandidatePriority]</code>, <code>categories: dict[str, CategoryPriority]</code>. Keys are canonical IDs.</td>
+</tr>
+<tr>
+<td><code>PriorityAssessment</code></td>
+<td><code>assessment_id</code>, <code>run_id</code>, <code>candidate_revision</code>, <code>input_fingerprint</code>, <code>schema_version=1</code>, <code>policy_version='1'</code>, <code>prompt_version='1'</code>, <code>model_id</code>, <code>release</code>, timestamps, status (<code>running</code>, <code>ready</code>, <code>partial</code>, <code>unavailable</code>, <code>stale</code>), contexts, results, summaries, expected/completed pair counts, bounded error reasons.</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>SkillReview.priority_assessment</code>, <code>SkillCandidate.priority</code> and <code>SkillCategory.priority</code> are optional, default null. Source configuration and existing selection request bodies are unchanged. <code>PriorityAssessment</code> stores reference IDs, not full posting descriptions. The server supplies labels, release URLs and attribution from the validated reference catalog.</p>
+</div></details>
+<details class="technical" id="checks"><summary>Test setup and review risks</summary><div class="detail-body"><p>The current <code>lab_tutor_backend</code> and <code>lab_tutor_frontend</code> containers mount the primary checkout, not this worktree. Do not run their app checks and report those as verification of this feature.</p>
+<p>Before Step 1's first test, create or reuse isolated containers named <code>lab_tutor_priority_backend</code>, <code>lab_tutor_priority_frontend</code> and <code>lab_tutor_priority_postgres</code>, using the existing Dockerfiles/Compose service definitions. Mount this worktree's backend/frontend at <code>/app</code>, retain container-only dependency volumes, build the backend with <code>UV_SYNC_ARGS=--group dev --frozen</code>, and use a separate PostgreSQL volume/network. Keep any Compose override under ignored <code>.superpowers/operations/2026-10-15-skill-priority/</code>; load existing private environment files without printing credentials, then explicitly override database settings to the isolated instance. Verify the <code>/app</code> mounts and database host/name before testing. Do not restart or remount the primary containers.</p>
+<p>The isolated PostgreSQL instance needs <code>lab_tutor_test</code>; use its normal initialization configuration. Define these command helpers in the execution shell, not in application code:</p>
+<pre><code class="language-bash">priority_btest() {
+  docker exec -w /app -e LAB_TUTOR_DATABASE_URL='postgresql://labtutor:labtutor@lab_tutor_priority_postgres:5432/lab_tutor_test' lab_tutor_priority_backend /app/.venv/bin/python -m pytest -v &quot;$@&quot;
+}
+priority_ftest() {
+  docker exec -w /app lab_tutor_priority_frontend npm test -- --run &quot;$@&quot;
+}
+</code></pre>
+<p>For every red/green cycle, confirm failure is the missing/wrong behavior, not database setup or import-path failure. Run backend suites serially because their fixtures reset the test database. Run Ruff after each backend edit and frontend lint/build after frontend edits. The test commands below are to be executed during implementation; they have not been run for this plan.</p>
+<h2>Review Focus</h2>
+<ol>
+<li>A posting is purged, the analysis changes, or the lease ends while AI is running: discard stale results and redact explanations, without restoring removed evidence (Tasks 1, 3, 4).</li>
+<li>Refresh/disconnect during a slow or malformed batch: finish or recover within the assessment deadline, preserve completed results and avoid endless restoration/repeated inference (Tasks 3, 4).</li>
+<li>A multilingual skill has several roles, duplicated descriptors or only a broad technology match: no highest-score picking, duplicate weighting or official-looking inferred rating (Tasks 2, 3).</li>
+<li>A score refresh arrives while the teacher has dirty selections or is on another page: retain choices, exclusions, focus and row order (Task 5).</li>
+<li>A jobs-only run, empty catalog, legacy conversation or unsupported source combination: guidance stays optional and never changes source configuration, adds a teacher stage or admits reference-only skills (Tasks 3, 4, 6).</li>
+</ol>
+</div></details>
+<details class="technical" id="handoff"><summary>Plan review and handoff</summary><div class="detail-body"><p>Self-review completed against the approved specification: scope/context → Tasks 3–4; numerical rules/aggregation → Task 2; runtime → Tasks 3–4; storage/API/invalidation → Tasks 1 and 4; exact prompts → Task 3; compact UI → Task 5; estimate/Big Data acceptance and fresh review → Task 6. All five Review Focus items have explicit tests assigned above. The review corrected silent-node progress delivery, isolated database targeting and the separation of guarded browser fixtures from live-model evaluation.</p>
+<p>The HTML companion is the user-facing plan. This Markdown is its technical source. The specification is approved; this plan still needs the user's review before implementation. Preserve the earlier subagent-driven preference with clear backend/frontend ownership, sequential dependent work, coordinator verification and a fresh final review. No source or production settings have been changed by writing this plan.</p>
+</div></details></section>
+<footer><p><a href="../specs/2026-10-15-skill-priority-analyst-design.html">Approved design and exact system prompts</a> · <a href="2026-10-15-skill-priority-analyst.md">Technical source</a></p><p>This is the implementation plan. Application code and production settings have not changed. The plan is ready for your review before implementation.</p></footer>
+</main>
+<script>
+function revealTarget(){const target=document.getElementById(location.hash.slice(1));if(target instanceof HTMLDetailsElement)target.open=true;}
+window.addEventListener('hashchange',revealTarget);revealTarget();
+</script>
+</body></html>
