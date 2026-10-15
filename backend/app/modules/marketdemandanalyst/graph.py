@@ -293,8 +293,8 @@ async def skill_priority_analyst(
 
     from .models import MarketAnalysisRun
     from .priority_service import get_skill_priority_service
-    from .repository import ThreadStateRepository
     from .schemas import PriorityScope
+    from .thread_state_service import ThreadStateService
 
     context = runtime.context
     update = {"active_agent": "skill_finder", "skill_priority_status": None}
@@ -320,13 +320,11 @@ async def skill_priority_analyst(
         expected_candidate_revision=tool_store.get("candidate_revision") or 0,
     )
     service = get_skill_priority_service()
-    # The saved snapshot must contain this extraction's selected membership before
-    # assessment input loading. Drain the outer stream's earlier ordered saves.
+    # All snapshot writes join the outer lease's ordered, shielded task chain.
+    # Cancellation cannot release ownership before the actual SQL worker ends.
     service._require_lease(lease, f"mda-{scope.teacher_id}-course-{scope.course_id}")
-    if lease.pending is not None:
-        await asyncio.shield(lease.pending)
-    repository = ThreadStateRepository(SessionLocal)
-    await asyncio.to_thread(repository.save, lease.thread_id, snapshot_state())
+    snapshots = ThreadStateService()
+    await snapshots.save(lease, snapshot_state())
     writer = get_stream_writer()
 
     def progress(assessment):
@@ -357,9 +355,7 @@ async def skill_priority_analyst(
                 running = PriorityAssessment.model_validate(raw)
                 if running.status == "running":
                     progress(running)
-                    await asyncio.to_thread(
-                        repository.save, lease.thread_id, snapshot_state()
-                    )
+                    await snapshots.save(lease, snapshot_state())
         assessment = await attempt
     finally:
         if not attempt.done():
@@ -368,7 +364,7 @@ async def skill_priority_analyst(
     # assess returns only after the final CAS commit (or a scoreless stale result).
     tool_store["skill_review_change_id"] = str(assessment.assessment_id)
     value = progress(assessment)
-    await asyncio.to_thread(repository.save, lease.thread_id, snapshot_state())
+    await snapshots.save(lease, snapshot_state())
     update["skill_priority_status"] = value
     return Command(goto="skill_finder", update=update)
 

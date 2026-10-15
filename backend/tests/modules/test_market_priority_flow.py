@@ -663,3 +663,97 @@ async def test_stale_analyst_cannot_restore_a_replaced_active_run(flow_case):
         )
     assert events(frames)[-1]["type"] == "stream_end"
     assert case.teacher_decisions() == case.before
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("stage", ["pending", "running", "ready"])
+@pytest.mark.parametrize("write_fails", [False, True])
+async def test_cancelled_analyst_drains_snapshot_worker_before_releasing_lease(
+    flow_case, monkeypatch, stage, write_fails
+):
+    import threading
+    from contextvars import ContextVar
+
+    case = flow_case
+    analyst_context = ContextVar("test_priority_snapshot_owner", default=False)
+    entered, continue_write, finished = (
+        threading.Event(),
+        threading.Event(),
+        threading.Event(),
+    )
+    original_analyst = graph_module.skill_priority_analyst
+    original_save = ThreadStateRepository.save
+    intercepted = False
+
+    async def tagged_analyst(
+        state: SwarmState, runtime: Runtime[WorkspaceRuntimeContext]
+    ) -> Command:
+        token = analyst_context.set(True)
+        try:
+            return await original_analyst(state, runtime)
+        finally:
+            analyst_context.reset(token)
+
+    def blocked_save(repository, thread_id, snapshot):
+        nonlocal intercepted
+        progress = snapshot.get("skill_priority_status") or {}
+        if (
+            analyst_context.get()
+            and progress.get("status") == stage
+            and not intercepted
+        ):
+            intercepted = True
+            entered.set()
+            try:
+                assert continue_write.wait(5)
+                if write_fails:
+                    raise OSError("Controlled snapshot write failure")
+                original_save(repository, thread_id, snapshot)
+            finally:
+                finished.set()
+            return
+        original_save(repository, thread_id, snapshot)
+
+    monkeypatch.setattr(graph_module, "skill_priority_analyst", tagged_analyst)
+    monkeypatch.setattr(ThreadStateRepository, "save", blocked_save)
+    stream = await case.open_stream()
+    frames = []
+
+    async def consume():
+        frames.extend([frame async for frame in stream])
+
+    consumer = asyncio.create_task(consume())
+    try:
+        assert await asyncio.to_thread(entered.wait, 3)
+        case.lease.producer.cancel()
+        # A canceled awaiter does not mean its actual SQL worker has completed.
+        # Both successful and failed writes must drain under the original lease.
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(case.lease.finished.wait(), timeout=0.15)
+        assert case.lease.active and not finished.is_set()
+        assert (
+            await ThreadStateService().execution_status(case.thread_id)
+        ).status == "busy"
+    finally:
+        continue_write.set()
+        await asyncio.wait_for(case.lease.finished.wait(), 5)
+        await asyncio.wait_for(consumer, 5)
+    assert finished.is_set()
+    assert events(frames)[-1] == {"type": "stream_end", "outcome": "failed"}
+    assert (
+        len([event for event in events(frames) if event["type"] == "stream_end"]) == 1
+    )
+
+    # A later owner of this same durable run cannot be overwritten by an orphan.
+    fresh = ThreadStateService()
+    replacement_lease = await fresh.claim(case.thread_id)
+    try:
+        replacement = await fresh.load(case.thread_id)
+        replacement["course_title"] = "Saved by the next owned execution"
+        await fresh.save(replacement_lease, replacement)
+    finally:
+        await fresh.release(replacement_lease)
+    await asyncio.sleep(0)
+    assert (await fresh.load(case.thread_id))[
+        "course_title"
+    ] == "Saved by the next owned execution"
