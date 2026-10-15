@@ -88,6 +88,7 @@ STATE_KEYS: list[str] = [
     "selection_confirmation",
     "review_stage",
     "skill_review_change_id",
+    "skill_priority_status",
     "course_id",
     "course_title",
     "course_description",

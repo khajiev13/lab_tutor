@@ -22,6 +22,7 @@ from app.modules.occupation_reference.models import (
     OnetRelease,
 )
 from app.modules.occupation_reference.repository import OccupationReferenceRepository
+from tests.course_material_fixtures import seed_ready_materials
 from tests.market_skill_fixtures import seed_review
 
 
@@ -983,6 +984,12 @@ def test_legacy_workflow_still_ignores_unknown_fields():
 def test_context_http_rejections_precede_external_graph_calls(
     client, teacher_auth_headers, monkeypatch
 ):
+    response = client.post(
+        "/courses", json={"title": "Context validation"}, headers=teacher_auth_headers
+    )
+    assert response.status_code == 201
+    course_id = response.json()["id"]
+    seed_ready_materials(course_id)
     calls = []
 
     def unexpected_graph(*args, **kwargs):
@@ -1006,7 +1013,9 @@ def test_context_http_rejections_precede_external_graph_calls(
         },
     ):
         response = client.post(
-            "/courses/1/market-demand/chat", json=body, headers=teacher_auth_headers
+            f"/courses/{course_id}/market-demand/chat",
+            json=body,
+            headers=teacher_auth_headers,
         )
         assert response.status_code == 422
     assert calls == []

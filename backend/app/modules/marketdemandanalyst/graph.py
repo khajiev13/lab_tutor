@@ -2,18 +2,22 @@ import asyncio
 import logging
 import time
 from collections.abc import Sequence
+from uuid import UUID
 
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.config import get_stream_writer
 from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import create_react_agent
+from langgraph.runtime import Runtime
+from langgraph.types import Command
 from langgraph_swarm import SwarmState, create_handoff_tool
 from langgraph_swarm.handoff import get_handoff_destinations
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
-from .extractor import skill_extractor_subgraph
+from .extractor import extraction_tool_results, skill_extractor_subgraph
 from .prompts import (
     CONCEPT_LINKER_PROMPT,
     CURRICULUM_MAPPER_PROMPT,
@@ -21,7 +25,7 @@ from .prompts import (
     SKILL_FINDER_PROMPT,
     SUPERVISOR_PROMPT,
 )
-from .state import pipeline_summary, tool_store
+from .state import pipeline_summary, snapshot_state, tool_store
 from .tools import (
     CONCEPT_LINKER_TOOLS,
     CURRICULUM_MAPPER_TOOLS,
@@ -213,6 +217,20 @@ def _make_prompt(
                 "O*NET-only candidates need supporting job postings before publication."
             )
 
+        if (tool_store.get("skill_priority_status") or {}).get("assessment_id"):
+            full_prompt += (
+                "\n\n# Stored skill priority policy version 1\n"
+                "Use only the validated priority_assessment and priority summaries from "
+                "get_skills_by_category. The automatic Skill Priority Analyst has already "
+                "run; do not retry extraction for missing priority scores. Supplied "
+                "derived category means and separately labeled AI importance estimates "
+                "are allowed by this policy; never invent or recalculate scores. "
+                "Keep occupational importance separate from posting frequency. "
+                "Priority-only omissions do not require evidence acknowledgment. "
+                "Retain mandatory job-evidence consent, exact teacher skill confirmation "
+                "and final publication approval. Present the existing Choose skills decision."
+            )
+
         # Trim to last N messages
         messages: list[BaseMessage] = list(state.get("messages", []))
         logger.debug(
@@ -260,6 +278,99 @@ def _make_prompt(
         return [SystemMessage(content=full_prompt), *messages]
 
     return _prompt
+
+
+class MarketSwarmState(SwarmState):
+    skill_priority_status: dict | None
+
+
+async def skill_priority_analyst(
+    state: SwarmState, runtime: Runtime[WorkspaceRuntimeContext]
+) -> Command:
+    """Assess the saved extraction once, under the outer conversation lease."""
+    from app.core.database import SessionLocal
+    from app.core.settings import settings
+
+    from .models import MarketAnalysisRun
+    from .priority_service import get_skill_priority_service
+    from .repository import ThreadStateRepository
+    from .schemas import PriorityScope
+
+    context = runtime.context
+    update = {"active_agent": "skill_finder", "skill_priority_status": None}
+    results = extraction_tool_results(state.get("messages", []))
+    if results:
+        update["messages"] = results
+    if not tool_store.get("run_id") or not settings.market_skill_priority_enabled:
+        tool_store["skill_priority_status"] = None
+        return Command(goto="skill_finder", update=update)
+    if (
+        context is None
+        or context.resolved is not None
+        or context.lease is None
+        or context.course_id != tool_store.get("course_id")
+        or context.teacher_id != tool_store.get("teacher_id")
+    ):
+        raise ValueError("Priority analysis requires the owned workflow context")
+    lease = context.lease
+    scope = PriorityScope(
+        run_id=UUID(tool_store["run_id"]),
+        course_id=context.course_id,
+        teacher_id=context.teacher_id,
+        expected_candidate_revision=tool_store.get("candidate_revision") or 0,
+    )
+    service = get_skill_priority_service()
+    # The saved snapshot must contain this extraction's selected membership before
+    # assessment input loading. Drain the outer stream's earlier ordered saves.
+    service._require_lease(lease, f"mda-{scope.teacher_id}-course-{scope.course_id}")
+    if lease.pending is not None:
+        await asyncio.shield(lease.pending)
+    repository = ThreadStateRepository(SessionLocal)
+    await asyncio.to_thread(repository.save, lease.thread_id, snapshot_state())
+    writer = get_stream_writer()
+
+    def progress(assessment):
+        value = {
+            "assessment_id": str(assessment.assessment_id),
+            "status": assessment.status,
+            "deadline_at": assessment.deadline_at.isoformat(),
+            "message": "Assessing skill importance…"
+            if assessment.status == "running"
+            else "",
+        }
+        tool_store["skill_priority_status"] = value
+        writer({"type": "skill_priority_status", "value": value})
+        return value
+
+    attempt = asyncio.create_task(service.assess(scope, lease))
+    try:
+        # assess commits its running envelope before its first transport await.
+        # Emit explicit custom progress while a silent model call is in flight.
+        await asyncio.sleep(0)
+        if not attempt.done():
+            with SessionLocal() as db:
+                run = db.get(MarketAnalysisRun, scope.run_id)
+                raw = run.priority_assessment if run is not None else None
+            if raw is not None:
+                from .schemas import PriorityAssessment
+
+                running = PriorityAssessment.model_validate(raw)
+                if running.status == "running":
+                    progress(running)
+                    await asyncio.to_thread(
+                        repository.save, lease.thread_id, snapshot_state()
+                    )
+        assessment = await attempt
+    finally:
+        if not attempt.done():
+            attempt.cancel()
+            await asyncio.gather(attempt, return_exceptions=True)
+    # assess returns only after the final CAS commit (or a scoreless stale result).
+    tool_store["skill_review_change_id"] = str(assessment.assessment_id)
+    value = progress(assessment)
+    await asyncio.to_thread(repository.save, lease.thread_id, snapshot_state())
+    update["skill_priority_status"] = value
+    return Command(goto="skill_finder", update=update)
 
 
 async def get_graph():
@@ -371,14 +482,20 @@ async def get_graph():
         skill_cleaner,
         concept_linker,
     ]
-    workflow = StateGraph(SwarmState, context_schema=WorkspaceRuntimeContext)
+    workflow = StateGraph(MarketSwarmState, context_schema=WorkspaceRuntimeContext)
     for agent in agents:
         workflow.add_node(
             agent.name, agent, destinations=tuple(get_handoff_destinations(agent))
         )
     workflow.add_node("workspace_review", workspace_review)
+    workflow.add_node(
+        "skill_priority_analyst", skill_priority_analyst, destinations=("skill_finder",)
+    )
     workflow.add_conditional_edges(
-        START, route_entry, [agent.name for agent in agents] + ["workspace_review"]
+        START,
+        route_entry,
+        [agent.name for agent in agents]
+        + ["workspace_review", "skill_extractor", "skill_priority_analyst"],
     )
 
     # ── Add skill_extractor subgraph (map-reduce, no LLM agent) ──

@@ -6,6 +6,7 @@ from contextlib import suppress
 import pytest
 
 from app.modules.marketdemandanalyst import state
+from tests.course_material_fixtures import seed_ready_materials
 
 
 @pytest.fixture(autouse=True)
@@ -158,6 +159,7 @@ def test_chat_setup_failure_releases_execution_guard(
     )
     assert response.status_code == 201
     course_id = response.json()["id"]
+    seed_ready_materials(course_id)
     get_graph = AsyncMock(side_effect=RuntimeError("graph setup failed"))
     monkeypatch.setattr(routes, "get_graph", get_graph)
     for _ in range(2):
@@ -184,6 +186,8 @@ def test_chat_and_state_are_isolated_across_owned_courses(
     second = client.post(
         "/courses", json={"title": "Second"}, headers=teacher_auth_headers
     ).json()["id"]
+    seed_ready_materials(first)
+    seed_ready_materials(second)
 
     class Graph:
         aget_state = AsyncMock()
@@ -701,6 +705,7 @@ async def test_cancelled_actual_extractor_node_drains_late_state(stage, monkeypa
         "_get_extraction_llm",
         lambda timeout_seconds=120: FakeLLM(timeout_seconds == 45),
     )
+    monkeypatch.setattr(EmbeddingService, "__init__", lambda self: None)
     monkeypatch.setattr(EmbeddingService, "embed_documents", embed)
 
     class ObservedGraph:

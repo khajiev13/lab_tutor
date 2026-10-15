@@ -14,6 +14,8 @@ import time
 import uuid
 from collections.abc import AsyncGenerator, Callable
 from copy import deepcopy
+from dataclasses import replace
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,9 +23,10 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from app.core.database import AsyncSessionLocal, SessionLocal, get_db
+from app.core.database import AsyncSessionLocal, SessionLocal, get_async_db, get_db
 from app.core.neo4j import get_neo4j_driver
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
@@ -372,6 +375,44 @@ def _stream_error(
     )
 
 
+def _normalize_graph_stream(item: tuple) -> tuple:
+    """Accept multi-mode subgraph envelopes and older messages-only adapters."""
+    if len(item) == 3:
+        return item
+    namespace, data = item
+    return namespace, "messages", data
+
+
+def _priority_progress(data: object) -> dict | None:
+    """Expose only the analyst's bounded status, never arbitrary custom content."""
+    if not isinstance(data, dict) or data.get("type") != "skill_priority_status":
+        return None
+    value = data.get("value")
+    if not isinstance(value, dict) or value.get("status") not in {
+        "running",
+        "ready",
+        "partial",
+        "unavailable",
+        "stale",
+    }:
+        return None
+    try:
+        assessment_id = str(uuid.UUID(value["assessment_id"]))
+        deadline = datetime.fromisoformat(value["deadline_at"])
+        if deadline.tzinfo is None:
+            return None
+    except (KeyError, TypeError, ValueError):
+        return None
+    return {
+        "assessment_id": assessment_id,
+        "status": value["status"],
+        "deadline_at": deadline.isoformat(),
+        "message": "Assessing skill importance…"
+        if value["status"] == "running"
+        else "",
+    }
+
+
 async def _sse_stream(
     graph: Any,
     input_data: dict,
@@ -398,6 +439,14 @@ async def _sse_stream(
       state_update  — a tool_store key changed
       stream_end    — nothing more to send
     """
+    if runtime_context is None:
+        runtime_context = WorkspaceRuntimeContext(
+            course_id=(bound_state or {}).get("course_id"),
+            teacher_id=(bound_state or {}).get("teacher_id"),
+            lease=lease,
+        )
+    else:
+        runtime_context = replace(runtime_context, lease=lease)
     current_agent: str | None = None
     current_message_id: str | None = None
     seen_tool_calls: set[str] = set()
@@ -429,10 +478,30 @@ async def _sse_stream(
                 bound_state if bound_state is not None else tool_store._current(),
                 tool_tasks=lease.tool_tasks if lease is not None else None,
             ):
+                graph_input = input_data
+                progress = tool_store.get("skill_priority_status") or {}
+                if (
+                    runtime_context.resolved is None
+                    and tool_store.get("run_id")
+                    and progress.get("status") in {"pending", "running"}
+                ):
+                    from .extractor import extraction_tool_results
+
+                    checkpoint = await graph.aget_state(config)
+                    results = extraction_tool_results(
+                        checkpoint.values.get("messages", [])
+                    )
+                    if results:
+                        # Commit pairing as graph input before the analyst executes,
+                        # including when extraction's parent update was interrupted.
+                        graph_input = {
+                            **input_data,
+                            "messages": [*results, *input_data.get("messages", [])],
+                        }
                 async for item in graph.astream(
-                    input_data,
+                    graph_input,
                     config=config,
-                    stream_mode="messages",
+                    stream_mode=["messages", "custom"],
                     subgraphs=True,
                     **(
                         {"context": runtime_context}
@@ -440,16 +509,18 @@ async def _sse_stream(
                         else {}
                     ),
                 ):
+                    namespace, mode, payload = _normalize_graph_stream(item)
                     if (
                         lease is not None
                         and state_service is not None
                         and persistence_policy == "workflow_snapshot"
-                        and isinstance(item[1][0], ToolMessage)
+                        and mode == "messages"
+                        and isinstance(payload[0], ToolMessage)
                     ):
                         saving = True
                         await state_service.save(lease, snapshot_state(bound_state))
                         saving = False
-                    await _queue.put(item)
+                    await _queue.put((namespace, mode, payload))
         except asyncio.CancelledError as exc:
             await _queue.put(_stream_error(exc))
         except Exception as exc:
@@ -518,7 +589,39 @@ async def _sse_stream(
                 yield _sse("error", item.model_dump())
                 continue
 
-            ns, (msg, _metadata) = item
+            ns, mode, payload = item
+            if mode == "custom":
+                progress = _priority_progress(payload)
+                if progress is None:
+                    continue
+                yield _sse(
+                    "state_update",
+                    {"stateKey": "skill_priority_status", "value": progress},
+                )
+                prev_state["skill_priority_status"] = progress
+                if progress["status"] != "running" and (bound_state or {}).get(
+                    "run_id"
+                ):
+                    # Guidance has its own identity; the teacher revisions stay fixed.
+                    yield _sse(
+                        "skill_review_changed",
+                        {
+                            "run_id": bound_state["run_id"],
+                            "candidate_revision": bound_state.get("candidate_revision")
+                            or 0,
+                            "selection_revision": bound_state.get("selection_revision")
+                            or 0,
+                            "publication_revision": bound_state.get(
+                                "publication_revision"
+                            )
+                            or 0,
+                        },
+                    )
+                    prev_state["skill_review_change_id"] = progress["assessment_id"]
+                continue
+            if mode != "messages":
+                continue
+            msg, _metadata = payload
             now = time.perf_counter()
             gap_ms = (now - last_event_time) * 1000
             last_event_time = now
@@ -1041,6 +1144,7 @@ async def market_demand_chat(
     body: ChatRequest,
     teacher: TeacherDep,
     db: Session = Depends(get_db),
+    auth_db: AsyncSession = Depends(get_async_db),
     state_service: ThreadStateService = Depends(get_thread_state_service),
     configuration_service: MarketConfigurationService = Depends(
         get_market_configuration_service
@@ -1193,6 +1297,10 @@ async def market_demand_chat(
             prewarm_ms = (time.perf_counter() - t0) * 1000
             logger.info("[PERF] Checkpoint pre-warm took %.1fms", prewarm_ms)
 
+        # Authentication/course dependencies outlive StreamingResponse. Their read
+        # transactions must end before silent model work; all runtime data is detached.
+        db.rollback()
+        await auth_db.rollback()
         setup_ms = (time.perf_counter() - chat_start) * 1000
         logger.info("[PERF] /chat setup total %.1fms before SSE stream", setup_ms)
 

@@ -7,7 +7,7 @@ from hashlib import sha256
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
@@ -439,6 +439,21 @@ class MarketReviewRepository:
         )
         for run in runs:
             run.integration_review = None
+            if run.priority_assessment is not None:
+                # Model explanations/associations may paraphrase any supplied passage.
+                # Remove the complete copied-content surface, retaining attempt metadata.
+                run.priority_assessment = {
+                    **run.priority_assessment,
+                    "status": "stale",
+                    "contexts": [],
+                    "results": [],
+                    "references": [],
+                    "summaries": {"candidates": {}, "categories": {}},
+                    "completed_pair_count": 0,
+                    "error_reasons": [
+                        "Source content was removed; importance guidance was invalidated"
+                    ],
+                }
         affected_references = set(
             self._db.scalars(
                 select(CourseSkillEvidence.skill_reference_id).where(
@@ -486,9 +501,14 @@ class MarketReviewRepository:
             approval.items = redact_snapshot_content(approval.items, removed_ids)
         for thread in self._db.scalars(select(MDAThreadState)):
             if snapshot_ids(thread.state_json) & removed_ids:
-                thread.state_json = redact_snapshot_content(
-                    thread.state_json, removed_ids
-                )
+                cleaned = redact_snapshot_content(thread.state_json, removed_ids)
+                if cleaned.get("skill_priority_status"):
+                    cleaned["skill_priority_status"] = {
+                        **cleaned["skill_priority_status"],
+                        "status": "stale",
+                        "message": "",
+                    }
+                thread.state_json = cleaned
         # Sessions disable autoflush. Persist tombstones before freshness reads
         # with populate_existing can reload the old retained source content.
         self._db.flush()
@@ -1225,14 +1245,23 @@ class ThreadStateRepository:
             repo = MarketReviewRepository(session)
             repo.lock_vacancy_lifecycle()
             state = repo.sanitize_source_content(state)
-            session.execute(
-                insert(MDAThreadState)
-                .values(thread_id=thread_id, state_json=state)
-                .on_conflict_do_update(
+            statement = insert(MDAThreadState).values(
+                thread_id=thread_id, state_json=state
+            )
+            current_run = MDAThreadState.state_json["run_id"].astext
+            # The analyst's stale completion and outer finalizer must not put an
+            # older run back after another writer changed the active pointer.
+            result = session.execute(
+                statement.on_conflict_do_update(
                     index_elements=["thread_id"],
                     set_={"state_json": state, "updated_at": func.now()},
-                )
+                    where=or_(current_run.is_(None), current_run == state["run_id"])
+                    if state.get("run_id")
+                    else None,
+                ).returning(MDAThreadState.thread_id)
             )
+            if result.scalar_one_or_none() is None:
+                raise RevisionConflict("Review must belong to the active analysis")
             session.commit()
 
     def delete(self, thread_id: str) -> None:

@@ -23,6 +23,7 @@ from .schemas import (
     SkillReviewRevision,
 )
 from .state import owned_sync_execution, tool_store
+from .thread_state_service import ThreadLease
 
 
 @dataclass(frozen=True)
@@ -31,11 +32,19 @@ class WorkspaceRuntimeContext:
     course_id: int | None = None
     teacher_id: int | None = None
     intent: Literal["explain", "propose_selection"] = "explain"
+    lease: ThreadLease | None = None
 
 
 def route_entry(state: SwarmState, runtime: Runtime[WorkspaceRuntimeContext]) -> str:
     if runtime.context is not None and runtime.context.resolved is not None:
         return "workspace_review"
+    status = (
+        tool_store.get("skill_priority_status")
+        or state.get("skill_priority_status")
+        or {}
+    )
+    if tool_store.get("run_id") and status.get("status") in {"pending", "running"}:
+        return "skill_priority_analyst"
     return state.get("active_agent") or "supervisor"
 
 

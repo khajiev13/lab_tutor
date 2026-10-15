@@ -1202,8 +1202,8 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-def _return_to_skill_finder(state: ExtractorState) -> Command:
-    messages = state.get("messages", [])
+def extraction_tool_results(messages: list[BaseMessage]) -> list[ToolMessage]:
+    """Complete only outstanding extraction calls, including after a restart."""
     completed = {
         message.tool_call_id for message in messages if isinstance(message, ToolMessage)
     }
@@ -1214,7 +1214,6 @@ def _return_to_skill_finder(state: ExtractorState) -> Command:
         for call in message.tool_calls
         if call["name"] == "start_extraction" and call["id"] not in completed
     ]
-    update = {"active_agent": "skill_finder"}
     if pending:
         coverage = tool_store.get("extraction_coverage", {})
         result = (
@@ -1226,13 +1225,33 @@ def _return_to_skill_finder(state: ExtractorState) -> Command:
             "Retry real posting/chunk or association inference failures, not fixed association bounds. "
             "Present skills by category and current evidence notes for the teacher's Confirm Selection action."
         )
-        update["messages"] = [
+        return [
             ToolMessage(
                 content=result, name="start_extraction", tool_call_id=call["id"]
             )
             for call in pending
         ]
-    return Command(goto="skill_finder", graph=Command.PARENT, update=update)
+    return []
+
+
+def _return_to_skill_finder(state: ExtractorState) -> Command:
+    update = {"active_agent": "skill_finder"}
+    results = extraction_tool_results(state.get("messages", []))
+    if results:
+        update["messages"] = results
+    destination = "skill_finder"
+    if tool_store.get("run_id"):
+        # Complete provider tool pairing before the automatic non-agent detour.
+        # Persisted pending status makes a new teacher turn resume guidance first.
+        destination = "skill_priority_analyst"
+        tool_store["skill_priority_status"] = {
+            "assessment_id": None,
+            "status": "pending",
+            "deadline_at": None,
+            "message": "",
+        }
+        update["active_agent"] = destination
+    return Command(goto=destination, graph=Command.PARENT, update=update)
 
 
 def normalize_skills_by_embedding(state: ExtractorState) -> Command:

@@ -9,6 +9,8 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
+from pydantic import ValidationError
+from sqlalchemy.orm import object_session
 
 from .evidence import reference_fingerprint
 from .models import MarketAnalysisRun
@@ -260,6 +262,113 @@ class SkillReviewService:
             raise HTTPException(404, "Course not found")
 
     @staticmethod
+    def _priority_for_run(run: MarketAnalysisRun):
+        """Validate saved guidance against current owned inputs, without inference."""
+        from app.core.settings import settings
+
+        from .priority import build_priority_summaries, validate_priority_decisions
+        from .priority_service import (
+            POLICY_VERSION,
+            PROMPT_VERSION,
+            SkillPriorityService,
+            configured_priority_model,
+        )
+        from .schemas import (
+            PriorityAssessment,
+            PriorityDecision,
+            PriorityScope,
+            PrioritySummarySet,
+        )
+
+        if (
+            not settings.market_skill_priority_enabled
+            or run.priority_assessment is None
+        ):
+            return None
+        try:
+            assessment = PriorityAssessment.model_validate(
+                deepcopy(run.priority_assessment)
+            )
+        except ValidationError:
+            return None
+        db = object_session(run)
+        try:
+            if db is None:
+                raise RevisionConflict(
+                    "Detached assessment cannot verify current inputs"
+                )
+            # Callers may have just saved teacher choices; never discard their pending
+            # changes when the owned input loader refreshes its current run row.
+            db.flush()
+            inputs = MarketReviewRepository(db).load_priority_inputs(
+                PriorityScope(
+                    run_id=run.id,
+                    course_id=run.course_id,
+                    teacher_id=run.teacher_id,
+                    expected_candidate_revision=run.candidate_revision,
+                )
+            )
+            inputs.update(run_id=run.id, candidate_revision=run.candidate_revision)
+            SkillPriorityService._enrich(inputs, assessment.contexts)
+            fingerprint = SkillPriorityService._fingerprint(
+                inputs,
+                assessment.contexts,
+                assessment.release,
+                configured_priority_model(),
+            )
+            if (
+                assessment.status == "stale"
+                or assessment.run_id != run.id
+                or assessment.candidate_revision != run.candidate_revision
+                or assessment.policy_version != POLICY_VERSION
+                or assessment.prompt_version != PROMPT_VERSION
+                or assessment.input_fingerprint != fingerprint
+            ):
+                raise RevisionConflict("Priority inputs changed")
+        except (LookupError, RevisionConflict):
+            assessment.status = "stale"
+            assessment.contexts = []
+            assessment.results = []
+            assessment.references = []
+            assessment.summaries = PrioritySummarySet()
+            assessment.completed_pair_count = 0
+            assessment.error_reasons = [
+                "Saved importance guidance no longer matches the current evidence"
+            ]
+            return assessment
+        if assessment.status == "running":
+            assessment.results = []
+            assessment.references = []
+            assessment.summaries = PrioritySummarySet()
+            return assessment
+        # Reapply current numerical/evidence policy, never trust copied summaries.
+        pairs = SkillPriorityService._pairs(inputs, assessment.contexts)
+        decisions = [
+            PriorityDecision.model_validate(
+                {
+                    key: value
+                    for key, value in result.model_dump().items()
+                    if key in PriorityDecision.model_fields
+                }
+            )
+            for result in assessment.results
+        ]
+        assessment.results = validate_priority_decisions(
+            decisions,
+            pairs=pairs,
+            references=assessment.references,
+            passages=inputs["passages"],
+            candidates=inputs["candidates"],
+        )
+        assessment.summaries = build_priority_summaries(
+            inputs["candidates"],
+            inputs["categories"],
+            assessment.contexts,
+            assessment.results,
+        )
+        return assessment
+
+    @staticmethod
     def review_from_run(run: MarketAnalysisRun) -> SkillReview:
         manifest = run.candidate_manifest
         records = []
@@ -295,6 +404,8 @@ class SkillReviewService:
             if title is None or (isinstance(title, str) and not title.strip()):
                 occupation["title"] = occupation["soc_code"]
         omissions = available_evidence_omissions(run)
+        assessment = SkillReviewService._priority_for_run(run)
+        summaries = assessment.summaries if assessment is not None else None
         return SkillReview(
             run_id=run.id,
             analysis_metadata=AnalysisMetadata(
@@ -308,8 +419,25 @@ class SkillReviewService:
             ),
             candidate_revision=run.candidate_revision,
             selection_revision=run.selection_revision,
-            categories=manifest.get("categories", []),
-            candidates=manifest.get("candidates", []),
+            categories=[
+                {
+                    **category,
+                    "priority": summaries.categories.get(category["category_id"])
+                    if summaries
+                    else None,
+                }
+                for category in manifest.get("categories", [])
+            ],
+            candidates=[
+                {
+                    **candidate,
+                    "priority": summaries.candidates.get(str(candidate["candidate_id"]))
+                    if summaries
+                    else None,
+                }
+                for candidate in manifest.get("candidates", [])
+            ],
+            priority_assessment=assessment,
             selected_candidate_ids=run.selected_candidate_ids,
             excluded_candidate_ids=run.excluded_candidate_ids,
             recommendations=run.recommendations,
