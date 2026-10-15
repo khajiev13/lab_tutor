@@ -2,10 +2,11 @@
 
 import asyncio
 import json
+from contextlib import suppress
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import text
@@ -714,3 +715,87 @@ def test_model_payload_defines_strict_bare_array_response_schema(service_case):
         )
         assert schema["$defs"][model_name]["additionalProperties"] is False
         assert "bare JSON array" in payload["response_instruction"]
+
+
+@pytest.mark.parametrize("new_service", [False, True])
+def test_cancelled_transport_permits_survive_same_assessment_resume(
+    service_case, new_service
+):
+    from app.modules.marketdemandanalyst.priority_service import SkillPriorityService
+
+    case = service_case
+    original = case.model.ainvoke
+
+    async def scenario():
+        release = asyncio.Event()
+        two_entered = asyncio.Event()
+        extra_entered = asyncio.Event()
+        active = 0
+        maximum = 0
+        total_entered = 0
+        first = None
+        resumed = None
+
+        async def stubborn(messages, *, config):
+            nonlocal active, maximum, total_entered
+            if json.loads(messages[1].content)["phase"] != "score":
+                return await original(messages, config=config)
+            # Count the actual transport entry before the cancellation-resistant wait.
+            active += 1
+            total_entered += 1
+            maximum = max(maximum, active)
+            if total_entered == 2:
+                two_entered.set()
+            elif total_entered > 2:
+                extra_entered.set()
+            try:
+                try:
+                    await release.wait()
+                except asyncio.CancelledError:
+                    await release.wait()
+                return await original(messages, config=config)
+            finally:
+                active -= 1
+
+        case.model.ainvoke = stubborn
+        try:
+            first = asyncio.create_task(case.service.assess(case.scope, case.lease))
+            await asyncio.wait_for(two_entered.wait(), timeout=1)
+            first.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await first
+            interrupted = case.reload().priority_assessment
+            assert interrupted["status"] == "running" and interrupted["results"] == []
+            service = (
+                SkillPriorityService(
+                    session_factory=case.factory, llm_factory=case.model.factory
+                )
+                if new_service
+                else case.service
+            )
+            resumed = asyncio.create_task(service.assess(case.scope, case.lease))
+            with suppress(TimeoutError):
+                await asyncio.wait_for(extra_entered.wait(), timeout=0.1)
+            assert active == 2
+            assert maximum == 2
+            # The old calls cannot write, and resume waits with the same durable attempt.
+            assert case.reload().priority_assessment["results"] == []
+            release.set()
+            result = await asyncio.wait_for(resumed, timeout=2)
+            assert result.assessment_id == UUID(interrupted["assessment_id"])
+            assert result.deadline_at == datetime.fromisoformat(
+                interrupted["deadline_at"]
+            )
+            assert result.status == "ready" and len(result.results) == 24
+            assert maximum == 2
+            assert case.reload().priority_assessment == result.model_dump(mode="json")
+        finally:
+            release.set()
+            for task in (first, resumed):
+                if task and not task.done():
+                    task.cancel()
+            await asyncio.gather(
+                *(task for task in (first, resumed) if task), return_exceptions=True
+            )
+
+    asyncio.run(scenario())

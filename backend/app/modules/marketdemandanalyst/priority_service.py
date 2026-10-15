@@ -5,8 +5,10 @@ import json
 import math
 import os
 from datetime import UTC, datetime, timedelta
+from threading import BoundedSemaphore, Lock
 from time import monotonic
 from uuid import UUID, uuid4
+from weakref import WeakValueDictionary
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
@@ -46,6 +48,30 @@ MAX_INPUT_BYTES = 200_000
 MAX_OUTPUT_BYTES = 200_000
 PROMPT_VERSION = "1"
 POLICY_VERSION = "1"
+
+# get_skill_priority_service() constructs services per invocation. Keep actual
+# transport ownership process-wide, including canceled requests still alive on
+# another service instance or event loop. Weak values disappear when neither an
+# assessment nor an outstanding transport retains its permits.
+_MODEL_SLOTS: WeakValueDictionary[str, BoundedSemaphore] = WeakValueDictionary()
+_MODEL_SLOTS_LOCK = Lock()
+
+
+def _shared_model_slots(thread_id: str) -> BoundedSemaphore:
+    with _MODEL_SLOTS_LOCK:
+        slots = _MODEL_SLOTS.get(thread_id)
+        if slots is None:
+            slots = BoundedSemaphore(2)
+            _MODEL_SLOTS[thread_id] = slots
+        return slots
+
+
+async def _acquire_model_slot(slots: BoundedSemaphore) -> None:
+    # Never park a worker thread on acquire: cancellation could orphan that
+    # waiter and consume a permit later. The caller bounds this await by the
+    # original assessment deadline, and release is safe across event loops.
+    while not slots.acquire(blocking=False):
+        await asyncio.sleep(0.01)
 
 
 class _ContextDecision(BaseModel):
@@ -283,7 +309,7 @@ class SkillPriorityService:
         if remaining <= 0:
             raise _Unavailable("Assessment deadline expired")
         try:
-            await asyncio.wait_for(slots.acquire(), timeout=remaining)
+            await asyncio.wait_for(_acquire_model_slot(slots), timeout=remaining)
         except TimeoutError as exc:
             raise _Unavailable("Assessment deadline expired while queued") from exc
         request = None
@@ -579,7 +605,7 @@ class SkillPriorityService:
             deadline = start_clock + max(
                 0.0, min(60.0, (assessment.deadline_at - started).total_seconds())
             )
-            slots = asyncio.Semaphore(2)
+            slots = _shared_model_slots(lease.thread_id)
             if not assessment.contexts:
                 # No inference is needed for an empty eligible set.
                 defaults = self._unmapped(
