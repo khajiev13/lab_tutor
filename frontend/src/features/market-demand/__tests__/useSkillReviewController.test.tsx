@@ -393,3 +393,17 @@ it.each(['candidates','choices'] as const)('rejects an atomic confirmation that 
  await act(async()=>{await expect(result.current.confirmCurrentSelection()).rejects.toThrow(/changed|confirm/i);});
  expect(result.current.draft.selected_candidate_ids).toEqual(['python']);
 });
+
+it("accepts priority-only data without resetting dirty choices or undo at unchanged revisions", () => {
+  const review = reviewFixture();
+  const {result, rerender, onReviewChange} = setup(review);
+  act(() => {result.current.setCandidate("python", true); result.current.setCandidate("sql", false);});
+  const refreshed = {...review, candidates: review.candidates.map(candidate => ({...candidate,
+    priority: {value: 4, basis: "ai_estimate" as const, complete: true, expected_contexts: 1, scored_contexts: 1, display_order: 0}}))};
+  rerender({courseId: 1, review: refreshed, onReviewChange});
+  expect(result.current.review?.candidates[0].priority?.value).toBe(4);
+  expect(result.current.draft).toEqual({selected_candidate_ids: ["python"], excluded_candidate_ids: ["sql"]});
+  expect(result.current.reviewRequired).toBe(false);
+  act(() => result.current.undo());
+  expect(result.current.draft.excluded_candidate_ids).toEqual([]);
+});

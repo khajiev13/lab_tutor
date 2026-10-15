@@ -5,9 +5,9 @@ import {groupPostingEvidence, postingPassageKey} from "@/features/market-demand/
 import type {PostingEvidenceGroup} from "@/features/market-demand/posting-evidence";
 import {DescriptorChooser} from "@/features/market-demand/components/WorkspaceDataTable";
 import { Button } from "@/components/ui/button";
-import { isUsablePostingUrl } from "@/features/market-demand/selection";
+import { isUsablePostingUrl, priorityLabel } from "@/features/market-demand/selection";
 import { fetchPostingEvidence } from "@/features/market-demand/api";
-import type { DescriptorChoice, OnetMetric, PostingEvidence, RatingResolution, SkillCandidate } from "@/features/market-demand/types";
+import type { CategoryPriority, DescriptorChoice, OnetMetric, PostingEvidence, PriorityAssessment, RatingResolution, SkillCandidate } from "@/features/market-demand/types";
 
 export function EvidenceLink({url, label}: {url: string; label: string}) {
   if (!isUsablePostingUrl(url)) return null;
@@ -118,6 +118,8 @@ function metricText(metric: OnetMetric | undefined, name: "IM" | "LV") {
 
 interface Props {
   courseId: number;
+  priorityAssessment?: PriorityAssessment | null;
+  categoryPriority?: CategoryPriority | null;
   candidate: SkillCandidate;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -129,7 +131,7 @@ interface Props {
   onChooseDescriptor?: (evidenceId: string, occupationCode: string) => void;
 }
 
-export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, focusedEvidenceId, returnFocusTo, ratings, descriptorChoices, release, onChooseDescriptor}: Props) {
+export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, focusedEvidenceId, returnFocusTo, ratings, descriptorChoices, release, onChooseDescriptor, priorityAssessment, categoryPriority}: Props) {
   const associations = [...new Map(candidate.onet_associations.map(item => [item.evidence.id, item])).values()];
   // Only request identities survive a disclosure session. Full bodies are
   // discarded on close and previously requested snapshots re-resolve on reopen.
@@ -137,7 +139,32 @@ export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, foc
   const [inspecting, setInspecting] = useState(false);
   const groups = groupPostingEvidence(candidate);
   const sessionKey = JSON.stringify([courseId, candidate.candidate_id, candidate.evidence_references, candidate.qualifying_posting_links]);
+  const priority = candidate.priority;
   const content = <div className="space-y-2 text-xs">
+      {priorityAssessment && priority && <section aria-label="Skill importance evidence" className="space-y-2 rounded-md border p-3">
+        <h3 className="font-medium">Importance · {priorityLabel(priority)}</h3>
+        <p>{priority.basis === "onet" ? "Official O*NET importance for the matched role." : "Lab Tutor summary across assessed role contexts; aggregates are not official O*NET ratings."}</p>
+        <p>{priority.scored_contexts} of {priority.expected_contexts} role contexts assessed{priority.complete ? "." : " · Partial coverage."}</p>
+        {categoryPriority && <p>Category Lab Tutor summary: {priorityLabel(categoryPriority)} · {categoryPriority.scored_count} of {categoryPriority.eligible_count} eligible skills assessed; {categoryPriority.onet_count} O*NET, {categoryPriority.estimated_count} estimated, {categoryPriority.partial_count} partial, {categoryPriority.unavailable_count} unavailable.</p>}
+        <p>Release: {priorityAssessment.release ?? "unavailable"} · model: {priorityAssessment.model_id} · policy: {priorityAssessment.policy_version}</p>
+        {priorityAssessment.results.filter(result => result.candidate_id === candidate.candidate_id).map(result => {
+          const context = priorityAssessment.contexts.find(item => item.soc_code === result.soc_code && item.group_id === result.context_key) ??
+            priorityAssessment.contexts.find(item => item.soc_code === result.soc_code);
+          return <div key={result.context_key} className="space-y-1 border-t pt-2">
+            <p>{context?.occupation_title ?? "Role unavailable"} · {result.soc_code ?? "No occupation code"}{context?.inferred ? " · Inferred from postings" : ""}</p>
+            {context && <p>{context.rationale}</p>}
+            <p>{result.basis === "onet" ? `O*NET source value: ${result.official_value ?? "unavailable"}/5` :
+              result.basis === "ai_estimate" ? `AI estimate: ${result.estimate ?? "unavailable"}/5` : "Not assessed"}</p>
+            <p>{result.explanation}</p>
+            {result.direct_reference_id && <p>Matched reference: {result.direct_reference_id}</p>}
+            {!!result.supporting_evidence_ids.length && <p>Supporting evidence: {result.supporting_evidence_ids.join(", ")}</p>}
+            {result.associations.map(item => <p key={item.reference_id}>{item.relation} reference {item.reference_id}: {item.rationale}</p>)}
+            {result.limitations.map((text, index) => <p key={index}>Limitation: {text}</p>)}
+            {(result.unavailable_reason || context?.unavailable_reason) && <p>{result.unavailable_reason ?? context?.unavailable_reason}</p>}
+          </div>;
+        })}
+        {priorityAssessment.error_reasons.map((text, index) => <p key={index}>Assessment limitation: {text}</p>)}
+      </section>}
       {!!candidate.original_labels.length && <p>Original skill labels: {[...new Set(candidate.original_labels)].join(" · ")}</p>}
       <PostingInspection key={sessionKey} courseId={courseId} groups={groups} dialog={open !== undefined}
         initialIds={groups.flatMap(group => group.snapshotIds).filter(id => open !== undefined || requestedPostings.includes(`${courseId}-${id}`))}

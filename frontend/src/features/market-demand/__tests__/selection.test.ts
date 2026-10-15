@@ -52,3 +52,18 @@ describe("job-backed choices", () => {
     expect(jobBackedCandidates(review).map(item => item.candidate_id)).toEqual(["sql"]);
   });
 });
+
+it("formats official, estimated, partial and unavailable guidance without inventing scores", async () => {
+  const {priorityLabel} = await import("@/features/market-demand/selection");
+  const candidate = {value: 4.2, basis: "onet" as const, complete: true, expected_contexts: 1, scored_contexts: 1, display_order: 0};
+  expect(priorityLabel(candidate)).toBe("4.2/5 · O*NET");
+  expect(priorityLabel({...candidate, basis: "onet_aggregate", value: 4})).toBe("4/5 · O*NET average");
+  expect(priorityLabel({...candidate, basis: "ai_estimate", value: 4})).toBe("4/5 · AI estimate");
+  expect(priorityLabel({...candidate, basis: "unavailable", value: null})).toBe("Not assessed");
+  expect(priorityLabel(null)).toBeNull();
+  const category = {value: 4, basis: "ai_estimate" as const, complete: true, eligible_count: 5, scored_count: 5,
+    onet_count: 2, estimated_count: 3, partial_count: 0, unavailable_count: 0, display_order: 0};
+  expect(priorityLabel(category)).toBe("4/5 · Estimated");
+  expect(priorityLabel({...category, complete: false})).toBe("4/5 · Estimate · Partial");
+  expect(priorityLabel({...category, basis: "derived", estimated_count: 0})).toBe("4/5 · O*NET average");
+});

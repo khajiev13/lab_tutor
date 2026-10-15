@@ -598,3 +598,22 @@ it('shows persisted selected categories first and keeps category order stable th
  expect(headings()).toEqual(['Expand Technical','Expand General']);
  expect(screen.queryByRole('button',{name:'Expand Reference only'})).not.toBeInTheDocument();
 });
+
+it('shows importance assessment as background activity and clears terminal progress without another decision', async () => {
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=reviewFixture();
+ const state={...EMPTY_STATE,run_id:'run-1',skill_priority_status:{assessment_id:'assessment',status:'running' as const,deadline_at:'2099-10-15T10:00:00Z',message:'Assessing skill importance…'}};
+ const {rerender}=await openReviewWorkspace({skillReview:review,agentState:state});
+ expect(screen.getByRole('status')).toHaveTextContent('Assessing skill importance…');
+ expect(screen.getAllByRole('button',{name:/Confirm Selection/})).toHaveLength(1);
+ expect(screen.queryByText('Skill Priority Analyst')).not.toBeInTheDocument();
+ vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:review,agentState:{...state,skill_priority_status:{...state.skill_priority_status,status:'unavailable'}}}));
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.queryByText('Assessing skill importance…')).not.toBeInTheDocument();
+});
+it('does not show expired assessment activity after recovery',async()=>{
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ await openReviewWorkspace({skillReview:reviewFixture(),agentState:{...EMPTY_STATE,run_id:'run-1',skill_priority_status:{assessment_id:'assessment',status:'running',deadline_at:'2020-01-01T00:00:00Z',message:'Assessing skill importance…'}}});
+ expect(screen.queryByText('Assessing skill importance…')).not.toBeInTheDocument();
+});

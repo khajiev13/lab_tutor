@@ -25,7 +25,7 @@ import { CompactComparison } from "@/features/market-demand/components/CompactCo
 import { IntegrationReview } from "@/features/market-demand/components/IntegrationReview";
 import { buildRunReviewContext } from "@/features/market-demand/workspace-context";
 import { hasItems, detectPendingSelection } from "@/features/market-demand/teacher-decision";
-import { jobBackedCandidates } from "@/features/market-demand/selection";
+import { currentPriorityAssessment, jobBackedCandidates } from "@/features/market-demand/selection";
 import { skillReviewErrorMessage } from "@/features/market-demand/api";
 import type { DescriptorChoice, SendCommand, SendResult, WorkspaceContext, WorkspaceQuestion } from "@/features/market-demand/types";
 
@@ -246,6 +246,10 @@ function MarketDemandContent() {
     proposal.selection_revision !== review.selection_revision || !proposal.review_digest ||
     proposal.items.length !== review.selected_candidate_ids.length || proposal.items.some(item => !review.selected_candidate_ids.includes(item.candidate_id)));
   const showSkills = !!review && (review.candidates.length > 0 || controller.draft.selected_candidate_ids.length > 0) && !pending && (!proposal || editingSelection || staleFit || controller.dirty || controller.reviewRequired);
+  const priorityAssessment = review ? currentPriorityAssessment(review) : null;
+  const priorityProgress = agentState.skill_priority_status;
+  const assessingImportance = priorityProgress?.status === "running" && Date.parse(priorityProgress.deadline_at) > Date.now() &&
+    !(priorityAssessment?.assessment_id === priorityProgress.assessment_id && priorityAssessment.status !== "running");
   const sourceFailures = Object.entries(review?.source_outcomes ?? agentState.source_outcomes ?? {}).filter(([, outcome]) => outcome.status === "error" || outcome.status === "partial");
   const shownError = actionError ?? (isMaterialsNotReady(stream.streamError) ? null : stream.error) ?? (reviewRefreshRequired ? controller.error : null);
   return <div aria-label="Teacher evidence workspace" className="absolute inset-0 flex min-w-0 flex-col overflow-hidden bg-background">
@@ -281,7 +285,7 @@ function MarketDemandContent() {
             <div hidden={showSkills}><IntegrationReview courseId={courseId} review={review} onReviewChange={stream.applySkillReview} disabled={!materialsReady || workPending || unavailable}
               publicationDisabled={showSkills || controller.dirty || controller.reviewRequired || recoveryRequired || stream.execution.status !== "idle"}/></div>
           </section>}
-          {workPending && !checking && <p role="status" className="text-sm text-muted-foreground"><Loader2 className="mr-2 inline size-4 animate-spin"/>{stream.currentAgent ? "The agent is working…" : "Working on your request…"}</p>}
+          {(workPending || assessingImportance) && !checking && <p role="status" className="text-sm text-muted-foreground"><Loader2 className="mr-2 inline size-4 animate-spin"/>{assessingImportance ? "Assessing skill importance…" : stream.currentAgent ? "The agent is working…" : "Working on your request…"}</p>}
           {sourceFailures.length > 0 && !workPending && <details className="text-xs text-muted-foreground"><summary>Some job sources could not finish</summary>{sourceFailures.map(([source, outcome]) => <p key={source} className="mt-1">{source}: {outcome.status}. {outcome.warnings.join(" ")}</p>)}</details>}
         </>}
         {shownError && <p role="alert" className="text-sm text-destructive">{shownError}</p>}
@@ -303,7 +307,7 @@ function MarketDemandContent() {
       event.preventDefault(); focusComposerAfterClose.current = false;
       composerRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
     }} onReferenceAsk={(context, text) => {focusComposerAfterClose.current = true; setDetailsOpen(false); setActionError(null); setDraft({text, context});}} review={review} candidateIds={controller.draft.selected_candidate_ids.length ? controller.draft.selected_candidate_ids : jobBackedCandidates(review).map(item => item.candidate_id)} open={detailsOpen} onOpenChange={setDetailsOpen} onAsk={askAboutChart}/>}
-    {focused && <SkillEvidencePanel courseId={courseId} candidate={focused} returnFocusTo={inspectionOrigin.current} open onOpenChange={open => {if (!open) setInspectId(null);}}/>}
+    {focused && <SkillEvidencePanel courseId={courseId} candidate={focused} priorityAssessment={priorityAssessment} categoryPriority={review?.categories.find(category => category.category_id === focused.category_id)?.priority} returnFocusTo={inspectionOrigin.current} open onOpenChange={open => {if (!open) setInspectId(null);}}/>}
     <AlertDialog open={clearOpen} onOpenChange={open => {if (!resetting) setClearOpen(open);}}><AlertDialogContent>
       <AlertDialogHeader><AlertDialogTitle>Clear conversation?</AlertDialogTitle><AlertDialogDescription>The current conversation and analysis will be reset. Published skills and saved student paths remain.{controller.dirty ? " Save or discard your current choices before clearing." : ""}</AlertDialogDescription></AlertDialogHeader>
       {shownError && <p role="alert" className="text-sm text-destructive">{shownError}</p>}

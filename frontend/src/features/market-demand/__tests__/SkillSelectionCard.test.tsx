@@ -1,0 +1,107 @@
+import {useLayoutEffect} from "react";
+import {act, render, screen} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import {expect, it, vi} from "vitest";
+import {SkillSelectionCard} from "@/features/market-demand/components/SkillSelectionCard";
+import {useSkillReviewController} from "@/features/market-demand/hooks/useSkillReviewController";
+import {reviewFixture} from "@/features/market-demand/__tests__/review-fixtures";
+import type {PriorityAssessment, SkillReview} from "@/features/market-demand/types";
+
+function priorityReview(): SkillReview {
+  const base = reviewFixture();
+  const assessment: PriorityAssessment = {assessment_id: "assessment-1", run_id: "run-1", candidate_revision: 1,
+    input_fingerprint: "fingerprint", schema_version: 1, policy_version: "1", prompt_version: "1", model_id: "model",
+    release: "30.0", started_at: "2026-10-15", updated_at: "2026-10-15", deadline_at: "2026-10-16", completed_at: "2026-10-15",
+    status: "partial", contexts: [], results: [], summaries: {candidates: {}, categories: {}}, expected_pair_count: 24,
+    completed_pair_count: 23, posting_hashes: {}, error_reasons: []};
+  return {...base, priority_assessment: assessment, selected_candidate_ids: ["skill-0"], excluded_candidate_ids: ["skill-23", "reference"],
+    categories: [{category_id: "tools", label: "Tools", priority: {value: 4, basis: "ai_estimate", complete: false, eligible_count: 24,
+      scored_count: 23, onet_count: 1, estimated_count: 22, partial_count: 0, unavailable_count: 1, display_order: 0}}],
+    candidates: [...Array.from({length: 24}, (_, index) => ({...base.candidates[0], candidate_id: `skill-${index}`,
+      display_name: `Skill ${String(index).padStart(2, "0")}`, priority: {value: index === 22 ? null : index === 21 ? 4.2 : 4,
+        basis: index === 22 ? "unavailable" as const : index === 21 ? "onet" as const : "ai_estimate" as const,
+        complete: index !== 22, expected_contexts: 1, scored_contexts: index === 22 ? 0 : 1, display_order: 23 - index}})), base.candidates[2]]};
+}
+function setupPriorityReview(initial = priorityReview()) {
+  let current!: ReturnType<typeof useSkillReviewController>;
+  function Harness({review}: {review: SkillReview}) {
+    const controller = useSkillReviewController({courseId: 1, review, onReviewChange: vi.fn()});
+    useLayoutEffect(() => {current = controller;}, [controller]);
+    return <SkillSelectionCard controller={controller} onConfirm={vi.fn()} onInspect={vi.fn()}/>;
+  }
+  const view = render(<Harness review={initial}/>);
+  return {...view, user: userEvent.setup(), controller: () => current,
+    refresh: (review: SkillReview) => view.rerender(<Harness review={review}/>),
+    initial,
+    visibleCandidateIds: () => screen.queryAllByRole("checkbox", {name: /^Select Skill /}).map(row => row.getAttribute("aria-label")),
+  };
+}
+it("shows compact importance labels while keeping exactly the existing teacher controls", async () => {
+  const view = setupPriorityReview();
+  expect(screen.getByText("4/5 · Estimate · Partial")).toBeInTheDocument();
+  await view.user.click(screen.getByRole("button", {name: "Expand Tools"}));
+  expect(view.visibleCandidateIds().slice(0, 3)).toEqual(["Select Skill 23", "Select Skill 22", "Select Skill 21"]);
+  expect(screen.getByText("4.2/5 · O*NET")).toBeInTheDocument();
+  expect(screen.getByText("Not assessed")).toBeInTheDocument();
+  expect(screen.getAllByText("4/5 · AI estimate")).toHaveLength(8);
+  const controls = screen.getAllByRole("button").map(button => button.getAttribute("aria-label") ?? button.textContent);
+  expect(screen.getAllByRole("button", {name: /Confirm Selection/})).toHaveLength(1);
+  view.unmount();
+  const legacy = setupPriorityReview({...view.initial, priority_assessment: null,
+    categories: view.initial.categories.map(item => ({...item, priority: null})),
+    candidates: view.initial.candidates.map(item => ({...item, priority: null}))});
+  await legacy.user.click(screen.getByRole("button", {name: "Expand Tools"}));
+  expect(screen.getAllByRole("button").map(button => (button.getAttribute("aria-label") ?? button.textContent)?.replace(/Skill \d+/g, "Skill")))
+    .toEqual(controls.map(value => value?.replace(/Skill \d+/g, "Skill")));
+});
+it("preserves dirty choices and row order when guidance refreshes", async () => {
+  const view = setupPriorityReview();
+  await view.user.click(screen.getByRole("button", {name: "Expand Tools"}));
+  await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 21"}));
+  await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 21"}));
+  const before = view.visibleCandidateIds();
+  const refreshed = {...view.initial, priority_assessment: {...view.initial.priority_assessment!, assessment_id: "assessment-2"},
+    candidates: view.initial.candidates.map((item, index) => item.priority ? {...item, priority: {...item.priority, display_order: index, value: 3}} : item)};
+  view.refresh(refreshed);
+  expect(screen.getByText("3/5 · O*NET")).toBeInTheDocument();
+  expect(view.visibleCandidateIds()).toEqual(before);
+  expect(view.controller().draft.excluded_candidate_ids).toEqual(["skill-23", "reference", "skill-21"]);
+  expect(view.controller().dirty).toBe(true);
+  expect(view.controller().reviewRequired).toBe(false);
+  expect(screen.getAllByRole("button", {name: /Confirm Selection/})).toHaveLength(1);
+  view.refresh({...refreshed, candidate_revision: 2, priority_assessment: {...refreshed.priority_assessment, candidate_revision: 2}});
+  expect(view.visibleCandidateIds()[0]).toBe("Select Skill 00");
+});
+it("selects off-page category members and retains an exclusion on reopen and reload", async () => {
+  const view = setupPriorityReview();
+  await view.user.click(screen.getByRole("checkbox", {name: /Select category Tools/}));
+  expect(view.controller().draft.selected_candidate_ids).toHaveLength(24);
+  expect(view.controller().draft.excluded_candidate_ids).toEqual(["reference"]);
+  await view.user.click(screen.getByRole("button", {name: "Expand Tools"}));
+  await view.user.click(screen.getByRole("button", {name: "Next Tools page"}));
+  await view.user.click(screen.getByRole("button", {name: "Next Tools page"}));
+  await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 00"}));
+  await view.user.click(screen.getByRole("button", {name: "Collapse Tools"}));
+  await view.user.click(screen.getByRole("button", {name: "Expand Tools"}));
+  expect(screen.getByRole("checkbox", {name: "Select Skill 00"})).not.toBeChecked();
+  const saved = {...view.initial, ...view.controller().draft};
+  view.unmount();
+  const reloaded = setupPriorityReview(saved);
+  await reloaded.user.click(screen.getByRole("button", {name: "Expand Tools"}));
+  await reloaded.user.click(screen.getByRole("button", {name: "Next Tools page"}));
+  await reloaded.user.click(screen.getByRole("button", {name: "Next Tools page"}));
+  expect(screen.getByRole("checkbox", {name: "Select Skill 00"})).not.toBeChecked();
+  expect(reloaded.controller().draft.excluded_candidate_ids).toEqual(["reference", "skill-0"]);
+  expect(screen.queryByRole("checkbox", {name: "Select Reference skill"})).not.toBeInTheDocument();
+});
+it.each(["disabled", "stale", "wrong revision"])("keeps legacy order when %s guidance exists at entry", async mode => {
+  const review = priorityReview();
+  review.priority_assessment = mode === "disabled" ? null : {...review.priority_assessment!,
+    status: mode === "stale" ? "stale" : "ready", candidate_revision: mode === "wrong revision" ? 0 : 1};
+  const view = setupPriorityReview(review);
+  await view.user.click(screen.getByRole("button", {name: "Expand Tools"}));
+  expect(view.visibleCandidateIds()[0]).toBe("Select Skill 00");
+  expect(screen.queryByText("4.2/5 · O*NET")).not.toBeInTheDocument();
+  act(() => view.controller().setCandidate("skill-2", true));
+  expect(view.visibleCandidateIds()[0]).toBe("Select Skill 00");
+});

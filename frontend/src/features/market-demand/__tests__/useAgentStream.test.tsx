@@ -1130,3 +1130,37 @@ it('searches all three job providers together for a new analysis without source 
  await act(async()=>{await result.current.send({mode:'workflow',text:'Analyze the job market'});});
  expect(streamMarketDemandChat).toHaveBeenCalledWith(expect.objectContaining({sources:['indeed','linkedin','headhunter'],evidence_sources:['jobs']}));
 });
+
+it("keeps importance progress out of chat and accepts same-revision priority refresh", async () => {
+  const review = reviewFixture();
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, run_id: "run-1"});
+  vi.mocked(fetchSkillReview).mockResolvedValue(review);
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  let finish!: () => void;
+  vi.mocked(streamMarketDemandChat).mockImplementation(() => new Promise(resolve => {finish = resolve;}));
+  let sending!: Promise<SendResult>;
+  act(() => {sending = result.current.send({mode: "workflow", text: "Find skills"});});
+  const {onEvent} = vi.mocked(streamMarketDemandChat).mock.calls.at(-1)![0];
+  act(() => onEvent({type: "state_update", stateKey: "skill_priority_status", value: {assessment_id: "a", status: "running", deadline_at: "2099-10-15T00:00:00Z", message: "Assessing skill importance…"}}));
+  expect(result.current.agentState.skill_priority_status?.status).toBe("running");
+  expect(result.current.messages.filter(message => message.role === "agent")).toHaveLength(0);
+  const refreshed = {...review, candidates: review.candidates.map(item => ({...item, priority: {value: 4, basis: "ai_estimate" as const,
+    complete: true, expected_contexts: 1, scored_contexts: 1, display_order: 0}}))};
+  vi.mocked(fetchSkillReview).mockResolvedValue(refreshed);
+  act(() => onEvent({type: "skill_review_changed", run_id: "run-1", candidate_revision: 1, selection_revision: 2, publication_revision: 3}));
+  await waitFor(() => expect(result.current.skillReview?.candidates[0].priority?.value).toBe(4));
+  act(() => onEvent({type: "state_update", stateKey: "skill_priority_status", value: {assessment_id: "a", status: "ready", deadline_at: "2099-10-15T00:00:00Z", message: ""}}));
+  expect(result.current.agentState.skill_priority_status?.status).toBe("ready");
+  await act(async () => {finish(); await sending;});
+});
+it("clears expired running importance activity on restored state without starting inference", async () => {
+  vi.mocked(fetchAgentState).mockResolvedValue({...EMPTY_STATE, skill_priority_status: {assessment_id: "old", status: "running",
+    deadline_at: "2020-01-01T00:00:00Z", message: "Assessing skill importance…"}});
+  const {result} = renderHook(() => useAgentStream(1));
+  await waitFor(() => expect(result.current.isRestored).toBe(true));
+  expect(result.current.agentState.skill_priority_status?.status).toBe("unavailable");
+  expect(result.current.agentState.skill_priority_status?.message).toBe("");
+  expect(result.current.messages).toEqual([]);
+  expect(streamMarketDemandChat).not.toHaveBeenCalled();
+});

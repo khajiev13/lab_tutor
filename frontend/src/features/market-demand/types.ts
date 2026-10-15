@@ -57,6 +57,7 @@ export type StageStatus = "complete" | "active" | "pending";
 
 // Agent state from tool_store
 export interface AgentState {
+  skill_priority_status?: SkillPriorityStatus | null;
   sources?: JobSource[];
   evidence_sources?: EvidenceSource[];
   onet_release?: string | null;
@@ -133,8 +134,92 @@ export interface SourceOutcome {
 }
 export interface OnetRelease { version: string; active: boolean; attribution: string }
 export interface OnetOccupation { soc_code: string; title: string; description: string }
-export interface SkillCategory { category_id: string; label: string }
+export interface PriorityContext {
+  group_id: string;
+  soc_code: string | null;
+  occupation_title: string | null;
+  posting_ids: string[];
+  rationale: string;
+  inferred: boolean;
+  unavailable_reason: string | null;
+}
+export interface PriorityAssociation {
+  reference_id: string;
+  relation: "equivalent" | "broader" | "related" | "unmatched";
+  rationale: string;
+}
+export interface PriorityResult {
+  candidate_id: string;
+  context_key: string;
+  soc_code: string | null;
+  basis: "onet" | "ai_estimate" | "unavailable";
+  direct_reference_id: string | null;
+  estimate: number | null;
+  associations: PriorityAssociation[];
+  supporting_evidence_ids: string[];
+  explanation: string;
+  limitations: string[];
+  unavailable_reason: string | null;
+  official_value: number | null;
+  value: number | null;
+}
+export interface CandidatePriority {
+  value: number | null;
+  basis: "onet" | "onet_aggregate" | "ai_estimate" | "unavailable";
+  complete: boolean;
+  expected_contexts: number;
+  scored_contexts: number;
+  display_order: number;
+}
+export interface CategoryPriority {
+  value: number | null;
+  basis: "derived" | "ai_estimate" | "unavailable";
+  complete: boolean;
+  eligible_count: number;
+  scored_count: number;
+  onet_count: number;
+  estimated_count: number;
+  partial_count: number;
+  unavailable_count: number;
+  display_order: number;
+}
+export interface PrioritySummarySet {
+  candidates: Record<string, CandidatePriority>;
+  categories: Record<string, CategoryPriority>;
+}
+export type PriorityStatus = "running" | "ready" | "partial" | "unavailable" | "stale";
+export interface SkillPriorityStatus {
+  assessment_id: string;
+  status: PriorityStatus;
+  deadline_at: string;
+  message: string;
+}
+export interface PriorityAssessment {
+  assessment_id: string;
+  run_id: string;
+  candidate_revision: number;
+  input_fingerprint: string;
+  schema_version: 1;
+  policy_version: string;
+  prompt_version: string;
+  model_id: string;
+  release: string | null;
+  started_at: string;
+  updated_at: string;
+  deadline_at: string;
+  completed_at: string | null;
+  status: PriorityStatus;
+  contexts: PriorityContext[];
+  results: PriorityResult[];
+  summaries: PrioritySummarySet;
+  expected_pair_count: number;
+  completed_pair_count: number;
+  posting_hashes: Record<string, string>;
+  error_reasons: string[];
+}
+export interface SkillCategory { category_id: string; label: string; priority?: CategoryPriority | null }
 export interface SkillCandidate {
+  priority?: CandidatePriority | null;
   candidate_id: string;
   display_name: string;
   category_id: string;
@@ -164,6 +249,7 @@ export interface CandidateReconciliation {
   resolved: boolean;
 }
 export interface SkillReview {
+  priority_assessment?: PriorityAssessment | null;
   analysis_metadata?: AnalysisMetadata | null;
   run_id: string | null;
   candidate_revision: number;

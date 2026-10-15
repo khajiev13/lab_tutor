@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { categorySelectionState, jobBackedCandidates } from "@/features/market-demand/selection";
+import { categorySelectionState, currentPriorityAssessment, jobBackedCandidates, priorityLabel, priorityOrder } from "@/features/market-demand/selection";
 import type { SkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
 
 export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}: {
@@ -14,7 +14,12 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
   const [expanded, setExpanded] = useState<string[]>([]);
   const [pages, setPages] = useState<Record<string, number>>({});
   const {review, draft} = controller;
+  const key = review ? JSON.stringify([review.run_id, review.candidate_revision]) : "";
+  const [sessionOrder, setSessionOrder] = useState(() => ({key, order: review ? priorityOrder(review) : null}));
+  if (sessionOrder.key !== key) setSessionOrder({key, order: review ? priorityOrder(review) : null});
   if (!review) return null;
+  const assessment = currentPriorityAssessment(review);
+  const order = sessionOrder.key === key ? sessionOrder.order! : priorityOrder(review);
   const eligible = jobBackedCandidates(review);
   const eligibleIds = new Set(eligible.map(item => item.candidate_id));
   const selected = new Set(draft.selected_candidate_ids);
@@ -29,8 +34,7 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
       categories.push({category_id: candidate.category_id, label: candidate.category_id.replaceAll("_", " ")});
     }
   }
-  const savedCategoryIds = new Set(eligible.filter(candidate => review.selected_candidate_ids.includes(candidate.candidate_id)).map(candidate => candidate.category_id));
-  categories.sort((a, b) => Number(savedCategoryIds.has(b.category_id)) - Number(savedCategoryIds.has(a.category_id)));
+  categories.sort((a, b) => order.categoryIds.indexOf(a.category_id) - order.categoryIds.indexOf(b.category_id));
   return <section aria-label="Choose skills" className="flex max-h-[min(30rem,calc(100dvh-24rem))] min-h-0 w-full flex-col gap-1.5 rounded-lg border bg-card p-2.5 sm:max-h-[min(30rem,calc(100dvh-20rem))]">
     <div className="shrink-0"><h2 className="text-sm font-semibold">Select Skills</h2><p className="hidden text-xs text-muted-foreground sm:block">Expand categories to adjust individual skills.</p></div>
     <p className="shrink-0 text-xs text-muted-foreground">{selected.size} selected · {eligible.length} skills from jobs</p>
@@ -44,7 +48,9 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
       </div>)}
     </div>}
     <div className="space-y-2">{categories.map(category => {
-      const members = eligible.filter(candidate => candidate.category_id === category.category_id);
+      const memberOrder = order.candidateIdsByCategory[category.category_id] ?? [];
+      const members = eligible.filter(candidate => candidate.category_id === category.category_id)
+        .sort((a, b) => memberOrder.indexOf(a.candidate_id) - memberOrder.indexOf(b.candidate_id));
       if (!members.length) return null;
       const ids = members.map(candidate => candidate.candidate_id);
       const open = expanded.includes(category.category_id);
@@ -58,7 +64,8 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
           <button type="button" aria-label={`${open ? "Collapse" : "Expand"} ${category.label}`} aria-expanded={open}
             className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left text-sm"
             onClick={() => setExpanded(open ? expanded.filter(id => id !== category.category_id) : [...expanded, category.category_id])}>
-            <span className="min-w-0 break-words">{category.label} <span className="text-xs text-muted-foreground">({ids.filter(id => selected.has(id)).length}/{ids.length})</span></span>
+            <span className="min-w-0 break-words">{category.label} <span className="text-xs text-muted-foreground">({ids.filter(id => selected.has(id)).length}/{ids.length})</span>
+              {assessment && priorityLabel(category.priority) && <span className="block text-[11px] font-normal text-muted-foreground sm:inline sm:pl-2">{priorityLabel(category.priority)}</span>}</span>
             {open ? <ChevronDown className="size-4 shrink-0"/> : <ChevronRight className="size-4 shrink-0"/>}
           </button>
         </div>
@@ -67,7 +74,8 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
             <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
               <Checkbox aria-label={`Select ${candidate.display_name}`} checked={selected.has(candidate.candidate_id)} disabled={locked}
                 onCheckedChange={checked => controller.setCandidate(candidate.candidate_id, checked === true)}/>
-              <span className="min-w-0 break-words">{candidate.display_name}</span>
+              <span className="min-w-0 break-words">{candidate.display_name}
+                {assessment && priorityLabel(candidate.priority) && <span className="block text-[11px] text-muted-foreground sm:inline sm:pl-2">{priorityLabel(candidate.priority)}</span>}</span>
             </label>
             <Button size="sm" variant="ghost" className="shrink-0" aria-label={`Inspect ${candidate.display_name}`}
               onClick={event => onInspect(candidate.candidate_id, event.currentTarget)}>{candidate.job_metrics.supporting_posting_count ?? 0} jobs ›</Button>

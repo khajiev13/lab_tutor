@@ -178,3 +178,26 @@ it("does not focus a removed trigger when the course or inspection closes", asyn
   await new Promise(resolve => setTimeout(resolve, 0));
   expect(focus).not.toHaveBeenCalled();
 });
+
+it("explains score provenance, role, coverage and limitations while retaining original source links", async () => {
+  const {workspaceEvidenceFixture} = await import("@/features/market-demand/__tests__/review-fixtures");
+  const row = {...reviewFixture().candidates[0], evidence_references: [], onet_associations: [workspaceEvidenceFixture()],
+    priority: {value: 4, basis: "onet_aggregate" as const, complete: false, expected_contexts: 2, scored_contexts: 1, display_order: 0}};
+  const assessment = {assessment_id: "assessment", run_id: "run-1", candidate_revision: 1, input_fingerprint: "f", schema_version: 1 as const,
+    policy_version: "1", prompt_version: "1", model_id: "model", release: "30.0", started_at: "2026-10-15", updated_at: "2026-10-15",
+    deadline_at: "2026-10-16", completed_at: "2026-10-15", status: "partial" as const, expected_pair_count: 2, completed_pair_count: 1,
+    posting_hashes: {}, error_reasons: ["One role could not be assessed"], summaries: {candidates: {}, categories: {}},
+    contexts: [{group_id: "developers", soc_code: "15-1252.00", occupation_title: "Software Developers", posting_ids: ["snapshot-1"],
+      rationale: "Role from the selected postings", inferred: true, unavailable_reason: null}],
+    results: [{candidate_id: "python", context_key: "developers", soc_code: "15-1252.00", basis: "onet" as const,
+      direct_reference_id: row.onet_associations[0].evidence.id, estimate: null, associations: [], supporting_evidence_ids: ["snapshot-1"],
+      explanation: "Equivalent programming descriptor", limitations: ["Only one role assessed"], unavailable_reason: null, official_value: 4.2, value: 4.2}]};
+  render(<SkillEvidencePanel courseId={1} candidate={row} priorityAssessment={assessment} open onOpenChange={vi.fn()}/>);
+  expect(screen.getByText(/Lab Tutor summary/)).toBeInTheDocument();
+  expect(screen.getByText(/1 of 2 role contexts assessed/)).toBeInTheDocument();
+  expect(screen.getByText(/Software Developers.*15-1252.00/)).toBeInTheDocument();
+  expect(screen.getByText(/O\*NET source value: 4.2\/5/)).toBeInTheDocument();
+  expect(screen.getByText(/Only one role assessed/)).toBeInTheDocument();
+  expect(screen.getByRole("link", {name: /Original posting/})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
+  expect(screen.getByRole("link", {name: /O\*NET reference/})).toHaveAttribute("href", "https://onetonline.org");
+});

@@ -40,6 +40,20 @@ const EMPTY_STATE: AgentState = {
 
 import { derivePipelineStages } from "@/features/market-demand/pipeline";
 
+function withCurrentPriorityStatus(state: AgentState, review: SkillReview | null): AgentState {
+  const progress = state.skill_priority_status;
+  if (!progress || progress.status !== "running") return state;
+  const assessment = review?.priority_assessment;
+  if (assessment?.assessment_id === progress.assessment_id && assessment.status !== "running") {
+    return {...state, skill_priority_status: {...progress, status: assessment.status, message: ""}};
+  }
+  const deadline = Date.parse(progress.deadline_at);
+  if (!Number.isFinite(deadline) || deadline <= Date.now()) {
+    return {...state, skill_priority_status: {...progress, status: "unavailable", message: ""}};
+  }
+  return state;
+}
+
 export interface UseAgentStreamReturn {
   isRestored: boolean;
   resetRecovery: "none" | "required";
@@ -190,8 +204,8 @@ export function useAgentStream(
         }
         skillReviewRef.current = review;
         setSkillReview(review);
-        agentStateRef.current = state;
-        setAgentState(state);
+        agentStateRef.current = withCurrentPriorityStatus(state, review);
+        setAgentState(agentStateRef.current);
         // An attached partial response is still useful while server history catches up.
         if (!retainTranscript || !sameRun || !messagesRef.current.length ||
           (status.status === "idle" && history.messages.some(message => message.id === messagesRef.current.at(-1)?.id))) {
@@ -237,6 +251,8 @@ export function useAgentStream(
       if (current && (snapshot.candidate_revision < current.candidate_revision || snapshot.selection_revision < current.selection_revision || snapshot.publication_revision < current.publication_revision)) return;
       skillReviewRef.current = snapshot;
       setSkillReview(snapshot);
+      agentStateRef.current = withCurrentPriorityStatus(agentStateRef.current, snapshot);
+      setAgentState(agentStateRef.current);
     } catch (cause) {
       if (!abort.signal.aborted && courseRef.current === courseId && request === reviewRequestRef.current && generation === generationRef.current) {
         setError(cause instanceof Error ? cause.message : "Failed to refresh skill review");
@@ -368,10 +384,10 @@ export function useAgentStream(
       }
 
       case "state_update": {
-        agentStateRef.current = {
+        agentStateRef.current = withCurrentPriorityStatus({
           ...agentStateRef.current,
           [event.stateKey]: event.value,
-        };
+        }, skillReviewRef.current);
         setAgentState({ ...agentStateRef.current });
         break;
       }
@@ -491,6 +507,17 @@ export function useAgentStream(
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [courseId, execution.status, isStreaming, streamGeneration, reconcile]);
+
+  useEffect(() => {
+    const progress = agentState.skill_priority_status;
+    if (progress?.status !== "running") return;
+    const remaining = Date.parse(progress.deadline_at) - Date.now();
+    const timer = setTimeout(() => {
+      agentStateRef.current = withCurrentPriorityStatus(agentStateRef.current, skillReviewRef.current);
+      setAgentState(agentStateRef.current);
+    }, Math.max(0, Math.min(remaining, 2_147_483_647)));
+    return () => clearTimeout(timer);
+  }, [agentState.skill_priority_status]);
 
   const retryRestoration = useCallback(() => {
     if (courseRef.current !== courseId) return;
