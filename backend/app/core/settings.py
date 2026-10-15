@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     )
 
     market_skill_priority_enabled: bool = False
+    market_skill_priority_model: str | None = None
 
     # Search APIs
     serper_api_key: str | None = Field(

@@ -45,7 +45,7 @@ from .thread_state_service import ThreadLease
 # A complete oversized input abstains rather than silently truncating a catalog.
 MAX_INPUT_BYTES = 200_000
 MAX_OUTPUT_BYTES = 200_000
-PROMPT_VERSION = "3"
+PROMPT_VERSION = "4"
 SCORING_BATCH_SIZE = 2
 POLICY_VERSION = "1"
 
@@ -90,12 +90,18 @@ class _Unavailable(ValueError):
 
 def configured_priority_model() -> str:
     """One configured identity for the actual transport and cache fingerprint."""
-    return settings.llm_agent_model
+    return settings.market_skill_priority_model or settings.llm_agent_model
 
 
 def _get_priority_llm(timeout_seconds: float = 20):
+    model = configured_priority_model()
+    thinking = (
+        {"thinking": {"type": "disabled"}}
+        if model.casefold().startswith("deepseek")
+        else {"enable_thinking": False}
+    )
     return _get_extraction_llm(timeout_seconds=timeout_seconds).bind(
-        model=configured_priority_model(), extra_body={"enable_thinking": False}
+        model=model, response_format={"type": "json_object"}, extra_body=thinking
     )
 
 
@@ -308,11 +314,22 @@ class SkillPriorityService:
         slots.release()
 
     async def _request(self, payload, prompt, adapter, deadline, slots):
+        records_schema = adapter.json_schema()
+        definitions = records_schema.pop("$defs", None)
+        response_schema = {
+            "type": "object",
+            "properties": {"results": records_schema},
+            "required": ["results"],
+            "additionalProperties": False,
+        }
+        if definitions:
+            response_schema["$defs"] = definitions
         payload = {
             **payload,
-            "response_schema": adapter.json_schema(),
+            "response_schema": response_schema,
             "response_instruction": (
-                "Return a bare JSON array matching response_schema, without a wrapper, code fence or prose. "
+                'Return exactly one JSON object, e.g. {"results": []}, matching response_schema. '
+                "The only root key is results; use no code fence or prose. "
                 "Account for every supplied group or pair. Use one concise sentence per rationale or explanation, "
                 "only the minimal sufficient reference and passage IDs, and brief limitations."
             ),
@@ -358,7 +375,9 @@ class SkillPriorityService:
                     ValueError("Non-finite JSON")
                 ),
             )
-            return adapter.validate_python(raw)
+            if type(raw) is not dict or set(raw) != {"results"}:
+                raise _Unavailable("Model response must contain only the results array")
+            return adapter.validate_python(raw["results"])
         except asyncio.CancelledError:
             raise
         except Exception as exc:

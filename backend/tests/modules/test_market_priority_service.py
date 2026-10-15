@@ -129,7 +129,7 @@ class ModelTransport:
                             "limitations": [],
                         }
                     )
-            return SimpleNamespace(content=json.dumps(data))
+            return SimpleNamespace(content=json.dumps({"results": data}))
         finally:
             self.in_flight -= 1
 
@@ -194,6 +194,7 @@ def service_case(db_session, client, teacher_auth_headers, monkeypatch):
         session_factory=case.factory, llm_factory=case.model.factory
     )
     monkeypatch.setattr(settings, "market_skill_priority_enabled", True)
+    monkeypatch.setattr(settings, "market_skill_priority_model", None)
     try:
         yield case
     finally:
@@ -614,7 +615,7 @@ def test_considered_unmatched_references_have_readable_metadata_without_bulk_sto
         response = await original(messages, config=config)
         payload = json.loads(messages[1].content)
         if payload["phase"] == "score":
-            records = json.loads(response.content)
+            records = json.loads(response.content)["results"]
             for record in records:
                 others = [
                     ref
@@ -630,7 +631,7 @@ def test_considered_unmatched_references_have_readable_metadata_without_bulk_sto
                             "rationale": "Considered and rejected as a different capability",
                         }
                     )
-            response.content = json.dumps(records)
+            response.content = json.dumps({"results": records})
         return response
 
     case.model.ainvoke = with_considered_reference
@@ -673,9 +674,9 @@ def test_model_cannot_supply_server_owned_official_values(service_case):
     async def forged(messages, *, config):
         response = await original(messages, config=config)
         if json.loads(messages[1].content)["phase"] == "score":
-            records = json.loads(response.content)
+            records = json.loads(response.content)["results"]
             records[0]["official_value"] = 5
-            response.content = json.dumps(records)
+            response.content = json.dumps({"results": records})
         return response
 
     case.model.ainvoke = forged
@@ -715,16 +716,20 @@ def test_resume_does_not_replace_a_pinned_absent_release(service_case, monkeypat
     assert not case.model.calls
 
 
-def test_model_payload_defines_strict_bare_array_response_schema(service_case):
+def test_model_payload_defines_strict_results_object_response_schema(service_case):
     assert assess(service_case).status == "ready"
     for payload in service_case.model.calls:
         schema = payload["response_schema"]
-        assert schema["type"] == "array"
+        assert schema["type"] == "object"
+        assert schema["additionalProperties"] is False
+        assert schema["required"] == ["results"]
+        assert set(schema["properties"]) == {"results"}
+        assert schema["properties"]["results"]["type"] == "array"
         model_name = (
             "PriorityDecision" if payload["phase"] == "score" else "_ContextDecision"
         )
         assert schema["$defs"][model_name]["additionalProperties"] is False
-        assert "bare JSON array" in payload["response_instruction"]
+        assert '{"results": []}' in payload["response_instruction"]
 
 
 @pytest.mark.parametrize("new_service", [False, True])
@@ -811,15 +816,18 @@ def test_cancelled_transport_permits_survive_same_assessment_resume(
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("model", ["qwen3.5-plus", "deepseek-v4.1-flash"])
 def test_priority_factory_binds_configured_agent_model_and_disables_thinking(
     monkeypatch,
+    model,
 ):
     from langchain_core.messages import HumanMessage
     from langchain_openai import ChatOpenAI
 
     from app.modules.marketdemandanalyst import priority_service
 
-    monkeypatch.setattr(settings, "llm_agent_model", "configured-agent-model")
+    monkeypatch.setattr(settings, "llm_agent_model", "separate-agent-model")
+    monkeypatch.setattr(settings, "market_skill_priority_model", model)
     monkeypatch.setenv("LAB_TUTOR_LLM_MODEL", "different-extraction-model")
     timeouts = []
 
@@ -836,9 +844,14 @@ def test_priority_factory_binds_configured_agent_model_and_disables_thinking(
     llm = priority_service._get_priority_llm(timeout_seconds=7.5)
     # Characterize the installed LangChain binding -> actual OpenAI payload merge.
     payload = llm.bound._get_request_payload([HumanMessage(content="[]")], **llm.kwargs)
-    assert payload["model"] == "configured-agent-model"
-    assert payload["extra_body"] == {"enable_thinking": False}
-    assert priority_service.configured_priority_model() == "configured-agent-model"
+    assert payload["model"] == model
+    assert payload["response_format"] == {"type": "json_object"}
+    assert payload["extra_body"] == (
+        {"thinking": {"type": "disabled"}}
+        if model.startswith("deepseek")
+        else {"enable_thinking": False}
+    )
+    assert priority_service.configured_priority_model() == model
     assert llm.bound.max_retries == 0
     assert timeouts == [7.5]
 
@@ -851,7 +864,7 @@ def test_agent_model_identity_is_saved_and_invalidates_cached_assessment(
     monkeypatch.setenv("LAB_TUTOR_LLM_MODEL", "different-extraction-model")
     first = assess(case)
     assert first.model_id == "configured-agent-model"
-    assert first.prompt_version == "3"
+    assert first.prompt_version == "4"
     count = len(case.model.calls)
     assert assess(case) == first
     assert len(case.model.calls) == count
@@ -897,7 +910,7 @@ def test_context_group_aliases_round_trip_both_phases_to_immutable_saved_ids(
         groups = MarketReviewRepository(db).load_priority_inputs(case.scope)["groups"]
     result = assess(case)
     assert result.status == "ready"
-    assert result.prompt_version == "3"
+    assert result.prompt_version == "4"
     choose = next(call for call in case.model.calls if call["phase"] == "choose")
     validate = next(call for call in case.model.calls if call["phase"] == "validate")
     assert [group["group_id"] for group in choose["groups"]] == ["G1", "G2", "G3"]
@@ -938,13 +951,13 @@ def test_unknown_or_duplicate_context_aliases_are_rejected_without_repair(
     async def damaged_alias(messages, *, config):
         response = await original(messages, config=config)
         if json.loads(messages[1].content)["phase"] == phase:
-            records = json.loads(response.content)
+            records = json.loads(response.content)["results"]
             records[0]["group_id"] = {
                 "foreign": "G999",
                 "duplicate": records[1]["group_id"],
                 "original_id": saved_id,
             }[invalid]
-            response.content = json.dumps(records)
+            response.content = json.dumps({"results": records})
         return response
 
     case.model.ainvoke = damaged_alias
@@ -980,3 +993,98 @@ def test_scoring_payload_states_general_rubric_and_evidence_consistency(service_
         assert "Do not escalate" in rules and "mentions" in rules
         assert "whole validated occupation" in rules
         assert "independent occupation context and anchors" in rules
+
+
+def test_priority_model_override_uses_environment_and_preserves_other_agents(
+    monkeypatch,
+):
+    from app.core.settings import Settings
+    from app.modules.marketdemandanalyst import priority_service
+
+    monkeypatch.delenv("LAB_TUTOR_MARKET_SKILL_PRIORITY_MODEL", raising=False)
+    config = Settings(
+        _env_file=None,
+        database_url="postgresql://unused",
+        llm_agent_model="separate-agent-model",
+    )
+    assert config.market_skill_priority_model is None
+    monkeypatch.setattr(priority_service, "settings", config)
+    assert priority_service.configured_priority_model() == "separate-agent-model"
+    monkeypatch.setenv("LAB_TUTOR_MARKET_SKILL_PRIORITY_MODEL", "deepseek-v4.1-flash")
+    overridden = Settings(
+        _env_file=None,
+        database_url="postgresql://unused",
+        llm_agent_model="separate-agent-model",
+    )
+    monkeypatch.setattr(priority_service, "settings", overridden)
+    assert priority_service.configured_priority_model() == "deepseek-v4.1-flash"
+    assert overridden.llm_agent_model == "separate-agent-model"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[1]",
+        "{}",
+        '{"items":[1]}',
+        '{"results":[1],"foreign":true}',
+        '{"results":1}',
+        '```json\n{"results":[1]}\n```',
+    ],
+)
+def test_priority_transport_rejects_nonexact_results_wrapper(content):
+    from threading import BoundedSemaphore
+    from time import monotonic
+
+    from pydantic import TypeAdapter
+
+    from app.modules.marketdemandanalyst.priority_service import (
+        SkillPriorityService,
+        _Unavailable,
+    )
+
+    async def invoke(messages, *, config):
+        assert config == {"callbacks": []}
+        return SimpleNamespace(content=content)
+
+    service = SkillPriorityService(
+        llm_factory=lambda **kwargs: SimpleNamespace(ainvoke=invoke)
+    )
+    with pytest.raises(_Unavailable):
+        asyncio.run(
+            service._request(
+                {"phase": "score"},
+                "Unchanged test system prompt",
+                TypeAdapter(list[int]),
+                monotonic() + 1,
+                BoundedSemaphore(2),
+            )
+        )
+
+
+def test_priority_transport_unwraps_only_the_existing_array_adapter():
+    from threading import BoundedSemaphore
+    from time import monotonic
+
+    from pydantic import TypeAdapter
+
+    from app.modules.marketdemandanalyst.priority_service import SkillPriorityService
+
+    async def invoke(messages, *, config):
+        payload = json.loads(messages[1].content)
+        assert payload["response_schema"]["type"] == "object"
+        return SimpleNamespace(content='{"results":[1,2]}')
+
+    service = SkillPriorityService(
+        llm_factory=lambda **kwargs: SimpleNamespace(ainvoke=invoke)
+    )
+    result = asyncio.run(
+        service._request(
+            {"phase": "score"},
+            "Unchanged test system prompt",
+            TypeAdapter(list[int]),
+            monotonic() + 1,
+            BoundedSemaphore(2),
+        )
+    )
+    assert result == [1, 2]
