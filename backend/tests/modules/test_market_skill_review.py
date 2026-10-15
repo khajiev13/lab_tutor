@@ -148,6 +148,7 @@ def test_empty_review_dto_is_coherent_and_detached():
     first.selected_candidate_ids.append(str(uuid4()))
     second = SkillReview()
     assert second.model_dump(mode="json") == {
+        "priority_assessment": None,
         "run_id": None,
         "analysis_metadata": None,
         "candidate_revision": 0,

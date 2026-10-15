@@ -13,6 +13,131 @@ JobSource = Literal["indeed", "linkedin", "headhunter"]
 EvidenceSource = Literal["jobs", "onet"]
 
 
+PriorityValue = Annotated[float, Field(strict=True, ge=1, le=5, allow_inf_nan=False)]
+PriorityCount = Annotated[int, Field(strict=True, ge=0)]
+
+
+class PriorityScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: UUID
+    course_id: int
+    teacher_id: int
+    expected_candidate_revision: PriorityCount
+
+
+class PriorityContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    group_id: str
+    soc_code: SocCode | None
+    occupation_title: str | None
+    posting_ids: list[UUID]
+    rationale: str
+    inferred: bool
+    unavailable_reason: str | None = None
+
+
+class PriorityPair(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: UUID
+    context_key: str
+    soc_code: SocCode | None
+
+
+class PriorityAssociation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reference_id: UUID
+    relation: Literal["equivalent", "broader", "related", "unmatched"]
+    rationale: str
+
+
+class PriorityDecision(BaseModel):
+    """Model-owned fields only; official numeric values are server-owned."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: UUID
+    soc_code: SocCode | None
+    basis: Literal["onet", "ai_estimate", "unavailable"]
+    direct_reference_id: UUID | None
+    estimate: Annotated[int, Field(strict=True, ge=1, le=5)] | None
+    associations: list[PriorityAssociation]
+    supporting_evidence_ids: list[str]
+    explanation: str
+    limitations: list[str]
+    unavailable_reason: str | None = None
+
+
+class PriorityResult(PriorityDecision):
+    context_key: str
+    official_value: PriorityValue | None = None
+    value: PriorityValue | None = None
+
+
+class CandidatePriority(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value: PriorityValue | None
+    basis: Literal["onet", "onet_aggregate", "ai_estimate", "unavailable"]
+    complete: bool
+    expected_contexts: PriorityCount
+    scored_contexts: PriorityCount
+    display_order: PriorityCount
+
+
+class CategoryPriority(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value: PriorityValue | None
+    basis: Literal["derived", "ai_estimate", "unavailable"]
+    complete: bool
+    eligible_count: PriorityCount
+    scored_count: PriorityCount
+    onet_count: PriorityCount
+    estimated_count: PriorityCount
+    partial_count: PriorityCount
+    unavailable_count: PriorityCount
+    display_order: PriorityCount
+
+
+class PrioritySummarySet(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    candidates: dict[str, CandidatePriority] = Field(default_factory=dict)
+    categories: dict[str, CategoryPriority] = Field(default_factory=dict)
+
+
+class PriorityAssessment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    assessment_id: UUID
+    run_id: UUID
+    candidate_revision: PriorityCount
+    input_fingerprint: str
+    schema_version: Literal[1] = 1
+    policy_version: str = "1"
+    prompt_version: str = "1"
+    model_id: str
+    release: str | None
+    started_at: datetime
+    updated_at: datetime
+    deadline_at: datetime
+    completed_at: datetime | None = None
+    status: Literal["running", "ready", "partial", "unavailable", "stale"]
+    contexts: list[PriorityContext] = Field(default_factory=list)
+    results: list[PriorityResult] = Field(default_factory=list)
+    summaries: PrioritySummarySet = Field(default_factory=PrioritySummarySet)
+    expected_pair_count: PriorityCount = 0
+    completed_pair_count: PriorityCount = 0
+    posting_hashes: dict[str, str] = Field(default_factory=dict)
+    error_reasons: list[Annotated[str, Field(max_length=240)]] = Field(
+        default_factory=list, max_length=20
+    )
+
+
 class SourceOutcome(BaseModel):
     status: Literal[
         "idle", "loading", "success", "empty", "partial", "error", "skipped"
@@ -25,6 +150,7 @@ class SourceOutcome(BaseModel):
 class SkillCategory(BaseModel):
     category_id: str
     label: str
+    priority: CategoryPriority | None = None
 
 
 class SkillCandidate(BaseModel):
@@ -39,6 +165,7 @@ class SkillCandidate(BaseModel):
     recommendation_reasons: list[str] = Field(default_factory=list)
     posting_support: Literal["supported", "missing"] = "missing"
     qualifying_posting_links: list[str] = Field(default_factory=list)
+    priority: CandidatePriority | None = None
 
 
 class RecommendationChange(BaseModel):
@@ -91,6 +218,7 @@ class ExecutionStatus(BaseModel):
 
 
 class SkillReview(BaseModel):
+    priority_assessment: PriorityAssessment | None = None
     run_id: UUID | None = None
     analysis_metadata: AnalysisMetadata | None = None
     candidate_revision: int = 0

@@ -54,6 +54,7 @@ class MarketAnalysisRun(Base):
     source_outcomes: Mapped[dict] = mapped_column(JSONB, default=dict)
     extraction_coverage: Mapped[dict] = mapped_column(JSONB, default=dict)
     candidate_manifest: Mapped[dict] = mapped_column(JSONB, default=dict)
+    priority_assessment: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     candidate_revision: Mapped[int] = mapped_column(default=0)
     selection_revision: Mapped[int] = mapped_column(default=0)
     publication_revision: Mapped[int] = mapped_column(default=0)

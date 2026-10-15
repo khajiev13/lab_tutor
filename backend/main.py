@@ -24,6 +24,7 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html  # noqa: E402
 from sqlalchemy import text  # noqa: E402
+from sqlalchemy.engine import Connection  # noqa: E402
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E402
 
 # Import models to ensure they are registered with Base.metadata
@@ -95,6 +96,15 @@ def _parse_cors_origins(raw_origins: str | None) -> list[str]:
     return list(dict.fromkeys(origins))
 
 
+def _ensure_market_priority_assessment(conn: Connection) -> None:
+    """Upgrade the current schema without changing existing analysis rows."""
+    conn.execute(
+        text(
+            "ALTER TABLE market_analysis_runs ADD COLUMN IF NOT EXISTS priority_assessment JSONB"
+        )
+    )
+
+
 def _ensure_sql_schema_upgrades() -> None:
     """Idempotent schema upgrades for PostgreSQL.
 
@@ -109,6 +119,7 @@ def _ensure_sql_schema_upgrades() -> None:
         # Fail fast when another session holds conflicting locks (e.g. during
         # tests where previous TestClient instances leave zombie connections).
         conn.execute(text("SET lock_timeout = '30s'"))
+        _ensure_market_priority_assessment(conn)
         readiness_marker_exists = conn.execute(
             text(
                 "SELECT 1 FROM information_schema.columns WHERE table_name='market_skill_approvals' AND column_name='readiness_applied'"

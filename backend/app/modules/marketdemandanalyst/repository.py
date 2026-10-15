@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import UTC, datetime
+from hashlib import sha256
 from typing import Any
 from uuid import UUID
 
@@ -21,7 +22,15 @@ from .models import (
     MarketVacancySnapshot,
     MDAThreadState,
 )
-from .schemas import ExecutionStatus, ProviderVacancy, safe_provider_payload
+from .schemas import (
+    ExecutionStatus,
+    PriorityAssessment,
+    PriorityScope,
+    ProviderVacancy,
+    SkillCandidate,
+    SkillCategory,
+    safe_provider_payload,
+)
 
 
 class RevisionConflict(ValueError):
@@ -143,6 +152,155 @@ class MarketReviewRepository:
         if for_update:
             query = query.with_for_update().execution_options(populate_existing=True)
         return self._db.scalar(query)
+
+    def load_priority_inputs(self, scope: PriorityScope) -> dict[str, Any]:
+        """Read detached inputs from the owned active snapshot in one transaction."""
+        if not self.owns_course(scope.course_id, scope.teacher_id):
+            raise LookupError("Course not found")
+        run = self._locked_run(
+            scope.run_id,
+            scope.course_id,
+            scope.teacher_id,
+            scope.expected_candidate_revision,
+        )
+        thread_id = f"mda-{scope.teacher_id}-course-{scope.course_id}"
+        thread = self._db.scalar(
+            select(MDAThreadState)
+            .where(MDAThreadState.thread_id == thread_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if thread is None or thread.state_json.get("run_id") != str(scope.run_id):
+            raise RevisionConflict("Review must belong to the active analysis")
+        snapshot = deepcopy(thread.state_json)
+        sources = self._priority_sources(run, snapshot)
+        return {
+            "candidates": [
+                SkillCandidate.model_validate(deepcopy(candidate))
+                for candidate in run.candidate_manifest.get("candidates", [])
+            ],
+            "categories": [
+                SkillCategory.model_validate(deepcopy(category))
+                for category in run.candidate_manifest.get("categories", [])
+            ],
+            **sources,
+            "configured_release": run.config.get("onet_release"),
+            "prior_assessment": PriorityAssessment.model_validate(
+                deepcopy(run.priority_assessment)
+            )
+            if run.priority_assessment is not None
+            else None,
+            "thread_id": thread_id,
+        }
+
+    def _priority_sources(self, run: MarketAnalysisRun, snapshot: dict) -> dict:
+        selected_ids = set()
+        for job in snapshot.get("selected_jobs") or []:
+            try:
+                selected_ids.add(UUID(str(job["snapshot_id"])))
+            except (KeyError, TypeError, ValueError):
+                continue
+        postings = {
+            str(row.id): row
+            for row in self._db.scalars(
+                select(MarketVacancySnapshot)
+                .where(
+                    MarketVacancySnapshot.run_id == run.id,
+                    MarketVacancySnapshot.id.in_(selected_ids),
+                    MarketVacancySnapshot.purged_at.is_(None),
+                )
+                .execution_options(populate_existing=True)
+            )
+        }
+        groups = []
+        fetched = snapshot.get("fetched_jobs") or []
+        for label, indices in (snapshot.get("job_groups") or {}).items():
+            members = sorted(
+                {
+                    str(fetched[index].get("snapshot_id"))
+                    for index in indices
+                    if type(index) is int
+                    and 0 <= index < len(fetched)
+                    and str(fetched[index].get("snapshot_id")) in postings
+                }
+            )
+            if not members:
+                continue
+            groups.append(
+                {
+                    "group_id": "group:"
+                    + sha256("\n".join(members).encode()).hexdigest(),
+                    "label": label,
+                    "posting_ids": members,
+                }
+            )
+        passages = {}
+        passage_ids = {}
+        for candidate in run.candidate_manifest.get("candidates", []):
+            for ref in candidate.get("evidence_references", []):
+                posting = postings.get(str(ref.get("snapshot_id")))
+                start, end = ref.get("excerpt_start"), ref.get("excerpt_end")
+                if (
+                    posting is None
+                    or ref.get("evidence_kind") != "extracted_text"
+                    or type(start) is not int
+                    or type(end) is not int
+                    or not posting.description_text
+                    or not 0 <= start < end <= len(posting.description_text)
+                    or posting.description_text[start:end] != ref.get("excerpt")
+                ):
+                    continue
+                identity = (str(posting.id), start, end)
+                passage_id = passage_ids.setdefault(
+                    identity, f"passage:{len(passage_ids) + 1}"
+                )
+                passage = passages.setdefault(
+                    passage_id,
+                    {
+                        "snapshot_id": str(posting.id),
+                        "start": start,
+                        "end": end,
+                        "text": posting.description_text[start:end],
+                        "candidate_ids": [],
+                    },
+                )
+                candidate_id = str(candidate["candidate_id"])
+                if candidate_id not in passage["candidate_ids"]:
+                    passage["candidate_ids"].append(candidate_id)
+        return {
+            "groups": groups,
+            "passages": passages,
+            "posting_hashes": {
+                key: posting.content_hash for key, posting in postings.items()
+            },
+        }
+
+    def save_priority_assessment(
+        self,
+        scope: PriorityScope,
+        assessment: PriorityAssessment,
+        *,
+        expected_assessment_id: UUID | None,
+    ) -> None:
+        """CAS under the run lock; the caller owns the lease and transaction."""
+        self.lock_vacancy_lifecycle()
+        inputs = self.load_priority_inputs(scope)
+        run = self._db.get(MarketAnalysisRun, scope.run_id)
+        current_id = (
+            UUID(run.priority_assessment["assessment_id"])
+            if run.priority_assessment is not None
+            else None
+        )
+        if current_id != expected_assessment_id:
+            raise RevisionConflict("Priority assessment has changed")
+        if (
+            assessment.run_id != scope.run_id
+            or assessment.candidate_revision != scope.expected_candidate_revision
+            or assessment.posting_hashes != inputs["posting_hashes"]
+        ):
+            raise RevisionConflict("Priority assessment sources have changed")
+        run.priority_assessment = assessment.model_dump(mode="json")
+        self._db.flush()
 
     def lock_vacancy_lifecycle(self) -> None:
         """Serialize short evidence write/purge transactions until commit/rollback.
