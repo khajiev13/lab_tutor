@@ -1,0 +1,56 @@
+{
+  "source_sha": "771973e4e2807687623b64ad3e742f3a17afaf5d",
+  "rollout_ready": true,
+  "health": {
+    "health_status": 200,
+    "new_atomic_confirmation_schema": true,
+    "review_evidence_omissions": true,
+    "materials_readiness_endpoint": true,
+    "unsupported_sources_skipped": true
+  },
+  "public_assets": [
+    {
+      "origin": "https://labtutor.app",
+      "entry": "/assets/index-WTOEVeFG.js",
+      "sha256": "e3284431b084008613419510e86b0fbded88b559abab7376da96e7eebdb26503",
+      "matches_release_image": true
+    },
+    {
+      "origin": "https://frontend.wonderfulcoast-ed2697fe.polandcentral.azurecontainerapps.io",
+      "entry": "/assets/index-WTOEVeFG.js",
+      "sha256": "e3284431b084008613419510e86b0fbded88b559abab7376da96e7eebdb26503",
+      "matches_release_image": true
+    }
+  ],
+  "saved_course_unchanged": true,
+  "documents_preserved": 38,
+  "saved_choice_count": 5,
+  "publication_revision": 0,
+  "changed_backend_files_verified": 22,
+  "live_sources": {
+    "seconds": 2.26,
+    "outcomes": {
+      "indeed": {
+        "status": "skipped",
+        "received_count": 0,
+        "usable_count": 0,
+        "warnings": []
+      },
+      "linkedin": {
+        "status": "success",
+        "received_count": 2,
+        "usable_count": 2,
+        "warnings": []
+      },
+      "headhunter": {
+        "status": "success",
+        "received_count": 2,
+        "usable_count": 2,
+        "warnings": []
+      }
+    },
+    "jobs": 4,
+    "jobs_with_original_links": 4
+  },
+  "read_only": true
+}

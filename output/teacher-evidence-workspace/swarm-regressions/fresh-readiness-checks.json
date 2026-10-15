@@ -1,0 +1,15 @@
+{
+  "courseId": 6,
+  "checks": [
+    "Empty course blocks chat sends",
+    "Empty course blocks prompt suggestions",
+    "Blocked course retains material upload access",
+    "Processed files with aggregate insertion still running stay blocked",
+    "Readiness polling unlocks chat without losing the draft",
+    "A later pending material status re-locks chat automatically",
+    "A later pending upload preserves the chat draft",
+    "Readiness transitions do not add an analysis-recovery button",
+    "Blocked mobile workspace has no document horizontal overflow",
+    "Pending materials retain upload setup access"
+  ]
+}

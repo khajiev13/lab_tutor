@@ -1,0 +1,54 @@
+{
+  "passed": true,
+  "controlled_remote_boundaries": true,
+  "real_ui_api_sql_graph_flow": true,
+  "reports": [
+    {
+      "country": "Uzbekistan",
+      "course": 4,
+      "configured_sources": [
+        "indeed",
+        "linkedin",
+        "headhunter"
+      ],
+      "collected_sources": [
+        "linkedin",
+        "headhunter"
+      ],
+      "unavailable_source": "indeed",
+      "unique_postings": 6,
+      "merged_skills": 1,
+      "original_posting_links": 6,
+      "teacher_steps": [
+        "chat search approval",
+        "job groups",
+        "skills"
+      ],
+      "no_evidence_acknowledgement_step": true
+    },
+    {
+      "country": "USA",
+      "course": 5,
+      "configured_sources": [
+        "indeed",
+        "linkedin",
+        "headhunter"
+      ],
+      "collected_sources": [
+        "indeed",
+        "linkedin"
+      ],
+      "unavailable_source": "headhunter",
+      "unique_postings": 6,
+      "merged_skills": 1,
+      "original_posting_links": 6,
+      "teacher_steps": [
+        "chat search approval",
+        "job groups",
+        "skills"
+      ],
+      "no_evidence_acknowledgement_step": true
+    }
+  ],
+  "runtime_errors": []
+}
