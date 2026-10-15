@@ -69,7 +69,7 @@ export function priorityLabel(priority: CandidatePriority | CategoryPriority | n
   if (priority.basis === "unavailable" || priority.value === null) return "Not assessed";
   const category = "eligible_count" in priority;
   const source = category
-    ? priority.basis === "ai_estimate" ? priority.complete ? "Estimated" : "Estimate" : "O*NET average"
+    ? priority.basis === "ai_estimate" ? "Estimated" : "O*NET average"
     : priority.basis === "onet" ? "O*NET" : priority.basis === "onet_aggregate" ? "O*NET average" : "AI estimate";
   return `${Number(priority.value.toFixed(1))}/5 · ${source}${priority.complete ? "" : " · Partial"}`;
 }

@@ -64,6 +64,6 @@ it("formats official, estimated, partial and unavailable guidance without invent
   const category = {value: 4, basis: "ai_estimate" as const, complete: true, eligible_count: 5, scored_count: 5,
     onet_count: 2, estimated_count: 3, partial_count: 0, unavailable_count: 0, display_order: 0};
   expect(priorityLabel(category)).toBe("4/5 · Estimated");
-  expect(priorityLabel({...category, complete: false})).toBe("4/5 · Estimate · Partial");
+  expect(priorityLabel({...category, complete: false})).toBe("4/5 · Estimated · Partial");
   expect(priorityLabel({...category, basis: "derived", estimated_count: 0})).toBe("4/5 · O*NET average");
 });

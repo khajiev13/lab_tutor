@@ -38,7 +38,7 @@ function setupPriorityReview(initial = priorityReview()) {
 }
 it("shows compact importance labels while keeping exactly the existing teacher controls", async () => {
   const view = setupPriorityReview();
-  expect(screen.getByText("4/5 · Estimate · Partial")).toBeInTheDocument();
+  expect(screen.getByText("4/5 · Estimated · Partial")).toBeInTheDocument();
   await view.user.click(screen.getByRole("button", {name: "Expand Tools"}));
   expect(view.visibleCandidateIds().slice(0, 3)).toEqual(["Select Skill 23", "Select Skill 22", "Select Skill 21"]);
   expect(screen.getByText("4.2/5 · O*NET")).toBeInTheDocument();
