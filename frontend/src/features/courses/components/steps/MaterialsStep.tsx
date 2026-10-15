@@ -28,6 +28,7 @@ export function MaterialsStep() {
     onFilesChange,
     refreshTrigger,
     triggerRefresh,
+    refreshCourse,
     embeddingStatus,
     goToNext,
   } = useCourseDetail();
@@ -47,6 +48,7 @@ export function MaterialsStep() {
     }
     await presentationsApi.upload(course.id, files);
     triggerRefresh();
+    await refreshCourse();
   };
 
   return (

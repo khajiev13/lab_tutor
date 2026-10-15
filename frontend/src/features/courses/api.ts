@@ -5,6 +5,7 @@ import type {
   CourseEmbeddingStatusResponse,
   CourseFileRead,
   CourseReadiness,
+  CourseMaterialsReadiness,
   ExtractionStatus,
   PrerequisiteReview,
   SavePrerequisiteReviewPayload,
@@ -166,6 +167,10 @@ export const coursesApi = {
   },
   getReadiness: async (id: number): Promise<CourseReadiness> => {
     const response = await api.get<CourseReadiness>(`/courses/${id}/readiness`);
+    return response.data;
+  },
+  getMaterialsReadiness: async (id: number): Promise<CourseMaterialsReadiness> => {
+    const response = await api.get<CourseMaterialsReadiness>(`/courses/${id}/materials-readiness`);
     return response.data;
   },
   getPrerequisiteReview: async (id: number): Promise<PrerequisiteReview> => {

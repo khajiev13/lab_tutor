@@ -42,6 +42,7 @@ interface AgentCardProps {
   lastActivity?: string;
   hideStatus?: boolean;
   onCardClick?: () => void;
+  disabled?: boolean;
 }
 
 const STATUS_CONFIG: Record<
@@ -73,6 +74,7 @@ export function AgentCard({
   lastActivity,
   hideStatus = false,
   onCardClick,
+  disabled = false,
 }: AgentCardProps) {
   const navigate = useNavigate();
   const Icon = agent.icon;
@@ -99,6 +101,7 @@ export function AgentCard({
   const statusCfg = status ? STATUS_CONFIG[status] : null;
   const showStatus = !hideStatus && statusCfg;
   const handleClick = () => {
+    if (disabled) return;
     if (onCardClick) {
       onCardClick();
       return;
@@ -110,7 +113,8 @@ export function AgentCard({
     <HoverCard>
       <HoverCardTrigger asChild>
         <Card
-          className="cursor-pointer transition-shadow hover:shadow-md"
+          className={cn("transition-shadow", disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:shadow-md")}
+          aria-disabled={disabled || undefined}
           onClick={handleClick}
         >
           <CardHeader className="flex flex-row items-start gap-4 space-y-0">

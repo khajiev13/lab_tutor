@@ -9,6 +9,7 @@ from neo4j import Session as Neo4jSession
 from app.core.neo4j import require_neo4j_session
 from app.modules.concept_normalization.schemas import NormalizationStreamEvent
 from main import app
+from tests.course_material_fixtures import seed_ready_materials
 
 
 @pytest.fixture
@@ -59,6 +60,12 @@ def test_list_course_concepts_returns_names(
 def test_stream_normalization_sse(
     client, teacher_auth_headers, monkeypatch, neo4j_session_override
 ):
+    course = client.post(
+        "/courses",
+        json={"title": "Normalization stream"},
+        headers=teacher_auth_headers,
+    ).json()
+    seed_ready_materials(course["id"])
     app.dependency_overrides[require_neo4j_session] = lambda: neo4j_session_override
     try:
         from app.modules.concept_normalization import routes as normalization_routes
@@ -67,7 +74,7 @@ def test_stream_normalization_sse(
             def normalize_concepts_stream(
                 self, *, course_id: int, created_by_user_id: int | None = None
             ):
-                assert course_id == 5
+                assert course_id == course["id"]
                 assert created_by_user_id is not None
                 yield NormalizationStreamEvent(
                     type="update",
@@ -103,7 +110,8 @@ def test_stream_normalization_sse(
         )
 
         res = client.get(
-            "/normalization/stream?course_id=5", headers=teacher_auth_headers
+            f"/normalization/stream?course_id={course['id']}",
+            headers=teacher_auth_headers,
         )
         assert res.status_code == 200
         assert res.headers["content-type"].startswith("text/event-stream")

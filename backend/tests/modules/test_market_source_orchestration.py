@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 
 from app.modules.marketdemandanalyst.state import bind_tool_store
+from tests.course_material_fixtures import seed_ready_materials
 
 
 def owned_run(db_session, client, teacher_auth_headers, config=None):
@@ -82,8 +83,8 @@ def test_default_configuration_collects_all_provider_outcomes_without_setup(
     assert set(result["source_outcomes"]) == {"indeed", "linkedin", "headhunter"}
     assert len(result["jobs"]) == 1
     assert result["source_outcomes"]["linkedin"]["status"] == "success"
-    assert result["source_outcomes"]["indeed"]["status"] == "error"
-    assert result["source_outcomes"]["headhunter"]["status"] == "error"
+    assert result["source_outcomes"]["indeed"]["status"] == "skipped"
+    assert result["source_outcomes"]["headhunter"]["status"] == "skipped"
     state.update(course_id=course["id"], teacher_id=course["teacher_id"])
     restored = config_service.configure(course["id"], course["teacher_id"], state, {})
     assert restored.config["sources"] == ["indeed", "linkedin", "headhunter"]
@@ -254,6 +255,7 @@ def test_chat_applies_and_locks_explicit_sources(
     course = client.post(
         "/courses", json={"title": "Config"}, headers=teacher_auth_headers
     ).json()
+    seed_ready_materials(course["id"])
     url = f"/courses/{course['id']}/market-demand/chat"
     with patch(
         "app.modules.marketdemandanalyst.routes.get_graph", return_value=(graph, None)
@@ -1074,6 +1076,7 @@ def test_failed_chat_snapshot_write_rolls_back_run_config_and_active_pointer(
     course = client.post(
         "/courses", json={"title": "Atomic config"}, headers=teacher_auth_headers
     ).json()
+    seed_ready_materials(course["id"])
     path = f"/courses/{course['id']}/market-demand/chat"
     with patch(
         "app.modules.marketdemandanalyst.routes.get_graph", return_value=(graph, None)
@@ -1273,6 +1276,7 @@ def test_chat_validates_pending_onet_enable_and_same_soc_release_change(
         json={"title": "Pending configuration"},
         headers=teacher_auth_headers,
     ).json()
+    seed_ready_materials(course["id"])
     url = f"/courses/{course['id']}/market-demand/chat"
     with patch(
         "app.modules.marketdemandanalyst.routes.get_graph", return_value=(graph, None)

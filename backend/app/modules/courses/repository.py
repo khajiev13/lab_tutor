@@ -180,6 +180,13 @@ class CourseRepository:
         )
         if existing:
             existing.filename = course_file.filename
+            if (
+                course_file.content_hash
+                and course_file.content_hash != existing.content_hash
+            ):
+                existing.status = course_file.status or FileProcessingStatus.PENDING
+                existing.last_error = course_file.last_error
+                existing.processed_at = course_file.processed_at
             existing.content_hash = course_file.content_hash or existing.content_hash
             # Keep existing uploaded_at if present
             existing.uploaded_at = existing.uploaded_at or course_file.uploaded_at
@@ -211,6 +218,12 @@ class CourseRepository:
                         "File with identical content already exists in this course"
                     ) from err
             raise
+        self.db.refresh(course_file)
+        return course_file
+
+    def update_course_file(self, course_file: CourseFile) -> CourseFile:
+        self.db.add(course_file)
+        self.db.commit()
         self.db.refresh(course_file)
         return course_file
 

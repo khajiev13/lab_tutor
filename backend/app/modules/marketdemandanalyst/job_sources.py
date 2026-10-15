@@ -9,6 +9,7 @@ from threading import BoundedSemaphore
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
+import pandas as pd
 
 from app.core.settings import settings
 from app.providers.headhunter import HeadHunterService
@@ -160,24 +161,17 @@ class JobSourceService:
                 if result.error:
                     warnings.append(result.error)
                 return result.jobs, warnings, bool(result.error)
-            scraper = self._scraper
-            if scraper is None:
-                from jobspy import scrape_jobs
+            if self._scraper is None and source == "linkedin":
+                from app.providers.linkedin import scrape_linkedin_jobs
 
-                scraper = scrape_jobs
-            kwargs = {
-                "site_name": [source],
-                "search_term": term,
-                "location": country.location,
-                "results_wanted": cap,
-                "hours_old": hours_old,
-                "description_format": "markdown",
-                "linkedin_fetch_description": source == "linkedin",
-                "verbose": 0,
-            }
-            if country.jobspy_country is not None:
-                kwargs["country_indeed"] = country.jobspy_country
-            frame = scraper(**kwargs)
+                frame = scrape_linkedin_jobs(
+                    search_term=term,
+                    location=country.location,
+                    results_wanted=cap,
+                    hours_old=hours_old,
+                )
+            else:
+                frame = self._scrape_jobspy(term, source, country, cap, hours_old)
             records = []
             warnings = []
             for row in frame.to_dict(orient="records"):
@@ -227,6 +221,30 @@ class JobSourceService:
                 ["The selected job provider could not complete this query."],
                 True,
             )
+
+    def _scrape_jobspy(
+        self,
+        term: str,
+        source: JobSource,
+        country: JobSearchCountry,
+        cap: int,
+        hours_old: int,
+    ) -> pd.DataFrame:
+        from jobspy import scrape_jobs
+
+        kwargs = {
+            "site_name": [source],
+            "search_term": term,
+            "location": country.location,
+            "results_wanted": cap,
+            "hours_old": hours_old,
+            "description_format": "markdown",
+            "linkedin_fetch_description": source == "linkedin",
+            "verbose": 0,
+        }
+        if country.jobspy_country is not None:
+            kwargs["country_indeed"] = country.jobspy_country
+        return (self._scraper or scrape_jobs)(**kwargs)
 
     def fetch(
         self,
@@ -279,10 +297,7 @@ class JobSourceService:
         for source in selected:
             if options[source].availability != "available":
                 result.outcomes[source] = SourceOutcome(
-                    status="error",
-                    warnings=[
-                        f"{options[source].label} unavailable: {options[source].reason}"
-                    ],
+                    status="skipped",
                 )
                 continue
             warnings = []

@@ -5,13 +5,17 @@ from uuid import uuid4
 
 import pytest
 
+from tests.course_material_fixtures import seed_ready_materials
+
 
 def _owned_course(client, teacher_auth_headers, title="Review course"):
     response = client.post(
         "/courses", json={"title": title}, headers=teacher_auth_headers
     )
     assert response.status_code == 201
-    return response.json()
+    course = response.json()
+    seed_ready_materials(course["id"])
+    return course
 
 
 def test_runs_survive_chat_deletion_and_reject_foreign_owner(

@@ -28,6 +28,7 @@ import {
   type AgentConfig,
 } from "@/features/agents/config";
 import { TeacherAgentTimingDialog } from "@/features/agents/components/TeacherAgentTimingDialog";
+import { MaterialsReadinessNotice } from "@/features/courses/components/readiness/MaterialsReadinessNotice";
 
 /* ── Derive architect status from context ──────────────────── */
 
@@ -88,6 +89,7 @@ interface AgentHubSectionProps {
   isLoading: boolean;
   statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }>;
   cardClickOverrides?: Partial<Record<string, () => void>>;
+  disabledAgentIds?: string[];
 }
 
 function AgentHubSection({
@@ -98,6 +100,7 @@ function AgentHubSection({
   isLoading,
   statuses,
   cardClickOverrides,
+  disabledAgentIds,
 }: AgentHubSectionProps) {
   return (
     <section className="space-y-3">
@@ -111,14 +114,14 @@ function AgentHubSection({
         isLoading={isLoading}
         statuses={statuses}
         cardClickOverrides={cardClickOverrides}
+        disabledAgentIds={disabledAgentIds}
       />
     </section>
   );
 }
 
 function HubContent() {
-  const { isLoading } = useCourseDetail();
-  const { courseId } = useCourseDetail();
+  const { isLoading, courseId, materialsReady, materialsMessage } = useCourseDetail();
   const architectInfo = useArchitectStatus();
   const [readiness, setReadiness] = useState<CourseReadiness | null>(null);
   const [insightAgentId, setInsightAgentId] = useState<"architect" | "market-analyst" | null>(null);
@@ -174,6 +177,7 @@ function HubContent() {
   return (
     <>
       <CourseHeader />
+      {!materialsReady && <MaterialsReadinessNotice courseId={courseId} message={materialsMessage}/>}
       {readiness && (
         <div className="mt-6">
           <CourseReadinessRoad readiness={readiness} onRefresh={fetchReadiness} />
@@ -188,11 +192,13 @@ function HubContent() {
           isLoading={isLoading}
           statuses={statuses}
           cardClickOverrides={cardClickOverrides}
+          disabledAgentIds={materialsReady ? [] : ["market-analyst"]}
         />
         <AgentHubSection
           title="Skill Resources"
           description="Reading and video resources generated from the skills students choose."
           agents={SKILL_RESOURCE_AGENTS}
+          disabledAgentIds={materialsReady ? [] : ["reading-agent", "video-agent"]}
           courseId={courseId}
           isLoading={isLoading}
           statuses={statuses}
@@ -207,6 +213,7 @@ function HubContent() {
         />
       </div>
       <TeacherAgentTimingDialog
+        disabled={!materialsReady && insightAgentId === "market-analyst"}
         courseId={courseId}
         agentId={insightAgentId}
         open={insightAgentId !== null}
@@ -326,7 +333,7 @@ export default function AgentHubPage() {
   }
 
   return (
-    <CourseDetailProvider courseId={courseId}>
+    <CourseDetailProvider courseId={courseId} checkMaterials={user?.role === "teacher"}>
       <div className="space-y-6">
         <Button
           variant="ghost"

@@ -5,6 +5,14 @@ export interface CourseCreate {
 
 export type ExtractionStatus = 'not_started' | 'in_progress' | 'finished' | 'failed';
 
+export interface CourseMaterialsReadiness {
+  ready: boolean;
+  status: 'no_materials' | 'processing' | 'failed' | 'ready';
+  message: string;
+  total_files: number;
+  processed_files: number;
+}
+
 export type FileProcessingStatus = 'pending' | 'processing' | 'processed' | 'failed';
 
 export type CourseLevel = 'bachelor' | 'master' | 'phd';

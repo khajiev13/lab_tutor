@@ -25,6 +25,7 @@ from app.core.database import get_db
 from app.core.neo4j import get_neo4j_session
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 
 from ..models import BookExtractionRun, ChapterAnalysisSummary
 from ..recommendations.service import RecommendationService
@@ -41,6 +42,7 @@ def _sse(event: str, data: dict) -> str:
 def register_routes(router):
     @router.post(
         "/courses/{course_id}/analysis/{run_id}/books/{selected_book_id}/recommendations",
+        dependencies=[Depends(require_materials_ready)],
     )
     def generate_recommendations(
         course_id: int,

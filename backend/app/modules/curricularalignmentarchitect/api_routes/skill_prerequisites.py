@@ -17,6 +17,7 @@ from app.core.database import get_db
 from app.core.neo4j import create_neo4j_driver
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 from app.modules.courses.repository import CourseRepository
 
 from ..skill_prerequisites.repository import get_skill_prerequisites
@@ -58,7 +59,10 @@ def _require_teacher_course(db: Session, course_id: int, teacher_id: int) -> Non
 
 
 def register_routes(router):
-    @router.post("/courses/{course_id}/skill-prerequisites/build")
+    @router.post(
+        "/courses/{course_id}/skill-prerequisites/build",
+        dependencies=[Depends(require_materials_ready)],
+    )
     async def build_skill_prerequisites(
         course_id: int,
         teacher: User = Depends(require_role(UserRole.TEACHER)),
@@ -160,6 +164,7 @@ def register_routes(router):
     @router.post(
         "/courses/{course_id}/skill-prerequisites/regenerate",
         status_code=status.HTTP_202_ACCEPTED,
+        dependencies=[Depends(require_materials_ready)],
     )
     async def regenerate_prerequisite_review(
         course_id: int,

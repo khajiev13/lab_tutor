@@ -29,6 +29,7 @@ from app.modules.curricularalignmentarchitect.schemas import (
     WeightsConfig,
 )
 from app.modules.curricularalignmentarchitect.service import BookSelectionService
+from tests.course_material_fixtures import seed_ready_materials
 
 TEST_WEIGHTS = {
     "C_topic": 0.30,
@@ -634,7 +635,9 @@ class TestRediscoverRoute:
             headers=teacher_auth_headers,
         )
         assert resp.status_code in (200, 201)
-        return resp.json()["id"]
+        course_id = resp.json()["id"]
+        seed_ready_materials(course_id)
+        return course_id
 
     def _create_session(self, client, teacher_auth_headers, course_id: int) -> int:
         resp = client.post(

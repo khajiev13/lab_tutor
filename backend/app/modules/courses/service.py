@@ -1,4 +1,5 @@
 import logging
+from asyncio import CancelledError
 from collections.abc import Callable
 from datetime import UTC, datetime
 
@@ -382,17 +383,53 @@ class CourseService:
                         ),
                     )
 
-                url = await blob_service.upload_bytes(content, destination_path)
-                self._repo.upsert_course_file(
+                previous_file = self._repo.get_course_file_by_blob_path(
+                    course.id, destination_path
+                )
+                previous_state = (
+                    (
+                        previous_file.content_hash,
+                        previous_file.status,
+                        previous_file.processed_at,
+                        previous_file.last_error,
+                    )
+                    if previous_file is not None
+                    else None
+                )
+                # Register before the external write so readiness cannot observe
+                # the old completed curriculum while new bytes are uploading.
+                course_file = self._repo.upsert_course_file(
                     CourseFile(
                         course_id=course.id,
                         filename=file.filename,
                         blob_path=destination_path,
                         content_hash=content_hash,
-                        status=FileProcessingStatus.PENDING,
+                        status=FileProcessingStatus.PROCESSING,
                         last_error=None,
                         processed_at=None,
                     )
+                )
+                try:
+                    url = await blob_service.upload_bytes(content, destination_path)
+                except (Exception, CancelledError) as upload_error:
+                    if previous_state is not None:
+                        (
+                            course_file.content_hash,
+                            course_file.status,
+                            course_file.processed_at,
+                            course_file.last_error,
+                        ) = previous_state
+                    else:
+                        # An unuploaded hash must not make a retry a duplicate.
+                        course_file.content_hash = None
+                        course_file.status = FileProcessingStatus.FAILED
+                        course_file.last_error = f"Upload failed: {str(upload_error) or 'upload interrupted'}"
+                    self._repo.update_course_file(course_file)
+                    if previous_state is None:
+                        self._reconcile_course_extraction_status(course)
+                    raise
+                self._repo.update_course_file_status(
+                    course_file.id, FileProcessingStatus.PENDING
                 )
                 # Adding new pending files means the course extraction is no longer complete.
                 # Recompute and persist so the UI shows "Start extraction" again.

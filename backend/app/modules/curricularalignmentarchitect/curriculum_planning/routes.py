@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.neo4j import require_neo4j_session
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 from app.modules.courses.models import Course
 
 from .schemas import ChapterPlanResponse, SaveChapterPlanRequest
@@ -28,6 +29,7 @@ def _get_owned_course(course_id: int, teacher: User, db: Session) -> Course:
 @router.post(
     "/{course_id}/chapter-plan/generate",
     response_model=ChapterPlanResponse,
+    dependencies=[Depends(require_materials_ready)],
 )
 def generate_chapter_plan(
     course_id: int,

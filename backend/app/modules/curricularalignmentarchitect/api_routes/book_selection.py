@@ -12,6 +12,10 @@ from app.core.database import get_db
 from app.core.neo4j import get_neo4j_driver
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import (
+    MaterialsReadinessService,
+    get_materials_readiness_service,
+)
 
 from ..schemas import (
     BookCandidateRead,
@@ -32,6 +36,18 @@ def _get_service(
     return get_book_selection_service(db, neo4j_driver=neo4j_driver)
 
 
+def _require_session_materials_ready(
+    session_id: int,
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+    service: BookSelectionService = Depends(_get_service),
+    readiness: MaterialsReadinessService = Depends(get_materials_readiness_service),
+) -> None:
+    session = service.get_session(session_id)
+    if session is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Session not found")
+    readiness.require_ready(session.course_id, teacher.id)
+
+
 def register_routes(router):
     @router.post(
         "/sessions",
@@ -50,6 +66,7 @@ def register_routes(router):
         "/sessions/{session_id}/run",
         response_model=SessionRead,
         status_code=status.HTTP_202_ACCEPTED,
+        dependencies=[Depends(_require_session_materials_ready)],
     )
     async def run_discovery(
         session_id: int,
@@ -66,6 +83,7 @@ def register_routes(router):
         "/sessions/{session_id}/resume",
         response_model=SessionRead,
         status_code=status.HTTP_202_ACCEPTED,
+        dependencies=[Depends(_require_session_materials_ready)],
     )
     async def resume_scoring(
         session_id: int,
@@ -82,6 +100,7 @@ def register_routes(router):
         "/sessions/{session_id}/rediscover",
         response_model=SessionRead,
         status_code=status.HTTP_202_ACCEPTED,
+        dependencies=[Depends(_require_session_materials_ready)],
     )
     async def rediscover_books(
         session_id: int,

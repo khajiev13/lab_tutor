@@ -21,6 +21,7 @@ vi.mock('../features/courses/api', () => ({
     getCourse: vi.fn(),
     startExtraction: vi.fn(),
     getEmbeddingsStatus: vi.fn(),
+    getMaterialsReadiness: vi.fn(),
     getEnrollment: vi.fn(),
     join: vi.fn(),
     leave: vi.fn(),
@@ -35,8 +36,8 @@ vi.mock('../features/courses/api', () => ({
 
 // Mock child components to avoid complex rendering
 vi.mock('../components/FileUpload', () => ({
-  FileUpload: ({ disabled }: { disabled: boolean }) => (
-    <div data-testid="file-upload" data-disabled={disabled}>File Upload</div>
+  FileUpload: ({ disabled, onUpload }: { disabled: boolean; onUpload: (files:File[])=>Promise<void> }) => (
+    <div data-testid="file-upload" data-disabled={disabled}>File Upload<button disabled={disabled} onClick={()=>void onUpload([new File(['new material'],'lecture.pdf')])}>Upload test file</button></div>
   ),
 }));
 
@@ -104,6 +105,11 @@ describe('TeacherCourseDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPresentationFiles = [];
+    (coursesApi.getMaterialsReadiness as Mock).mockImplementation(async()=>{
+      const course=await coursesApi.getCourse(1);
+      const ready=course.extraction_status==='finished';
+      return {ready,status:ready?'ready':'processing',message:ready?'Ready.':'Processing.',total_files:1,processed_files:ready?1:0};
+    });
     (presentationsApi.listStatuses as Mock).mockResolvedValue([]);
     (coursesApi.getEmbeddingsStatus as Mock).mockResolvedValue({
       course_id: 1,
@@ -125,6 +131,18 @@ describe('TeacherCourseDetail', () => {
       </MemoryRouter>
     );
   };
+
+  it('shows extraction again after a new upload changes a finished course back to pending',async()=>{
+    mockPresentationFiles=['existing.pdf'];
+    (coursesApi.getCourse as Mock).mockResolvedValue({...mockCourse,extraction_status:'finished'});
+    renderComponent();
+    await screen.findByText('Extraction Complete');
+    fireEvent.click(screen.getByRole('button',{name:/go to step 1/i}));
+    (coursesApi.getCourse as Mock).mockResolvedValue({...mockCourse,extraction_status:'failed'});
+    (presentationsApi.upload as Mock).mockResolvedValue({uploaded_files:['lecture.pdf']});
+    fireEvent.click(await screen.findByRole('button',{name:'Upload test file'}));
+    expect(await screen.findByRole('button',{name:'Start Data Extraction'})).toBeEnabled();
+  });
 
   it('renders course details', async () => {
     (coursesApi.getCourse as Mock).mockResolvedValue(mockCourse);

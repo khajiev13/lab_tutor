@@ -234,10 +234,10 @@ def test_automatic_sources_keep_uzbek_jobs_when_other_providers_unavailable():
     )
     assert len(result.jobs) == 1
     assert result.outcomes["linkedin"].status == "success"
-    assert result.outcomes["indeed"].status == "error"
-    assert "country" in " ".join(result.outcomes["indeed"].warnings)
-    assert result.outcomes["headhunter"].status == "error"
-    assert "configured" in " ".join(result.outcomes["headhunter"].warnings)
+    assert result.outcomes["indeed"].status == "skipped"
+    assert not result.outcomes["indeed"].warnings
+    assert result.outcomes["headhunter"].status == "skipped"
+    assert not result.outcomes["headhunter"].warnings
 
 
 def test_all_unavailable_providers_fail_before_network_work():

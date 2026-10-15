@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Loader2, ListTree, Activity } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +27,7 @@ import { getAgentById } from "@/features/agents/config";
 import { AgentPageHeader } from "@/features/agents/components/AgentPageHeader";
 import { AgentActivityFeed } from "@/features/agents/components/AgentActivityFeed";
 import type { AgentStatus } from "@/features/agents/components/AgentCard";
+import { MaterialsReadinessNotice } from "@/features/courses/components/readiness/MaterialsReadinessNotice";
 
 /* Lazy-load heavy steps */
 const AnalysisStep = lazy(() =>
@@ -72,7 +73,7 @@ function useArchitectAgentStatus(): AgentStatus {
 /* ── Content (rendered inside provider) ──────────────────────── */
 
 function ArchitectContent() {
-  const { activeStep, isLoading, course } = useCourseDetail();
+  const { activeStep, isLoading, course, courseId, materialsReady, materialsMessage } = useCourseDetail();
   const agentStatus = useArchitectAgentStatus();
   const agent = getAgentById("architect")!;
 
@@ -107,6 +108,7 @@ function ArchitectContent() {
       </Breadcrumb>
 
       <AgentPageHeader agent={agent} status={agentStatus} />
+      {!materialsReady && <MaterialsReadinessNotice courseId={courseId} message={materialsMessage} showLink={false}/>}
 
       <Tabs defaultValue="workflow">
         <TabsList>
@@ -165,6 +167,7 @@ function ArchitectContent() {
 export default function ArchitectAgentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const courseId = Number(id);
   if (!id || isNaN(courseId)) {
@@ -173,7 +176,7 @@ export default function ArchitectAgentPage() {
   }
 
   return (
-    <CourseDetailProvider courseId={courseId}>
+    <CourseDetailProvider key={`${courseId}:${searchParams.get("step") ?? ""}`} courseId={courseId} initialStep={searchParams.get("step") === "materials" ? "materials" : undefined}>
       <ArchitectContent />
     </CourseDetailProvider>
   );

@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { BrainCircuit, Globe2, Loader2, PanelRightOpen, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { isAxiosError } from "axios";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -8,6 +9,7 @@ import { ChatContainerRoot, ChatContainerContent, ChatContainerScrollAnchor } fr
 import { ScrollButton } from "@/components/ui/scroll-button";
 import { PromptSuggestion } from "@/components/ui/prompt-suggestion";
 import { CourseDetailProvider, useCourseDetail } from "@/features/courses/context/CourseDetailContext";
+import { MaterialsReadinessNotice } from "@/features/courses/components/readiness/MaterialsReadinessNotice";
 import { DEFAULT_MARKET_DEMAND_COUNTRY, MARKET_DEMAND_COUNTRIES } from "@/features/market-demand/countries";
 import { useSkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
 import { useAgentStream } from "@/features/market-demand/hooks/useAgentStream";
@@ -34,6 +36,11 @@ const PROMPT_SUGGESTIONS = [
   "Find skill gaps between our course and industry requirements",
 ];
 
+function isMaterialsNotReady(cause: unknown) {
+  const detail = isAxiosError(cause) ? cause.response?.data?.detail : cause;
+  return typeof detail === "object" && detail !== null && "code" in detail && detail.code === "materials_not_ready";
+}
+
 export default function MarketDemandPage() {
   const {id} = useParams<{id: string}>();
   const courseId = id ? parseInt(id, 10) : undefined;
@@ -42,7 +49,7 @@ export default function MarketDemandPage() {
 }
 
 function MarketDemandContent() {
-  const {course, courseId} = useCourseDetail();
+  const {course, courseId, materialsReady, materialsMessage, triggerRefresh} = useCourseDetail();
   const [countryOverride, setCountryOverride] = useState<string | null>(null);
   const stream = useAgentStream(courseId, countryOverride);
   const {messages, agentState, isStreaming, isLoadingHistory, isRestored, skillReview} = stream;
@@ -77,19 +84,25 @@ function MarketDemandContent() {
   });
   const review = controller.review;
   const navigation = useWorkspaceNavigationGuard({dirty: controller.dirty, save: controller.save});
-  const pending = detectPendingSelection(agentState, messages);
+  const pending = detectPendingSelection(agentState);
   const selectionKey = pending ? JSON.stringify([pending.kind, pending.items.map(item => item.id)]) : "";
   const [confirmed, setConfirmed] = useState<{key: string; ids: string[]} | null>(null);
   const [editingSelection, setEditingSelection] = useState(false);
   const workPending = sending || isStreaming || stream.execution.status === "busy" || controller.busy || confirming || resetting || checking;
   const unavailable = !isRestored || isLoadingHistory || resetting;
-  const workflowDisabled = unavailable || workPending || recoveryRequired || stream.execution.status !== "idle";
+  const workflowDisabled = !materialsReady || unavailable || workPending || recoveryRequired || stream.execution.status !== "idle";
   const selectedCountry = countryOverride ?? (agentState.job_search_country_confirmed ? agentState.job_search_country ?? DEFAULT_MARKET_DEMAND_COUNTRY : "");
   const configurationStarted = hasItems(agentState.fetched_jobs) || hasItems(agentState.extracted_skills) || !!review?.candidates.length ||
     Object.values(agentState.source_outcomes ?? {}).some(outcome => outcome.status !== "idle");
 
+  const refreshMaterialsIfNeeded = (cause: unknown) => {
+    if (!isMaterialsNotReady(cause)) return false;
+    triggerRefresh();
+    return true;
+  };
+
   const submit = async (command: SendCommand): Promise<SendResult> => {
-    if (flight.current || workPending || unavailable || (command.mode === "workflow" && workflowDisabled)) {
+    if (!materialsReady || flight.current || workPending || unavailable || (command.mode === "workflow" && workflowDisabled)) {
       return {outcome: "failed", error: {code: "analysis_busy", message: "Wait for the current response or restore the conversation before retrying.", recovery: "Check analysis status."}};
     }
     flight.current = true;
@@ -98,14 +111,14 @@ function MarketDemandContent() {
     try {
       const result = await stream.send(command);
       if (generation.current !== current) return result;
-      if (result.outcome !== "completed") {
+      if (result.outcome !== "completed" && !refreshMaterialsIfNeeded(result.error)) {
         if (command.mode === "workflow") setRecoveryRequired(true);
         else setReviewRefreshRequired(true);
         setActionError(result.error?.message ?? "The response ended before its outcome was confirmed. Check analysis status before retrying.");
       }
       return result;
     } catch (cause) {
-      if (generation.current === current) {
+      if (generation.current === current && !refreshMaterialsIfNeeded(cause)) {
         if (command.mode === "workflow") setRecoveryRequired(true);
         else setReviewRefreshRequired(true);
         setActionError(skillReviewErrorMessage(cause, "The response failed. Your question and choices are retained."));
@@ -135,8 +148,7 @@ function MarketDemandContent() {
     try {
       let command: SendCommand;
       if (pending && ids?.length) {
-        command = {mode: "workflow", text: pending.kind === "search_queries" ? ids.map(term => JSON.stringify(term)).join(", ") :
-          `Select these job groups by exact name: ${JSON.stringify(ids)}. Preserve these names; do not convert them to indices.`};
+        command = {mode: "workflow", text: `Select these job groups by exact name: ${JSON.stringify(ids)}. Preserve these names; do not convert them to indices.`};
       } else {
         const confirmedReview = await controller.confirmCurrentSelection();
         if (generation.current !== current || confirmedReview.run_id !== review?.run_id) return;
@@ -150,12 +162,12 @@ function MarketDemandContent() {
       if (result.outcome === "completed") {
         if (pending && ids) setConfirmed({key: selectionKey, ids});
         else setEditingSelection(false);
-      } else {
+      } else if (!refreshMaterialsIfNeeded(result.error)) {
         setRecoveryRequired(true);
         setActionError(result.error?.message ?? "The analysis outcome is unknown. Check status before retrying.");
       }
     } catch (cause) {
-      if (generation.current === current) {
+      if (generation.current === current && !refreshMaterialsIfNeeded(cause)) {
         setRecoveryRequired(requestedWorkflow);
         setReviewRefreshRequired(!requestedWorkflow);
         setActionError(skillReviewErrorMessage(cause, "Unable to confirm. Your choices are retained."));
@@ -235,7 +247,7 @@ function MarketDemandContent() {
     proposal.items.length !== review.selected_candidate_ids.length || proposal.items.some(item => !review.selected_candidate_ids.includes(item.candidate_id)));
   const showSkills = !!review && (review.candidates.length > 0 || controller.draft.selected_candidate_ids.length > 0) && !pending && (!proposal || editingSelection || staleFit || controller.dirty || controller.reviewRequired);
   const sourceFailures = Object.entries(review?.source_outcomes ?? agentState.source_outcomes ?? {}).filter(([, outcome]) => outcome.status === "error" || outcome.status === "partial");
-  const shownError = actionError ?? stream.error ?? (reviewRefreshRequired ? controller.error : null);
+  const shownError = actionError ?? (isMaterialsNotReady(stream.streamError) ? null : stream.error) ?? (reviewRefreshRequired ? controller.error : null);
   return <div aria-label="Teacher evidence workspace" className="absolute inset-0 flex min-w-0 flex-col overflow-hidden bg-background">
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
       <Link to={`/courses/${courseId}`} className="min-w-0 text-sm text-muted-foreground">← {course?.title ?? "Course"} · Market Demand Analyst</Link>
@@ -258,19 +270,19 @@ function MarketDemandContent() {
             <div className="flex max-w-lg flex-wrap justify-center gap-2">{PROMPT_SUGGESTIONS.map(text => <PromptSuggestion key={text} disabled={workflowDisabled} onClick={() => void sendQuestion(text)}>{text}</PromptSuggestion>)}</div>
           </div>}
           {messages.map(message => message.role === "user" ? <UserMessage key={message.id} content={message.content}/> : <AgentMessage key={message.id} message={message}/>)}
-          {pending && <SelectionCard key={selectionKey} title={pending.kind === "search_queries" ? "Select Search Queries" : "Select Job Groups"}
-            subtitle={pending.kind === "search_queries" ? "Choose which job search terms to use" : "Choose which groups to analyze for skills"}
+          {pending && <SelectionCard key={selectionKey} title="Select Job Groups"
+            subtitle="Choose which groups to analyze for skills"
             items={pending.items} disabled={workflowDisabled} confirmed={confirmed?.key === selectionKey}
             confirmedIds={confirmed?.key === selectionKey ? confirmed.ids : undefined} onConfirm={ids => void confirmChoices(ids)}/>}
           {showSkills && <SkillSelectionCard controller={controller} disabled={workflowDisabled} onConfirm={() => void confirmChoices()}
             onInspect={(id, element) => {inspectionOrigin.current = element; setInspectId(id);}}/>}
           {review && <section aria-label="Curriculum fit" className="space-y-2">
             {proposal && !proposal.withdrawal && !showSkills && <Button size="sm" variant="ghost" disabled={workPending || unavailable} onClick={() => setEditingSelection(true)}>Change selection</Button>}
-            <div hidden={showSkills}><IntegrationReview courseId={courseId} review={review} onReviewChange={stream.applySkillReview} disabled={workPending || unavailable}
+            <div hidden={showSkills}><IntegrationReview courseId={courseId} review={review} onReviewChange={stream.applySkillReview} disabled={!materialsReady || workPending || unavailable}
               publicationDisabled={showSkills || controller.dirty || controller.reviewRequired || recoveryRequired || stream.execution.status !== "idle"}/></div>
           </section>}
           {workPending && !checking && <p role="status" className="text-sm text-muted-foreground"><Loader2 className="mr-2 inline size-4 animate-spin"/>{stream.currentAgent ? "The agent is working…" : "Working on your request…"}</p>}
-          {sourceFailures.length > 0 && !workPending && <details className="text-xs text-muted-foreground"><summary>Job source availability and collection details</summary>{sourceFailures.map(([source, outcome]) => <p key={source} className="mt-1">{source}: {outcome.status}. {outcome.warnings.join(" ")}</p>)}</details>}
+          {sourceFailures.length > 0 && !workPending && <details className="text-xs text-muted-foreground"><summary>Some job sources could not finish</summary>{sourceFailures.map(([source, outcome]) => <p key={source} className="mt-1">{source}: {outcome.status}. {outcome.warnings.join(" ")}</p>)}</details>}
         </>}
         {shownError && <p role="alert" className="text-sm text-destructive">{shownError}</p>}
         {reviewRefreshRequired && !recoveryRequired && <Button variant="outline" size="sm" disabled={workPending || unavailable} onClick={() => void refreshEvidence()}>Refresh current evidence</Button>}
@@ -281,9 +293,10 @@ function MarketDemandContent() {
       <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2"><ScrollButton/></div>
     </ChatContainerRoot>
       <div className="shrink-0 bg-background px-4 py-3"><div ref={composerRef} className="mx-auto max-w-3xl">
+        {!materialsReady && <div className="mb-2"><MaterialsReadinessNotice courseId={courseId} message={materialsMessage}/></div>}
         {draft.context && <p className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">Chart evidence attached for this question<Button size="sm" variant="ghost" onClick={() => setDraft({...draft, context: null})}>Remove attachment</Button></p>}
         <ChatInput value={draft.text} onChange={text => setDraft({...draft, text})} onSend={text => void sendQuestion(text)} onCloseLiveResponse={stream.closeLiveResponse}
-          isStreaming={isStreaming} disabled={unavailable} sendDisabled={draft.context ? workPending : workflowDisabled}/>
+          isStreaming={isStreaming} disabled={unavailable} sendDisabled={!materialsReady || (draft.context ? workPending : workflowDisabled)}/>
       </div></div>
     {review && <CompactComparison courseId={courseId} onCloseAutoFocus={event => {
       if (!focusComposerAfterClose.current) return;

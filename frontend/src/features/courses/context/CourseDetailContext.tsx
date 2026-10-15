@@ -22,6 +22,7 @@ import type { StepStatus } from "@/components/ui/stepper";
 import { getLatestSession, getLatestAnalysis } from "@/features/book-selection/api";
 import type { SessionStatus, ExtractionRunStatus } from "@/features/book-selection/types";
 import { getChapterPlan } from "@/features/curriculum-planning/api";
+import { useCourseMaterialsReadiness } from "@/features/courses/hooks/useCourseMaterialsReadiness";
 
 /* ── Step definitions ───────────────────────────────────────── */
 
@@ -65,6 +66,8 @@ interface CourseDetailContextValue {
   onFilesChange: (files: string[]) => void;
   refreshTrigger: number;
   triggerRefresh: () => void;
+  materialsReady: boolean;
+  materialsMessage: string;
 
   /* Embedding */
   embeddingStatus: CourseEmbeddingStatusResponse | null;
@@ -102,20 +105,25 @@ const POLL_INTERVAL_MS = 10_000;
 
 interface CourseDetailProviderProps {
   courseId: number;
+  initialStep?: CourseStep;
+  checkMaterials?: boolean;
   children: React.ReactNode;
 }
 
 export function CourseDetailProvider({
   courseId,
+  initialStep,
+  checkMaterials = true,
   children,
 }: CourseDetailProviderProps) {
   /* ── State ─────────────────────────────────────────────────── */
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const materials = useCourseMaterialsReadiness(courseId, refreshTrigger, checkMaterials);
   const [isExtracting, setIsExtracting] = useState(false);
   const [presentationCount, setPresentationCount] = useState(0);
-  const [activeStep, setActiveStepRaw] = useState(0);
+  const [activeStep, setActiveStepRaw] = useState(initialStep ? COURSE_STEPS.indexOf(initialStep) : 0);
   const [embeddingStatus, setEmbeddingStatus] =
     useState<CourseEmbeddingStatusResponse | null>(null);
   const [extractionProgress, setExtractionProgress] =
@@ -216,7 +224,8 @@ export function CourseDetailProvider({
 
   /* ── Derived ───────────────────────────────────────────────── */
 
-  const extractionDone = course?.extraction_status === "finished";
+  const materialsReady = materials.ready;
+  const extractionDone = materialsReady || course?.extraction_status === "finished";
 
   /* ── Fetch step-completion statuses from backend ─────────── */
 
@@ -320,6 +329,7 @@ export function CourseDetailProvider({
 
   const getStepStatus = useCallback(
     (index: number): StepStatus => {
+      if (index > 0 && !materialsReady) return "locked";
       const ACTIVE_SESSION: SessionStatus[] = ["discovering", "scoring", "downloading"];
       const DONE_SESSION: SessionStatus[] = ["completed"];
       const ACTIVE_ANALYSIS: ExtractionRunStatus[] = [
@@ -374,7 +384,7 @@ export function CourseDetailProvider({
           return "locked";
       }
     },
-    [course?.extraction_status, extractionDone, bookSessionStatus, analysisRunStatus, hasChapters]
+    [course?.extraction_status, extractionDone, materialsReady, bookSessionStatus, analysisRunStatus, hasChapters]
   );
 
   const canNavigateToStep = useCallback(
@@ -400,10 +410,10 @@ export function CourseDetailProvider({
 
   /* ── Auto-navigate to the furthest meaningful step on load ── */
 
-  const [hasAutoNavigated, setHasAutoNavigated] = useState(false);
+  const [hasAutoNavigated, setHasAutoNavigated] = useState(initialStep !== undefined);
 
   useEffect(() => {
-    if (hasAutoNavigated || isLoading || !course) return;
+    if (hasAutoNavigated || isLoading || !course || (extractionDone && !materialsReady)) return;
     // Wait until backend statuses have been fetched (or extraction isn't done)
     if (extractionDone && !stepStatusesFetched) return;
 
@@ -439,6 +449,7 @@ export function CourseDetailProvider({
     isLoading,
     course,
     extractionDone,
+    materialsReady,
     stepStatusesFetched,
     getStepStatus,
   ]);
@@ -459,12 +470,14 @@ export function CourseDetailProvider({
       onFilesChange,
       refreshTrigger,
       triggerRefresh,
+      materialsReady,
+      materialsMessage: materials.message,
       embeddingStatus,
       bookSessionStatus,
       analysisRunStatus,
       hasChapters,
       setHasChapters,
-      activeStep,
+      activeStep: materialsReady ? activeStep : 0,
       setActiveStep,
       goToNext,
       canNavigateToStep,
@@ -483,6 +496,8 @@ export function CourseDetailProvider({
       onFilesChange,
       refreshTrigger,
       triggerRefresh,
+      materialsReady,
+      materials.message,
       embeddingStatus,
       bookSessionStatus,
       analysisRunStatus,

@@ -80,6 +80,19 @@ describe("Agent Config", () => {
 /* ── AgentHubGrid ──────────────────────────────────────────── */
 
 describe("AgentHubGrid", () => {
+  it("prevents unavailable agents from launching while retaining materials access", async () => {
+    mockNavigate.mockClear();
+    render(<MemoryRouter><AgentHubGrid agents={AGENTS} courseId={1} isLoading={false} statuses={{}}
+      disabledAgentIds={["market-analyst", "reading-agent", "video-agent"]}/></MemoryRouter>);
+    for (const name of ["Market Demand Analyst", "Reading Agent", "Video Agent"]) {
+      const card = screen.getByText(name).closest("[aria-disabled]")!;
+      expect(card).toHaveAttribute("aria-disabled", "true");
+      await userEvent.click(card);
+    }
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByText("Curricular Alignment Architect"));
+    expect(mockNavigate).toHaveBeenCalledWith("/courses/1/architect");
+  });
   it("renders only the agents passed to the section", () => {
     render(
       <MemoryRouter>
@@ -205,6 +218,11 @@ describe("AgentCard", () => {
 });
 
 describe("TeacherAgentTimingDialog", () => {
+  it("disables an open launch dialog when course materials stop being ready", () => {
+    render(<MemoryRouter><TeacherAgentTimingDialog courseId={9} agentId="market-analyst" open disabled onOpenChange={vi.fn()}/></MemoryRouter>);
+    expect(screen.getByRole("button",{name:"Open market analyst"})).toBeDisabled();
+    expect(screen.queryByRole("link",{name:"Open market analyst"})).not.toBeInTheDocument();
+  });
   it("renders the architect research summary for teachers", () => {
     render(
       <MemoryRouter>

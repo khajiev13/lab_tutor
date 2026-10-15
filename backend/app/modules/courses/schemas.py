@@ -68,6 +68,14 @@ class StartExtractionResponse(BaseModel):
     status: ExtractionStatus
 
 
+class MaterialsReadinessRead(BaseModel):
+    ready: bool
+    status: Literal["no_materials", "processing", "failed", "ready"]
+    message: str
+    total_files: int
+    processed_files: int
+
+
 class ReadinessNextAction(BaseModel):
     id: NextActionId
     label: str

@@ -189,7 +189,7 @@ export default function TeacherCourseDetail() {
   }
 
   return (
-    <CourseDetailProvider courseId={courseId}>
+    <CourseDetailProvider courseId={courseId} checkMaterials={user?.role === "teacher"}>
       <div className="space-y-6">
         <Button
           variant="ghost"

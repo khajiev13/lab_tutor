@@ -19,11 +19,13 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
 
+const courseContext = vi.hoisted(() => ({materialsReady: true, materialsMessage: "Course materials are still being processed.", triggerRefresh: vi.fn()}));
 vi.mock("@/features/courses/context/CourseDetailContext", () => ({
   CourseDetailProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useCourseDetail: () => ({
     course: { id: 1, title: "Test Course" },
     courseId: 1,
+    ...courseContext,
     getStepStatus: () => "not-started",
   }),
 }));
@@ -123,6 +125,8 @@ function mockStreamReturn(overrides: Partial<UseAgentStreamReturn> = {}): UseAge
 
 beforeEach(() => {
   vi.clearAllMocks();
+  courseContext.materialsReady = true;
+  courseContext.triggerRefresh.mockReset();
   vi.mocked(confirmOnetOccupations).mockReset();
   vi.mocked(saveSkillReviewDraft).mockReset();
   vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn());
@@ -251,11 +255,96 @@ it('keeps the full original agent conversation and current choices inline with o
  expect(screen.getByText('Earlier market finding')).toBeVisible();
  expect(screen.getByText('Find relevant jobs')).toBeVisible();
  expect(screen.getByRole('combobox',{name:'Market country'})).toBeVisible();
- expect(screen.getByRole('checkbox',{name:'Data analyst'})).toBeVisible();
+ expect(screen.queryByRole('checkbox',{name:'Data analyst'})).not.toBeInTheDocument();
  expect(screen.queryByRole('button',{name:/History and setup|Stage workflow response|Browse skills|Save draft|Undo local change/})).not.toBeInTheDocument();
  fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Explain these search terms'}});
  fireEvent.keyDown(screen.getByRole('textbox',{name:'Question'}),{key:'Enter',code:'Enter'});
  await waitFor(()=>expect(send).toHaveBeenCalledWith({mode:'workflow',text:'Explain these search terms'}));
+});
+
+it('keeps saved history readable but blocks workflow launch until course materials are ready',async()=>{
+ courseContext.materialsReady = false;
+ const send = vi.fn();
+ const {rerender} = await openReviewWorkspace({skillReview:null,send,messages:[
+  {id:'saved',role:'agent',content:'Saved market finding',agent:'supervisor',toolCalls:[],isStreaming:false},
+ ]});
+ expect(screen.getByText('Saved market finding')).toBeVisible();
+ expect(screen.getByText(courseContext.materialsMessage)).toBeVisible();
+ expect(screen.getByRole('link',{name:'Course materials'})).toHaveAttribute('href','/courses/1/architect?step=materials');
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Analyze the market'}});
+ fireEvent.keyDown(screen.getByRole('textbox',{name:'Question'}),{key:'Enter',code:'Enter'});
+ expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
+ expect(send).not.toHaveBeenCalled();
+ courseContext.materialsReady = true;
+ const {default:Page} = await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
+});
+
+it('blocks both suggestions and job-group confirmations while materials are processing',async()=>{
+ courseContext.materialsReady = false;
+ const send=vi.fn();
+ await openReviewWorkspace({skillReview:null,send,agentState:{...EMPTY_STATE,fetched_jobs:[{title:'Analyst'}],job_groups:{'Data Analyst':[0]}}});
+ expect(screen.getByRole('button',{name:'Analyze the job market for this course and find relevant postings'})).toBeDisabled();
+ expect(screen.getByRole('checkbox',{name:'Data Analyst'})).toBeDisabled();
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeDisabled();
+ expect(send).not.toHaveBeenCalled();
+});
+
+it('refreshes readiness after a rejected chat launch without asking the teacher to recover an analysis',async()=>{
+ const failure={status:409,code:'materials_not_ready',message:courseContext.materialsMessage,recovery:'Refresh execution status before retrying.'};
+ courseContext.triggerRefresh.mockImplementation(()=>{courseContext.materialsReady=false;});
+ const send=vi.fn().mockImplementation(async()=>{
+  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({send,error:failure.message,streamError:failure}));
+  return {outcome:'failed',error:failure};
+ });
+ const {rerender}=await openReviewWorkspace({skillReview:null,send});
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Analyze the market'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send message'}));
+ await waitFor(()=>expect(courseContext.triggerRefresh).toHaveBeenCalledOnce());
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Analyze the market');
+ expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
+ expect(screen.getByText(courseContext.materialsMessage)).toBeVisible();
+ expect(screen.queryByRole('button',{name:/Check analysis status|Refresh current evidence/})).not.toBeInTheDocument();
+ expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+ courseContext.materialsReady=true;
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
+ expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+ expect(send).toHaveBeenCalledOnce();
+});
+
+it('retains exact job-group choices while automatically refreshing a rejected launch precondition',async()=>{
+ courseContext.triggerRefresh.mockImplementation(()=>{courseContext.materialsReady=false;});
+ const send=vi.fn().mockResolvedValue({outcome:'failed',error:{code:'materials_not_ready',message:courseContext.materialsMessage}});
+ await openReviewWorkspace({skillReview:null,send,agentState:{...EMPTY_STATE,fetched_jobs:[{title:'Analyst'}],job_groups:{'BI / Data & Reporting':[0]}}});
+ fireEvent.click(screen.getByRole('checkbox',{name:'BI / Data & Reporting'}));
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ await waitFor(()=>expect(courseContext.triggerRefresh).toHaveBeenCalledOnce());
+ expect(screen.getByRole('checkbox',{name:'BI / Data & Reporting'})).toBeChecked();
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeDisabled();
+ expect(screen.queryByRole('button',{name:/Check analysis status|Refresh current evidence/})).not.toBeInTheDocument();
+ expect(send).toHaveBeenCalledOnce();
+});
+
+it('refreshes readiness after a rejected skill confirmation and retains the current choices',async()=>{
+ const api=await import('@/features/market-demand/api');
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ courseContext.triggerRefresh.mockImplementation(()=>{courseContext.materialsReady=false;});
+ vi.mocked(api.confirmSkillReviewSelection).mockRejectedValue({isAxiosError:true,response:{status:409,data:{detail:{code:'materials_not_ready',message:courseContext.materialsMessage}}}});
+ const send=vi.fn();
+ await openReviewWorkspace({skillReview:reviewFixture(),send});
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'}));
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Keep my question'}});
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ await waitFor(()=>expect(courseContext.triggerRefresh).toHaveBeenCalledOnce());
+ expect(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'})).toBeChecked();
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Keep my question');
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeDisabled();
+ expect(screen.queryByRole('button',{name:/Check analysis status|Refresh current evidence/})).not.toBeInTheDocument();
+ expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+ expect(send).not.toHaveBeenCalled();
 });
 
 it('expands categories in place, keeps exclusions across pages and confirms partial changed evidence in one click', async () => {

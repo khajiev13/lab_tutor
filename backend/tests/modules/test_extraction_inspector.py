@@ -21,6 +21,7 @@ from app.modules.curricularalignmentarchitect.models import (
     CourseSelectedBook,
     ExtractionRunStatus,
 )
+from tests.course_material_fixtures import seed_ready_materials
 
 # ── Shared helpers ──────────────────────────────────────────────
 
@@ -526,4 +527,6 @@ class TestApproveExtraction:
             headers=teacher_auth_headers,
         )
         assert resp.status_code in (200, 201), resp.text
-        return resp.json()["id"]
+        course_id = resp.json()["id"]
+        seed_ready_materials(course_id)
+        return course_id

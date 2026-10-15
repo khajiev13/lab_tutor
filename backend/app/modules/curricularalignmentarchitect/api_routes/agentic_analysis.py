@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 from app.modules.courses.models import Course
 from app.modules.curricularalignmentarchitect.skill_prerequisites.review_repository import (
     PrerequisiteReviewRepository,
@@ -53,7 +54,10 @@ def _mark_prerequisites_stale(course_id: int) -> None:
 
 
 def register_routes(router):
-    @router.post("/courses/{course_id}/analysis/{run_id}/agentic")
+    @router.post(
+        "/courses/{course_id}/analysis/{run_id}/agentic",
+        dependencies=[Depends(require_materials_ready)],
+    )
     async def start_agentic_extraction(
         course_id: int,
         run_id: int,

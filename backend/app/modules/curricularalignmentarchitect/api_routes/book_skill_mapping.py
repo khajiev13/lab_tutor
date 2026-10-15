@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 
 from ..book_skill_mapping.graph import build_book_skill_mapping_graph
 
@@ -25,7 +26,10 @@ BOOK_SKILL_MAPPING_MAX_CONCURRENCY = 5
 
 
 def register_routes(router):
-    @router.post("/courses/{course_id}/book-skill-mapping")
+    @router.post(
+        "/courses/{course_id}/book-skill-mapping",
+        dependencies=[Depends(require_materials_ready)],
+    )
     async def start_book_skill_mapping(
         course_id: int,
         _teacher: User = Depends(require_role(UserRole.TEACHER)),

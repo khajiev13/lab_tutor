@@ -19,6 +19,7 @@ from sqlalchemy.exc import OperationalError
 
 from app.modules.auth.models import User, UserRole
 from app.modules.marketdemandanalyst.models import MDAThreadState
+from tests.course_material_fixtures import seed_ready_materials
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -71,7 +72,9 @@ def _create_course(client, headers, *, title="Market Demand Test Course") -> int
         headers=headers,
     )
     assert response.status_code == 201
-    return int(response.json()["id"])
+    course_id = int(response.json()["id"])
+    seed_ready_materials(course_id)
+    return course_id
 
 
 def _create_teacher_headers(

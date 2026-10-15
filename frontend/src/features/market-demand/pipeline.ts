@@ -8,7 +8,7 @@ function hasItems(value: unknown): boolean {
 export function derivePipelineStages(state: AgentState): Record<PipelineStageId, StageStatus> {
   const outcomes = Object.values(state.source_outcomes ?? {});
   const collected = outcomes.length > 0
-    ? outcomes.every((outcome) => outcome.status === "success" || outcome.status === "empty")
+    ? outcomes.every((outcome) => outcome.status === "success" || outcome.status === "empty" || outcome.status === "skipped")
     : hasItems(state.fetched_jobs);
   const stages: Record<PipelineStageId, StageStatus> = {
     fetch: collected ? "complete" : "pending",

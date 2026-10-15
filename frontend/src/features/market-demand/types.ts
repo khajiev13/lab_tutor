@@ -126,7 +126,7 @@ export interface JobSourceAvailability {
   reason: string | null;
 }
 export interface SourceOutcome {
-  status: "idle" | "loading" | "success" | "empty" | "partial" | "error";
+  status: "idle" | "loading" | "success" | "empty" | "partial" | "error" | "skipped";
   received_count: number;
   usable_count: number;
   warnings: string[];

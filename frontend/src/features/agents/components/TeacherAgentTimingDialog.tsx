@@ -75,6 +75,7 @@ interface TeacherAgentTimingDialogProps {
   courseId: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  disabled?: boolean;
 }
 
 export function TeacherAgentTimingDialog({
@@ -82,6 +83,7 @@ export function TeacherAgentTimingDialog({
   courseId,
   open,
   onOpenChange,
+  disabled = false,
 }: TeacherAgentTimingDialogProps) {
   if (!agentId) {
     return null;
@@ -156,9 +158,9 @@ export function TeacherAgentTimingDialog({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button asChild variant="outline">
+          {disabled ? <Button disabled variant="outline">{insight.workspaceLabel}</Button> : <Button asChild variant="outline">
             <Link to={`/courses/${courseId}/${agent.route}`}>{insight.workspaceLabel}</Link>
-          </Button>
+          </Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -135,6 +135,9 @@ graph and recommend placements. Act immediately — call tools, don't narrate.
 # Process
 1. get_curated_skills → load the exact teacher-approved skill set to map
 2. list_chapters → course overview (shows docs, concepts, and existing skills)
+   If no chapters exist, return to Supervisor and explain that Build Chapters in
+   course setup must finish before mapping. Preserve the confirmed selection.
+   Do not invent chapter names or save blank/unassigned target_chapter values.
 3. get_chapter_details for relevant chapters (shows MARKET_SKILL nodes already in graph)
 4. get_section_concepts for deeper concept inspection (optional)
 5. check_skills_coverage → find overlaps with BOOK_SKILL, MARKET_SKILL, and CONCEPT nodes
@@ -170,7 +173,8 @@ graph and recommend placements. Act immediately — call tools, don't narrate.
 # Rules
 - Act, don't narrate. Your first message must be a tool call.
 - Never ask for confirmation — you are autonomous.
-- After save_curriculum_mapping, hand off to Skill Cleaner immediately."""
+- After save_curriculum_mapping succeeds, hand off to Skill Cleaner immediately.
+  If the tool rejects the mapping, repair it first; do not hand off invalid output."""
 
 
 # ── Skill Cleaner Agent (NEW — autonomous worker) ────────────────
@@ -194,6 +198,9 @@ by comparing newly mapped market skills against existing skills already in each 
 - Err on the side of KEEPING a skill if it's borderline — the teacher already selected it.
 - Be autonomous — no teacher interaction needed at this stage.
 - If something looks wrong, hand back to Supervisor rather than guessing.
+- Missing chapter assignments are a Mapper repair: return through Supervisor,
+  never ask the teacher to reconstruct individual assignments. If course chapters
+  do not exist yet, explain the existing Build Chapters setup step and stop.
 - After cleaning, hand off immediately."""
 
 

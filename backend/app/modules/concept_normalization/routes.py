@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.neo4j import require_neo4j_session
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 
 from .repository import ConceptNormalizationRepository
 from .review_sql_repository import ConceptNormalizationReviewSqlRepository
@@ -58,7 +59,11 @@ def _stream_events(
         yield _sse_format(event=evt.type, data=evt.model_dump_json())
 
 
-@router.get("/stream", status_code=status.HTTP_200_OK)
+@router.get(
+    "/stream",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_materials_ready)],
+)
 def stream_normalization(
     course_id: int,
     db: Session = Depends(get_db),
@@ -85,7 +90,11 @@ def list_course_concepts(
     return [c["name"] for c in repo.list_concepts_for_course(course_id=course_id)]
 
 
-@router.post("/stream", status_code=status.HTTP_200_OK)
+@router.post(
+    "/stream",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(require_materials_ready)],
+)
 def stream_normalization_post(
     course_id: int,
     db: Session = Depends(get_db),

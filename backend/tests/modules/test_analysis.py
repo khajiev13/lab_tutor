@@ -368,6 +368,9 @@ class TestAnalysisRoutes:
     ):
         """POST /analysis returns 409 when create_run_and_launch raises ValueError."""
         course_id = self._create_course(client, teacher_auth_headers)
+        from tests.course_material_fixtures import seed_ready_materials
+
+        seed_ready_materials(course_id)
 
         # Patch the workflow launcher so no LangGraph or background task runs.
         # The mock raises ValueError to simulate an already-active run guard.

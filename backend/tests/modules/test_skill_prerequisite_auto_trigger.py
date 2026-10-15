@@ -143,6 +143,9 @@ def test_regenerate_route_schedules_without_runtime_error(
     )
     assert create_response.status_code == 201
     course_id = create_response.json()["id"]
+    from tests.course_material_fixtures import seed_ready_materials
+
+    seed_ready_materials(course_id)
 
     response = client.post(
         f"/book-selection/courses/{course_id}/skill-prerequisites/regenerate",

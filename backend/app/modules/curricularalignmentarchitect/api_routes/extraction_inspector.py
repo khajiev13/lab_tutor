@@ -17,6 +17,7 @@ from app.core.database import get_db
 from app.core.settings import settings
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 
 from ..chunking_analysis.nodes import extract_pdf
 from ..chunking_analysis.repository import (
@@ -191,6 +192,7 @@ def register_routes(router):
     @router.post(
         "/courses/{course_id}/analysis/{run_id}/approve-extraction",
         response_model=BookExtractionRunRead,
+        dependencies=[Depends(require_materials_ready)],
     )
     async def approve_extraction(
         course_id: int,

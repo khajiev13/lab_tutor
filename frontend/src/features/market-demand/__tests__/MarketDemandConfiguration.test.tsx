@@ -16,7 +16,7 @@ function TestRouter({children}: {children: React.ReactNode}) {
 const context = vi.hoisted(() => ({ courseId: 1 }));
 vi.mock("@/features/courses/context/CourseDetailContext", () => ({
   CourseDetailProvider: ({children}: {children: React.ReactNode}) => <>{children}</>,
-  useCourseDetail: () => ({courseId: context.courseId, course: {id: context.courseId, title: "Test Course"}}),
+  useCourseDetail: () => ({courseId: context.courseId, course: {id: context.courseId, title: "Test Course"}, materialsReady:true, materialsMessage:"Course materials are ready."}),
 }));
 vi.mock("react-router-dom", async () => ({
   ...await vi.importActual("react-router-dom"),
@@ -102,7 +102,7 @@ describe("automatic job sources in the original chat flow", () => {
     expect(fetchJobSources).not.toHaveBeenCalled();
   });
 
-  it("preserves saved provider settings in suggestions, inline selection and typed workflow replies",async()=>{
+  it("preserves saved provider settings in suggestions and chat search approval without another checkbox",async()=>{
     vi.mocked(streamMarketDemandChat).mockImplementation(async({onEvent})=>{onEvent({type:"stream_end",outcome:"completed"});});
     vi.mocked(streamMarketDemandChat).mockImplementationOnce(async({onEvent})=>{
       onEvent({type:"agent_start",agent:"supervisor",messageId:"a1",displayName:"Supervisor",emoji:""});
@@ -112,8 +112,10 @@ describe("automatic job sources in the original chat flow", () => {
     render(<TestRouter><MarketDemandPage/></TestRouter>);
     await waitFor(()=>expect(screen.getByRole("textbox",{name:"Question"})).toBeEnabled());
     await userEvent.click(screen.getByRole("button",{name:"Analyze the job market for this course and find relevant postings"}));
-    fireEvent.click(await screen.findByRole("button",{name:"Select all"}));
-    fireEvent.click(screen.getByRole("button",{name:/Confirm Selection/}));
+    await screen.findByText(/Search Terms:/);
+    expect(screen.queryByRole("checkbox",{name:"data analyst"})).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox",{name:"Question"}),{target:{value:"Use both search terms"}});
+    fireEvent.click(screen.getByRole("button",{name:"Send message"}));
     await waitFor(()=>expect(streamMarketDemandChat).toHaveBeenCalledTimes(2));
     fireEvent.change(screen.getByRole("textbox",{name:"Question"}),{target:{value:"Continue using the saved configuration"}});
     fireEvent.click(screen.getByRole("button",{name:"Send message"}));

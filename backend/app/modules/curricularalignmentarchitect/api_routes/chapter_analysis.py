@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 
 from ..chapter_extraction.scoring import (
     compute_all_books_chapter_analysis,
@@ -25,6 +26,7 @@ def register_routes(router):
     @router.post(
         "/courses/{course_id}/analysis/{run_id}/chapter-scoring",
         response_model=list[ChapterAnalysisSummaryRead],
+        dependencies=[Depends(require_materials_ready)],
     )
     def trigger_chapter_scoring(
         course_id: int,

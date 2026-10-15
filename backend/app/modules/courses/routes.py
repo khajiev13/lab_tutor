@@ -17,6 +17,10 @@ from .curriculum_schemas import (
     StudentInsightsOverviewResponse,
 )
 from .curriculum_service import CurriculumService, get_curriculum_service
+from .materials_readiness_service import (
+    MaterialsReadinessService,
+    get_materials_readiness_service,
+)
 from .readiness_service import (
     CourseReadinessService,
     get_course_readiness_service,
@@ -27,6 +31,7 @@ from .schemas import (
     CourseRead,
     CourseReadinessRead,
     EnrollmentRead,
+    MaterialsReadinessRead,
     StartExtractionResponse,
     UploadPresentationsResponse,
 )
@@ -73,6 +78,15 @@ def get_course_readiness(
 ):
     service.require_teacher(course_id, teacher.id)
     return service.get_readiness(course_id)
+
+
+@router.get("/{course_id}/materials-readiness", response_model=MaterialsReadinessRead)
+def get_materials_readiness(
+    course_id: int,
+    service: MaterialsReadinessService = Depends(get_materials_readiness_service),
+    teacher: User = Depends(require_role(UserRole.TEACHER)),
+):
+    return service.get_readiness(course_id, teacher.id)
 
 
 @router.post("/{course_id}/publish", response_model=CourseRead)

@@ -5,6 +5,7 @@ from uuid import uuid4
 from app.modules.marketdemandanalyst.repository import MarketReviewRepository
 from app.modules.marketdemandanalyst.review_service import SkillReviewService
 from app.modules.marketdemandanalyst.schemas import ProviderVacancy, SkillReviewRevision
+from tests.course_material_fixtures import seed_ready_materials
 
 
 class ReviewedTargets:
@@ -40,6 +41,7 @@ def seed_review(
         response = client.post("/courses", json={"title": title}, headers=headers)
         assert response.status_code == 201
         course = response.json()
+    seed_ready_materials(course["id"])
     repo = MarketReviewRepository(db)
     run = repo.create_run(
         course["id"],

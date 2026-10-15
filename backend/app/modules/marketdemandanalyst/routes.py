@@ -27,6 +27,7 @@ from app.core.database import AsyncSessionLocal, SessionLocal, get_db
 from app.core.neo4j import get_neo4j_driver
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 from app.modules.courses.models import Course
 from app.modules.courses.readiness_service import CourseReadinessService
 from app.modules.curricularalignmentarchitect.skill_prerequisites.review_repository import (
@@ -950,6 +951,7 @@ async def save_skill_review_draft(
 @router.post(
     "/{course_id}/market-demand/skill-review/selection-confirmation",
     response_model=SkillReview,
+    dependencies=[Depends(require_materials_ready)],
 )
 async def confirm_skill_review_selection(
     course_id: int,
@@ -966,6 +968,7 @@ async def confirm_skill_review_selection(
 @router.post(
     "/{course_id}/market-demand/skill-review/continue-with-available-evidence",
     response_model=SkillReview,
+    dependencies=[Depends(require_materials_ready)],
 )
 async def continue_skill_review(
     course_id: int,
@@ -987,6 +990,7 @@ async def continue_skill_review(
 @router.post(
     "/{course_id}/market-demand/skill-review/withdrawal-review",
     response_model=SkillReview,
+    dependencies=[Depends(require_materials_ready)],
 )
 async def prepare_skill_withdrawal(
     course_id: int,
@@ -1008,6 +1012,7 @@ async def prepare_skill_withdrawal(
 @router.post(
     "/{course_id}/market-demand/integration-approval",
     response_model=IntegrationApprovalResult,
+    dependencies=[Depends(require_materials_ready)],
 )
 async def approve_skill_integration(
     course_id: int,
@@ -1027,7 +1032,10 @@ async def approve_skill_integration(
     return result
 
 
-@router.post("/{course_id}/market-demand/chat")
+@router.post(
+    "/{course_id}/market-demand/chat",
+    dependencies=[Depends(require_materials_ready)],
+)
 async def market_demand_chat(
     course_id: int,
     body: ChatRequest,

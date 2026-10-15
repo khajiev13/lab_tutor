@@ -11,6 +11,7 @@ from pydantic import Field
 
 from app.modules.marketdemandanalyst import graph as graph_module
 from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+from tests.course_material_fixtures import seed_ready_materials
 from tests.market_skill_fixtures import seed_review
 from tests.modules.test_market_workspace_context import context
 
@@ -664,6 +665,7 @@ def test_reference_chat_does_not_create_run_or_sql_snapshot(
     course = client.post(
         "/courses", json={"title": "Reference only"}, headers=teacher_auth_headers
     ).json()
+    seed_ready_materials(course["id"])
     seed_onet(db_session)
     model, _, state = live_graph
     thread = SkillReviewService.thread_id(course["id"], course["teacher_id"])

@@ -14,7 +14,9 @@ EvidenceSource = Literal["jobs", "onet"]
 
 
 class SourceOutcome(BaseModel):
-    status: Literal["idle", "loading", "success", "empty", "partial", "error"] = "idle"
+    status: Literal[
+        "idle", "loading", "success", "empty", "partial", "error", "skipped"
+    ] = "idle"
     received_count: int = 0
     usable_count: int = 0
     warnings: list[str] = Field(default_factory=list)

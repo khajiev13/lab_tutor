@@ -16,6 +16,7 @@ interface AgentHubGridProps {
   isLoading: boolean;
   statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }>;
   cardClickOverrides?: Partial<Record<string, () => void>>;
+  disabledAgentIds?: string[];
 }
 
 function AgentCardSkeleton() {
@@ -40,6 +41,7 @@ export function AgentHubGrid({
   isLoading,
   statuses,
   cardClickOverrides,
+  disabledAgentIds,
 }: AgentHubGridProps) {
   if (isLoading) {
     const skeletonCount = Math.min(Math.max(agents.length, 1), 3);
@@ -81,6 +83,7 @@ export function AgentHubGrid({
             progress={info?.progress}
             lastActivity={info?.lastActivity}
             onCardClick={cardClickOverrides?.[agent.id]}
+            disabled={disabledAgentIds?.includes(agent.id)}
           />
         );
       })}

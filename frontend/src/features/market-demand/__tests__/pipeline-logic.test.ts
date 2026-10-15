@@ -134,3 +134,10 @@ it("does not call source errors or empty legacy arrays complete", () => {
   expect(derivePipelineStages({...EMPTY_STATE, fetched_jobs: []}).fetch).toBe("active");
   expect(derivePipelineStages({...EMPTY_STATE, fetched_jobs: [{}], source_outcomes: {headhunter: {status:"error", received_count:0, usable_count:0, warnings:["Unavailable"]}}}).fetch).toBe("active");
 });
+
+it("finishes collection when supported sources completed and an unavailable source was skipped", () => {
+  expect(derivePipelineStages({...EMPTY_STATE, fetched_jobs:[{title:"Data Engineer"}], source_outcomes:{
+    indeed:{status:"skipped",received_count:0,usable_count:0,warnings:[]},
+    linkedin:{status:"success",received_count:1,usable_count:1,warnings:[]},
+  }}).fetch).toBe("complete");
+});

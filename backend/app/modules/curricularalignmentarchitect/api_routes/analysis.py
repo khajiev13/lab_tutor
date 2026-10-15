@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.modules.auth.dependencies import require_role
 from app.modules.auth.models import User, UserRole
+from app.modules.courses.materials_readiness_service import require_materials_ready
 
 from ..chunking_analysis.graph import create_run_and_launch
 from ..chunking_analysis.repository import (
@@ -31,6 +32,7 @@ def register_routes(router):
         "/courses/{course_id}/analysis",
         response_model=BookExtractionRunRead,
         status_code=status.HTTP_202_ACCEPTED,
+        dependencies=[Depends(require_materials_ready)],
     )
     async def trigger_analysis(
         course_id: int,

@@ -19,6 +19,7 @@ from app.core.database import SessionLocal
 
 from .countries import DEFAULT_JOB_SEARCH_COUNTRY, normalize_job_search_country
 from .extractor import _get_extraction_llm
+from .job_groups import group_jobs_by_title
 from .service import get_market_source_service
 from .state import mapping_breakdown, owned_sync_execution, tool_store
 
@@ -153,6 +154,12 @@ def _build_mapped_skills(mapping: list[dict]) -> dict[str, list[str]]:
         chapter = str(item.get("target_chapter") or "unassigned")
         mapped.setdefault(chapter, []).append(str(item["name"]))
     return mapped
+
+
+def _missing_mapping_chapter(row: dict) -> bool:
+    return row.get("status") in {"gap", "new_topic_needed"} and str(
+        row.get("target_chapter") or ""
+    ).strip().casefold() in {"", "unassigned", "(unassigned)"}
 
 
 def _fetch_existing_chapter_skill_rows(
@@ -351,25 +358,9 @@ def fetch_jobs(
     # Store raw jobs and track which search term found each one
     tool_store["fetched_jobs"] = jobs_list
 
-    # ── Group by normalized job title ──
-    # Strip seniority prefixes so "Senior Data Engineer" and "Data Engineer" group together
-    _SENIORITY_RE = re.compile(
-        r"^(senior|sr\.?|junior|jr\.?|lead|principal|staff|entry[- ]level|mid[- ]level)\s+",
-        re.IGNORECASE,
-    )
-
-    def _normalize_title(title: str) -> str:
-        t = _SENIORITY_RE.sub("", title.strip())
-        return t.strip().title()
-
-    groups: dict[str, list[int]] = {}
-    for i, job in enumerate(jobs_list):
-        group = _normalize_title(job.get("title", "Other"))
-        groups.setdefault(group, []).append(i)
-
-    # Sort by count descending and assign stable numbers
-    sorted_groups = sorted(groups.items(), key=lambda x: -len(x[1]))
-    tool_store["job_groups"] = {cat: idxs for cat, idxs in sorted_groups}
+    groups = group_jobs_by_title(jobs_list)
+    sorted_groups = list(groups.items())
+    tool_store["job_groups"] = groups
 
     # Build grouped summary (this is all the LLM sees)
     lines = [
@@ -421,22 +412,7 @@ def _fetch_selected_sources(search_terms: str, explicit_country: str, cap: int) 
             {**c, "name": c["display_name"], "category": c["category_id"]}
             for c in result["candidates"]
         ]
-    groups = {}
-    for i, job in enumerate(jobs):
-        title = (
-            re.sub(
-                r"^(senior|sr\.?|junior|jr\.?|lead|principal|staff)\s+",
-                "",
-                job["title"],
-                flags=re.IGNORECASE,
-            )
-            .strip()
-            .title()
-        )
-        groups.setdefault(title, []).append(i)
-    tool_store["job_groups"] = dict(
-        sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
-    )
+    tool_store["job_groups"] = group_jobs_by_title(jobs)
     statuses = "; ".join(
         f"{source}: {outcome['status']} ({outcome['received_count']} received, {outcome['usable_count']} usable)"
         for source, outcome in result["source_outcomes"].items()
@@ -741,7 +717,13 @@ def list_chapters() -> str:
     )
 
     if not rows:
-        return "No course chapters found in the knowledge graph for this course."
+        return (
+            "No course chapters found in the knowledge graph for this course. "
+            "Return to Supervisor: the teacher needs to complete Build Chapters in "
+            "the course setup before curriculum mapping can continue. "
+            "Keep the confirmed skills. Do not invent chapter assignments or "
+            "hand off an unassigned mapping to Skill Cleaner."
+        )
 
     lines = [f"Course has {len(rows)} chapters:"]
     for r in rows:
@@ -1132,6 +1114,13 @@ def save_curriculum_mapping(mapping_json: str) -> str:
                 return "Mapping needs a current candidate_id; ambiguous names cannot carry evidence."
             if row.get("status") not in {"covered", "gap", "new_topic_needed"}:
                 return "Mapping status must be covered, gap, or new_topic_needed."
+            if _missing_mapping_chapter(row):
+                return (
+                    "Missing target_chapter. Use list_chapters to assign each gap "
+                    "or new_topic_needed skill before saving. If no chapters exist, "
+                    "return to Supervisor with the Build Chapters setup step; "
+                    "do not hand off to Skill Cleaner."
+                )
             resolved.append(
                 {
                     **row,
@@ -2121,6 +2110,16 @@ def approve_skill_selection(selection_json: str) -> str:
 def load_mapped_skills() -> str:
     """Load the Mapper's output: market skills assigned to chapters.
     Returns the mapped_skills dict from tool_store."""
+    if any(
+        _missing_mapping_chapter(row)
+        for row in tool_store.get("curriculum_mapping") or []
+    ):
+        return (
+            "Chapter assignments are missing. Return to Supervisor for Curriculum "
+            "Mapper to repair the mapping using list_chapters. Do not ask the teacher "
+            "to repair individual assignments. If no chapters exist, explain the "
+            "Build Chapters course setup step and preserve the confirmed skills."
+        )
     breakdown = mapping_breakdown()
     if tool_store.get("curriculum_mapping") and not breakdown["is_complete"]:
         return (
