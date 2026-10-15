@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "source_release": "31.0",
+  "provenance": {
+    "attribution": "Contains information from O*NET® Database 31.0, by the U.S. Department of Labor, Employment and Training Administration (USDOL/ETA). Used under CC BY 4.0. Lab Tutor filters, maps and may rephrase skills; source ratings are retained. Source: https://www.onetcenter.org/database.html. License: https://creativecommons.org/licenses/by/4.0/.",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "note": "Source-derived held-out ratings and explicit synthetic input passages; no production posting text or teacher data."
+  },
+  "cases": [
+    {
+      "id": "held-out-01",
+      "kind": "held_out",
+      "soc_code": "15-1242.00",
+      "competency": "Identifying complex problems and reviewing related information to develop and evaluate options and implement solutions.",
+      "display_name": "Complex Problem Solving",
+      "job_passage": "Evaluation-only role responsibilities: Administer, test, and implement computer databases, applying knowledge of database management systems. Coordinate changes to computer databases. Identify, investigate, and resolve database performance issues, database capacity, and database scalability. May plan, coordinate, and implement security measures to safeguard computer databases. Competency responsibility: Identifying complex problems and reviewing related information to develop and evaluate options and implement solutions.",
+      "expected_value": 3.88,
+      "held_out_reference_id": "5383e04b-7bf0-5cf8-984a-082f324441ba",
+      "held_out_element_id": "2.B.2.i",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-02",
+      "kind": "held_out",
+      "soc_code": "15-1242.00",
+      "competency": "Using logic and reasoning to identify the strengths and weaknesses of alternative solutions, conclusions, or approaches to problems.",
+      "display_name": "Critical Thinking",
+      "job_passage": "Evaluation-only role responsibilities: Administer, test, and implement computer databases, applying knowledge of database management systems. Coordinate changes to computer databases. Identify, investigate, and resolve database performance issues, database capacity, and database scalability. May plan, coordinate, and implement security measures to safeguard computer databases. Competency responsibility: Using logic and reasoning to identify the strengths and weaknesses of alternative solutions, conclusions, or approaches to problems.",
+      "expected_value": 3.88,
+      "held_out_reference_id": "55311e85-a977-510e-9b55-b03b97e8d501",
+      "held_out_element_id": "2.A.2.a",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-03",
+      "kind": "held_out",
+      "soc_code": "15-1242.00",
+      "competency": "Writing computer programs for various purposes.",
+      "display_name": "Programming",
+      "job_passage": "Evaluation-only role responsibilities: Administer, test, and implement computer databases, applying knowledge of database management systems. Coordinate changes to computer databases. Identify, investigate, and resolve database performance issues, database capacity, and database scalability. May plan, coordinate, and implement security measures to safeguard computer databases. Competency responsibility: Writing computer programs for various purposes.",
+      "expected_value": 3.38,
+      "held_out_reference_id": "723da2d2-2210-53ac-bf95-e85580b0065b",
+      "held_out_element_id": "2.B.3.e",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-04",
+      "kind": "held_out",
+      "soc_code": "15-1242.00",
+      "competency": "Understanding written sentences and paragraphs in work-related documents.",
+      "display_name": "Reading Comprehension",
+      "job_passage": "Evaluation-only role responsibilities: Administer, test, and implement computer databases, applying knowledge of database management systems. Coordinate changes to computer databases. Identify, investigate, and resolve database performance issues, database capacity, and database scalability. May plan, coordinate, and implement security measures to safeguard computer databases. Competency responsibility: Understanding written sentences and paragraphs in work-related documents.",
+      "expected_value": 3.75,
+      "held_out_reference_id": "4eb9528e-db6f-53dc-b3b2-27908d344ce5",
+      "held_out_element_id": "2.A.1.a",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-05",
+      "kind": "held_out",
+      "soc_code": "15-1242.00",
+      "competency": "Determining how a system should work and how changes in conditions, operations, and the environment will affect outcomes.",
+      "display_name": "Systems Analysis",
+      "job_passage": "Evaluation-only role responsibilities: Administer, test, and implement computer databases, applying knowledge of database management systems. Coordinate changes to computer databases. Identify, investigate, and resolve database performance issues, database capacity, and database scalability. May plan, coordinate, and implement security measures to safeguard computer databases. Competency responsibility: Determining how a system should work and how changes in conditions, operations, and the environment will affect outcomes.",
+      "expected_value": 3.12,
+      "held_out_reference_id": "cb3d731f-3540-5101-a2ae-797bd8236d2b",
+      "held_out_element_id": "2.B.4.g",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-06",
+      "kind": "held_out",
+      "soc_code": "15-1252.00",
+      "competency": "Identifying complex problems and reviewing related information to develop and evaluate options and implement solutions.",
+      "display_name": "Complex Problem Solving",
+      "job_passage": "Evaluation-only role responsibilities: Research, design, and develop computer and network software or specialized utility programs. Analyze user needs and develop software solutions, applying principles and techniques of computer science, engineering, and mathematical analysis. Update software or enhance existing software capabilities. May work with computer hardware engineers to integrate hardware and software systems, and develop specifications and performance requirements. May maintain databases within an application area, working individually or coordinating database development as part of a team. Competency responsibility: Identifying complex problems and reviewing related information to develop and evaluate options and implement solutions.",
+      "expected_value": 3.38,
+      "held_out_reference_id": "1f40e6bd-ccfa-5642-8f05-d067885444fd",
+      "held_out_element_id": "2.B.2.i",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-07",
+      "kind": "held_out",
+      "soc_code": "15-1252.00",
+      "competency": "Using logic and reasoning to identify the strengths and weaknesses of alternative solutions, conclusions, or approaches to problems.",
+      "display_name": "Critical Thinking",
+      "job_passage": "Evaluation-only role responsibilities: Research, design, and develop computer and network software or specialized utility programs. Analyze user needs and develop software solutions, applying principles and techniques of computer science, engineering, and mathematical analysis. Update software or enhance existing software capabilities. May work with computer hardware engineers to integrate hardware and software systems, and develop specifications and performance requirements. May maintain databases within an application area, working individually or coordinating database development as part of a team. Competency responsibility: Using logic and reasoning to identify the strengths and weaknesses of alternative solutions, conclusions, or approaches to problems.",
+      "expected_value": 3.88,
+      "held_out_reference_id": "0f066995-36ef-5a9b-9f1c-10bd6e3acdf0",
+      "held_out_element_id": "2.A.2.a",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-08",
+      "kind": "held_out",
+      "soc_code": "15-1252.00",
+      "competency": "Writing computer programs for various purposes.",
+      "display_name": "Programming",
+      "job_passage": "Evaluation-only role responsibilities: Research, design, and develop computer and network software or specialized utility programs. Analyze user needs and develop software solutions, applying principles and techniques of computer science, engineering, and mathematical analysis. Update software or enhance existing software capabilities. May work with computer hardware engineers to integrate hardware and software systems, and develop specifications and performance requirements. May maintain databases within an application area, working individually or coordinating database development as part of a team. Competency responsibility: Writing computer programs for various purposes.",
+      "expected_value": 4.0,
+      "held_out_reference_id": "dbe07386-283e-5b9d-b7ad-bba30c7a2fe2",
+      "held_out_element_id": "2.B.3.e",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-09",
+      "kind": "held_out",
+      "soc_code": "15-1252.00",
+      "competency": "Understanding written sentences and paragraphs in work-related documents.",
+      "display_name": "Reading Comprehension",
+      "job_passage": "Evaluation-only role responsibilities: Research, design, and develop computer and network software or specialized utility programs. Analyze user needs and develop software solutions, applying principles and techniques of computer science, engineering, and mathematical analysis. Update software or enhance existing software capabilities. May work with computer hardware engineers to integrate hardware and software systems, and develop specifications and performance requirements. May maintain databases within an application area, working individually or coordinating database development as part of a team. Competency responsibility: Understanding written sentences and paragraphs in work-related documents.",
+      "expected_value": 3.5,
+      "held_out_reference_id": "f81db323-b360-5667-9b1f-0f41e2484dd0",
+      "held_out_element_id": "2.A.1.a",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-10",
+      "kind": "held_out",
+      "soc_code": "15-1252.00",
+      "competency": "Determining how a system should work and how changes in conditions, operations, and the environment will affect outcomes.",
+      "display_name": "Systems Analysis",
+      "job_passage": "Evaluation-only role responsibilities: Research, design, and develop computer and network software or specialized utility programs. Analyze user needs and develop software solutions, applying principles and techniques of computer science, engineering, and mathematical analysis. Update software or enhance existing software capabilities. May work with computer hardware engineers to integrate hardware and software systems, and develop specifications and performance requirements. May maintain databases within an application area, working individually or coordinating database development as part of a team. Competency responsibility: Determining how a system should work and how changes in conditions, operations, and the environment will affect outcomes.",
+      "expected_value": 3.5,
+      "held_out_reference_id": "40f0639b-7cf5-5995-aae8-22601ec6a471",
+      "held_out_element_id": "2.B.4.g",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-11",
+      "kind": "held_out",
+      "soc_code": "15-2051.00",
+      "competency": "Identifying complex problems and reviewing related information to develop and evaluate options and implement solutions.",
+      "display_name": "Complex Problem Solving",
+      "job_passage": "Evaluation-only role responsibilities: Develop and implement a set of techniques or analytics applications to transform raw data into meaningful information using data-oriented programming languages and visualization software. Apply data mining, data modeling, natural language processing, and machine learning to extract and analyze information from large structured and unstructured datasets. Visualize, interpret, and report data findings. May create dynamic data reports. Competency responsibility: Identifying complex problems and reviewing related information to develop and evaluate options and implement solutions.",
+      "expected_value": 3.75,
+      "held_out_reference_id": "9d9f66b5-5abc-5b42-90fe-f08465e4884b",
+      "held_out_element_id": "2.B.2.i",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-12",
+      "kind": "held_out",
+      "soc_code": "15-2051.00",
+      "competency": "Using logic and reasoning to identify the strengths and weaknesses of alternative solutions, conclusions, or approaches to problems.",
+      "display_name": "Critical Thinking",
+      "job_passage": "Evaluation-only role responsibilities: Develop and implement a set of techniques or analytics applications to transform raw data into meaningful information using data-oriented programming languages and visualization software. Apply data mining, data modeling, natural language processing, and machine learning to extract and analyze information from large structured and unstructured datasets. Visualize, interpret, and report data findings. May create dynamic data reports. Competency responsibility: Using logic and reasoning to identify the strengths and weaknesses of alternative solutions, conclusions, or approaches to problems.",
+      "expected_value": 4.25,
+      "held_out_reference_id": "95f0c653-2424-5e22-a743-2d79b2f8af4c",
+      "held_out_element_id": "2.A.2.a",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-13",
+      "kind": "held_out",
+      "soc_code": "15-2051.00",
+      "competency": "Writing computer programs for various purposes.",
+      "display_name": "Programming",
+      "job_passage": "Evaluation-only role responsibilities: Develop and implement a set of techniques or analytics applications to transform raw data into meaningful information using data-oriented programming languages and visualization software. Apply data mining, data modeling, natural language processing, and machine learning to extract and analyze information from large structured and unstructured datasets. Visualize, interpret, and report data findings. May create dynamic data reports. Competency responsibility: Writing computer programs for various purposes.",
+      "expected_value": 3.75,
+      "held_out_reference_id": "55239c6f-901a-52a7-8f02-9ba54a58fc9a",
+      "held_out_element_id": "2.B.3.e",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-14",
+      "kind": "held_out",
+      "soc_code": "15-2051.00",
+      "competency": "Understanding written sentences and paragraphs in work-related documents.",
+      "display_name": "Reading Comprehension",
+      "job_passage": "Evaluation-only role responsibilities: Develop and implement a set of techniques or analytics applications to transform raw data into meaningful information using data-oriented programming languages and visualization software. Apply data mining, data modeling, natural language processing, and machine learning to extract and analyze information from large structured and unstructured datasets. Visualize, interpret, and report data findings. May create dynamic data reports. Competency responsibility: Understanding written sentences and paragraphs in work-related documents.",
+      "expected_value": 3.88,
+      "held_out_reference_id": "7b7f63bb-5ab2-51c6-a098-2ff2a8c39d9c",
+      "held_out_element_id": "2.A.1.a",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "held-out-15",
+      "kind": "held_out",
+      "soc_code": "15-2051.00",
+      "competency": "Determining how a system should work and how changes in conditions, operations, and the environment will affect outcomes.",
+      "display_name": "Systems Analysis",
+      "job_passage": "Evaluation-only role responsibilities: Develop and implement a set of techniques or analytics applications to transform raw data into meaningful information using data-oriented programming languages and visualization software. Apply data mining, data modeling, natural language processing, and machine learning to extract and analyze information from large structured and unstructured datasets. Visualize, interpret, and report data findings. May create dynamic data reports. Competency responsibility: Determining how a system should work and how changes in conditions, operations, and the environment will affect outcomes.",
+      "expected_value": 2.75,
+      "held_out_reference_id": "8c4d9b89-cc9a-5251-9d0e-63f8064d8a1f",
+      "held_out_element_id": "2.B.4.g",
+      "target_provenance": {
+        "release": "31.0",
+        "source_url": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/essential_skills.csv",
+        "source_sha256": "68c4d31d8c55077238395dca40cc4e6d32e6a608b5474bb8264b1f98ae415bd7",
+        "review_basis": "Verified imported reported IM research record; exact target withheld from inference."
+      }
+    },
+    {
+      "id": "weak-01",
+      "kind": "weak_control",
+      "soc_code": "15-1242.00",
+      "display_name": "Use SQL to operate relational databases",
+      "competency": "Use SQL to operate relational databases",
+      "job_passage": null,
+      "weak_reason": "provider_tag_only",
+      "expected_value": null,
+      "target_provenance": {
+        "review_basis": "Evidence contract control: estimate must abstain when a mandatory passage or rated anchor is absent."
+      }
+    },
+    {
+      "id": "weak-02",
+      "kind": "weak_control",
+      "soc_code": "15-1252.00",
+      "display_name": "Develop applications with Python",
+      "competency": "Develop applications with Python",
+      "job_passage": null,
+      "weak_reason": "missing_verified_passage",
+      "expected_value": null,
+      "target_provenance": {
+        "review_basis": "Evidence contract control: estimate must abstain when a mandatory passage or rated anchor is absent."
+      }
+    },
+    {
+      "id": "weak-03",
+      "kind": "weak_control",
+      "soc_code": "15-2051.00",
+      "display_name": "Build Apache Spark data pipelines",
+      "competency": "Build Apache Spark data pipelines",
+      "job_passage": "Evaluation-only role responsibilities: Develop and implement a set of techniques or analytics applications to transform raw data into meaningful information using data-oriented programming languages and visualization software. Apply data mining, data modeling, natural language processing, and machine learning to extract and analyze information from large structured and unstructured datasets. Visualize, interpret, and report data findings. May create dynamic data reports. Competency responsibility: Build Apache Spark data pipelines",
+      "weak_reason": "no_valid_rated_anchor",
+      "expected_value": null,
+      "target_provenance": {
+        "review_basis": "Evidence contract control: estimate must abstain when a mandatory passage or rated anchor is absent."
+      }
+    },
+    {
+      "id": "weak-04",
+      "kind": "weak_control",
+      "soc_code": "15-1242.00",
+      "display_name": "Maintain an unspecified proprietary device",
+      "competency": "Maintain an unspecified proprietary device",
+      "job_passage": "Evaluation-only role responsibilities: Administer, test, and implement computer databases, applying knowledge of database management systems. Coordinate changes to computer databases. Identify, investigate, and resolve database performance issues, database capacity, and database scalability. May plan, coordinate, and implement security measures to safeguard computer databases. Competency responsibility: Maintain an unspecified proprietary device",
+      "weak_reason": "no_valid_rated_anchor",
+      "expected_value": null,
+      "target_provenance": {
+        "review_basis": "Evidence contract control: estimate must abstain when a mandatory passage or rated anchor is absent."
+      }
+    },
+    {
+      "id": "weak-05",
+      "kind": "weak_control",
+      "soc_code": "15-2051.00",
+      "display_name": "Perform an unspecified task with no evidence",
+      "competency": "Perform an unspecified task with no evidence",
+      "job_passage": null,
+      "weak_reason": "missing_verified_passage",
+      "expected_value": null,
+      "target_provenance": {
+        "review_basis": "Evidence contract control: estimate must abstain when a mandatory passage or rated anchor is absent."
+      }
+    }
+  ]
+}

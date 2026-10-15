@@ -85,7 +85,16 @@ def seed(client) -> dict:
     course = courses[0]
     parsed = parse_release(ROOT / "fixtures/onet/31.0", "31.0")
     with SessionLocal() as db:
-        OccupationReferenceRepository(db).import_release(parsed, activate=True)
+        references = OccupationReferenceRepository(db)
+        if os.environ.get("WORKSPACE_SCENARIO") == "skill-priority":
+            # Quality checks use the already imported source catalog, rather
+            # than replacing it with the tiny synthetic unit-test release.
+            if references.active_release() is None:
+                raise RuntimeError(
+                    "Import the isolated priority reference catalog first"
+                )
+        else:
+            references.import_release(parsed, activate=True)
         repo = MarketReviewRepository(db)
         config = {
             "sources": ["headhunter"],
@@ -1306,6 +1315,98 @@ def seed_simple_flow(manifest: dict, destination: Path) -> dict:
     return public
 
 
+def load_priority_snapshot(manifest: dict, source: dict, destination: Path) -> dict:
+    """Replay an owned analysis copy; never connect to its original database."""
+    from copy import deepcopy
+    from datetime import datetime
+
+    from app.core.database import SessionLocal
+    from app.modules.courses.models import Course, CourseFile
+    from app.modules.marketdemandanalyst.models import MarketVacancySnapshot
+    from app.modules.marketdemandanalyst.repository import MarketReviewRepository
+    from app.modules.marketdemandanalyst.review_service import SkillReviewService
+
+    owner = manifest["course"]["teacher_id"]
+    ids = {row["id"]: str(uuid4()) for row in source["postings"]}
+
+    def remap(value):
+        if isinstance(value, dict):
+            return {key: remap(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [remap(item) for item in value]
+        return ids.get(value, value) if isinstance(value, str) else value
+
+    with SessionLocal() as db:
+        course = Course(
+            title=f"Big Data · priority validation {uuid4().hex[:6]}",
+            description=source["course"].get("description"),
+            teacher_id=owner,
+            extraction_status=source["course"]["extraction_status"],
+        )
+        db.add(course)
+        db.flush()
+        for index, record in enumerate(source["files"]):
+            db.add(
+                CourseFile(
+                    course_id=course.id,
+                    filename=record["filename"],
+                    blob_path=f"priority-copy/{course.id}/{index}",
+                    content_hash=record.get("content_hash"),
+                    status=record["status"],
+                )
+            )
+        repo = MarketReviewRepository(db)
+        original = source["run"]
+        run = repo.create_run(course.id, owner, original["config"])
+        for key in (
+            "candidate_manifest",
+            "candidate_revision",
+            "selection_revision",
+            "publication_revision",
+            "selected_candidate_ids",
+            "excluded_candidate_ids",
+            "source_outcomes",
+            "extraction_coverage",
+            "selection_confirmation",
+        ):
+            setattr(run, key, remap(deepcopy(original[key])))
+        for record in source["postings"]:
+            copied = remap(deepcopy(record))
+            copied["id"], copied["run_id"] = UUID(copied["id"]), run.id
+            for key in ("retrieved_at", "last_observed_at", "purged_at"):
+                if copied.get(key):
+                    copied[key] = datetime.fromisoformat(copied[key])
+            db.add(MarketVacancySnapshot(**copied))
+        state = remap(deepcopy(source["state"]))
+        state.update(
+            run_id=str(run.id),
+            course_id=course.id,
+            teacher_id=owner,
+            course_title=course.title,
+            curriculum_mapping={},
+            insertion_results=None,
+        )
+        repo.save_configuration_snapshot(
+            SkillReviewService.thread_id(course.id, owner), state
+        )
+        repo.commit()
+        public = {
+            "course": {"id": course.id, "title": course.title, "teacher_id": owner},
+            "run_id": str(run.id),
+            "candidate_ids": [
+                c["candidate_id"] for c in run.candidate_manifest["candidates"]
+            ],
+            "snapshot_ids": list(ids.values()),
+            "source_kind": "copied_big_data",
+            "material_count": len(source["files"]),
+        }
+    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w") as stream:
+        json.dump({**manifest, **public}, stream)
+    destination.chmod(0o600)
+    return public
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8000)
@@ -1313,6 +1414,7 @@ def main() -> None:
     parser.add_argument(
         "--action",
         choices=[
+            "load-priority-snapshot",
             "purge-first-posting",
             "seed-corpus",
             "seed-simple-flow",
@@ -1356,6 +1458,17 @@ def main() -> None:
 
         manifest = json.loads(args.manifest.read_text())
         assert manifest["database"] == DATABASE
+        if args.action == "load-priority-snapshot":
+            import sys
+
+            print(
+                json.dumps(
+                    load_priority_snapshot(
+                        manifest, json.load(sys.stdin), args.manifest
+                    )
+                )
+            )
+            return
         if args.action == "seed-simple-flow":
             print(
                 json.dumps(

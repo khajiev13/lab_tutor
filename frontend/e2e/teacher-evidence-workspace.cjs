@@ -4,13 +4,16 @@ const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const { expect } = require('playwright/test');
 const UI = process.env.WORKSPACE_UI_URL;
 const API = process.env.WORKSPACE_API_URL;
 const manifestPath = process.env.WORKSPACE_FIXTURE_PATH;
 const phase = process.env.WORKSPACE_SCENARIO || 'all';
+const backendContainer = process.env.WORKSPACE_BACKEND_CONTAINER || 'lab_tutor_workspace_acceptance_api';
+const backendEnvArgs = process.env.WORKSPACE_BACKEND_ENV_FILE ? ['--env-file', process.env.WORKSPACE_BACKEND_ENV_FILE] : [];
 const safeError = error => String(error.message ?? error).replace(/Bearer\s+[A-Za-z0-9_.-]+/g, 'Bearer [REDACTED]');
 let fixtureManifest = process.env.WORKSPACE_SERVER_MANIFEST || '/tmp/teacher-workspace.json';
-const action = (name, payload, extra = []) => JSON.parse(execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', '-i', 'lab_tutor_workspace_acceptance_api', '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', fixtureManifest, '--action', name, ...extra], { input: payload ? JSON.stringify(payload) : undefined, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
+const action = (name, payload, extra = []) => JSON.parse(execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['exec', '-i', ...backendEnvArgs, backendContainer, '/app/.venv/bin/python', '-m', 'tests.acceptance.teacher_workspace_server', '--manifest', fixtureManifest, '--action', name, ...extra], { input: payload ? JSON.stringify(payload) : undefined, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
 const sourceFile = process.argv.find(arg => arg.endsWith('/teacher-evidence-workspace.cjs'));
 const { requireCompletedMapping, requireConfirmation } = require(path.join(path.dirname(sourceFile), 'teacher-workspace-boundary.cjs'));
 const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sourceFile), '../../output/teacher-evidence-workspace/acceptance');
@@ -126,6 +129,267 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
         verifyConsole();
     };
     try {
+        if (phase === 'skill-priority') {
+            fs.mkdirSync(output, { recursive: true });
+            assert.equal(fixture.source_kind, 'copied_big_data', 'Use the isolated copied course, never a live course');
+            const headers = { Authorization: `Bearer ${fixture.teacher.access_token}` };
+            const base = `${API}/courses/${fixture.course.id}/market-demand`;
+            const fresh = async () => {
+                const response = await context.request.get(`${base}/skill-review`, { headers });
+                assert.equal(response.status(), 200);
+                return response.json();
+            };
+            const initial = await fresh();
+            const before = action('sql-readback');
+            const callsBefore = action('model-readback').length;
+            const baseline = JSON.parse(fs.readFileSync(process.env.WORKSPACE_PRIORITY_BASELINE || path.join(output, 'baseline.json')));
+            const skills = page.getByRole('region', { name: 'Choose skills', exact: true });
+            const eligible = initial.candidates.filter(candidate => candidate.posting_support === 'supported' && candidate.qualifying_posting_links.some(url => /^https?:\/\//.test(url)));
+            const categories = initial.categories.filter(category => eligible.some(candidate => candidate.category_id === category.category_id));
+            const receipt = {
+                scenario: phase, status: 'running', courseId: fixture.course.id,
+                counts: { candidates: initial.candidates.length, jobBacked: eligible.length, categories: categories.length, selectedSkills: initial.selected_candidate_ids.length, retainedPostings: fixture.snapshot_ids.length, materials: fixture.material_count },
+                viewports: [], labels: [], evidence: [], selection: null,
+                mapping: 'Not exercised: copied run has no original graph checkpoint; controlled reply checks confirmation only.', publication: 'Not exercised',
+                invocation: { runner: sourceFile, backendContainer, backendEnvFile: process.env.WORKSPACE_BACKEND_ENV_FILE ?? null, ui: UI, api: API, manifestPath, serverManifest: fixtureManifest, output, headless: true },
+            };
+            const saveReceipt = () => fs.writeFileSync(path.join(output, 'skill-priority-summary.json'), JSON.stringify(receipt, null, 2));
+            saveReceipt();
+            const categoryOrder = () => skills.getByRole('button', { name: /^(Expand|Collapse) / }).evaluateAll(elements => elements.map(element => element.getAttribute('aria-label').replace(/^(Expand|Collapse) /, '')));
+            const rowOrder = () => skills.getByRole('checkbox').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
+            const normalizeControls = controls => controls.map(item => item.name.replace(/^Confirm Selection \(\d+\)$/, 'Confirm Selection')).sort();
+            const geometry = async () => {
+                const bounds = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, pageHeight: document.documentElement.scrollHeight, pageWidth: document.documentElement.scrollWidth }));
+                const main = await page.locator('[aria-label="Teacher evidence workspace"]').evaluate(element => ({ height: element.clientHeight, contentHeight: element.scrollHeight, width: element.clientWidth, contentWidth: element.scrollWidth }));
+                const conversation = await page.getByRole('log', { name: 'Conversation messages', exact: true }).evaluate(element => ({ height: element.clientHeight, contentHeight: element.scrollHeight, width: element.clientWidth, contentWidth: element.scrollWidth }));
+                assert(bounds.pageHeight <= bounds.height + 1, `Page must fit vertically: ${JSON.stringify(bounds)}`);
+                assert(bounds.pageWidth <= bounds.width + 1, `Page must fit horizontally: ${JSON.stringify(bounds)}`);
+                assert(main.contentHeight <= main.height + 1 && main.contentWidth <= main.width + 1, `Main decision must not scroll: ${JSON.stringify(main)}`);
+                assert(conversation.contentHeight <= conversation.height + 1 && conversation.contentWidth <= conversation.width + 1, `Decision content must fit without scrolling the conversation: ${JSON.stringify(conversation)}`);
+                const confirm = await skills.getByRole('button', { name: /^Confirm Selection/ }).boundingBox();
+                assert(confirm && confirm.y >= 0 && confirm.y + confirm.height <= bounds.height + 1, 'Existing confirmation remains in the viewport');
+                return { ...bounds, main, conversation };
+            };
+            // Record real layout even when assessment integration is still absent.
+            for (const [width, height] of [[1440, 900], [1280, 720], [390, 844]]) {
+                await page.setViewportSize({ width, height });
+                await page.goto(`${UI}/courses/${fixture.course.id}/market-analyst`);
+                await skills.waitFor();
+                const controls = await skills.getByRole('button').evaluateAll(elements => elements.map(element => ({ name: element.getAttribute('aria-label') || element.textContent })));
+                const old = baseline.receipts.find(item => item.width === width && item.height === height);
+                assert(old, `Missing before-layout baseline for ${width}×${height}`);
+                assert.deepEqual(normalizeControls(controls), normalizeControls(old.controls), 'Importance adds no card buttons or teacher decision');
+                assert.equal(await skills.count(), 1, 'One existing skill selection card');
+                assert.equal(await skills.getByRole('button', { name: /^Confirm Selection/ }).count(), 1, 'One existing selection confirmation');
+                assert.equal(await skills.getByRole('combobox').count(), 0, 'No occupation/source picker in skill selection');
+                assert.equal(await skills.getByRole('slider').count(), 0, 'No score slider');
+                assert.equal(await skills.getByRole('img').count(), 0, 'No new importance chart');
+                receipt.viewports.push({ width, height, controls: controls.length, ...await geometry() });
+                await page.screenshot({ path: path.join(output, `priority-main-${width}.png`), fullPage: true });
+                saveReceipt();
+            }
+            assert.equal(mutations.length, 0, 'Restoring the assessment adds no API mutations');
+            assert.equal(action('model-readback').length, callsBefore, 'Ordinary reads/restoration do not invoke inference');
+            assert.deepEqual(action('sql-readback'), before, 'Ordinary reads/restoration preserve choices and revisions');
+            const assessment = initial.priority_assessment;
+            assert(assessment, 'Current saved priority assessment required; real API returned null (integration/evaluation must finish before acceptance)');
+            assert.equal(assessment.run_id, initial.run_id);
+            assert.equal(assessment.candidate_revision, initial.candidate_revision);
+            assert(['ready', 'partial', 'unavailable'].includes(assessment.status), 'Saved assessment must be terminal and current');
+            assert(Date.parse(assessment.deadline_at) - Date.parse(assessment.started_at) <= 60000, 'Assessment budget is at most 60 seconds');
+            const scored = eligible.filter(candidate => candidate.priority?.value != null);
+            receipt.assessment = { status: assessment.status, expectedPairs: assessment.expected_pair_count, completedPairs: assessment.completed_pair_count, scoredSkills: scored.length, missingSkills: eligible.length - scored.length };
+            saveReceipt();
+            assert(scored.length > 0, 'At least one scored real-course row is required for numeric display acceptance; no-score coverage is recorded honestly');
+            for (const candidate of scored) {
+                assert(Number.isFinite(candidate.priority.value) && candidate.priority.value >= 1 && candidate.priority.value <= 5, 'Importance is finite on the 1–5 scale');
+            }
+            const referencesById = new Map([...initial.candidates.flatMap(candidate => candidate.onet_associations.map(item => item.evidence)), ...(assessment.references ?? [])].map(reference => [reference.id, reference]));
+            for (const result of assessment.results) {
+                for (const referenceId of [result.direct_reference_id, ...result.associations.map(item => item.reference_id)].filter(Boolean)) {
+                    assert(referencesById.has(referenceId), 'Each cited reference resolves to saved evidence');
+                }
+                if (result.basis === 'onet') {
+                    const reference = referencesById.get(result.direct_reference_id);
+                    assert(reference && reference.ratings.IM?.status === 'reported', 'Official score needs a reported IM reference');
+                    assert.equal(reference.soc_code, result.soc_code);
+                    assert.equal(reference.ratings.IM.scale_id, 'IM');
+                    assert.equal(result.official_value, reference.ratings.IM.value, 'Official value is unchanged from saved O*NET evidence');
+                    assert.equal(result.value, result.official_value);
+                    assert.equal(result.estimate, null, 'Official scores are separate from estimates');
+                } else if (result.basis === 'ai_estimate') {
+                    assert(Number.isInteger(result.estimate) && result.estimate >= 1 && result.estimate <= 5, 'AI estimates are integers on 1–5');
+                    assert.equal(result.official_value, null, 'AI estimates never claim an official source value');
+                    assert.equal(result.value, result.estimate);
+                } else {
+                    assert.equal(result.value, null, 'Unavailable importance is null, never zero');
+                }
+            }
+            const expectedLabel = (priority, category = false) => {
+                if (priority.value == null || priority.basis === 'unavailable') return 'Not assessed';
+                const basis = category ? priority.basis === 'ai_estimate' ? 'Estimated' : 'O*NET average' : priority.basis === 'onet' ? 'O*NET' : priority.basis === 'onet_aggregate' ? 'O*NET average' : 'AI estimate';
+                return `${Number(priority.value.toFixed(1))}/5 · ${basis}${priority.complete ? '' : ' · Partial'}`;
+            };
+            await page.setViewportSize({ width: 1440, height: 900 });
+            const mountedOrder = await categoryOrder();
+            assert.deepEqual(mountedOrder, [...categories].sort((a, b) => a.priority.display_order - b.priority.display_order).map(category => category.label), 'Saved display order controls category order');
+            // Every visible category/member label must match the actual saved number and basis.
+            for (const category of categories) {
+                assert(category.priority, 'Every current category has an explicit priority summary');
+                if (category.priority.estimated_count > 0) assert.equal(category.priority.basis, 'ai_estimate', 'A category containing estimates is labeled Estimated');
+                const expand = skills.getByRole('button', { name: `Expand ${category.label}`, exact: true });
+                const label = expectedLabel(category.priority, true);
+                assert((await expand.innerText()).includes(label), `${category.label}: expected ${label}`);
+                receipt.labels.push({ kind: 'category', label, basis: category.priority.basis, complete: category.priority.complete });
+                await expand.click();
+                const members = eligible.filter(candidate => candidate.category_id === category.category_id).sort((a, b) => a.priority.display_order - b.priority.display_order);
+                for (let offset = 0; offset < members.length; offset += 10) {
+                    const visible = members.slice(offset, offset + 10);
+                    assert.deepEqual(await skills.getByRole('checkbox', { name: /^Select / }).evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')).filter(label => !label.startsWith('Select category '))), visible.map(candidate => `Select ${candidate.display_name}`));
+                    for (const candidate of visible) {
+                        const row = skills.getByRole('checkbox', { name: `Select ${candidate.display_name}`, exact: true }).locator('..');
+                        const expected = expectedLabel(candidate.priority);
+                        assert((await row.innerText()).includes(expected), `${candidate.display_name}: expected ${expected}`);
+                        receipt.labels.push({ kind: 'skill', label: expected, basis: candidate.priority.basis, complete: candidate.priority.complete });
+                    }
+                    if (offset + 10 < members.length) await skills.getByRole('button', { name: `Next ${category.label} page`, exact: true }).click();
+                }
+                await skills.getByRole('button', { name: `Collapse ${category.label}`, exact: true }).click();
+                saveReceipt();
+            }
+            // Inspect the strongest provenance case, plus each numeric basis present.
+            const referenceIds = candidate => assessment.results.filter(result => result.candidate_id === candidate.candidate_id).flatMap(result => [result.direct_reference_id, ...result.associations.map(item => item.reference_id)]).filter(Boolean);
+            const inspection = new Map();
+            const withReference = scored.find(candidate => referenceIds(candidate).length > 0 || candidate.onet_associations.length > 0);
+            assert(withReference, 'At least one assessed row must expose readable O*NET reference provenance');
+            inspection.set(withReference.candidate_id, withReference);
+            for (const basis of new Set(scored.map(candidate => candidate.priority.basis))) {
+                const candidate = scored.find(candidate => candidate.priority.basis === basis);
+                inspection.set(candidate.candidate_id, candidate);
+            }
+            for (const candidate of inspection.values()) {
+                const category = categories.find(item => item.category_id === candidate.category_id);
+                await skills.getByRole('button', { name: `Expand ${category.label}`, exact: true }).click();
+                const previous = skills.getByRole('button', { name: `Previous ${category.label} page`, exact: true });
+                while (await previous.count() && await previous.isEnabled()) await previous.click();
+                const trigger = skills.getByRole('button', { name: `Inspect ${candidate.display_name}`, exact: true });
+                while (!await trigger.count()) await skills.getByRole('button', { name: `Next ${category.label} page`, exact: true }).click();
+                await trigger.focus();
+                await page.keyboard.press('Enter');
+                const dialog = page.getByRole('dialog', { name: `Evidence for ${candidate.display_name}`, exact: true });
+                await dialog.waitFor();
+                assert.equal(await page.getByRole('dialog').count(), 1, 'Existing inspector opens without stacked dialogs');
+                const importance = dialog.getByRole('region', { name: 'Skill importance evidence', exact: true });
+                await importance.waitFor();
+                assert((await importance.innerText()).includes(expectedLabel(candidate.priority)));
+                assert((await importance.innerText()).includes(`${candidate.priority.scored_contexts} of ${candidate.priority.expected_contexts} role contexts assessed`));
+                for (const result of assessment.results.filter(item => item.candidate_id === candidate.candidate_id)) {
+                    if (result.basis === 'onet') assert((await importance.innerText()).includes(`O*NET source value: ${result.official_value}/5`));
+                    if (result.basis === 'ai_estimate') assert((await importance.innerText()).includes(`AI estimate: ${result.estimate}/5`));
+                    if (result.explanation) assert((await importance.innerText()).includes(result.explanation));
+                }
+                const originalLinks = dialog.getByRole('link', { name: /^Original posting ·/ });
+                assert.deepEqual(new Set(await originalLinks.evaluateAll(elements => elements.map(element => element.href))), new Set(candidate.qualifying_posting_links), 'Original posting URLs survive unchanged');
+                const onetLinks = dialog.getByRole('link', { name: /^O\*NET reference:/ });
+                const onetCount = await onetLinks.count();
+                if (candidate.candidate_id === withReference.candidate_id) {
+                    assert(onetCount > 0, 'Referenced O*NET evidence must have a named link');
+                    const references = [...candidate.onet_associations.map(item => item.evidence), ...(assessment.references ?? []).filter(item => referenceIds(candidate).includes(item.id))];
+                    for (const reference of references) assert(await dialog.locator('[data-evidence-id]').filter({ hasText: reference.definition }).count() > 0, 'Reference definition remains readable');
+                }
+                await dialog.getByText('Validated source passage:', { exact: false }).first().waitFor();
+                assert(await dialog.locator('blockquote').count() > 0, 'Retained source passage is actually fetched from the API');
+                for (const [width, height] of [[1440, 900], [1280, 720], [390, 844]]) {
+                    await page.setViewportSize({ width, height });
+                    // The shared dialog transitions its max-height/width on resize.
+                    // Measure the finished layout rather than an intermediate animation frame.
+                    await expect.poll(() => dialog.evaluate(element => {
+                        const box = element.getBoundingClientRect();
+                        return element.getAnimations().every(animation => animation.playState !== 'running') &&
+                            box.x >= 0 && box.y >= 0 && box.right <= innerWidth + 1 && box.bottom <= innerHeight + 1 &&
+                            element.scrollWidth <= element.clientWidth + 1;
+                    }), { message: 'Evidence dialog settles inside the resized viewport', timeout: 3000, intervals: [16, 32, 64, 100] }).toBe(true);
+                    const bounds = await dialog.evaluate(element => ({ width: element.clientWidth, contentWidth: element.scrollWidth, height: element.clientHeight, contentHeight: element.scrollHeight }));
+                    assert(bounds.contentWidth <= bounds.width + 1, 'Evidence dialog has no horizontal overflow');
+                    const box = await dialog.boundingBox();
+                    assert(box.x >= 0 && box.y >= 0 && box.x + box.width <= width + 1 && box.y + box.height <= height + 1, 'Evidence stays inside viewport');
+                    assert(await importance.locator('p').evaluateAll(elements => elements.every(element => element.scrollWidth <= element.clientWidth + 1 && Number.parseFloat(getComputedStyle(element).fontSize) >= 11)), 'Importance explanations wrap and remain readable');
+                    await page.screenshot({ path: path.join(output, `priority-evidence-${candidate.priority.basis}-${width}.png`), fullPage: true });
+                }
+                receipt.evidence.push({ basis: candidate.priority.basis, postingLinks: await originalLinks.count(), onetReferences: onetCount, retainedPassages: await dialog.locator('blockquote').count() });
+                await page.keyboard.press('Escape');
+                assert(await trigger.evaluate(element => element === document.activeElement), 'Keyboard focus returns to existing inspection control');
+                await skills.getByRole('button', { name: `Collapse ${category.label}`, exact: true }).click();
+                saveReceipt();
+            }
+            // Category selection and a deliberate individual exclusion remain ordinary teacher choices.
+            await page.setViewportSize({ width: 1440, height: 900 });
+            const choice = categories.find(category => eligible.filter(candidate => candidate.category_id === category.category_id).length >= 2);
+            assert(choice, 'Copied course requires a multi-member category for selection acceptance');
+            const members = eligible.filter(candidate => candidate.category_id === choice.category_id).sort((a, b) => a.priority.display_order - b.priority.display_order);
+            const excluded = members[0];
+            const categoryCheckbox = skills.getByRole('checkbox', { name: `Select category ${choice.label} (${members.length} current members)`, exact: true });
+            await categoryCheckbox.focus();
+            if (await categoryCheckbox.isChecked()) await page.keyboard.press('Space');
+            await page.keyboard.press('Space');
+            assert(await categoryCheckbox.isChecked());
+            await skills.getByRole('button', { name: `Expand ${choice.label}`, exact: true }).click();
+            const previous = skills.getByRole('button', { name: `Previous ${choice.label} page`, exact: true });
+            while (await previous.count() && await previous.isEnabled()) await previous.click();
+            const beforeRows = await rowOrder();
+            const checkbox = skills.getByRole('checkbox', { name: `Select ${excluded.display_name}`, exact: true });
+            await checkbox.focus();
+            await page.keyboard.press('Space');
+            assert(!await checkbox.isChecked());
+            assert(await checkbox.evaluate(element => element === document.activeElement), 'Selection retains keyboard focus');
+            assert.deepEqual(await rowOrder(), beforeRows, 'Checking/unchecking never reorders visible rows');
+            assert.deepEqual(await categoryOrder(), mountedOrder, 'Selection never reorders categories');
+            assert.deepEqual(action('sql-readback').selected_candidate_ids, before.selected_candidate_ids, 'Dirty choices remain local until confirmation');
+            const expectedSelected = new Set([...initial.selected_candidate_ids, ...members.map(candidate => candidate.candidate_id)].filter(id => id !== excluded.candidate_id));
+            const expectedExcluded = new Set([...initial.excluded_candidate_ids.filter(id => !members.some(candidate => candidate.candidate_id === id)), excluded.candidate_id]);
+            for (const [width, height] of [[1440, 900], [1280, 720], [390, 844]]) {
+                await page.setViewportSize({ width, height });
+                await geometry();
+                await page.screenshot({ path: path.join(output, `priority-expanded-${width}.png`), fullPage: true });
+            }
+            // Only the external model transport is controlled; confirmation and persistence use real routes/SQL.
+            action('model-queue', [{ content: 'Controlled acceptance reply after selection confirmation. Curriculum mapping was not performed.' }]);
+            const confirmedPromise = page.waitForResponse(response => response.url().endsWith('/skill-review/selection-confirmation') && response.request().method() === 'POST');
+            const chatPromise = page.waitForResponse(response => response.url() === `${base}/chat` && response.request().method() === 'POST');
+            await skills.getByRole('button', { name: /^Confirm Selection/ }).click();
+            const confirmed = await confirmedPromise;
+            assert.equal(confirmed.status(), 200, 'Existing one-step confirmation saves the exact teacher draft');
+            const chat = await chatPromise;
+            assert.equal(chat.status(), 200);
+            await chat.finished();
+            requireCompletedMapping(await chat.text()); // Transport completion only; no assertion that mapping took place.
+            const saved = action('sql-readback');
+            assert.deepEqual(new Set(saved.selected_candidate_ids), expectedSelected);
+            assert.deepEqual(new Set(saved.excluded_candidate_ids), expectedExcluded);
+            requireConfirmation(saved.selection_confirmation, saved);
+            assert.equal(saved.candidate_revision, before.candidate_revision);
+            assert.equal(saved.publication_revision, before.publication_revision);
+            assert.deepEqual(saved.approvals, before.approvals);
+            const callsAfterConfirm = action('model-readback').length;
+            assert.equal(callsAfterConfirm, callsBefore + 1, 'Only the explicitly confirmed workflow invokes the controlled model');
+            await page.reload();
+            await skills.waitFor();
+            const restored = await fresh();
+            assert.deepEqual(new Set(restored.selected_candidate_ids), expectedSelected);
+            assert.deepEqual(new Set(restored.excluded_candidate_ids), expectedExcluded);
+            assert.deepEqual(restored.priority_assessment, assessment, 'Read/reload returns the persisted assessment without inference');
+            await skills.getByRole('button', { name: `Expand ${choice.label}`, exact: true }).click();
+            assert(!await skills.getByRole('checkbox', { name: `Select ${excluded.display_name}`, exact: true }).isChecked(), 'Individual exclusion survives reload');
+            for (const candidate of members.slice(1, 10)) assert(await skills.getByRole('checkbox', { name: `Select ${candidate.display_name}`, exact: true }).isChecked());
+            assert.deepEqual(await categoryOrder(), mountedOrder, 'Saved guidance ordering survives reload');
+            assert.equal(action('model-readback').length, callsAfterConfirm, 'Ordinary reads and reload never invoke inference');
+            receipt.selection = { categoryMembers: members.length, selectedSkills: saved.selected_candidate_ids.length, exclusions: saved.excluded_candidate_ids.length, stableOnToggle: true, persistedOnReload: true, confirmationStatus: confirmed.status(), controlledReplyOnly: true, publicationRevision: saved.publication_revision };
+            verifyConsole();
+            receipt.status = 'passed';
+            saveReceipt();
+            console.log(`PASS priority labels/evidence/selection, ${scored.length}/${eligible.length} scored skills, 1440/1280/390 geometry; mapping/publication not exercised`);
+            return;
+        }
         if (phase === 'simple-boundary-negative') {
             const seeded = action('seed-simple-flow');
             fixtureManifest = '/tmp/teacher-workspace-simple.json';
@@ -434,7 +698,7 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             assert.equal(action('sql-readback').approvals.length, 1, 'Repeated explicit approval is idempotent');
             assert.equal((await fresh()).candidates.find(candidate => candidate.candidate_id === etl.candidate_id).evidence_references.length, 8);
             const archive = path.join(path.dirname(manifestPath), 'published-simple-manifest.json');
-            execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['cp', `lab_tutor_workspace_acceptance_api:${fixtureManifest}`, archive]);
+            execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['cp', `${backendContainer}:${fixtureManifest}`, archive]);
             fs.chmodSync(archive, 0o600);
             const afterStudent = await studentRead();
             fs.writeFileSync(path.join(path.dirname(manifestPath), 'approval-student-readback.json'), JSON.stringify({ sql, afterStudent }, null, 2));
@@ -870,7 +1134,7 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             }
             assert.deepEqual(studentAfter, studentBefore);
             const archive = path.join(path.dirname(manifestPath), 'published-simple-manifest.json');
-            execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['cp', `lab_tutor_workspace_acceptance_api:${fixtureManifest}`, archive]);
+            execFileSync('/Applications/Docker.app/Contents/Resources/bin/docker', ['cp', `${backendContainer}:${fixtureManifest}`, archive]);
             fs.chmodSync(archive, 0o600);
             fs.writeFileSync(path.join(path.dirname(manifestPath), 'approval-student-readback.json'), JSON.stringify({ sql, afterStudent: studentAfter }, null, 2));
             fs.writeFileSync(path.join(output, 'mapping-summary.json'), JSON.stringify({ course: fixture.course.id, mappingStatus: 200, selected: 57, publicationRevision: 1, studentPreserved: true, measured }, null, 2));
@@ -956,6 +1220,11 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
     }
     catch (error) {
         fs.mkdirSync(output, { recursive: true });
+        const receiptPath = path.join(output, 'skill-priority-summary.json');
+        if (phase === 'skill-priority' && fs.existsSync(receiptPath)) {
+            const receipt = JSON.parse(fs.readFileSync(receiptPath));
+            fs.writeFileSync(receiptPath, JSON.stringify({ ...receipt, status: 'failed', error: safeError(error) }, null, 2));
+        }
         await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: true });
         fs.writeFileSync(path.join(output, 'failure.json'), JSON.stringify({ error: safeError(error), runtimeErrors: errors, mutations, url: page.url() }, null, 2));
         throw error;
