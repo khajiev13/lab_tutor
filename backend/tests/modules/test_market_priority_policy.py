@@ -645,3 +645,22 @@ def test_fingerprint_ignores_nested_provider_credentials_and_guidance(policy_cas
         display_order=99,
     )
     assert fingerprint(changed, policy_case["contexts"]) == before
+
+
+@pytest.mark.parametrize("basis", ["onet", "ai_estimate"])
+@pytest.mark.parametrize("bounds", [{"minimum": 0}, {"maximum": 7}, {"minimum": True}])
+def test_malformed_im_scale_cannot_produce_official_or_estimated_label(
+    validation_case, basis, bounds
+):
+    c, ref, _, _ = validation_case
+    metric = ref.ratings["IM"].model_copy(update=bounds)
+    ref = ref.model_copy(update={"ratings": {"IM": metric}})
+    d = decision(
+        c,
+        ref,
+        basis=basis,
+        estimate=4 if basis == "ai_estimate" else None,
+        passage_ids=["passage:1"] if basis == "ai_estimate" else [],
+    )
+    outcome = validate(validation_case, [d], refs=[ref])[0]
+    assert outcome.value is None and outcome.basis == "unavailable"

@@ -50,6 +50,10 @@ def _importance(reference: OnetEvidence) -> float | None:
         or metric is None
         or metric.scale_id != "IM"
         or metric.status != "reported"
+        or not _valid_value(metric.minimum)
+        or metric.minimum != 1
+        or not _valid_value(metric.maximum)
+        or metric.maximum != 5
         or not _valid_value(metric.value)
     ):
         return None
