@@ -3,7 +3,6 @@
 import asyncio
 import json
 import math
-import os
 from datetime import UTC, datetime, timedelta
 from threading import BoundedSemaphore, Lock
 from time import monotonic
@@ -46,7 +45,8 @@ from .thread_state_service import ThreadLease
 # A complete oversized input abstains rather than silently truncating a catalog.
 MAX_INPUT_BYTES = 200_000
 MAX_OUTPUT_BYTES = 200_000
-PROMPT_VERSION = "1"
+PROMPT_VERSION = "2"
+SCORING_BATCH_SIZE = 2
 POLICY_VERSION = "1"
 
 # get_skill_priority_service() constructs services per invocation. Keep actual
@@ -88,8 +88,19 @@ class _Unavailable(ValueError):
     """An entire model request is unsafe, incomplete, oversized or expired."""
 
 
+def configured_priority_model() -> str:
+    """One configured identity for the actual transport and cache fingerprint."""
+    return settings.llm_agent_model
+
+
+def _get_priority_llm(timeout_seconds: float = 20):
+    return _get_extraction_llm(timeout_seconds=timeout_seconds).bind(
+        model=configured_priority_model(), extra_body={"enable_thinking": False}
+    )
+
+
 class SkillPriorityService:
-    def __init__(self, session_factory=SessionLocal, llm_factory=_get_extraction_llm):
+    def __init__(self, session_factory=SessionLocal, llm_factory=_get_priority_llm):
         self._session_factory = session_factory
         self._llm_factory = llm_factory
 
@@ -300,7 +311,11 @@ class SkillPriorityService:
         payload = {
             **payload,
             "response_schema": adapter.json_schema(),
-            "response_instruction": "Return a bare JSON array matching response_schema, without a wrapper, code fence or prose.",
+            "response_instruction": (
+                "Return a bare JSON array matching response_schema, without a wrapper, code fence or prose. "
+                "Account for every supplied group or pair. Use one concise sentence per rationale or explanation, "
+                "only the minimal sufficient reference and passage IDs, and brief limitations."
+            ),
         }
         encoded = json.dumps(payload, ensure_ascii=False, allow_nan=False)
         if len(encoded.encode()) > MAX_INPUT_BYTES:
@@ -546,15 +561,15 @@ class SkillPriorityService:
     ) -> PriorityAssessment:
         started = datetime.now(UTC)
         start_clock = monotonic()
-        model_id = os.environ.get(
-            "LAB_TUTOR_LLM_MODEL", os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-        )
+        model_id = configured_priority_model()
         assessment = PriorityAssessment(
             assessment_id=uuid4(),
             run_id=scope.run_id,
             candidate_revision=scope.expected_candidate_revision,
             input_fingerprint="",
             model_id=model_id,
+            prompt_version=PROMPT_VERSION,
+            policy_version=POLICY_VERSION,
             release=None,
             started_at=started,
             updated_at=started,
@@ -756,8 +771,8 @@ class SkillPriorityService:
                     return [], str(exc)
 
             tasks = [
-                asyncio.create_task(score(pending[i : i + 8]))
-                for i in range(0, len(pending), 8)
+                asyncio.create_task(score(pending[i : i + SCORING_BATCH_SIZE]))
+                for i in range(0, len(pending), SCORING_BATCH_SIZE)
             ]
             for completed in asyncio.as_completed(tasks):
                 results, error = await completed

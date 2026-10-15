@@ -221,7 +221,7 @@ def test_all_candidates_and_groups_scored_without_checkbox_or_posting_support_ga
     assert case.teacher_decisions() == case.before
     assert (
         max(len(call["pairs"]) for call in case.model.calls if call["phase"] == "score")
-        <= 8
+        <= 2
     )
     assert case.model.maximum_in_flight <= 2
     assert max(case.model.timeouts) <= 20
@@ -514,13 +514,19 @@ def test_late_provider_response_is_cancelled_without_blocking_terminal_result(
     original_invoke = case.model.ainvoke
     late = []
     release = asyncio.Event()
+    cancellations = 0
 
     async def delayed(messages, *, config):
+        nonlocal cancellations
         if json.loads(messages[1].content)["phase"] != "score":
             return await original_invoke(messages, config=config)
         try:
             await release.wait()
         except asyncio.CancelledError:
+            cancellations += 1
+            if cancellations == 2:
+                # Release only after both actual transports have been abandoned.
+                asyncio.get_running_loop().call_soon(release.set)
             await release.wait()  # A transport that finishes despite cancellation.
         late.append(True)
         return await original_invoke(messages, config=config)
@@ -533,18 +539,22 @@ def test_late_provider_response_is_cancelled_without_blocking_terminal_result(
         )
 
     async def scenario():
-        asyncio.get_running_loop().call_later(0.1, release.set)
         case.model.ainvoke = delayed
         monkeypatch.setattr(priority_service.asyncio, "wait", timeout_scores)
-        result = await asyncio.wait_for(
-            case.service.assess(case.scope, case.lease), timeout=1
-        )
+        try:
+            result = await asyncio.wait_for(
+                case.service.assess(case.scope, case.lease), timeout=1
+            )
+        finally:
+            release.set()
         assert result.status in {"partial", "unavailable"}
-        assert sum(item.value is not None for item in result.results) <= 8
+        assert all(item.value is None for item in result.results[:4])
+        assert sum(item.value is not None for item in result.results) <= 20
         saved = deepcopy(case.reload().priority_assessment)
         release.set()
         for _ in range(8):
             await asyncio.sleep(0)
+        assert cancellations >= 2
         assert late
         assert case.reload().priority_assessment == saved
 
@@ -799,3 +809,79 @@ def test_cancelled_transport_permits_survive_same_assessment_resume(
             )
 
     asyncio.run(scenario())
+
+
+def test_priority_factory_binds_configured_agent_model_and_disables_thinking(
+    monkeypatch,
+):
+    from langchain_core.messages import HumanMessage
+    from langchain_openai import ChatOpenAI
+
+    from app.modules.marketdemandanalyst import priority_service
+
+    monkeypatch.setattr(settings, "llm_agent_model", "configured-agent-model")
+    monkeypatch.setenv("LAB_TUTOR_LLM_MODEL", "different-extraction-model")
+    timeouts = []
+
+    def extraction_factory(*, timeout_seconds):
+        timeouts.append(timeout_seconds)
+        return ChatOpenAI(
+            model="different-extraction-model",
+            api_key="test-only",
+            timeout=timeout_seconds,
+            max_retries=0,
+        )
+
+    monkeypatch.setattr(priority_service, "_get_extraction_llm", extraction_factory)
+    llm = priority_service._get_priority_llm(timeout_seconds=7.5)
+    # Characterize the installed LangChain binding -> actual OpenAI payload merge.
+    payload = llm.bound._get_request_payload([HumanMessage(content="[]")], **llm.kwargs)
+    assert payload["model"] == "configured-agent-model"
+    assert payload["extra_body"] == {"enable_thinking": False}
+    assert priority_service.configured_priority_model() == "configured-agent-model"
+    assert llm.bound.max_retries == 0
+    assert timeouts == [7.5]
+
+
+def test_agent_model_identity_is_saved_and_invalidates_cached_assessment(
+    service_case, monkeypatch
+):
+    case = service_case
+    monkeypatch.setattr(settings, "llm_agent_model", "configured-agent-model")
+    monkeypatch.setenv("LAB_TUTOR_LLM_MODEL", "different-extraction-model")
+    first = assess(case)
+    assert first.model_id == "configured-agent-model"
+    assert first.prompt_version == "2"
+    count = len(case.model.calls)
+    assert assess(case) == first
+    assert len(case.model.calls) == count
+    monkeypatch.setattr(settings, "llm_agent_model", "next-agent-model")
+    second = assess(case)
+    assert second.model_id == "next-agent-model"
+    assert second.assessment_id != first.assessment_id
+    assert second.input_fingerprint != first.input_fingerprint
+    assert len(case.model.calls) > count
+    assert len(second.results) == 24
+
+
+def test_two_pair_batches_account_for_all_candidates_and_request_concise_evidence(
+    service_case,
+):
+    assert assess(service_case).status == "ready"
+    batches = [
+        payload for payload in service_case.model.calls if payload["phase"] == "score"
+    ]
+    assert len(batches) == 12
+    assert [len(batch["pairs"]) for batch in batches] == [2] * 12
+    candidate_ids = {
+        pair["candidate_id"] for batch in batches for pair in batch["pairs"]
+    }
+    assert candidate_ids == {
+        candidate["candidate_id"] for candidate in service_case.candidates
+    }
+    for payload in service_case.model.calls:
+        assert "one concise sentence" in payload["response_instruction"]
+        assert (
+            "minimal sufficient reference and passage IDs"
+            in payload["response_instruction"]
+        )
