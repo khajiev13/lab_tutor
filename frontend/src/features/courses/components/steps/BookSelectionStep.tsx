@@ -2,20 +2,19 @@ import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { BookSelectionDashboard } from "@/features/book-selection";
-import { useCourseDetail } from "../../context/CourseDetailContext";
+import { useCourseDetail } from "@/features/courses/context/CourseDetailContext";
 
 export function BookSelectionStep() {
-  const { course, courseId, goToNext } = useCourseDetail();
+  const { course, courseId, goToNext, canNavigateToStep } = useCourseDetail();
 
-  if (!course) return null;
+  if (!course || !canNavigateToStep(3)) return null;
 
-  const disabled = course.extraction_status !== "finished";
 
   return (
     <div className="space-y-4">
-      <BookSelectionDashboard courseId={courseId} disabled={disabled} />
+      <BookSelectionDashboard courseId={courseId} />
 
-      {!disabled && (
+      {canNavigateToStep(4) && (
         <div className="flex justify-end pt-2">
           <Button onClick={goToNext} variant="outline" className="gap-2">
             Continue to Analysis

@@ -1,4 +1,4 @@
-import { Loader2, Play, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,35 +12,28 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { FileUpload } from "@/components/FileUpload";
 import { CourseMaterialsTable } from "@/components/CourseMaterialsTable";
-import { presentationsApi } from "../../api";
-import { useCourseDetail } from "../../context/CourseDetailContext";
+import { presentationsApi } from "@/features/courses/api";
+import { useCourseDetail } from "@/features/courses/context/CourseDetailContext";
 import { toast } from "sonner";
 
 export function MaterialsStep() {
   const {
     course,
     courseId,
-    isExtracting,
-    startExtraction,
     extractionProgress,
     onProgressChange,
-    presentationCount,
     onFilesChange,
     refreshTrigger,
     triggerRefresh,
     refreshCourse,
     embeddingStatus,
     goToNext,
+    canNavigateToStep,
   } = useCourseDetail();
 
   if (!course) return null;
 
   const isExtractionInProgress = course.extraction_status === "in_progress";
-  const canStartExtraction =
-    (course.extraction_status === "not_started" ||
-      course.extraction_status === "failed") &&
-    presentationCount > 0;
-
   const handleUpload = async (files: File[]) => {
     if (course.extraction_status === "in_progress") {
       toast.error("Cannot modify files while extraction is in progress");
@@ -62,16 +55,6 @@ export function MaterialsStep() {
               your concept bank.
             </CardDescription>
           </div>
-          {canStartExtraction && (
-            <Button onClick={startExtraction} disabled={isExtracting}>
-              {isExtracting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-2 h-4 w-4" />
-              )}
-              Start Data Extraction
-            </Button>
-          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -146,7 +129,7 @@ export function MaterialsStep() {
             <AlertTitle>Extraction complete</AlertTitle>
             <AlertDescription>
               Your course materials were processed successfully. Continue to the
-              next step to normalize concepts or select books.
+              next step to choose books.
             </AlertDescription>
           </Alert>
         )}
@@ -171,10 +154,10 @@ export function MaterialsStep() {
         </div>
 
         {/* Continue CTA */}
-        {course.extraction_status === "finished" && (
+        {canNavigateToStep(3) && (
           <div className="flex justify-end pt-2">
             <Button onClick={goToNext} className="gap-2">
-              Continue to Normalize Concepts
+              Continue to Books
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>

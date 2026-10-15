@@ -10,8 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { ExtractionStatus, EmbeddingStatus } from "../types";
-import { useCourseDetail } from "../context/CourseDetailContext";
+import type { ExtractionStatus, EmbeddingStatus } from "@/features/courses/types";
+import { useCourseDetail } from "@/features/courses/context/CourseDetailContext";
 
 function getStatusBadge(status: ExtractionStatus) {
   switch (status) {
@@ -51,11 +51,27 @@ function getEmbeddingBadge(status: EmbeddingStatus) {
   }
 }
 
-export function CourseHeader() {
+export function CourseHeader({ compact = false }: { compact?: boolean }) {
   const navigate = useNavigate();
   const { course, embeddingStatus } = useCourseDetail();
 
   if (!course) return null;
+
+  if (compact) {
+    return (
+      <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="min-w-0 space-y-2">
+          <h1 className="break-words text-3xl font-semibold tracking-tight">{course.title}</h1>
+          {course.description && <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{course.description}</p>}
+        </div>
+        {course.extraction_status === "finished" && (
+          <Button variant="outline" size="sm" onClick={() => navigate(`/courses/${course.id}/curriculum`)}>
+            <GitBranch className="size-4" />View curriculum
+          </Button>
+        )}
+      </header>
+    );
+  }
 
   return (
     <Card>

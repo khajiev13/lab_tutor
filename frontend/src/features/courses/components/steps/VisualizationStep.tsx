@@ -1,12 +1,11 @@
 import { BookVisualizationTab } from "@/features/book-selection";
-import { useCourseDetail } from "../../context/CourseDetailContext";
+import { useCourseDetail } from "@/features/courses/context/CourseDetailContext";
 
 export function VisualizationStep() {
-  const { course, courseId } = useCourseDetail();
+  const { course, courseId, canNavigateToStep } = useCourseDetail();
 
-  if (!course) return null;
+  if (!course || !canNavigateToStep(5)) return null;
 
-  const disabled = course.extraction_status !== "finished";
 
-  return <BookVisualizationTab courseId={courseId} disabled={disabled} />;
+  return <BookVisualizationTab courseId={courseId} />;
 }

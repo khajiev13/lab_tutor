@@ -2,14 +2,14 @@ import { AlertCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { AvailabilityStatus, CourseReadiness } from "../../types";
-import { NextActionBanner } from "./NextActionBanner";
-import { PublishCourseButton } from "./PublishCourseButton";
-import { ReadinessGateTrack } from "./ReadinessGateTrack";
+import type { AvailabilityStatus, CourseReadiness } from "@/features/courses/types";
+import { NextActionBanner } from "@/features/courses/components/readiness/NextActionBanner";
+import { ReadinessGateTrack } from "@/features/courses/components/readiness/ReadinessGateTrack";
 
 interface CourseReadinessRoadProps {
   readiness: CourseReadiness;
   onRefresh: () => void | Promise<void>;
+  onLearnMore?: () => void;
 }
 
 const AVAILABILITY_LABEL = {
@@ -24,13 +24,15 @@ const AVAILABILITY_CLASS = {
   publishing_paused: "border-amber-200 text-amber-700",
 } satisfies Record<AvailabilityStatus, string>;
 
-export function CourseReadinessRoad({ readiness, onRefresh }: CourseReadinessRoadProps) {
+export function CourseReadinessRoad({ readiness, onRefresh, onLearnMore }: CourseReadinessRoadProps) {
+  const completed = readiness.gates.filter((gate) => gate.status === "complete").length;
+
   return (
-    <section className="space-y-4 rounded-lg border bg-background p-4 sm:p-5">
+    <section className="flex flex-col gap-6 rounded-xl border bg-card p-5 sm:p-6" aria-labelledby="course-setup-heading">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">Course readiness</h2>
+            <h2 id="course-setup-heading" className="text-xl font-semibold tracking-tight">Set up your course</h2>
             <Badge
               variant="outline"
               className={cn(AVAILABILITY_CLASS[readiness.availability_status])}
@@ -38,30 +40,27 @@ export function CourseReadinessRoad({ readiness, onRefresh }: CourseReadinessRoa
               {AVAILABILITY_LABEL[readiness.availability_status]}
             </Badge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Clear each gate before opening enrollment to students.
+          <p className="mt-2 text-sm text-muted-foreground">
+            One step at a time, from teaching materials to a course ready for students.
           </p>
         </div>
-        <PublishCourseButton readiness={readiness} onRefresh={onRefresh} />
+        <p className="shrink-0 text-sm text-muted-foreground sm:pt-1">{completed} of {readiness.gates.length} steps complete</p>
       </div>
 
-      <NextActionBanner nextAction={readiness.next_action} />
-
-      {readiness.blockers.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-background p-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
-            <AlertCircle className="size-4" />
-            Blockers
-          </div>
-          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-            {readiness.blockers.map((blocker) => (
-              <li key={blocker}>{blocker}</li>
-            ))}
-          </ul>
+      {readiness.availability_status === "publishing_paused" && (
+        <div role="status" className="order-1 flex items-start gap-2 rounded-lg border border-amber-200 p-4 text-sm text-amber-800 dark:border-amber-900 dark:text-amber-300">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+          Enrollment is paused while your course needs attention. Complete the next step below to restore access.
         </div>
       )}
 
-      <ReadinessGateTrack gates={readiness.gates} />
+      <div className="order-2 sm:order-3">
+        <NextActionBanner readiness={readiness} onRefresh={onRefresh} onLearnMore={onLearnMore} />
+      </div>
+      <div className="order-3 sm:order-2">
+        <ReadinessGateTrack gates={readiness.gates} currentStep={readiness.next_action.id} />
+      </div>
+      <p className="order-4 text-xs text-muted-foreground">Each step unlocks the next. Completed steps stay available if you need to make changes.</p>
     </section>
   );
 }

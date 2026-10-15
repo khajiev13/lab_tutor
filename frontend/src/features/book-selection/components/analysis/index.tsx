@@ -23,14 +23,14 @@ import {
   getLatestAnalysis,
   openEmbeddingProgressStream,
   triggerAnalysis,
-} from '../../api';
-import { AgenticAnalysis } from './agentic-analysis';
-import { ExtractionInspector } from './extraction-inspector';
+} from '@/features/book-selection/api';
+import { AgenticAnalysis } from '@/features/book-selection/components/analysis/agentic-analysis';
+import { ExtractionInspector } from '@/features/book-selection/components/analysis/extraction-inspector';
 import {
   type EmbeddingBookProgress,
   type ExtractionRunStatus,
   type BookExtractionRun,
-} from '../../types';
+} from '@/features/book-selection/types';
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -267,16 +267,15 @@ export function BookAnalysisTab({ courseId, disabled }: BookAnalysisTabProps) {
   return (
     <div className="space-y-6">
       {/* Header row */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold">Book Analysis</h3>
           <p className="text-sm text-muted-foreground">
-            Run analysis pipelines on your selected books. View results in the
-            Visualization tab.
+            Analyze your selected books, then review their skills and chapters in the Results step.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
           <Button
             onClick={handleStart}
@@ -313,7 +312,7 @@ export function BookAnalysisTab({ courseId, disabled }: BookAnalysisTabProps) {
       )}
 
       <Tabs defaultValue="inspector" className="w-full">
-        <TabsList>
+        <TabsList className="h-auto max-w-full flex-wrap justify-start">
           <TabsTrigger value="inspector">
             <FileText className="mr-2 h-4 w-4" />
             Extraction Inspector

@@ -1,10 +1,10 @@
 import { Suspense, lazy } from "react";
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
-import { Loader2, ListTree, Activity } from "lucide-react";
+import { useParams, Navigate, useSearchParams, Link } from "react-router-dom";
+import { Loader2, Activity } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { StepContent } from "@/components/ui/stepper";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -16,18 +16,13 @@ import {
 import {
   CourseDetailProvider,
   useCourseDetail,
-  COURSE_STEPS,
 } from "@/features/courses/context/CourseDetailContext";
 import { CourseStepperHeader } from "@/features/courses/components/CourseStepperHeader";
 import { MaterialsStep } from "@/features/courses/components/steps/MaterialsStep";
 import { NormalizationStep } from "@/features/courses/components/steps/NormalizationStep";
 import { BuildChaptersStep } from "@/features/curriculum-planning/components/BuildChaptersStep";
 import { BookSelectionStep } from "@/features/courses/components/steps/BookSelectionStep";
-import { getAgentById } from "@/features/agents/config";
-import { AgentPageHeader } from "@/features/agents/components/AgentPageHeader";
 import { AgentActivityFeed } from "@/features/agents/components/AgentActivityFeed";
-import type { AgentStatus } from "@/features/agents/components/AgentCard";
-import { MaterialsReadinessNotice } from "@/features/courses/components/readiness/MaterialsReadinessNotice";
 
 /* Lazy-load heavy steps */
 const AnalysisStep = lazy(() =>
@@ -50,32 +45,10 @@ function StepSkeleton() {
   );
 }
 
-/* ── Derive overall agent status ─────────────────────────────── */
-
-function useArchitectAgentStatus(): AgentStatus {
-  const { course, getStepStatus } = useCourseDetail();
-  if (!course) return "not-started";
-
-  let completedSteps = 0;
-  for (let i = 0; i < COURSE_STEPS.length; i++) {
-    if (getStepStatus(i) === "completed") completedSteps++;
-  }
-
-  if (completedSteps === COURSE_STEPS.length) return "completed";
-  if (
-    completedSteps > 0 ||
-    course.extraction_status === "in_progress"
-  )
-    return "in-progress";
-  return "not-started";
-}
-
 /* ── Content (rendered inside provider) ──────────────────────── */
 
 function ArchitectContent() {
-  const { activeStep, isLoading, course, courseId, materialsReady, materialsMessage } = useCourseDetail();
-  const agentStatus = useArchitectAgentStatus();
-  const agent = getAgentById("architect")!;
+  const { activeStep, isLoading, course, canNavigateToStep } = useCourseDetail();
 
   if (isLoading || !course) {
     return (
@@ -86,7 +59,7 @@ function ArchitectContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl space-y-6">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -102,29 +75,20 @@ function ArchitectContent() {
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{agent.name}</BreadcrumbPage>
+            <BreadcrumbPage>Prepare course</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
 
-      <AgentPageHeader agent={agent} status={agentStatus} />
-      {!materialsReady && <MaterialsReadinessNotice courseId={courseId} message={materialsMessage} showLink={false}/>}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Prepare course</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Turn your course materials into a foundation for your students’ learning.</p>
+      </div>
 
-      <Tabs defaultValue="workflow">
-        <TabsList>
-          <TabsTrigger value="workflow">
-            <ListTree className="size-4" />
-            Workflow
-          </TabsTrigger>
-          <TabsTrigger value="activity">
-            <Activity className="size-4" />
-            Activity
-          </TabsTrigger>
-        </TabsList>
+      <CourseStepperHeader />
 
-        <TabsContent value="workflow" className="space-y-4">
-          <CourseStepperHeader />
-
+      <div id="prepare-workspace" tabIndex={-1} className="scroll-mt-6 space-y-4 outline-none" aria-label="Current preparation step">
+        {canNavigateToStep(activeStep) && <>
           <StepContent activeIndex={activeStep} index={0}>
             <MaterialsStep />
           </StepContent>
@@ -152,12 +116,15 @@ function ArchitectContent() {
               <VisualizationStep />
             </StepContent>
           </Suspense>
-        </TabsContent>
+        </>}
+      </div>
 
-        <TabsContent value="activity">
-          <AgentActivityFeed />
-        </TabsContent>
-      </Tabs>
+      <Accordion type="single" collapsible className="rounded-xl border px-5">
+        <AccordionItem value="activity" className="border-0">
+          <AccordionTrigger><span className="flex items-center gap-2 text-sm"><Activity className="size-4" />Preparation activity</span></AccordionTrigger>
+          <AccordionContent><AgentActivityFeed /></AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </div>
   );
 }
@@ -166,17 +133,13 @@ function ArchitectContent() {
 
 export default function ArchitectAgentPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const courseId = Number(id);
-  if (!id || isNaN(courseId)) {
-    navigate("/courses");
-    return null;
-  }
+  if (!id || !Number.isInteger(courseId) || courseId <= 0) return <Navigate to="/courses" replace />;
 
   return (
-    <CourseDetailProvider key={`${courseId}:${searchParams.get("step") ?? ""}`} courseId={courseId} initialStep={searchParams.get("step") === "materials" ? "materials" : undefined}>
+    <CourseDetailProvider key={`${courseId}:${searchParams.get("step") ?? ""}`} courseId={courseId} pollStepStatuses initialStep={searchParams.get("step") === "materials" ? "materials" : undefined}>
       <ArchitectContent />
     </CourseDetailProvider>
   );

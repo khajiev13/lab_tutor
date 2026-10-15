@@ -1,471 +1,301 @@
-/**
- * Tests for CourseDetailContext — specifically the step-status computation
- * and auto-navigation logic added for the stepper feature.
- */
-import { renderHook, waitFor, act } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
-import { CourseDetailProvider, useCourseDetail } from "./CourseDetailContext";
-import type { Course } from "../types";
-import type { BookSelectionSession } from "@/features/book-selection/types";
-import type { BookExtractionRun } from "@/features/book-selection/types";
+import { CourseDetailProvider, useCourseDetail } from "@/features/courses/context/CourseDetailContext";
+import { coursesApi } from "@/features/courses/api";
+import { getLatestAnalysis, getLatestSession, getCourseSelectedBooks } from "@/features/book-selection/api";
+import { getChapterPlan } from "@/features/curriculum-planning/api";
+import type { Course } from "@/features/courses/types";
+import type { BookExtractionRun, BookSelectionSession, CourseSelectedBook, ExtractionRunStatus } from "@/features/book-selection/types";
 
-/* ── Mocks ──────────────────────────────────────────────────── */
-
-// Mock the courses API
-const mockGetCourse = vi.fn<(id: number) => Promise<Course>>();
-const mockGetEmbeddingsStatus = vi.fn().mockResolvedValue(null);
-const mockGetMaterialsReadiness = vi.fn();
-
-vi.mock("../api", () => ({
-  coursesApi: {
-    getCourse: (...args: Parameters<typeof mockGetCourse>) => mockGetCourse(...args),
-    getEmbeddingsStatus: (...args: unknown[]) => mockGetEmbeddingsStatus(...args),
-    getMaterialsReadiness: (...args: unknown[]) => mockGetMaterialsReadiness(...args),
-  },
+vi.mock("@/features/courses/api", () => ({
+  coursesApi: { getCourse: vi.fn(), getEmbeddingsStatus: vi.fn(), getMaterialsReadiness: vi.fn() },
   streamExtraction: vi.fn(),
 }));
-
-// Mock book-selection API
-const mockGetLatestSession = vi.fn<(courseId: number) => Promise<BookSelectionSession | null>>();
-const mockGetLatestAnalysis = vi.fn<(courseId: number) => Promise<BookExtractionRun | null>>();
-
 vi.mock("@/features/book-selection/api", () => ({
-  getLatestSession: (...args: Parameters<typeof mockGetLatestSession>) =>
-    mockGetLatestSession(...args),
-  getLatestAnalysis: (...args: Parameters<typeof mockGetLatestAnalysis>) =>
-    mockGetLatestAnalysis(...args),
+  getLatestSession: vi.fn(), getLatestAnalysis: vi.fn(), getCourseSelectedBooks: vi.fn(),
 }));
+vi.mock("@/features/curriculum-planning/api", () => ({ getChapterPlan: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-// Suppress toast calls
-vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-}));
-
-/* ── Helpers ────────────────────────────────────────────────── */
-
-function makeCourse(overrides: Partial<Course> = {}): Course {
-  return {
-    id: 1,
-    title: "Test Course",
-    description: null,
-    level: "bachelor",
-    teacher_id: 1,
-    created_at: "2025-01-01T00:00:00Z",
-    extraction_status: "finished",
-    publication_status: "draft",
-    market_gate_status: "not_started",
-    ...overrides,
-  };
+const course: Course = {
+  id: 1, title: "Test course", description: null, level: "bachelor", teacher_id: 1,
+  created_at: "2026-01-01T00:00:00Z", extraction_status: "finished",
+  publication_status: "draft", market_gate_status: "not_started",
+};
+const session: BookSelectionSession = {
+  id: 1, course_id: 1, thread_id: "t-1", status: "completed", course_level: "bachelor",
+  weights_json: null, progress_scored: 2, progress_total: 2, error_message: null,
+  created_at: course.created_at, updated_at: course.created_at,
+};
+const book: CourseSelectedBook = {
+  id: 1, course_id: 1, source_book_id: 1, title: "Course book", authors: null,
+  publisher: null, year: null, status: "downloaded", blob_path: "books/course.pdf", blob_url: null,
+  error_message: null, created_at: course.created_at, updated_at: course.created_at,
+};
+function run(status: ExtractionRunStatus): BookExtractionRun {
+  return { id: 1, course_id: 1, status, error_message: null, progress_detail: null,
+    embedding_model: null, embedding_dims: null, created_at: course.created_at, updated_at: course.created_at };
 }
-
-function makeSession(overrides: Partial<BookSelectionSession> = {}): BookSelectionSession {
-  return {
-    id: 1,
-    course_id: 1,
-    thread_id: "t-1",
-    status: "completed",
-    course_level: "bachelor",
-    weights_json: null,
-    progress_scored: 0,
-    progress_total: 0,
-    error_message: null,
-    created_at: "2025-01-01T00:00:00Z",
-    updated_at: "2025-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
-
-function makeRun(overrides: Partial<BookExtractionRun> = {}): BookExtractionRun {
-  return {
-    id: 1,
-    course_id: 1,
-    status: "completed",
-    error_message: null,
-    progress_detail: null,
-    embedding_model: null,
-    embedding_dims: null,
-    created_at: "2025-01-01T00:00:00Z",
-    updated_at: "2025-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
-
 function wrapper({ children }: { children: ReactNode }) {
   return <CourseDetailProvider courseId={1}>{children}</CourseDetailProvider>;
 }
-
-/* ── Tests ──────────────────────────────────────────────────── */
+async function load() {
+  const hook = renderHook(() => useCourseDetail(), { wrapper });
+  await waitFor(() => expect(hook.result.current.isLoading).toBe(false));
+  await waitFor(() => expect(hook.result.current.stepStatusesLoading).toBe(false));
+  return hook;
+}
+function readyBooks() {
+  vi.mocked(getLatestSession).mockResolvedValue(session);
+  vi.mocked(getCourseSelectedBooks).mockResolvedValue([book]);
+}
 
 beforeEach(() => {
-  vi.clearAllMocks();
-  // Default: extraction finished, no session/analysis
-  mockGetCourse.mockResolvedValue(makeCourse());
-  mockGetLatestSession.mockResolvedValue(null);
-  mockGetLatestAnalysis.mockResolvedValue(null);
-  mockGetMaterialsReadiness.mockImplementation(async(id:number)=>{
-    const course = await mockGetCourse(id);
-    const ready = course.extraction_status === 'finished';
-    return {ready,status:ready?'ready':'processing',message:ready?'Course materials are ready.':'Course materials are still being processed.',total_files:1,processed_files:ready?1:0};
+  vi.resetAllMocks();
+  vi.mocked(coursesApi.getCourse).mockResolvedValue(course);
+  vi.mocked(coursesApi.getMaterialsReadiness).mockImplementation(async (id) => {
+    const ready = (await coursesApi.getCourse(id)).extraction_status === "finished";
+    return { ready, status: ready ? "ready" : "processing", message: ready ? "Ready." : "Processing.", total_files: 1, processed_files: ready ? 1 : 0 };
   });
+  vi.mocked(getLatestSession).mockResolvedValue(null);
+  vi.mocked(getLatestAnalysis).mockResolvedValue(null);
+  vi.mocked(getCourseSelectedBooks).mockResolvedValue([]);
+  vi.mocked(getChapterPlan).mockResolvedValue({ course_id: 1, chapters: [], unassigned_documents: [], all_documents: [] });
 });
-afterEach(() => {vi.useRealTimers();});
+afterEach(() => vi.useRealTimers());
 
-it('does not poll teacher-only readiness for a student course view',async()=>{
- const {result}=renderHook(()=>useCourseDetail(),{wrapper:({children})=><CourseDetailProvider courseId={1} checkMaterials={false}>{children}</CourseDetailProvider>});
- await waitFor(()=>expect(result.current.isLoading).toBe(false));
- expect(result.current.course?.title).toBe('Test Course');
- expect(mockGetMaterialsReadiness).not.toHaveBeenCalled();
-});
-
-it('locks downstream architect steps when course status is finished but uploaded files are still processing',async()=>{
- mockGetMaterialsReadiness.mockResolvedValue({ready:false,status:'processing',message:'Course materials are still being processed.',total_files:2,processed_files:1});
- const {result}=renderHook(()=>useCourseDetail(),{wrapper});
- await waitFor(()=>expect(result.current.isLoading).toBe(false));
- expect(result.current.canNavigateToStep(0)).toBe(true);
- expect(result.current.canNavigateToStep(3)).toBe(false);
- expect(result.current.canNavigateToStep(4)).toBe(false);
-});
-
-it('unlocks automatically after polling and fails closed if a later readiness read fails',async()=>{
- vi.useFakeTimers();
- mockGetMaterialsReadiness.mockResolvedValueOnce({ready:false,status:'processing',message:'Course materials are still being processed.',total_files:2,processed_files:1})
-  .mockResolvedValueOnce({ready:true,status:'ready',message:'Course materials are ready.',total_files:2,processed_files:2})
-  .mockRejectedValue(new Error('Unavailable'));
- const {result}=renderHook(()=>useCourseDetail(),{wrapper});
- await act(async()=>{await Promise.resolve();});
- expect(result.current.canNavigateToStep(3)).toBe(false);
- await act(async()=>{await vi.advanceTimersByTimeAsync(10_000);});
- expect(result.current.canNavigateToStep(3)).toBe(true);
- act(()=>result.current.setActiveStep(3));
- await act(async()=>{await vi.advanceTimersByTimeAsync(10_000);});
- expect(result.current.canNavigateToStep(3)).toBe(false);
- expect(result.current.canNavigateToStep(0)).toBe(true);
- expect(result.current.activeStep).toBe(0);
-});
-
-it('opens the materials link at Materials even after later architect steps were completed',async()=>{
- mockGetLatestSession.mockResolvedValue(makeSession());
- const {result}=renderHook(()=>useCourseDetail(),{wrapper:({children})=><CourseDetailProvider courseId={1} initialStep="materials">{children}</CourseDetailProvider>});
- await waitFor(()=>expect(result.current.bookSessionStatus).toBe('completed'));
- expect(result.current.activeStep).toBe(0);
-});
-
-it('uses fresh readiness when ingestion finishes after the course page was loaded',async()=>{
- vi.useFakeTimers();
- mockGetCourse.mockResolvedValue(makeCourse({extraction_status:'not_started'}));
- mockGetMaterialsReadiness.mockResolvedValueOnce({ready:false,status:'processing',message:'Processing.',total_files:1,processed_files:0})
-  .mockResolvedValue({ready:true,status:'ready',message:'Ready.',total_files:1,processed_files:1});
- const {result}=renderHook(()=>useCourseDetail(),{wrapper});
- await act(async()=>{await Promise.resolve();});
- expect(result.current.canNavigateToStep(3)).toBe(false);
- await act(async()=>{await vi.advanceTimersByTimeAsync(10_000);});
- expect(result.current.canNavigateToStep(3)).toBe(true);
-});
-
-describe("getStepStatus", () => {
-  it("returns 'active' for materials when extraction not started", async () => {
-    mockGetCourse.mockResolvedValue(makeCourse({ extraction_status: "not_started" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.getStepStatus(0)).toBe("active");
+describe("preparation dependencies", () => {
+  it.each(["not_started", "in_progress", "failed"] as const)("locks later workspaces while material extraction is %s", async (extraction_status) => {
+    vi.mocked(coursesApi.getCourse).mockResolvedValue({ ...course, extraction_status });
+    const { result } = await load();
+    for (const index of [1, 2, 3, 4, 5]) expect(result.current.canNavigateToStep(index)).toBe(false);
+    expect(result.current.activeStep).toBe(0);
   });
 
-  it("returns 'active' for materials when extraction in progress", async () => {
-    mockGetCourse.mockResolvedValue(makeCourse({ extraction_status: "in_progress" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.getStepStatus(0)).toBe("active");
-  });
-
-  it("returns 'completed' for materials when extraction finished", async () => {
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.getStepStatus(0)).toBe("completed");
-  });
-
-  it("locks all steps after materials when extraction not done", async () => {
-    mockGetCourse.mockResolvedValue(makeCourse({ extraction_status: "not_started" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.getStepStatus(1)).toBe("locked");
-    expect(result.current.getStepStatus(2)).toBe("locked");
-    expect(result.current.getStepStatus(3)).toBe("locked");
+  it("offers books next after extraction and keeps optional work out of the required path", async () => {
+    const { result } = await load();
+    expect(result.current.activeStep).toBe(3);
+    expect(result.current.nextPreparationStep).toBe(3);
+    expect(result.current.canNavigateToStep(1)).toBe(true);
+    expect(result.current.canNavigateToStep(2)).toBe(true);
     expect(result.current.getStepStatus(4)).toBe("locked");
     expect(result.current.getStepStatus(5)).toBe("locked");
   });
 
-  it("unlocks normalization/book-selection as pending after extraction", async () => {
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    // Without backend statuses, steps 1-5 should be pending (unlocked)
-    expect(result.current.getStepStatus(1)).toBe("pending");
-    expect(result.current.getStepStatus(2)).toBe("pending");
-    expect(result.current.getStepStatus(3)).toBe("pending");
-  });
-
-  it("marks book-selection 'completed' when session status is completed", async () => {
-    mockGetLatestSession.mockResolvedValue(makeSession({ status: "completed" }));
-    mockGetLatestAnalysis.mockResolvedValue(null);
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("completed"));
-  });
-
-  it("marks normalization 'completed' when book-selection is completed (inferred)", async () => {
-    mockGetLatestSession.mockResolvedValue(makeSession({ status: "completed" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(1)).toBe("completed"));
-  });
-
-  it("marks book-selection 'active' when session is discovering", async () => {
-    mockGetLatestSession.mockResolvedValue(makeSession({ status: "discovering" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
-  });
-
-  it("marks book-selection 'active' when session is scoring", async () => {
-    mockGetLatestSession.mockResolvedValue(makeSession({ status: "scoring" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
-  });
-
-  it("marks book-selection 'active' when session is downloading", async () => {
-    mockGetLatestSession.mockResolvedValue(makeSession({ status: "downloading" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(3)).toBe("active"));
-  });
-
-  it("marks analysis 'completed' when run status is completed", async () => {
-    mockGetLatestSession.mockResolvedValue(makeSession({ status: "completed" }));
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "completed" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("completed"));
-  });
-
-  it("marks analysis 'completed' when run status is agentic_completed", async () => {
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "agentic_completed" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("completed"));
-  });
-
-  it("marks analysis 'completed' when run status is book_picked", async () => {
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "book_picked" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("completed"));
-  });
-
-  it("marks analysis 'active' when run is extracting", async () => {
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "extracting" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("active"));
-  });
-
-  it("marks analysis 'active' when run is agentic_extracting", async () => {
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "agentic_extracting" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("active"));
-  });
-
-  it("marks analysis 'active' when run is chunking", async () => {
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "chunking" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("active"));
-  });
-
-  it("marks analysis 'active' when run is embedding", async () => {
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "embedding" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("active"));
-  });
-
-  it("marks visualization 'completed' when analysis is completed", async () => {
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "completed" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.getStepStatus(5)).toBe("completed"));
-  });
-
-  it("marks visualization 'pending' when analysis is not done", async () => {
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "extracting" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    // Visualization stays pending while analysis is still running
-    await waitFor(() => expect(result.current.getStepStatus(5)).toBe("pending"));
-  });
-
-  it("returns 'locked' for out-of-range indices", async () => {
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.getStepStatus(6)).toBe("locked");
-    expect(result.current.getStepStatus(-1)).toBe("locked");
-  });
-});
-
-describe("canNavigateToStep", () => {
-  it("allows navigating to unlocked steps", async () => {
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    // Step 0 is completed (extraction done), so navigable
-    expect(result.current.canNavigateToStep(0)).toBe(true);
-    // Steps 1-4 are pending (extraction done), so navigable
-    expect(result.current.canNavigateToStep(1)).toBe(true);
-    expect(result.current.canNavigateToStep(2)).toBe(true);
-  });
-
-  it("blocks navigating to locked steps", async () => {
-    mockGetCourse.mockResolvedValue(makeCourse({ extraction_status: "not_started" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.canNavigateToStep(0)).toBe(true); // always accessible
-    expect(result.current.canNavigateToStep(1)).toBe(false);
-    expect(result.current.canNavigateToStep(2)).toBe(false);
-  });
-});
-
-describe("auto-navigation", () => {
-  it("auto-navigates to the step after the furthest completed one", async () => {
-    // All steps through analysis completed
-    mockGetLatestSession.mockResolvedValue(makeSession({ status: "completed" }));
-    mockGetLatestAnalysis.mockResolvedValue(makeRun({ status: "completed" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    // Should auto-navigate to visualization (step 5) — last step, all completed
-    await waitFor(() => expect(result.current.activeStep).toBe(5));
-  });
-
-  it("auto-navigates to an active step if one exists", async () => {
-    // Extraction in progress → step 0 is active
-    mockGetCourse.mockResolvedValue(makeCourse({ extraction_status: "in_progress" }));
-    mockGetLatestSession.mockResolvedValue(null);
-    mockGetLatestAnalysis.mockResolvedValue(null);
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.activeStep).toBe(0);
-  });
-
-  it("stays on step 0 when extraction not started", async () => {
-    mockGetCourse.mockResolvedValue(makeCourse({ extraction_status: "not_started" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    // Step 0 is active (first step), so it should stay there
-    expect(result.current.activeStep).toBe(0);
-  });
-
-  it("navigates past materials to next pending step when only extraction done", async () => {
-    // Extraction done, no session/analysis
-    mockGetLatestSession.mockResolvedValue(null);
-    mockGetLatestAnalysis.mockResolvedValue(null);
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    // Step 0 is completed, step 1 is pending → should land on step 1
-    await waitFor(() => expect(result.current.activeStep).toBe(1));
-  });
-
-  it("navigates to analysis step when book-selection is completed", async () => {
-    mockGetLatestSession.mockResolvedValue(makeSession({ status: "completed" }));
-    mockGetLatestAnalysis.mockResolvedValue(null);
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    // Steps 0-3 completed, step 4 pending → should land on step 4
-    await waitFor(() => expect(result.current.activeStep).toBe(4));
-  });
-});
-
-describe("step status fetch effect", () => {
-  it("calls getLatestSession and getLatestAnalysis when extraction is done", async () => {
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(mockGetLatestSession).toHaveBeenCalledWith(1);
-    expect(mockGetLatestAnalysis).toHaveBeenCalledWith(1);
-  });
-
-  it("does NOT call getLatestSession/getLatestAnalysis when extraction not done", async () => {
-    mockGetCourse.mockResolvedValue(makeCourse({ extraction_status: "not_started" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(mockGetLatestSession).not.toHaveBeenCalled();
-    expect(mockGetLatestAnalysis).not.toHaveBeenCalled();
-  });
-
-  it("handles API errors gracefully without crashing", async () => {
-    mockGetLatestSession.mockRejectedValue(new Error("network fail"));
-    mockGetLatestAnalysis.mockRejectedValue(new Error("network fail"));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    // Should still load without crashing — steps fall back to pending
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.getStepStatus(3)).toBe("pending");
-    expect(result.current.getStepStatus(4)).toBe("pending");
-  });
-});
-
-describe("manual navigation", () => {
-  it("setActiveStep updates the active step", async () => {
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    act(() => result.current.setActiveStep(2));
-    expect(result.current.activeStep).toBe(2);
-  });
-
-  it("setActiveStep does not navigate to locked steps", async () => {
-    mockGetCourse.mockResolvedValue(makeCourse({ extraction_status: "not_started" }));
-
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    act(() => result.current.setActiveStep(3));
-    // Should remain on 0 since step 3 is locked
-    expect(result.current.activeStep).toBe(0);
-  });
-
-  it("goToNext advances by one step", async () => {
-    const { result } = renderHook(() => useCourseDetail(), { wrapper });
-
-    // Wait for auto-navigation to settle
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    // Set to step 2 first
-    act(() => result.current.setActiveStep(2));
-    expect(result.current.activeStep).toBe(2);
-
+  it.each(["discovering", "scoring", "awaiting_review", "downloading"] as const)("keeps analysis locked while book selection is %s", async (status) => {
+    readyBooks();
+    vi.mocked(getLatestSession).mockResolvedValue({ ...session, status });
+    const { result } = await load();
+    expect(result.current.getStepStatus(4)).toBe("locked");
+    act(() => result.current.setActiveStep(4));
+    expect(result.current.activeStep).toBe(3);
     act(() => result.current.goToNext());
     expect(result.current.activeStep).toBe(3);
+  });
+
+  it.each([
+    { status: "failed", blob_path: null },
+    { status: "downloading", blob_path: null },
+    { status: "downloaded", blob_path: null },
+  ] as const)("does not unlock analysis for an unusable book: $status / $blob_path", async (overrides) => {
+    readyBooks();
+    vi.mocked(getCourseSelectedBooks).mockResolvedValue([{ ...book, ...overrides }]);
+    const { result } = await load();
+    expect(result.current.getStepStatus(3)).not.toBe("completed");
+    expect(result.current.getStepStatus(4)).toBe("locked");
+    expect(result.current.nextPreparationStep).toBe(3);
+  });
+
+  it("unlocks analysis for completed selection with a usable downloaded book", async () => {
+    readyBooks();
+    const { result } = await load();
+    expect(result.current.getStepStatus(3)).toBe("completed");
+    expect(result.current.getStepStatus(4)).toBe("pending");
+    expect(result.current.activeStep).toBe(4);
+    expect(result.current.getStepStatus(1)).toBe("pending");
+  });
+
+  it("accepts a directly uploaded book without a discovery session", async () => {
+    vi.mocked(getCourseSelectedBooks).mockResolvedValue([{ ...book, status: "uploaded" }]);
+    const { result } = await load();
+    expect(result.current.activeStep).toBe(4);
+    expect(result.current.getStepStatus(3)).toBe("completed");
+  });
+
+  it.each(["pending", "extracting", "chapter_extracted", "chunking", "embedding", "scoring", "agentic_extracting", "failed"] as const)("keeps results locked while analysis is %s", async (status) => {
+    readyBooks();
+    vi.mocked(getLatestAnalysis).mockResolvedValue(run(status));
+    const { result } = await load();
+    expect(result.current.activeStep).toBe(4);
+    expect(result.current.getStepStatus(5)).toBe("locked");
+    act(() => result.current.setActiveStep(5));
+    expect(result.current.activeStep).toBe(4);
+  });
+
+  it.each(["completed", "agentic_completed", "book_picked", "curriculum_built"] as const)("opens results after %s without claiming the teacher reviewed them", async (status) => {
+    readyBooks();
+    vi.mocked(getLatestAnalysis).mockResolvedValue(run(status));
+    const { result } = await load();
+    expect(result.current.activeStep).toBe(5);
+    expect(result.current.getStepStatus(4)).toBe("completed");
+    expect(result.current.getStepStatus(5)).toBe("pending");
+  });
+
+  it("respects Skip Books without sending teachers into an empty analysis workspace", async () => {
+    vi.mocked(getLatestSession).mockResolvedValue({ ...session, progress_total: 0, progress_scored: 0 });
+    const { result } = await load();
+    expect(result.current.booksSkipped).toBe(true);
+    expect(result.current.nextPreparationStep).toBeNull();
+    expect(result.current.activeStep).toBe(3);
+    expect(result.current.getStepStatus(3)).toBe("completed");
+    expect(result.current.getStepStatus(4)).toBe("locked");
+    expect(result.current.getStepStatus(5)).toBe("locked");
+  });
+
+  it("does not use stale analysis results after the books are removed", async () => {
+    vi.mocked(getLatestAnalysis).mockResolvedValue(run("completed"));
+    const { result } = await load();
+    expect(result.current.nextPreparationStep).toBe(3);
+    expect(result.current.canNavigateToStep(5)).toBe(false);
+  });
+});
+
+describe("live progress and navigation", () => {
+  it("keeps dependent steps closed until their status has loaded", async () => {
+    vi.mocked(getLatestSession).mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() => useCourseDetail(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.stepStatusesLoading).toBe(true);
+    expect(result.current.canNavigateToStep(3)).toBe(false);
+    expect(result.current.canNavigateToStep(4)).toBe(false);
+    expect(result.current.canNavigateToStep(5)).toBe(false);
+  });
+
+  it("fails closed on a status error, then unlocks after a successful retry", async () => {
+    vi.mocked(getLatestSession).mockRejectedValueOnce(new Error("Network unavailable"));
+    const { result } = await load();
+    expect(result.current.stepStatusesError).toBe(true);
+    expect(result.current.getStepStatus(4)).toBe("locked");
+    readyBooks();
+    act(() => result.current.refreshStepStatuses());
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("pending"));
+    expect(result.current.stepStatusesError).toBe(false);
+  });
+
+  it("updates completed books without reloading and leaves the teacher on their current workspace", async () => {
+    const { result } = await load();
+    expect(result.current.activeStep).toBe(3);
+    readyBooks();
+    act(() => result.current.refreshStepStatuses());
+    await waitFor(() => expect(result.current.getStepStatus(4)).toBe("pending"));
+    expect(result.current.activeStep).toBe(3);
+    act(() => result.current.goToNext());
+    expect(result.current.activeStep).toBe(4);
+  });
+
+  it("removes access to an open results workspace if its prerequisites become incomplete", async () => {
+    readyBooks();
+    vi.mocked(getLatestAnalysis).mockResolvedValue(run("completed"));
+    const { result } = await load();
+    expect(result.current.activeStep).toBe(5);
+    vi.mocked(getCourseSelectedBooks).mockResolvedValue([]);
+    act(() => result.current.refreshStepStatuses());
+    await waitFor(() => expect(result.current.activeStep).toBe(3));
+    expect(result.current.getStepStatus(5)).toBe("locked");
+  });
+
+  it("skips optional tools when continuing from materials", async () => {
+    const { result } = await load();
+    await act(async () => result.current.setActiveStep(0));
+    await act(async () => result.current.goToNext());
+    expect(result.current.activeStep).toBe(3);
+  });
+
+  it("keeps completed steps and optional tools available to revisit", async () => {
+    readyBooks();
+    const { result } = await load();
+    for (const index of [0, 1, 2, 3]) {
+      await act(async () => result.current.setActiveStep(index));
+      expect(result.current.activeStep).toBe(index);
+    }
+    expect(result.current.getStepStatus(-1)).toBe("locked");
+    expect(result.current.getStepStatus(6)).toBe("locked");
+  });
+
+  it("polls completion while the Prepare course page is open", async () => {
+    vi.useFakeTimers();
+    const { result, unmount } = renderHook(() => useCourseDetail(), {
+      wrapper: ({ children }: { children: ReactNode }) => <CourseDetailProvider courseId={1} pollStepStatuses>{children}</CourseDetailProvider>,
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.getStepStatus(4)).toBe("locked");
+    readyBooks();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(result.current.getStepStatus(4)).toBe("pending");
+    unmount();
+  });
+});
+
+
+describe("deployed material readiness", () => {
+  it("does not replace a teacher's navigation when initial progress finishes loading", async () => {
+    let finishLoading!: (value: BookSelectionSession | null) => void;
+    vi.mocked(getLatestSession).mockReturnValue(new Promise((resolve) => { finishLoading = resolve; }));
+    const {result} = renderHook(() => useCourseDetail(), {wrapper});
+    await waitFor(() => expect(result.current.materialsReady).toBe(true));
+    act(() => result.current.setActiveStep(0));
+    await act(async () => finishLoading(null));
+    expect(result.current.activeStep).toBe(0);
+    expect(result.current.nextPreparationStep).toBe(3);
+  });
+  it("does not call teacher-only readiness for student views", async () => {
+    const { result } = renderHook(() => useCourseDetail(), {wrapper: ({children}) => <CourseDetailProvider courseId={1} checkMaterials={false}>{children}</CourseDetailProvider>});
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(coursesApi.getMaterialsReadiness).not.toHaveBeenCalled();
+  });
+  it("keeps later steps locked when newly uploaded files are still processing", async () => {
+    vi.mocked(coursesApi.getMaterialsReadiness).mockResolvedValue({ready:false,status:"processing",message:"Processing new files.",total_files:2,processed_files:1});
+    const {result} = await load();
+    expect(result.current.activeStep).toBe(0);
+    expect(result.current.nextPreparationStep).toBe(0);
+    expect(result.current.getStepStatus(0)).toBe("active");
+    expect(result.current.canNavigateToStep(3)).toBe(false);
+    expect(result.current.canNavigateToStep(4)).toBe(false);
+  });
+  it("preserves explicit materials deep links after book selection", async () => {
+    readyBooks();
+    const {result} = renderHook(() => useCourseDetail(), {wrapper: ({children}) => <CourseDetailProvider courseId={1} initialStep="materials">{children}</CourseDetailProvider>});
+    await waitFor(() => expect(result.current.bookSessionStatus).toBe("completed"));
+    expect(result.current.activeStep).toBe(0);
+  });
+  it("unlocks after fresh readiness and closes again if readiness cannot be checked", async () => {
+    vi.useFakeTimers();
+    vi.mocked(coursesApi.getMaterialsReadiness)
+      .mockResolvedValueOnce({ready:false,status:"processing",message:"Processing.",total_files:2,processed_files:1})
+      .mockResolvedValueOnce({ready:true,status:"ready",message:"Ready.",total_files:2,processed_files:2})
+      .mockRejectedValue(new Error("Unavailable"));
+    const {result} = renderHook(() => useCourseDetail(), {wrapper});
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.canNavigateToStep(3)).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(result.current.canNavigateToStep(3)).toBe(true);
+    act(() => result.current.setActiveStep(3));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(result.current.canNavigateToStep(3)).toBe(false);
+    expect(result.current.activeStep).toBe(0);
+  });
+  it("uses fresh readiness when ingestion finishes after loading the page", async () => {
+    vi.useFakeTimers();
+    vi.mocked(coursesApi.getCourse).mockResolvedValue({...course, extraction_status:"not_started"});
+    vi.mocked(coursesApi.getMaterialsReadiness)
+      .mockResolvedValueOnce({ready:false,status:"processing",message:"Processing.",total_files:1,processed_files:0})
+      .mockResolvedValue({ready:true,status:"ready",message:"Ready.",total_files:1,processed_files:1});
+    const {result} = renderHook(() => useCourseDetail(), {wrapper});
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.canNavigateToStep(3)).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(result.current.canNavigateToStep(3)).toBe(true);
   });
 });

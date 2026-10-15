@@ -38,14 +38,14 @@ import {
   getExtractionPreview,
   getLatestAnalysis,
   triggerExtractionOnly,
-} from '../../api';
+} from '@/features/book-selection/api';
 import type {
   BookExtractionPreview,
   BookExtractionRun,
   ChapterPreview,
   ExtractionPreviewResponse,
   SectionPreview,
-} from '../../types';
+} from '@/features/book-selection/types';
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -448,7 +448,7 @@ export function ExtractionInspector({ courseId, disabled }: ExtractionInspectorP
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Eye className="h-5 w-5 text-primary" />
@@ -459,7 +459,7 @@ export function ExtractionInspector({ courseId, disabled }: ExtractionInspectorP
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {run && (
             <Badge variant={run.status === 'failed' ? 'destructive' : run.status === 'chapter_extracted' ? 'default' : 'secondary'}>
               {run.status === 'chapter_extracted' ? 'Ready for review' : run.status}

@@ -10,9 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Loader2, Play } from 'lucide-react';
-import type { CourseLevel, StartSessionRequest, WeightsConfig } from '../types';
-import { DEFAULT_WEIGHTS } from '../types';
+import type { CourseLevel, StartSessionRequest, WeightsConfig } from '@/features/book-selection/types';
+import { DEFAULT_WEIGHTS } from '@/features/book-selection/types';
 
 interface WeightsConfigPanelProps {
   onStart: (request: StartSessionRequest) => void;
@@ -52,9 +53,9 @@ export function WeightsConfigPanel({ onStart, isLoading, disabled }: WeightsConf
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Book Selection Configuration</CardTitle>
+        <CardTitle className="text-lg">Find books for your course</CardTitle>
         <CardDescription>
-          Configure scoring weights and course level before starting the AI book discovery.
+          Choose the course level. Recommended scoring settings are ready to use.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -75,57 +76,64 @@ export function WeightsConfigPanel({ onStart, isLoading, disabled }: WeightsConf
           </Select>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label className="text-base">Scoring Weights</Label>
-            <span
-              className={`text-sm tabular-nums ${
-                isValid ? 'text-green-600' : 'text-red-500'
-              }`}
-            >
-              Sum: {coreSum.toFixed(2)} {isValid ? '✓' : '(must = 1.00)'}
-            </span>
-          </div>
+        <Accordion type="single" collapsible>
+          <AccordionItem value="scoring" className="border-0">
+            <AccordionTrigger className="py-2">Advanced scoring settings</AccordionTrigger>
+            <AccordionContent className="space-y-4 pt-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base">Scoring Weights</Label>
+                <span
+                  className={`text-sm tabular-nums ${
+                    isValid ? 'text-green-600' : 'text-red-500'
+                  }`}
+                >
+                  Sum: {coreSum.toFixed(2)} {isValid ? '✓' : '(must = 1.00)'}
+                </span>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {(Object.keys(WEIGHT_LABELS) as (keyof typeof WEIGHT_LABELS)[]).map(
-              (key) => (
-                <div key={key} className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    {WEIGHT_LABELS[key]}
-                  </Label>
-                  <Input
-                    type="number"
-                    step={0.05}
-                    min={0}
-                    max={1}
-                    value={weights[key]}
-                    onChange={(e) => handleWeightChange(key, e.target.value)}
-                    className="h-9 tabular-nums"
-                  />
-                </div>
-              ),
-            )}
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                {(Object.keys(WEIGHT_LABELS) as (keyof typeof WEIGHT_LABELS)[]).map(
+                  (key) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">
+                        {WEIGHT_LABELS[key]}
+                      </Label>
+                      <Input
+                        type="number"
+                        step={0.05}
+                        min={0}
+                        max={1}
+                        value={weights[key]}
+                        onChange={(e) => handleWeightChange(key, e.target.value)}
+                        className="h-9 tabular-nums"
+                      />
+                    </div>
+                  ),
+                )}
+              </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">
-              Practicality Blend (W_prac)
-            </Label>
-            <Input
-              type="number"
-              step={0.05}
-              min={0}
-              max={1}
-              value={weights.W_prac}
-              onChange={(e) => handleWeightChange('W_prac', e.target.value)}
-              className="h-9 w-32 tabular-nums"
-            />
-            <p className="text-xs text-muted-foreground">
-              Blends a practicality score into S_final. 0 = pure academic scoring.
-            </p>
-          </div>
-        </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Practicality Blend (W_prac)
+                </Label>
+                <Input
+                  type="number"
+                  step={0.05}
+                  min={0}
+                  max={1}
+                  value={weights.W_prac}
+                  onChange={(e) => handleWeightChange('W_prac', e.target.value)}
+                  className="h-9 w-32 tabular-nums"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Blends a practicality score into S_final. 0 = pure academic scoring.
+                </p>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {!isValid && <p role="alert" className="text-sm text-destructive">Adjust the advanced scoring weights so their sum is 1.00 before starting.</p>}
 
         <Button
           onClick={handleStart}
