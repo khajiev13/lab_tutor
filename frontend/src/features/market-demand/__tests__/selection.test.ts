@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCategorySelection, applyIndividualSelection, applyRecommendationChanges, categorySelectionState, reconcileDraft, jobBackedCandidates, isUsablePostingUrl } from "@/features/market-demand/selection";
+import { applyCategorySelection, applyIndividualSelection, applyRecommendationChanges, categorySelectionState, reconcileDraft, jobBackedCandidates, isUsablePostingUrl, priorityLabel } from "@/features/market-demand/selection";
 
 import { largeReviewFixture, reviewFixture } from "@/features/market-demand/__tests__/review-fixtures";
 
@@ -66,4 +66,12 @@ it("formats official, estimated, partial and unavailable guidance without invent
   expect(priorityLabel(category)).toBe("4/5 · Estimated");
   expect(priorityLabel({...category, complete: false})).toBe("4/5 · Estimated · Partial");
   expect(priorityLabel({...category, basis: "derived", estimated_count: 0})).toBe("4/5 · O*NET average");
+});
+
+// Literal expectations use the same positive decimal half-up policy as saved ranking.
+it.each([[4.05, "4.1"], [4.35, "4.4"], [4.04, "4"], [4.06, "4.1"]] as const)("rounds %s consistently for candidate and category labels", (value, displayed) => {
+  expect(priorityLabel({value, basis: "onet_aggregate", complete: true, expected_contexts: 2, scored_contexts: 2, display_order: 0}))
+    .toBe(`${displayed}/5 · O*NET average`);
+  expect(priorityLabel({value, basis: "derived", complete: true, eligible_count: 2, scored_count: 2, onet_count: 2, estimated_count: 0, partial_count: 0, unavailable_count: 0, display_order: 0}))
+    .toBe(`${displayed}/5 · O*NET average`);
 });

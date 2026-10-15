@@ -65,7 +65,7 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
             className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left text-sm"
             onClick={() => setExpanded(open ? expanded.filter(id => id !== category.category_id) : [...expanded, category.category_id])}>
             <span className="min-w-0 break-words">{category.label} <span className="text-xs text-muted-foreground">({ids.filter(id => selected.has(id)).length}/{ids.length})</span>
-              {assessment && priorityLabel(category.priority) && <span className="block text-[11px] font-normal text-muted-foreground sm:inline sm:pl-2">{priorityLabel(category.priority)}</span>}</span>
+              {assessment && priorityLabel(category.priority) && <span className="block text-xs font-normal text-muted-foreground sm:inline sm:pl-2">{priorityLabel(category.priority)}</span>}</span>
             {open ? <ChevronDown className="size-4 shrink-0"/> : <ChevronRight className="size-4 shrink-0"/>}
           </button>
         </div>
@@ -75,7 +75,7 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
               <Checkbox aria-label={`Select ${candidate.display_name}`} checked={selected.has(candidate.candidate_id)} disabled={locked}
                 onCheckedChange={checked => controller.setCandidate(candidate.candidate_id, checked === true)}/>
               <span className="min-w-0 break-words">{candidate.display_name}
-                {assessment && priorityLabel(candidate.priority) && <span className="block text-[11px] text-muted-foreground sm:inline sm:pl-2">{priorityLabel(candidate.priority)}</span>}</span>
+                {assessment && priorityLabel(candidate.priority) && <span className="block text-xs text-muted-foreground sm:inline sm:pl-2">{priorityLabel(candidate.priority)}</span>}</span>
             </label>
             <Button size="sm" variant="ghost" className="shrink-0" aria-label={`Inspect ${candidate.display_name}`}
               onClick={event => onInspect(candidate.candidate_id, event.currentTarget)}>{candidate.job_metrics.supporting_posting_count ?? 0} jobs ›</Button>

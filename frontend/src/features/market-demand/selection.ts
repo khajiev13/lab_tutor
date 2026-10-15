@@ -64,6 +64,9 @@ export function jobBackedCandidates(review: SkillReview): SkillCandidate[] {
     .sort((a, b) => a.display_name.localeCompare(b.display_name) || a.candidate_id.localeCompare(b.candidate_id));
 }
 
+// Intl defaults to decimal halfExpand, matching positive ROUND_HALF_UP ranking.
+const priorityNumber = new Intl.NumberFormat("en", {maximumFractionDigits: 1});
+
 export function priorityLabel(priority: CandidatePriority | CategoryPriority | null | undefined): string | null {
   if (!priority) return null;
   if (priority.basis === "unavailable" || priority.value === null) return "Not assessed";
@@ -71,7 +74,7 @@ export function priorityLabel(priority: CandidatePriority | CategoryPriority | n
   const source = category
     ? priority.basis === "ai_estimate" ? "Estimated" : "O*NET average"
     : priority.basis === "onet" ? "O*NET" : priority.basis === "onet_aggregate" ? "O*NET average" : "AI estimate";
-  return `${Number(priority.value.toFixed(1))}/5 · ${source}${priority.complete ? "" : " · Partial"}`;
+  return `${priorityNumber.format(priority.value)}/5 · ${source}${priority.complete ? "" : " · Partial"}`;
 }
 
 export function currentPriorityAssessment(review: SkillReview) {

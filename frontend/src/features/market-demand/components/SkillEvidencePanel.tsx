@@ -151,21 +151,32 @@ export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, foc
   const groups = groupPostingEvidence(candidate);
   const sessionKey = JSON.stringify([courseId, candidate.candidate_id, candidate.evidence_references, candidate.qualifying_posting_links]);
   const priority = candidate.priority;
+  const candidatePostingIds = new Set(candidate.evidence_references
+    .filter(item => !["purged", "removed", "unavailable"].includes(item.status))
+    .map(item => item.snapshot_id));
   const content = <div className="space-y-2 text-xs">
       {priorityAssessment && priority && <section aria-label="Skill importance evidence" className="space-y-2 rounded-md border p-3">
         <h3 className="font-medium">Importance · {priorityLabel(priority)}</h3>
-        <p>{priority.basis === "onet" ? "Official O*NET importance for the matched role." : "Lab Tutor summary across assessed role contexts; aggregates are not official O*NET ratings."}</p>
+        <p>{priority.basis === "onet" ? "Official O*NET importance for the matched role." : priority.basis === "ai_estimate" ? "AI estimate across assessed roles." : priority.basis === "onet_aggregate" ? "Lab Tutor average of official O*NET role ratings." : "No importance score available."}</p>
         <p>{priority.scored_contexts} of {priority.expected_contexts} role contexts assessed{priority.complete ? "." : " · Partial coverage."}</p>
-        {categoryPriority && <p>Category Lab Tutor summary: {priorityLabel(categoryPriority)} · {categoryPriority.scored_count} of {categoryPriority.eligible_count} eligible skills assessed; {categoryPriority.onet_count} O*NET, {categoryPriority.estimated_count} estimated, {categoryPriority.partial_count} partial, {categoryPriority.unavailable_count} unavailable.</p>}
+        {categoryPriority && <p>Category: {priorityLabel(categoryPriority)} · {categoryPriority.scored_count} of {categoryPriority.eligible_count} skills assessed.</p>}
         <details><summary className="cursor-pointer">Assessment technical details</summary>
+          <p>Lab Tutor summaries and AI estimates are not official O*NET ratings.</p>
+          {categoryPriority && <p>Category sources: {categoryPriority.onet_count} O*NET, {categoryPriority.estimated_count} estimated, {categoryPriority.partial_count} partial, {categoryPriority.unavailable_count} unavailable.</p>}
           <p>Release: {priorityAssessment.release ?? "unavailable"} · model: {priorityAssessment.model_id} · policy: {priorityAssessment.policy_version}</p>
+          {priorityAssessment.error_reasons.map((text, index) => <p key={index}>Assessment limitation: {text}</p>)}
         </details>
         {results.map(result => {
-          const context = priorityAssessment.contexts.find(item => item.soc_code === result.soc_code && item.group_id === result.context_key) ??
-            priorityAssessment.contexts.find(item => item.soc_code === result.soc_code);
+          const contexts = priorityAssessment.contexts.filter(item => result.soc_code === null
+            ? item.soc_code === null && `unmapped:${item.group_id}` === result.context_key
+            : item.soc_code === result.soc_code && item.posting_ids.some(id => candidatePostingIds.has(id)));
           return <div key={result.context_key} className="space-y-1 border-t pt-2">
-            <p>{context?.occupation_title ?? "Role unavailable"} · {result.soc_code ?? "No occupation code"}{context?.inferred ? " · Inferred from postings" : ""}</p>
-            {context && <p>{context.rationale}</p>}
+            {!contexts.length && <p>Role unavailable · {result.soc_code ?? "No occupation code"}</p>}
+            {contexts.map(context => <div key={context.group_id}>
+              <p>{context.occupation_title ?? "Role unavailable"} · {result.soc_code ?? "No occupation code"}{context.inferred ? " · Inferred from postings" : ""}</p>
+              <p>{context.rationale}</p>
+              {context.unavailable_reason && <p>{context.unavailable_reason}</p>}
+            </div>)}
             <p>{result.basis === "onet" ? `O*NET source value: ${result.official_value ?? "unavailable"}/5` :
               result.basis === "ai_estimate" ? `AI estimate: ${result.estimate ?? "unavailable"}/5` : "Not assessed"}</p>
             <p>{result.explanation}</p>
@@ -173,10 +184,9 @@ export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, foc
             {!!result.supporting_evidence_ids.length && <p>{new Set(result.supporting_evidence_ids).size} verified passages · see posting evidence below.</p>}
             {result.associations.map(item => <p key={item.reference_id}>{item.relation} reference: {references.get(item.reference_id)?.evidence.label ?? "Reference details unavailable"} · {item.rationale}</p>)}
             {result.limitations.map((text, index) => <p key={index}>Limitation: {text}</p>)}
-            {(result.unavailable_reason || context?.unavailable_reason) && <p>{result.unavailable_reason ?? context?.unavailable_reason}</p>}
+            {result.unavailable_reason && <p>{result.unavailable_reason}</p>}
           </div>;
         })}
-        {priorityAssessment.error_reasons.map((text, index) => <p key={index}>Assessment limitation: {text}</p>)}
       </section>}
       {!!candidate.original_labels.length && <p>Original skill labels: {[...new Set(candidate.original_labels)].join(" · ")}</p>}
       <PostingInspection key={sessionKey} courseId={courseId} groups={groups} dialog={open !== undefined}

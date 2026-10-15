@@ -228,8 +228,16 @@ const output = process.env.WORKSPACE_OUTPUT_DIR || path.resolve(path.dirname(sou
             const expectedLabel = (priority, category = false) => {
                 if (priority.value == null || priority.basis === 'unavailable') return 'Not assessed';
                 const basis = category ? priority.basis === 'ai_estimate' ? 'Estimated' : 'O*NET average' : priority.basis === 'onet' ? 'O*NET' : priority.basis === 'onet_aggregate' ? 'O*NET average' : 'AI estimate';
-                return `${Number(priority.value.toFixed(1))}/5 · ${basis}${priority.complete ? '' : ' · Partial'}`;
+                // Independent decimal-digit oracle for validated positive 1–5 values.
+                const [whole, fraction = ''] = String(priority.value).split('.');
+                const tenths = Number(whole) * 10 + Number(fraction[0] ?? '0') + (Number(fraction[1] ?? '0') >= 5 ? 1 : 0);
+                const rounded = tenths % 10 ? `${Math.floor(tenths / 10)}.${tenths % 10}` : String(tenths / 10);
+                return `${rounded}/5 · ${basis}${priority.complete ? '' : ' · Partial'}`;
             };
+            for (const [value, label] of [[4.05, '4.1'], [4.35, '4.4'], [4.04, '4'], [4.06, '4.1']]) {
+                assert.equal(expectedLabel({ value, basis: 'onet_aggregate', complete: true }), `${label}/5 · O*NET average`);
+                assert.equal(expectedLabel({ value, basis: 'derived', complete: true }, true), `${label}/5 · O*NET average`);
+            }
             await page.setViewportSize({ width: 1440, height: 900 });
             const mountedOrder = await categoryOrder();
             assert.deepEqual(mountedOrder, [...categories].sort((a, b) => a.priority.display_order - b.priority.display_order).map(category => category.label), 'Saved display order controls category order');

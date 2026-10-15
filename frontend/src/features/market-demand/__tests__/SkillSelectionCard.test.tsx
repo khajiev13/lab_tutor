@@ -1,5 +1,5 @@
 import {useLayoutEffect} from "react";
-import {act, render, screen} from "@testing-library/react";
+import {act, render, screen, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {expect, it, vi} from "vitest";
 import {SkillSelectionCard} from "@/features/market-demand/components/SkillSelectionCard";
@@ -104,4 +104,20 @@ it.each(["disabled", "stale", "wrong revision"])("keeps legacy order when %s gui
   expect(screen.queryByText("4.2/5 · O*NET")).not.toBeInTheDocument();
   act(() => view.controller().setCandidate("skill-2", true));
   expect(view.visibleCandidateIds()[0]).toBe("Select Skill 00");
+});
+
+it("shows decimal half-up ties in saved server order without reordering choices", async () => {
+  const review = priorityReview();
+  review.candidates = [4.04, 4.05, 4.06, 4.35].map((value, index) => ({...review.candidates[index],
+    priority: {...review.candidates[index].priority!, value, basis: "onet_aggregate", display_order: [3, 2, 1, 0][index]}}));
+  review.categories[0].priority = {...review.categories[0].priority!, value: 4.05, basis: "derived"};
+  const view = setupPriorityReview(review);
+  expect(screen.getByText("4.1/5 · O*NET average · Partial")).toBeInTheDocument();
+  await view.user.click(screen.getByRole("button", {name: "Expand Tools"}));
+  expect(view.visibleCandidateIds()).toEqual(["Select Skill 03", "Select Skill 02", "Select Skill 01", "Select Skill 00"]);
+  for (const [name, label] of [["Skill 03", "4.4/5 · O*NET average"], ["Skill 02", "4.1/5 · O*NET average"], ["Skill 01", "4.1/5 · O*NET average"], ["Skill 00", "4/5 · O*NET average"]]) {
+    expect(within(screen.getByRole("checkbox", {name: `Select ${name}`}).closest("label")!).getByText(label)).toBeInTheDocument();
+  }
+  await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 01"}));
+  expect(view.visibleCandidateIds()).toEqual(["Select Skill 03", "Select Skill 02", "Select Skill 01", "Select Skill 00"]);
 });

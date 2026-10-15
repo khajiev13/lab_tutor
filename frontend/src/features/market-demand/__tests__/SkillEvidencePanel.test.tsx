@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import {beforeEach, expect, it, vi} from "vitest";
 import {SkillEvidencePanel} from "@/features/market-demand/components/SkillEvidencePanel";
 import {reviewFixture} from "@/features/market-demand/__tests__/review-fixtures";
-import type {PostingEvidence, SkillCandidate, VacancyEvidenceReference} from "@/features/market-demand/types";
+import type {PriorityAssessment, PostingEvidence, SkillCandidate, VacancyEvidenceReference} from "@/features/market-demand/types";
 vi.mock("@/features/market-demand/api", async () => ({...await vi.importActual("@/features/market-demand/api"), fetchPostingEvidence: vi.fn()}));
 import {fetchPostingEvidence} from "@/features/market-demand/api";
 
@@ -181,7 +181,8 @@ it("does not focus a removed trigger when the course or inspection closes", asyn
 
 it("explains score provenance, role, coverage and limitations while retaining original source links", async () => {
   const {workspaceEvidenceFixture} = await import("@/features/market-demand/__tests__/review-fixtures");
-  const row = {...reviewFixture().candidates[0], evidence_references: [], onet_associations: [workspaceEvidenceFixture()],
+  vi.mocked(fetchPostingEvidence).mockResolvedValue(posting("snapshot-1"));
+  const row = {...reviewFixture().candidates[0], onet_associations: [workspaceEvidenceFixture()],
     priority: {value: 4, basis: "onet_aggregate" as const, complete: false, expected_contexts: 2, scored_contexts: 1, display_order: 0}};
   const assessment = {assessment_id: "assessment", run_id: "run-1", candidate_revision: 1, input_fingerprint: "f", schema_version: 1 as const,
     policy_version: "1", prompt_version: "1", model_id: "model", release: "30.0", started_at: "2026-10-15", updated_at: "2026-10-15",
@@ -189,17 +190,18 @@ it("explains score provenance, role, coverage and limitations while retaining or
     posting_hashes: {}, error_reasons: ["One role could not be assessed"], summaries: {candidates: {}, categories: {}},
     contexts: [{group_id: "developers", soc_code: "15-1252.00", occupation_title: "Software Developers", posting_ids: ["snapshot-1"],
       rationale: "Role from the selected postings", inferred: true, unavailable_reason: null}],
-    results: [{candidate_id: "python", context_key: "developers", soc_code: "15-1252.00", basis: "onet" as const,
+    results: [{candidate_id: "python", context_key: "15-1252.00", soc_code: "15-1252.00", basis: "onet" as const,
       direct_reference_id: row.onet_associations[0].evidence.id, estimate: null, associations: [], supporting_evidence_ids: ["snapshot-1"],
       explanation: "Equivalent programming descriptor", limitations: ["Only one role assessed"], unavailable_reason: null, official_value: 4.2, value: 4.2}]};
   render(<SkillEvidencePanel courseId={1} candidate={row} priorityAssessment={assessment} open onOpenChange={vi.fn()}/>);
-  expect(screen.getByText(/Lab Tutor summary/)).toBeInTheDocument();
+  expect(screen.getByText("Lab Tutor average of official O*NET role ratings.")).toBeVisible();
   expect(screen.getByText(/1 of 2 role contexts assessed/)).toBeInTheDocument();
   expect(screen.getByText(/Software Developers.*15-1252.00/)).toBeInTheDocument();
   expect(screen.getByText(/O\*NET source value: 4.2\/5/)).toBeInTheDocument();
   expect(screen.getByText(/Only one role assessed/)).toBeInTheDocument();
   expect(screen.getByRole("link", {name: /Original posting/})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
   expect(screen.getByRole("link", {name: /O\*NET reference/})).toHaveAttribute("href", "https://onetonline.org");
+  await screen.findByText("Use Python");
 });
 
 it.each([false, true])("resolves new priority references with readable sources and no duplicate legacy cards (legacy present: %s)", async legacy => {
@@ -229,4 +231,39 @@ it.each([false, true])("resolves new priority references with readable sources a
   expect(screen.getByRole("dialog").querySelectorAll('[data-evidence-id="priority-direct"]')).toHaveLength(1);
   expect(screen.getByText(/technical-model/)).not.toBeVisible();
   expect(screen.getByRole("link", {name: /Original posting/})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
+});
+
+function contextAssessment(soc: string | null): PriorityAssessment {
+  return {assessment_id: "assessment", run_id: "run-1", candidate_revision: 1, input_fingerprint: "f", schema_version: 1,
+    policy_version: "1", prompt_version: "1", model_id: "model", release: "30.0", started_at: "2026-10-15", updated_at: "2026-10-15",
+    deadline_at: "2026-10-16", completed_at: "2026-10-15", status: "partial", expected_pair_count: 1, completed_pair_count: 1,
+    posting_hashes: {}, error_reasons: [], summaries: {candidates: {}, categories: {}},
+    contexts: ["a", "b"].map(id => ({group_id: `group:${id}`, soc_code: soc, occupation_title: soc ? "Software Developers" : null,
+      posting_ids: [id], rationale: `Group ${id.toUpperCase()} rationale`, inferred: true, unavailable_reason: `Group ${id.toUpperCase()} context limitation`})),
+    results: [{candidate_id: "candidate-b", context_key: soc ?? "unmapped:group:b", soc_code: soc, basis: "unavailable", direct_reference_id: null,
+      estimate: null, associations: [], supporting_evidence_ids: [], explanation: "No verified rating", limitations: ["Candidate-specific limitation"],
+      unavailable_reason: "Rating unavailable", official_value: null, value: null}]};
+}
+function contextCandidate(snapshots: string[]): SkillCandidate {
+  return {...candidate(), candidate_id: "candidate-b", qualifying_posting_links: [], onet_associations: [],
+    evidence_references: snapshots.map(id => reference(id, `https://jobs.test/${id}`, "ETL")),
+    priority: {value: null, basis: "unavailable", complete: false, expected_contexts: 1, scored_contexts: 0, display_order: 0}};
+}
+it("uses the exact prefixed unmapped group key instead of another null-SOC group's rationale", async () => {
+  vi.mocked(fetchPostingEvidence).mockImplementation(async (_, id) => posting(id));
+  render(<SkillEvidencePanel courseId={1} candidate={contextCandidate(["b"])} priorityAssessment={contextAssessment(null)} open/>);
+  await screen.findByText("ETL in practice");
+  expect(screen.getByText("Group B rationale")).toBeVisible();
+  expect(screen.queryByText("Group A rationale")).not.toBeInTheDocument();
+  expect(screen.getByText("Limitation: Candidate-specific limitation")).toBeVisible();
+});
+it.each([{snapshots: ["b"]}, {snapshots: ["a", "b"]}, {snapshots: []}])("shows only mapped groups sharing actual supporting snapshots $snapshots", async ({snapshots}) => {
+  vi.mocked(fetchPostingEvidence).mockImplementation(async (_, id) => posting(id));
+  render(<SkillEvidencePanel courseId={1} candidate={contextCandidate(snapshots)} priorityAssessment={contextAssessment("15-1252.00")} open/>);
+  if (snapshots.length) await screen.findAllByText("ETL in practice");
+  for (const id of ["a", "b"]) {
+    const rationale = screen.queryByText(`Group ${id.toUpperCase()} rationale`);
+    if (snapshots.includes(id)) expect(rationale).toBeVisible();
+    else expect(rationale).not.toBeInTheDocument();
+  }
 });
