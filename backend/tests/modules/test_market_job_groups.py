@@ -1,59 +1,152 @@
-"""Role groups combine seniority/translation variants without losing postings."""
+"""AI role decisions retain every posting without title-pattern fallback merges."""
 
+import json
 from copy import deepcopy
+from types import SimpleNamespace
+
+import pytest
+
+from app.modules.marketdemandanalyst import job_groups
 
 
-def test_seniority_and_bilingual_variants_keep_all_original_postings():
-    from app.modules.marketdemandanalyst.job_groups import group_jobs_by_title
+def model_response(monkeypatch, groups=None, *, error=None):
+    class Model:
+        def invoke(self, messages, **kwargs):
+            if error:
+                raise error
+            return SimpleNamespace(content=json.dumps(groups))
 
-    titles = [
-        "Data Engineer",
-        "Middle Data Engineer",
-        "Senior Data Engineer",
-        "Data Engineer (Middle+)",
-        "Data Engineer/Младший Инженер Данных",
-        "Младший инженер данных",
-        "Data Analyst / Младший Аналитик Данных",
-        "Младший Аналитик Данных (Junior Data Analyst)",
-        "Data Systems Engineer",
-        "Data Scientist / ML Engineer (Middle+)",
-        "Fraud Analyst",
-    ]
+    monkeypatch.setattr(
+        job_groups, "_get_extraction_llm", lambda **kwargs: Model(), raising=False
+    )
+
+
+def test_ai_groups_equivalent_roles_and_preserves_all_original_postings(monkeypatch):
     jobs = [
-        {"title": title, "url": f"https://hh.uz/vacancy/{i}"}
-        for i, title in enumerate(titles)
+        {"title": "Data Engineer", "description": "Develop data pipelines"},
+        {"title": "Middle Data Engineer", "description": "Build ETL pipelines"},
+        {"title": "Разработчик платформы данных", "description": "Разработка ETL"},
+        {"title": "Fraud Analyst", "description": "Investigate payment fraud"},
     ]
+    for index, job in enumerate(jobs):
+        job["url"] = f"https://hh.uz/vacancy/{index}"
     original = deepcopy(jobs)
-    groups = group_jobs_by_title(jobs)
-    assert groups["Data Engineer"] == list(range(6))
-    assert groups["Data Analyst"] == [6, 7]
-    assert groups["Data Systems Engineer"] == [8]
-    assert groups["Data Scientist / Ml Engineer"] == [9]
-    assert groups["Fraud Analyst"] == [10]
-    assert sorted(i for indices in groups.values() for i in indices) == list(range(11))
+    model_response(
+        monkeypatch,
+        [
+            {"name": "Data Engineer", "job_ids": ["j0", "j1", "j2"]},
+            {"name": "Fraud Analyst", "job_ids": ["j3"]},
+        ],
+    )
+    assert job_groups.group_jobs_by_title(jobs) == {
+        "Data Engineer": [0, 1, 2],
+        "Fraud Analyst": [3],
+    }
     assert jobs == original
-    assert list(groups)[:2] == ["Data Engineer", "Data Analyst"]
 
 
-def test_distinct_specializations_and_mixed_roles_are_not_fuzzy_merged():
-    from app.modules.marketdemandanalyst.job_groups import group_jobs_by_title
-
-    titles = [
-        "Data Engineer",
-        "Data Engineer / Data Analyst",
-        "Data Platform Engineer",
-        "Data Quality Engineer",
-        "Database Engineer",
-        "Data Analyst",
-        "Business Analyst",
-        "Java Developer",
-        "C++/Java Software Engineer",
+@pytest.mark.parametrize("preamble", ["", "Company background. " * 100])
+def test_description_context_allows_ai_to_separate_identical_titles(
+    monkeypatch, preamble
+):
+    jobs = [
+        {"title": "Analyst", "description": "Design data pipelines and warehouses"},
+        {"title": "Analyst", "description": "Investigate suspicious card payments"},
     ]
-    groups = group_jobs_by_title([{"title": title} for title in titles])
-    assert len(groups) == len(titles)
+    for job in jobs:
+        job["description"] = preamble + job["description"]
+
+    class Model:
+        def invoke(self, messages, **kwargs):
+            payload = json.loads(messages[1][1])
+            assert payload["jobs"] == [
+                {"job_id": "j0", **jobs[0]},
+                {"job_id": "j1", **jobs[1]},
+            ]
+            return SimpleNamespace(
+                content=json.dumps(
+                    [
+                        {"name": "Data Engineer", "job_ids": ["j0"]},
+                        {"name": "Fraud Analyst", "job_ids": ["j1"]},
+                    ]
+                )
+            )
+
+    monkeypatch.setattr(
+        job_groups, "_get_extraction_llm", lambda **kwargs: Model(), raising=False
+    )
+    assert job_groups.group_jobs_by_title(jobs) == {
+        "Data Engineer": [0],
+        "Fraud Analyst": [1],
+    }
 
 
-def test_collected_source_jobs_use_the_shared_role_groups(monkeypatch):
+@pytest.mark.parametrize(
+    "response",
+    [
+        [{"name": "Data Engineer", "job_ids": ["j0"]}],
+        [{"name": "Data Engineer", "job_ids": ["j0", "j0", "j1"]}],
+        [{"name": "Data Engineer", "job_ids": ["j0", "j1", "j99"]}],
+        [
+            {"name": "Data Engineer", "job_ids": ["j0"]},
+            {"name": "Data Engineer", "job_ids": ["j1"]},
+        ],
+        [{"name": "", "job_ids": ["j0", "j1"]}],
+        [{"name": "Data Engineer", "job_ids": [0, 1]}],
+        {"Data Engineer": ["j0", "j1"]},
+    ],
+)
+def test_invalid_ai_partition_keeps_every_original_posting_separate(
+    monkeypatch, response
+):
+    jobs = [{"title": "Data Engineer"}, {"title": "Middle Data Engineer"}]
+    model_response(monkeypatch, response)
+    assert job_groups.group_jobs_by_title(jobs) == {
+        "Data Engineer [posting 1]": [0],
+        "Middle Data Engineer [posting 2]": [1],
+    }
+
+
+def test_model_failure_never_reverts_to_title_rules(monkeypatch):
+    jobs = [{"title": "Data Engineer"}, {"title": "Middle Data Engineer"}]
+    model_response(monkeypatch, error=TimeoutError("model unavailable"))
+    assert job_groups.group_jobs_by_title(jobs) == {
+        "Data Engineer [posting 1]": [0],
+        "Middle Data Engineer [posting 2]": [1],
+    }
+
+
+def test_empty_and_single_posting_need_no_semantic_decision(monkeypatch):
+    model_response(monkeypatch, error=AssertionError("No grouping needed"))
+    assert job_groups.group_jobs_by_title([]) == {}
+    assert job_groups.group_jobs_by_title([{"title": "Middle Data Engineer"}]) == {
+        "Middle Data Engineer": [0]
+    }
+
+
+def test_busy_model_pool_keeps_postings_without_an_unbounded_wait(monkeypatch):
+    class BusyPool:
+        def acquire(self, *, timeout):
+            assert 0 < timeout <= 5
+            return False
+
+        def __enter__(self):
+            pytest.fail("Grouping must bound its wait for a model slot")
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(job_groups, "_EXTRACTION_SLOTS", BusyPool())
+    model_response(monkeypatch, error=AssertionError("Busy pool must not call model"))
+    assert job_groups.group_jobs_by_title(
+        [{"title": "Data Engineer"}, {"title": "Middle Data Engineer"}]
+    ) == {
+        "Data Engineer [posting 1]": [0],
+        "Middle Data Engineer [posting 2]": [1],
+    }
+
+
+def test_collected_source_jobs_use_ai_groups(monkeypatch):
     from app.modules.marketdemandanalyst import tools
     from app.modules.marketdemandanalyst.state import bind_tool_store
 
@@ -63,7 +156,10 @@ def test_collected_source_jobs_use_the_shared_role_groups(monkeypatch):
 
         def collect_sources(self, *args, **kwargs):
             return {
-                "jobs": [{"title": "Data Engineer"}, {"title": "Middle Data Engineer"}],
+                "jobs": [
+                    {"title": "Data Engineer"},
+                    {"title": "Разработчик платформы данных"},
+                ],
                 "source_outcomes": {},
                 "candidate_revision": 1,
                 "onet_evidence": [],
@@ -71,6 +167,7 @@ def test_collected_source_jobs_use_the_shared_role_groups(monkeypatch):
             }
 
     monkeypatch.setattr(tools, "get_market_source_service", Sources)
+    model_response(monkeypatch, [{"name": "Data Engineer", "job_ids": ["j0", "j1"]}])
     with bind_tool_store({"run_id": "run"}):
         tools.fetch_jobs.invoke(
             {"search_terms": "Data Engineer", "country": "Uzbekistan"}

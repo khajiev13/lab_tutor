@@ -1035,6 +1035,7 @@ class TestFetchJobsCountry:
         import pandas as pd
 
         import app.modules.marketdemandanalyst.state as state_mod
+        from app.modules.marketdemandanalyst import job_groups
         from app.modules.marketdemandanalyst.tools import fetch_jobs
 
         calls = []
@@ -1058,6 +1059,13 @@ class TestFetchJobsCountry:
             )
 
         monkeypatch.setattr(jobspy, "scrape_jobs", fake_scrape_jobs)
+        grouping_model = MagicMock()
+        grouping_model.invoke.return_value = AIMessage(
+            content='[{"name":"Data Engineer","job_ids":["j0","j1"]}]'
+        )
+        monkeypatch.setattr(
+            job_groups, "_get_extraction_llm", lambda **kwargs: grouping_model
+        )
         state_mod.tool_store.clear()
         state_mod.tool_store["job_search_country"] = "China"
         state_mod.tool_store["job_search_country_confirmed"] = True
@@ -1067,6 +1075,7 @@ class TestFetchJobsCountry:
         )
 
         assert "Fetched 2 unique jobs" in result
+        assert state_mod.tool_store["job_groups"] == {"Data Engineer": [0, 1]}
         assert {call["country_indeed"] for call in calls} == {"China"}
         assert {call["location"] for call in calls} == {"China"}
         assert {job["country"] for job in state_mod.tool_store["fetched_jobs"]} == {

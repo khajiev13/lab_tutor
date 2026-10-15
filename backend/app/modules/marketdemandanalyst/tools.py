@@ -363,9 +363,7 @@ def fetch_jobs(
     tool_store["job_groups"] = groups
 
     # Build grouped summary (this is all the LLM sees)
-    lines = [
-        f"Fetched {len(jobs_list)} unique jobs in {len(groups)} title-based groups:"
-    ]
+    lines = [f"Fetched {len(jobs_list)} unique jobs in {len(groups)} role groups:"]
     shown = sorted_groups[:10]
     for num, (cat, idxs) in enumerate(shown, 1):
         companies = list(dict.fromkeys(jobs_list[i]["company"] for i in idxs))[:4]
