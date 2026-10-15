@@ -201,3 +201,32 @@ it("explains score provenance, role, coverage and limitations while retaining or
   expect(screen.getByRole("link", {name: /Original posting/})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
   expect(screen.getByRole("link", {name: /O\*NET reference/})).toHaveAttribute("href", "https://onetonline.org");
 });
+
+it.each([false, true])("resolves new priority references with readable sources and no duplicate legacy cards (legacy present: %s)", async legacy => {
+  const {workspaceEvidenceFixture} = await import("@/features/market-demand/__tests__/review-fixtures");
+  const direct = workspaceEvidenceFixture({id: "priority-direct", label: "Programming systems", source_url: "https://www.onetonline.org/link/summary/15-1252.00", attribution: "O*NET Database 30.0 · National Center for O*NET Development"});
+  const anchor = workspaceEvidenceFixture({id: "priority-anchor", label: "Systems analysis", source_url: "https://www.onetonline.org/link/summary/15-1211.00"}).evidence;
+  const unused = workspaceEvidenceFixture({id: "another-candidate", label: "Unrelated descriptor"}).evidence;
+  const row = {...reviewFixture().candidates[0], evidence_references: [], onet_associations: legacy ? [direct] : [],
+    priority: {value: 4, basis: "onet" as const, complete: true, expected_contexts: 1, scored_contexts: 1, display_order: 0}};
+  const assessment = {assessment_id: "assessment", run_id: "run-1", candidate_revision: 1, input_fingerprint: "f", schema_version: 1 as const,
+    policy_version: "1", prompt_version: "1", model_id: "technical-model", release: "30.0", started_at: "2026-10-15", updated_at: "2026-10-15",
+    deadline_at: "2026-10-16", completed_at: "2026-10-15", status: "ready" as const, expected_pair_count: 1, completed_pair_count: 1,
+    posting_hashes: {}, error_reasons: [], summaries: {candidates: {}, categories: {}}, contexts: [], references: [direct.evidence, anchor, unused],
+    results: [{candidate_id: "python", context_key: "role", soc_code: "15-1252.00", basis: "onet" as const,
+      direct_reference_id: "priority-direct", estimate: null, associations: [{reference_id: "priority-anchor", relation: "related" as const, rationale: "Contextual systems reference"}],
+      supporting_evidence_ids: ["passage-private-a", "passage-private-b"], explanation: "Equivalent descriptor", limitations: [], unavailable_reason: null, official_value: 4, value: 4}]};
+  render(<SkillEvidencePanel courseId={1} candidate={row} priorityAssessment={assessment} open onOpenChange={vi.fn()}/>);
+  expect(screen.getAllByRole("link", {name: "O*NET reference: Programming systems (Developer)"})).toHaveLength(1);
+  expect(screen.getByRole("link", {name: "O*NET reference: Programming systems (Developer)"})).toHaveAttribute("href", direct.evidence.source_url);
+  expect(screen.getByText("O*NET Database 30.0 · National Center for O*NET Development")).toBeInTheDocument();
+  expect(screen.getByRole("link", {name: "O*NET reference: Systems analysis (Developer)"})).toHaveAttribute("href", anchor.source_url);
+  expect(screen.getByText(/related reference: Systems analysis/)).toHaveTextContent("Contextual systems reference");
+  expect(screen.getByText("2 verified passages · see posting evidence below.")).toBeInTheDocument();
+  expect(screen.queryByText(/passage-private|Matched reference: priority-direct/)).not.toBeInTheDocument();
+  expect(screen.queryByText("O*NET unavailable: no association.")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Unrelated descriptor/)).not.toBeInTheDocument();
+  expect(screen.getByRole("dialog").querySelectorAll('[data-evidence-id="priority-direct"]')).toHaveLength(1);
+  expect(screen.getByText(/technical-model/)).not.toBeVisible();
+  expect(screen.getByRole("link", {name: /Original posting/})).toHaveAttribute("href", "https://hh.uz/vacancy/123");
+});

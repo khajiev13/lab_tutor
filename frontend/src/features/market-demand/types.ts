@@ -211,6 +211,7 @@ export interface PriorityAssessment {
   status: PriorityStatus;
   contexts: PriorityContext[];
   results: PriorityResult[];
+  references?: OnetEvidence[];
   summaries: PrioritySummarySet;
   expected_pair_count: number;
   completed_pair_count: number;

@@ -132,7 +132,18 @@ interface Props {
 }
 
 export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, focusedEvidenceId, returnFocusTo, ratings, descriptorChoices, release, onChooseDescriptor, priorityAssessment, categoryPriority}: Props) {
-  const associations = [...new Map(candidate.onet_associations.map(item => [item.evidence.id, item])).values()];
+  const results = priorityAssessment?.results.filter(result => result.candidate_id === candidate.candidate_id) ?? [];
+  const references = new Map(candidate.onet_associations.map(item => [item.evidence.id, item]));
+  for (const evidence of priorityAssessment?.references ?? []) {
+    const direct = results.find(result => result.direct_reference_id === evidence.id);
+    const anchor = results.flatMap(result => result.associations).find(item => item.reference_id === evidence.id);
+    if (!direct && !anchor) continue;
+    const legacy = references.get(evidence.id);
+    references.set(evidence.id, legacy ? {...legacy, evidence} : {evidence,
+      relation: direct ? "equivalent" : anchor!.relation, mapping_method: "Skill importance assessment",
+      rationale: direct?.explanation ?? anchor!.rationale});
+  }
+  const associations = [...references.values()];
   // Only request identities survive a disclosure session. Full bodies are
   // discarded on close and previously requested snapshots re-resolve on reopen.
   const [requestedPostings, setRequestedPostings] = useState<string[]>([]);
@@ -146,8 +157,10 @@ export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, foc
         <p>{priority.basis === "onet" ? "Official O*NET importance for the matched role." : "Lab Tutor summary across assessed role contexts; aggregates are not official O*NET ratings."}</p>
         <p>{priority.scored_contexts} of {priority.expected_contexts} role contexts assessed{priority.complete ? "." : " · Partial coverage."}</p>
         {categoryPriority && <p>Category Lab Tutor summary: {priorityLabel(categoryPriority)} · {categoryPriority.scored_count} of {categoryPriority.eligible_count} eligible skills assessed; {categoryPriority.onet_count} O*NET, {categoryPriority.estimated_count} estimated, {categoryPriority.partial_count} partial, {categoryPriority.unavailable_count} unavailable.</p>}
-        <p>Release: {priorityAssessment.release ?? "unavailable"} · model: {priorityAssessment.model_id} · policy: {priorityAssessment.policy_version}</p>
-        {priorityAssessment.results.filter(result => result.candidate_id === candidate.candidate_id).map(result => {
+        <details><summary className="cursor-pointer">Assessment technical details</summary>
+          <p>Release: {priorityAssessment.release ?? "unavailable"} · model: {priorityAssessment.model_id} · policy: {priorityAssessment.policy_version}</p>
+        </details>
+        {results.map(result => {
           const context = priorityAssessment.contexts.find(item => item.soc_code === result.soc_code && item.group_id === result.context_key) ??
             priorityAssessment.contexts.find(item => item.soc_code === result.soc_code);
           return <div key={result.context_key} className="space-y-1 border-t pt-2">
@@ -156,9 +169,9 @@ export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, foc
             <p>{result.basis === "onet" ? `O*NET source value: ${result.official_value ?? "unavailable"}/5` :
               result.basis === "ai_estimate" ? `AI estimate: ${result.estimate ?? "unavailable"}/5` : "Not assessed"}</p>
             <p>{result.explanation}</p>
-            {result.direct_reference_id && <p>Matched reference: {result.direct_reference_id}</p>}
-            {!!result.supporting_evidence_ids.length && <p>Supporting evidence: {result.supporting_evidence_ids.join(", ")}</p>}
-            {result.associations.map(item => <p key={item.reference_id}>{item.relation} reference {item.reference_id}: {item.rationale}</p>)}
+            {result.direct_reference_id && <p>Matched descriptor: {references.get(result.direct_reference_id)?.evidence.label ?? "Reference details unavailable"}</p>}
+            {!!result.supporting_evidence_ids.length && <p>{new Set(result.supporting_evidence_ids).size} verified passages · see posting evidence below.</p>}
+            {result.associations.map(item => <p key={item.reference_id}>{item.relation} reference: {references.get(item.reference_id)?.evidence.label ?? "Reference details unavailable"} · {item.rationale}</p>)}
             {result.limitations.map((text, index) => <p key={index}>Limitation: {text}</p>)}
             {(result.unavailable_reason || context?.unavailable_reason) && <p>{result.unavailable_reason ?? context?.unavailable_reason}</p>}
           </div>;
