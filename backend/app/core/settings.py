@@ -87,6 +87,8 @@ class Settings(BaseSettings):
         default=None, description="HeadHunter application token", exclude=True
     )
 
+    market_skill_priority_enabled: bool = False
+
     # Search APIs
     serper_api_key: str | None = Field(
         default=None,

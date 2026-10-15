@@ -7,7 +7,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.modules.occupation_reference.schemas import ReleaseVersion, SocCode
+from app.modules.occupation_reference.schemas import (
+    OnetEvidence,
+    ReleaseVersion,
+    SocCode,
+)
 
 JobSource = Literal["indeed", "linkedin", "headhunter"]
 EvidenceSource = Literal["jobs", "onet"]
@@ -129,6 +133,7 @@ class PriorityAssessment(BaseModel):
     status: Literal["running", "ready", "partial", "unavailable", "stale"]
     contexts: list[PriorityContext] = Field(default_factory=list)
     results: list[PriorityResult] = Field(default_factory=list)
+    references: list[OnetEvidence] = Field(default_factory=list)
     summaries: PrioritySummarySet = Field(default_factory=PrioritySummarySet)
     expected_pair_count: PriorityCount = 0
     completed_pair_count: PriorityCount = 0

@@ -10,6 +10,7 @@ from app.modules.courses.models import Course
 
 from .importer import ParsedRelease, attribution, manifest_identity
 from .models import OnetEvidence, OnetOccupation, OnetRelease
+from .schemas import OccupationChoice
 
 IMPORT_LOCK = 78239834401501535
 BATCH_SIZE = 1000
@@ -171,6 +172,17 @@ class OccupationReferenceRepository:
             .limit(limit)
         )
         return list(rows), total
+
+    def list_priority_occupations(self, version: str) -> list[OccupationChoice]:
+        """The complete ordered catalog; priority must never search a title subset."""
+        return [
+            OccupationChoice.model_validate(row)
+            for row in self._db.scalars(
+                select(OnetOccupation)
+                .where(OnetOccupation.release == version)
+                .order_by(OnetOccupation.soc_code)
+            )
+        ]
 
     def get_occupations(
         self, version: str, soc_codes: list[str], *, fresh: bool = False
