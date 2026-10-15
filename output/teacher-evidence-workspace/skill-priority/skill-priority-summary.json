@@ -1,0 +1,682 @@
+{
+  "scenario": "skill-priority",
+  "status": "passed",
+  "courseId": 3,
+  "counts": {
+    "candidates": 60,
+    "jobBacked": 60,
+    "categories": 35,
+    "selectedSkills": 7,
+    "retainedPostings": 21,
+    "materials": 38
+  },
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900,
+      "controls": 36,
+      "pageHeight": 900,
+      "pageWidth": 1440,
+      "main": {
+        "height": 900,
+        "contentHeight": 900,
+        "width": 1440,
+        "contentWidth": 1440
+      },
+      "conversation": {
+        "height": 735,
+        "contentHeight": 735,
+        "width": 768,
+        "contentWidth": 768
+      }
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "controls": 36,
+      "pageHeight": 720,
+      "pageWidth": 1280,
+      "main": {
+        "height": 720,
+        "contentHeight": 720,
+        "width": 1280,
+        "contentWidth": 1280
+      },
+      "conversation": {
+        "height": 717,
+        "contentHeight": 717,
+        "width": 768,
+        "contentWidth": 768
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "controls": 36,
+      "pageHeight": 844,
+      "pageWidth": 390,
+      "main": {
+        "height": 844,
+        "contentHeight": 844,
+        "width": 390,
+        "contentWidth": 390
+      },
+      "conversation": {
+        "height": 807,
+        "contentHeight": 807,
+        "width": 390,
+        "contentWidth": 390
+      }
+    }
+  ],
+  "labels": [
+    {
+      "kind": "category",
+      "label": "4/5 · Estimated",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "4/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "category",
+      "label": "3/5 · Estimated",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "3/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "category",
+      "label": "3/5 · Estimated",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "3/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "3/5 · Estimated · Partial",
+      "basis": "ai_estimate",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "3/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "3/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "3/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "4/5 · Estimated · Partial",
+      "basis": "ai_estimate",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "4/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "4/5 · Estimated · Partial",
+      "basis": "ai_estimate",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "4/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "3/5 · Estimated · Partial",
+      "basis": "ai_estimate",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "3/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "4/5 · Estimated",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "4/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "category",
+      "label": "4/5 · Estimated · Partial",
+      "basis": "ai_estimate",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "4/5 · AI estimate",
+      "basis": "ai_estimate",
+      "complete": true
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    },
+    {
+      "kind": "skill",
+      "label": "Not assessed",
+      "basis": "unavailable",
+      "complete": false
+    }
+  ],
+  "evidence": [
+    {
+      "basis": "ai_estimate",
+      "postingLinks": 1,
+      "onetReferences": 3,
+      "retainedPassages": 1
+    }
+  ],
+  "selection": {
+    "categoryMembers": 4,
+    "selectedSkills": 7,
+    "exclusions": 1,
+    "stableOnToggle": true,
+    "persistedOnReload": true,
+    "confirmationStatus": 200,
+    "controlledReplyOnly": true,
+    "publicationRevision": 0
+  },
+  "mapping": "Not exercised: copied run has no original graph checkpoint; controlled reply checks confirmation only.",
+  "publication": "Not exercised",
+  "invocation": {
+    "runner": "/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/frontend/e2e/teacher-evidence-workspace.cjs",
+    "backendContainer": "lab_tutor_priority_backend",
+    "backendEnvFile": "/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/.superpowers/operations/2026-10-15-skill-priority/acceptance.env",
+    "ui": "http://127.0.0.1:18881",
+    "api": "http://127.0.0.1:18880",
+    "manifestPath": "/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/.superpowers/operations/2026-10-15-skill-priority/acceptance-manifest.json",
+    "serverManifest": "/tmp/priority-workspace.json",
+    "output": "/Users/khajievroma/.codex/worktrees/teacher-evidence-workspace/lab_tutor/output/teacher-evidence-workspace/skill-priority",
+    "headless": true
+  },
+  "assessment": {
+    "status": "partial",
+    "expectedPairs": 60,
+    "completedPairs": 60,
+    "scoredSkills": 11,
+    "missingSkills": 49
+  }
+}

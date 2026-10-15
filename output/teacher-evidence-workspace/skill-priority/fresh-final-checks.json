@@ -1,0 +1,99 @@
+{
+  "status": "passed",
+  "head": "f54e1b5",
+  "receipts": [
+    {
+      "width": 1440,
+      "height": 900,
+      "geometry": {
+        "w": 1440,
+        "h": 900,
+        "scrollW": 1440,
+        "scrollH": 900
+      },
+      "cardButtons": 36,
+      "labelFontSizes": [
+        "12px"
+      ],
+      "originalLinks": 1,
+      "readableOnetReferences": 3,
+      "candidateLimitationsVisible": true,
+      "technicalDetailsAvailable": true,
+      "focusRestored": true,
+      "reloadWithoutAnalystStep": true
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "geometry": {
+        "w": 1280,
+        "h": 720,
+        "scrollW": 1280,
+        "scrollH": 720
+      },
+      "cardButtons": 36,
+      "labelFontSizes": [
+        "12px"
+      ],
+      "originalLinks": 1,
+      "readableOnetReferences": 3,
+      "candidateLimitationsVisible": true,
+      "technicalDetailsAvailable": true,
+      "focusRestored": true,
+      "reloadWithoutAnalystStep": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "geometry": {
+        "w": 390,
+        "h": 844,
+        "scrollW": 390,
+        "scrollH": 844
+      },
+      "cardButtons": 36,
+      "labelFontSizes": [
+        "12px"
+      ],
+      "originalLinks": 1,
+      "readableOnetReferences": 3,
+      "candidateLimitationsVisible": true,
+      "technicalDetailsAvailable": true,
+      "focusRestored": true,
+      "reloadWithoutAnalystStep": true
+    }
+  ],
+  "rounding": {
+    "literal": [
+      {
+        "value": 4.05,
+        "label": "4.1/5 · O*NET average"
+      },
+      {
+        "value": 4.35,
+        "label": "4.4/5 · O*NET average"
+      },
+      {
+        "value": 4.04,
+        "label": "4/5 · O*NET average"
+      },
+      {
+        "value": 4.06,
+        "label": "4.1/5 · O*NET average"
+      }
+    ],
+    "tested": 4001,
+    "mismatches": []
+  },
+  "errors": [],
+  "mutations": [],
+  "persistedUnchanged": true,
+  "selectedBefore": 7,
+  "selectedAfter": 7,
+  "excludedAfter": 1,
+  "coverage": {
+    "scored": 11,
+    "total": 60,
+    "categories": 35
+  }
+}

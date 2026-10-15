@@ -1,0 +1,41 @@
+{
+  "checks": [
+    {
+      "width": 1440,
+      "overflow": false,
+      "images": [
+        {
+          "src": "priority-main-1280.png",
+          "loaded": true
+        },
+        {
+          "src": "priority-main-390.png",
+          "loaded": true
+        },
+        {
+          "src": "priority-evidence-ai_estimate-1280.png",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "images": [
+        {
+          "src": "priority-main-1280.png",
+          "loaded": true
+        },
+        {
+          "src": "priority-main-390.png",
+          "loaded": true
+        },
+        {
+          "src": "priority-evidence-ai_estimate-1280.png",
+          "loaded": true
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

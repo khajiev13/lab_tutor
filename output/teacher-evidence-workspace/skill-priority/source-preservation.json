@@ -1,0 +1,4 @@
+{
+  "original_course_snapshot_unchanged": true,
+  "production_reads": "SQL transaction explicitly READ ONLY; all inference and browser writes used isolated copied owner/course/database."
+}

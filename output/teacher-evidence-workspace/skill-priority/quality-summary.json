@@ -1,0 +1,124 @@
+{
+  "report": {
+    "case_count": 20,
+    "occupation_count": 3,
+    "scorable_target_count": 15,
+    "weak_control_count": 5,
+    "fabricated_reference_count": 0,
+    "mislabeled_estimate_count": 0,
+    "invalid_numeric_count": 0,
+    "within_one_point_count": 13,
+    "within_one_point_rate": 0.8666666666666667,
+    "correct_abstention_count": 5,
+    "abstention_rate": 1.0,
+    "coverage": 0.75,
+    "elapsed_seconds": 109.4,
+    "quality_gate_passed": true,
+    "models": [
+      "deepseek-v4.1-flash"
+    ],
+    "method": "Live bounded service, held-out official descriptor targets, synthetic responsibilities; not a specific-technology calibration claim."
+  },
+  "observations": [
+    {
+      "case_id": "held-out-01",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "held-out-02",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "held-out-03",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "held-out-04",
+      "basis": "ai_estimate",
+      "value": 3.0
+    },
+    {
+      "case_id": "held-out-05",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "weak-01",
+      "basis": "unavailable",
+      "value": null
+    },
+    {
+      "case_id": "held-out-06",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "held-out-07",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "held-out-08",
+      "basis": "ai_estimate",
+      "value": 5.0
+    },
+    {
+      "case_id": "held-out-09",
+      "basis": "ai_estimate",
+      "value": 3.0
+    },
+    {
+      "case_id": "held-out-10",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "weak-02",
+      "basis": "unavailable",
+      "value": null
+    },
+    {
+      "case_id": "held-out-11",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "held-out-12",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "held-out-13",
+      "basis": "ai_estimate",
+      "value": 5.0
+    },
+    {
+      "case_id": "held-out-14",
+      "basis": "ai_estimate",
+      "value": 3.0
+    },
+    {
+      "case_id": "held-out-15",
+      "basis": "ai_estimate",
+      "value": 4.0
+    },
+    {
+      "case_id": "weak-05",
+      "basis": "unavailable",
+      "value": null
+    },
+    {
+      "case_id": "weak-03",
+      "basis": "unavailable",
+      "value": null
+    },
+    {
+      "case_id": "weak-04",
+      "basis": "unavailable",
+      "value": null
+    }
+  ]
+}
