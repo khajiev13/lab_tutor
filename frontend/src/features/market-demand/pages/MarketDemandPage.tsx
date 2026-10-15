@@ -256,7 +256,7 @@ function MarketDemandContent() {
           <SelectTrigger size="sm" className="h-8 w-[150px] text-xs" aria-label="Market country"><Globe2 className="size-3.5"/><SelectValue placeholder="Choose country"/></SelectTrigger>
           <SelectContent align="end">{MARKET_DEMAND_COUNTRIES.map(country => <SelectItem key={country.value} value={country.value}>{country.label}</SelectItem>)}</SelectContent>
         </Select>
-        <ConnectionStatus isStreaming={isStreaming || sending || confirming} hasError={!!shownError}/>
+        {!materialsReady && !workPending ? <span className="text-xs text-muted-foreground">Waiting for materials</span> : <ConnectionStatus isStreaming={isStreaming || sending || confirming} hasError={!!shownError}/>}
         {(messages.length > 0 || !!review?.run_id || stream.resetRecovery === "required") && <Button variant="ghost" size="sm" disabled={workPending || (unavailable && stream.resetRecovery !== "required")} onClick={() => setClearOpen(true)}><Trash2 className="size-3.5"/>Clear</Button>}
         {review && isRestored && <Button variant="ghost" size="sm" aria-label="Analysis details" onClick={() => setDetailsOpen(true)}><PanelRightOpen className="size-4"/>Details</Button>}
       </div>
@@ -267,7 +267,7 @@ function MarketDemandContent() {
           {messages.length === 0 && !review?.candidates.length && !controller.draft.selected_candidate_ids.length && <div className="flex flex-col items-center justify-center py-12 text-center">
             <BrainCircuit className="mb-4 size-8 text-emerald-600"/><h1 className="text-lg font-semibold">Market Demand Analyst</h1>
             <p className="mb-6 mt-1 max-w-md text-sm text-muted-foreground">Analyze job postings, choose relevant skills, and review their fit with your curriculum.</p>
-            <div className="flex max-w-lg flex-wrap justify-center gap-2">{PROMPT_SUGGESTIONS.map(text => <PromptSuggestion key={text} disabled={workflowDisabled} onClick={() => void sendQuestion(text)}>{text}</PromptSuggestion>)}</div>
+            <div className="flex w-full max-w-lg flex-wrap justify-center gap-2">{PROMPT_SUGGESTIONS.map(text => <PromptSuggestion key={text} className="h-auto max-w-full whitespace-normal text-center" disabled={workflowDisabled} onClick={() => void sendQuestion(text)}>{text}</PromptSuggestion>)}</div>
           </div>}
           {messages.map(message => message.role === "user" ? <UserMessage key={message.id} content={message.content}/> : <AgentMessage key={message.id} message={message}/>)}
           {pending && <SelectionCard key={selectionKey} title="Select Job Groups"
