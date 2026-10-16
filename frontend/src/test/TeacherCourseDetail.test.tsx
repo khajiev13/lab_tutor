@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import TeacherCourseDetail from '../features/courses/pages/TeacherCourseDetail';
-import { coursesApi, presentationsApi, streamExtraction } from '../features/courses/api';
+import TeacherCourseDetail from '@/features/courses/pages/TeacherCourseDetail';
+import { coursesApi, presentationsApi, streamExtraction } from '@/features/courses/api';
 import { vi, type Mock } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 let mockPresentationFiles: string[] = [];
 
 // Mock Auth Context
-vi.mock('../features/auth/context/AuthContext', () => ({
+vi.mock('@/features/auth/context/AuthContext', () => ({
   useAuth: () => ({
     user: { role: 'teacher', id: 1, email: 'teacher@test.com' },
     isAuthenticated: true,
@@ -16,7 +16,7 @@ vi.mock('../features/auth/context/AuthContext', () => ({
 }));
 
 // Mock APIs
-vi.mock('../features/courses/api', () => ({
+vi.mock('@/features/courses/api', () => ({
   coursesApi: {
     getCourse: vi.fn(),
     startExtraction: vi.fn(),
@@ -35,13 +35,13 @@ vi.mock('../features/courses/api', () => ({
 }));
 
 // Mock child components to avoid complex rendering
-vi.mock('../components/FileUpload', () => ({
-  FileUpload: ({ disabled, onUpload }: { disabled: boolean; onUpload: (files:File[])=>Promise<void> }) => (
-    <div data-testid="file-upload" data-disabled={disabled}>File Upload<button disabled={disabled} onClick={()=>void onUpload([new File(['new material'],'lecture.pdf')])}>Upload test file</button></div>
+vi.mock('@/components/FileUpload', () => ({
+  FileUpload: ({ disabled, onUpload }: { disabled: boolean; onUpload: (files: File[]) => Promise<void> }) => (
+    <div data-testid="file-upload" data-disabled={disabled}>File Upload<button disabled={disabled} onClick={() => void onUpload([new File(["new material"], "lecture.pdf")])}>Upload test file</button></div>
   ),
 }));
 
-vi.mock('../components/CourseMaterialsTable', () => ({
+vi.mock('@/components/CourseMaterialsTable', () => ({
   CourseMaterialsTable: ({
     disabled,
     onFilesChange,
@@ -61,7 +61,7 @@ vi.mock('../components/CourseMaterialsTable', () => ({
   },
 }));
 
-vi.mock('../features/book-selection', () => ({
+vi.mock('@/features/book-selection', () => ({
   BookSelectionDashboard: ({ courseId }: { courseId: number }) => (
     <div data-testid="book-selection-dashboard" data-course-id={courseId}>Book Selection</div>
   ),
@@ -73,12 +73,15 @@ vi.mock('../features/book-selection', () => ({
   ),
 }));
 
-vi.mock('../features/book-selection/api', () => ({
+vi.mock('@/features/book-selection/api', () => ({
   getLatestSession: vi.fn().mockResolvedValue(null),
   getLatestAnalysis: vi.fn().mockResolvedValue(null),
+  getCourseSelectedBooks: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('../features/normalization/components/NormalizationDashboard', () => ({
+vi.mock('@/features/curriculum-planning/api', () => ({ getChapterPlan: vi.fn().mockResolvedValue(null) }));
+
+vi.mock('@/features/normalization/components/NormalizationDashboard', () => ({
   NormalizationDashboard: ({
     courseId,
     disabled,
@@ -105,10 +108,9 @@ describe('TeacherCourseDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPresentationFiles = [];
-    (coursesApi.getMaterialsReadiness as Mock).mockImplementation(async()=>{
-      const course=await coursesApi.getCourse(1);
-      const ready=course.extraction_status==='finished';
-      return {ready,status:ready?'ready':'processing',message:ready?'Ready.':'Processing.',total_files:1,processed_files:ready?1:0};
+    (coursesApi.getMaterialsReadiness as Mock).mockImplementation(async () => {
+      const ready = (await coursesApi.getCourse(1)).extraction_status === "finished";
+      return {ready,status:ready ? "ready" : "processing",message:ready ? "Ready." : "Processing.",total_files:1,processed_files:ready ? 1 : 0};
     });
     (presentationsApi.listStatuses as Mock).mockResolvedValue([]);
     (coursesApi.getEmbeddingsStatus as Mock).mockResolvedValue({
@@ -132,16 +134,16 @@ describe('TeacherCourseDetail', () => {
     );
   };
 
-  it('shows extraction again after a new upload changes a finished course back to pending',async()=>{
-    mockPresentationFiles=['existing.pdf'];
-    (coursesApi.getCourse as Mock).mockResolvedValue({...mockCourse,extraction_status:'finished'});
+  it('offers extraction again after uploading new files to a finished course', async () => {
+    mockPresentationFiles = ['existing.pdf'];
+    (coursesApi.getCourse as Mock).mockResolvedValue({...mockCourse, extraction_status:'finished'});
     renderComponent();
     await screen.findByText('Extraction Complete');
-    fireEvent.click(screen.getByRole('button',{name:/go to step 1/i}));
-    (coursesApi.getCourse as Mock).mockResolvedValue({...mockCourse,extraction_status:'failed'});
+    fireEvent.click(screen.getByRole('button', {name:/Step 1: Materials/i}));
+    (coursesApi.getCourse as Mock).mockResolvedValue({...mockCourse, extraction_status:'failed'});
     (presentationsApi.upload as Mock).mockResolvedValue({uploaded_files:['lecture.pdf']});
-    fireEvent.click(await screen.findByRole('button',{name:'Upload test file'}));
-    expect(await screen.findByRole('button',{name:'Start Data Extraction'})).toBeEnabled();
+    fireEvent.click(await screen.findByRole('button', {name:'Upload test file'}));
+    expect(await screen.findByRole('button', {name:'Start Data Extraction'})).toBeEnabled();
   });
 
   it('renders course details', async () => {
@@ -233,8 +235,8 @@ describe('TeacherCourseDetail', () => {
       expect(coursesApi.getEmbeddingsStatus).toHaveBeenCalledTimes(1);
     });
 
-    // Switch to a different step (Normalization = step 2)
-    fireEvent.click(screen.getByRole('button', { name: /go to step 2/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Optional preparation tools/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Normalize concepts' }));
 
     // Wait a tick to let any React effects settle
     await act(async () => {});

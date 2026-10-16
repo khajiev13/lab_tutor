@@ -10,18 +10,19 @@ import {
 } from "react";
 import { toast } from "sonner";
 
-import { coursesApi, streamExtraction } from "../api";
+import { coursesApi, streamExtraction } from "@/features/courses/api";
 import type {
   ExtractionProgressEvent,
-} from "../api";
+} from "@/features/courses/api";
 import type {
   Course,
   CourseEmbeddingStatusResponse,
-} from "../types";
+} from "@/features/courses/types";
 import type { StepStatus } from "@/components/ui/stepper";
-import { getLatestSession, getLatestAnalysis } from "@/features/book-selection/api";
+import { getLatestSession, getLatestAnalysis, getCourseSelectedBooks } from "@/features/book-selection/api";
 import type { SessionStatus, ExtractionRunStatus } from "@/features/book-selection/types";
 import { getChapterPlan } from "@/features/curriculum-planning/api";
+
 import { useCourseMaterialsReadiness } from "@/features/courses/hooks/useCourseMaterialsReadiness";
 
 /* ── Step definitions ───────────────────────────────────────── */
@@ -77,6 +78,11 @@ interface CourseDetailContextValue {
   analysisRunStatus: ExtractionRunStatus | null;
   hasChapters: boolean;
   setHasChapters: (val: boolean) => void;
+  booksSkipped: boolean;
+  stepStatusesLoading: boolean;
+  stepStatusesError: boolean;
+  refreshStepStatuses: () => void;
+  nextPreparationStep: number | null;
 
   /* Stepper navigation */
   activeStep: number;
@@ -105,6 +111,7 @@ const POLL_INTERVAL_MS = 10_000;
 
 interface CourseDetailProviderProps {
   courseId: number;
+  pollStepStatuses?: boolean;
   initialStep?: CourseStep;
   checkMaterials?: boolean;
   children: React.ReactNode;
@@ -112,6 +119,7 @@ interface CourseDetailProviderProps {
 
 export function CourseDetailProvider({
   courseId,
+  pollStepStatuses = false,
   initialStep,
   checkMaterials = true,
   children,
@@ -124,6 +132,7 @@ export function CourseDetailProvider({
   const [isExtracting, setIsExtracting] = useState(false);
   const [presentationCount, setPresentationCount] = useState(0);
   const [activeStep, setActiveStepRaw] = useState(initialStep ? COURSE_STEPS.indexOf(initialStep) : 0);
+  const hasAutoNavigated = useRef(initialStep !== undefined);
   const [embeddingStatus, setEmbeddingStatus] =
     useState<CourseEmbeddingStatusResponse | null>(null);
   const [extractionProgress, setExtractionProgress] =
@@ -134,6 +143,16 @@ export function CourseDetailProvider({
   const [analysisRunStatus, setAnalysisRunStatus] = useState<ExtractionRunStatus | null>(null);
   const [hasChapters, setHasChapters] = useState(false);
   const [stepStatusesFetched, setStepStatusesFetched] = useState(false);
+  const [stepStatusesError, setStepStatusesError] = useState(false);
+  const [statusRefresh, setStatusRefresh] = useState(0);
+  const [booksReady, setBooksReady] = useState(false);
+  const [booksSkipped, setBooksSkipped] = useState(false);
+
+  const refreshStepStatuses = useCallback(() => {
+    setStepStatusesFetched(false);
+    setStepStatusesError(false);
+    setStatusRefresh((value) => value + 1);
+  }, []);
 
   /* ── Fetch course ──────────────────────────────────────────── */
 
@@ -230,31 +249,55 @@ export function CourseDetailProvider({
   /* ── Fetch step-completion statuses from backend ─────────── */
 
   useEffect(() => {
-    if (!extractionDone) return;
+    if (!extractionDone) {
+      setStepStatusesFetched(false);
+      setStepStatusesError(false);
+      setBooksReady(false);
+      setBooksSkipped(false);
+      return;
+    }
 
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
 
     async function fetchStatuses() {
       try {
-        const [session, analysis, plan] = await Promise.all([
+        const [session, analysis, books, plan] = await Promise.all([
           getLatestSession(courseId),
           getLatestAnalysis(courseId),
+          getCourseSelectedBooks(courseId),
           getChapterPlan(courseId).catch(() => null),
         ]);
         if (cancelled) return;
-        if (session) setBookSessionStatus(session.status);
-        if (analysis) setAnalysisRunStatus(analysis.status);
-        if (plan && plan.chapters && plan.chapters.length > 0) setHasChapters(true);
+        setBookSessionStatus(session?.status ?? null);
+        setAnalysisRunStatus(analysis?.status ?? null);
+        setHasChapters(Boolean(plan?.chapters.length));
+        setBooksReady(
+          (!session || session.status === "completed") &&
+          books.some((book) =>
+            ["downloaded", "uploaded"].includes(book.status) && Boolean(book.blob_path)
+          )
+        );
+        setBooksSkipped(session?.status === "completed" && session.progress_total === 0 && books.length === 0);
+        setStepStatusesError(false);
       } catch (error) {
+        if (cancelled) return;
+        setStepStatusesError(true);
         console.error("Failed to fetch step statuses", error);
       } finally {
-        if (!cancelled) setStepStatusesFetched(true);
+        if (!cancelled) {
+          setStepStatusesFetched(true);
+          if (pollStepStatuses) timer = setTimeout(fetchStatuses, 5_000);
+        }
       }
     }
 
     fetchStatuses();
-    return () => { cancelled = true; };
-  }, [extractionDone, courseId]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [extractionDone, courseId, pollStepStatuses, statusRefresh]);
 
   /* ── Embedding polling (only on materials step) ────────────── */
 
@@ -331,10 +374,11 @@ export function CourseDetailProvider({
     (index: number): StepStatus => {
       if (index > 0 && !materialsReady) return "locked";
       const ACTIVE_SESSION: SessionStatus[] = ["discovering", "scoring", "downloading"];
-      const DONE_SESSION: SessionStatus[] = ["completed"];
       const ACTIVE_ANALYSIS: ExtractionRunStatus[] = [
+        "pending",
         "agentic_extracting",
         "extracting",
+        "chapter_extracted",
         "chunking",
         "embedding",
         "scoring",
@@ -349,42 +393,39 @@ export function CourseDetailProvider({
       switch (index) {
         case 0: // Materials
           if (course?.extraction_status === "in_progress") return "active";
-          if (extractionDone) return "completed";
+          if (materialsReady) return "completed";
           return "active"; // always accessible as first step
         case 1: // Normalization — optional, unlocked once extraction done
           if (!extractionDone) return "locked";
-          // No persistent backend status — mark completed if later steps are done
-          if (bookSessionStatus && DONE_SESSION.includes(bookSessionStatus))
-            return "completed";
           return "pending";
         case 2: // Build Chapters — optional, unlocked once extraction done
           if (!extractionDone) return "locked";
           if (hasChapters) return "completed";
           return "pending";
         case 3: // Book Selection
-          if (!extractionDone) return "locked";
-          if (bookSessionStatus && DONE_SESSION.includes(bookSessionStatus))
+          if (!extractionDone || !stepStatusesFetched || stepStatusesError) return "locked";
+          if (booksReady || booksSkipped)
             return "completed";
           if (bookSessionStatus && ACTIVE_SESSION.includes(bookSessionStatus))
             return "active";
           return "pending";
         case 4: // Analysis
-          if (!extractionDone) return "locked";
+          if (!extractionDone || !stepStatusesFetched || stepStatusesError || !booksReady) return "locked";
           if (analysisRunStatus && DONE_ANALYSIS.includes(analysisRunStatus))
             return "completed";
           if (analysisRunStatus && ACTIVE_ANALYSIS.includes(analysisRunStatus))
             return "active";
           return "pending";
-        case 5: // Visualization
-          if (!extractionDone) return "locked";
-          if (analysisRunStatus && DONE_ANALYSIS.includes(analysisRunStatus))
-            return "completed";
-          return "pending";
+        case 5: // Results are available after analysis; viewing is not a persisted completion.
+          if (!extractionDone || !stepStatusesFetched || stepStatusesError || !booksReady) return "locked";
+          return analysisRunStatus && DONE_ANALYSIS.includes(analysisRunStatus)
+            ? "pending"
+            : "locked";
         default:
           return "locked";
       }
     },
-    [course?.extraction_status, extractionDone, materialsReady, bookSessionStatus, analysisRunStatus, hasChapters]
+    [course?.extraction_status, extractionDone, materialsReady, bookSessionStatus, analysisRunStatus, hasChapters, stepStatusesFetched, stepStatusesError, booksReady, booksSkipped]
   );
 
   const canNavigateToStep = useCallback(
@@ -398,6 +439,7 @@ export function CourseDetailProvider({
   const setActiveStep = useCallback(
     (step: number) => {
       if (canNavigateToStep(step)) {
+        hasAutoNavigated.current = true;
         setActiveStepRaw(step);
       }
     },
@@ -405,54 +447,29 @@ export function CourseDetailProvider({
   );
 
   const goToNext = useCallback(() => {
-    setActiveStep(activeStep + 1);
+    setActiveStep(activeStep < 3 ? 3 : activeStep + 1);
   }, [activeStep, setActiveStep]);
 
-  /* ── Auto-navigate to the furthest meaningful step on load ── */
+  const stepStatusesLoading = extractionDone && !stepStatusesFetched;
+  const nextPreparationStep = !materialsReady ? 0
+    : booksSkipped ? null
+    : !booksReady ? 3
+    : getStepStatus(4) === "completed" ? 5 : 4;
 
-  const [hasAutoNavigated, setHasAutoNavigated] = useState(initialStep !== undefined);
+  // Choose the next required step once. Later completion updates the guidance
+  // without moving a teacher away from work they are reviewing.
+  useEffect(() => {
+    if (hasAutoNavigated.current || isLoading || !course || stepStatusesLoading || stepStatusesError || (extractionDone && !materialsReady)) return;
+    setActiveStepRaw(nextPreparationStep ?? 3);
+    hasAutoNavigated.current = true;
+  }, [isLoading, course, stepStatusesLoading, stepStatusesError, nextPreparationStep, extractionDone, materialsReady]);
 
   useEffect(() => {
-    if (hasAutoNavigated || isLoading || !course || (extractionDone && !materialsReady)) return;
-    // Wait until backend statuses have been fetched (or extraction isn't done)
-    if (extractionDone && !stepStatusesFetched) return;
-
-    // Find the furthest completed step, then go one past it (the current work)
-    let furthestCompleted = -1;
-    for (let i = COURSE_STEPS.length - 1; i >= 0; i--) {
-      if (getStepStatus(i) === "completed") {
-        furthestCompleted = i;
-        break;
-      }
-    }
-
-    // Also check for an active step
-    let activeIdx = -1;
-    for (let i = 0; i < COURSE_STEPS.length; i++) {
-      if (getStepStatus(i) === "active") {
-        activeIdx = i;
-        break;
-      }
-    }
-
-    if (activeIdx >= 0) {
-      setActiveStepRaw(activeIdx);
-    } else if (furthestCompleted >= 0) {
-      // If everything is completed, land on the last step; otherwise go one past
-      const target = Math.min(furthestCompleted + 1, COURSE_STEPS.length - 1);
-      setActiveStepRaw(target);
-    }
-
-    setHasAutoNavigated(true);
-  }, [
-    hasAutoNavigated,
-    isLoading,
-    course,
-    extractionDone,
-    materialsReady,
-    stepStatusesFetched,
-    getStepStatus,
-  ]);
+    if (stepStatusesLoading || stepStatusesError) return;
+    if (canNavigateToStep(activeStep)) return;
+    const target = nextPreparationStep ?? 3;
+    setActiveStepRaw(canNavigateToStep(target) ? target : 0);
+  }, [activeStep, canNavigateToStep, nextPreparationStep, stepStatusesLoading, stepStatusesError]);
 
   /* ── Context value (stable ref) ────────────────────────────── */
 
@@ -477,6 +494,11 @@ export function CourseDetailProvider({
       analysisRunStatus,
       hasChapters,
       setHasChapters,
+      booksSkipped,
+      stepStatusesLoading,
+      stepStatusesError,
+      refreshStepStatuses,
+      nextPreparationStep,
       activeStep: materialsReady ? activeStep : 0,
       setActiveStep,
       goToNext,
@@ -502,6 +524,11 @@ export function CourseDetailProvider({
       bookSessionStatus,
       analysisRunStatus,
       hasChapters,
+      booksSkipped,
+      stepStatusesLoading,
+      stepStatusesError,
+      refreshStepStatuses,
+      nextPreparationStep,
       activeStep,
       setActiveStep,
       goToNext,

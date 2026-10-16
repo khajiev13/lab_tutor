@@ -9,6 +9,7 @@ import Register from '@/features/auth/pages/Register';
 import Dashboard from '@/features/dashboard/pages/Dashboard';
 import TeacherCourses from '@/features/courses/pages/TeacherCourses';
 import AgentHubPage from '@/features/courses/pages/AgentHubPage';
+import { CourseSetupGate } from '@/features/courses/components/readiness/CourseSetupGate';
 import ArchitectAgentPage from '@/features/courses/pages/ArchitectAgentPage';
 import CurriculumPage from '@/features/curriculum/pages/CurriculumPage';
 import MergeReviewPage from '@/features/normalization/pages/MergeReviewPage';
@@ -153,7 +154,7 @@ function AppRoutes() {
         path="/courses/:id/market-analyst"
         element={
           <ProtectedRoute withDashboardLayout={false}>
-            <MarketDemandPage />
+            <CourseSetupGate gateId="market"><MarketDemandPage /></CourseSetupGate>
           </ProtectedRoute>
         }
       />
@@ -161,7 +162,7 @@ function AppRoutes() {
         path="/courses/:id/prerequisites"
         element={
           <ProtectedRoute>
-            <PrerequisiteReviewPage />
+            <CourseSetupGate gateId="prerequisites"><PrerequisiteReviewPage /></CourseSetupGate>
           </ProtectedRoute>
         }
       />

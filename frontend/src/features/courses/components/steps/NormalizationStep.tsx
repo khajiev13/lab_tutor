@@ -3,7 +3,7 @@ import { AlertCircle, ArrowRight } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { NormalizationDashboard } from "@/features/normalization/components/NormalizationDashboard";
-import { useCourseDetail } from "../../context/CourseDetailContext";
+import { useCourseDetail } from "@/features/courses/context/CourseDetailContext";
 
 export function NormalizationStep() {
   const { course, courseId, goToNext } = useCourseDetail();
@@ -30,7 +30,7 @@ export function NormalizationStep() {
       {!disabled && (
         <div className="flex justify-end pt-2">
           <Button onClick={goToNext} variant="outline" className="gap-2">
-            Continue to Build Chapters
+            Continue to Books
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>

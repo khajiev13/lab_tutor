@@ -1,13 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { coursesApi } from "../../api";
-import { CourseReadinessRoad } from "./CourseReadinessRoad";
-import type { Course, CourseReadiness } from "../../types";
+import { coursesApi } from "@/features/courses/api";
+import { CourseReadinessRoad } from "@/features/courses/components/readiness/CourseReadinessRoad";
+import type { Course, CourseReadiness } from "@/features/courses/types";
 
-vi.mock("../../api", () => ({
+vi.mock("@/features/courses/api", () => ({
   coursesApi: {
     publish: vi.fn(),
   },
@@ -107,14 +107,62 @@ describe("CourseReadinessRoad", () => {
   it("shows prerequisite review as the next action and blocks publishing", () => {
     renderRoad(makeReadiness());
 
-    expect(screen.getByText("Course readiness")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Review prerequisites/i })).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "Set up your course" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Continue to review prerequisites/i })).toHaveAttribute(
       "href",
       "/courses/7/prerequisites",
     );
-    expect(screen.getByText("Prerequisite review")).toBeInTheDocument();
-    expect(screen.getByText("Review prerequisites.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Publish course/i })).toBeDisabled();
+    const steps = screen.getByRole("list", { name: "Course setup steps" });
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(steps).getByRole("link", { name: /Step 3.*Review prerequisites/i })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByText("2 of 4 steps complete")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Publish course/i })).not.toBeInTheDocument();
+  });
+
+  it("explains locked steps and only links to completed or available steps", () => {
+    const readiness = makeReadiness();
+    renderRoad({
+      ...readiness,
+      next_action: { id: "book", label: "Complete book skill bank", route: "/courses/7/architect" },
+      gates: readiness.gates.map((gate) => ({ ...gate, status: gate.id === "book" ? "ready" : "locked" })),
+    });
+
+    const steps = screen.getByRole("list", { name: "Course setup steps" });
+    expect(within(steps).getAllByRole("link")).toHaveLength(1);
+    expect(within(steps).getByText("Complete step 1 first")).toBeInTheDocument();
+    expect(within(steps).getByText("Complete step 2 first")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Continue to prepare course/i })).toHaveAttribute("href", "/courses/7/architect");
+  });
+
+  it("keeps completed steps available to revisit", () => {
+    renderRoad(makeReadiness());
+    expect(screen.getByRole("link", { name: /Step 1.*Prepare course/i })).toHaveAttribute("href", "/courses/7/architect");
+    expect(screen.getByRole("link", { name: /Step 2.*Add market skills/i })).toHaveAttribute("href", "/courses/7/market-analyst");
+  });
+
+  it("shows a published course as complete without another publish action", () => {
+    const readiness = makeReadiness();
+    renderRoad({
+      ...readiness,
+      publication_status: "published",
+      availability_status: "published",
+      can_publish: true,
+      blockers: [],
+      next_action: { id: "none", label: "No action needed", route: null },
+      gates: readiness.gates.map((gate) => ({ ...gate, status: "complete" })),
+    });
+
+    expect(screen.getByRole("heading", { name: "Your course is ready for students" })).toBeInTheDocument();
+    expect(screen.getByText("4 of 4 steps complete")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Publish course/i })).not.toBeInTheDocument();
+  });
+
+  it("guides a paused course back to the review that needs attention", () => {
+    renderRoad(makeReadiness({ publication_status: "published", availability_status: "publishing_paused" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Enrollment is paused");
+    expect(screen.getByRole("link", { name: /Continue to review prerequisites/i })).toHaveAttribute("href", "/courses/7/prerequisites");
+    expect(screen.queryByRole("heading", { name: "Your course is ready for students" })).not.toBeInTheDocument();
   });
 
   it("publishes when all gates pass", async () => {

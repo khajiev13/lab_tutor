@@ -3,8 +3,8 @@ import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { coursesApi } from "../../api";
-import type { CourseReadiness } from "../../types";
+import { coursesApi } from "@/features/courses/api";
+import type { CourseReadiness } from "@/features/courses/types";
 
 interface PublishCourseButtonProps {
   readiness: CourseReadiness;
@@ -30,7 +30,7 @@ export function PublishCourseButton({ readiness, onRefresh }: PublishCourseButto
   };
 
   return (
-    <Button onClick={() => void handlePublish()} disabled={disabled} size="sm">
+    <Button onClick={() => void handlePublish()} disabled={disabled} className="w-full sm:w-auto">
       {isPublishing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
       {isPublished ? "Published" : "Publish course"}
     </Button>

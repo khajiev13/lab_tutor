@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
@@ -11,217 +11,79 @@ import {
 } from "@/components/ui/card";
 import { LogIn, LogOut } from "lucide-react";
 import { toast } from "sonner";
-import { coursesApi } from "../api";
-import type { CourseReadiness } from "../types";
+import { coursesApi } from "@/features/courses/api";
 import {
   CourseDetailProvider,
   useCourseDetail,
-} from "../context/CourseDetailContext";
-import { CourseHeader } from "../components/CourseHeader";
-import { CourseReadinessRoad } from "../components/readiness/CourseReadinessRoad";
+} from "@/features/courses/context/CourseDetailContext";
+import { CourseHeader } from "@/features/courses/components/CourseHeader";
+import { CourseReadinessRoad } from "@/features/courses/components/readiness/CourseReadinessRoad";
 import { AgentHubGrid } from "@/features/agents/components/AgentHubGrid";
-import type { AgentStatus } from "@/features/agents/components/AgentCard";
 import {
-  COURSE_SETUP_AGENTS,
   LEARNING_ANALYTICS_AGENTS,
   SKILL_RESOURCE_AGENTS,
-  type AgentConfig,
 } from "@/features/agents/config";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { useCourseReadiness } from "@/features/courses/hooks/useCourseReadiness";
+import { CourseProgressFeedback } from "@/features/courses/components/readiness/CourseProgressFeedback";
 import { TeacherAgentTimingDialog } from "@/features/agents/components/TeacherAgentTimingDialog";
+
 import { MaterialsReadinessNotice } from "@/features/courses/components/readiness/MaterialsReadinessNotice";
 
-/* ── Derive architect status from context ──────────────────── */
-
-function useArchitectStatus(): {
-  status: AgentStatus;
-  progress: number;
-  lastActivity: string;
-} {
-  const { course, getStepStatus } = useCourseDetail();
-
-  if (!course) return { status: "not-started", progress: 0, lastActivity: "" };
-
-  // Count completed steps
-  let completedSteps = 0;
-  let activeStep = -1;
-  const stepLabels = [
-    "Upload Materials",
-    "Normalize Concepts",
-    "Select Books",
-    "Analyze Books",
-    "Visualize Results",
-  ];
-
-  for (let i = 0; i < 5; i++) {
-    const s = getStepStatus(i);
-    if (s === "completed") completedSteps++;
-    if (s === "active" && activeStep === -1) activeStep = i;
-  }
-
-  const progress = (completedSteps / 5) * 100;
-
-  let status: AgentStatus = "not-started";
-  if (completedSteps === 5) {
-    status = "completed";
-  } else if (completedSteps > 0 || activeStep >= 0 || course.extraction_status === "in_progress") {
-    status = "in-progress";
-  }
-
-  let lastActivity = "";
-  if (activeStep >= 0) {
-    lastActivity = `Working on: ${stepLabels[activeStep]}`;
-  } else if (completedSteps === 5) {
-    lastActivity = "All steps complete";
-  } else if (completedSteps > 0) {
-    lastActivity = `${completedSteps}/5 steps complete`;
-  }
-
-  return { status, progress, lastActivity };
-}
-
-/* ── Hub content (rendered inside provider) ────────────────── */
-
-interface AgentHubSectionProps {
-  title: string;
-  description: string;
-  agents: AgentConfig[];
-  courseId: number;
-  isLoading: boolean;
-  statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }>;
-  cardClickOverrides?: Partial<Record<string, () => void>>;
-  disabledAgentIds?: string[];
-}
-
-function AgentHubSection({
-  title,
-  description,
-  agents,
-  courseId,
-  isLoading,
-  statuses,
-  cardClickOverrides,
-  disabledAgentIds,
-}: AgentHubSectionProps) {
-  return (
-    <section className="space-y-3">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
-      </div>
-      <AgentHubGrid
-        agents={agents}
-        courseId={courseId}
-        isLoading={isLoading}
-        statuses={statuses}
-        cardClickOverrides={cardClickOverrides}
-        disabledAgentIds={disabledAgentIds}
-      />
-    </section>
-  );
-}
+/* ── Teacher course setup ───────────────────────────────────── */
 
 function HubContent() {
-  const { isLoading, courseId, materialsReady, materialsMessage } = useCourseDetail();
-  const architectInfo = useArchitectStatus();
-  const [readiness, setReadiness] = useState<CourseReadiness | null>(null);
+  const { courseId, isLoading, materialsReady, materialsMessage } = useCourseDetail();
+  const { readiness, error, refresh } = useCourseReadiness(courseId);
   const [insightAgentId, setInsightAgentId] = useState<"architect" | "market-analyst" | null>(null);
-
-  const fetchReadiness = useCallback(async () => {
-    try {
-      const data = await coursesApi.getReadiness(courseId);
-      setReadiness(data);
-    } catch {
-      toast.error("Failed to load course readiness.");
-    }
-  }, [courseId]);
-
-  useEffect(() => {
-    void Promise.resolve().then(() => fetchReadiness());
-  }, [fetchReadiness]);
-
-  const prerequisiteInfo = useMemo(() => {
-    const reviewStatus = readiness?.prerequisite_review.status;
-    if (reviewStatus === "approved") {
-      return {
-        status: "completed" as AgentStatus,
-        progress: 100,
-        lastActivity: "Teacher approved",
-      };
-    }
-    if (reviewStatus === "needs_review" || reviewStatus === "stale") {
-      return {
-        status: "in-progress" as AgentStatus,
-        progress: 60,
-        lastActivity: "Needs teacher review",
-      };
-    }
-    return {
-      status: "not-started" as AgentStatus,
-      progress: 0,
-      lastActivity: "",
-    };
-  }, [readiness]);
-
-  const statuses: Record<string, { status: AgentStatus; progress?: number; lastActivity?: string }> = {
-    architect: architectInfo,
-    prerequisites: prerequisiteInfo,
-  };
-  const cardClickOverrides = useMemo(
-    () => ({
-      architect: () => setInsightAgentId("architect"),
-      "market-analyst": () => setInsightAgentId("market-analyst"),
-    }),
-    []
-  );
+  const nextAgent = readiness?.next_action.id === "book"
+    ? "architect"
+    : readiness?.next_action.id === "market" ? "market-analyst" : null;
 
   return (
     <>
-      <CourseHeader />
-      {!materialsReady && <MaterialsReadinessNotice courseId={courseId} message={materialsMessage}/>}
-      {readiness && (
-        <div className="mt-6">
-          <CourseReadinessRoad readiness={readiness} onRefresh={fetchReadiness} />
-        </div>
-      )}
-      <div className="mt-6 space-y-8">
-        <AgentHubSection
-          title="AI Agents"
-          description="Teacher-guided setup agents that prepare the course for publishing."
-          agents={COURSE_SETUP_AGENTS}
-          courseId={courseId}
-          isLoading={isLoading}
-          statuses={statuses}
-          cardClickOverrides={cardClickOverrides}
-          disabledAgentIds={materialsReady ? [] : ["market-analyst"]}
+      <CourseHeader compact />
+      {!materialsReady && <MaterialsReadinessNotice courseId={courseId} message={materialsMessage} />}
+      {readiness ? (
+        <CourseReadinessRoad
+          readiness={readiness}
+          onRefresh={refresh}
+          onLearnMore={nextAgent ? () => setInsightAgentId(nextAgent) : undefined}
         />
-        <AgentHubSection
-          title="Skill Resources"
-          description="Reading and video resources generated from the skills students choose."
-          agents={SKILL_RESOURCE_AGENTS}
-          disabledAgentIds={materialsReady ? [] : ["reading-agent", "video-agent"]}
-          courseId={courseId}
-          isLoading={isLoading}
-          statuses={statuses}
-        />
-        <AgentHubSection
-          title="Learning Analytics"
-          description="ARCD and teacher digital twin tools for class-level insight after learning starts."
-          agents={LEARNING_ANALYTICS_AGENTS}
-          courseId={courseId}
-          isLoading={isLoading}
-          statuses={statuses}
-        />
-      </div>
+      ) : <CourseProgressFeedback error={error} onRetry={refresh} />}
+
+      <Accordion type="single" collapsible className="rounded-xl border px-5 sm:px-6">
+        <AccordionItem value="course-tools">
+          <AccordionTrigger className="py-5 hover:no-underline">
+            <span className="space-y-1">
+              <span className="block text-base font-semibold">More course tools</span>
+              <span className="block text-sm font-normal text-muted-foreground">Learning resources and class insights, whenever you need them.</span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-6 pb-6">
+            <section className="space-y-3">
+              <div>
+                <h2 className="font-medium">Learning resources</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Reading and video resources for the skills students choose.</p>
+              </div>
+              <AgentHubGrid agents={SKILL_RESOURCE_AGENTS} disabledAgentIds={materialsReady ? [] : ["reading-agent", "video-agent"]} courseId={courseId} isLoading={isLoading} statuses={{}} />
+            </section>
+            <section className="space-y-3">
+              <div>
+                <h2 className="font-medium">Class insights</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Explore student progress and learning needs once teaching begins.</p>
+              </div>
+              <AgentHubGrid agents={LEARNING_ANALYTICS_AGENTS} courseId={courseId} isLoading={isLoading} statuses={{}} />
+            </section>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       <TeacherAgentTimingDialog
         disabled={!materialsReady && insightAgentId === "market-analyst"}
         courseId={courseId}
         agentId={insightAgentId}
         open={insightAgentId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setInsightAgentId(null);
-          }
-        }}
+        onOpenChange={(open) => { if (!open) setInsightAgentId(null); }}
       />
     </>
   );
@@ -333,8 +195,8 @@ export default function AgentHubPage() {
   }
 
   return (
-    <CourseDetailProvider courseId={courseId} checkMaterials={user?.role === "teacher"}>
-      <div className="space-y-6">
+    <CourseDetailProvider key={courseId} courseId={courseId} checkMaterials={user?.role === "teacher"}>
+      <div className="mx-auto w-full max-w-6xl space-y-6 pb-8">
         <Button
           variant="ghost"
           className="pl-0 hover:bg-transparent hover:text-primary"
