@@ -1,0 +1,33 @@
+{
+  "checks": [
+    {
+      "width": 1440,
+      "overflow": false,
+      "images": [
+        {
+          "src": "production-evidence-detail.jpg",
+          "loaded": true
+        },
+        {
+          "src": "production-checklist-detail.jpg",
+          "loaded": true
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "images": [
+        {
+          "src": "production-evidence-detail.jpg",
+          "loaded": true
+        },
+        {
+          "src": "production-checklist-detail.jpg",
+          "loaded": true
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

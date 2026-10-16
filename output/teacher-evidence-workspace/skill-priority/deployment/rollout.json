@@ -1,0 +1,40 @@
+{
+  "source_sha": "4051b9a1947162737dfbc719d7ffa3bf52c18757",
+  "ready": true,
+  "readiness_basis": "Environment-specific readiness: Express Running/Succeeded; WorkloadProfiles latest equals ready; active source, assets and health verified separately",
+  "apps": [
+    {
+      "app": "backend",
+      "environment_mode": "Express",
+      "image": "labtutoracr0d5762.azurecr.io/lab-tutor-backend@sha256:e6ce1b3d8f9cffa923238a6c6d66b41c0478a582ae11d64294038ba559827a2c",
+      "revision": "backend--latest",
+      "ready_revision": null,
+      "running": "Running",
+      "provisioning": "Succeeded",
+      "configuration_preserved": true,
+      "template_fields_preserved": true
+    },
+    {
+      "app": "frontend",
+      "environment_mode": "Express",
+      "image": "labtutoracr0d5762.azurecr.io/lab-tutor-frontend@sha256:b7d6f45bd0ca077c01bcb228125717122909b86c17cab67d3bf965ea4c819679",
+      "revision": "frontend--latest",
+      "ready_revision": null,
+      "running": "Running",
+      "provisioning": "Succeeded",
+      "configuration_preserved": true,
+      "template_fields_preserved": true
+    },
+    {
+      "app": "frontend-domain",
+      "environment_mode": "WorkloadProfiles",
+      "image": "labtutoracr0d5762.azurecr.io/lab-tutor-frontend@sha256:b7d6f45bd0ca077c01bcb228125717122909b86c17cab67d3bf965ea4c819679",
+      "revision": "frontend-domain--priority-4051b9a1",
+      "ready_revision": "frontend-domain--priority-4051b9a1",
+      "running": "Running",
+      "provisioning": "Succeeded",
+      "configuration_preserved": true,
+      "template_fields_preserved": true
+    }
+  ]
+}

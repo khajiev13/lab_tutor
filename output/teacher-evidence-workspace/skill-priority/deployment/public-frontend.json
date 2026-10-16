@@ -1,0 +1,17 @@
+{
+  "source_sha": "4051b9a1947162737dfbc719d7ffa3bf52c18757",
+  "public_assets": [
+    {
+      "origin": "https://frontend.wonderfulcoast-ed2697fe.polandcentral.azurecontainerapps.io",
+      "entry": "/assets/index-B4vdW4Hc.js",
+      "sha256": "315ebae1739d70999358e8db1767ed237693d9354e65ed67214461981d289d88",
+      "matches_release_image": true
+    },
+    {
+      "origin": "https://labtutor.app",
+      "entry": "/assets/index-B4vdW4Hc.js",
+      "sha256": "315ebae1739d70999358e8db1767ed237693d9354e65ed67214461981d289d88",
+      "matches_release_image": true
+    }
+  ]
+}

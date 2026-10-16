@@ -1,0 +1,92 @@
+{
+  "source": "Signed-in teacher Chrome; read-only inspection, no selection confirmation or chat messages",
+  "viewports": [
+    {
+      "target": {
+        "width": 1440,
+        "height": 900
+      },
+      "height": 900,
+      "pageHeight": 900,
+      "pageWidth": 1440,
+      "width": 1440,
+      "selectedFive": true,
+      "estimatedPartial": true,
+      "buttons": 36
+    },
+    {
+      "target": {
+        "width": 1280,
+        "height": 720
+      },
+      "height": 720,
+      "pageHeight": 720,
+      "pageWidth": 1280,
+      "width": 1280,
+      "selectedFive": true,
+      "estimatedPartial": true,
+      "buttons": 36
+    },
+    {
+      "target": {
+        "width": 390,
+        "height": 844
+      },
+      "height": 844,
+      "pageHeight": 844,
+      "pageWidth": 390,
+      "width": 390,
+      "selectedFive": true,
+      "estimatedPartial": true,
+      "buttons": 36
+    }
+  ],
+  "dialogs": [
+    {
+      "bottom": 780.6953125,
+      "clientWidth": 356,
+      "height": 844,
+      "left": 16,
+      "right": 374,
+      "scrollWidth": 356,
+      "top": 63.3046875,
+      "width": 390
+    },
+    {
+      "bottom": 666.859375,
+      "clientWidth": 774,
+      "height": 720,
+      "left": 252.0625,
+      "right": 1027.9375,
+      "scrollWidth": 774,
+      "top": 53.140625,
+      "width": 1280
+    }
+  ],
+  "entryAsset": "/assets/index-B4vdW4Hc.js",
+  "estimatedScore": "4/5 · AI estimate",
+  "category": "4/5 · Estimated · Partial; 2 of 8 skills assessed",
+  "originalPostingLinks": [
+    {
+      "href": "https://hh.uz/vacancy/137863134?tech_source=api",
+      "text": "Original posting · Data Systems Engineer · SUEZ INTERNATIONAL SAS"
+    }
+  ],
+  "onetReferenceLinks": [
+    {
+      "href": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv",
+      "text": "O*NET reference: Quality Control Analysis (Computer Systems Engineers/Architects)"
+    },
+    {
+      "href": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv",
+      "text": "O*NET reference: Systems Analysis (Computer Systems Engineers/Architects)"
+    },
+    {
+      "href": "https://www.onetcenter.org/dl_files/database/db_31_0_csv/transferable_skills.csv",
+      "text": "O*NET reference: Systems Evaluation (Computer Systems Engineers/Architects)"
+    }
+  ],
+  "validatedPassageVisible": true,
+  "escapeRestoredFocus": "Inspect Perform data cleaning, transformation, validation and reconciliation",
+  "selectedFiveAfterInspection": true
+}

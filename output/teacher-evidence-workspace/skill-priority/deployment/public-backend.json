@@ -1,0 +1,9 @@
+{
+  "health_status": 200,
+  "new_atomic_confirmation_schema": true,
+  "review_evidence_omissions": true,
+  "materials_readiness_endpoint": true,
+  "unsupported_sources_skipped": true,
+  "priority_assessment_schema": true,
+  "skill_and_category_priority_fields": true
+}

@@ -1,0 +1,11 @@
+{
+  "backend_tests": 205,
+  "backend_ruff": "349 files clean",
+  "frontend_tests": 275,
+  "frontend_lint": "0 errors; one existing warning",
+  "frontend_build": "passed",
+  "preserved_live_frontend_commit": "3e0a24da2fc86d5026d9ba8e47f95467d2d08102",
+  "source_sha": "4051b9a1947162737dfbc719d7ffa3bf52c18757",
+  "remote_branch_pushed": true,
+  "git_transport_resolution": "Per-command8MiBpostBuffer avoided oldGitHTTP2streameduploadfailure; no forcepush/globalconfigchange"
+}

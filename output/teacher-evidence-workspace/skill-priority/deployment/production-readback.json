@@ -1,0 +1,40 @@
+{
+  "readback_only": true,
+  "inference_repeated": false,
+  "status": "partial",
+  "assessment_id": "3298d096-f3be-4d92-be11-f1110700998d",
+  "model": "deepseek-v4.1-flash",
+  "onet_release": "31.0",
+  "seconds": 60.06,
+  "expected_pairs": 60,
+  "accounted_pairs": 60,
+  "candidates": 60,
+  "scored_candidates": 2,
+  "unassessed_candidates": 58,
+  "categories": 35,
+  "selected_skills": 5,
+  "excluded_skills": 0,
+  "materials": 38,
+  "postings": 21,
+  "revisions": [
+    1,
+    2,
+    0
+  ],
+  "saved_choices_preserved": true,
+  "materials_preserved": true,
+  "postings_preserved": true,
+  "conversation_preserved": true,
+  "other_analysis_fields_preserved": true,
+  "normal_review_api_validates_saved_assessment": true,
+  "runtime_source_hashes_match": true,
+  "error_reasons": [
+    "Model request failed, timed out or returned invalid JSON",
+    "Assessment deadline expired while queued"
+  ],
+  "bases": {
+    "onet": 0,
+    "ai_estimate": 2,
+    "unavailable": 58
+  }
+}
