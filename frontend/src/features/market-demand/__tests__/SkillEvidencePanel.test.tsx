@@ -224,7 +224,7 @@ it.each([false, true])("resolves new priority references with readable sources a
   expect(screen.getByText("O*NET Database 30.0 · National Center for O*NET Development")).toBeInTheDocument();
   expect(screen.getByRole("link", {name: "O*NET reference: Systems analysis (Developer)"})).toHaveAttribute("href", anchor.source_url);
   expect(screen.getByText(/related reference: Systems analysis/)).toHaveTextContent("Contextual systems reference");
-  expect(screen.getByText("2 verified passages · see posting evidence below.")).toBeInTheDocument();
+  expect(screen.getByText("2 verified passages · see posting evidence above.")).toBeInTheDocument();
   expect(screen.queryByText(/passage-private|Matched reference: priority-direct/)).not.toBeInTheDocument();
   expect(screen.queryByText("O*NET unavailable: no association.")).not.toBeInTheDocument();
   expect(screen.queryByText(/Unrelated descriptor/)).not.toBeInTheDocument();
@@ -253,6 +253,7 @@ it("uses the exact prefixed unmapped group key instead of another null-SOC group
   vi.mocked(fetchPostingEvidence).mockImplementation(async (_, id) => posting(id));
   render(<SkillEvidencePanel courseId={1} candidate={contextCandidate(["b"])} priorityAssessment={contextAssessment(null)} open/>);
   await screen.findByText("ETL in practice");
+  await userEvent.click(screen.getByText("Assessment technical details"));
   expect(screen.getByText("Group B rationale")).toBeVisible();
   expect(screen.queryByText("Group A rationale")).not.toBeInTheDocument();
   expect(screen.getByText("Limitation: Candidate-specific limitation")).toBeVisible();
@@ -261,9 +262,47 @@ it.each([{snapshots: ["b"]}, {snapshots: ["a", "b"]}, {snapshots: []}])("shows o
   vi.mocked(fetchPostingEvidence).mockImplementation(async (_, id) => posting(id));
   render(<SkillEvidencePanel courseId={1} candidate={contextCandidate(snapshots)} priorityAssessment={contextAssessment("15-1252.00")} open/>);
   if (snapshots.length) await screen.findAllByText("ETL in practice");
+  await userEvent.click(screen.getByText("Assessment technical details"));
   for (const id of ["a", "b"]) {
     const rationale = screen.queryByText(`Group ${id.toUpperCase()} rationale`);
     if (snapshots.includes(id)) expect(rationale).toBeVisible();
     else expect(rationale).not.toBeInTheDocument();
   }
+});
+
+it("reads original posting and verified passage before the compact score and discloses verbose rationale", async () => {
+  vi.mocked(fetchPostingEvidence).mockResolvedValue(posting("a"));
+  const row = {...contextCandidate(["a"]), priority: {value: 4, basis: "ai_estimate" as const, complete: true, expected_contexts: 1, scored_contexts: 1, display_order: 0}};
+  const assessment = contextAssessment("15-1252.00");
+  render(<SkillEvidencePanel courseId={1} candidate={row} priorityAssessment={assessment} open/>);
+  const passage = await screen.findByText("ETL in practice");
+  const source = screen.getByRole("link", {name: /Original posting/});
+  const importance = screen.getByRole("region", {name: "Skill importance evidence"});
+  expect(source.compareDocumentPosition(passage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(passage.compareDocumentPosition(importance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByText("Group A rationale")).not.toBeVisible();
+  await userEvent.click(screen.getByText("Assessment technical details"));
+  expect(screen.getByText("Group A rationale")).toBeVisible();
+});
+
+it("keeps posting offsets and retrieval metadata inside the existing full posting disclosure", async () => {
+  vi.mocked(fetchPostingEvidence).mockResolvedValue(posting("a"));
+  render(<SkillEvidencePanel courseId={1} candidate={{...candidate(), evidence_references: [reference("a", "https://jobs.test/1", "Create ETL")]}} open/>);
+  expect(await screen.findByText("Create ETL in practice")).toBeVisible();
+  expect(screen.getByText(/Cleaned text offsets:/)).not.toBeVisible();
+  expect(screen.getByText(/retrieved 2026-10-14/)).not.toBeVisible();
+  await userEvent.click(screen.getByText("Full posting description · Developer a"));
+  expect(screen.getByText(/Cleaned text offsets:/)).toBeVisible();
+  expect(screen.getByText(/retrieved 2026-10-14/)).toBeVisible();
+});
+it("keeps official source and importance readable while hiding O*NET identifiers and quality metadata", async () => {
+  const {workspaceEvidenceFixture} = await import("@/features/market-demand/__tests__/review-fixtures");
+  const row = {...contextCandidate([]), onet_associations: [workspaceEvidenceFixture({id: "private-technical-evidence"})]};
+  render(<SkillEvidencePanel courseId={1} candidate={row} priorityAssessment={contextAssessment("15-1252.00")} open/>);
+  expect(screen.getByRole("link", {name: /O\*NET reference/})).toBeVisible();
+  expect(screen.getByText(/private-technical-evidence/)).not.toBeVisible();
+  screen.getAllByText(/Quality:/).forEach(element => expect(element).not.toBeVisible());
+  await userEvent.click(screen.getByText("Assessment technical details"));
+  expect(screen.getByText(/private-technical-evidence/)).toBeVisible();
+  screen.getAllByText(/Quality:/).forEach(element => expect(element).toBeVisible());
 });

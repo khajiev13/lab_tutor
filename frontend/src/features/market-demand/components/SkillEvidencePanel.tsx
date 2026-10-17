@@ -45,16 +45,17 @@ function PostingDetails({group, checks, load, dialog}: {
       const reference = group.references.find(item => item.snapshot_id === id)!;
       const availability = posting ? purged ? "purged" : posting.status : check?.loading ? "checking current availability" : check?.error ? "current availability unavailable" : "current availability not checked";
       return <div key={id} className="space-y-2">
-        <p>{reference.provider} · retrieved {posting?.retrieved_at ?? reference.retrieved_at} · {availability}</p>
+        {(!posting || purged) && <p>{availability}</p>}
         {check?.error && <p role="alert" className="text-destructive">{check.error}</p>}
         {purged && <p>Posting content unavailable: purged {posting!.purged_at ?? "(date not reported)"}. Retained provenance only.</p>}
         {posting && !purged && <>
           {group.references.filter(item => item.snapshot_id === id).map(item => <div key={postingPassageKey(item)} className="space-y-1">
             <p>{item.evidence_kind === "provider_tag" ? "Provider tag" : "Validated source passage"}: {item.original_phrase}</p>
             {item.excerpt && <blockquote className="border-l-2 pl-2">{item.excerpt}</blockquote>}
-            {item.excerpt_start != null && <p>Cleaned text offsets: {item.excerpt_start}–{item.excerpt_end} (end exclusive)</p>}
           </div>)}
           <details><summary className="cursor-pointer"><ChevronRight aria-hidden="true" className="mr-1 inline size-3"/>Full posting description · {posting.title ?? id}</summary>
+            <p>{reference.provider} · retrieved {posting.retrieved_at} · {availability}</p>
+            {group.references.filter(item => item.snapshot_id === id && item.excerpt_start != null).map(item => <p key={postingPassageKey(item)}>Cleaned text offsets: {item.excerpt_start}–{item.excerpt_end} (end exclusive) · {item.original_phrase}</p>)}
             <p className="whitespace-pre-wrap">{posting.description_text}</p>
             <details><summary className="cursor-pointer">Original description (text)</summary><pre className="whitespace-pre-wrap break-all">{posting.original_description}</pre></details>
             <details><summary className="cursor-pointer">Full returned provider data</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all">{JSON.stringify(posting.raw_payload, null, 2)}</pre></details>
@@ -155,17 +156,43 @@ export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, foc
     .filter(item => !["purged", "removed", "unavailable"].includes(item.status))
     .map(item => item.snapshot_id));
   const content = <div className="space-y-2 text-xs">
-      {priorityAssessment && priority && <section aria-label="Skill importance evidence" className="space-y-2 rounded-md border p-3">
+      <PostingInspection key={sessionKey} courseId={courseId} groups={groups} dialog={open !== undefined}
+        initialIds={groups.flatMap(group => group.snapshotIds).filter(id => open !== undefined || requestedPostings.includes(`${courseId}-${id}`))}
+        onRequested={id => setRequestedPostings(previous => previous.includes(`${courseId}-${id}`) ? previous : [...previous, `${courseId}-${id}`])}/>
+
+      {priorityAssessment && priority && <section role="region" aria-label="Skill importance evidence" className="space-y-2 rounded-md border p-3">
         <h3 className="font-medium">Importance · {priorityLabel(priority)}</h3>
         <p>{priority.basis === "onet" ? "Official O*NET importance for the matched role." : priority.basis === "ai_estimate" ? "AI estimate across assessed roles." : priority.basis === "onet_aggregate" ? "Lab Tutor average of official O*NET role ratings." : "No importance score available."}</p>
         <p>{priority.scored_contexts} of {priority.expected_contexts} role contexts assessed{priority.complete ? "." : " · Partial coverage."}</p>
         {categoryPriority && <p>Category: {priorityLabel(categoryPriority)} · {categoryPriority.scored_count} of {categoryPriority.eligible_count} skills assessed.</p>}
-        <details><summary className="cursor-pointer">Assessment technical details</summary>
+
+      </section>}
+      {!!candidate.original_labels.length && <p>Original skill labels: {[...new Set(candidate.original_labels)].join(" · ")}</p>}
+      {candidate.posting_support === "missing" && <p>Needs job evidence — no qualifying posting evidence available.</p>}
+
+      {ratings && Object.entries(ratings).map(([code, rating]) => <div key={code} className="space-y-1">
+        <p>{code}: {rating.status === "reported" ? `${rating.value} / ${rating.metric === "IM" ? 5 : 7}` : rating.status === "ambiguous" ? "Multiple matched descriptors" : `Unavailable: ${rating.status.replaceAll("_", " ")}`}</p>
+        {onChooseDescriptor && <DescriptorChooser candidate={candidate} occupationCode={code}
+          release={release ?? ("descriptorKey" in rating ? rating.descriptorKey[0] : rating.status === "ambiguous" ? rating.evidence[0]?.release ?? null : null)}
+          label={`${candidate.display_name} · ${code}`} ariaLabel={`Inspector descriptor for ${candidate.display_name} · ${code}`}
+          selectedEvidenceIds={descriptorChoices ? descriptorChoices.filter(choice => choice.candidate_id === candidate.candidate_id).map(choice => choice.evidence_id) : "evidence" in rating && !Array.isArray(rating.evidence) ? [rating.evidence.id] : []}
+          onChoose={id => onChooseDescriptor(id, code)}/>}
+      </div>)}
+      {associations.map(({evidence, relation}) => <div key={evidence.id} data-evidence-id={evidence.id} className="space-y-2 rounded-md border p-3">
+        {focusedEvidenceId === evidence.id && <p className="font-medium">Focused chart evidence</p>}
+        <p><EvidenceLink url={evidence.source_url} label={`O*NET reference: ${evidence.label} (${evidence.occupation_title})`}/></p>
+        <p>{relation === "equivalent" ? "Equivalent association" : `${relation} contextual reference; not a plotted candidate rating`}</p>
+        {evidence.family !== "software" && <p>{metricText(evidence.ratings.IM, "IM")}</p>}
+        {evidence.family === "software" && <p>Software-reference flags are categorical context, not importance or level.</p>}
+      </div>)}
+      {((priorityAssessment && priority) || associations.length > 0) && <details>
+        <summary className="cursor-pointer">Assessment technical details</summary>
+        {priorityAssessment && priority && <>
+
           <p>Lab Tutor summaries and AI estimates are not official O*NET ratings.</p>
           {categoryPriority && <p>Category sources: {categoryPriority.onet_count} O*NET, {categoryPriority.estimated_count} estimated, {categoryPriority.partial_count} partial, {categoryPriority.unavailable_count} unavailable.</p>}
           <p>Release: {priorityAssessment.release ?? "unavailable"} · model: {priorityAssessment.model_id} · policy: {priorityAssessment.policy_version}</p>
           {priorityAssessment.error_reasons.map((text, index) => <p key={index}>Assessment limitation: {text}</p>)}
-        </details>
         {results.map(result => {
           const contexts = priorityAssessment.contexts.filter(item => result.soc_code === null
             ? item.soc_code === null && `unmapped:${item.group_id}` === result.context_key
@@ -181,43 +208,29 @@ export function SkillEvidencePanel({courseId, candidate, open, onOpenChange, foc
               result.basis === "ai_estimate" ? `AI estimate: ${result.estimate ?? "unavailable"}/5` : "Not assessed"}</p>
             <p>{result.explanation}</p>
             {result.direct_reference_id && <p>Matched descriptor: {references.get(result.direct_reference_id)?.evidence.label ?? "Reference details unavailable"}</p>}
-            {!!result.supporting_evidence_ids.length && <p>{new Set(result.supporting_evidence_ids).size} verified passages · see posting evidence below.</p>}
+            {!!result.supporting_evidence_ids.length && <p>{new Set(result.supporting_evidence_ids).size} verified passages · see posting evidence above.</p>}
             {result.associations.map(item => <p key={item.reference_id}>{item.relation} reference: {references.get(item.reference_id)?.evidence.label ?? "Reference details unavailable"} · {item.rationale}</p>)}
             {result.limitations.map((text, index) => <p key={index}>Limitation: {text}</p>)}
             {result.unavailable_reason && <p>{result.unavailable_reason}</p>}
           </div>;
         })}
-      </section>}
-      {!!candidate.original_labels.length && <p>Original skill labels: {[...new Set(candidate.original_labels)].join(" · ")}</p>}
-      <PostingInspection key={sessionKey} courseId={courseId} groups={groups} dialog={open !== undefined}
-        initialIds={groups.flatMap(group => group.snapshotIds).filter(id => open !== undefined || requestedPostings.includes(`${courseId}-${id}`))}
-        onRequested={id => setRequestedPostings(previous => previous.includes(`${courseId}-${id}`) ? previous : [...previous, `${courseId}-${id}`])}/>
-      {candidate.posting_support === "missing" && <p>Needs job evidence — no qualifying posting evidence available.</p>}
-      {!associations.length && <p>O*NET unavailable: no association.</p>}
-      {ratings && Object.entries(ratings).map(([code, rating]) => <div key={code} className="space-y-1">
-        <p>{code}: {rating.status === "reported" ? `${rating.value} / ${rating.metric === "IM" ? 5 : 7}` : rating.status === "ambiguous" ? "Multiple matched descriptors" : `Unavailable: ${rating.status.replaceAll("_", " ")}`}</p>
-        {onChooseDescriptor && <DescriptorChooser candidate={candidate} occupationCode={code}
-          release={release ?? ("descriptorKey" in rating ? rating.descriptorKey[0] : rating.status === "ambiguous" ? rating.evidence[0]?.release ?? null : null)}
-          label={`${candidate.display_name} · ${code}`} ariaLabel={`Inspector descriptor for ${candidate.display_name} · ${code}`}
-          selectedEvidenceIds={descriptorChoices ? descriptorChoices.filter(choice => choice.candidate_id === candidate.candidate_id).map(choice => choice.evidence_id) : "evidence" in rating && !Array.isArray(rating.evidence) ? [rating.evidence.id] : []}
-          onChoose={id => onChooseDescriptor(id, code)}/>}
-      </div>)}
-      {associations.map(({evidence, relation, mapping_method, rationale}) => <div key={evidence.id} data-evidence-id={evidence.id} className="space-y-2 rounded-md border p-3">
-        {focusedEvidenceId === evidence.id && <p className="font-medium">Focused chart evidence</p>}
-        <p><EvidenceLink url={evidence.source_url} label={`O*NET reference: ${evidence.label} (${evidence.occupation_title})`}/></p>
-        <p>{evidence.release} · {evidence.family} · {evidence.element_id} · {evidence.soc_code} · {evidence.id}</p>
-        <p>{relation === "equivalent" ? "Equivalent association" : `${relation} contextual reference; not a plotted candidate rating`} · {mapping_method} · {rationale}</p>
-        <p>{evidence.definition}</p>
-        {evidence.workplace_example && <p>Workplace example: {evidence.workplace_example}</p>}
-        {evidence.family !== "software" && (["IM", "LV"] as const).map(name => <div key={name}>
-          <p>{metricText(evidence.ratings[name], name)}</p>
-          {evidence.ratings[name] && <><p>Rating date: {evidence.ratings[name]!.date ?? "not reported"} · declared scale {evidence.ratings[name]!.minimum}–{evidence.ratings[name]!.maximum}</p>
-            <pre className="whitespace-pre-wrap break-all">Quality: {JSON.stringify(evidence.ratings[name]!.quality, null, 2)}</pre></>}
+        </>}
+        {associations.map(({evidence, relation, mapping_method, rationale}) => <div key={evidence.id} className="space-y-2 border-t pt-2">
+          <p className="font-medium">{evidence.label} · {evidence.occupation_title}</p>
+          <p>{evidence.release} · {evidence.family} · {evidence.element_id} · {evidence.soc_code} · {evidence.id}</p>
+          <p>{relation === "equivalent" ? "Equivalent association" : `${relation} contextual reference; not a plotted candidate rating`} · {mapping_method} · {rationale}</p>
+          <p>{evidence.definition}</p>
+          {evidence.workplace_example && <p>Workplace example: {evidence.workplace_example}</p>}
+          {evidence.family !== "software" && (["IM", "LV"] as const).map(name => <div key={name}>
+            <p>{metricText(evidence.ratings[name], name)}</p>
+            {evidence.ratings[name] && <><p>Rating date: {evidence.ratings[name]!.date ?? "not reported"} · declared scale {evidence.ratings[name]!.minimum}–{evidence.ratings[name]!.maximum}</p>
+              <pre className="whitespace-pre-wrap break-all">Quality: {JSON.stringify(evidence.ratings[name]!.quality, null, 2)}</pre></>}
+          </div>)}
+          {evidence.family === "software" && <p>Software-reference flags are categorical context, not importance or level.</p>}
+          {!!Object.keys(evidence.flags).length && <pre className="whitespace-pre-wrap break-all">Flags: {JSON.stringify(evidence.flags, null, 2)}</pre>}
+          <p>{evidence.attribution}</p>
         </div>)}
-        {evidence.family === "software" && <p>Software-reference flags are categorical context, not importance or level.</p>}
-        {!!Object.keys(evidence.flags).length && <pre className="whitespace-pre-wrap break-all">Flags: {JSON.stringify(evidence.flags, null, 2)}</pre>}
-        <p>{evidence.attribution}</p>
-      </div>)}
+      </details>}
     </div>;
   if (open !== undefined) return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent maxWidthClassName="sm:max-w-3xl" className="max-h-[85dvh] overflow-y-auto" onCloseAutoFocus={event => {if (returnFocusTo?.isConnected) {event.preventDefault(); returnFocusTo.focus();}}}>

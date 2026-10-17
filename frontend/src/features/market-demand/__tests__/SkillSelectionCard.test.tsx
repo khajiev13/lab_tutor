@@ -22,12 +22,12 @@ function priorityReview(): SkillReview {
         basis: index === 22 ? "unavailable" as const : index === 21 ? "onet" as const : "ai_estimate" as const,
         complete: index !== 22, expected_contexts: 1, scored_contexts: index === 22 ? 0 : 1, display_order: 23 - index}})), base.candidates[2]]};
 }
-function setupPriorityReview(initial = priorityReview()) {
+function setupPriorityReview(initial = priorityReview(), browse = true) {
   let current!: ReturnType<typeof useSkillReviewController>;
   function Harness({review}: {review: SkillReview}) {
     const controller = useSkillReviewController({courseId: 1, review, onReviewChange: vi.fn()});
     useLayoutEffect(() => {current = controller;}, [controller]);
-    return <SkillSelectionCard controller={controller} onConfirm={vi.fn()} onInspect={vi.fn()}/>;
+    return <SkillSelectionCard browse={browse} controller={controller} onConfirm={vi.fn()} onInspect={vi.fn()}/>;
   }
   const view = render(<Harness review={initial}/>);
   return {...view, user: userEvent.setup(), controller: () => current,
@@ -42,10 +42,11 @@ it("shows compact importance labels while keeping exactly the existing teacher c
   await view.user.click(screen.getByRole("button", {name: "Expand Tools"}));
   expect(view.visibleCandidateIds().slice(0, 3)).toEqual(["Select Skill 23", "Select Skill 22", "Select Skill 21"]);
   expect(screen.getByText("4.2/5 · O*NET")).toBeInTheDocument();
-  expect(screen.getByText("Not assessed")).toBeInTheDocument();
+  expect(screen.queryByText("Not assessed")).not.toBeInTheDocument();
+  expect(screen.getByText(/Importance assessed for 23 of 24/)).toBeInTheDocument();
   expect(screen.getAllByText("4/5 · AI estimate")).toHaveLength(8);
   const controls = screen.getAllByRole("button").map(button => button.getAttribute("aria-label") ?? button.textContent);
-  expect(screen.getAllByRole("button", {name: /Confirm Selection/})).toHaveLength(1);
+  expect(screen.queryByRole("button", {name: /Confirm Selection/})).not.toBeInTheDocument();
   view.unmount();
   const legacy = setupPriorityReview({...view.initial, priority_assessment: null,
     categories: view.initial.categories.map(item => ({...item, priority: null})),
@@ -68,7 +69,7 @@ it("preserves dirty choices and row order when guidance refreshes", async () => 
   expect(view.controller().draft.excluded_candidate_ids).toEqual(["skill-23", "reference", "skill-21"]);
   expect(view.controller().dirty).toBe(true);
   expect(view.controller().reviewRequired).toBe(false);
-  expect(screen.getAllByRole("button", {name: /Confirm Selection/})).toHaveLength(1);
+  expect(screen.queryByRole("button", {name: /Confirm Selection/})).not.toBeInTheDocument();
   view.refresh({...refreshed, candidate_revision: 2, priority_assessment: {...refreshed.priority_assessment, candidate_revision: 2}});
   expect(view.visibleCandidateIds()[0]).toBe("Select Skill 00");
 });
@@ -120,4 +121,80 @@ it("shows decimal half-up ties in saved server order without reordering choices"
   }
   await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 01"}));
   expect(view.visibleCandidateIds()).toEqual(["Select Skill 03", "Select Skill 02", "Select Skill 01", "Select Skill 00"]);
+});
+
+it("shows only five current saved choices initially while retaining the full selection and exclusions", () => {
+  const review = priorityReview();
+  review.selected_candidate_ids = ["skill-0", "skill-1", "skill-2", "skill-3", "skill-4", "skill-5"];
+  const view = setupPriorityReview(review, false);
+  expect(view.visibleCandidateIds()).toHaveLength(5);
+  expect(screen.getByText(/1 more selected.*Skills & chart/)).toBeInTheDocument();
+  expect(screen.queryByRole("checkbox", {name: /Select category/})).not.toBeInTheDocument();
+  expect(view.controller().draft.selected_candidate_ids).toEqual(review.selected_candidate_ids);
+  expect(view.controller().draft.excluded_candidate_ids).toEqual(["skill-23", "reference"]);
+  expect(screen.getByRole("button", {name: "Confirm Selection (6)"})).toBeEnabled();
+});
+it("leaves zero choices empty with the full first-selection chooser inline", () => {
+  const view = setupPriorityReview({...priorityReview(), selected_candidate_ids: []}, false);
+  expect(screen.getByRole("checkbox", {name: "Select category Tools (24 current members)"})).not.toBeChecked();
+  expect(view.controller().draft.selected_candidate_ids).toEqual([]);
+  expect(screen.getByRole("button", {name: "Confirm Selection"})).toBeDisabled();
+});
+
+function sixtySkillReview(): SkillReview {
+  const base = priorityReview();
+  return {...base, categories: Array.from({length: 35}, (_, i) => ({category_id: `category-${i}`, label: `Category ${i}`})),
+    selected_candidate_ids: ["skill-0", "skill-26", "skill-27", "skill-28", "skill-29"], excluded_candidate_ids: ["skill-1", "skill-59"],
+    candidates: Array.from({length: 60}, (_, i) => ({...base.candidates[0], candidate_id: `skill-${i}`, display_name: `Skill ${String(i).padStart(2, "0")}`,
+      category_id: `category-${i < 26 ? 0 : i - 25}`, priority: {value: i === 0 || i === 26 ? 4 : null,
+        basis: i === 0 ? "onet" : i === 26 ? "ai_estimate" : "unavailable", complete: i === 0 || i === 26,
+        expected_contexts: 1, scored_contexts: i === 0 || i === 26 ? 1 : 0, display_order: i}}))};
+}
+it("shows five saved choices and one honest coverage message for 60 skills across 35 categories", () => {
+  const view = setupPriorityReview(sixtySkillReview(), false);
+  expect(view.visibleCandidateIds()).toEqual(["Select Skill 00", "Select Skill 26", "Select Skill 27", "Select Skill 28", "Select Skill 29"]);
+  expect(screen.getByText(/Importance assessed for 2 of 60 skills/)).toBeInTheDocument();
+  expect(screen.getByText("4/5 · O*NET")).toBeInTheDocument();
+  expect(screen.getByText("4/5 · AI estimate")).toBeInTheDocument();
+  expect(screen.queryByText("Not assessed")).not.toBeInTheDocument();
+  expect(view.controller().draft.excluded_candidate_ids).toEqual(["skill-1", "skill-59"]);
+});
+it("retains all 60 choices and category-wide selection beyond the five-skill preview", async () => {
+  const view = setupPriorityReview(sixtySkillReview());
+  expect(screen.getAllByRole("checkbox", {name: /^Select category/})).toHaveLength(35);
+  await view.user.click(screen.getByRole("checkbox", {name: "Select category Category 0 (26 current members)"}));
+  expect(view.controller().draft.selected_candidate_ids).toHaveLength(30);
+  await view.user.click(screen.getByRole("button", {name: "Expand Category 0"}));
+  await view.user.click(screen.getByRole("button", {name: "Next Category 0 page"}));
+  await view.user.click(screen.getByRole("button", {name: "Next Category 0 page"}));
+  await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 25"}));
+  expect(view.controller().draft.selected_candidate_ids).toHaveLength(29);
+  expect(view.controller().draft.excluded_candidate_ids).toEqual(["skill-59", "skill-25"]);
+  const saved = {...view.initial, ...view.controller().draft};
+  view.unmount();
+  const reloaded = setupPriorityReview(saved, false);
+  expect(reloaded.controller().draft.selected_candidate_ids).toHaveLength(29);
+  expect(reloaded.controller().draft.excluded_candidate_ids).toEqual(["skill-59", "skill-25"]);
+  expect(screen.getByRole("button", {name: "Confirm Selection (29)"})).toBeEnabled();
+});
+
+it("marks local changes as unsaved until the existing confirmation is used", async () => {
+  const view = setupPriorityReview(sixtySkillReview(), false);
+  expect(screen.queryByText("Changes are not saved until you confirm.")).not.toBeInTheDocument();
+  await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 00"}));
+  expect(screen.getByText("Changes are not saved until you confirm.")).toBeInTheDocument();
+  expect(view.controller().dirty).toBe(true);
+  expect(screen.getByRole("button", {name: "Confirm Selection (4)"})).toBeEnabled();
+});
+
+it("lets the first selection start inline and keeps its category list stable through draft edits", async () => {
+  const view = setupPriorityReview({...sixtySkillReview(), selected_candidate_ids: []}, false);
+  expect(screen.getAllByRole("checkbox", {name: /^Select category/})).toHaveLength(35);
+  await view.user.click(screen.getByRole("button", {name: "Expand Category 0"}));
+  await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 00"}));
+  expect(screen.getAllByRole("checkbox", {name: /^Select category/})).toHaveLength(35);
+  expect(screen.getByRole("checkbox", {name: "Select Skill 00"})).toBeChecked();
+  expect(screen.getByRole("button", {name: "Confirm Selection (1)"})).toBeEnabled();
+  expect(view.controller().draft.selected_candidate_ids).toEqual(["skill-0"]);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

@@ -29,6 +29,7 @@ function fixture() {
 }
 it("creates no chart before opening and paginates five labelled entries without losing choices", async () => {
   const review = fixture();
+  review.candidates[0].job_metrics = {supporting_posting_count: 3, assessed_posting_count: 7, selected_posting_count: 8, percentage: 42.86, coverage_status: "partial"};
   const ids = review.candidates.map(row => row.candidate_id);
   const props = {review, candidateIds: ids, open: false, onOpenChange: vi.fn(), onAsk: vi.fn()};
   const {rerender} = render(<CompactComparison {...props}/>);
@@ -151,4 +152,25 @@ it("retains complete Unicode source labels and exact candidate context while wra
   expect(within(screen.getByRole("list", {name:"Comparison values"})).getByText(label, {selector:"strong"})).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", {name:`Ask about ${label}`}));
   expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({candidateIds:["skill-0"],text:expect.stringContaining(label)}), []);
+});
+
+it("summarizes identical counts without a redundant chart and retains each source and exact question", async () => {
+  const review = fixture();
+  const onAsk = vi.fn();
+  render(<CompactComparison review={review} candidateIds={review.candidates.slice(0, 5).map(row => row.candidate_id)} open onOpenChange={vi.fn()} onAsk={onAsk}/>);
+  expect(screen.getByText(/All 5 skills appear in 4 of 7 assessed postings.*8 selected/)).toBeInTheDocument();
+  expect(screen.queryByRole("img", {name: "Collected job sample frequency"})).not.toBeInTheDocument();
+  expect(screen.getAllByRole("link", {name: /Original source/})).toHaveLength(5);
+  await userEvent.click(screen.getByRole("button", {name: "Ask about Skill 3"}));
+  expect(onAsk).toHaveBeenCalledWith(expect.objectContaining({candidateIds: ["skill-3"]}), []);
+});
+
+it("uses one missing-coverage explanation instead of repeating absent ratings for every skill", async () => {
+  const review = fixture();
+  review.candidates.forEach(candidate => {candidate.onet_associations = [];});
+  render(<CompactComparison review={review} candidateIds={review.candidates.slice(0, 5).map(row => row.candidate_id)} open onOpenChange={vi.fn()} onAsk={vi.fn()}/>);
+  await userEvent.click(screen.getByRole("button", {name: "O*NET importance"}));
+  expect(screen.getByText(/No comparable reported values. Unavailable evidence is listed below./)).toBeInTheDocument();
+  expect(within(screen.getByRole("list", {name: "Comparison values"})).queryAllByText(/Unavailable/)).toHaveLength(0);
+  expect(within(screen.getByRole("list", {name: "Comparison values"})).getAllByRole("listitem")).toHaveLength(5);
 });

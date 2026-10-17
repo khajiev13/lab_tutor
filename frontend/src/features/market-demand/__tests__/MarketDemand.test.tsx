@@ -245,6 +245,12 @@ async function openReviewWorkspace(overrides: Partial<UseAgentStreamReturn> = {}
  await act(async () => {await Promise.resolve();});
  return {review,...rendered};
 }
+function openSkillDetails() {
+ if (!screen.queryByRole('dialog')) fireEvent.click(screen.getByRole('button',{name:'Skills & chart'}));
+}
+function closeSkillDetails() {
+ if (screen.queryByRole('dialog')) fireEvent.click(screen.getByRole('button',{name:'Close'}));
+}
 it('keeps the full original agent conversation and current choices inline with ordinary workflow replies', async () => {
  const send = vi.fn().mockResolvedValue({outcome:'completed'});
  await openReviewWorkspace({skillReview:null,send,messages:[
@@ -335,11 +341,15 @@ it('refreshes readiness after a rejected skill confirmation and retains the curr
  vi.mocked(api.confirmSkillReviewSelection).mockRejectedValue({isAxiosError:true,response:{status:409,data:{detail:{code:'materials_not_ready',message:courseContext.materialsMessage}}}});
  const send=vi.fn();
  await openReviewWorkspace({skillReview:reviewFixture(),send});
+ openSkillDetails();
  fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'}));
+ closeSkillDetails();
  fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Keep my question'}});
  fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
  await waitFor(()=>expect(courseContext.triggerRefresh).toHaveBeenCalledOnce());
+ openSkillDetails();
  expect(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'})).toBeChecked();
+ closeSkillDetails();
  expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Keep my question');
  expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeDisabled();
  expect(screen.queryByRole('button',{name:/Check analysis status|Refresh current evidence/})).not.toBeInTheDocument();
@@ -354,12 +364,14 @@ it('expands categories in place, keeps exclusions across pages and confirms part
  const send=vi.fn().mockResolvedValue({outcome:'completed'});
  vi.mocked(api.confirmSkillReviewSelection).mockImplementation(async(_id,body)=>({...review,...body,selection_revision:3}));
  await openReviewWorkspace({skillReview:review,send});
+ openSkillDetails();
  fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (12 current members)'}));
  fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
  fireEvent.click(screen.getByRole('checkbox',{name:'Select Job skill 01'}));
  fireEvent.click(screen.getByRole('button',{name:'Next Tools page'}));
  expect(screen.getByRole('checkbox',{name:'Select Job skill 12'})).toBeChecked();
  fireEvent.click(screen.getByRole('checkbox',{name:'Select Job skill 12'}));
+ closeSkillDetails();
  fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Keep this question'}});
  expect(screen.queryByRole('button',{name:/Save draft|Undo local change|Browse skills|Acknowledge available evidence|Save reviewed choices/})).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
@@ -404,8 +416,10 @@ it('keeps double-click confirmation single-flight and never maps when confirmati
  expect(api.confirmSkillReviewSelection).toHaveBeenCalledOnce();
  await act(async()=>reject(new Error('Confirmation offline')));
  expect(await screen.findByRole('alert')).toHaveTextContent('Confirmation offline');
+ openSkillDetails();
  fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
  expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
+ closeSkillDetails();
  expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Retain this');
  expect(send).not.toHaveBeenCalled();expect(api.approveSkillIntegration).not.toHaveBeenCalled();
 });
@@ -414,7 +428,9 @@ it('keeps the question and current choices through restoration timeout and offer
  const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
  const review=reviewFixture();const retryRestoration=vi.fn();
  const {rerender}=await openReviewWorkspace({skillReview:review,retryRestoration});
+ openSkillDetails();
  fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'}));
+ closeSkillDetails();
  fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Keep my question'}});
  vi.mocked(useAgentStream).mockReturnValue(mockStreamReturn({skillReview:review,isRestored:false,error:'Restoration timed out',retryRestoration}));
  const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');rerender(<TestRouter><Page/></TestRouter>);
@@ -442,7 +458,7 @@ it('does not attach chart context to ordinary questions and returns to workflow 
  const send=vi.fn().mockResolvedValue({outcome:'completed'});
  await openReviewWorkspace({skillReview:review,send});
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
- fireEvent.click(screen.getByRole('button',{name:'Analysis details'}));
+ fireEvent.click(screen.getByRole('button',{name:'Skills & chart'}));
  fireEvent.click(await screen.findByRole('button',{name:/Ask about Python/}));
  expect(screen.getByText('Chart evidence attached for this question')).toBeVisible();
  await waitFor(()=>expect(screen.getByRole('textbox',{name:'Question'})).toHaveFocus());
@@ -465,12 +481,15 @@ it('refreshes stale confirmation evidence while retaining the exact current choi
  const review=reviewFixture();const refreshSkillReview=vi.fn().mockResolvedValue(undefined);const send=vi.fn();
  vi.mocked(api.confirmSkillReviewSelection).mockRejectedValue(new Error('Evidence changed. Refresh before confirming.'));
  await openReviewWorkspace({skillReview:review,refreshSkillReview,send});
+ openSkillDetails();
  fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'}));
+ closeSkillDetails();
  fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'My retained question'}});
  fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
  fireEvent.click(await screen.findByRole('button',{name:'Refresh current evidence'}));
  await waitFor(()=>expect(refreshSkillReview).toHaveBeenCalledOnce());
  expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('My retained question');
+ openSkillDetails();
  expect(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'})).toBeChecked();
  expect(send).not.toHaveBeenCalled();
 });
@@ -486,7 +505,7 @@ it('lets a new jobs-only run explore compact O*NET occupation importance in Deta
  });
  vi.mocked(api.getOccupationSkills).mockResolvedValue({release:'31.0',soc_code:'15-2051.00',items});
  await openReviewWorkspace({skillReview:review,send,agentState:{...EMPTY_STATE,run_id:'run-1',sources:['indeed','linkedin','headhunter'],evidence_sources:['jobs']}});
- fireEvent.click(screen.getByRole('button',{name:'Analysis details'}));
+ fireEvent.click(screen.getByRole('button',{name:'Skills & chart'}));
  fireEvent.click(screen.getByRole('button',{name:'O*NET importance'}));
  await waitFor(()=>expect(screen.getByRole('button',{name:'Search'})).toBeEnabled());
  fireEvent.change(screen.getByRole('textbox',{name:'Search occupations'}),{target:{value:'data'}});
@@ -503,6 +522,7 @@ it('lets a new jobs-only run explore compact O*NET occupation importance in Deta
  fireEvent.click(screen.getByRole('button',{name:'Send message'}));
  await waitFor(()=>expect(send).toHaveBeenCalledWith(expect.objectContaining({mode:'contextual',context:{kind:'occupation_reference',version:1,intent:'explain',release:'31.0',occupation_codes:['15-2051.00'],element_ids:['element-0'],metric:'IM'}})));
  expect(api.confirmOnetOccupations).not.toHaveBeenCalled();expect(api.confirmSkillReviewSelection).not.toHaveBeenCalled();expect(api.approveSkillIntegration).not.toHaveBeenCalled();
+ openSkillDetails();
  expect(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'})).not.toBeChecked();
 });
 
@@ -512,7 +532,7 @@ it('retains typed follow-up and releases submitted chart context when the prior 
  let complete!:(value:{outcome:'completed'})=>void;
  const send=vi.fn().mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve;})).mockResolvedValue({outcome:'completed'});
  await openReviewWorkspace({skillReview:review,send});
- fireEvent.click(screen.getByRole('button',{name:'Analysis details'}));
+ fireEvent.click(screen.getByRole('button',{name:'Skills & chart'}));
  fireEvent.click(await screen.findByRole('button',{name:/Ask about Python/}));
  fireEvent.click(screen.getByRole('button',{name:'Send message'}));
  fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'My next workflow question'}});
@@ -530,10 +550,15 @@ it('lets the teacher change a current curriculum-fit selection inline and hides 
  await openReviewWorkspace({skillReview:review,send});
  expect(screen.getByRole('button',{name:'Approve and publish'})).toBeEnabled();
  fireEvent.click(screen.getByRole('button',{name:'Change selection'}));
+ openSkillDetails();
  fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
  expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
+ closeSkillDetails();
  expect(screen.queryByRole('button',{name:'Approve and publish'})).not.toBeInTheDocument();
+ openSkillDetails();
+ fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
  fireEvent.click(screen.getByRole('checkbox',{name:'Select SQL'}));
+ closeSkillDetails();
  fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
  await waitFor(()=>expect(send).toHaveBeenCalledWith({mode:'workflow',text:'Map the confirmed selected skills to the curriculum and prepare the curriculum fit review. Do not approve or publish.'}));
  expect(api.confirmSkillReviewSelection).toHaveBeenCalledWith(1,expect.objectContaining({selected_candidate_ids:['python','sql'],confirm_current_evidence:true}));
@@ -545,8 +570,10 @@ it('automatically reveals current choices when the displayed curriculum-fit revi
  const review={...integrationFixture(),candidate_revision:2};
  await openReviewWorkspace({skillReview:review});
  expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeEnabled();
+ openSkillDetails();
  fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
  expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
+ closeSkillDetails();
  expect(screen.queryByRole('button',{name:'Approve and publish'})).not.toBeInTheDocument();
 });
 
@@ -569,16 +596,18 @@ it('keeps current choices editable after a completed reply that has not prepared
  fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
  await waitFor(()=>expect(send).toHaveBeenCalledOnce());
  expect(screen.getByRole('region',{name:'Choose skills'})).toBeVisible();
+ openSkillDetails();
  fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
  expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
  expect(screen.getByRole('checkbox',{name:'Select SQL'})).toBeEnabled();
+ closeSkillDetails();
  expect(screen.queryByRole('button',{name:'Approve and publish'})).not.toBeInTheDocument();
 });
 
 it('compares only job-backed skills in Details when none are selected',async()=>{
  const {largeReviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
  await openReviewWorkspace({skillReview:largeReviewFixture()});
- fireEvent.click(screen.getByRole('button',{name:'Analysis details'}));
+ fireEvent.click(screen.getByRole('button',{name:'Skills & chart'}));
  expect(screen.getByText('Showing 5 of 58 skills · entries 1–5')).toBeVisible();
  expect(screen.getByText('Page 1 of 12')).toBeVisible();
 });
@@ -590,6 +619,7 @@ it('shows persisted selected categories first and keeps category order stable th
   candidates:base.candidates.map(item=>({...item,category_id:item.candidate_id==='sql'?'technical':item.candidate_id==='reference'?'reference':'general'})),
   selected_candidate_ids:['sql']};
  await openReviewWorkspace({skillReview:review});
+ openSkillDetails();
  const headings=()=>screen.getAllByRole('button',{name:/^Expand /}).map(button=>button.getAttribute('aria-label'));
  expect(headings()).toEqual(['Expand Technical','Expand General']);
  fireEvent.click(screen.getByRole('checkbox',{name:'Select category General (1 current members)'}));
@@ -616,4 +646,39 @@ it('does not show expired assessment activity after recovery',async()=>{
  const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
  await openReviewWorkspace({skillReview:reviewFixture(),agentState:{...EMPTY_STATE,run_id:'run-1',skill_priority_status:{assessment_id:'assessment',status:'running',deadline_at:'2020-01-01T00:00:00Z',message:'Assessing skill importance…'}}});
  expect(screen.queryByText('Assessing skill importance…')).not.toBeInTheDocument();
+});
+
+it("keeps the current skill action before historical narration without another toolbar decision", async () => {
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ await openReviewWorkspace({skillReview:{...reviewFixture(),selected_candidate_ids:['python']},messages:[{id:'old',role:'agent',content:'Choose job groups before continuing',agent:'supervisor',toolCalls:[],isStreaming:false}]});
+ const action=screen.getByRole('region',{name:'Current action'});
+ expect(action).toHaveTextContent(/Confirm your skill selection/);
+ const history=screen.getByRole('log',{name:'Conversation messages'});
+ expect(action.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ expect(screen.getByRole('button',{name:'Skills & chart'})).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:/history|browse skills/i})).not.toBeInTheDocument();
+ expect(screen.queryByRole('checkbox',{name:/Select category/})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Skills & chart'}));
+ openSkillDetails();
+ expect(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'})).toBeInTheDocument();
+});
+
+it("prioritizes pending groups over a saved skill review and stale curriculum without exposing publish", async () => {
+ const {integrationFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ await openReviewWorkspace({skillReview:{...integrationFixture(),candidate_revision:2},agentState:{...EMPTY_STATE,fetched_jobs:[{title:'Data Analyst'}],job_groups:{'Current group':[0]}}});
+ expect(screen.getByRole('region',{name:'Current action'})).toHaveTextContent('Choose job groups to analyze');
+ expect(screen.getByRole('checkbox',{name:'Current group'})).toBeEnabled();
+ expect(screen.queryByRole('region',{name:'Choose skills'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Approve and publish'})).not.toBeInTheDocument();
+ expect(screen.getAllByRole('button',{name:/Confirm Selection/})).toHaveLength(1);
+});
+it("keeps only the main confirmation when optional categories are open", async () => {
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ await openReviewWorkspace({skillReview:{...reviewFixture(),selected_candidate_ids:['python']}});
+ expect(screen.getAllByRole('button',{name:/Confirm Selection/})).toHaveLength(1);
+ openSkillDetails();
+ expect(screen.queryByRole('button',{name:/Confirm Selection/})).not.toBeInTheDocument();
+ expect([...document.querySelectorAll('button')].filter(button=>/^Confirm Selection/.test(button.textContent ?? ''))).toHaveLength(1);
+ closeSkillDetails();
+ expect(screen.getByRole('button',{name:'Confirm Selection (1)'})).toBeEnabled();
 });

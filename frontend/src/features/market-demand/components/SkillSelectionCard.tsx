@@ -5,11 +5,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { categorySelectionState, currentPriorityAssessment, jobBackedCandidates, priorityLabel, priorityOrder } from "@/features/market-demand/selection";
 import type { SkillReviewController } from "@/features/market-demand/hooks/useSkillReviewController";
 
-export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}: {
+export function SkillSelectionCard({controller, onConfirm, onInspect, disabled, browse = false}: {
   controller: SkillReviewController;
   onConfirm: () => void;
   onInspect: (id: string, element: HTMLElement) => void;
   disabled?: boolean;
+  browse?: boolean;
 }) {
   const [expanded, setExpanded] = useState<string[]>([]);
   const [pages, setPages] = useState<Record<string, number>>({});
@@ -35,10 +36,27 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
     }
   }
   categories.sort((a, b) => order.categoryIds.indexOf(a.category_id) - order.categoryIds.indexOf(b.category_id));
-  return <section aria-label="Choose skills" className="flex max-h-[min(30rem,calc(100dvh-24rem))] min-h-0 w-full flex-col gap-1.5 rounded-lg border bg-card p-2.5 sm:max-h-[min(30rem,calc(100dvh-20rem))]">
-    <div className="shrink-0"><h2 className="text-sm font-semibold">Select Skills</h2><p className="hidden text-xs text-muted-foreground sm:block">Expand categories to adjust individual skills.</p></div>
+  const showCategories = browse || review.selected_candidate_ids.length === 0;
+  const chosen = draft.selected_candidate_ids.flatMap(id => eligible.find(item => item.candidate_id === id) ?? []);
+  const assessedCount = assessment ? eligible.filter(item => item.priority?.value != null).length : 0;
+  const label = (priority: typeof eligible[number]["priority"]) => assessment && priority?.value != null ? priorityLabel(priority) : null;
+  return <section aria-label={browse ? "Browse all skills" : "Choose skills"} className="flex min-h-0 w-full flex-col gap-1.5 rounded-lg border bg-card p-2.5">
+    {browse && <h2 className="shrink-0 text-sm font-semibold">All skills</h2>}
     <p className="shrink-0 text-xs text-muted-foreground">{selected.size} selected · {eligible.length} skills from jobs</p>
-    <div role="region" aria-label="Skill categories and saved choices" tabIndex={0} className="max-h-64 min-h-16 space-y-2 overflow-y-auto overscroll-contain">
+    {controller.dirty && <p aria-live="polite" className="text-xs text-muted-foreground">Changes are not saved until you confirm.</p>}
+    {assessment && <p className="text-xs text-muted-foreground">Importance assessed for {assessedCount} of {eligible.length} skills. {assessedCount < eligible.length && "Other skills have no rating yet."}</p>}
+    {!showCategories && <div className="space-y-1">
+      {chosen.slice(0, 5).map((candidate, index) => <div key={candidate.candidate_id} className={index >= 3 ? "hidden items-center gap-2 sm:flex" : "flex items-center gap-2"}>
+        <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+          <Checkbox aria-label={`Select ${candidate.display_name}`} checked disabled={locked} onCheckedChange={checked => controller.setCandidate(candidate.candidate_id, checked === true)}/>
+          <span className="min-w-0 break-words">{candidate.display_name}{label(candidate.priority) && <span className="ml-2 text-xs text-muted-foreground">{label(candidate.priority)}</span>}</span>
+        </label>
+        <Button size="sm" variant="ghost" className="h-7 shrink-0" aria-label={`Inspect ${candidate.display_name}`} onClick={event => onInspect(candidate.candidate_id, event.currentTarget)}>{candidate.job_metrics.supporting_posting_count ?? 0} jobs ›</Button>
+      </div>)}
+      {chosen.length > 3 && <p className="text-xs text-muted-foreground sm:hidden">{chosen.length - 3} more selected · see Skills &amp; chart.</p>}
+      {chosen.length > 5 && <p className="hidden text-xs text-muted-foreground sm:block">{chosen.length - 5} more selected · see Skills &amp; chart.</p>}
+    </div>}
+    {(showCategories || unsupported.length > 0) && <div role="region" aria-label="Skill categories and saved choices" tabIndex={0} className={showCategories ? "max-h-64 min-h-16 space-y-2 overflow-y-auto overscroll-contain" : "space-y-2"}>
     {unsupported.length > 0 && <div role="alert" className="space-y-2 text-sm">
       <p>These saved choices were removed or lack supporting job postings. Remove them and choose a current replacement.</p>
       {unsupported.map(id => <div key={id} className="flex items-center justify-between gap-2 rounded-md border px-2 py-1">
@@ -47,7 +65,7 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
         <Button size="sm" variant="ghost" disabled={locked} aria-label={`Remove unsupported ${id}`} onClick={() => controller.setCandidate(id, false)}>Remove</Button>
       </div>)}
     </div>}
-    <div className="space-y-2">{categories.map(category => {
+    {showCategories && <div className="space-y-2">{categories.map(category => {
       const memberOrder = order.candidateIdsByCategory[category.category_id] ?? [];
       const members = eligible.filter(candidate => candidate.category_id === category.category_id)
         .sort((a, b) => memberOrder.indexOf(a.candidate_id) - memberOrder.indexOf(b.candidate_id));
@@ -65,7 +83,7 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
             className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left text-sm"
             onClick={() => setExpanded(open ? expanded.filter(id => id !== category.category_id) : [...expanded, category.category_id])}>
             <span className="min-w-0 break-words">{category.label} <span className="text-xs text-muted-foreground">({ids.filter(id => selected.has(id)).length}/{ids.length})</span>
-              {assessment && priorityLabel(category.priority) && <span className="block text-xs font-normal text-muted-foreground sm:inline sm:pl-2">{priorityLabel(category.priority)}</span>}</span>
+              {assessment && category.priority?.value != null && priorityLabel(category.priority) && <span className="block text-xs font-normal text-muted-foreground sm:inline sm:pl-2">{priorityLabel(category.priority)}</span>}</span>
             {open ? <ChevronDown className="size-4 shrink-0"/> : <ChevronRight className="size-4 shrink-0"/>}
           </button>
         </div>
@@ -75,7 +93,7 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
               <Checkbox aria-label={`Select ${candidate.display_name}`} checked={selected.has(candidate.candidate_id)} disabled={locked}
                 onCheckedChange={checked => controller.setCandidate(candidate.candidate_id, checked === true)}/>
               <span className="min-w-0 break-words">{candidate.display_name}
-                {assessment && priorityLabel(candidate.priority) && <span className="block text-xs text-muted-foreground sm:inline sm:pl-2">{priorityLabel(candidate.priority)}</span>}</span>
+                {label(candidate.priority) && <span className="block text-xs text-muted-foreground sm:inline sm:pl-2">{label(candidate.priority)}</span>}</span>
             </label>
             <Button size="sm" variant="ghost" className="shrink-0" aria-label={`Inspect ${candidate.display_name}`}
               onClick={event => onInspect(candidate.candidate_id, event.currentTarget)}>{candidate.job_metrics.supporting_posting_count ?? 0} jobs ›</Button>
@@ -89,8 +107,8 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
           </div>}
         </div>}
       </div>;
-    })}</div>
-    </div>
+    })}</div>}
+    </div>}
     {(limited || changed) && <div className="shrink-0 text-xs text-muted-foreground">
       <p>{limited ? "Incomplete job evidence. " : ""}{changed ? "Changed choices. " : ""}Confirm Selection saves your choices and accepts stated evidence limitations.</p>
       <details><summary className="cursor-pointer">Evidence and changed choice details</summary>
@@ -102,6 +120,6 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled}:
         </div>
       </details>
     </div>}
-    <Button size="sm" className="w-full shrink-0" disabled={locked || !selected.size || unsupported.length > 0} onClick={onConfirm}>Confirm Selection{selected.size > 0 ? ` (${selected.size})` : ""}</Button>
+    {!browse && <Button size="sm" className="sticky bottom-0 z-10 w-full shrink-0" disabled={locked || !selected.size || unsupported.length > 0} onClick={onConfirm}>Confirm Selection{selected.size > 0 ? ` (${selected.size})` : ""}</Button>}
   </section>;
 }

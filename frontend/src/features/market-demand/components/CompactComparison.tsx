@@ -1,3 +1,4 @@
+import type {ReactNode} from "react";
 import {useState} from "react";
 import {Button} from "@/components/ui/button";
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from "@/components/ui/dialog";
@@ -8,6 +9,7 @@ import type {CompactComparisonRow} from "@/features/market-demand/compact-compar
 import type {DescriptorChoice, SkillReview, WorkspaceQuestion, OccupationReferenceContext} from "@/features/market-demand/types";
 
 export interface CompactComparisonProps {
+  children?: ReactNode;
   courseId?: number;
   onCloseAutoFocus?: (event: Event) => void;
   onReferenceAsk?: (context: OccupationReferenceContext, text: string) => void;
@@ -33,6 +35,13 @@ function ComparisonBody({review, candidateIds, onAsk, courseId, onReferenceAsk}:
   const descriptorOptions = new Map(buildCompactComparison(review, visibleIds, metric, occupationCode).rows
     .filter(row => row.status === "ambiguous" && row.mappings.length === 0).map(row => [row.candidateIds[0], row.evidenceIds]));
   const numeric = rows.filter(row => row.value !== null);
+  const equalCounts = metric === "frequency" && rows.length > 1 && numeric.length === rows.length && rows.every(row => {
+    const first = candidates.get(rows[0].candidateIds[0])!.job_metrics;
+    const counts = candidates.get(row.candidateIds[0])!.job_metrics;
+    return counts.supporting_posting_count === first.supporting_posting_count && counts.assessed_posting_count === first.assessed_posting_count && counts.selected_posting_count === first.selected_posting_count && row.value === rows[0].value;
+  });
+  const sameMissing = rows.length > 1 && rows[0].status !== "ambiguous" && rows.every(row => row.value === null && row.status === rows[0].status);
+  const commonCounts = candidates.get(rows[0]?.candidateIds[0])?.job_metrics;
   const ask = (row: CompactComparisonRow) => {
     const exactChoices = row.candidateIds.flatMap(candidateId => {
       const evidence = candidates.get(candidateId)?.onet_associations.find(item => row.evidenceIds.includes(item.evidence.id) &&
@@ -75,7 +84,7 @@ function ComparisonBody({review, candidateIds, onAsk, courseId, onReferenceAsk}:
     </div>}
     {!model.rows.length ? <p className="text-sm">Choose skills in the conversation to compare.</p> : <>
       <p className="text-xs text-muted-foreground" aria-live="polite">Showing {visibleIds.length} of {comparedIds.length} skills · entries {offset + 1}–{offset + visibleIds.length}</p>
-      {numeric.length && model.scale ? <EvidenceChart key={metric} label={metric === "frequency" ? "Collected job sample frequency" : `O*NET importance for ${model.occupation!.title}`}
+      {equalCounts ? <p className="text-sm">All {rows.length} skills appear in {commonCounts!.supporting_posting_count} of {commonCounts!.assessed_posting_count} assessed postings{commonCounts!.selected_posting_count !== undefined ? ` · ${commonCounts!.selected_posting_count} selected` : ""}. Job counts do not distinguish these skills.</p> : numeric.length && model.scale ? <EvidenceChart key={metric} label={metric === "frequency" ? "Collected job sample frequency" : `O*NET importance for ${model.occupation!.title}`}
         className="h-64 sm:h-72" onFocus={({candidateId}) => setFocused(candidateId)} option={width => ({
           animation: false, grid: {left: 8, right: 24, top: 16, bottom: 40, containLabel: true},
           xAxis: {type: "value", min: model.scale![0], max: model.scale![1], name: metric === "frequency" ? "Sample frequency (%)" : "Importance (1–5)", nameLocation: "middle", nameGap: 28},
@@ -83,10 +92,10 @@ function ComparisonBody({review, candidateIds, onAsk, courseId, onReferenceAsk}:
           series: [{type: "bar", data: numeric.map(row => ({value: row.value, focus: {candidateId: row.candidateIds[0], ...(model.occupation ? {occupationCode: model.occupation.soc_code} : {}), ...(row.evidenceIds[0] ? {evidenceId: row.evidenceIds[0]} : {})},
             tooltipText: `${row.label}: ${valueText(row)}${model.occupation ? ` · ${model.occupation.title} · release ${model.release}` : ""}`}))}],
         })}/> : <p className="text-sm">No comparable reported values. Unavailable evidence is listed below.</p>}
-      <p className="text-sm">{model.insight}</p>
+      {!sameMissing && !equalCounts && <p className="text-sm">{model.insight}</p>}
       <ul aria-label="Comparison values" className="space-y-2">{rows.map(row => <li key={JSON.stringify([row.candidateIds, row.evidenceIds])}
         className="space-y-1 rounded-md border p-2 text-sm" aria-current={row.candidateIds.includes(focused ?? "") ? "true" : undefined}>
-        <strong className="block break-words">{row.label}</strong><p>{valueText(row)}</p>
+        <strong className="block break-words">{row.label}</strong>{!equalCounts && !sameMissing && <p>{valueText(row)}</p>}
         {row.candidateIds.filter(id => descriptorOptions.has(id)).map(id => <label key={id} className="block space-y-1">
           <span>Choose a descriptor for {candidates.get(id)!.display_name}</span>
           <select aria-label={`Descriptor for ${candidates.get(id)!.display_name}`} className="min-w-0 max-w-full w-full rounded-md border bg-background p-2" value={choices.find(choice => choice.candidate_id === id)?.evidence_id ?? ""}
@@ -107,10 +116,11 @@ function ComparisonBody({review, candidateIds, onAsk, courseId, onReferenceAsk}:
     </>}
   </div>;
 }
-export function CompactComparison({review, candidateIds, open, onOpenChange, onAsk, courseId, onReferenceAsk, onCloseAutoFocus}: CompactComparisonProps) {
+export function CompactComparison({review, candidateIds, open, onOpenChange, onAsk, courseId, onReferenceAsk, onCloseAutoFocus, children}: CompactComparisonProps) {
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent onCloseAutoFocus={onCloseAutoFocus} maxWidthClassName="sm:max-w-2xl" className="max-h-[85dvh] grid-cols-1 overflow-y-auto">
-      <DialogHeader><DialogTitle>Compare skills</DialogTitle><DialogDescription>Inspect one measure at a time for your chosen skills. Questions explain evidence; choices remain yours.</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>{children ? "Skills & chart" : "Compare skills"}</DialogTitle><DialogDescription>{children ? "Adjust any skill below. Close this panel to confirm your choices." : "Inspect one measure at a time for your chosen skills. Questions explain evidence; choices remain yours."}</DialogDescription></DialogHeader>
+      {open && children}
       {open && <ComparisonBody review={review} candidateIds={candidateIds} onAsk={onAsk} courseId={courseId} onReferenceAsk={onReferenceAsk}/>}
     </DialogContent>
   </Dialog>;

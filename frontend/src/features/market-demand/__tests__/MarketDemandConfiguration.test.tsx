@@ -150,12 +150,13 @@ describe("automatic job sources in the original chat flow", () => {
     expect(screen.queryByRole("checkbox",{name:"O*NET references"})).not.toBeInTheDocument();
   });
 
-  it("renders durable candidate categories inline without treating extracted category prose as approval",async()=>{
+  it("browses durable candidate categories without treating extracted category prose as approval",async()=>{
     const {reviewFixture}=await import("@/features/market-demand/__tests__/review-fixtures");
     vi.mocked(fetchSkillReview).mockResolvedValue(reviewFixture());
     vi.mocked(fetchAgentState).mockResolvedValue({...restored,run_id:"run-1",extracted_skills:[{name:"Legacy Python",category:"legacy",frequency:1,pct:100}]});
     render(<TestRouter><MarketDemandPage/></TestRouter>);
-    fireEvent.click(await screen.findByRole("button",{name:"Expand Tools"}));
+    fireEvent.click(await screen.findByRole("button",{name:"Skills & chart"}));
+    fireEvent.click(screen.getByRole("button",{name:"Expand Tools"}));
     expect(screen.getByRole("checkbox",{name:"Select Python"})).toBeVisible();
     expect(screen.queryByRole("checkbox",{name:/Legacy Python/})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox",{name:"Select Python"}));
@@ -200,7 +201,7 @@ it("ignores a prior course idle status after switching to an unknown-status cour
  fireEvent.click(screen.getByRole("button",{name:"Check analysis status"}));
  await waitFor(()=>expect(getMarketExecutionStatus).toHaveBeenCalledTimes(3));
  context.courseId=2;rerender(<TestRouter><MarketDemandPage/></TestRouter>);
- await waitFor(()=>expect(screen.getByRole("button",{name:"Expand Tools"})).toBeEnabled());
+ await screen.findByRole("checkbox",{name:"Select Python"});
  await act(async()=>finishOld({status:"idle",state_updated_at:null}));
  expect(screen.getByRole("button",{name:/Confirm Selection/})).toBeDisabled();
  expect(screen.getByRole("button",{name:"Check analysis status"})).toBeVisible();
