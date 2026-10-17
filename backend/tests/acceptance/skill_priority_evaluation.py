@@ -39,6 +39,89 @@ def raw_reference_violations(payload: dict, decisions: Any) -> int:
     )
 
 
+def canonical_score_call(payload: dict, decisions: list[dict], aliases):
+    """Audit exact per-request aliases independently before grading canonical IDs."""
+    candidates, references, evidence = aliases
+    pairs = {row["candidate_id"]: row for row in payload["pairs"]}
+    seen = [row.get("c") for row in decisions]
+    if len(seen) != len(pairs) or set(seen) != set(pairs):
+        raise ValueError("Incomplete, duplicate or foreign scoring aliases")
+    try:
+        rows = []
+        for row in decisions:
+            candidate = row["c"]
+            if any(
+                candidate not in payload["passages"][key]["candidate_ids"]
+                for key in row["e"]
+            ):
+                raise ValueError("Scoring passage belongs to another candidate")
+            rows.append(
+                {
+                    "candidate_id": candidates[candidate],
+                    "soc_code": pairs[candidate]["soc_code"],
+                    "basis": row["b"],
+                    "direct_reference_id": references[row["d"]]
+                    if row["d"] is not None
+                    else None,
+                    "estimate": row["v"],
+                    "associations": [
+                        {
+                            "reference_id": references[item["r"]],
+                            "relation": item["k"],
+                            "rationale": item["why"],
+                        }
+                        for item in row["a"]
+                    ],
+                    "supporting_evidence_ids": [evidence[key] for key in row["e"]],
+                    "explanation": row["why"],
+                    "limitations": row["limits"],
+                    "unavailable_reason": row.get("missing"),
+                }
+            )
+        canonical_payload = {
+            **payload,
+            "pairs": [
+                {**row, "candidate_id": candidates[row["candidate_id"]]}
+                for row in payload["pairs"]
+            ],
+            "references": [
+                {**row, "id": references[row["id"]]} for row in payload["references"]
+            ],
+        }
+        return canonical_payload, rows
+    except (KeyError, TypeError) as exc:
+        raise ValueError("Unknown or invalid scoring alias in calibration") from exc
+
+
+def record_score_reply(calls, payload, decisions, aliases):
+    """Keep raw violations even when transport/schema/canonical validation rejects."""
+    supplied = {row["id"] for row in payload["references"]}
+    records = decisions if isinstance(decisions, list) else []
+    violations = 0
+    for row in records:
+        if not isinstance(row, dict):
+            continue
+        cited = {row["d"]} if isinstance(row.get("d"), str) else set()
+        associations = row.get("a", [])
+        if isinstance(associations, list):
+            cited.update(
+                item["r"]
+                for item in associations
+                if isinstance(item, dict) and isinstance(item.get("r"), str)
+            )
+        violations += len(cited - supplied)
+    entry = {
+        "raw_reference_violations": violations,
+        "alias_violations": 0,
+        "canonical": None,
+    }
+    calls.append(entry)
+    try:
+        entry["canonical"] = canonical_score_call(payload, decisions, aliases)
+    except (ValueError, TypeError, AttributeError):
+        entry["alias_violations"] = 1
+
+
 def validate_cases(document: dict) -> list[dict]:
     cases = document.get("cases", [])
     if len(cases) < 20 or len({case.get("soc_code") for case in cases}) < 3:
@@ -74,6 +157,7 @@ def summarize_evaluation(
     *,
     elapsed_seconds: float = 0,
     raw_reference_violations: int = 0,
+    raw_alias_violations: int = 0,
 ) -> dict[str, Any]:
     index = {case["id"]: case for case in cases}
     supplied = Counter(row.get("case_id") for row in rows)
@@ -112,6 +196,7 @@ def summarize_evaluation(
         "fabricated_reference_count": fabricated,
         "mislabeled_estimate_count": mislabeled,
         "invalid_numeric_count": invalid,
+        "invalid_alias_count": raw_alias_violations,
         "within_one_point_count": accurate,
         "within_one_point_rate": accuracy,
         "correct_abstention_count": abstentions,
@@ -125,6 +210,7 @@ def summarize_evaluation(
             and accuracy >= 0.8
             and abstention >= 0.8
             and fabricated == mislabeled == invalid == 0
+            and raw_alias_violations == 0
         ),
     }
 
@@ -281,8 +367,10 @@ async def _evaluate(document: dict, output_dir):
     import json
     import time
     from collections import defaultdict
+    from contextvars import ContextVar
     from unittest.mock import patch
 
+    from app.modules.marketdemandanalyst import priority_service
     from app.modules.marketdemandanalyst.priority_service import _get_priority_llm
     from app.modules.occupation_reference.repository import (
         OccupationReferenceRepository,
@@ -301,11 +389,18 @@ async def _evaluate(document: dict, output_dir):
         if case["kind"] == "held_out"
     }
     original = OccupationReferenceRepository.get_evidence
+    original_compact = priority_service._compact_scoring_payload
+    current_aliases = ContextVar("priority_evaluation_aliases", default=None)
     observed, assessments, transport_trace, all_score_calls = [], [], [], []
     started = time.perf_counter()
     for (_, no_anchors), batch in batches.items():
         scope, identities = _seed_cases(batch, document["source_release"])
         calls = []
+
+        def record_aliases(payload):
+            compact, *aliases = original_compact(payload)
+            current_aliases.set(aliases)
+            return compact, *aliases
 
         def filtered(repository, *args, _no_anchors=no_anchors, **kwargs):
             rows = original(repository, *args, **kwargs)
@@ -329,6 +424,7 @@ async def _evaluate(document: dict, output_dir):
             ):
                 self.calls = recorded
                 self.case_ids = case_ids
+                self.aliases = current_aliases.get()
                 self.inner = _get_priority_llm(timeout_seconds=timeout_seconds)
 
             async def ainvoke(self, messages, **kwargs):
@@ -353,10 +449,13 @@ async def _evaluate(document: dict, output_dir):
                         decisions = []
                     if isinstance(decisions, dict):
                         decisions = decisions.get("results", [])
-                    self.calls.append((payload, decisions))
+                    record_score_reply(self.calls, payload, decisions, self.aliases)
                 return reply
 
-        with patch.object(OccupationReferenceRepository, "get_evidence", filtered):
+        with (
+            patch.object(OccupationReferenceRepository, "get_evidence", filtered),
+            patch.object(priority_service, "_compact_scoring_payload", record_aliases),
+        ):
             assessment = await _assess(scope, llm_factory=RecordingModel)
         all_score_calls.extend(calls)
         assessments.append(assessment.model_dump(mode="json"))
@@ -370,7 +469,10 @@ async def _evaluate(document: dict, output_dir):
             ]
             result = results[0] if len(results) == 1 else None
             provided, cited = set(), set()
-            for payload, decisions in calls:
+            for call in calls:
+                if call["canonical"] is None:
+                    continue
+                payload, decisions = call["canonical"]
                 if not any(
                     pair["candidate_id"] == candidate_id for pair in payload["pairs"]
                 ):
@@ -397,9 +499,15 @@ async def _evaluate(document: dict, output_dir):
         observed,
         elapsed_seconds=round(time.perf_counter() - started, 2),
         raw_reference_violations=sum(
-            raw_reference_violations(payload, decisions)
-            for payload, decisions in all_score_calls
+            max(
+                call["raw_reference_violations"],
+                raw_reference_violations(*call["canonical"])
+                if call["canonical"]
+                else 0,
+            )
+            for call in all_score_calls
         ),
+        raw_alias_violations=sum(call["alias_violations"] for call in all_score_calls),
     )
     report["models"] = sorted({row["model_id"] for row in assessments})
     report["method"] = (

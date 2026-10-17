@@ -144,3 +144,163 @@ def test_foreign_model_records_cannot_hide_fabricated_references():
     )
     assert report["fabricated_reference_count"] == 1
     assert report["quality_gate_passed"] is False
+
+
+def compact_call():
+    payload = {
+        "phase": "score",
+        "pairs": [
+            {"candidate_id": "C1", "soc_code": "15-1252.00"},
+            {"candidate_id": "C2", "soc_code": "15-1252.00"},
+        ],
+        "candidates": [
+            {"candidate_id": "C1", "display_name": "Write programs"},
+            {"candidate_id": "C2", "display_name": "Review programs"},
+        ],
+        "references": [{"id": "R1", "soc_code": "15-1252.00", "label": "Programming"}],
+        "passages": {"E1": {"candidate_ids": ["C1"]}, "E2": {"candidate_ids": ["C2"]}},
+    }
+    rows = [
+        {
+            "c": "C1",
+            "b": "ai_estimate",
+            "d": None,
+            "v": 4,
+            "a": [
+                {
+                    "r": "R1",
+                    "k": "broader",
+                    "why": "Programming anchors this capability.",
+                }
+            ],
+            "e": ["E1"],
+            "why": "The verified responsibility requires this capability.",
+            "limits": [],
+        },
+        {
+            "c": "C2",
+            "b": "ai_estimate",
+            "d": None,
+            "v": 3,
+            "a": [
+                {
+                    "r": "R1",
+                    "k": "related",
+                    "why": "Programming supports this capability.",
+                }
+            ],
+            "e": ["E2"],
+            "why": "The verified responsibility supports this capability.",
+            "limits": [],
+        },
+    ]
+    maps = (
+        {"C1": "candidate-a", "C2": "candidate-b"},
+        {"R1": "reference-a"},
+        {"E1": "passage-a", "E2": "passage-b"},
+    )
+    return payload, rows, maps
+
+
+def test_live_calibration_audit_expands_compact_ids_before_reference_checks():
+    payload, rows, maps = compact_call()
+    canonical_payload, canonical_rows = runner().canonical_score_call(
+        payload, rows, maps
+    )
+    assert canonical_rows[0]["candidate_id"] == "candidate-a"
+    assert canonical_rows[0]["associations"][0]["reference_id"] == "reference-a"
+    assert canonical_rows[0]["supporting_evidence_ids"] == ["passage-a"]
+    assert canonical_payload["references"][0]["id"] == "reference-a"
+    assert canonical_payload["pairs"][1]["candidate_id"] == "candidate-b"
+    assert runner().raw_reference_violations(canonical_payload, canonical_rows) == 0
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "candidate",
+        "canonical_fallback",
+        "duplicate",
+        "reference",
+        "passage",
+        "cross_candidate",
+    ],
+)
+def test_live_calibration_audit_rejects_corrupted_aliases(damage):
+    payload, rows, maps = compact_call()
+    if damage == "candidate":
+        rows[0]["c"] = "C999"
+    elif damage == "canonical_fallback":
+        rows[0]["c"] = "candidate-a"
+    elif damage == "duplicate":
+        rows[0]["c"] = "C2"
+    elif damage == "reference":
+        rows[0]["a"][0]["r"] = "R999"
+    elif damage == "passage":
+        rows[0]["e"] = ["E999"]
+    else:
+        rows[0]["e"] = ["E2"]
+    with pytest.raises(ValueError):
+        runner().canonical_score_call(payload, rows, maps)
+
+
+@pytest.mark.parametrize("foreign_candidate", [False, True])
+def test_live_audit_keeps_raw_violations_when_real_request_rejects(foreign_candidate):
+    import asyncio
+    import json
+    from threading import BoundedSemaphore
+    from time import monotonic
+    from types import SimpleNamespace
+
+    from pydantic import TypeAdapter
+
+    from app.modules.marketdemandanalyst.priority_service import (
+        SkillPriorityService,
+        _expand_scoring_decisions,
+        _ScoringDecision,
+        _Unavailable,
+    )
+
+    payload, rows, aliases = compact_call()
+    rows[0]["a"][0]["r"] = "R999"
+    if foreign_candidate:
+        rows[0]["c"] = "C999"
+        rows[0]["official_value"] = (
+            5  # Also force rejection at the actual transport adapter.
+        )
+    calls = []
+    audit = runner()
+
+    async def invoke(messages, *, config):
+        audit.record_score_reply(calls, payload, rows, aliases)
+        return SimpleNamespace(content=json.dumps({"results": rows}))
+
+    service = SkillPriorityService(
+        llm_factory=lambda **kwargs: SimpleNamespace(ainvoke=invoke)
+    )
+    with pytest.raises(_Unavailable):
+        wire = asyncio.run(
+            service._request(
+                payload,
+                "prompt",
+                TypeAdapter(list[_ScoringDecision]),
+                monotonic() + 1,
+                BoundedSemaphore(2),
+            )
+        )
+        _expand_scoring_decisions(wire, *aliases, "15-1252.00", payload)
+    assert len(calls) == 1
+    assert calls[0]["raw_reference_violations"] == 1
+    assert calls[0]["alias_violations"] == 1
+    cases = audit.validate_cases(fixture_document())
+    report = audit.summarize_evaluation(
+        cases,
+        observations(cases),
+        raw_reference_violations=calls[0]["raw_reference_violations"],
+        raw_alias_violations=calls[0]["alias_violations"],
+    )
+    assert report["within_one_point_rate"] == 1
+    assert report["abstention_rate"] == 1
+    assert report["fabricated_reference_count"] == 1
+    assert report["invalid_alias_count"] == 1
+    assert report["quality_gate_passed"] is False

@@ -92,6 +92,10 @@ class ModelTransport:
                             else None,
                         }
                     )
+                if payload["phase"] == "choose":
+                    for row in data:
+                        code = row.pop("soc_code")
+                        row["soc_codes"] = [code] if code else []
             else:
                 data = []
                 for pair in payload["pairs"]:
@@ -129,16 +133,39 @@ class ModelTransport:
                             "limitations": [],
                         }
                     )
+                data = [
+                    {
+                        "c": row["candidate_id"],
+                        "b": row["basis"],
+                        "d": row["direct_reference_id"],
+                        "v": row["estimate"],
+                        "a": [
+                            {
+                                "r": item["reference_id"],
+                                "k": item["relation"],
+                                "why": item["rationale"],
+                            }
+                            for item in row["associations"]
+                        ],
+                        "e": row["supporting_evidence_ids"],
+                        "why": row["explanation"],
+                        "limits": row["limitations"],
+                    }
+                    for row in data
+                ]
             return SimpleNamespace(content=json.dumps({"results": data}))
         finally:
             self.in_flight -= 1
 
 
 @pytest.fixture
-def service_case(db_session, client, teacher_auth_headers, monkeypatch):
+def service_case(db_session, client, teacher_auth_headers, monkeypatch, request):
     from app.modules.marketdemandanalyst.priority_service import SkillPriorityService
 
-    case = seed_priority_case(db_session, client, teacher_auth_headers, skill_count=24)
+    count = getattr(request, "param", 24)
+    case = seed_priority_case(
+        db_session, client, teacher_auth_headers, skill_count=count
+    )
     # Complete valid source metrics; the shared storage fixture intentionally has minimal JSON.
     metric = {
         "scale_id": "IM",
@@ -181,7 +208,7 @@ def service_case(db_session, client, teacher_auth_headers, monkeypatch):
         "job_groups": {
             "Разработчики": list(range(8)),
             "Developers": list(range(8, 16)),
-            "Analysts": list(range(16, 24)),
+            "Analysts": list(range(16, count)),
         },
     }
     db_session.commit()
@@ -222,10 +249,10 @@ def test_all_candidates_and_groups_scored_without_checkbox_or_posting_support_ga
     assert case.teacher_decisions() == case.before
     assert (
         max(len(call["pairs"]) for call in case.model.calls if call["phase"] == "score")
-        <= 2
+        <= 20
     )
     assert case.model.maximum_in_flight <= 2
-    assert max(case.model.timeouts) <= 20
+    assert max(case.model.timeouts) <= 30
     assert case.reload().priority_assessment["status"] == "ready"
 
 
@@ -322,14 +349,14 @@ def test_deadline_keeps_results_and_accounts_for_every_pair(service_case, monkey
                 # Let the first validated batch checkpoint before advancing the fake clock.
                 while not case.reload().priority_assessment["results"]:
                     await asyncio.sleep(0)
-                clock[0] = 61
+                clock[0] = 91
 
     case.model.hook = advance
     result = assess(case)
     assert result.status == "partial"
     assert len(result.results) == 24
     assert 0 < sum(row.value is not None for row in result.results) < 24
-    assert max(case.model.timeouts) <= 20
+    assert max(case.model.timeouts) <= 30
 
 
 @pytest.mark.parametrize(
@@ -618,17 +645,14 @@ def test_considered_unmatched_references_have_readable_metadata_without_bulk_sto
             records = json.loads(response.content)["results"]
             for record in records:
                 others = [
-                    ref
-                    for ref in payload["references"]
-                    if ref["soc_code"] == record["soc_code"]
-                    and ref["id"] != record["direct_reference_id"]
+                    ref for ref in payload["references"] if ref["id"] != record["d"]
                 ]
                 if others:
-                    record["associations"].append(
+                    record["a"].append(
                         {
-                            "reference_id": others[0]["id"],
-                            "relation": "unmatched",
-                            "rationale": "Considered and rejected as a different capability",
+                            "r": others[0]["id"],
+                            "k": "unmatched",
+                            "why": "Considered and rejected as a different capability",
                         }
                     )
             response.content = json.dumps({"results": records})
@@ -725,9 +749,11 @@ def test_model_payload_defines_strict_results_object_response_schema(service_cas
         assert schema["required"] == ["results"]
         assert set(schema["properties"]) == {"results"}
         assert schema["properties"]["results"]["type"] == "array"
-        model_name = (
-            "PriorityDecision" if payload["phase"] == "score" else "_ContextDecision"
-        )
+        model_name = {
+            "score": "_ScoringDecision",
+            "choose": "_ContextProposal",
+            "validate": "_ContextDecision",
+        }[payload["phase"]]
         assert schema["$defs"][model_name]["additionalProperties"] is False
         assert '{"results": []}' in payload["response_instruction"]
 
@@ -864,7 +890,6 @@ def test_agent_model_identity_is_saved_and_invalidates_cached_assessment(
     monkeypatch.setenv("LAB_TUTOR_LLM_MODEL", "different-extraction-model")
     first = assess(case)
     assert first.model_id == "configured-agent-model"
-    assert first.prompt_version == "4"
     count = len(case.model.calls)
     assert assess(case) == first
     assert len(case.model.calls) == count
@@ -877,19 +902,19 @@ def test_agent_model_identity_is_saved_and_invalidates_cached_assessment(
     assert len(second.results) == 24
 
 
-def test_two_pair_batches_account_for_all_candidates_and_request_concise_evidence(
+def test_occupation_batches_account_for_all_candidates_and_request_concise_evidence(
     service_case,
 ):
     assert assess(service_case).status == "ready"
     batches = [
         payload for payload in service_case.model.calls if payload["phase"] == "score"
     ]
-    assert len(batches) == 12
-    assert [len(batch["pairs"]) for batch in batches] == [2] * 12
-    candidate_ids = {
-        pair["candidate_id"] for batch in batches for pair in batch["pairs"]
-    }
-    assert candidate_ids == {
+    assert len(batches) == 3
+    assert sorted(len(batch["pairs"]) for batch in batches) == [6, 8, 10]
+    assert all(
+        len({pair["soc_code"] for pair in batch["pairs"]}) == 1 for batch in batches
+    )
+    assert {str(row.candidate_id) for row in assess(service_case).results} == {
         candidate["candidate_id"] for candidate in service_case.candidates
     }
     for payload in service_case.model.calls:
@@ -910,7 +935,6 @@ def test_context_group_aliases_round_trip_both_phases_to_immutable_saved_ids(
         groups = MarketReviewRepository(db).load_priority_inputs(case.scope)["groups"]
     result = assess(case)
     assert result.status == "ready"
-    assert result.prompt_version == "4"
     choose = next(call for call in case.model.calls if call["phase"] == "choose")
     validate = next(call for call in case.model.calls if call["phase"] == "validate")
     assert [group["group_id"] for group in choose["groups"]] == ["G1", "G2", "G3"]
@@ -1088,3 +1112,280 @@ def test_priority_transport_unwraps_only_the_existing_array_adapter():
         )
     )
     assert result == [1, 2]
+
+
+@pytest.mark.parametrize("service_case", [60], indirect=True)
+def test_sixty_pairs_complete_despite_provider_latency(service_case, monkeypatch):
+    # Two-pair scheduling exhausts the assessment before most pairs reach transport.
+    from time import monotonic
+
+    from app.modules.marketdemandanalyst import priority_service
+
+    case = service_case
+    started = monotonic()
+    monkeypatch.setattr(
+        priority_service, "monotonic", lambda: (monotonic() - started) * 20
+    )
+
+    async def latency(payload):
+        if payload["phase"] == "score":
+            await asyncio.sleep(0.5)  # Ten seconds on the accelerated assessment clock.
+
+    case.model.hook = latency
+    result = assess(case)
+    assert result.status == "ready"
+    assert result.expected_pair_count == result.completed_pair_count == 60
+    assert sum(row.value is not None for row in result.results) == 60
+    assert case.model.maximum_in_flight <= 2
+    batches = [call for call in case.model.calls if call["phase"] == "score"]
+    assert len(batches) == 7
+    assert all(len(call["pairs"]) <= 10 for call in batches)
+    assert all(len({p["soc_code"] for p in call["pairs"]}) == 1 for call in batches)
+    assert case.teacher_decisions() == case.before
+
+
+def test_old_prompt_terminal_cache_is_reassessed(service_case, monkeypatch):
+    from app.modules.marketdemandanalyst import priority_service
+
+    case = service_case
+    current = priority_service.PROMPT_VERSION
+    monkeypatch.setattr(priority_service, "PROMPT_VERSION", "4")
+    case.model.malformed = True
+    old = assess(case)
+    assert old.status == "unavailable"
+    calls = len(case.model.calls)
+    monkeypatch.setattr(priority_service, "PROMPT_VERSION", current)
+    case.model.malformed = False
+    new = assess(case)
+    assert new.status == "ready"
+    assert new.assessment_id != old.assessment_id
+    assert new.input_fingerprint != old.input_fingerprint
+    assert len(case.model.calls) > calls
+    assert case.teacher_decisions() == case.before
+
+
+@pytest.mark.parametrize(
+    ("response", "failure", "reason"),
+    [
+        (None, TimeoutError("private provider detail"), "Model request timed out"),
+        (
+            None,
+            RuntimeError("private provider detail"),
+            "Model provider request failed",
+        ),
+        ("not JSON private provider detail", None, "Model returned invalid JSON"),
+        ('{"items":[]}', None, "Model response must contain only the results array"),
+        (
+            '{"results":["private provider detail"]}',
+            None,
+            "Model response failed schema validation",
+        ),
+    ],
+)
+def test_transport_failures_have_distinct_safe_reasons(response, failure, reason):
+    from threading import BoundedSemaphore
+    from time import monotonic
+
+    from pydantic import TypeAdapter
+
+    from app.modules.marketdemandanalyst.priority_service import (
+        SkillPriorityService,
+        _Unavailable,
+    )
+
+    async def invoke(messages, *, config):
+        if failure:
+            raise failure
+        return SimpleNamespace(content=response)
+
+    service = SkillPriorityService(
+        llm_factory=lambda **kwargs: SimpleNamespace(ainvoke=invoke)
+    )
+    with pytest.raises(_Unavailable) as caught:
+        asyncio.run(
+            service._request(
+                {},
+                "prompt",
+                TypeAdapter(list[int]),
+                monotonic() + 1,
+                BoundedSemaphore(2),
+            )
+        )
+    assert str(caught.value) == reason
+    assert "private" not in str(caught.value)
+
+
+def test_compact_scoring_aliases_expand_to_canonical_evidence(service_case):
+    case = service_case
+    result = assess(case)
+    batches = [call for call in case.model.calls if call["phase"] == "score"]
+    assert all(
+        pair["candidate_id"].startswith("C")
+        for call in batches
+        for pair in call["pairs"]
+    )
+    assert all(
+        ref["id"].startswith("R") for call in batches for ref in call["references"]
+    )
+    assert all(key.startswith("E") for call in batches for key in call["passages"])
+    assert {str(row.candidate_id) for row in result.results} == {
+        row["candidate_id"] for row in case.candidates
+    }
+    assert all(row.value is not None for row in result.results)
+    assert all(
+        isinstance(ref.reference_id, UUID)
+        for row in result.results
+        for ref in row.associations
+    )
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "foreign_candidate",
+        "canonical_fallback",
+        "duplicate_candidate",
+        "foreign_reference",
+        "foreign_passage",
+        "cross_candidate_passage",
+    ],
+)
+def test_compact_alias_corruption_cannot_produce_scores(service_case, damage):
+    case = service_case
+    original = case.model.ainvoke
+
+    async def corrupt(messages, *, config):
+        response = await original(messages, config=config)
+        payload = json.loads(messages[1].content)
+        if payload["phase"] != "score":
+            return response
+        rows = json.loads(response.content)["results"]
+        assert "c" in rows[0], (
+            "Scoring transport must return request-local candidate aliases"
+        )
+        if damage == "foreign_candidate":
+            rows[0]["c"] = "C999"
+        elif damage == "canonical_fallback":
+            rows[0]["c"] = case.candidates[0]["candidate_id"]
+        elif damage == "duplicate_candidate":
+            rows[0]["c"] = rows[1]["c"]
+        elif damage == "foreign_reference":
+            rows[0]["a"][0]["r"] = "R999"
+        elif damage == "foreign_passage":
+            rows[0]["e"] = ["E999"]
+        else:
+            original_evidence = [row["e"] for row in rows]
+            for index, row in enumerate(rows):
+                row["e"] = original_evidence[(index + 1) % len(rows)]
+        response.content = json.dumps({"results": rows})
+        return response
+
+    case.model.ainvoke = corrupt
+    result = assess(case)
+    assert result.status == "unavailable"
+    assert all(row.value is None for row in result.results)
+    assert case.teacher_decisions() == case.before
+
+
+def test_scoring_prose_expands_exact_alias_tokens_without_prefix_collisions():
+    from app.modules.marketdemandanalyst.priority_service import _expand_scoring_text
+
+    names = {
+        "C1": "Write Python programs",
+        "C10": "Build SQL queries",
+        "R1": "Programming",
+        "E1": "verified job passage",
+    }
+    assert (
+        _expand_scoring_text("C1, C10; R1. Passage E1 supports this.", names)
+        == "Write Python programs, Build SQL queries; Programming. The verified job passage supports this."
+    )
+    assert (
+        _expand_scoring_text("XC1 and C1X are words.", names)
+        == "XC1 and C1X are words."
+    )
+
+
+def test_scoring_prose_rejects_foreign_alias_instead_of_inventing_a_name():
+    from app.modules.marketdemandanalyst.priority_service import (
+        _expand_scoring_text,
+        _Unavailable,
+    )
+
+    with pytest.raises(_Unavailable, match="unknown scoring alias"):
+        _expand_scoring_text("R999 supports the score.", {"R1": "Programming"})
+
+
+def test_context_validation_can_choose_second_proposed_occupation(service_case):
+    case = service_case
+    original = case.model.ainvoke
+
+    async def alternatives(messages, *, config):
+        response = await original(messages, config=config)
+        payload = json.loads(messages[1].content)
+        if payload["phase"] == "choose":
+            rows = json.loads(response.content)["results"]
+            assert "soc_codes" in rows[0], (
+                "Choose must provide a bounded occupation shortlist"
+            )
+            rows[0]["soc_codes"] = ["15-1252.00", "15-1211.00"]
+            response.content = json.dumps({"results": rows})
+        return response
+
+    case.model.ainvoke = alternatives
+    result = assess(case)
+    assert result.status == "ready"
+    assert result.contexts[0].soc_code == "15-1211.00"
+    validate = next(call for call in case.model.calls if call["phase"] == "validate")
+    assert validate["proposals"][0]["soc_codes"] == ["15-1252.00", "15-1211.00"]
+    assert len([call for call in case.model.calls if call["phase"] != "score"]) == 2
+    assert case.teacher_decisions() == case.before
+
+
+@pytest.mark.parametrize("damage", ["duplicate", "foreign", "too_many", "cross_group"])
+def test_invalid_context_shortlists_fail_closed(service_case, damage):
+    case = service_case
+    original = case.model.ainvoke
+
+    async def corrupt(messages, *, config):
+        response = await original(messages, config=config)
+        phase = json.loads(messages[1].content)["phase"]
+        if phase == "choose":
+            rows = json.loads(response.content)["results"]
+            assert "soc_codes" in rows[0]
+            rows[0]["soc_codes"] = {
+                "duplicate": ["15-1252.00", "15-1252.00"],
+                "foreign": ["11-1011.00"],
+                "too_many": ["15-1252.00", "15-1211.00", "15-1244.00", "15-1243.01"],
+                "cross_group": ["15-1252.00"],
+            }[damage]
+            response.content = json.dumps({"results": rows})
+        return response
+
+    case.model.ainvoke = corrupt
+    result = assess(case)
+    assert result.status == "unavailable"
+    assert all(row.value is None for row in result.results)
+    assert case.teacher_decisions() == case.before
+    assert not any(call["phase"] == "score" for call in case.model.calls)
+
+
+def test_empty_context_shortlists_abstain_without_validation_or_scoring(service_case):
+    case = service_case
+    original = case.model.ainvoke
+
+    async def abstain(messages, *, config):
+        response = await original(messages, config=config)
+        if json.loads(messages[1].content)["phase"] == "choose":
+            rows = json.loads(response.content)["results"]
+            assert all("soc_codes" in row for row in rows)
+            for row in rows:
+                row["soc_codes"] = []
+            response.content = json.dumps({"results": rows})
+        return response
+
+    case.model.ainvoke = abstain
+    result = assess(case)
+    assert result.status == "unavailable"
+    assert [call["phase"] for call in case.model.calls] == ["choose"]
+    assert case.teacher_decisions() == case.before

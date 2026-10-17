@@ -3,14 +3,17 @@
 import asyncio
 import json
 import math
+import re
 from datetime import UTC, datetime, timedelta
 from threading import BoundedSemaphore, Lock
 from time import monotonic
+from typing import Annotated, Literal
 from uuid import UUID, uuid4
 from weakref import WeakValueDictionary
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
+from openai import APITimeoutError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -45,8 +48,9 @@ from .thread_state_service import ThreadLease
 # A complete oversized input abstains rather than silently truncating a catalog.
 MAX_INPUT_BYTES = 200_000
 MAX_OUTPUT_BYTES = 200_000
-PROMPT_VERSION = "4"
-SCORING_BATCH_SIZE = 2
+PROMPT_VERSION = "8"
+SCORING_BATCH_SIZE = 10
+ASSESSMENT_TIMEOUT_SECONDS = 90
 POLICY_VERSION = "1"
 
 # get_skill_priority_service() constructs services per invocation. Keep actual
@@ -84,8 +88,158 @@ class _ContextDecision(BaseModel):
     unavailable_reason: str | None = None
 
 
+class _ContextProposal(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    group_id: str
+    soc_codes: list[SocCode] = Field(max_length=3)
+    supporting_posting_ids: list[UUID]
+    rationale: str
+    unavailable_reason: str | None = None
+
+
 class _Unavailable(ValueError):
     """An entire model request is unsafe, incomplete, oversized or expired."""
+
+
+class _ScoringAssociation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reference_id: str = Field(alias="r")
+    relation: Literal["equivalent", "broader", "related", "unmatched"] = Field(
+        alias="k"
+    )
+    rationale: str = Field(alias="why")
+
+
+class _ScoringDecision(BaseModel):
+    """Compact transport only; canonical evidence validation remains mandatory."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: str = Field(alias="c")
+    basis: Literal["onet", "ai_estimate", "unavailable"] = Field(alias="b")
+    direct_reference_id: str | None = Field(alias="d")
+    estimate: Annotated[int, Field(strict=True, ge=1, le=5)] | None = Field(alias="v")
+    associations: list[_ScoringAssociation] = Field(alias="a")
+    supporting_evidence_ids: list[str] = Field(alias="e")
+    explanation: str = Field(alias="why")
+    limitations: list[str] = Field(alias="limits")
+    unavailable_reason: str | None = Field(default=None, alias="missing")
+
+
+def _compact_scoring_payload(payload):
+    candidates = {
+        f"C{i}": row["candidate_id"] for i, row in enumerate(payload["candidates"], 1)
+    }
+    references = {f"R{i}": row["id"] for i, row in enumerate(payload["references"], 1)}
+    evidence = {f"E{i}": key for i, key in enumerate(payload["passages"], 1)}
+    candidate_aliases = {value: key for key, value in candidates.items()}
+    reference_aliases = {value: key for key, value in references.items()}
+    payload = {
+        **payload,
+        "pairs": [
+            {**row, "candidate_id": candidate_aliases[row["candidate_id"]]}
+            for row in payload["pairs"]
+        ],
+        "candidates": [
+            {**row, "candidate_id": candidate_aliases[row["candidate_id"]]}
+            for row in payload["candidates"]
+        ],
+        "references": [
+            {**row, "id": reference_aliases[row["id"]]} for row in payload["references"]
+        ],
+        "passages": {
+            alias: {
+                **payload["passages"][key],
+                "candidate_ids": [
+                    candidate_aliases[value]
+                    for value in payload["passages"][key]["candidate_ids"]
+                    if value in candidate_aliases
+                ],
+            }
+            for alias, key in evidence.items()
+        },
+        "transport_instruction": (
+            "Use only this request's exact C candidate, R reference and E passage aliases. "
+            "Output keys: c candidate_id, b basis, d direct_reference_id, v estimate, "
+            "a associations (r reference_id, k relation, why rationale), e supporting_evidence_ids, "
+            "why explanation, limits limitations, missing unavailable_reason. "
+            "The server supplies this batch's occupation code. Use one minimal sufficient anchor and passage "
+            "unless more are necessary. Keep each explanation within about 20 words and association rationale "
+            "within about 12 words; preserve concrete evidence reasoning. In prose use actual competency and "
+            "descriptor names, never C/E/R aliases; aliases belong only in ID fields. Do not output canonical IDs."
+        ),
+    }
+    return payload, candidates, references, evidence
+
+
+def _expand_scoring_text(value, names):
+    def replace(match):
+        alias = match["alias"]
+        if alias not in names:
+            raise _Unavailable("Model prose cites an unknown scoring alias")
+        label = names[alias]
+        prefix = match["prefix"] or ""
+        if prefix and alias.startswith("E"):
+            return ("The " if prefix[0].isupper() else "the ") + label
+        return prefix + label
+
+    # Exact lexical tokens only: C1 cannot replace C10 or characters within words.
+    return re.sub(r"\b(?P<prefix>[Pp]assage )?(?P<alias>[CER]\d+)\b", replace, value)
+
+
+def _expand_scoring_decisions(
+    decisions, candidates, references, evidence, soc_code, payload
+):
+    names = {
+        **{row["candidate_id"]: row["display_name"] for row in payload["candidates"]},
+        **{row["id"]: row["label"] for row in payload["references"]},
+        **{key: "verified job passage" for key in payload["passages"]},
+    }
+    try:
+        return [
+            PriorityDecision(
+                **{
+                    **row.model_dump(
+                        exclude={
+                            "candidate_id",
+                            "direct_reference_id",
+                            "associations",
+                            "supporting_evidence_ids",
+                        }
+                    ),
+                    "candidate_id": candidates[row.candidate_id],
+                    "soc_code": soc_code,
+                    "explanation": _expand_scoring_text(row.explanation, names),
+                    "limitations": [
+                        _expand_scoring_text(value, names) for value in row.limitations
+                    ],
+                    "unavailable_reason": _expand_scoring_text(
+                        row.unavailable_reason, names
+                    )
+                    if row.unavailable_reason is not None
+                    else None,
+                    "direct_reference_id": references[row.direct_reference_id]
+                    if row.direct_reference_id is not None
+                    else None,
+                    "associations": [
+                        {
+                            **item.model_dump(),
+                            "reference_id": references[item.reference_id],
+                            "rationale": _expand_scoring_text(item.rationale, names),
+                        }
+                        for item in row.associations
+                    ],
+                    "supporting_evidence_ids": [
+                        evidence[key] for key in row.supporting_evidence_ids
+                    ],
+                }
+            )
+            for row in decisions
+        ]
+    except KeyError as exc:
+        raise _Unavailable("Model returned an unknown scoring alias") from exc
 
 
 def configured_priority_model() -> str:
@@ -349,7 +503,7 @@ class SkillPriorityService:
             remaining = deadline - monotonic()
             if remaining <= 0:
                 raise _Unavailable("Assessment deadline expired")
-            timeout = min(20.0, remaining)
+            timeout = min(30.0 if payload.get("phase") == "score" else 20.0, remaining)
             llm = self._llm_factory(timeout_seconds=timeout)
             request = asyncio.create_task(
                 llm.ainvoke(
@@ -369,21 +523,28 @@ class SkillPriorityService:
             ):
                 raise _Unavailable("Model output exceeds the response budget")
             # Exact JSON only: no code fences, extraction regex or prose repair.
-            raw = json.loads(
-                response.content,
-                parse_constant=lambda _: (_ for _ in ()).throw(
-                    ValueError("Non-finite JSON")
-                ),
-            )
+            try:
+                raw = json.loads(
+                    response.content,
+                    parse_constant=lambda _: (_ for _ in ()).throw(
+                        ValueError("Non-finite JSON")
+                    ),
+                )
+            except ValueError as exc:
+                raise _Unavailable("Model returned invalid JSON") from exc
             if type(raw) is not dict or set(raw) != {"results"}:
                 raise _Unavailable("Model response must contain only the results array")
             return adapter.validate_python(raw["results"])
         except asyncio.CancelledError:
             raise
+        except _Unavailable:
+            raise
+        except (TimeoutError, APITimeoutError) as exc:
+            raise _Unavailable("Model request timed out") from exc
+        except ValidationError as exc:
+            raise _Unavailable("Model response failed schema validation") from exc
         except Exception as exc:
-            raise _Unavailable(
-                "Model request failed, timed out or returned invalid JSON"
-            ) from exc
+            raise _Unavailable("Model provider request failed") from exc
         finally:
             if request is not None and not request.done():
                 request.cancel()
@@ -439,17 +600,42 @@ class SkillPriorityService:
                 {"soc_code": item.soc_code, "title": item.title} for item in catalog
             ],
         }
-        adapter = TypeAdapter(list[_ContextDecision])
         try:
             chosen = await self._request(
-                payload, SKILL_PRIORITY_CONTEXT_PROMPT, adapter, deadline, slots
+                payload,
+                SKILL_PRIORITY_CONTEXT_PROMPT,
+                TypeAdapter(list[_ContextProposal]),
+                deadline,
+                slots,
             )
             allowed = {item.soc_code for item in catalog}
+            proposals = {item.group_id: item.soc_codes for item in chosen}
+            if len(proposals) != len(chosen) or set(proposals) != set(alias_to_group):
+                raise _Unavailable("Incomplete or duplicate occupation group scan")
+            for item in chosen:
+                if (
+                    len(item.soc_codes) != len(set(item.soc_codes))
+                    or not set(item.soc_codes) <= allowed
+                ):
+                    raise _Unavailable(
+                        "Occupation proposals contain duplicate or foreign codes"
+                    )
             self._check_context_decisions(
-                chosen, transport_groups, allowed, verified_postings
+                [
+                    _ContextDecision(
+                        group_id=item.group_id,
+                        soc_code=item.soc_codes[0] if item.soc_codes else None,
+                        supporting_posting_ids=item.supporting_posting_ids,
+                        rationale=item.rationale,
+                        unavailable_reason=item.unavailable_reason,
+                    )
+                    for item in chosen
+                ],
+                transport_groups,
+                allowed,
+                verified_postings,
             )
-            proposed = {item.group_id: item.soc_code for item in chosen}
-            codes = list({item.soc_code for item in chosen if item.soc_code})
+            codes = list({code for item in chosen for code in item.soc_codes})
             if not codes:
                 return restore_order(
                     self._unmapped(groups, "No occupation fits the selected work")
@@ -473,7 +659,7 @@ class SkillPriorityService:
                     ],
                 },
                 SKILL_PRIORITY_CONTEXT_PROMPT,
-                adapter,
+                TypeAdapter(list[_ContextDecision]),
                 deadline,
                 slots,
             )
@@ -483,12 +669,20 @@ class SkillPriorityService:
                 {item.soc_code for item in occupations},
                 verified_postings,
             )
+            if any(
+                item.soc_code is not None
+                and item.soc_code not in proposals[item.group_id]
+                for item in checked
+            ):
+                raise _Unavailable(
+                    "Validated occupation is outside this group's proposals"
+                )
             titles = {item.soc_code: item.title for item in occupations}
             by_group = {item.group_id: item for item in checked}
             contexts = []
             for alias, group in alias_to_group.items():
                 item = by_group[alias]
-                code = item.soc_code if item.soc_code == proposed[alias] else None
+                code = item.soc_code
                 contexts.append(
                     PriorityContext(
                         group_id=group["group_id"],
@@ -596,7 +790,7 @@ class SkillPriorityService:
             release=None,
             started_at=started,
             updated_at=started,
-            deadline_at=started + timedelta(seconds=60),
+            deadline_at=started + timedelta(seconds=ASSESSMENT_TIMEOUT_SECONDS),
             status="unavailable",
         )
         if not settings.market_skill_priority_enabled:
@@ -641,7 +835,11 @@ class SkillPriorityService:
                     self._catalog(assessment.release)[1] if assessment.release else []
                 )
             deadline = start_clock + max(
-                0.0, min(60.0, (assessment.deadline_at - started).total_seconds())
+                0.0,
+                min(
+                    ASSESSMENT_TIMEOUT_SECONDS,
+                    (assessment.deadline_at - started).total_seconds(),
+                ),
             )
             slots = _shared_model_slots(lease.thread_id)
             if not assessment.contexts:
@@ -704,94 +902,103 @@ class SkillPriorityService:
                 ids = {pair.candidate_id for pair in batch}
                 codes = {pair.soc_code for pair in batch}
                 try:
-                    decisions = await self._request(
-                        {
-                            "phase": "score",
-                            "scoring_rubric": {
-                                "1": "Little importance to the role.",
-                                "2": "Supporting or secondary to the role's primary responsibilities.",
-                                "3": "Important to the role.",
-                                "4": "Central to multiple primary responsibilities.",
-                                "5": "Essential: core work cannot be performed without this capability.",
-                            },
-                            "evidence_consistency_rules": [
-                                "An equivalent association requires the same complete action, object, outcome and scope as the candidate competency, compared by meaning.",
-                                "Related concepts or partial overlap are broader/related associations, not an official rating; shared words or tools do not establish equivalence.",
-                                "For basis ai_estimate, cite only broader/related anchors, never equivalent associations, and keep direct_reference_id null.",
-                                "For basis onet, cite exactly one equivalent direct reference for the complete competency and return its ID, never an official numeric value.",
-                                "A missing or suppressed measurement is distinct from no suitable direct descriptor. Do not reconstruct that withheld measurement; only independently supported specific competencies may use other valid broader/related anchors.",
-                                "Assess importance to the whole validated occupation, not urgency in one posting. Use independent occupation context and anchors to assess the specific capability.",
-                                "Do not escalate a skill merely because a posting mentions it. Mention or use does not itself establish essential importance, and core technologies do not all deserve 5.",
-                                "When the evidence cannot establish defensible occupational importance, return unavailable rather than choosing a high rating.",
-                            ],
-                            "release": assessment.release,
-                            "pairs": [pair.model_dump(mode="json") for pair in batch],
-                            "candidates": [
-                                candidate.model_dump(
+                    payload = {
+                        "phase": "score",
+                        "scoring_rubric": {
+                            "1": "Little importance to the role.",
+                            "2": "Supporting or secondary to the role's primary responsibilities.",
+                            "3": "Important to the role.",
+                            "4": "Central to multiple primary responsibilities.",
+                            "5": "Essential: core work cannot be performed without this capability.",
+                        },
+                        "evidence_consistency_rules": [
+                            "An equivalent association requires the same complete action, object, outcome and scope as the candidate competency, compared by meaning.",
+                            "Related concepts or partial overlap are broader/related associations, not an official rating; shared words or tools do not establish equivalence.",
+                            "For basis ai_estimate, cite only broader/related anchors, never equivalent associations, and keep direct_reference_id null.",
+                            "For basis onet, cite exactly one equivalent direct reference for the complete competency and return its ID, never an official numeric value.",
+                            "A missing or suppressed measurement is distinct from no suitable direct descriptor. Do not reconstruct that withheld measurement; only independently supported specific competencies may use other valid broader/related anchors.",
+                            "Assess importance to the whole validated occupation, not urgency in one posting. Use independent occupation context and anchors to assess the specific capability.",
+                            "Do not escalate a skill merely because a posting mentions it. Mention or use does not itself establish essential importance, and core technologies do not all deserve 5.",
+                            "When the evidence cannot establish defensible occupational importance, return unavailable rather than choosing a high rating.",
+                        ],
+                        "release": assessment.release,
+                        "pairs": [pair.model_dump(mode="json") for pair in batch],
+                        "candidates": [
+                            candidate.model_dump(
+                                mode="json",
+                                include={
+                                    "candidate_id",
+                                    "display_name",
+                                    "category_id",
+                                    "original_labels",
+                                    "aliases",
+                                },
+                            )
+                            for candidate in inputs["candidates"]
+                            if candidate.candidate_id in ids
+                        ],
+                        "contexts": [
+                            context.model_dump(mode="json")
+                            for context in assessment.contexts
+                            if context.soc_code in codes
+                        ],
+                        "occupations": [
+                            item.model_dump(mode="json")
+                            for item in occupations
+                            if item.soc_code in codes
+                        ],
+                        "references": [
+                            {
+                                **ref.model_dump(
                                     mode="json",
                                     include={
-                                        "candidate_id",
-                                        "display_name",
-                                        "category_id",
-                                        "original_labels",
-                                        "aliases",
+                                        "id",
+                                        "soc_code",
+                                        "family",
+                                        "element_id",
+                                        "label",
+                                        "definition",
                                     },
-                                )
-                                for candidate in inputs["candidates"]
-                                if candidate.candidate_id in ids
-                            ],
-                            "contexts": [
-                                context.model_dump(mode="json")
-                                for context in assessment.contexts
-                                if context.soc_code in codes
-                            ],
-                            "occupations": [
-                                item.model_dump(mode="json")
-                                for item in occupations
-                                if item.soc_code in codes
-                            ],
-                            "references": [
-                                {
-                                    **ref.model_dump(
-                                        mode="json",
+                                ),
+                                "ratings": {
+                                    "IM": ref.ratings["IM"].model_dump(
                                         include={
-                                            "id",
-                                            "soc_code",
-                                            "family",
-                                            "element_id",
-                                            "label",
-                                            "definition",
-                                        },
-                                    ),
-                                    "ratings": {
-                                        "IM": ref.ratings["IM"].model_dump(
-                                            include={
-                                                "scale_id",
-                                                "value",
-                                                "minimum",
-                                                "maximum",
-                                                "status",
-                                            }
-                                        )
-                                    },
-                                }
-                                for ref in references
-                                if ref.soc_code in codes
-                            ],
-                            "passages": {
-                                key: value
-                                for key, value in inputs["passages"].items()
-                                if ids
-                                & {
-                                    UUID(candidate)
-                                    for candidate in value["candidate_ids"]
-                                }
-                            },
+                                            "scale_id",
+                                            "value",
+                                            "minimum",
+                                            "maximum",
+                                            "status",
+                                        }
+                                    )
+                                },
+                            }
+                            for ref in references
+                            if ref.soc_code in codes
+                        ],
+                        "passages": {
+                            key: value
+                            for key, value in inputs["passages"].items()
+                            if ids
+                            & {UUID(candidate) for candidate in value["candidate_ids"]}
                         },
+                    }
+                    payload, candidate_ids, reference_ids, evidence_ids = (
+                        _compact_scoring_payload(payload)
+                    )
+                    wire = await self._request(
+                        payload,
                         SKILL_PRIORITY_ANALYST_PROMPT,
-                        TypeAdapter(list[PriorityDecision]),
+                        TypeAdapter(list[_ScoringDecision]),
                         deadline,
                         slots,
+                    )
+                    decisions = _expand_scoring_decisions(
+                        wire,
+                        candidate_ids,
+                        reference_ids,
+                        evidence_ids,
+                        batch[0].soc_code,
+                        payload,
                     )
                     expected = {(pair.candidate_id, pair.soc_code) for pair in batch}
                     if {
@@ -810,9 +1017,15 @@ class SkillPriorityService:
                 except _Unavailable as exc:
                     return [], str(exc)
 
+            # Share complete occupation anchors across a bounded group of pairs,
+            # rather than spending the common deadline on many tiny requests.
+            by_occupation = {}
+            for pair in pending:
+                by_occupation.setdefault(pair.soc_code, []).append(pair)
             tasks = [
-                asyncio.create_task(score(pending[i : i + SCORING_BATCH_SIZE]))
-                for i in range(0, len(pending), SCORING_BATCH_SIZE)
+                asyncio.create_task(score(group[i : i + SCORING_BATCH_SIZE]))
+                for group in by_occupation.values()
+                for i in range(0, len(group), SCORING_BATCH_SIZE)
             ]
             for completed in asyncio.as_completed(tasks):
                 results, error = await completed

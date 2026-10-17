@@ -43,7 +43,7 @@ it("shows compact importance labels while keeping exactly the existing teacher c
   expect(view.visibleCandidateIds().slice(0, 3)).toEqual(["Select Skill 23", "Select Skill 22", "Select Skill 21"]);
   expect(screen.getByText("4.2/5 · O*NET")).toBeInTheDocument();
   expect(screen.queryByText("Not assessed")).not.toBeInTheDocument();
-  expect(screen.getByText(/Importance assessed for 23 of 24/)).toBeInTheDocument();
+  expect(screen.getByText(/Importance guidance available for 23 of 24/)).toBeInTheDocument();
   expect(screen.getAllByText("4/5 · AI estimate")).toHaveLength(8);
   const controls = screen.getAllByRole("button").map(button => button.getAttribute("aria-label") ?? button.textContent);
   expect(screen.queryByRole("button", {name: /Confirm Selection/})).not.toBeInTheDocument();
@@ -153,7 +153,7 @@ function sixtySkillReview(): SkillReview {
 it("shows five saved choices and one honest coverage message for 60 skills across 35 categories", () => {
   const view = setupPriorityReview(sixtySkillReview(), false);
   expect(view.visibleCandidateIds()).toEqual(["Select Skill 00", "Select Skill 26", "Select Skill 27", "Select Skill 28", "Select Skill 29"]);
-  expect(screen.getByText(/Importance assessed for 2 of 60 skills/)).toBeInTheDocument();
+  expect(screen.getByText(/Importance guidance available for 2 of 60 skills/)).toBeInTheDocument();
   expect(screen.getByText("4/5 · O*NET")).toBeInTheDocument();
   expect(screen.getByText("4/5 · AI estimate")).toBeInTheDocument();
   expect(screen.queryByText("Not assessed")).not.toBeInTheDocument();
