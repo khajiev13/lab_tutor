@@ -705,10 +705,10 @@ def test_model_cannot_supply_server_owned_official_values(service_case):
 
     case.model.ainvoke = forged
     result = assess(case)
-    assert result.status == "unavailable"
+    assert result.status == "partial"
     assert len(result.results) == 24
-    assert not result.references
-    assert all(row.value is None for row in result.results)
+    assert sum(row.value is None for row in result.results) == 3
+    assert {row.value for row in result.results if row.value is not None} == {4.53, 3.5}
 
 
 def test_resume_does_not_replace_a_pinned_absent_release(service_case, monkeypatch):
@@ -1144,12 +1144,15 @@ def test_sixty_pairs_complete_despite_provider_latency(service_case, monkeypatch
     assert case.teacher_decisions() == case.before
 
 
-def test_old_prompt_terminal_cache_is_reassessed(service_case, monkeypatch):
+@pytest.mark.parametrize("old_version", ["4", "8"])
+def test_old_prompt_terminal_cache_is_reassessed(
+    service_case, monkeypatch, old_version
+):
     from app.modules.marketdemandanalyst import priority_service
 
     case = service_case
     current = priority_service.PROMPT_VERSION
-    monkeypatch.setattr(priority_service, "PROMPT_VERSION", "4")
+    monkeypatch.setattr(priority_service, "PROMPT_VERSION", old_version)
     case.model.malformed = True
     old = assess(case)
     assert old.status == "unavailable"
@@ -1282,8 +1285,11 @@ def test_compact_alias_corruption_cannot_produce_scores(service_case, damage):
 
     case.model.ainvoke = corrupt
     result = assess(case)
-    assert result.status == "unavailable"
-    assert all(row.value is None for row in result.results)
+    isolated = damage in {"foreign_reference", "foreign_passage"}
+    assert result.status == ("partial" if isolated else "unavailable")
+    assert sum(row.value is not None for row in result.results) == (
+        21 if isolated else 0
+    )
     assert case.teacher_decisions() == case.before
 
 
@@ -1388,4 +1394,172 @@ def test_empty_context_shortlists_abstain_without_validation_or_scoring(service_
     result = assess(case)
     assert result.status == "unavailable"
     assert [call["phase"] for call in case.model.calls] == ["choose"]
+    assert case.teacher_decisions() == case.before
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "string_estimate",
+        "float_estimate",
+        "bool_estimate",
+        "extra_official_value",
+        "missing_explanation",
+        "foreign_reference",
+        "foreign_passage",
+        "cross_candidate_passage",
+    ],
+)
+def test_owned_malformed_scoring_row_preserves_valid_neighbors(service_case, damage):
+    case = service_case
+    original = case.model.ainvoke
+    damaged = False
+    rejected_id = None
+
+    async def malformed(messages, *, config):
+        nonlocal damaged, rejected_id
+        response = await original(messages, config=config)
+        payload = json.loads(messages[1].content)
+        if damaged or payload["phase"] != "score":
+            return response
+        damaged = True
+        rows = json.loads(response.content)["results"]
+        label = next(
+            item["display_name"]
+            for item in payload["candidates"]
+            if item["candidate_id"] == rows[0]["c"]
+        )
+        rejected_id = next(
+            item["candidate_id"]
+            for item in case.candidates
+            if item["display_name"] == label
+        )
+        if damage in {"string_estimate", "float_estimate", "bool_estimate"}:
+            rows[0]["v"] = {
+                "string_estimate": "private-provider-text",
+                "float_estimate": 4.0,
+                "bool_estimate": True,
+            }[damage]
+        elif damage == "extra_official_value":
+            rows[0]["official_value"] = 5
+            rows[0]["private-provider-field"] = "private-provider-text"
+        elif damage == "missing_explanation":
+            del rows[0]["why"]
+        elif damage == "foreign_reference":
+            rows[0]["a"][0]["r"] = "R999"
+        elif damage == "foreign_passage":
+            rows[0]["e"] = ["E999"]
+        else:
+            rows[0]["e"] = rows[1]["e"]
+        response.content = json.dumps({"results": rows})
+        return response
+
+    case.model.ainvoke = malformed
+    result = assess(case)
+    assert result.status == "partial"
+    assert result.expected_pair_count == result.completed_pair_count == 24
+    assert len(result.results) == 24
+    assert sum(row.value is not None for row in result.results) == 23
+    assert (
+        next(
+            row for row in result.results if str(row.candidate_id) == rejected_id
+        ).value
+        is None
+    )
+    assert {str(row.candidate_id) for row in result.results} == {
+        row["candidate_id"] for row in case.candidates
+    }
+    if damage != "cross_candidate_passage":
+        assert result.error_reasons
+    assert "private-provider" not in json.dumps(result.error_reasons)
+    assert case.teacher_decisions() == case.before
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "malformed_duplicate",
+        "foreign_candidate",
+        "missing_candidate",
+        "unidentifiable_candidate",
+    ],
+)
+def test_raw_scoring_identity_corruption_still_rejects_entire_owned_batch(
+    service_case, damage
+):
+    case = service_case
+    original = case.model.ainvoke
+    damaged = False
+
+    async def malformed(messages, *, config):
+        nonlocal damaged
+        response = await original(messages, config=config)
+        if damaged or json.loads(messages[1].content)["phase"] != "score":
+            return response
+        damaged = True
+        rows = json.loads(response.content)["results"]
+        if damage == "malformed_duplicate":
+            rows.append({**rows[0], "v": True})
+        elif damage == "foreign_candidate":
+            rows[0]["c"] = "C999"
+            rows[0]["v"] = True
+        elif damage == "missing_candidate":
+            rows.pop(0)
+        else:
+            rows[0] = 7
+        response.content = json.dumps({"results": rows})
+        return response
+
+    case.model.ainvoke = malformed
+    result = assess(case)
+    assert result.status == "partial"
+    assert result.expected_pair_count == result.completed_pair_count == 24
+    assert sum(row.value is not None for row in result.results) == 14
+    assert case.teacher_decisions() == case.before
+
+
+def test_context_response_schema_failure_remains_atomic(service_case):
+    case = service_case
+    original = case.model.ainvoke
+
+    async def malformed(messages, *, config):
+        response = await original(messages, config=config)
+        if json.loads(messages[1].content)["phase"] == "validate":
+            rows = json.loads(response.content)["results"]
+            del rows[0]["rationale"]
+            response.content = json.dumps({"results": rows})
+        return response
+
+    case.model.ainvoke = malformed
+    result = assess(case)
+    assert result.status == "unavailable"
+    assert all(row.value is None for row in result.results)
+    assert not any(call["phase"] == "score" for call in case.model.calls)
+
+
+@pytest.mark.parametrize("damage", ["non_array", "extra_root_key"])
+def test_scoring_row_isolation_does_not_relax_response_envelope(service_case, damage):
+    case = service_case
+    original = case.model.ainvoke
+    damaged = False
+
+    async def malformed(messages, *, config):
+        nonlocal damaged
+        response = await original(messages, config=config)
+        if damaged or json.loads(messages[1].content)["phase"] != "score":
+            return response
+        damaged = True
+        body = json.loads(response.content)
+        if damage == "non_array":
+            body["results"] = body["results"][0]
+        else:
+            body["extra"] = True
+        response.content = json.dumps(body)
+        return response
+
+    case.model.ainvoke = malformed
+    result = assess(case)
+    assert result.status == "partial"
+    assert result.expected_pair_count == result.completed_pair_count == 24
+    assert sum(row.value is not None for row in result.results) == 14
     assert case.teacher_decisions() == case.before

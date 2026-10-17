@@ -44,7 +44,7 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled, 
     {browse && <h2 className="shrink-0 text-sm font-semibold">All skills</h2>}
     <p className="shrink-0 text-xs text-muted-foreground">{selected.size} selected · {eligible.length} skills from jobs</p>
     {controller.dirty && <p aria-live="polite" className="text-xs text-muted-foreground">Changes are not saved until you confirm.</p>}
-    {assessment && <p className="text-xs text-muted-foreground">Importance guidance available for {assessedCount} of {eligible.length} skills. {assessedCount < eligible.length && "Other skills have no reliable rating."}</p>}
+    {assessment && <p className="text-xs text-muted-foreground">Importance guidance available for {assessedCount} of {eligible.length} skills. {assessment.status === "running" ? "Assessment is still running." : assessedCount < eligible.length && "Other skills have no reliable rating."}</p>}
     {!showCategories && <div className="space-y-1">
       {chosen.slice(0, 5).map((candidate, index) => <div key={candidate.candidate_id} className={index >= 3 ? "hidden items-center gap-2 sm:flex" : "flex items-center gap-2"}>
         <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">

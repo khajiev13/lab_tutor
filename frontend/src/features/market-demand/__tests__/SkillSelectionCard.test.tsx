@@ -61,16 +61,18 @@ it("preserves dirty choices and row order when guidance refreshes", async () => 
   await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 21"}));
   await view.user.click(screen.getByRole("checkbox", {name: "Select Skill 21"}));
   const before = view.visibleCandidateIds();
-  const refreshed = {...view.initial, priority_assessment: {...view.initial.priority_assessment!, assessment_id: "assessment-2"},
-    candidates: view.initial.candidates.map((item, index) => item.priority ? {...item, priority: {...item.priority, display_order: index, value: 3}} : item)};
+  const refreshed = {...view.initial, priority_assessment: {...view.initial.priority_assessment!, assessment_id: "assessment-2", status: "running" as const},
+    candidates: view.initial.candidates.map((item, index) => item.priority ? {...item, priority: {...item.priority, display_order: index, value: item.priority.value == null ? null : 3}} : item)};
   view.refresh(refreshed);
+  expect(screen.getByText(/Assessment is still running/)).toBeInTheDocument();
   expect(screen.getByText("3/5 · O*NET")).toBeInTheDocument();
   expect(view.visibleCandidateIds()).toEqual(before);
   expect(view.controller().draft.excluded_candidate_ids).toEqual(["skill-23", "reference", "skill-21"]);
   expect(view.controller().dirty).toBe(true);
   expect(view.controller().reviewRequired).toBe(false);
   expect(screen.queryByRole("button", {name: /Confirm Selection/})).not.toBeInTheDocument();
-  view.refresh({...refreshed, candidate_revision: 2, priority_assessment: {...refreshed.priority_assessment, candidate_revision: 2}});
+  view.refresh({...refreshed, candidate_revision: 2, priority_assessment: {...refreshed.priority_assessment, candidate_revision: 2, status: "partial"}});
+  expect(screen.getByText(/Other skills have no reliable rating/)).toBeInTheDocument();
   expect(view.visibleCandidateIds()[0]).toBe("Select Skill 00");
 });
 it("selects off-page category members and retains an exclusion on reopen and reload", async () => {

@@ -48,7 +48,7 @@ from .thread_state_service import ThreadLease
 # A complete oversized input abstains rather than silently truncating a catalog.
 MAX_INPUT_BYTES = 200_000
 MAX_OUTPUT_BYTES = 200_000
-PROMPT_VERSION = "8"
+PROMPT_VERSION = "9"
 SCORING_BATCH_SIZE = 10
 ASSESSMENT_TIMEOUT_SECONDS = 90
 POLICY_VERSION = "1"
@@ -126,6 +126,43 @@ class _ScoringDecision(BaseModel):
     explanation: str = Field(alias="why")
     limitations: list[str] = Field(alias="limits")
     unavailable_reason: str | None = Field(default=None, alias="missing")
+
+
+def _scoring_record_schema_reason(error: ValidationError) -> str:
+    fields = {"c", "b", "d", "v", "a", "e", "why", "limits", "missing", "r", "k"}
+    details = []
+    for item in error.errors(
+        include_input=False, include_context=False, include_url=False
+    )[:3]:
+        location = ".".join(
+            part
+            if type(part) is str and part in fields
+            else "[]"
+            if type(part) is int
+            else "field"
+            for part in item["loc"]
+        )
+        details.append(f"{location}:{item['type']}")
+    return f"Model scoring record failed schema validation ({'; '.join(details)})"
+
+
+def _parse_scoring_records(records, candidates):
+    # Establish complete, unique request ownership before ignoring any bad fields.
+    aliases = [row.get("c") if type(row) is dict else None for row in records]
+    if (
+        len(aliases) != len(candidates)
+        or any(type(alias) is not str for alias in aliases)
+        or len(set(aliases)) != len(aliases)
+        or set(aliases) != set(candidates)
+    ):
+        raise _Unavailable("Incomplete, duplicate or foreign scoring batch")
+    valid, rejected = [], {}
+    for alias, row in zip(aliases, records, strict=True):
+        try:
+            valid.append(_ScoringDecision.model_validate(row))
+        except ValidationError as exc:
+            rejected[alias] = _scoring_record_schema_reason(exc)
+    return valid, rejected
 
 
 def _compact_scoring_payload(payload):
@@ -467,7 +504,9 @@ class SkillPriorityService:
             task.exception()
         slots.release()
 
-    async def _request(self, payload, prompt, adapter, deadline, slots):
+    async def _request(
+        self, payload, prompt, adapter, deadline, slots, *, scoring_records=False
+    ):
         records_schema = adapter.json_schema()
         definitions = records_schema.pop("$defs", None)
         response_schema = {
@@ -534,6 +573,12 @@ class SkillPriorityService:
                 raise _Unavailable("Model returned invalid JSON") from exc
             if type(raw) is not dict or set(raw) != {"results"}:
                 raise _Unavailable("Model response must contain only the results array")
+            if scoring_records:
+                if type(raw["results"]) is not list:
+                    raise _Unavailable(
+                        "Model response failed schema validation (results:list_type)"
+                    )
+                return raw["results"]
             return adapter.validate_python(raw["results"])
         except asyncio.CancelledError:
             raise
@@ -985,37 +1030,48 @@ class SkillPriorityService:
                     payload, candidate_ids, reference_ids, evidence_ids = (
                         _compact_scoring_payload(payload)
                     )
-                    wire = await self._request(
+                    records = await self._request(
                         payload,
                         SKILL_PRIORITY_ANALYST_PROMPT,
                         TypeAdapter(list[_ScoringDecision]),
                         deadline,
                         slots,
+                        scoring_records=True,
                     )
-                    decisions = _expand_scoring_decisions(
-                        wire,
-                        candidate_ids,
-                        reference_ids,
-                        evidence_ids,
-                        batch[0].soc_code,
-                        payload,
-                    )
-                    expected = {(pair.candidate_id, pair.soc_code) for pair in batch}
-                    if {
-                        (item.candidate_id, item.soc_code) for item in decisions
-                    } != expected or len(decisions) != len(expected):
-                        raise _Unavailable(
-                            "Incomplete, duplicate or foreign scoring batch"
-                        )
-                    return validate_priority_decisions(
+                    wire, rejected = _parse_scoring_records(records, candidate_ids)
+                    decisions = []
+                    for row in wire:
+                        try:
+                            decisions.extend(
+                                _expand_scoring_decisions(
+                                    [row],
+                                    candidate_ids,
+                                    reference_ids,
+                                    evidence_ids,
+                                    batch[0].soc_code,
+                                    payload,
+                                )
+                            )
+                        except _Unavailable as exc:
+                            rejected[row.candidate_id] = str(exc)
+                    results = validate_priority_decisions(
                         decisions,
                         pairs=batch,
                         references=references,
                         passages=inputs["passages"],
                         candidates=inputs["candidates"],
-                    ), None
+                    )
+                    reasons = {
+                        candidate_ids[key]: reason for key, reason in rejected.items()
+                    }
+                    for result in results:
+                        reason = reasons.get(str(result.candidate_id))
+                        if result.value is None and reason:
+                            result.unavailable_reason = reason
+                            result.limitations = [reason]
+                    return results, list(dict.fromkeys(rejected.values()))
                 except _Unavailable as exc:
-                    return [], str(exc)
+                    return [], [str(exc)]
 
             # Share complete occupation anchors across a bounded group of pairs,
             # rather than spending the common deadline on many tiny requests.
@@ -1028,9 +1084,9 @@ class SkillPriorityService:
                 for i in range(0, len(group), SCORING_BATCH_SIZE)
             ]
             for completed in asyncio.as_completed(tasks):
-                results, error = await completed
-                if error:
-                    errors.append(error)
+                results, diagnostics = await completed
+                errors.extend(diagnostics)
+                if not results:
                     continue
                 assessment.results.extend(results)
                 assessment.completed_pair_count = len(assessment.results)
