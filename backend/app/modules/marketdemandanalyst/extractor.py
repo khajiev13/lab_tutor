@@ -52,7 +52,7 @@ def _get_extraction_llm(timeout_seconds: int = 120) -> ChatOpenAI:
     return ChatOpenAI(
         model=os.environ.get(
             "LAB_TUTOR_LLM_MODEL",
-            os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+            os.environ.get("OPENAI_MODEL", "deepseek-v4.1-flash"),
         ),
         base_url=os.environ.get(
             "LAB_TUTOR_LLM_BASE_URL",

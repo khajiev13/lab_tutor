@@ -16,7 +16,9 @@ az containerapp update \
     LAB_TUTOR_NEO4J_DATABASE="neo4j" \
     LAB_TUTOR_LLM_API_KEY=secretref:silra-api-key \
     LAB_TUTOR_LLM_BASE_URL="https://api.silra.cn/v1/" \
-    LAB_TUTOR_LLM_MODEL="deepseek-v3.2" \
+    LAB_TUTOR_LLM_MODEL="deepseek-v4.1-flash" \
+    LAB_TUTOR_LLM_AGENT_MODEL="deepseek-v4.1-flash" \
+    LAB_TUTOR_MARKET_SKILL_PRIORITY_MODEL="deepseek-v4.1-flash" \
     LAB_TUTOR_LANGSMITH_API_KEY=secretref:langsmith-api-key \
     LAB_TUTOR_LANGSMITH_PROJECT="concept-relationship-detection" \
     LAB_TUTOR_AZURE_STORAGE_CONNECTION_STRING=secretref:azure-storage-conn \

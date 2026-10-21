@@ -37,7 +37,7 @@ class QuizGenerationService:
     def __init__(
         self, 
         neo4j_service: Optional[Neo4jService] = None,
-        model_id: str = "gpt-4o-2024-08-06",
+        model_id: str = "deepseek-v4.1-flash",
         verbose: bool = False
     ):
         """

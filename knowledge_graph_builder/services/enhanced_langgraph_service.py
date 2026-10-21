@@ -70,7 +70,7 @@ class EnhancedRelationshipService:
         self,
         neo4j_service: Neo4jService,
         config: WorkflowConfiguration,
-        model_id: str = "gpt-4o-2024-08-06"
+        model_id: str = "deepseek-v4.1-flash"
     ):
         """
         Initialize the EnhancedRelationshipService.

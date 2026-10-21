@@ -33,7 +33,7 @@ DEFAULT_USER_AGENT = (
 READING_MAX_CHARS = 4000
 VIDEO_MAX_CHARS = 5000
 RESOURCE_EVIDENCE_MAX_CHARS = 1800
-JUDGE_MODEL_FALLBACK = "gpt-4.1-mini"
+JUDGE_MODEL_FALLBACK = "deepseek-v4.1-flash"
 YOUTUBE_PLAYER_RESPONSE_RE = re.compile(
     r"ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;",
     re.DOTALL,

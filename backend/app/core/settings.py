@@ -58,7 +58,7 @@ class Settings(BaseSettings):
         ),
     )
     llm_model: str = Field(
-        default="deepseek-v3.2",
+        default="deepseek-v4.1-flash",
         description="Model name/id. Preferred: LAB_TUTOR_LLM_MODEL.",
         validation_alias=AliasChoices(
             # Preferred (with env_prefix):
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
         ),
     )
     llm_agent_model: str = Field(
-        default="qwen3.5-plus",
+        default="deepseek-v4.1-flash",
         description="Model for agentic swarm interactions. Preferred: LAB_TUTOR_LLM_AGENT_MODEL.",
     )
     llm_timeout_seconds: int = Field(

@@ -72,7 +72,7 @@ class LangChainCanonicalExtractionService:
             model_id = (
                 os.getenv("LAB_TUTOR_LLM_MODEL")
                 or os.getenv("OPENAI_MODEL")
-                or "deepseek-v3.2"
+                or "deepseek-v4.1-flash"
             )
 
         self.model_id = model_id
