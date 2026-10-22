@@ -1036,6 +1036,122 @@ def test_long_source_sample_137_can_group_without_discarding_stored_text(pipelin
     )
 
 
+@pytest.mark.parametrize("count", [180, 250])
+def test_complete_large_sample_groups_in_one_bounded_request_without_losing_sources(
+    pipeline, monkeypatch, count
+):
+    observations = []
+    for index in range(count):
+        item = deepcopy(pipeline.observations[index % 2])
+        item.update(
+            name=f"Perform distinct competency {index}", identity_key=f"jobs:{index}"
+        )
+        ref = item["evidence_references"][0]
+        ref["original_phrase"] = ref["excerpt"] = "Exact saved work evidence. " * 18
+        ref["excerpt_end"] = len(ref["excerpt"])
+        observations.append(item)
+    original = deepcopy(observations)
+    calls = []
+    timeouts = []
+
+    class Model:
+        def invoke(self, prompt, **kwargs):
+            payload = json.loads(prompt.split("Input JSON:\n", 1)[1])
+            calls.append((payload, kwargs))
+            return SimpleNamespace(
+                content=json.dumps(
+                    [
+                        {
+                            "canonical_id": row["observation_id"],
+                            "member_ids": [row["observation_id"]],
+                        }
+                        for row in payload["observations"]
+                    ]
+                ),
+                response_metadata={},
+            )
+
+    def factory(*, timeout_seconds):
+        timeouts.append(timeout_seconds)
+        return Model()
+
+    monkeypatch.setattr(extractor, "_get_extraction_llm", factory)
+    result, coverage = extractor.merge_evidenced_skills(observations, {})
+
+    assert coverage["status"] == "full"
+    assert coverage["input_competencies"] == coverage["output_competencies"] == count
+    assert coverage["omitted_observations"] == 0
+    assert len(calls) == 1
+    payload, options = calls[0]
+    assert (
+        64 * 1024
+        < len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode())
+        <= 128 * 1024
+    )
+    assert [item["name"] for item in result] == [item["name"] for item in original]
+    assert [item["evidence_references"] for item in result] == [
+        item["evidence_references"] for item in original
+    ]
+    assert observations == original
+    assert 45 * count <= options["max_tokens"] <= 12_000
+    assert options["config"]["tags"] == ["nostream"]
+    assert timeouts == [90]
+
+
+@pytest.mark.parametrize("bound", ["count", "bytes"])
+def test_semantic_input_above_new_bound_keeps_all_original_observations(
+    pipeline, bound
+):
+    observations = []
+    for index in range(251 if bound == "count" else 2):
+        item = deepcopy(pipeline.observations[index % 2])
+        item.update(
+            name=("x" * (70 * 1024) if bound == "bytes" else "Task") + str(index),
+            identity_key=f"jobs:limit-{index}",
+        )
+        observations.append(item)
+    pipeline.handler = lambda payload: pytest.fail(
+        "Oversized input must not reach model"
+    )
+    result, coverage = extractor.merge_evidenced_skills(observations, {})
+    assert len(result) == len(observations)
+    assert [item["evidence_references"] for item in result] == [
+        item["evidence_references"] for item in observations
+    ]
+    assert coverage["status"] == "partial"
+    assert coverage["omitted_observations"] == len(observations)
+    assert not pipeline.calls
+
+
+def test_truncated_grouping_prefix_is_corrected_before_accepting_partial_membership(
+    pipeline, monkeypatch
+):
+    calls = []
+
+    class Model:
+        def invoke(self, prompt, **kwargs):
+            payload = json.loads(prompt.split("Input JSON:\n", 1)[1])
+            calls.append(payload)
+            groups = all_equivalent(payload)
+            if len(calls) == 1:
+                groups[0]["member_ids"] = groups[0]["member_ids"][:1]
+            return SimpleNamespace(
+                content=json.dumps(groups),
+                response_metadata={
+                    "finish_reason": "length" if len(calls) == 1 else "stop"
+                },
+            )
+
+    monkeypatch.setattr(extractor, "_get_extraction_llm", lambda **kwargs: Model())
+    result, coverage = extractor.merge_evidenced_skills(pipeline.observations, {})
+    assert len(calls) == 2
+    assert coverage["status"] == "full"
+    assert len(result) == 1
+    assert result[0]["evidence_references"] == [
+        item["evidence_references"][0] for item in pipeline.observations
+    ]
+
+
 @pytest.mark.parametrize("count", [1, 2])
 def test_failed_changed_quote_pass_can_recover_explicit_historical_teacher_choice(
     pipeline, count
