@@ -943,7 +943,7 @@ def check_skills_coverage(skill_names: str) -> str:
     """Check if market-extracted skills already exist in the knowledge graph.
     Searches both BOOK_SKILL nodes and CONCEPT nodes for matches.
     Args:
-        skill_names: JSON array, newline-delimited list, or comma-separated EXACT skill names as returned by get_extracted_skills.
+        skill_names: JSON array, newline-delimited list, or comma-separated EXACT skill names as returned by get_curated_skills.
             Use the full competency statements — do NOT simplify to bare technology keywords.
             CORRECT: "Query and analyze data using SQL, Deploy containerized applications using Kubernetes"
             WRONG:   "SQL, Kubernetes"
@@ -1089,8 +1089,13 @@ def get_curated_skills() -> str:
     total = tool_store.get("total_jobs_for_extraction", "?")
     lines = [f"Curated skills ({len(skills)} selected by teacher, from {total} jobs):"]
     for skill in skills:
+        identity = (
+            f" [candidate_id: {skill['candidate_id']}]"
+            if skill.get("candidate_id")
+            else ""
+        )
         lines.append(
-            f"  {skill['name']} ({skill.get('category', '?')}) — "
+            f"  {skill['name']}{identity} ({skill.get('category', '?')}) — "
             f"{skill.get('frequency', '?')}/{total} jobs ({skill.get('pct', '?')}%)"
         )
     return "\n".join(lines)
@@ -1101,7 +1106,8 @@ def save_curriculum_mapping(mapping_json: str) -> str:
     """Save the curriculum mapping analysis results.
     Args:
         mapping_json: JSON array of objects with keys:
-            - name: EXACT skill name from get_extracted_skills (e.g.
+            - candidate_id: unchanged ID from get_curated_skills when supplied
+            - name: EXACT skill name from get_curated_skills (e.g.
               "Query and analyze data using SQL"). NEVER use bare technology
               keywords — the name must match what the Skill Extractor produced.
             - category: skill category
@@ -2729,7 +2735,6 @@ CURRICULUM_MAPPER_TOOLS = [
     get_section_concepts,
     check_skills_coverage,
     get_curated_skills,
-    get_extracted_skills,
     save_curriculum_mapping,
 ]
 

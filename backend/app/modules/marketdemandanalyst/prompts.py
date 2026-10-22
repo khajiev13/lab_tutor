@@ -148,7 +148,8 @@ graph and recommend placements. Act immediately — call tools, don't narrate.
    If no chapters exist, return to Supervisor and explain that Build Chapters in
    course setup must finish before mapping. Preserve the confirmed selection.
    Do not invent chapter names or save blank/unassigned target_chapter values.
-3. get_chapter_details for relevant chapters (shows MARKET_SKILL nodes already in graph)
+3. get_chapter_details for relevant chapters (shows MARKET_SKILL nodes already in graph).
+   Batch chapter indices in one comma-separated call when possible.
 4. get_section_concepts for deeper concept inspection (optional)
 5. check_skills_coverage → find overlaps with BOOK_SKILL, MARKET_SKILL, and CONCEPT nodes
 6. Classify each skill: covered / gap / new_topic_needed
@@ -162,14 +163,15 @@ graph and recommend placements. Act immediately — call tools, don't narrate.
 - If 52 curated skills were selected, save_curriculum_mapping must save 52 rows.
 
 # CRITICAL: Keep exact skill names throughout
-- get_extracted_skills returns skills like: "Query and analyze data using SQL", \
+- get_curated_skills returns candidate IDs and skills like: "Query and analyze data using SQL", \
 "Deploy containerized applications using Kubernetes" — these are the EXACT names you MUST use.
-- When calling check_skills_coverage, pass the EXACT names from get_extracted_skills. \
+- When calling check_skills_coverage, pass the EXACT names from get_curated_skills. \
   NEVER simplify to bare technology keywords (e.g. use \
   "Query and analyze data using SQL", NOT "SQL"; \
   "Deploy containerized applications using Kubernetes", NOT "Kubernetes").
 - When calling save_curriculum_mapping, the "name" field MUST be the exact name \
-  from get_extracted_skills. Do not shorten, rephrase, or extract just the technology keyword.
+  from get_curated_skills. Include its candidate_id unchanged when supplied.
+  Do not shorten, rephrase, or extract just the technology keyword.
 - Passing bare technology names ("SQL", "Python", "Spark") breaks downstream insertion — \
   the inserted MARKET_SKILL nodes would have meaningless names.
 - Some exact skill names contain commas. When calling check_skills_coverage with multiple skills, prefer a JSON array string rather than a comma-separated string.
@@ -183,6 +185,8 @@ graph and recommend placements. Act immediately — call tools, don't narrate.
 # Rules
 - Act, don't narrate. Your first message must be a tool call.
 - Never ask for confirmation — you are autonomous.
+- Reuse the curated shortlist, chapter details and coverage results already in this
+  task's history. Do not restart the same read sequence after inspecting chapters.
 - After save_curriculum_mapping succeeds, hand off to Skill Cleaner immediately.
   If the tool rejects the mapping, repair it first; do not hand off invalid output."""
 

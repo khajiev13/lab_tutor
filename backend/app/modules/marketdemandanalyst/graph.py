@@ -4,7 +4,13 @@ import time
 from collections.abc import Sequence
 from uuid import UUID
 
-from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.config import get_stream_writer
@@ -168,18 +174,24 @@ _LLM_INSTANCE = None
 # Maximum number of recent messages the LLM sees per turn.
 # Older messages are trimmed from the prompt (not from the checkpoint).
 _MAX_PROMPT_MESSAGES = 10
+# Workers need the current task's earlier tool results while inspecting chapters.
+_MAX_AUTONOMOUS_PROMPT_MESSAGES = 128
+# Each mapper round includes prerequisite guard, model, and tool graph steps.
+_MAX_WORKFLOW_STEPS = 100
 
 
 def _make_prompt(
     system_prompt: str,
     max_messages: int = _MAX_PROMPT_MESSAGES,
+    *,
+    current_turn_only: bool = False,
 ):
     """Return a callable that builds [SystemMessage + trimmed history].
 
     The callable is invoked by create_react_agent on every LLM call.
     It dynamically appends the current pipeline state from tool_store and
-    keeps only the last *max_messages* conversation messages so the context
-    window stays bounded.
+    keeps at most *max_messages* conversation messages. Autonomous workers
+    retain the current human task and its tool results within that bound.
     """
 
     def _prompt(state: dict) -> Sequence[BaseMessage]:
@@ -252,15 +264,23 @@ def _make_prompt(
                 "and final publication approval. Present the existing Choose skills decision."
             )
 
-        # Trim to last N messages
         messages: list[BaseMessage] = list(state.get("messages", []))
+        if current_turn_only:
+            for index in range(len(messages) - 1, -1, -1):
+                if isinstance(messages[index], HumanMessage):
+                    messages = messages[index:]
+                    break
         logger.debug(
             "Prompt builder: %d total messages, trimming to last %d",
             len(messages),
             max_messages,
         )
         if len(messages) > max_messages:
-            messages = messages[-max_messages:]
+            if current_turn_only and isinstance(messages[0], HumanMessage):
+                tail = messages[-(max_messages - 1) :] if max_messages > 1 else []
+                messages = [messages[0], *tail]
+            else:
+                messages = messages[-max_messages:]
 
         # Guardrail: trimming can leave ToolMessage entries whose parent
         # AI tool_calls message was cut off, which causes provider 400s.
@@ -470,7 +490,11 @@ async def get_graph():
     curriculum_mapper = create_react_agent(
         llm.bind_tools(mapper_tools, tool_choice="required"),
         tools=mapper_tools,
-        prompt=_make_prompt(CURRICULUM_MAPPER_PROMPT),
+        prompt=_make_prompt(
+            CURRICULUM_MAPPER_PROMPT,
+            _MAX_AUTONOMOUS_PROMPT_MESSAGES,
+            current_turn_only=True,
+        ),
         pre_model_hook=_require_mapping_chapters,
         name="curriculum_mapper",
     )
@@ -483,7 +507,11 @@ async def get_graph():
     skill_cleaner = create_react_agent(
         llm.bind_tools(cleaner_tools, tool_choice="required"),
         tools=cleaner_tools,
-        prompt=_make_prompt(SKILL_CLEANER_PROMPT),
+        prompt=_make_prompt(
+            SKILL_CLEANER_PROMPT,
+            _MAX_AUTONOMOUS_PROMPT_MESSAGES,
+            current_turn_only=True,
+        ),
         name="skill_cleaner",
     )
 
@@ -491,7 +519,11 @@ async def get_graph():
     concept_linker = create_react_agent(
         llm.bind_tools(linker_tools, tool_choice="required"),
         tools=linker_tools,
-        prompt=_make_prompt(CONCEPT_LINKER_PROMPT),
+        prompt=_make_prompt(
+            CONCEPT_LINKER_PROMPT,
+            _MAX_AUTONOMOUS_PROMPT_MESSAGES,
+            current_turn_only=True,
+        ),
         name="concept_linker",
     )
 
@@ -527,7 +559,9 @@ async def get_graph():
     logger.info(
         "[PERF] _get_async_checkpointer took %.1fms", (time.perf_counter() - t0) * 1000
     )
-    _COMPILED_GRAPH = workflow.compile(checkpointer=checkpointer)
+    _COMPILED_GRAPH = workflow.compile(checkpointer=checkpointer).with_config(
+        {"recursion_limit": _MAX_WORKFLOW_STEPS}
+    )
     total_ms = (time.perf_counter() - graph_build_start) * 1000
     logger.info("[PERF] Graph build total %.1fms", total_ms)
     return _COMPILED_GRAPH, _LLM_INSTANCE

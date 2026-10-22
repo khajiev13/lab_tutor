@@ -5,7 +5,7 @@ from copy import deepcopy
 from functools import partial
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 from pydantic import SecretStr
 
@@ -295,6 +295,57 @@ def test_current_state_rechecks_saved_chapters_without_mapping_or_selection_chan
     ] == selected
 
 
+def test_curated_tool_exposes_only_confirmed_candidate_ids(mapping_course):
+    _, _, candidates, _, state = mapping_course
+    with bind_tool_store(state):
+        result = tools.get_curated_skills.invoke({})
+    for candidate in candidates:
+        assert candidate["candidate_id"] in result
+        assert candidate["display_name"] in result
+
+
+@pytest.mark.parametrize("tool_rounds", [8, 70])
+def test_worker_prompt_retains_current_task_and_bounds_tool_history(tool_rounds):
+    from app.modules.marketdemandanalyst.graph import _make_prompt
+
+    task = HumanMessage(content="Map my confirmed shortlist")
+    messages = [
+        HumanMessage(content="Old unrelated task"),
+        AIMessage(content="Done"),
+        task,
+    ]
+    for index in range(tool_rounds):
+        messages.extend(
+            [
+                AIMessage(
+                    content="",
+                    tool_calls=[{"id": str(index), "name": "read", "args": {}}],
+                ),
+                ToolMessage(content=f"Evidence {index}", tool_call_id=str(index)),
+            ]
+        )
+    prompt = _make_prompt("Worker", max_messages=128, current_turn_only=True)
+    result = prompt({"messages": messages})
+    assert result[1] == task
+    assert len(result) <= 129  # The bounded history plus one system prompt.
+    assert "Old unrelated task" not in str(result)
+    if tool_rounds == 8:
+        assert result[1:] == messages[2:]
+    calls = {
+        call["id"]
+        for message in result
+        if isinstance(message, AIMessage)
+        for call in message.tool_calls
+    }
+    assert all(
+        message.tool_call_id in calls
+        for message in result
+        if isinstance(message, ToolMessage)
+    )
+    # Teacher-facing agents retain their established ten-message window.
+    assert len(_make_prompt("Teacher")({"messages": messages})) <= 11
+
+
 @pytest.mark.parametrize("error", [ServiceUnavailable, SessionExpired])
 def test_current_state_does_not_claim_missing_chapters_when_graph_is_unavailable(
     mapping_course, graph_driver, monkeypatch, error
@@ -361,6 +412,10 @@ def test_worker_tool_choice_reaches_actual_provider_request(
             assert "transfer_to_supervisor" in {
                 row["function"]["name"] for row in request["tools"]
             }
+        if agent == "curriculum_mapper":
+            assert "get_extracted_skills" not in {
+                row["function"]["name"] for row in request["tools"]
+            }
     finally:
         client.portal.call(graph.checkpointer.adelete_thread, thread)
 
@@ -372,6 +427,14 @@ def test_autonomous_workers_prepare_review_without_publishing_or_changing_select
 
     course, _, candidates, service, state = mapping_course
     add_chapter(graph_driver, course["id"])
+    with graph_driver.session(database="neo4j") as session:
+        session.run(
+            "MATCH (c:CLASS {id: $id}) UNWIND range(2, 7) AS index "
+            "CREATE (c)-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER "
+            "{id: 'chapter-' + toString(index), title: 'Topic ' + toString(index), "
+            "chapter_index: index})",
+            id=course["id"],
+        ).consume()
     selected = [row["candidate_id"] for row in candidates]
     model, graph, checkpoint = live_graph
     thread = service.thread_id(course["id"], course["teacher_id"])
@@ -398,6 +461,11 @@ def test_autonomous_workers_prepare_review_without_publishing_or_changing_select
         ("transfer_to_curriculum_mapper", {}),
         ("get_curated_skills", {}),
         ("list_chapters", {}),
+        (
+            "check_skills_coverage",
+            {"skill_names": json.dumps([row["display_name"] for row in candidates])},
+        ),
+        *[("get_chapter_details", {"chapter_indices": str(i)}) for i in range(1, 8)],
         ("save_curriculum_mapping", {"mapping_json": json.dumps(mapping)}),
         ("transfer_to_skill_cleaner", {}),
         ("load_mapped_skills", {}),
@@ -445,4 +513,20 @@ def test_autonomous_workers_prepare_review_without_publishing_or_changing_select
             ).single()["count"]
             == 0
         )
-    assert model.tool_choices == ["auto", *(["required"] * 11), "auto"]
+    assert model.tool_choices == ["auto", *(["required"] * (len(steps) - 1)), "auto"]
+    save_index = next(
+        i for i, (name, _) in enumerate(steps) if name == "save_curriculum_mapping"
+    )
+    # The mapper has crossed the old 25-step limit (guard + model + tool per round).
+    assert (save_index - 1) * 3 > 25
+    mapping_prompt = model.calls[save_index][0]
+    assert any(isinstance(message, HumanMessage) for message in mapping_prompt)
+    retained_tools = {
+        message.name: message.content
+        for message in mapping_prompt
+        if isinstance(message, ToolMessage)
+    }
+    assert "Course has 7 chapters" in retained_tools["list_chapters"]
+    for candidate_id in selected:
+        assert candidate_id in retained_tools["get_curated_skills"]
+    assert graph.config["recursion_limit"] == 100
