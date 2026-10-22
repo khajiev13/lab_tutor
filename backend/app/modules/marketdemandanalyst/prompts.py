@@ -299,6 +299,8 @@ OUTPUT
 Return only structured results containing group_id, soc_codes in choose or
 soc_code or null in validate,
 supporting_posting_ids, and a concise fit rationale or unavailable reason.
+Use one or two representative verified posting IDs (never more than three),
+not the whole membership list. Keep each rationale to one short sentence.
 """
 
 SKILL_PRIORITY_ANALYST_PROMPT = """
@@ -348,6 +350,11 @@ estimate (integer 1-5 for ai_estimate only, otherwise null), associations
 (reference_id, relation, rationale), supporting_evidence_ids, explanation,
 limitations and unavailable_reason when applicable.
 Use only supplied IDs. Do not return official numeric values or category scores.
+When the request supplies compact field names, use exactly that response schema;
+do not repeat these descriptive field names or add a soc_code field.
+Cite at most two meaningful descriptor associations and three supporting passages.
+Use one short sentence (about 20 words) for the explanation, about 12 words per
+association rationale, and only concrete limitations. Do not narrate the analysis.
 
 BOUNDARIES
 Do not merge, rename, exclude, select, approve or publish skills.

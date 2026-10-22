@@ -96,6 +96,33 @@ def validated_passage(text: str, excerpt: str, start: int = 0) -> dict | None:
     }
 
 
+def extraction_passages(chunk: dict, max_chars: int = 500) -> list[dict]:
+    """Assign model-facing IDs to bounded, exact source slices with global offsets."""
+    passages = []
+    for line in re.finditer(r"[^\r\n]+", chunk["text"]):
+        start, stop = line.span()
+        while start < stop:
+            end = min(start + max_chars, stop)
+            if end < stop:
+                boundary = chunk["text"].rfind(" ", start, end)
+                if boundary > start:
+                    end = boundary
+            raw = chunk["text"][start:end]
+            content = raw.strip()
+            if content:
+                offset = chunk["start"] + start + len(raw) - len(raw.lstrip())
+                passages.append(
+                    {
+                        "id": f"P{len(passages)}",
+                        "text": content,
+                        "start": offset,
+                        "end": offset + len(content),
+                    }
+                )
+            start = end
+    return passages
+
+
 def calculate_job_metrics(
     supporting_identities,
     assessed_identities,

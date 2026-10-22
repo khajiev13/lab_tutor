@@ -47,7 +47,7 @@ class ModelTransport:
             SKILL_PRIORITY_CONTEXT_PROMPT,
         )
 
-        assert config == {"callbacks": []}
+        assert config == {"callbacks": [], "tags": ["nostream"]}
         payload = json.loads(messages[1].content)
         assert messages[0].content == (
             SKILL_PRIORITY_ANALYST_PROMPT
@@ -85,7 +85,7 @@ class ModelTransport:
                             "soc_code": None
                             if self.invalid_context and payload["phase"] == "validate"
                             else code,
-                            "supporting_posting_ids": group["posting_ids"],
+                            "supporting_posting_ids": group["posting_ids"][:2],
                             "rationale": "Responsibilities fit the supplied full occupation description.",
                             "unavailable_reason": "Incompatible work"
                             if self.invalid_context
@@ -252,7 +252,7 @@ def test_all_candidates_and_groups_scored_without_checkbox_or_posting_support_ga
         <= 20
     )
     assert case.model.maximum_in_flight <= 2
-    assert max(case.model.timeouts) <= 30
+    assert max(case.model.timeouts) <= 60
     assert case.reload().priority_assessment["status"] == "ready"
 
 
@@ -349,14 +349,18 @@ def test_deadline_keeps_results_and_accounts_for_every_pair(service_case, monkey
                 # Let the first validated batch checkpoint before advancing the fake clock.
                 while not case.reload().priority_assessment["results"]:
                     await asyncio.sleep(0)
-                clock[0] = 91
+                saved = case.reload().priority_assessment
+                clock[0] = (
+                    datetime.fromisoformat(saved["deadline_at"])
+                    - datetime.fromisoformat(saved["started_at"])
+                ).total_seconds() + 1
 
     case.model.hook = advance
     result = assess(case)
     assert result.status == "partial"
     assert len(result.results) == 24
     assert 0 < sum(row.value is not None for row in result.results) < 24
-    assert max(case.model.timeouts) <= 30
+    assert max(case.model.timeouts) <= 60
 
 
 @pytest.mark.parametrize(
@@ -532,7 +536,7 @@ def test_oversized_catalog_abstains_instead_of_scoring_a_truncated_scan(
     assert not service_case.model.calls
 
 
-def test_late_provider_response_is_cancelled_without_blocking_terminal_result(
+def test_late_cancelled_responses_cannot_overwrite_repaired_results(
     service_case, monkeypatch
 ):
     from app.modules.marketdemandanalyst import priority_service
@@ -548,16 +552,21 @@ def test_late_provider_response_is_cancelled_without_blocking_terminal_result(
         nonlocal cancellations
         if json.loads(messages[1].content)["phase"] != "score":
             return await original_invoke(messages, config=config)
+        abandoned = False
         try:
             await release.wait()
         except asyncio.CancelledError:
+            abandoned = True
             cancellations += 1
             if cancellations == 2:
                 # Release only after both actual transports have been abandoned.
                 asyncio.get_running_loop().call_soon(release.set)
             await release.wait()  # A transport that finishes despite cancellation.
         late.append(True)
-        return await original_invoke(messages, config=config)
+        response = await original_invoke(messages, config=config)
+        if abandoned:
+            response.content = "This abandoned response must never be consumed"
+        return response
 
     async def timeout_scores(tasks, *, timeout):
         await asyncio.sleep(0)
@@ -575,9 +584,8 @@ def test_late_provider_response_is_cancelled_without_blocking_terminal_result(
             )
         finally:
             release.set()
-        assert result.status in {"partial", "unavailable"}
-        assert all(item.value is None for item in result.results[:4])
-        assert sum(item.value is not None for item in result.results) <= 20
+        assert result.status == "ready"
+        assert all(item.value is not None for item in result.results)
         saved = deepcopy(case.reload().priority_assessment)
         release.set()
         for _ in range(8):
@@ -697,9 +705,11 @@ def test_model_cannot_supply_server_owned_official_values(service_case):
 
     async def forged(messages, *, config):
         response = await original(messages, config=config)
-        if json.loads(messages[1].content)["phase"] == "score":
+        payload = json.loads(messages[1].content)
+        if payload["phase"] == "score":
             records = json.loads(response.content)["results"]
-            records[0]["official_value"] = 5
+            for record in records if payload.get("repair_instruction") else records[:1]:
+                record["official_value"] = 5
             response.content = json.dumps({"results": records})
         return response
 
@@ -1068,7 +1078,7 @@ def test_priority_transport_rejects_nonexact_results_wrapper(content):
     )
 
     async def invoke(messages, *, config):
-        assert config == {"callbacks": []}
+        assert config == {"callbacks": [], "tags": ["nostream"]}
         return SimpleNamespace(content=content)
 
     service = SkillPriorityService(
@@ -1273,9 +1283,11 @@ def test_compact_alias_corruption_cannot_produce_scores(service_case, damage):
         elif damage == "duplicate_candidate":
             rows[0]["c"] = rows[1]["c"]
         elif damage == "foreign_reference":
-            rows[0]["a"][0]["r"] = "R999"
+            for row in rows if payload.get("repair_instruction") else rows[:1]:
+                row["a"][0]["r"] = "R999"
         elif damage == "foreign_passage":
-            rows[0]["e"] = ["E999"]
+            for row in rows if payload.get("repair_instruction") else rows[:1]:
+                row["e"] = ["E999"]
         else:
             original_evidence = [row["e"] for row in rows]
             for index, row in enumerate(rows):
@@ -1410,7 +1422,9 @@ def test_empty_context_shortlists_abstain_without_validation_or_scoring(service_
         "cross_candidate_passage",
     ],
 )
-def test_owned_malformed_scoring_row_preserves_valid_neighbors(service_case, damage):
+def test_owned_malformed_scoring_row_is_repaired_without_losing_valid_neighbors(
+    service_case, damage
+):
     case = service_case
     original = case.model.ainvoke
     damaged = False
@@ -1456,21 +1470,20 @@ def test_owned_malformed_scoring_row_preserves_valid_neighbors(service_case, dam
 
     case.model.ainvoke = malformed
     result = assess(case)
-    assert result.status == "partial"
+    assert result.status == "ready"
     assert result.expected_pair_count == result.completed_pair_count == 24
     assert len(result.results) == 24
-    assert sum(row.value is not None for row in result.results) == 23
+    assert sum(row.value is not None for row in result.results) == 24
     assert (
         next(
             row for row in result.results if str(row.candidate_id) == rejected_id
         ).value
-        is None
+        is not None
     )
     assert {str(row.candidate_id) for row in result.results} == {
         row["candidate_id"] for row in case.candidates
     }
-    if damage != "cross_candidate_passage":
-        assert result.error_reasons
+    assert not result.error_reasons
     assert "private-provider" not in json.dumps(result.error_reasons)
     assert case.teacher_decisions() == case.before
 
@@ -1484,7 +1497,7 @@ def test_owned_malformed_scoring_row_preserves_valid_neighbors(service_case, dam
         "unidentifiable_candidate",
     ],
 )
-def test_raw_scoring_identity_corruption_still_rejects_entire_owned_batch(
+def test_raw_scoring_identity_corruption_requires_a_fresh_valid_response(
     service_case, damage
 ):
     case = service_case
@@ -1512,9 +1525,9 @@ def test_raw_scoring_identity_corruption_still_rejects_entire_owned_batch(
 
     case.model.ainvoke = malformed
     result = assess(case)
-    assert result.status == "partial"
+    assert result.status == "ready"
     assert result.expected_pair_count == result.completed_pair_count == 24
-    assert sum(row.value is not None for row in result.results) == 14
+    assert sum(row.value is not None for row in result.results) == 24
     assert case.teacher_decisions() == case.before
 
 
@@ -1538,7 +1551,7 @@ def test_context_response_schema_failure_remains_atomic(service_case):
 
 
 @pytest.mark.parametrize("damage", ["non_array", "extra_root_key"])
-def test_scoring_row_isolation_does_not_relax_response_envelope(service_case, damage):
+def test_invalid_scoring_envelope_requires_a_fresh_valid_response(service_case, damage):
     case = service_case
     original = case.model.ainvoke
     damaged = False
@@ -1559,7 +1572,174 @@ def test_scoring_row_isolation_does_not_relax_response_envelope(service_case, da
 
     case.model.ainvoke = malformed
     result = assess(case)
-    assert result.status == "partial"
+    assert result.status == "ready"
     assert result.expected_pair_count == result.completed_pair_count == 24
-    assert sum(row.value is not None for row in result.results) == 14
+    assert sum(row.value is not None for row in result.results) == 24
     assert case.teacher_decisions() == case.before
+
+
+def test_scoring_request_can_complete_after_thirty_seconds(monkeypatch):
+    from threading import BoundedSemaphore
+
+    from pydantic import TypeAdapter
+
+    from app.modules.marketdemandanalyst import priority_service
+
+    clock = [0.0]
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    original_wait = asyncio.wait
+    monkeypatch.setattr(priority_service, "monotonic", lambda: clock[0])
+
+    async def invoke(messages, *, config):
+        entered.set()
+        await release.wait()
+        return SimpleNamespace(content='{"results":[1]}')
+
+    async def elapsed_request(tasks, *, timeout):
+        await entered.wait()
+        if timeout < 35:
+            clock[0] += timeout
+            return set(), set(tasks)
+        clock[0] += 35
+        release.set()
+        return await original_wait(tasks, timeout=1)
+
+    monkeypatch.setattr(priority_service.asyncio, "wait", elapsed_request)
+    service = priority_service.SkillPriorityService(
+        llm_factory=lambda **kwargs: SimpleNamespace(ainvoke=invoke)
+    )
+    result = asyncio.run(
+        service._request(
+            {"phase": "score", "pairs": [{}] * 10},
+            "prompt",
+            TypeAdapter(list[int]),
+            100,
+            BoundedSemaphore(2),
+        )
+    )
+    assert result == [1]
+    assert clock[0] == 35
+
+
+@pytest.mark.parametrize("service_case", [120], indirect=True)
+def test_full_large_workload_gets_bounded_time_for_every_batch(
+    service_case, monkeypatch
+):
+    from app.modules.marketdemandanalyst import priority_service
+
+    case = service_case
+    clock = [0.0]
+    monkeypatch.setattr(priority_service, "monotonic", lambda: clock[0])
+
+    async def latency(payload):
+        if payload["phase"] == "score":
+            started = clock[0]
+            await asyncio.sleep(0.01)
+            clock[0] = max(clock[0], started + 35)
+
+    case.model.hook = latency
+    result = assess(case)
+    assert result.status == "ready"
+    assert result.expected_pair_count == result.completed_pair_count == 120
+    assert len(result.results) == 120
+    assert all(row.value is not None for row in result.results)
+    assert case.model.maximum_in_flight <= 2
+    assert clock[0] > 90
+    assert (result.deadline_at - result.started_at).total_seconds() <= 360
+    assert case.teacher_decisions() == case.before
+
+
+@pytest.mark.parametrize("damage", ["invalid", "missing"])
+def test_one_repair_retries_only_rejected_pair_and_checkpoints_good_results(
+    service_case, damage
+):
+    case = service_case
+    original = case.model.ainvoke
+    damaged = False
+    rejected_name = None
+    requested_names = []
+    checkpoint_counts = []
+
+    async def repairable(messages, *, config):
+        nonlocal damaged, rejected_name
+        response = await original(messages, config=config)
+        payload = json.loads(messages[1].content)
+        if payload["phase"] != "score":
+            return response
+        names = [row["display_name"] for row in payload["candidates"]]
+        requested_names.extend(names)
+        if damaged:
+            if names == [rejected_name]:
+                checkpoint_counts.append(
+                    len(case.reload().priority_assessment["results"])
+                )
+            return response
+        damaged = True
+        rows = json.loads(response.content)["results"]
+        rejected_name = next(
+            row["display_name"]
+            for row in payload["candidates"]
+            if row["candidate_id"] == rows[0]["c"]
+        )
+        if damage == "missing":
+            rows.pop(0)
+        else:
+            del rows[0]["why"]
+        response.content = json.dumps({"results": rows})
+        return response
+
+    case.model.ainvoke = repairable
+    result = assess(case)
+    assert result.status == "ready"
+    assert len(result.results) == 24
+    assert all(row.value is not None for row in result.results)
+    assert requested_names.count(rejected_name) == 2
+    assert all(
+        requested_names.count(row["display_name"]) == 1
+        for row in case.candidates
+        if row["display_name"] != rejected_name
+    )
+    assert checkpoint_counts == [23]
+    assert not result.error_reasons
+    assert case.teacher_decisions() == case.before
+
+
+def test_internal_priority_json_is_not_emitted_to_graph_message_stream():
+    from threading import BoundedSemaphore
+    from time import monotonic
+
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+    from langchain_core.messages import AIMessage
+    from langgraph.graph import START, MessagesState, StateGraph
+    from pydantic import TypeAdapter
+
+    from app.modules.marketdemandanalyst.priority_service import SkillPriorityService
+
+    model = FakeListChatModel(responses=['{"results":[1]}'])
+    service = SkillPriorityService(llm_factory=lambda **kwargs: model)
+
+    async def priority_node(state):
+        result = await service._request(
+            {"phase": "score"},
+            "Internal scoring",
+            TypeAdapter(list[int]),
+            monotonic() + 10,
+            BoundedSemaphore(2),
+        )
+        assert result == [1]
+        return {"messages": [AIMessage(content="Importance ready")]}
+
+    graph = StateGraph(MessagesState)
+    graph.add_node("priority", priority_node)
+    graph.add_edge(START, "priority")
+
+    async def streamed():
+        return [
+            message.content
+            async for message, _metadata in graph.compile().astream(
+                {"messages": []}, stream_mode="messages"
+            )
+        ]
+
+    assert asyncio.run(streamed()) == ["Importance ready"]

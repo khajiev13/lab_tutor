@@ -142,3 +142,23 @@ def test_priority_override_replaces_extraction_thinking_options(
     assert {
         key: request[key] for key in ("thinking", "enable_thinking") if key in request
     } == expected_options
+
+
+def test_evidenced_extraction_serializes_json_mode_and_output_bound(
+    monkeypatch, completion_requests
+):
+    monkeypatch.setenv("LAB_TUTOR_LLM_MODEL", "deepseek-v4.1-flash")
+    result = extractor._extract_evidenced_job(
+        {
+            "snapshot_id": "posting-1",
+            "demand_identity": "provider:1",
+            "description": "Build data pipelines.",
+        }
+    )
+    assert result["assessments"][0]["status"] == "full"
+    assert len(completion_requests) == 1
+    request = completion_requests[0]
+    assert request["response_format"] == {"type": "json_object"}
+    assert request["stream"] is False
+    assert request.get("max_completion_tokens", request.get("max_tokens")) == 6000
+    assert request["thinking"] == {"type": "disabled"}

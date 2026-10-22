@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import math
 import re
 from datetime import UTC, datetime, timedelta
@@ -48,10 +49,23 @@ from .thread_state_service import ThreadLease
 # A complete oversized input abstains rather than silently truncating a catalog.
 MAX_INPUT_BYTES = 200_000
 MAX_OUTPUT_BYTES = 200_000
-PROMPT_VERSION = "9"
+PROMPT_VERSION = "10"
 SCORING_BATCH_SIZE = 10
-ASSESSMENT_TIMEOUT_SECONDS = 90
+ASSESSMENT_TIMEOUT_SECONDS = 360
 POLICY_VERSION = "1"
+logger = logging.getLogger(__name__)
+
+
+def _assessment_budget(pairs):
+    # Context choice and validation are sequential; score batches share two slots.
+    # Reserve one bounded repair wave, never extend a persisted/resumed deadline.
+    groups = {}
+    for pair in pairs:
+        groups[pair.context_key] = groups.get(pair.context_key, 0) + 1
+    batches = sum(math.ceil(count / SCORING_BATCH_SIZE) for count in groups.values())
+    waves = math.ceil(batches / 2)
+    return min(ASSESSMENT_TIMEOUT_SECONDS, max(90, 120 + 45 * (waves + 1)))
+
 
 # get_skill_priority_service() constructs services per invocation. Keep actual
 # transport ownership process-wide, including canceled requests still alive on
@@ -83,8 +97,8 @@ class _ContextDecision(BaseModel):
 
     group_id: str
     soc_code: SocCode | None
-    supporting_posting_ids: list[UUID]
-    rationale: str
+    supporting_posting_ids: list[UUID] = Field(max_length=3)
+    rationale: str = Field(max_length=400)
     unavailable_reason: str | None = None
 
 
@@ -93,8 +107,8 @@ class _ContextProposal(BaseModel):
 
     group_id: str
     soc_codes: list[SocCode] = Field(max_length=3)
-    supporting_posting_ids: list[UUID]
-    rationale: str
+    supporting_posting_ids: list[UUID] = Field(max_length=3)
+    rationale: str = Field(max_length=400)
     unavailable_reason: str | None = None
 
 
@@ -109,7 +123,7 @@ class _ScoringAssociation(BaseModel):
     relation: Literal["equivalent", "broader", "related", "unmatched"] = Field(
         alias="k"
     )
-    rationale: str = Field(alias="why")
+    rationale: str = Field(alias="why", max_length=240)
 
 
 class _ScoringDecision(BaseModel):
@@ -121,10 +135,12 @@ class _ScoringDecision(BaseModel):
     basis: Literal["onet", "ai_estimate", "unavailable"] = Field(alias="b")
     direct_reference_id: str | None = Field(alias="d")
     estimate: Annotated[int, Field(strict=True, ge=1, le=5)] | None = Field(alias="v")
-    associations: list[_ScoringAssociation] = Field(alias="a")
-    supporting_evidence_ids: list[str] = Field(alias="e")
-    explanation: str = Field(alias="why")
-    limitations: list[str] = Field(alias="limits")
+    associations: list[_ScoringAssociation] = Field(alias="a", max_length=2)
+    supporting_evidence_ids: list[str] = Field(alias="e", max_length=3)
+    explanation: str = Field(alias="why", max_length=480)
+    limitations: list[Annotated[str, Field(max_length=240)]] = Field(
+        alias="limits", max_length=3
+    )
     unavailable_reason: str | None = Field(default=None, alias="missing")
 
 
@@ -147,16 +163,23 @@ def _scoring_record_schema_reason(error: ValidationError) -> str:
 
 
 def _parse_scoring_records(records, candidates):
-    # Establish complete, unique request ownership before ignoring any bad fields.
+    # Returned records must have unique owned IDs. Missing owned records can be
+    # repaired independently; foreign/duplicate identities still reject a batch.
     aliases = [row.get("c") if type(row) is dict else None for row in records]
     if (
-        len(aliases) != len(candidates)
-        or any(type(alias) is not str for alias in aliases)
+        any(type(alias) is not str for alias in aliases)
         or len(set(aliases)) != len(aliases)
-        or set(aliases) != set(candidates)
+        or not set(aliases) <= set(candidates)
     ):
         raise _Unavailable("Incomplete, duplicate or foreign scoring batch")
-    valid, rejected = [], {}
+    valid, rejected = (
+        [],
+        {
+            alias: "Model omitted an owned scoring record"
+            for alias in candidates
+            if alias not in aliases
+        },
+    )
     for alias, row in zip(aliases, records, strict=True):
         try:
             valid.append(_ScoringDecision.model_validate(row))
@@ -202,8 +225,8 @@ def _compact_scoring_payload(payload):
             "Output keys: c candidate_id, b basis, d direct_reference_id, v estimate, "
             "a associations (r reference_id, k relation, why rationale), e supporting_evidence_ids, "
             "why explanation, limits limitations, missing unavailable_reason. "
-            "The server supplies this batch's occupation code. Use one minimal sufficient anchor and passage "
-            "unless more are necessary. Keep each explanation within about 20 words and association rationale "
+            "The server supplies this batch's occupation code. Use one minimal sufficient anchor and passage, "
+            "at most two relevant anchors and three passages. Keep each explanation within about 20 words and association rationale "
             "within about 12 words; preserve concrete evidence reasoning. In prose use actual competency and "
             "descriptor names, never C/E/R aliases; aliases belong only in ID fields. Do not output canonical IDs."
         ),
@@ -538,22 +561,46 @@ class SkillPriorityService:
         except TimeoutError as exc:
             raise _Unavailable("Assessment deadline expired while queued") from exc
         request = None
+        request_started = monotonic()
+        phase = payload.get("phase", "unknown")
         try:
             remaining = deadline - monotonic()
             if remaining <= 0:
                 raise _Unavailable("Assessment deadline expired")
-            timeout = min(30.0 if payload.get("phase") == "score" else 20.0, remaining)
+            limit = (
+                min(60.0, max(45.0, 30.0 + 3 * len(payload.get("pairs", []))))
+                if phase == "score"
+                else 60.0
+            )
+            timeout = min(limit, remaining)
+            logger.info(
+                "Priority request phase=%s pairs=%d input_bytes=%d timeout=%.1f remaining=%.1f",
+                phase,
+                len(payload.get("pairs", [])),
+                len(encoded.encode()),
+                timeout,
+                remaining,
+            )
             llm = self._llm_factory(timeout_seconds=timeout)
             request = asyncio.create_task(
                 llm.ainvoke(
                     [SystemMessage(content=prompt), HumanMessage(content=encoded)],
-                    config={"callbacks": []},
+                    config={"callbacks": [], "tags": ["nostream"]},
                 )
             )
             completed, _ = await asyncio.wait({request}, timeout=timeout)
             if not completed:
                 raise _Unavailable("Model request timed out")
             response = request.result()
+            usage = getattr(response, "usage_metadata", None) or {}
+            metadata = getattr(response, "response_metadata", None) or {}
+            logger.info(
+                "Priority response phase=%s elapsed=%.1f output_tokens=%s finish_reason=%s",
+                phase,
+                monotonic() - request_started,
+                usage.get("output_tokens"),
+                metadata.get("finish_reason"),
+            )
             if monotonic() >= deadline:
                 raise _Unavailable("Assessment deadline expired")
             if (
@@ -582,9 +629,20 @@ class SkillPriorityService:
             return adapter.validate_python(raw["results"])
         except asyncio.CancelledError:
             raise
-        except _Unavailable:
+        except _Unavailable as exc:
+            logger.warning(
+                "Priority request failed phase=%s elapsed=%.1f reason=%s",
+                phase,
+                monotonic() - request_started,
+                str(exc),
+            )
             raise
         except (TimeoutError, APITimeoutError) as exc:
+            logger.warning(
+                "Priority transport timed out phase=%s elapsed=%.1f",
+                phase,
+                monotonic() - request_started,
+            )
             raise _Unavailable("Model request timed out") from exc
         except ValidationError as exc:
             raise _Unavailable("Model response failed schema validation") from exc
@@ -865,6 +923,12 @@ class SkillPriorityService:
             expected_id = prior.assessment_id if prior else None
             resuming = assessment.status == "running"
             if not resuming:
+                defaults = self._unmapped(
+                    inputs["groups"], "Pending occupation context"
+                )
+                assessment.deadline_at = started + timedelta(
+                    seconds=_assessment_budget(self._pairs(inputs, defaults))
+                )
                 assessment.release, catalog = self._catalog(
                     inputs["configured_release"]
                 )
@@ -943,12 +1007,19 @@ class SkillPriorityService:
             ]
             errors = []
 
-            async def score(batch):
+            async def score(batch, *, repair=False):
                 ids = {pair.candidate_id for pair in batch}
                 codes = {pair.soc_code for pair in batch}
                 try:
                     payload = {
                         "phase": "score",
+                        "repair_instruction": (
+                            "Return only these previously failed or missing owned records. "
+                            "Use the exact compact schema and independently recheck evidence; "
+                            "unavailable remains correct when evidence is insufficient."
+                            if repair
+                            else None
+                        ),
                         "scoring_rubric": {
                             "1": "Little importance to the role.",
                             "2": "Supporting or secondary to the role's primary responsibilities.",
@@ -1069,29 +1140,66 @@ class SkillPriorityService:
                         if result.value is None and reason:
                             result.unavailable_reason = reason
                             result.limitations = [reason]
-                    return results, list(dict.fromkeys(rejected.values()))
+                    explicit_unavailable = {
+                        decision.candidate_id
+                        for decision in decisions
+                        if decision.basis == "unavailable"
+                    }
+                    failed_ids = {
+                        result.candidate_id
+                        for result in results
+                        if result.value is None
+                        and result.candidate_id not in explicit_unavailable
+                    }
+                    retry = [pair for pair in batch if pair.candidate_id in failed_ids]
+                    diagnostics = list(dict.fromkeys(rejected.values()))
+                    if retry and not diagnostics:
+                        diagnostics = [
+                            result.unavailable_reason
+                            for result in results
+                            if result.candidate_id in failed_ids
+                            and result.unavailable_reason
+                        ]
+                    return results, diagnostics, retry
                 except _Unavailable as exc:
-                    return [], [str(exc)]
+                    return [], [str(exc)], batch
 
             # Share complete occupation anchors across a bounded group of pairs,
             # rather than spending the common deadline on many tiny requests.
-            by_occupation = {}
-            for pair in pending:
-                by_occupation.setdefault(pair.soc_code, []).append(pair)
-            tasks = [
-                asyncio.create_task(score(group[i : i + SCORING_BATCH_SIZE]))
-                for group in by_occupation.values()
-                for i in range(0, len(group), SCORING_BATCH_SIZE)
-            ]
-            for completed in asyncio.as_completed(tasks):
-                results, diagnostics = await completed
-                errors.extend(diagnostics)
-                if not results:
-                    continue
-                assessment.results.extend(results)
-                assessment.completed_pair_count = len(assessment.results)
-                assessment.updated_at = datetime.now(UTC)
-                self._save(scope, lease, assessment, assessment.assessment_id)
+            for attempt in range(2):
+                by_occupation = {}
+                for pair in pending:
+                    by_occupation.setdefault(pair.soc_code, []).append(pair)
+                tasks = [
+                    asyncio.create_task(
+                        score(group[i : i + SCORING_BATCH_SIZE], repair=bool(attempt))
+                    )
+                    for group in by_occupation.values()
+                    for i in range(0, len(group), SCORING_BATCH_SIZE)
+                ]
+                pending = []
+                for completed in asyncio.as_completed(tasks):
+                    results, diagnostics, retry = await completed
+                    if attempt:
+                        errors.extend(diagnostics)
+                    else:
+                        pending.extend(retry)
+                        failed = {
+                            (pair.candidate_id, pair.context_key) for pair in retry
+                        }
+                        results = [
+                            result
+                            for result in results
+                            if (result.candidate_id, result.context_key) not in failed
+                        ]
+                    if results:
+                        assessment.results.extend(results)
+                        assessment.completed_pair_count = len(assessment.results)
+                        assessment.updated_at = datetime.now(UTC)
+                        self._save(scope, lease, assessment, assessment.assessment_id)
+                if not pending:
+                    break
+                logger.info("Priority repair pending_pairs=%d", len(pending))
             assessment.error_reasons = list(dict.fromkeys(errors))[:20]
             reason = (
                 errors[0]
