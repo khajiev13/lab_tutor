@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import TeacherCourseDetail from '@/features/courses/pages/TeacherCourseDetail';
+import ArchitectAgentPage from '@/features/courses/pages/ArchitectAgentPage';
 import { coursesApi, presentationsApi, streamExtraction } from '@/features/courses/api';
 import { vi, type Mock } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -79,7 +80,9 @@ vi.mock('@/features/book-selection/api', () => ({
   getCourseSelectedBooks: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('@/features/curriculum-planning/api', () => ({ getChapterPlan: vi.fn().mockResolvedValue(null) }));
+vi.mock('@/features/curriculum-planning/api', () => ({ getChapterPlan: vi.fn().mockResolvedValue({course_id:1,chapters:[{number:1,title:'Introduction',description:'',learning_objectives:[],prerequisites:[],assigned_documents:['doc-1']}],unassigned_documents:[],all_documents:[]}) }));
+vi.mock('@/features/curriculum-planning/components/ChapterPlanBuilder', () => ({ ChapterPlanBuilder: () => <div>Saved chapter plan</div> }));
+vi.mock('@/features/agents/components/AgentActivityFeed', () => ({ AgentActivityFeed: () => null }));
 
 vi.mock('@/features/normalization/components/NormalizationDashboard', () => ({
   NormalizationDashboard: ({
@@ -292,4 +295,16 @@ describe('TeacherCourseDetail', () => {
 
     expect(await screen.findByText('Extraction Complete')).toBeInTheDocument();
   });
+});
+
+
+it('opens the saved chapter workspace from the Swarm deep link', async () => {
+  (coursesApi.getCourse as Mock).mockResolvedValue({...mockCourse, extraction_status:'finished'});
+  (coursesApi.getMaterialsReadiness as Mock).mockResolvedValue({ready:true,status:'ready',message:'Ready.',total_files:1,processed_files:1});
+  render(<MemoryRouter initialEntries={['/courses/1/architect?step=build-chapters']}><Routes>
+    <Route path="/courses/:id/architect" element={<ArchitectAgentPage/>}/>
+  </Routes></MemoryRouter>);
+  expect(await screen.findByText('Saved chapter plan')).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:/Step 2: Chapters/})).toHaveAttribute('aria-current','step');
+  expect(screen.getByRole('button',{name:'Continue to Select Books'})).toBeEnabled();
 });

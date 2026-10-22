@@ -24,12 +24,12 @@ function show(overrides: Partial<ReturnType<typeof useCourseDetail>> = {}) {
 beforeEach(() => vi.clearAllMocks());
 
 describe("preparation guide", () => {
-  it("shows four required steps, one next action, and the reason for each lock", () => {
+  it("shows five required steps, one next action, and the reason for each lock", () => {
     show();
     const steps = within(screen.getByRole("list", { name: "Course preparation steps" }));
-    expect(steps.getAllByRole("listitem")).toHaveLength(4);
-    expect(steps.getByRole("button", { name: /Step 3: Analysis/ })).toBeDisabled();
-    expect(steps.getByRole("button", { name: /Step 4: Results/ })).toBeDisabled();
+    expect(steps.getAllByRole("listitem")).toHaveLength(5);
+    expect(steps.getByRole("button", { name: /Step 4: Analysis/ })).toBeDisabled();
+    expect(steps.getByRole("button", { name: /Step 5: Results/ })).toBeDisabled();
     expect(steps.getByText("Choose and download books first")).toBeInTheDocument();
     expect(steps.getByText("Complete analysis first")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Choose books" }));
@@ -41,7 +41,7 @@ describe("preparation guide", () => {
     fireEvent.click(screen.getByRole("button", { name: /Step 1: Materials/ }));
     expect(setActiveStep).toHaveBeenCalledWith(0);
     setActiveStep.mockClear();
-    fireEvent.click(screen.getByRole("button", { name: /Step 3: Analysis/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Step 4: Analysis/ }));
     expect(setActiveStep).not.toHaveBeenCalled();
   });
 
@@ -71,7 +71,7 @@ describe("preparation guide", () => {
     show({ activeStep: 4, nextPreparationStep: 4, analysisRunStatus: "chapter_extracted" });
     expect(screen.getByRole("heading", { name: "Review the extracted chapters" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review extracted chapters" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Step 4: Results/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Step 5: Results/ })).toBeDisabled();
   });
 
   it("provides a retry when progress cannot be loaded", () => {
@@ -87,4 +87,17 @@ describe("preparation guide", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Checking course progress");
     expect(screen.queryByRole("button", { name: "Choose books" })).not.toBeInTheDocument();
   });
+});
+
+
+it("keeps chapter planning required even after books were skipped", () => {
+  show({ booksSkipped: true, nextPreparationStep: 2, activeStep: 2 });
+  expect(screen.getByRole("button", {name: /Step 2: Chapters/})).toBeEnabled();
+  expect(screen.getByText("Your next step · Step 2 of 5")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: "Build chapter plan"}));
+  expect(setActiveStep).toHaveBeenCalledWith(2);
+  expect(screen.queryByRole("link", {name: "Back to course setup"})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", {name: /Optional preparation tools/}));
+  expect(screen.getByRole("button", {name: "Normalize concepts"})).toBeEnabled();
+  expect(screen.getAllByRole("button", {name: "Build chapter plan"})).toHaveLength(1);
 });

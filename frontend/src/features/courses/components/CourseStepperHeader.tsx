@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Check, GitMerge, Layers, Loader2, LockKeyhole } from "lucide-react";
+import { ArrowRight, Check, GitMerge, Loader2, LockKeyhole } from "lucide-react";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { useCourseDetail } from "@/features/courses/context/CourseDetailContext"
 
 const PREPARATION_STEPS = [
   { index: 0, title: "Materials", description: "Upload and process course files", lockedReason: "" },
-  { index: 3, title: "Books", description: "Choose books for your course", lockedReason: "Process your materials first" },
+  { index: 2, title: "Chapters", description: "Organize materials for skill mapping", lockedReason: "Process your materials first" },
+  { index: 3, title: "Books", description: "Choose books for your course", lockedReason: "Build your chapter plan first" },
   { index: 4, title: "Analysis", description: "Build skills from your books", lockedReason: "Choose and download books first" },
   { index: 5, title: "Results", description: "Review the skills and chapters", lockedReason: "Complete analysis first" },
 ];
@@ -36,7 +37,7 @@ function PreparationNextAction() {
   if (nextPreparationStep === 0) {
     if (course.extraction_status === "in_progress") {
       title = "Processing your materials";
-      description = "You can follow progress below. Book selection unlocks when processing is complete.";
+      description = "You can follow progress below. Chapter planning unlocks when processing is complete.";
       action = "View processing progress";
       busy = true;
     } else if (course.extraction_status === "finished" && !materialsReady) {
@@ -45,9 +46,13 @@ function PreparationNextAction() {
       action = "View materials";
     } else if (canStartExtraction) {
       title = course.extraction_status === "failed" ? "Try processing your materials again" : "Process your course materials";
-      description = "Your files are uploaded. Process them to find course topics and unlock book selection.";
+      description = "Your files are uploaded. Process them to find course topics and unlock chapter planning.";
       action = "Start Data Extraction";
     }
+  } else if (nextPreparationStep === 2) {
+    title = "Build your chapter plan";
+    description = "Organize your materials into chapters. A chapter plan is required to link skills to your curriculum, even if you skip books.";
+    action = "Build chapter plan";
   } else if (nextPreparationStep === 3) {
     title = "Choose books for your course";
     description = "Find books that match your course, then confirm your choices. Analysis unlocks once the selected books are downloaded or uploaded.";
@@ -104,13 +109,13 @@ function PreparationNextAction() {
   return (
     <div className="rounded-lg bg-muted/40 p-5 sm:p-6" aria-live="polite">
       <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {booksSkipped ? "Books skipped" : `Your next step · Step ${PREPARATION_STEPS.findIndex((step) => step.index === nextPreparationStep) + 1} of 4`}
+        {booksSkipped && nextPreparationStep === null ? "Books skipped" : `Your next step · Step ${PREPARATION_STEPS.findIndex((step) => step.index === nextPreparationStep) + 1} of 5`}
       </p>
       <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold tracking-tight">
         {busy && <Loader2 className="size-5 shrink-0 animate-spin" />}{title}
       </h3>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">{description}</p>
-      {booksSkipped || (nextPreparationStep === 5 && activeStep === 5) ? (
+      {(booksSkipped && nextPreparationStep === null) || (nextPreparationStep === 5 && activeStep === 5) ? (
         <Button asChild className="mt-4 h-auto min-h-10 w-full whitespace-normal sm:w-auto">
           <Link to={`/courses/${course.id}`}>Back to course setup<ArrowRight className="size-4" /></Link>
         </Button>
@@ -132,7 +137,7 @@ export function CourseStepperHeader() {
         <h2 className="font-semibold">Preparation checklist</h2>
         <p className="mt-1 text-sm text-muted-foreground">Follow the steps in order. You can revisit any completed step.</p>
       </div>
-      <ol aria-label="Course preparation steps" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <ol aria-label="Course preparation steps" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {PREPARATION_STEPS.map((step, position) => {
           const status = getStepStatus(step.index);
           const complete = status === "completed";
@@ -177,10 +182,9 @@ export function CourseStepperHeader() {
         <AccordionItem value="optional" className="border-0">
           <AccordionTrigger className="py-0 text-sm text-muted-foreground">Optional preparation tools</AccordionTrigger>
           <AccordionContent className="space-y-3 pb-0 pt-4">
-            <p className="text-sm text-muted-foreground">Refine concepts or create a chapter plan after processing your materials. These tools don’t block the next step.</p>
+            <p className="text-sm text-muted-foreground">Refine concepts after processing your materials. Normalization is optional and does not block chapter planning.</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button variant={activeStep === 1 ? "secondary" : "outline"} disabled={!canNavigateToStep(1)} onClick={() => setActiveStep(1)}><GitMerge className="size-4" />Normalize concepts</Button>
-              <Button variant={activeStep === 2 ? "secondary" : "outline"} disabled={!canNavigateToStep(2)} onClick={() => setActiveStep(2)}><Layers className="size-4" />Build chapter plan</Button>
             </div>
           </AccordionContent>
         </AccordionItem>

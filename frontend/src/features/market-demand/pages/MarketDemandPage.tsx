@@ -49,7 +49,7 @@ export default function MarketDemandPage() {
 }
 
 function MarketDemandContent() {
-  const {course, courseId, materialsReady, materialsMessage, triggerRefresh} = useCourseDetail();
+  const {course, courseId, materialsReady, materialsMessage, triggerRefresh, hasChapters, chapterPlanLoading, chapterPlanError, refreshChapterPlan} = useCourseDetail();
   const [countryOverride, setCountryOverride] = useState<string | null>(null);
   const stream = useAgentStream(courseId, countryOverride);
   const {messages, agentState, isStreaming, isLoadingHistory, isRestored, skillReview} = stream;
@@ -91,6 +91,7 @@ function MarketDemandContent() {
   const workPending = sending || isStreaming || stream.execution.status === "busy" || controller.busy || confirming || resetting || checking;
   const unavailable = !isRestored || isLoadingHistory || resetting;
   const workflowDisabled = !materialsReady || unavailable || workPending || recoveryRequired || stream.execution.status !== "idle";
+  const mappingReady = hasChapters && !chapterPlanLoading && !chapterPlanError;
   const selectedCountry = countryOverride ?? (agentState.job_search_country_confirmed ? agentState.job_search_country ?? DEFAULT_MARKET_DEMAND_COUNTRY : "");
   const configurationStarted = hasItems(agentState.fetched_jobs) || hasItems(agentState.extracted_skills) || !!review?.candidates.length ||
     Object.values(agentState.source_outcomes ?? {}).some(outcome => outcome.status !== "idle");
@@ -141,7 +142,7 @@ function MarketDemandContent() {
     } catch { /* Keep the exact question and attachment available for retry. */ }
   };
   const confirmChoices = async (ids?: string[]) => {
-    if (decisionFlight.current || workflowDisabled) return;
+    if (decisionFlight.current || workflowDisabled || (!pending && !mappingReady)) return;
     decisionFlight.current = true; setConfirming(true); setActionError(null); setReviewRefreshRequired(false);
     const current = generation.current;
     let requestedWorkflow = false;
@@ -273,7 +274,17 @@ function MarketDemandContent() {
             subtitle="Choose which groups to analyze for skills"
             items={pending.items} disabled={workflowDisabled} confirmed={confirmed?.key === selectionKey}
             confirmedIds={confirmed?.key === selectionKey ? confirmed.ids : undefined} onConfirm={ids => void confirmChoices(ids)}/>}
-          {showSkills && <SkillSelectionCard controller={controller} disabled={workflowDisabled} onConfirm={() => void confirmChoices()}
+          {showSkills && !mappingReady && <div className="space-y-2 rounded-lg border p-3 text-sm">
+            {chapterPlanLoading ? <p role="status" className="text-muted-foreground">Checking your chapter plan…</p>
+              : chapterPlanError ? <>
+                <p role="alert">Could not check your chapter plan. Retry before mapping skills. Your choices are retained.</p>
+                <Button size="sm" variant="outline" onClick={refreshChapterPlan}>Retry chapter check</Button>
+              </> : <>
+                <p>Build a chapter plan before mapping skills to your curriculum. You can keep extracting and reviewing skills here.</p>
+                <Button asChild size="sm"><Link to={`/courses/${courseId}/architect?step=build-chapters`}>Build chapter plan</Link></Button>
+              </>}
+          </div>}
+          {showSkills && <SkillSelectionCard controller={controller} disabled={workflowDisabled} confirmDisabled={!mappingReady} onConfirm={() => void confirmChoices()}
             onInspect={(id, element) => {inspectionOrigin.current = element; setInspectId(id);}}/>}
           {review && !pending && <section aria-label="Curriculum fit" className="space-y-2">
             {proposal && !proposal.withdrawal && !showSkills && <Button size="sm" variant="ghost" disabled={workPending || unavailable} onClick={() => setEditingSelection(true)}>Change selection</Button>}

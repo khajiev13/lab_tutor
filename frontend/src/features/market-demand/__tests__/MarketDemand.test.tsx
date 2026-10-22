@@ -19,7 +19,7 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
 
-const courseContext = vi.hoisted(() => ({materialsReady: true, materialsMessage: "Course materials are still being processed.", triggerRefresh: vi.fn()}));
+const courseContext = vi.hoisted(() => ({hasChapters: true, chapterPlanLoading: false, chapterPlanError: false, refreshChapterPlan: vi.fn(), materialsReady: true, materialsMessage: "Course materials are still being processed.", triggerRefresh: vi.fn()}));
 vi.mock("@/features/courses/context/CourseDetailContext", () => ({
   CourseDetailProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useCourseDetail: () => ({
@@ -126,6 +126,9 @@ function mockStreamReturn(overrides: Partial<UseAgentStreamReturn> = {}): UseAge
 beforeEach(() => {
   vi.clearAllMocks();
   courseContext.materialsReady = true;
+  courseContext.hasChapters = true;
+  courseContext.chapterPlanLoading = false;
+  courseContext.chapterPlanError = false;
   courseContext.triggerRefresh.mockReset();
   vi.mocked(confirmOnetOccupations).mockReset();
   vi.mocked(saveSkillReviewDraft).mockReset();
@@ -282,6 +285,9 @@ it('keeps saved history readable but blocks workflow launch until course materia
  expect(screen.getByRole('button',{name:'Send message'})).toBeDisabled();
  expect(send).not.toHaveBeenCalled();
  courseContext.materialsReady = true;
+  courseContext.hasChapters = true;
+  courseContext.chapterPlanLoading = false;
+  courseContext.chapterPlanError = false;
  const {default:Page} = await import('@/features/market-demand/pages/MarketDemandPage');
  rerender(<TestRouter><Page/></TestRouter>);
  expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
@@ -681,4 +687,73 @@ it("keeps only the main confirmation when optional categories are open", async (
  expect([...document.querySelectorAll('button')].filter(button=>/^Confirm Selection/.test(button.textContent ?? ''))).toHaveLength(1);
  closeSkillDetails();
  expect(screen.getByRole('button',{name:'Confirm Selection (1)'})).toBeEnabled();
+});
+
+
+it("blocks only mapping without chapters and preserves choices while chapter readiness changes", async () => {
+ const api=await import('@/features/market-demand/api');
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ const review=reviewFixture();
+ courseContext.hasChapters=false;
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ vi.mocked(api.confirmSkillReviewSelection).mockImplementation(async(_id,body)=>({...review,...body,selection_revision:3}));
+ const {rerender}=await openReviewWorkspace({skillReview:review,send});
+ expect(screen.getByRole('link',{name:'Build chapter plan'})).toHaveAttribute('href','/courses/1/architect?step=build-chapters');
+ openSkillDetails();
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'}));
+ closeSkillDetails();
+ fireEvent.change(screen.getByRole('textbox',{name:'Question'}),{target:{value:'Keep my question'}});
+ expect(screen.getByRole('button',{name:'Send message'})).toBeEnabled();
+ expect(screen.getByRole('button',{name:'Confirm Selection (2)'})).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Confirm Selection (2)'}));
+ expect(api.confirmSkillReviewSelection).not.toHaveBeenCalled();
+ expect(send).not.toHaveBeenCalled();
+ courseContext.hasChapters=true;
+ const {default:Page}=await import('@/features/market-demand/pages/MarketDemandPage');
+ rerender(<TestRouter><Page/></TestRouter>);
+ expect(screen.getByRole('textbox',{name:'Question'})).toHaveValue('Keep my question');
+ expect(screen.getByRole('button',{name:'Confirm Selection (2)'})).toBeEnabled();
+ fireEvent.click(screen.getByRole('button',{name:'Confirm Selection (2)'}));
+ await waitFor(()=>expect(send).toHaveBeenCalledOnce());
+ expect(api.confirmSkillReviewSelection).toHaveBeenCalledWith(1,expect.objectContaining({selected_candidate_ids:['python','sql']}));
+});
+
+it("allows job selection and extraction before chapter planning", async () => {
+ courseContext.hasChapters=false;
+ const send=vi.fn().mockResolvedValue({outcome:'completed'});
+ await openReviewWorkspace({skillReview:null,send,agentState:{...EMPTY_STATE,fetched_jobs:[{title:'Analyst'}],job_groups:{'Data Analyst':[0]}}});
+ fireEvent.click(screen.getByRole('checkbox',{name:'Data Analyst'}));
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeEnabled();
+ fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
+ await waitFor(()=>expect(send).toHaveBeenCalledWith({mode:'workflow',text:'Select these job groups by exact name: ["Data Analyst"]. Preserve these names; do not convert them to indices.'}));
+});
+
+it.each(['loading','error'])("keeps chapter readiness %s distinct from a missing plan", async status => {
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ courseContext.hasChapters=false;
+ courseContext.chapterPlanLoading=status==='loading';
+ courseContext.chapterPlanError=status==='error';
+ await openReviewWorkspace({skillReview:{...reviewFixture(),selected_candidate_ids:['python']}});
+ expect(screen.getByRole('button',{name:/Confirm Selection/})).toBeDisabled();
+ expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeEnabled();
+ expect(screen.queryByRole('link',{name:'Build chapter plan'})).not.toBeInTheDocument();
+ if(status==='error') {
+   expect(screen.getByRole('alert')).toHaveTextContent('Could not check your chapter plan');
+   fireEvent.click(screen.getByRole('button',{name:'Retry chapter check'}));
+   expect(courseContext.refreshChapterPlan).toHaveBeenCalledOnce();
+ } else expect(screen.getByText('Checking your chapter plan…')).toBeInTheDocument();
+});
+
+it("protects unsaved skill choices when opening the required chapter workspace", async () => {
+ const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
+ courseContext.hasChapters=false;
+ await openReviewWorkspace({skillReview:reviewFixture()});
+ openSkillDetails();
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select category Tools (2 current members)'}));
+ closeSkillDetails();
+ fireEvent.click(screen.getByRole('link',{name:'Build chapter plan'}));
+ expect(await screen.findByRole('alertdialog')).toHaveTextContent('Unsaved choices');
+ fireEvent.click(screen.getByRole('button',{name:'Cancel'}));
+ expect(screen.getByRole('button',{name:'Confirm Selection (2)'})).toBeDisabled();
+ expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
 });

@@ -10,6 +10,8 @@ from sqlalchemy import select
 from app.modules.marketdemandanalyst.state import bind_tool_store
 from tests.course_material_fixtures import seed_ready_materials
 
+pytest_plugins = ["tests.fixtures.market_skill_graph"]
+
 
 def owned_run(db_session, client, teacher_auth_headers, config=None):
     from app.modules.marketdemandanalyst.repository import MarketReviewRepository
@@ -862,7 +864,7 @@ def test_extraction_handoff_returns_completed_tool_history_to_skill_finder(
 
 
 def test_id_pass_through_mapping_retains_exact_candidate_evidence(
-    db_session, client, teacher_auth_headers, monkeypatch
+    db_session, client, teacher_auth_headers, monkeypatch, course_chapters
 ):
     import json
 
@@ -874,6 +876,7 @@ def test_id_pass_through_mapping_retains_exact_candidate_evidence(
     course, _, candidates, service, revision = seed_review(
         db_session, client, teacher_auth_headers, labels=("Explain results",)
     )
+    course_chapters(course["id"])
     candidate = candidates[0]
     monkeypatch.setattr(
         tools, "SessionLocal", lambda: Session(bind=db_session.get_bind())

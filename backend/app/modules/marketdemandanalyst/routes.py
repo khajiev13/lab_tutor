@@ -590,6 +590,18 @@ async def _sse_stream(
                 continue
 
             ns, mode, payload = item
+            if (
+                mode == "custom"
+                and isinstance(payload, dict)
+                and payload.get("type") == "mapping_prerequisite"
+                and isinstance(payload.get("message"), str)
+            ):
+                # Deterministic guards use the normal teacher-facing text stream.
+                ns, mode, payload = (
+                    ("supervisor",),
+                    "messages",
+                    (AIMessage(content=payload["message"], name="supervisor"), {}),
+                )
             if mode == "custom":
                 progress = _priority_progress(payload)
                 if progress is None:

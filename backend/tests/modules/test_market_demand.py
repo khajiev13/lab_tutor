@@ -21,6 +21,8 @@ from app.modules.auth.models import User, UserRole
 from app.modules.marketdemandanalyst.models import MDAThreadState
 from tests.course_material_fixtures import seed_ready_materials
 
+pytest_plugins = ["tests.fixtures.market_skill_graph"]
+
 # ── Helpers ──────────────────────────────────────────────────
 
 
@@ -1561,10 +1563,14 @@ class TestDatabaseResilience:
 
 
 class TestCurriculumMappingValidation:
-    def test_save_curriculum_mapping_requires_every_curated_skill(self):
+    def test_save_curriculum_mapping_requires_every_curated_skill(
+        self, course_chapters
+    ):
         import app.modules.marketdemandanalyst.state as state_mod
         import app.modules.marketdemandanalyst.tools as tools_mod
 
+        course_chapters(1)
+        state_mod.tool_store["course_id"] = 1
         state_mod.tool_store["curated_skills"] = [
             {"name": "Skill A", "category": "cloud"},
             {"name": "Skill B", "category": "database"},
@@ -1600,10 +1606,13 @@ class TestCurriculumMappingValidation:
 
     def test_save_curriculum_mapping_sets_mapped_skills_and_clears_downstream_state(
         self,
+        course_chapters,
     ):
         import app.modules.marketdemandanalyst.state as state_mod
         import app.modules.marketdemandanalyst.tools as tools_mod
 
+        course_chapters(1)
+        state_mod.tool_store["course_id"] = 1
         state_mod.tool_store["curated_skills"] = [
             {"name": "Skill A", "category": "cloud"},
             {"name": "Skill B", "category": "database"},

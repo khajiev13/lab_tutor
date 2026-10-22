@@ -77,6 +77,9 @@ interface CourseDetailContextValue {
   bookSessionStatus: SessionStatus | null;
   analysisRunStatus: ExtractionRunStatus | null;
   hasChapters: boolean;
+  chapterPlanLoading: boolean;
+  chapterPlanError: boolean;
+  refreshChapterPlan: () => void;
   setHasChapters: (val: boolean) => void;
   booksSkipped: boolean;
   stepStatusesLoading: boolean;
@@ -143,16 +146,27 @@ export function CourseDetailProvider({
   const [analysisRunStatus, setAnalysisRunStatus] = useState<ExtractionRunStatus | null>(null);
   const [hasChapters, setHasChapters] = useState(false);
   const [stepStatusesFetched, setStepStatusesFetched] = useState(false);
-  const [stepStatusesError, setStepStatusesError] = useState(false);
+  const [bookStatusesError, setBookStatusesError] = useState(false);
+  const [chapterPlanFetched, setChapterPlanFetched] = useState(false);
+  const [chapterPlanCourseId, setChapterPlanCourseId] = useState<number | null>(null);
+  const [chapterPlanError, setChapterPlanError] = useState(false);
+  const [chapterRefresh, setChapterRefresh] = useState(0);
   const [statusRefresh, setStatusRefresh] = useState(0);
   const [booksReady, setBooksReady] = useState(false);
   const [booksSkipped, setBooksSkipped] = useState(false);
 
+  const refreshChapterPlan = useCallback(() => {
+    setChapterPlanFetched(false);
+    setChapterPlanError(false);
+    setChapterRefresh((value) => value + 1);
+  }, []);
+
   const refreshStepStatuses = useCallback(() => {
     setStepStatusesFetched(false);
-    setStepStatusesError(false);
+    setBookStatusesError(false);
     setStatusRefresh((value) => value + 1);
-  }, []);
+    refreshChapterPlan();
+  }, [refreshChapterPlan]);
 
   /* ── Fetch course ──────────────────────────────────────────── */
 
@@ -246,12 +260,45 @@ export function CourseDetailProvider({
   const materialsReady = materials.ready;
   const extractionDone = materialsReady || course?.extraction_status === "finished";
 
+  const chapterPlanLoading = extractionDone && (!chapterPlanFetched || chapterPlanCourseId !== courseId);
+  const stepStatusesError = bookStatusesError || chapterPlanError;
+
+  // Chapter readiness must not depend on book discovery or analysis services.
+  useEffect(() => {
+    if (!extractionDone) {
+      setHasChapters(false);
+      setChapterPlanFetched(false);
+      setChapterPlanError(false);
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function fetchPlan() {
+      try {
+        const plan = await getChapterPlan(courseId);
+        if (cancelled) return;
+        setHasChapters(plan.chapters.length > 0);
+        setChapterPlanError(false);
+      } catch {
+        if (!cancelled) setChapterPlanError(true);
+      } finally {
+        if (!cancelled) {
+          setChapterPlanFetched(true);
+          setChapterPlanCourseId(courseId);
+          if (pollStepStatuses) timer = setTimeout(fetchPlan, 5_000);
+        }
+      }
+    }
+    void fetchPlan();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [extractionDone, courseId, pollStepStatuses, chapterRefresh]);
+
   /* ── Fetch step-completion statuses from backend ─────────── */
 
   useEffect(() => {
     if (!extractionDone) {
       setStepStatusesFetched(false);
-      setStepStatusesError(false);
+      setBookStatusesError(false);
       setBooksReady(false);
       setBooksSkipped(false);
       return;
@@ -262,16 +309,14 @@ export function CourseDetailProvider({
 
     async function fetchStatuses() {
       try {
-        const [session, analysis, books, plan] = await Promise.all([
+        const [session, analysis, books] = await Promise.all([
           getLatestSession(courseId),
           getLatestAnalysis(courseId),
           getCourseSelectedBooks(courseId),
-          getChapterPlan(courseId).catch(() => null),
         ]);
         if (cancelled) return;
         setBookSessionStatus(session?.status ?? null);
         setAnalysisRunStatus(analysis?.status ?? null);
-        setHasChapters(Boolean(plan?.chapters.length));
         setBooksReady(
           (!session || session.status === "completed") &&
           books.some((book) =>
@@ -279,10 +324,10 @@ export function CourseDetailProvider({
           )
         );
         setBooksSkipped(session?.status === "completed" && session.progress_total === 0 && books.length === 0);
-        setStepStatusesError(false);
+        setBookStatusesError(false);
       } catch (error) {
         if (cancelled) return;
-        setStepStatusesError(true);
+        setBookStatusesError(true);
         console.error("Failed to fetch step statuses", error);
       } finally {
         if (!cancelled) {
@@ -373,6 +418,7 @@ export function CourseDetailProvider({
   const getStepStatus = useCallback(
     (index: number): StepStatus => {
       if (index > 0 && !materialsReady) return "locked";
+      if (index >= 3 && (!hasChapters || chapterPlanLoading || chapterPlanError)) return "locked";
       const ACTIVE_SESSION: SessionStatus[] = ["discovering", "scoring", "downloading"];
       const ACTIVE_ANALYSIS: ExtractionRunStatus[] = [
         "pending",
@@ -398,7 +444,7 @@ export function CourseDetailProvider({
         case 1: // Normalization — optional, unlocked once extraction done
           if (!extractionDone) return "locked";
           return "pending";
-        case 2: // Build Chapters — optional, unlocked once extraction done
+        case 2: // Chapter planning is required before books and curriculum mapping
           if (!extractionDone) return "locked";
           if (hasChapters) return "completed";
           return "pending";
@@ -425,7 +471,7 @@ export function CourseDetailProvider({
           return "locked";
       }
     },
-    [course?.extraction_status, extractionDone, materialsReady, bookSessionStatus, analysisRunStatus, hasChapters, stepStatusesFetched, stepStatusesError, booksReady, booksSkipped]
+    [course?.extraction_status, extractionDone, materialsReady, bookSessionStatus, analysisRunStatus, hasChapters, chapterPlanLoading, chapterPlanError, stepStatusesFetched, stepStatusesError, booksReady, booksSkipped]
   );
 
   const canNavigateToStep = useCallback(
@@ -447,11 +493,12 @@ export function CourseDetailProvider({
   );
 
   const goToNext = useCallback(() => {
-    setActiveStep(activeStep < 3 ? 3 : activeStep + 1);
+    setActiveStep(activeStep < 2 ? 2 : activeStep + 1);
   }, [activeStep, setActiveStep]);
 
-  const stepStatusesLoading = extractionDone && !stepStatusesFetched;
+  const stepStatusesLoading = extractionDone && (!stepStatusesFetched || chapterPlanLoading);
   const nextPreparationStep = !materialsReady ? 0
+    : !hasChapters ? 2
     : booksSkipped ? null
     : !booksReady ? 3
     : getStepStatus(4) === "completed" ? 5 : 4;
@@ -465,11 +512,11 @@ export function CourseDetailProvider({
   }, [isLoading, course, stepStatusesLoading, stepStatusesError, nextPreparationStep, extractionDone, materialsReady]);
 
   useEffect(() => {
-    if (stepStatusesLoading || stepStatusesError) return;
+    if (isLoading || !materialsReady || stepStatusesLoading || stepStatusesError) return;
     if (canNavigateToStep(activeStep)) return;
     const target = nextPreparationStep ?? 3;
     setActiveStepRaw(canNavigateToStep(target) ? target : 0);
-  }, [activeStep, canNavigateToStep, nextPreparationStep, stepStatusesLoading, stepStatusesError]);
+  }, [activeStep, canNavigateToStep, nextPreparationStep, isLoading, materialsReady, stepStatusesLoading, stepStatusesError]);
 
   /* ── Context value (stable ref) ────────────────────────────── */
 
@@ -493,6 +540,9 @@ export function CourseDetailProvider({
       bookSessionStatus,
       analysisRunStatus,
       hasChapters,
+      chapterPlanLoading,
+      chapterPlanError,
+      refreshChapterPlan,
       setHasChapters,
       booksSkipped,
       stepStatusesLoading,
@@ -524,6 +574,9 @@ export function CourseDetailProvider({
       bookSessionStatus,
       analysisRunStatus,
       hasChapters,
+      chapterPlanLoading,
+      chapterPlanError,
+      refreshChapterPlan,
       booksSkipped,
       stepStatusesLoading,
       stepStatusesError,

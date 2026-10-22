@@ -139,7 +139,7 @@ export default function ArchitectAgentPage() {
   if (!id || !Number.isInteger(courseId) || courseId <= 0) return <Navigate to="/courses" replace />;
 
   return (
-    <CourseDetailProvider key={`${courseId}:${searchParams.get("step") ?? ""}`} courseId={courseId} pollStepStatuses initialStep={searchParams.get("step") === "materials" ? "materials" : undefined}>
+    <CourseDetailProvider key={`${courseId}:${searchParams.get("step") ?? ""}`} courseId={courseId} pollStepStatuses initialStep={searchParams.get("step") === "materials" ? "materials" : searchParams.get("step") === "build-chapters" ? "build-chapters" : undefined}>
       <ArchitectContent />
     </CourseDetailProvider>
   );

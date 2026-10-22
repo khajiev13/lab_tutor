@@ -39,7 +39,10 @@ def generate_chapter_plan(
 ) -> ChapterPlanResponse:
     course = _get_owned_course(course_id, teacher, db)
     planner = TeacherCurriculumPlanner(neo4j_session)
-    return planner.generate_plan(course_id, course.title)
+    try:
+        return planner.generate_plan(course_id, course.title)
+    except ValueError as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 @router.get(

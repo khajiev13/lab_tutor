@@ -34,8 +34,12 @@ class ChapterPlanRepository:
         return docs
 
     def save_plan(self, course_id: int, chapters: list[ChapterPlan]) -> None:
+        self._session.execute_write(self._replace_plan, course_id, chapters)
+
+    @staticmethod
+    def _replace_plan(tx, course_id: int, chapters: list[ChapterPlan]) -> None:
         # Delete existing COURSE_CHAPTER nodes for this course
-        self._session.run(
+        tx.run(
             """
             MATCH (c:CLASS {id: $course_id})-[:HAS_COURSE_CHAPTER]->(ch:COURSE_CHAPTER)
             DETACH DELETE ch
@@ -46,7 +50,7 @@ class ChapterPlanRepository:
         for chapter in chapters:
             chapter_id = str(uuid.uuid4())
             doc_ids = chapter.assigned_documents
-            self._session.run(
+            tx.run(
                 """
                 MERGE (ch:COURSE_CHAPTER {id: $id})
                 SET ch.course_id          = $course_id,

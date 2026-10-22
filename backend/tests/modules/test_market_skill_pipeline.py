@@ -8,11 +8,19 @@ from sqlalchemy.orm import Session
 
 from tests.market_skill_fixtures import seed_review
 
+pytest_plugins = ["tests.fixtures.market_skill_graph"]
+
 
 @pytest.mark.parametrize("status", ["gap", "new_topic_needed"])
 @pytest.mark.parametrize("chapter", [None, "", "  ", "unassigned"])
 def test_durable_mapper_rejects_missing_chapter_before_cleaner_handoff(
-    db_session, client, teacher_auth_headers, monkeypatch, status, chapter
+    db_session,
+    client,
+    teacher_auth_headers,
+    monkeypatch,
+    status,
+    chapter,
+    course_chapters,
 ):
     from app.modules.marketdemandanalyst import tools
     from app.modules.marketdemandanalyst.state import bind_tool_store
@@ -20,6 +28,7 @@ def test_durable_mapper_rejects_missing_chapter_before_cleaner_handoff(
     course, run, candidates, service, revision = seed_review(
         db_session, client, teacher_auth_headers
     )
+    course_chapters(course["id"])
     monkeypatch.setattr(
         tools, "SessionLocal", lambda: Session(bind=db_session.get_bind())
     )
@@ -67,7 +76,7 @@ def test_cleaner_routes_old_unassigned_mapping_back_to_mapper():
 
 
 def test_all_covered_mapper_results_reach_linker_with_ids(
-    db_session, client, teacher_auth_headers, monkeypatch
+    db_session, client, teacher_auth_headers, monkeypatch, course_chapters
 ):
     from app.modules.marketdemandanalyst import tools
     from app.modules.marketdemandanalyst.state import bind_tool_store
@@ -75,6 +84,7 @@ def test_all_covered_mapper_results_reach_linker_with_ids(
     course, run, candidates, service, revision = seed_review(
         db_session, client, teacher_auth_headers
     )
+    course_chapters(course["id"])
     monkeypatch.setattr(
         tools, "SessionLocal", lambda: Session(bind=db_session.get_bind())
     )
@@ -185,7 +195,7 @@ def test_cleaner_merge_preserves_each_candidates_own_evidence(
 
 
 def test_mapper_cannot_use_stale_confirmation_or_substitute_foreign_id(
-    db_session, client, teacher_auth_headers, monkeypatch
+    db_session, client, teacher_auth_headers, monkeypatch, course_chapters
 ):
     from app.modules.marketdemandanalyst import tools
     from app.modules.marketdemandanalyst.state import bind_tool_store
@@ -193,6 +203,7 @@ def test_mapper_cannot_use_stale_confirmation_or_substitute_foreign_id(
     course, run, candidates, service, revision = seed_review(
         db_session, client, teacher_auth_headers
     )
+    course_chapters(course["id"])
     monkeypatch.setattr(
         tools, "SessionLocal", lambda: Session(bind=db_session.get_bind())
     )

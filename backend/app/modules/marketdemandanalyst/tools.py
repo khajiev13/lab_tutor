@@ -743,6 +743,36 @@ def list_chapters() -> str:
     return "\n".join(lines)
 
 
+def mapping_prerequisite_error() -> str | None:
+    """Check current course chapters without modifying the confirmed shortlist."""
+    from neo4j.exceptions import Neo4jError, ServiceUnavailable, SessionExpired
+
+    from app.modules.curricularalignmentarchitect.curriculum_planning.repository import (
+        ChapterPlanRepository,
+    )
+
+    try:
+        course_id = _require_course_id()
+        with _neo4j_session() as session:
+            ready = ChapterPlanRepository(session).has_plan(course_id)
+    except ValueError as exc:
+        return str(exc)
+    except (Neo4jError, ServiceUnavailable, SessionExpired, OSError):
+        logger.warning(
+            "Chapter prerequisite check unavailable for mapping", exc_info=True
+        )
+        return (
+            "Could not check course chapters. Retry when the Knowledge Map is available. "
+            "Your confirmed skills are unchanged; curriculum mapping has not started."
+        )
+    if ready:
+        return None
+    return (
+        "Build Chapters in the course setup before mapping skills to the curriculum. "
+        "Your confirmed skills are unchanged. After chapters are saved, retry mapping."
+    )
+
+
 @tool
 def get_chapter_details(chapter_indices: str) -> str:
     """Get documents, concepts, and existing MARKET_SKILL nodes for specific course chapters.
@@ -1082,6 +1112,10 @@ def save_curriculum_mapping(mapping_json: str) -> str:
 
     if not isinstance(mapping, list):
         return "Expected a JSON array."
+
+    prerequisite_error = mapping_prerequisite_error()
+    if prerequisite_error:
+        return prerequisite_error
 
     if tool_store.get("run_id"):
         confirmation_result = _durable_selection_tool()
@@ -2670,6 +2704,7 @@ SUPERVISOR_TOOLS = [
     save_skills_for_insertion,
     delete_market_skills,
     show_current_state,
+    list_chapters,
 ]
 
 SKILL_FINDER_TOOLS = [

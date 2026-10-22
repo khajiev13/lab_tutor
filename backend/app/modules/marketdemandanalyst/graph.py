@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolM
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.config import get_stream_writer
-from langgraph.graph import START, StateGraph
+from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import create_react_agent
 from langgraph.runtime import Runtime
 from langgraph.types import Command
@@ -25,18 +25,37 @@ from .prompts import (
     SKILL_FINDER_PROMPT,
     SUPERVISOR_PROMPT,
 )
-from .state import pipeline_summary, snapshot_state, tool_store
+from .state import owned_sync_execution, pipeline_summary, snapshot_state, tool_store
 from .tools import (
     CONCEPT_LINKER_TOOLS,
     CURRICULUM_MAPPER_TOOLS,
     SKILL_CLEANER_TOOLS,
     SKILL_FINDER_TOOLS,
     SUPERVISOR_TOOLS,
+    mapping_prerequisite_error,
     owned_sync_tools,
 )
 from .workspace_chat import WorkspaceRuntimeContext, route_entry, workspace_review
 
 logger = logging.getLogger(__name__)
+
+
+async def _require_mapping_chapters(state: dict) -> dict | Command:
+    """Guard both fresh handoffs and resumed mapper checkpoints before inference."""
+    error = await owned_sync_execution(mapping_prerequisite_error)()
+    if error:
+        # Parent-command updates persist history but bypass message streaming.
+        get_stream_writer()({"type": "mapping_prerequisite", "message": error})
+        return Command(
+            graph=Command.PARENT,
+            goto=END,
+            update={
+                "messages": [AIMessage(content=error, name="supervisor")],
+                "active_agent": "supervisor",
+            },
+        )
+    return {"messages": []}
+
 
 # ── App-owned async checkpoint storage ────────────────────────
 _ASYNC_CHECKPOINTER: AsyncPostgresSaver | None = None
@@ -451,6 +470,7 @@ async def get_graph():
             handoff_to_supervisor,
         ],
         prompt=_make_prompt(CURRICULUM_MAPPER_PROMPT),
+        pre_model_hook=_require_mapping_chapters,
         name="curriculum_mapper",
     )
 

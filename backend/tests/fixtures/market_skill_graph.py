@@ -42,3 +42,23 @@ def graph_driver(monkeypatch):
     with driver.session(database="neo4j") as session:
         session.run("MATCH (n) DETACH DELETE n").consume()
     driver.close()
+
+
+@pytest.fixture
+def course_chapters(graph_driver, monkeypatch):
+    """Seed the real prerequisite for tests of later mapping validation."""
+    from app.modules.marketdemandanalyst import tools
+
+    monkeypatch.setattr(tools, "_get_neo4j_driver", lambda **kwargs: graph_driver)
+
+    def seed(course_id):
+        with graph_driver.session(database="neo4j") as session:
+            session.run(
+                "MERGE (course:CLASS {id: $course_id}) "
+                "CREATE (course)-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER "
+                "{id: $chapter_id, title: 'Programming', chapter_index: 1})",
+                course_id=course_id,
+                chapter_id=f"chapter-{course_id}",
+            ).consume()
+
+    return seed

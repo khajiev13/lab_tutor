@@ -24,6 +24,8 @@ const course: Course = {
   created_at: "2026-01-01T00:00:00Z", extraction_status: "finished",
   publication_status: "draft", market_gate_status: "not_started",
 };
+const emptyPlan = { course_id: 1, chapters: [], unassigned_documents: [], all_documents: [] };
+const chapterPlan = { ...emptyPlan, chapters: [{ number: 1, title: "Introduction", description: "", learning_objectives: [], prerequisites: [], assigned_documents: ["doc-1"] }] };
 const session: BookSelectionSession = {
   id: 1, course_id: 1, thread_id: "t-1", status: "completed", course_level: "bachelor",
   weights_json: null, progress_scored: 2, progress_total: 2, error_message: null,
@@ -62,7 +64,7 @@ beforeEach(() => {
   vi.mocked(getLatestSession).mockResolvedValue(null);
   vi.mocked(getLatestAnalysis).mockResolvedValue(null);
   vi.mocked(getCourseSelectedBooks).mockResolvedValue([]);
-  vi.mocked(getChapterPlan).mockResolvedValue({ course_id: 1, chapters: [], unassigned_documents: [], all_documents: [] });
+  vi.mocked(getChapterPlan).mockResolvedValue(chapterPlan);
 });
 afterEach(() => vi.useRealTimers());
 
@@ -74,10 +76,12 @@ describe("preparation dependencies", () => {
     expect(result.current.activeStep).toBe(0);
   });
 
-  it("offers books next after extraction and keeps optional work out of the required path", async () => {
+  it("requires chapters after materials while normalization stays optional", async () => {
+    vi.mocked(getChapterPlan).mockResolvedValue(emptyPlan);
     const { result } = await load();
-    expect(result.current.activeStep).toBe(3);
-    expect(result.current.nextPreparationStep).toBe(3);
+    expect(result.current.activeStep).toBe(2);
+    expect(result.current.nextPreparationStep).toBe(2);
+    expect(result.current.canNavigateToStep(3)).toBe(false);
     expect(result.current.canNavigateToStep(1)).toBe(true);
     expect(result.current.canNavigateToStep(2)).toBe(true);
     expect(result.current.getStepStatus(4)).toBe("locked");
@@ -206,9 +210,11 @@ describe("live progress and navigation", () => {
     expect(result.current.getStepStatus(5)).toBe("locked");
   });
 
-  it("skips optional tools when continuing from materials", async () => {
+  it("continues from materials through chapters and then books", async () => {
     const { result } = await load();
     await act(async () => result.current.setActiveStep(0));
+    await act(async () => result.current.goToNext());
+    expect(result.current.activeStep).toBe(2);
     await act(async () => result.current.goToNext());
     expect(result.current.activeStep).toBe(3);
   });
@@ -298,4 +304,55 @@ describe("deployed material readiness", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
     expect(result.current.canNavigateToStep(3)).toBe(true);
   });
+});
+
+
+it("does not let Skip Books bypass missing chapters", async () => {
+  vi.mocked(getChapterPlan).mockResolvedValue(emptyPlan);
+  vi.mocked(getLatestSession).mockResolvedValue({ ...session, progress_total: 0, progress_scored: 0 });
+  const { result } = await load();
+  expect(result.current.booksSkipped).toBe(true);
+  expect(result.current.activeStep).toBe(2);
+  expect(result.current.nextPreparationStep).toBe(2);
+});
+
+it("reports an unavailable chapter plan separately and retries without depending on book services", async () => {
+  vi.mocked(getChapterPlan).mockRejectedValueOnce(new Error("Chapter service unavailable"));
+  vi.mocked(getLatestSession).mockRejectedValue(new Error("Book service unavailable"));
+  const { result } = await load();
+  expect(result.current.chapterPlanError).toBe(true);
+  expect(result.current.chapterPlanLoading).toBe(false);
+  expect(result.current.canNavigateToStep(3)).toBe(false);
+  act(() => result.current.refreshChapterPlan());
+  await waitFor(() => expect(result.current.hasChapters).toBe(true));
+  expect(result.current.chapterPlanError).toBe(false);
+  expect(result.current.stepStatusesError).toBe(true);
+});
+
+it("retains an explicit chapter deep link while initial readiness loads", async () => {
+  const { result } = renderHook(() => useCourseDetail(), { wrapper: ({children}) =>
+    <CourseDetailProvider courseId={1} initialStep="build-chapters">{children}</CourseDetailProvider> });
+  await waitFor(() => expect(result.current.materialsReady).toBe(true));
+  await waitFor(() => expect(result.current.stepStatusesLoading).toBe(false));
+  expect(result.current.activeStep).toBe(2);
+});
+
+
+it("does not reuse the previous course's chapter readiness while the next course loads", async () => {
+  let courseId = 1;
+  const hook = renderHook(() => useCourseDetail(), {wrapper: ({children}) =>
+    <CourseDetailProvider courseId={courseId}>{children}</CourseDetailProvider>});
+  await waitFor(() => expect(hook.result.current.hasChapters).toBe(true));
+  let resolvePlan!: (plan: typeof emptyPlan) => void;
+  vi.mocked(getChapterPlan).mockImplementation(() => new Promise(resolve => { resolvePlan = resolve; }));
+  courseId = 2;
+  hook.rerender();
+  await waitFor(() => expect(coursesApi.getMaterialsReadiness).toHaveBeenCalledWith(2));
+  await waitFor(() => expect(hook.result.current.materialsReady).toBe(true));
+  expect(hook.result.current.chapterPlanLoading).toBe(true);
+  expect(hook.result.current.canNavigateToStep(3)).toBe(false);
+  await act(async () => resolvePlan({...emptyPlan, course_id: 2}));
+  expect(hook.result.current.chapterPlanLoading).toBe(false);
+  expect(hook.result.current.hasChapters).toBe(false);
+  expect(hook.result.current.nextPreparationStep).toBe(2);
 });
