@@ -7,6 +7,7 @@ import pytest
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field
 
 from app.modules.marketdemandanalyst import graph as graph_module
@@ -19,13 +20,16 @@ from tests.modules.test_market_workspace_context import context
 class ScriptedModel(BaseChatModel):
     replies: list = Field(default_factory=list)
     calls: list = Field(default_factory=list)
+    tool_choices: list = Field(default_factory=list)
 
     @property
     def _llm_type(self):
         return "workspace-provider-double"
 
     def bind_tools(self, tools, **kwargs):
-        return self.bind(tools=[tool.name for tool in tools])
+        return self.bind(
+            tools=[convert_to_openai_tool(tool) for tool in tools], **kwargs
+        )
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         outstanding = set()
@@ -40,7 +44,13 @@ class ScriptedModel(BaseChatModel):
             elif isinstance(message, HumanMessage):
                 assert not outstanding, "Unmatched calls leaked into next workflow"
         assert not outstanding, "Provider received unfinished tool history"
-        self.calls.append((deepcopy(messages), kwargs.get("tools", [])))
+        self.calls.append(
+            (
+                deepcopy(messages),
+                [row["function"]["name"] for row in kwargs.get("tools", [])],
+            )
+        )
+        self.tool_choices.append(kwargs.get("tool_choice", "auto"))
         reply = self.replies.pop(0)
         if callable(reply):
             reply = reply()

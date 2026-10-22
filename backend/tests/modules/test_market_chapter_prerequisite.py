@@ -17,6 +17,7 @@ from tests.market_skill_fixtures import seed_review
 pytest_plugins = [
     "tests.fixtures.market_skill_graph",
     "tests.modules.test_market_workspace_chat",
+    "tests.modules.test_market_llm_transport",
 ]
 
 
@@ -313,3 +314,135 @@ def test_current_state_does_not_claim_missing_chapters_when_graph_is_unavailable
     assert "Build Chapters" not in result
     assert "Live chapter readiness: ready" not in result
     assert state == before
+
+
+@pytest.mark.parametrize(
+    "agent,required",
+    [
+        ("curriculum_mapper", True),
+        ("skill_cleaner", True),
+        ("concept_linker", True),
+        ("supervisor", False),
+        ("skill_finder", False),
+    ],
+)
+def test_worker_tool_choice_reaches_actual_provider_request(
+    mapping_course,
+    graph_driver,
+    client,
+    completion_requests,
+    monkeypatch,
+    agent,
+    required,
+):
+    from app.modules.marketdemandanalyst import graph as graph_module
+
+    course, _, _, service, state = mapping_course
+    add_chapter(graph_driver, course["id"])
+    monkeypatch.setattr(settings, "llm_agent_model", "deepseek-v4.1-flash")
+    monkeypatch.setattr(graph_module, "_COMPILED_GRAPH", None)
+    monkeypatch.setattr(graph_module, "_LLM_INSTANCE", None)
+    graph, _ = client.portal.call(graph_module.get_graph)
+    thread = service.thread_id(course["id"], course["teacher_id"])
+    try:
+        with bind_tool_store(state):
+            client.portal.call(
+                graph.ainvoke,
+                {"messages": [HumanMessage(content="Continue")], "active_agent": agent},
+                {"configurable": {"thread_id": thread}},
+            )
+        assert len(completion_requests) == 1
+        request = completion_requests[0]
+        assert request.get("tool_choice", "auto") == (
+            "required" if required else "auto"
+        )
+        assert request["stream"] is True
+        if required:
+            assert "transfer_to_supervisor" in {
+                row["function"]["name"] for row in request["tools"]
+            }
+    finally:
+        client.portal.call(graph.checkpointer.adelete_thread, thread)
+
+
+def test_autonomous_workers_prepare_review_without_publishing_or_changing_selection(
+    mapping_course, graph_driver, client, live_graph, monkeypatch
+):
+    from types import SimpleNamespace
+
+    course, _, candidates, service, state = mapping_course
+    add_chapter(graph_driver, course["id"])
+    selected = [row["candidate_id"] for row in candidates]
+    model, graph, checkpoint = live_graph
+    thread = service.thread_id(course["id"], course["teacher_id"])
+    checkpoint(thread)
+    monkeypatch.setattr(
+        tools,
+        "_get_extraction_llm",
+        lambda: SimpleNamespace(
+            invoke=lambda *args, **kwargs: AIMessage(
+                content=json.dumps({"existing_concepts": [], "new_concepts": []})
+            )
+        ),
+    )
+    mapping = [
+        {
+            "candidate_id": row["candidate_id"],
+            "name": row["display_name"],
+            "status": "gap",
+            "target_chapter": "Data pipelines",
+        }
+        for row in candidates
+    ]
+    steps = [
+        ("transfer_to_curriculum_mapper", {}),
+        ("get_curated_skills", {}),
+        ("list_chapters", {}),
+        ("save_curriculum_mapping", {"mapping_json": json.dumps(mapping)}),
+        ("transfer_to_skill_cleaner", {}),
+        ("load_mapped_skills", {}),
+        ("compare_and_clean", {"chapter_title": "Data pipelines"}),
+        ("finalize_cleaned_skills", {}),
+        ("transfer_to_concept_linker", {}),
+        ("extract_concepts_for_skills", {}),
+        # Even an erroneous model publication attempt cannot bypass teacher approval.
+        ("insert_market_skills_to_neo4j", {}),
+        ("transfer_to_supervisor", {}),
+    ]
+    model.replies.extend(
+        [
+            AIMessage(
+                content="", tool_calls=[{"id": f"step-{i}", "name": name, "args": args}]
+            )
+            for i, (name, args) in enumerate(steps)
+        ]
+        + [AIMessage(content="Your integration review is ready.")]
+    )
+    with bind_tool_store(state):
+        result = client.portal.call(
+            graph.ainvoke,
+            {"messages": [HumanMessage(content="Map my confirmed skills")]},
+            {"configurable": {"thread_id": thread}},
+        )
+    review = service.get_review(course["id"], course["teacher_id"])
+    assert review.integration_review is not None, str(result["messages"])
+    assert {row["candidate_id"] for row in review.integration_review["items"]} == set(
+        selected
+    )
+    assert {row["candidate_id"] for row in state["curriculum_mapping"]} == set(selected)
+    assert {row["candidate_id"] for row in state["selected_for_insertion"]} == set(
+        selected
+    )
+    assert [str(value) for value in review.selected_candidate_ids] == selected
+    assert review.publication_revision == 0
+    assert not review.approved_references
+    assert "approval through the review API is required" in str(result["messages"])
+    assert result["active_agent"] == "supervisor"
+    with graph_driver.session(database="neo4j") as session:
+        assert (
+            session.run(
+                "MATCH (skill:CAREER_SKILL) RETURN count(skill) AS count"
+            ).single()["count"]
+            == 0
+        )
+    assert model.tool_choices == ["auto", *(["required"] * 11), "auto"]

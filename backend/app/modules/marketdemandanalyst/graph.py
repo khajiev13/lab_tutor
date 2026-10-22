@@ -462,32 +462,35 @@ async def get_graph():
         name="skill_finder",
     )
 
+    mapper_tools = [
+        *owned_sync_tools(CURRICULUM_MAPPER_TOOLS),
+        handoff_to_skill_cleaner,
+        handoff_to_supervisor,
+    ]
     curriculum_mapper = create_react_agent(
-        llm,
-        tools=[
-            *owned_sync_tools(CURRICULUM_MAPPER_TOOLS),
-            handoff_to_skill_cleaner,
-            handoff_to_supervisor,
-        ],
+        llm.bind_tools(mapper_tools, tool_choice="required"),
+        tools=mapper_tools,
         prompt=_make_prompt(CURRICULUM_MAPPER_PROMPT),
         pre_model_hook=_require_mapping_chapters,
         name="curriculum_mapper",
     )
 
+    cleaner_tools = [
+        *owned_sync_tools(SKILL_CLEANER_TOOLS),
+        handoff_to_concept_linker,
+        handoff_to_supervisor,
+    ]
     skill_cleaner = create_react_agent(
-        llm,
-        tools=[
-            *owned_sync_tools(SKILL_CLEANER_TOOLS),
-            handoff_to_concept_linker,
-            handoff_to_supervisor,
-        ],
+        llm.bind_tools(cleaner_tools, tool_choice="required"),
+        tools=cleaner_tools,
         prompt=_make_prompt(SKILL_CLEANER_PROMPT),
         name="skill_cleaner",
     )
 
+    linker_tools = [*owned_sync_tools(CONCEPT_LINKER_TOOLS), handoff_to_supervisor]
     concept_linker = create_react_agent(
-        llm,
-        tools=[*owned_sync_tools(CONCEPT_LINKER_TOOLS), handoff_to_supervisor],
+        llm.bind_tools(linker_tools, tool_choice="required"),
+        tools=linker_tools,
         prompt=_make_prompt(CONCEPT_LINKER_PROMPT),
         name="concept_linker",
     )
