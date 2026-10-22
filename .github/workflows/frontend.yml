@@ -131,6 +131,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push image to ACR
+        id: image
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
@@ -145,10 +146,15 @@ jobs:
 
       - name: Deploy to Azure Container Apps
         shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           set -euo pipefail
-          az containerapp update \
-            --name frontend \
-            --resource-group lab_tutor \
-            --image "$REGISTRY/$IMAGE_NAME:latest" \
-            --only-show-errors
+          for APP_NAME in frontend frontend-domain; do
+            az containerapp update \
+              --name "$APP_NAME" \
+              --resource-group lab_tutor \
+              --image "$REGISTRY/$IMAGE_NAME@$IMAGE_DIGEST" \
+              --only-show-errors \
+              --output none
+          done

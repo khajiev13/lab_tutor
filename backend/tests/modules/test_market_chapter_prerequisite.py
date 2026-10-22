@@ -268,3 +268,48 @@ def test_skill_review_can_continue_without_chapters(mapping_course, client, live
     assert result["messages"][-1].content == "Review the extracted skills."
     assert "start_extraction" in model.calls[0][1]
     assert state == before
+
+
+def test_current_state_rechecks_saved_chapters_without_mapping_or_selection_changes(
+    mapping_course, graph_driver
+):
+    course, run, _, service, state = mapping_course
+    before = deepcopy(state)
+    selected = list(run.selected_candidate_ids)
+    with bind_tool_store(state):
+        missing = tools.show_current_state.invoke({})
+        add_chapter(graph_driver, course["id"])
+        ready = tools.show_current_state.invoke({})
+    assert "Build Chapters" in missing
+    assert "Live chapter readiness: ready" in ready
+    assert "saved course chapters exist" in ready
+    assert "Curriculum mapping rows: 0" in missing
+    assert "Curriculum mapping rows: 0" in ready
+    assert "2 skills awaiting mapping" in ready
+    assert "Build Chapters" not in ready
+    assert state == before
+    review = service.get_review(course["id"], course["teacher_id"])
+    assert [
+        str(candidate_id) for candidate_id in review.selected_candidate_ids
+    ] == selected
+
+
+@pytest.mark.parametrize("error", [ServiceUnavailable, SessionExpired])
+def test_current_state_does_not_claim_missing_chapters_when_graph_is_unavailable(
+    mapping_course, graph_driver, monkeypatch, error
+):
+    course, _, _, _, state = mapping_course
+    add_chapter(graph_driver, course["id"])
+    before = deepcopy(state)
+
+    def unavailable(**kwargs):
+        raise error("test connection unavailable")
+
+    monkeypatch.setattr(tools, "_get_neo4j_driver", unavailable)
+    with bind_tool_store(state):
+        result = tools.show_current_state.invoke({})
+    assert "Could not check course chapters" in result
+    assert "Retry" in result
+    assert "Build Chapters" not in result
+    assert "Live chapter readiness: ready" not in result
+    assert state == before

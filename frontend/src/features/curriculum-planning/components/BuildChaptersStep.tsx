@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Sparkles, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -117,7 +118,10 @@ export function BuildChaptersStep() {
       )}
 
       {!planLoading && !loadError && plan && plan.chapters.length > 0 && (
-        <div className="flex justify-end pt-2">
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
+          <Button asChild className="gap-2">
+            <Link to={`/courses/${courseId}/market-analyst`}>Return to Swarm<ArrowRight className="h-4 w-4" /></Link>
+          </Button>
           <Button onClick={goToNext} variant="outline" className="gap-2">
             Continue to Select Books
             <ArrowRight className="h-4 w-4" />

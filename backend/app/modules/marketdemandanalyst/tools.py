@@ -457,9 +457,15 @@ def save_skills_for_insertion(skills_json: str) -> str:
 
 @tool
 def show_current_state() -> str:
-    """Show a summary of everything collected so far: fetched jobs, selected jobs, extracted skills, curated skills, mapped skills, final skills, and saved skills."""
+    """Check live chapter readiness and summarize collected and mapped skills."""
     breakdown = mapping_breakdown()
+    chapter_error = mapping_prerequisite_error()
     lines = [
+        "Live chapter readiness: "
+        + (
+            chapter_error
+            or "ready — saved course chapters exist. Continue to Curriculum Mapper for confirmed skills."
+        ),
         f"All fetched jobs: {len(tool_store.get('fetched_jobs', []))}",
         f"Selected jobs: {len(tool_store.get('selected_jobs', []))}",
         f"Extracted skills: {len(tool_store.get('extracted_skills', []))}",
@@ -469,7 +475,7 @@ def show_current_state() -> str:
         f"{breakdown['covered']} covered, "
         f"{breakdown['gap']} gaps, "
         f"{breakdown['new_topic_needed']} new topics, "
-        f"{breakdown['missing']} missing",
+        f"{breakdown['missing']} skills awaiting mapping",
         f"Mapped skills: {sum(len(v) for v in tool_store.get('mapped_skills', {}).values())}",
         f"Final (cleaned) skills: {len(tool_store.get('final_skills', []))}",
         f"Saved for insertion: {len(tool_store.get('selected_for_insertion', []))}",
