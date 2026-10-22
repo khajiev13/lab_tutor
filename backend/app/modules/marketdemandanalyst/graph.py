@@ -137,7 +137,9 @@ def _create_llm() -> ChatOpenAI:
         temperature=0,
         streaming=True,
         timeout=settings.llm_timeout_seconds,
-        extra_body={"enable_thinking": False},
+        extra_body={"thinking": {"type": "disabled"}}
+        if settings.llm_agent_model.casefold().startswith("deepseek")
+        else {"enable_thinking": False},
     )
 
 

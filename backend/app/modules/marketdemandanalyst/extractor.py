@@ -49,11 +49,12 @@ class ExtractorState(TypedDict):
 
 
 def _get_extraction_llm(timeout_seconds: int = 120) -> ChatOpenAI:
+    model = os.environ.get(
+        "LAB_TUTOR_LLM_MODEL",
+        os.environ.get("OPENAI_MODEL", "deepseek-v4.1-flash"),
+    )
     return ChatOpenAI(
-        model=os.environ.get(
-            "LAB_TUTOR_LLM_MODEL",
-            os.environ.get("OPENAI_MODEL", "deepseek-v4.1-flash"),
-        ),
+        model=model,
         base_url=os.environ.get(
             "LAB_TUTOR_LLM_BASE_URL",
             os.environ.get("OPENAI_BASE_URL"),
@@ -66,6 +67,9 @@ def _get_extraction_llm(timeout_seconds: int = 120) -> ChatOpenAI:
         timeout=timeout_seconds,
         # Avoid multi-minute stalls from automatic retries during extraction.
         max_retries=0,
+        extra_body={"thinking": {"type": "disabled"}}
+        if model.casefold().startswith("deepseek")
+        else None,
     )
 
 
