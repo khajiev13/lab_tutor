@@ -2000,8 +2000,9 @@ def _durable_selection_tool(changes: list[dict] | None = None) -> str:
     from .repository import MarketReviewRepository
     from .review_service import SkillReviewService
     from .schemas import SkillReviewRevision
+    from .state import locked_tool_store
 
-    with SessionLocal() as db:
+    with locked_tool_store(), SessionLocal() as db:
         service = SkillReviewService(MarketReviewRepository(db))
         try:
             course_id, teacher_id = tool_store["course_id"], tool_store["teacher_id"]
@@ -2450,8 +2451,9 @@ def _review_revision():
 def _persist_durable_mapping(fields: dict) -> str | None:
     from .repository import MarketReviewRepository
     from .review_service import SkillReviewService
+    from .state import locked_tool_store
 
-    with SessionLocal() as db:
+    with locked_tool_store(), SessionLocal() as db:
         service = SkillReviewService(MarketReviewRepository(db))
         try:
             committed = service.save_mapping_state(
@@ -2465,7 +2467,32 @@ def _persist_durable_mapping(fields: dict) -> str | None:
             return (
                 f"Mapping change refused: {getattr(exc, 'detail', type(exc).__name__)}"
             )
-    tool_store.update(committed)
+        tool_store.update(committed)
+    return None
+
+
+def _persist_cleaned_chapter(chapter_result: dict) -> str | None:
+    from .repository import MarketReviewRepository
+    from .review_service import SkillReviewService
+    from .state import locked_tool_store
+
+    # The SQL lock protects accumulation across writers. Keep publication within
+    # this execution ordered too: a delayed older return must not replace memory.
+    with locked_tool_store(), SessionLocal() as db:
+        service = SkillReviewService(MarketReviewRepository(db))
+        try:
+            committed = service.save_cleaned_chapter(
+                tool_store["course_id"],
+                tool_store["teacher_id"],
+                _review_revision(),
+                chapter_result,
+            )
+        except Exception as exc:
+            service.rollback()
+            return (
+                f"Cleaning change refused: {getattr(exc, 'detail', type(exc).__name__)}"
+            )
+        tool_store.update(committed)
     return None
 
 
@@ -2591,25 +2618,12 @@ def _compare_durable_candidates(chapter_title: str) -> str:
                     "Cleaner merge target must be an existing target in this chapter."
                 )
             decision["overlaps_with"] = matches[0]["name"]
-        cleaned = [
-            row
-            for row in tool_store.get("_cleaned_results") or []
-            if row["chapter"] != chapter_title
-        ]
-        cleaned.append(
+        error = _persist_cleaned_chapter(
             {
                 "chapter": chapter_title,
                 "kept": [row["candidate_id"] for row in parsed.get("kept", [])],
                 "dropped": [row["candidate_id"] for row in parsed.get("dropped", [])],
                 "details": parsed,
-            }
-        )
-        error = _persist_durable_mapping(
-            {
-                "_cleaned_results": cleaned,
-                "selected_for_insertion": None,
-                "final_skills": None,
-                "skill_concepts": None,
             }
         )
         return (

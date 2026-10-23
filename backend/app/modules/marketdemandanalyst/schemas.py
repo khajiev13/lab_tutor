@@ -546,6 +546,7 @@ class ResolvedWorkspaceContext(BaseModel):
 class MarketStreamError(BaseModel):
     code: Literal[
         "execution_failed",
+        "worker_stalled",
         "execution_interrupted",
         "persistence_failed",
         "context_stale",

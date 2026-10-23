@@ -16,6 +16,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import create_react_agent
+from langgraph.prebuilt.chat_agent_executor import AgentState as ReactAgentState
 from langgraph.runtime import Runtime
 from langgraph.types import Command
 from langgraph_swarm import SwarmState, create_handoff_tool
@@ -41,6 +42,7 @@ from .tools import (
     mapping_prerequisite_error,
     owned_sync_tools,
 )
+from .worker_progress import worker_progress
 from .workspace_chat import WorkspaceRuntimeContext, route_entry, workspace_review
 
 logger = logging.getLogger(__name__)
@@ -61,6 +63,22 @@ async def _require_mapping_chapters(state: dict) -> dict | Command:
             },
         )
     return {"messages": []}
+
+
+class MarketWorkerState(ReactAgentState):
+    worker_progress: dict | None
+
+
+def _worker_hook(agent: str):
+    async def before_model(state: dict) -> dict | Command:
+        progress = worker_progress(state, agent)
+        if agent == "curriculum_mapper":
+            result = await _require_mapping_chapters(state)
+            if isinstance(result, Command):
+                return result
+        return {"messages": [], "worker_progress": progress}
+
+    return before_model
 
 
 # ── App-owned async checkpoint storage ────────────────────────
@@ -495,7 +513,8 @@ async def get_graph():
             _MAX_AUTONOMOUS_PROMPT_MESSAGES,
             current_turn_only=True,
         ),
-        pre_model_hook=_require_mapping_chapters,
+        pre_model_hook=_worker_hook("curriculum_mapper"),
+        state_schema=MarketWorkerState,
         name="curriculum_mapper",
     )
 
@@ -512,6 +531,8 @@ async def get_graph():
             _MAX_AUTONOMOUS_PROMPT_MESSAGES,
             current_turn_only=True,
         ),
+        pre_model_hook=_worker_hook("skill_cleaner"),
+        state_schema=MarketWorkerState,
         name="skill_cleaner",
     )
 
@@ -524,6 +545,8 @@ async def get_graph():
             _MAX_AUTONOMOUS_PROMPT_MESSAGES,
             current_turn_only=True,
         ),
+        pre_model_hook=_worker_hook("concept_linker"),
+        state_schema=MarketWorkerState,
         name="concept_linker",
     )
 

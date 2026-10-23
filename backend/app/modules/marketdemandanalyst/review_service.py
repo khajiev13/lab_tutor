@@ -487,6 +487,52 @@ class SkillReviewService:
         )
         return {**committed, **deepcopy(fields)}
 
+    def save_cleaned_chapter(
+        self,
+        course_id: int,
+        teacher_id: int,
+        body: SkillReviewRevision,
+        chapter_result: dict,
+    ) -> dict:
+        """Merge one chapter against the latest snapshot under the run row lock."""
+        run, snapshot = self._active_run(course_id, teacher_id, body)
+        if not self._confirmed(run):
+            raise HTTPException(
+                409, "Confirm the exact current teacher shortlist before cleaning"
+            )
+        chapter = chapter_result.get("chapter")
+        expected = {
+            row["candidate_id"]
+            for row in snapshot.get("curriculum_mapping") or []
+            if row.get("target_chapter") == chapter
+            and row.get("status") in {"gap", "new_topic_needed"}
+        }
+        decisions = chapter_result.get("details") or {}
+        ids = [
+            row.get("candidate_id")
+            for group in ("kept", "dropped")
+            for row in decisions.get(group, [])
+        ]
+        if not expected or len(ids) != len(set(ids)) or set(ids) != expected:
+            raise HTTPException(
+                422, "Clean every current candidate in this chapter exactly once"
+            )
+        cleaned = [
+            row
+            for row in snapshot.get("_cleaned_results") or []
+            if row["chapter"] != chapter
+        ]
+        cleaned.append(deepcopy(chapter_result))
+        fields = {
+            "_cleaned_results": sorted(cleaned, key=lambda row: row["chapter"]),
+            "selected_for_insertion": None,
+            "final_skills": None,
+            "skill_concepts": None,
+        }
+        self._repo.save_integration_review(run, None)
+        _, committed = self._commit_snapshot(run, {**deepcopy(snapshot), **fields})
+        return {**committed, **fields}
+
     def prepare_integration_review(
         self,
         course_id: int,

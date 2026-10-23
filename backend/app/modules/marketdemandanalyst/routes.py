@@ -81,6 +81,7 @@ from .thread_state_service import (
     ThreadStateService,
     get_thread_state_service,
 )
+from .worker_progress import WorkerStalledError
 from .workspace_chat import WorkspaceRuntimeContext, safe_workspace_metadata
 from .workspace_service import WorkspaceContextService
 
@@ -356,6 +357,12 @@ def _stream_error(
             message="The conversation could not be saved completely.",
             recovery="Refresh the conversation and review before taking another action.",
         )
+    if isinstance(exc, WorkerStalledError):
+        return MarketStreamError(
+            code="worker_stalled",
+            message=str(exc),
+            recovery="Your confirmed skill selection is preserved. Refresh the review, then retry the saved workflow.",
+        )
     if isinstance(exc, asyncio.CancelledError):
         return MarketStreamError(
             code="execution_interrupted",
@@ -518,7 +525,13 @@ async def _sse_stream(
                         and isinstance(payload[0], ToolMessage)
                     ):
                         saving = True
-                        await state_service.save(lease, snapshot_state(bound_state))
+                        await state_service.save(
+                            lease,
+                            bound_state
+                            if bound_state is not None
+                            else tool_store._current(),
+                            synchronize_tools=True,
+                        )
                         saving = False
                     await _queue.put((namespace, mode, payload))
         except asyncio.CancelledError as exc:

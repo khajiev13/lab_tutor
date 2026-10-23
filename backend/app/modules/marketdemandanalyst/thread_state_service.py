@@ -11,6 +11,7 @@ from app.core.database import SessionLocal
 
 from .repository import ThreadStateRepository
 from .schemas import ExecutionStatus
+from .state import locked_tool_store, snapshot_state
 
 logger = logging.getLogger(__name__)
 
@@ -113,17 +114,30 @@ class ThreadStateService:
         )
         return deepcopy(self.cache[thread_id])
 
-    def save(self, lease: ThreadLease, state: dict) -> asyncio.Future:
-        snapshot = deepcopy(state)
+    def save(
+        self, lease: ThreadLease, state: dict, *, synchronize_tools: bool = False
+    ) -> asyncio.Future:
+        # Ordinary callers keep detached snapshots. Streaming tool state must be
+        # captured only when its write owns the same lock as durable tool commits.
+        snapshot = None if synchronize_tools else deepcopy(state)
         previous = lease.pending
+
+        def persist():
+            if synchronize_tools:
+                with locked_tool_store():
+                    current = snapshot_state(state)
+                    self._repository.save(lease.thread_id, current)
+                    return current
+            self._repository.save(lease.thread_id, snapshot)
+            return snapshot
 
         async def write():
             if previous is not None:
                 await asyncio.shield(previous)
             if not lease.active:
                 return
-            await asyncio.to_thread(self._repository.save, lease.thread_id, snapshot)
-            self.cache[lease.thread_id] = deepcopy(snapshot)
+            committed = await asyncio.to_thread(persist)
+            self.cache[lease.thread_id] = deepcopy(committed)
 
         task = asyncio.create_task(write())
         if lease.active:

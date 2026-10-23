@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from copy import deepcopy
 from functools import wraps
+from threading import RLock
 from typing import Annotated, Any, TypedDict
 
 from langgraph.graph.message import add_messages
@@ -12,6 +13,8 @@ from langgraph.graph.message import add_messages
 # The fallback supports standalone CLI tools; HTTP requests always bind explicitly.
 _tool_context: ContextVar[dict | None] = ContextVar("market_tool_store", default=None)
 _cli_store: dict = {}
+_cli_lock = RLock()
+_tool_state_lock: ContextVar = ContextVar("market_tool_state_lock", default=None)
 _tool_tasks: ContextVar[set[asyncio.Task] | None] = ContextVar(
     "market_tool_tasks", default=None
 )
@@ -61,11 +64,20 @@ def bind_tool_store(state: dict, *, tool_tasks: set[asyncio.Task] | None = None)
     """Bind one execution's mutable state; reset safely on failure/cancellation."""
     token = _tool_context.set(state)
     tasks_token = _tool_tasks.set(tool_tasks)
+    lock_token = _tool_state_lock.set(RLock())
     try:
         yield state
     finally:
         _tool_context.reset(token)
         _tool_tasks.reset(tasks_token)
+        _tool_state_lock.reset(lock_token)
+
+
+@contextmanager
+def locked_tool_store():
+    """Order a synchronous tool's SQL commit and publication to this execution."""
+    with _tool_state_lock.get() or _cli_lock:
+        yield tool_store
 
 
 # Keys we track for persistence and state_update SSE events
