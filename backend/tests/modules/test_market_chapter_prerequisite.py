@@ -413,9 +413,9 @@ def test_worker_tool_choice_reaches_actual_provider_request(
                 row["function"]["name"] for row in request["tools"]
             }
         if agent == "curriculum_mapper":
-            assert "get_extracted_skills" not in {
-                row["function"]["name"] for row in request["tools"]
-            }
+            assert {"get_extracted_skills", "get_section_concepts"}.isdisjoint(
+                {row["function"]["name"] for row in request["tools"]}
+            )
     finally:
         client.portal.call(graph.checkpointer.adelete_thread, thread)
 
@@ -425,16 +425,43 @@ def test_autonomous_workers_prepare_review_without_publishing_or_changing_select
 ):
     from types import SimpleNamespace
 
+    from app.modules.curricularalignmentarchitect.curriculum_planning.repository import (
+        ChapterPlanRepository,
+    )
+    from app.modules.curricularalignmentarchitect.curriculum_planning.schemas import (
+        ChapterPlan,
+    )
+
     course, _, candidates, service, state = mapping_course
-    add_chapter(graph_driver, course["id"])
     with graph_driver.session(database="neo4j") as session:
         session.run(
-            "MATCH (c:CLASS {id: $id}) UNWIND range(2, 7) AS index "
-            "CREATE (c)-[:HAS_COURSE_CHAPTER]->(:COURSE_CHAPTER "
-            "{id: 'chapter-' + toString(index), title: 'Topic ' + toString(index), "
-            "chapter_index: index})",
+            "MATCH (c:CLASS {id: $id}) UNWIND range(0, 37) AS index "
+            "CREATE (c)-[:HAS_DOCUMENT]->(d:TEACHER_UPLOADED_DOCUMENT "
+            "{id: 'doc-' + toString(index), source_filename: 'Lecture ' + toString(index), "
+            "topic: 'Uploaded data topic ' + toString(index)}) "
+            "CREATE (d)-[:MENTIONS]->(:CONCEPT {name: 'Data concept ' + toString(index)})",
             id=course["id"],
         ).consume()
+        planner = ChapterPlanRepository(session)
+        planner.save_plan(
+            course["id"],
+            [
+                ChapterPlan(
+                    number=index + 1,
+                    title="Data pipelines" if index == 0 else f"Topic {index + 1}",
+                    description="Plan from uploaded course documents",
+                    assigned_documents=[f"doc-{i}" for i in range(index, 38, 7)],
+                )
+                for index in range(7)
+            ],
+        )
+        saved_plan = planner.get_plan(course["id"])
+        assert len(saved_plan.all_documents) == 38
+        assert not saved_plan.unassigned_documents
+        assert (
+            session.run("MATCH (b:BOOK) RETURN count(b) AS count").single()["count"]
+            == 0
+        )
     selected = [row["candidate_id"] for row in candidates]
     model, graph, checkpoint = live_graph
     thread = service.thread_id(course["id"], course["teacher_id"])
@@ -527,6 +554,15 @@ def test_autonomous_workers_prepare_review_without_publishing_or_changing_select
         if isinstance(message, ToolMessage)
     }
     assert "Course has 7 chapters" in retained_tools["list_chapters"]
+    chapter_results = "\n".join(
+        str(message.content)
+        for message in mapping_prompt
+        if isinstance(message, ToolMessage) and message.name == "get_chapter_details"
+    )
+    for index in range(38):
+        assert f"Uploaded data topic {index}" in chapter_results
+        assert f"Data concept {index}" in chapter_results
+    assert "get_section_concepts" not in model.calls[save_index][1]
     for candidate_id in selected:
         assert candidate_id in retained_tools["get_curated_skills"]
     assert graph.config["recursion_limit"] == 100

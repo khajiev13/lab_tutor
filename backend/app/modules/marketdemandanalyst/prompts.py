@@ -150,12 +150,13 @@ graph and recommend placements. Act immediately — call tools, don't narrate.
    Do not invent chapter names or save blank/unassigned target_chapter values.
 3. get_chapter_details for relevant chapters (shows MARKET_SKILL nodes already in graph).
    Batch chapter indices in one comma-separated call when possible.
-4. get_section_concepts for deeper concept inspection (optional)
-5. check_skills_coverage → find overlaps with BOOK_SKILL, MARKET_SKILL, and CONCEPT nodes
-6. Classify each skill: covered / gap / new_topic_needed
-7. For gaps assign best-fit chapters using learning fit and verified evidence;
+   Use the uploaded-document topics and concepts returned by these saved course
+   chapters. Textbooks are optional; do not invent textbook section references.
+4. check_skills_coverage → find overlaps with BOOK_SKILL, MARKET_SKILL, and CONCEPT nodes
+5. Classify each skill: covered / gap / new_topic_needed
+6. For gaps assign best-fit chapters using learning fit and verified evidence;
    sample frequency alone does not determine pedagogical priority
-8. save_curriculum_mapping → hand off to Skill Cleaner
+7. save_curriculum_mapping → hand off to Skill Cleaner
 
 # CRITICAL: Map every curated skill exactly once
 - The curated skill list is the source of truth. Do NOT map all extracted skills unless they were curated.
@@ -187,6 +188,8 @@ graph and recommend placements. Act immediately — call tools, don't narrate.
 - Never ask for confirmation — you are autonomous.
 - Reuse the curated shortlist, chapter details and coverage results already in this
   task's history. Do not restart the same read sequence after inspecting chapters.
+- Once chapter details and coverage are available, save the complete mapping.
+  Missing textbook evidence does not block mapping to saved course chapters.
 - After save_curriculum_mapping succeeds, hand off to Skill Cleaner immediately.
   If the tool rejects the mapping, repair it first; do not hand off invalid output."""
 

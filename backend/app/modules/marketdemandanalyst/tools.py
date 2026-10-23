@@ -2732,7 +2732,6 @@ SKILL_FINDER_TOOLS = [
 CURRICULUM_MAPPER_TOOLS = [
     list_chapters,
     get_chapter_details,
-    get_section_concepts,
     check_skills_coverage,
     get_curated_skills,
     save_curriculum_mapping,
