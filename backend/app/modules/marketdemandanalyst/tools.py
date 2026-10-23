@@ -209,11 +209,18 @@ def _fetch_existing_chapter_skill_rows(
 def set_job_search_country(country: str) -> str:
     """Set the teacher-confirmed country for job crawling before fetching jobs."""
     selected_country = normalize_job_search_country(country)
-    if (
-        tool_store.get("run_id")
-        and str(tool_store.get("job_search_country")) != selected_country.key
-    ):
-        return "Change the source configuration before collection or start a new analysis to change the market."
+    if tool_store.get("run_id"):
+        try:
+            configured = get_market_source_service().configure_country(
+                dict(tool_store), selected_country.key
+            )
+        except (ValueError, LookupError) as exc:
+            return (
+                f"Country was not changed: {exc}. "
+                "Explain this blocker to the teacher; do not retry the same country change or fetch jobs."
+            )
+        tool_store.update(configured)
+        return f"Job search country set to {selected_country.label}."
     existing_jobs = tool_store.get("fetched_jobs")
     existing_country = str(tool_store.get("job_search_country", "")).strip()
 

@@ -730,8 +730,12 @@ def test_extraction_handoff_returns_completed_tool_history_to_skill_finder(
     from sqlalchemy.orm import sessionmaker
 
     import app.modules.marketdemandanalyst.service as service_module
+    from app.core.settings import settings
     from app.modules.marketdemandanalyst import extractor, tools
-    from app.modules.marketdemandanalyst.graph import _make_prompt
+    from app.modules.marketdemandanalyst.graph import (
+        _make_prompt,
+        skill_priority_analyst,
+    )
     from app.modules.marketdemandanalyst.job_sources import JobSourceService
     from app.modules.marketdemandanalyst.prompts import SKILL_FINDER_PROMPT
     from app.modules.marketdemandanalyst.service import MarketSourceService
@@ -824,6 +828,8 @@ def test_extraction_handoff_returns_completed_tool_history_to_skill_finder(
     parent = StateGraph(SwarmState)
     parent.add_node("skill_finder", finder)
     parent.add_node("skill_extractor", extractor.skill_extractor_subgraph)
+    monkeypatch.setattr(settings, "market_skill_priority_enabled", False)
+    parent.add_node("skill_priority_analyst", skill_priority_analyst)
     parent.add_edge(START, "skill_finder")
     state = {**config, "selected_jobs": fetched["jobs"]}
     with bind_tool_store(state):

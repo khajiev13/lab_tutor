@@ -62,6 +62,9 @@ country. Supported countries are Uzbekistan, United States, China, United Kingdo
 Australia, and Singapore.
 - After the teacher confirms a country, call set_job_search_country before \
 handing off or fetching jobs.
+- Confirm the country or hand off only if the tool reports it was set successfully.
+  On a configuration error, explain the blocker once and stop. Do not claim the
+  country changed, retry the same rejected call, or fetch jobs with another country.
 - After the teacher approves country and search terms, hand off to Skill Finder immediately.
 - Do NOT narrate tool results back verbatim — summarize briefly.
 - Do NOT ask "shall I proceed?" after the teacher already said yes."""
@@ -79,6 +82,9 @@ postings and help the teacher select the most relevant ones for their curriculum
    - If the pipeline state says the country is not confirmed, do NOT call
      fetch_jobs. Ask the teacher to choose a supported country, call
      set_job_search_country, then fetch jobs.
+   - Continue only when that tool reports success. If configuration is rejected,
+     explain the blocker once and return to Supervisor; do not retry the same
+     country or pass it directly to fetch_jobs to bypass the saved configuration.
 2. Show job groups to the teacher, let them pick relevant groups (select_jobs_by_group).
   - When the teacher supplies exact group names as a JSON array, pass its JSON text unchanged as the `group_names` string. Do not convert names to group numbers; stored group order can change after reload.
   - If the teacher says "all", "all groups", or equivalent, call `select_jobs_by_group` with that literal all-groups intent.

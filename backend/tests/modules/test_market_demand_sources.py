@@ -34,11 +34,11 @@ def test_uzbekistan_aliases_and_catalog_without_network():
     assert service().catalog(country())[2].availability == "available"
 
 
-def test_uzbek_country_confirmation_keeps_the_configured_country_key():
+def test_legacy_uzbek_country_confirmation_keeps_the_configured_country_key():
     from app.modules.marketdemandanalyst.state import bind_tool_store
     from app.modules.marketdemandanalyst.tools import set_job_search_country
 
-    state = {"run_id": "owned-run", "job_search_country": "Uzbekistan"}
+    state = {"job_search_country": "Uzbekistan"}
     with bind_tool_store(state):
         set_job_search_country.invoke({"country": "Uzbekistan"})
     assert state["job_search_country"] == "Uzbekistan"

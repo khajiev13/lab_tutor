@@ -77,7 +77,6 @@ export function AgentMessage({ message }: AgentMessageProps) {
     {message.toolCalls.length > 0 && <div className="space-y-2 px-4 pb-3">
       {message.toolCalls.map(tool => <details key={tool.id} className="rounded-md border p-2 text-sm">
         <summary className="cursor-pointer">{TOOL_LABELS[tool.name] ?? tool.name} · {TOOL_STATUS[tool.status]}</summary>
-        <p className="mt-2 text-xs text-muted-foreground">A finished tool call does not establish that its source succeeded. Check evidence coverage for source outcomes.</p>
         <p className="mt-2 font-medium">Input</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">{JSON.stringify(tool.args, null, 2)}</pre>
         {tool.result !== undefined && <><p className="mt-2 font-medium">Returned details</p><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">{typeof tool.result === "string" ? tool.result : JSON.stringify(tool.result, null, 2)}</pre></>}
       </details>)}

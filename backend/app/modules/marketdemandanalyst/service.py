@@ -52,6 +52,31 @@ class MarketSourceService:
                 **deepcopy(run.config),
             }
 
+    def configure_country(self, state: dict, country: str) -> dict:
+        """Apply chat confirmation through the same durable rules as source settings."""
+        configured = deepcopy(state)
+        with self._sessions() as db:
+            service = MarketConfigurationService(
+                MarketReviewRepository(db),
+                self._jobs,
+                OccupationReferenceService(OccupationReferenceRepository(db)),
+            )
+            service.configure(
+                state["course_id"],
+                state["teacher_id"],
+                configured,
+                {"country": country},
+            )
+            db.commit()
+        return {
+            key: configured[key]
+            for key in (
+                "job_search_country",
+                "job_search_location",
+                "job_search_country_confirmed",
+            )
+        }
+
     def require_available_evidence(
         self, state: dict, *, include_extraction: bool = True
     ) -> None:
