@@ -32,6 +32,14 @@ class WorkerStalledError(RuntimeError):
         )
 
 
+class WorkerOutputLimitError(RuntimeError):
+    def __init__(self, agent: str):
+        super().__init__(
+            f"{agent.replace('_', ' ').title()} reached the model output limit. "
+            "The incomplete response was not applied."
+        )
+
+
 def _fingerprint(value) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, default=str).encode()

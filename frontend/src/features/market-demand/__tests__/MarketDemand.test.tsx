@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 
@@ -50,6 +50,7 @@ import type {
   AgentState,
   PipelineStageId,
   StageStatus,
+  SendResult,
 } from "@/features/market-demand/types";
 import type { UseAgentStreamReturn } from "@/features/market-demand/hooks/useAgentStream";
 import { useAgentStream } from "@/features/market-demand/hooks/useAgentStream";
@@ -593,7 +594,7 @@ it('keeps removed saved choices visibly repairable even when no current candidat
  expect(screen.queryByRole('button',{name:'Remove unsupported removed-python'})).not.toBeInTheDocument();
 });
 
-it('keeps current choices editable after a completed reply that has not prepared a curriculum-fit review',async()=>{
+it('collapses confirmed choices after a completed reply and lets the teacher reopen them',async()=>{
  const api=await import('@/features/market-demand/api');const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
  const review={...reviewFixture(),selected_candidate_ids:['python']};
  vi.mocked(api.confirmSkillReviewSelection).mockResolvedValue({...review,selection_revision:3,integration_review:null});
@@ -601,7 +602,8 @@ it('keeps current choices editable after a completed reply that has not prepared
  await openReviewWorkspace({skillReview:review,send});
  fireEvent.click(screen.getByRole('button',{name:/Confirm Selection/}));
  await waitFor(()=>expect(send).toHaveBeenCalledOnce());
- expect(screen.getByRole('region',{name:'Choose skills'})).toBeVisible();
+ expect(screen.queryByRole('region',{name:'Choose skills'})).not.toBeInTheDocument();
+ expect(screen.getByText('1 skill selected')).toBeVisible();
  openSkillDetails();
  fireEvent.click(screen.getByRole('button',{name:'Expand Tools'}));
  expect(screen.getByRole('checkbox',{name:'Select Python'})).toBeChecked();
@@ -654,13 +656,15 @@ it('does not show expired assessment activity after recovery',async()=>{
  expect(screen.queryByText('Assessing skill importance…')).not.toBeInTheDocument();
 });
 
-it("keeps the current skill action before historical narration without another toolbar decision", async () => {
+it("places the current skill decision inside the conversation after the agent messages", async () => {
  const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
  await openReviewWorkspace({skillReview:{...reviewFixture(),selected_candidate_ids:['python']},messages:[{id:'old',role:'agent',content:'Choose job groups before continuing',agent:'supervisor',toolCalls:[],isStreaming:false}]});
  const action=screen.getByRole('region',{name:'Current action'});
  expect(action).toHaveTextContent(/Confirm your skill selection/);
  const history=screen.getByRole('log',{name:'Conversation messages'});
- expect(action.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ expect(history).toContainElement(action);
+ expect(history).toContainElement(screen.getByRole('region',{name:'Choose skills'}));
+ expect(screen.getByText('Choose job groups before continuing').compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  expect(screen.getByRole('button',{name:'Skills & chart'})).toBeInTheDocument();
  expect(screen.queryByRole('button',{name:/history|browse skills/i})).not.toBeInTheDocument();
  expect(screen.queryByRole('checkbox',{name:/Select category/})).not.toBeInTheDocument();
@@ -678,12 +682,12 @@ it("prioritizes pending groups over a saved skill review and stale curriculum wi
  expect(screen.queryByRole('button',{name:'Approve and publish'})).not.toBeInTheDocument();
  expect(screen.getAllByRole('button',{name:/Confirm Selection/})).toHaveLength(1);
 });
-it("keeps only the main confirmation when optional categories are open", async () => {
+it("moves the single confirmation into Skills & chart while that editor is open", async () => {
  const {reviewFixture}=await import('@/features/market-demand/__tests__/review-fixtures');
  await openReviewWorkspace({skillReview:{...reviewFixture(),selected_candidate_ids:['python']}});
  expect(screen.getAllByRole('button',{name:/Confirm Selection/})).toHaveLength(1);
  openSkillDetails();
- expect(screen.queryByRole('button',{name:/Confirm Selection/})).not.toBeInTheDocument();
+ expect(within(screen.getByRole('dialog')).getByRole('button',{name:/Confirm Selection/})).toBeEnabled();
  expect([...document.querySelectorAll('button')].filter(button=>/^Confirm Selection/.test(button.textContent ?? ''))).toHaveLength(1);
  closeSkillDetails();
  expect(screen.getByRole('button',{name:'Confirm Selection (1)'})).toBeEnabled();
@@ -756,4 +760,53 @@ it("protects unsaved skill choices when opening the required chapter workspace",
  fireEvent.click(screen.getByRole('button',{name:'Cancel'}));
  expect(screen.getByRole('button',{name:'Confirm Selection (2)'})).toBeDisabled();
  expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+});
+
+
+it('collapses the confirmed picker during mapping, retains recovery and restores that presentation on reload', async () => {
+ const api = await import('@/features/market-demand/api');
+ const {reviewFixture} = await import('@/features/market-demand/__tests__/review-fixtures');
+ const review = {...reviewFixture(), selected_candidate_ids: ['python']};
+ const saved = {...review, selection_revision: 3};
+ vi.mocked(api.confirmSkillReviewSelection).mockResolvedValue(saved);
+ let finish!: (value: SendResult) => void;
+ const send = vi.fn(() => new Promise<SendResult>(resolve => {finish = resolve;}));
+ const view = await openReviewWorkspace({skillReview: review, send});
+ const confirmButton = screen.getByRole('button', {name: 'Confirm Selection (1)'});
+ confirmButton.focus();
+ fireEvent.click(confirmButton);
+ await waitFor(() => expect(screen.queryByRole('region', {name: 'Choose skills'})).not.toBeInTheDocument());
+ expect(screen.getByRole('textbox', {name: 'Question'})).toHaveFocus();
+ expect(screen.getByText('1 skill selected')).toBeVisible();
+ await act(async () => finish({outcome: 'failed', error: {code: 'worker_stalled', message: 'Mapping stalled', recovery: 'Check analysis status.'}}));
+ expect(screen.getByRole('alert')).toHaveTextContent('Mapping stalled');
+ expect(screen.getByRole('button', {name: 'Check analysis status'})).toBeEnabled();
+ expect(screen.queryByRole('region', {name: 'Choose skills'})).not.toBeInTheDocument();
+ view.unmount();
+ const persistedState = {...EMPTY_STATE, run_id: 'run-1', selection_confirmation: {candidate_revision: 1, selection_revision: 3, selected_candidate_ids: ['python'], excluded_candidate_ids: [], acknowledged_omissions: [], teacher_id: 1, confirmed_at: '2026-10-24T02:00:00Z'}};
+ const restored = await openReviewWorkspace({skillReview: saved, agentState: persistedState});
+ expect(screen.getByText('1 skill selected')).toBeVisible();
+ expect(screen.queryByRole('region', {name: 'Choose skills'})).not.toBeInTheDocument();
+ restored.unmount();
+ await openReviewWorkspace({skillReview: {...saved, candidate_revision: 2}, agentState: persistedState});
+ expect(screen.getByRole('region', {name: 'Choose skills'})).toBeVisible();
+});
+
+it('confirms edited skills directly from Skills & chart without a duplicate picker', async () => {
+ const api = await import('@/features/market-demand/api');
+ const {integrationFixture} = await import('@/features/market-demand/__tests__/review-fixtures');
+ const review = integrationFixture();
+ vi.mocked(api.confirmSkillReviewSelection).mockImplementation(async (_id, body) => ({...review, ...body, selection_revision: 3, integration_review: null}));
+ const send = vi.fn().mockResolvedValue({outcome: 'completed'});
+ await openReviewWorkspace({skillReview: review, send});
+ openSkillDetails();
+ fireEvent.click(screen.getByRole('button', {name: 'Expand Tools'}));
+ fireEvent.click(screen.getByRole('checkbox', {name: 'Select SQL'}));
+ fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', {name: 'Confirm Selection (2)'}));
+ await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+ await waitFor(() => expect(screen.getByRole('textbox', {name: 'Question'})).toHaveFocus());
+ expect(screen.getByText('2 skills selected')).toBeVisible();
+ expect(screen.queryByRole('region', {name: 'Choose skills'})).not.toBeInTheDocument();
+ expect(api.confirmSkillReviewSelection).toHaveBeenCalledWith(1, expect.objectContaining({selected_candidate_ids: ['python', 'sql'], confirm_current_evidence: true}));
+ expect(api.approveSkillIntegration).not.toHaveBeenCalled();
 });

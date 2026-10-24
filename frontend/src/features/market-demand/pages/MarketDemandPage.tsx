@@ -27,7 +27,7 @@ import { buildRunReviewContext } from "@/features/market-demand/workspace-contex
 import { hasItems, detectPendingSelection } from "@/features/market-demand/teacher-decision";
 import { currentPriorityAssessment, jobBackedCandidates } from "@/features/market-demand/selection";
 import { skillReviewErrorMessage } from "@/features/market-demand/api";
-import type { DescriptorChoice, SendCommand, SendResult, WorkspaceContext, WorkspaceQuestion } from "@/features/market-demand/types";
+import type { DescriptorChoice, SendCommand, SendResult, SkillReview, WorkspaceContext, WorkspaceQuestion } from "@/features/market-demand/types";
 
 const PROMPT_SUGGESTIONS = [
   "Analyze the job market for this course and find relevant postings",
@@ -39,6 +39,11 @@ const PROMPT_SUGGESTIONS = [
 function isMaterialsNotReady(cause: unknown) {
   const detail = isAxiosError(cause) ? cause.response?.data?.detail : cause;
   return typeof detail === "object" && detail !== null && "code" in detail && detail.code === "materials_not_ready";
+}
+
+function skillSelectionKey(review: Pick<SkillReview, "run_id" | "candidate_revision" | "selection_revision" | "selected_candidate_ids" | "excluded_candidate_ids" | "evidence_omissions">) {
+  return JSON.stringify([review.run_id, review.candidate_revision, review.selection_revision,
+    [...review.selected_candidate_ids].sort(), [...review.excluded_candidate_ids].sort(), [...(review.evidence_omissions ?? [])].sort()]);
 }
 
 export default function MarketDemandPage() {
@@ -88,6 +93,7 @@ function MarketDemandContent() {
   const selectionKey = pending ? JSON.stringify([pending.kind, pending.items.map(item => item.id)]) : "";
   const [confirmed, setConfirmed] = useState<{key: string; ids: string[]} | null>(null);
   const [editingSelection, setEditingSelection] = useState(false);
+  const [confirmedSkillReview, setConfirmedSkillReview] = useState<SkillReview | null>(null);
   const workPending = sending || isStreaming || stream.execution.status === "busy" || controller.busy || confirming || resetting || checking;
   const unavailable = !isRestored || isLoadingHistory || resetting;
   const workflowDisabled = !materialsReady || unavailable || workPending || recoveryRequired || stream.execution.status !== "idle";
@@ -153,6 +159,9 @@ function MarketDemandContent() {
       } else {
         const confirmedReview = await controller.confirmCurrentSelection();
         if (generation.current !== current || confirmedReview.run_id !== review?.run_id) return;
+        if (detailsOpen) focusComposerAfterClose.current = true;
+        else composerRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+        setConfirmedSkillReview(confirmedReview); setEditingSelection(false); setDetailsOpen(false);
         command = {mode: "workflow", text: "Map the confirmed selected skills to the curriculum and prepare the curriculum fit review. Do not approve or publish."};
       }
       // This operation already owns the flight guard; sending uses the same
@@ -225,7 +234,7 @@ function MarketDemandContent() {
       if (generation.current !== current) return;
       await stream.clearConversation();
       if (generation.current !== current) return;
-      setDraft({text: "", context: null}); setCountryOverride(null); setConfirmed(null); setEditingSelection(false);
+      setDraft({text: "", context: null}); setCountryOverride(null); setConfirmed(null); setEditingSelection(false); setConfirmedSkillReview(null);
       setDetailsOpen(false); setInspectId(null); setRecoveryRequired(false); setReviewRefreshRequired(false); setClearOpen(false);
     } catch (cause) {if (generation.current === current) setActionError(skillReviewErrorMessage(cause, "Conversation could not be cleared. Your question and choices are retained."));}
     finally {if (generation.current === current) {resetFlight.current = false; setResetting(false);}}
@@ -246,13 +255,31 @@ function MarketDemandContent() {
   const staleFit = !!proposal && !proposal.withdrawal && (proposal.candidate_revision !== review.candidate_revision ||
     proposal.selection_revision !== review.selection_revision || !proposal.review_digest ||
     proposal.items.length !== review.selected_candidate_ids.length || proposal.items.some(item => !review.selected_candidate_ids.includes(item.candidate_id)));
-  const showSkills = !!review && (review.candidates.length > 0 || controller.draft.selected_candidate_ids.length > 0) && !pending && (!proposal || editingSelection || staleFit || controller.dirty || controller.reviewRequired);
+  const confirmation = agentState.selection_confirmation;
+  const selectionConfirmed = !!review && !controller.dirty && !controller.reviewRequired && !controller.needsEvidenceAcknowledgement &&
+    !review.reconciliations?.some(item => !item.resolved) && (
+      (confirmedSkillReview && skillSelectionKey(confirmedSkillReview) === skillSelectionKey(review)) ||
+      (confirmation && agentState.run_id === review.run_id && skillSelectionKey({...review, ...confirmation,
+        evidence_omissions: confirmation.acknowledged_omissions}) === skillSelectionKey(review))
+    );
+  const showSkills = !!review && (review.candidates.length > 0 || controller.draft.selected_candidate_ids.length > 0) && !pending &&
+    (editingSelection || controller.dirty || controller.reviewRequired || (!selectionConfirmed && (!proposal || staleFit)));
   const priorityAssessment = review ? currentPriorityAssessment(review) : null;
   const priorityProgress = agentState.skill_priority_status;
   const assessingImportance = priorityProgress?.status === "running" && Date.parse(priorityProgress.deadline_at) > Date.now() &&
     !(priorityAssessment?.assessment_id === priorityProgress.assessment_id && priorityAssessment.status !== "running");
   const sourceFailures = Object.entries(review?.source_outcomes ?? agentState.source_outcomes ?? {}).filter(([, outcome]) => outcome.status === "error" || outcome.status === "partial");
   const shownError = actionError ?? (isMaterialsNotReady(stream.streamError) ? null : stream.error) ?? (reviewRefreshRequired ? controller.error : null);
+  const chapterReadinessNotice = !mappingReady && <div className="space-y-2 rounded-lg border p-3 text-sm">
+    {chapterPlanLoading ? <p role="status" className="text-muted-foreground">Checking your chapter plan…</p>
+      : chapterPlanError ? <>
+        <p role="alert">Could not check your chapter plan. Retry before mapping skills. Your choices are retained.</p>
+        <Button size="sm" variant="outline" onClick={refreshChapterPlan}>Retry chapter check</Button>
+      </> : <>
+        <p>Build a chapter plan before mapping skills to your curriculum. You can keep extracting and reviewing skills here.</p>
+        <Button asChild size="sm"><Link to={`/courses/${courseId}/architect?step=build-chapters`}>Build chapter plan</Link></Button>
+      </>}
+  </div>;
   return <div aria-label="Teacher evidence workspace" className="absolute inset-0 flex min-w-0 flex-col overflow-hidden bg-background">
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
       <Link to={`/courses/${courseId}`} className="min-w-0 text-sm text-muted-foreground">← {course?.title ?? "Course"} · Market Demand Analyst</Link>
@@ -266,37 +293,6 @@ function MarketDemandContent() {
         {review && isRestored && <Button variant="ghost" size="sm" aria-label="Skills & chart" onClick={() => setDetailsOpen(true)}><PanelRightOpen className="size-4"/>Skills &amp; chart</Button>}
       </div>
     </header>
-    <section aria-label="Current action" className="max-h-[45dvh] shrink-0 overflow-y-auto border-b px-4 py-3 sm:max-h-[50dvh]">
-      <div className="mx-auto max-w-3xl space-y-2">
-          {(workPending || assessingImportance) && !checking && <p role="status" className="text-sm text-muted-foreground"><Loader2 className="mr-2 inline size-4 animate-spin"/>{assessingImportance ? "Assessing skill importance…" : stream.currentAgent ? "The agent is working…" : "Working on your request…"}</p>}
-        <h1 className="text-sm font-semibold">{!materialsReady ? "Waiting for course materials" : unavailable ? "Restore the conversation to continue" : recoveryRequired || stream.execution.status === "unknown" ? "Check analysis status before continuing" : workPending ? "Working on your request" : pending ? "Choose job groups to analyze" : showSkills ? "Confirm your skill selection" : proposal ? "Review curriculum fit" : "Ask the agent to analyze relevant jobs"}</h1>
-          {pending && <SelectionCard key={selectionKey} title="Select Job Groups"
-            subtitle="Choose which groups to analyze for skills"
-            items={pending.items} disabled={workflowDisabled} confirmed={confirmed?.key === selectionKey}
-            confirmedIds={confirmed?.key === selectionKey ? confirmed.ids : undefined} onConfirm={ids => void confirmChoices(ids)}/>}
-          {showSkills && !mappingReady && <div className="space-y-2 rounded-lg border p-3 text-sm">
-            {chapterPlanLoading ? <p role="status" className="text-muted-foreground">Checking your chapter plan…</p>
-              : chapterPlanError ? <>
-                <p role="alert">Could not check your chapter plan. Retry before mapping skills. Your choices are retained.</p>
-                <Button size="sm" variant="outline" onClick={refreshChapterPlan}>Retry chapter check</Button>
-              </> : <>
-                <p>Build a chapter plan before mapping skills to your curriculum. You can keep extracting and reviewing skills here.</p>
-                <Button asChild size="sm"><Link to={`/courses/${courseId}/architect?step=build-chapters`}>Build chapter plan</Link></Button>
-              </>}
-          </div>}
-          {showSkills && <SkillSelectionCard controller={controller} disabled={workflowDisabled} confirmDisabled={!mappingReady} onConfirm={() => void confirmChoices()}
-            onInspect={(id, element) => {inspectionOrigin.current = element; setInspectId(id);}}/>}
-          {review && !pending && <section aria-label="Curriculum fit" className="space-y-2">
-            {proposal && !proposal.withdrawal && !showSkills && <Button size="sm" variant="ghost" disabled={workPending || unavailable} onClick={() => setEditingSelection(true)}>Change selection</Button>}
-            <div hidden={showSkills}><IntegrationReview courseId={courseId} review={review} onReviewChange={stream.applySkillReview} disabled={!materialsReady || workPending || unavailable}
-              publicationDisabled={showSkills || controller.dirty || controller.reviewRequired || recoveryRequired || stream.execution.status !== "idle"}/></div>
-          </section>}
-        {shownError && <p role="alert" className="text-sm text-destructive">{shownError}</p>}
-        {reviewRefreshRequired && !recoveryRequired && <Button variant="outline" size="sm" disabled={workPending || unavailable} onClick={() => void refreshEvidence()}>Refresh current evidence</Button>}
-        {!isRestored && !isLoadingHistory && <Button variant="outline" size="sm" onClick={stream.retryRestoration}>Retry restoration</Button>}
-        {(recoveryRequired || stream.execution.status !== "idle") && !isStreaming && !sending && <Button variant="outline" size="sm" disabled={checking || confirming || resetting} onClick={() => void checkStatus()}>Check analysis status{checking ? "…" : ""}</Button>}
-      </div>
-    </section>
     <ChatContainerRoot className="relative flex min-h-0 min-w-0 flex-1 flex-col overscroll-contain">
       <ChatContainerContent role="log" aria-label="Conversation messages" className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6">
         {isLoadingHistory ? <p className="py-12 text-center text-sm text-muted-foreground"><Loader2 className="mr-2 inline size-4 animate-spin"/>Restoring conversation...</p> : <>
@@ -306,6 +302,31 @@ function MarketDemandContent() {
             <div className="flex w-full max-w-lg flex-wrap justify-center gap-2">{PROMPT_SUGGESTIONS.map(text => <PromptSuggestion key={text} className="h-auto max-w-full whitespace-normal text-center" disabled={workflowDisabled} onClick={() => void sendQuestion(text)}>{text}</PromptSuggestion>)}</div>
           </div>}
           {messages.map(message => message.role === "user" ? <UserMessage key={message.id} content={message.content}/> : <AgentMessage key={message.id} message={message}/>)}
+          <section aria-label="Current action" className="space-y-2 rounded-lg border p-3">
+            <div className="mx-auto max-w-3xl space-y-2">
+              {(workPending || assessingImportance) && !checking && <p role="status" className="text-sm text-muted-foreground"><Loader2 className="mr-2 inline size-4 animate-spin"/>{assessingImportance ? "Assessing skill importance…" : stream.currentAgent ? "The agent is working…" : "Working on your request…"}</p>}
+              <h1 className="text-sm font-semibold">{!materialsReady ? "Waiting for course materials" : unavailable ? "Restore the conversation to continue" : recoveryRequired || stream.execution.status === "unknown" ? "Check analysis status before continuing" : workPending ? "Working on your request" : pending ? "Choose job groups to analyze" : showSkills ? "Confirm your skill selection" : selectionConfirmed && !proposal ? "Selection saved" : proposal ? "Review curriculum fit" : "Ask the agent to analyze relevant jobs"}</h1>
+              {pending && <SelectionCard key={selectionKey} title="Select Job Groups"
+                subtitle="Choose which groups to analyze for skills"
+                items={pending.items} disabled={workflowDisabled} confirmed={confirmed?.key === selectionKey}
+                confirmedIds={confirmed?.key === selectionKey ? confirmed.ids : undefined} onConfirm={ids => void confirmChoices(ids)}/>}
+              {showSkills && !detailsOpen && chapterReadinessNotice}
+              {showSkills && !detailsOpen && <SkillSelectionCard controller={controller} disabled={workflowDisabled} confirmDisabled={!mappingReady} onConfirm={() => void confirmChoices()}
+                onInspect={(id, element) => {inspectionOrigin.current = element; setInspectId(id);}}/>}
+              {review && !pending && <section aria-label="Curriculum fit" className="space-y-2">
+                {!showSkills && review.selected_candidate_ids.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <p>{review.selected_candidate_ids.length} {review.selected_candidate_ids.length === 1 ? "skill" : "skills"} selected</p>
+                  <Button size="sm" variant="ghost" disabled={workPending || unavailable} onClick={() => setEditingSelection(true)}>Change selection</Button>
+                </div>}
+                <div hidden={showSkills || staleFit}><IntegrationReview courseId={courseId} review={review} onReviewChange={stream.applySkillReview} disabled={!materialsReady || workPending || unavailable}
+                  publicationDisabled={showSkills || staleFit || controller.dirty || controller.reviewRequired || recoveryRequired || stream.execution.status !== "idle"}/></div>
+              </section>}
+              {shownError && <p role="alert" className="text-sm text-destructive">{shownError}</p>}
+              {reviewRefreshRequired && !recoveryRequired && <Button variant="outline" size="sm" disabled={workPending || unavailable} onClick={() => void refreshEvidence()}>Refresh current evidence</Button>}
+              {!isRestored && !isLoadingHistory && <Button variant="outline" size="sm" onClick={stream.retryRestoration}>Retry restoration</Button>}
+              {(recoveryRequired || stream.execution.status !== "idle") && !isStreaming && !sending && <Button variant="outline" size="sm" disabled={checking || confirming || resetting} onClick={() => void checkStatus()}>Check analysis status{checking ? "…" : ""}</Button>}
+            </div>
+          </section>
           {sourceFailures.length > 0 && !workPending && <details className="text-xs text-muted-foreground"><summary>Some job sources could not finish</summary>{sourceFailures.map(([source, outcome]) => <p key={source} className="mt-1">{source}: {outcome.status}. {outcome.warnings.join(" ")}</p>)}</details>}
         </>}
         <ChatContainerScrollAnchor/>
@@ -323,8 +344,11 @@ function MarketDemandContent() {
       event.preventDefault(); focusComposerAfterClose.current = false;
       composerRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
     }} onReferenceAsk={(context, text) => {focusComposerAfterClose.current = true; setDetailsOpen(false); setActionError(null); setDraft({text, context});}} review={review} candidateIds={controller.draft.selected_candidate_ids.length ? controller.draft.selected_candidate_ids : jobBackedCandidates(review).map(item => item.candidate_id)} open={detailsOpen} onOpenChange={setDetailsOpen} onAsk={askAboutChart}>
-      {!pending && <SkillSelectionCard browse controller={controller} disabled={workflowDisabled} onConfirm={() => void confirmChoices()}
+      {!pending && chapterReadinessNotice}
+      {!pending && <SkillSelectionCard browse controller={controller} disabled={workflowDisabled} confirmDisabled={!mappingReady} onConfirm={() => void confirmChoices()}
         onInspect={(id, element) => {inspectionOrigin.current = element; setInspectId(id);}}/>}
+      {shownError && <p role="alert" className="text-sm text-destructive">{shownError}</p>}
+      {reviewRefreshRequired && !recoveryRequired && <Button variant="outline" size="sm" disabled={workPending || unavailable} onClick={() => void refreshEvidence()}>Refresh current evidence</Button>}
     </CompactComparison>}
     {focused && <SkillEvidencePanel courseId={courseId} candidate={focused} priorityAssessment={priorityAssessment} categoryPriority={review?.categories.find(category => category.category_id === focused.category_id)?.priority} returnFocusTo={inspectionOrigin.current} open onOpenChange={open => {if (!open) setInspectId(null);}}/>}
     <AlertDialog open={clearOpen} onOpenChange={open => {if (!resetting) setClearOpen(open);}}><AlertDialogContent>

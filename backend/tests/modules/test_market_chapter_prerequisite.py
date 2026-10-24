@@ -413,9 +413,15 @@ def test_worker_tool_choice_reaches_actual_provider_request(
                 row["function"]["name"] for row in request["tools"]
             }
         if agent == "curriculum_mapper":
+            assert request["max_tokens"] >= 20_000
+            assert "max_completion_tokens" not in request
+            assert request["thinking"] == {"type": "disabled"}
             assert {"get_extracted_skills", "get_section_concepts"}.isdisjoint(
                 {row["function"]["name"] for row in request["tools"]}
             )
+        else:
+            assert "max_tokens" not in request
+            assert "max_completion_tokens" not in request
     finally:
         client.portal.call(graph.checkpointer.adelete_thread, thread)
 

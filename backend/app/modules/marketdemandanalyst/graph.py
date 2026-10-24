@@ -42,7 +42,7 @@ from .tools import (
     mapping_prerequisite_error,
     owned_sync_tools,
 )
-from .worker_progress import worker_progress
+from .worker_progress import WorkerOutputLimitError, worker_progress
 from .workspace_chat import WorkspaceRuntimeContext, route_entry, workspace_review
 
 logger = logging.getLogger(__name__)
@@ -79,6 +79,16 @@ def _worker_hook(agent: str):
         return {"messages": [], "worker_progress": progress}
 
     return before_model
+
+
+def _require_complete_mapping_response(state: dict) -> dict:
+    message = state["messages"][-1]
+    if (
+        isinstance(message, AIMessage)
+        and message.response_metadata.get("finish_reason") == "length"
+    ):
+        raise WorkerOutputLimitError("curriculum_mapper")
+    return {"messages": []}
 
 
 # ── App-owned async checkpoint storage ────────────────────────
@@ -194,8 +204,12 @@ _LLM_INSTANCE = None
 _MAX_PROMPT_MESSAGES = 10
 # Workers need the current task's earlier tool results while inspecting chapters.
 _MAX_AUTONOMOUS_PROMPT_MESSAGES = 128
-# Each mapper round includes prerequisite guard, model, and tool graph steps.
+# Each mapper round includes prerequisite guard, model, response validation,
+# and tool graph steps.
 _MAX_WORKFLOW_STEPS = 100
+# The 139-skill mapping exceeded the gateway's 4k default; retain room for
+# the complete atomic tool call, including exact IDs and mapping rationale.
+_MAPPER_MAX_OUTPUT_TOKENS = 32_768
 
 
 def _make_prompt(
@@ -506,7 +520,16 @@ async def get_graph():
         handoff_to_supervisor,
     ]
     curriculum_mapper = create_react_agent(
-        llm.bind_tools(mapper_tools, tool_choice="required"),
+        llm.bind_tools(
+            mapper_tools,
+            tool_choice="required",
+            # ChatOpenAI rewrites its max_tokens option to max_completion_tokens.
+            # Send the endpoint's documented max_tokens key.
+            extra_body={
+                **(getattr(llm, "extra_body", None) or {}),
+                "max_tokens": _MAPPER_MAX_OUTPUT_TOKENS,
+            },
+        ),
         tools=mapper_tools,
         prompt=_make_prompt(
             CURRICULUM_MAPPER_PROMPT,
@@ -514,6 +537,7 @@ async def get_graph():
             current_turn_only=True,
         ),
         pre_model_hook=_worker_hook("curriculum_mapper"),
+        post_model_hook=_require_complete_mapping_response,
         state_schema=MarketWorkerState,
         name="curriculum_mapper",
     )

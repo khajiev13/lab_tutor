@@ -46,7 +46,7 @@ it("shows compact importance labels while keeping exactly the existing teacher c
   expect(screen.getByText(/Importance guidance available for 23 of 24/)).toBeInTheDocument();
   expect(screen.getAllByText("4/5 · AI estimate")).toHaveLength(8);
   const controls = screen.getAllByRole("button").map(button => button.getAttribute("aria-label") ?? button.textContent);
-  expect(screen.queryByRole("button", {name: /Confirm Selection/})).not.toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Confirm Selection (1)"})).toBeEnabled();
   view.unmount();
   const legacy = setupPriorityReview({...view.initial, priority_assessment: null,
     categories: view.initial.categories.map(item => ({...item, priority: null})),
@@ -70,7 +70,7 @@ it("preserves dirty choices and row order when guidance refreshes", async () => 
   expect(view.controller().draft.excluded_candidate_ids).toEqual(["skill-23", "reference", "skill-21"]);
   expect(view.controller().dirty).toBe(true);
   expect(view.controller().reviewRequired).toBe(false);
-  expect(screen.queryByRole("button", {name: /Confirm Selection/})).not.toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Confirm Selection (1)"})).toBeEnabled();
   view.refresh({...refreshed, candidate_revision: 2, priority_assessment: {...refreshed.priority_assessment, candidate_revision: 2, status: "partial"}});
   expect(screen.getByText(/Other skills have no reliable rating/)).toBeInTheDocument();
   expect(view.visibleCandidateIds()[0]).toBe("Select Skill 00");

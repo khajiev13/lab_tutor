@@ -119,7 +119,7 @@ function ComparisonBody({review, candidateIds, onAsk, courseId, onReferenceAsk}:
 export function CompactComparison({review, candidateIds, open, onOpenChange, onAsk, courseId, onReferenceAsk, onCloseAutoFocus, children}: CompactComparisonProps) {
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent onCloseAutoFocus={onCloseAutoFocus} maxWidthClassName="sm:max-w-2xl" className="max-h-[85dvh] grid-cols-1 overflow-y-auto">
-      <DialogHeader><DialogTitle>{children ? "Skills & chart" : "Compare skills"}</DialogTitle><DialogDescription>{children ? "Adjust any skill below. Close this panel to confirm your choices." : "Inspect one measure at a time for your chosen skills. Questions explain evidence; choices remain yours."}</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>{children ? "Skills & chart" : "Compare skills"}</DialogTitle><DialogDescription>{children ? "Adjust skills and confirm your choices here. Explore the evidence below." : "Inspect one measure at a time for your chosen skills. Questions explain evidence; choices remain yours."}</DialogDescription></DialogHeader>
       {open && children}
       {open && <ComparisonBody review={review} candidateIds={candidateIds} onAsk={onAsk} courseId={courseId} onReferenceAsk={onReferenceAsk}/>}
     </DialogContent>

@@ -81,7 +81,7 @@ from .thread_state_service import (
     ThreadStateService,
     get_thread_state_service,
 )
-from .worker_progress import WorkerStalledError
+from .worker_progress import WorkerOutputLimitError, WorkerStalledError
 from .workspace_chat import WorkspaceRuntimeContext, safe_workspace_metadata
 from .workspace_service import WorkspaceContextService
 
@@ -362,6 +362,12 @@ def _stream_error(
             code="worker_stalled",
             message=str(exc),
             recovery="Your confirmed skill selection is preserved. Refresh the review, then retry the saved workflow.",
+        )
+    if isinstance(exc, WorkerOutputLimitError):
+        return MarketStreamError(
+            code="execution_failed",
+            message=str(exc),
+            recovery="Your confirmed skill selection is preserved. Check analysis status before retrying. If this repeats, ask the administrator to check the model provider's output limit.",
         )
     if isinstance(exc, asyncio.CancelledError):
         return MarketStreamError(

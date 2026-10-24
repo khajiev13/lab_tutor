@@ -63,6 +63,15 @@ export interface AgentState {
   onet_release?: string | null;
   selected_onet_occupations?: string[];
   onet_selection_confirmed?: boolean;
+  selection_confirmation?: {
+    teacher_id: number;
+    confirmed_at: string;
+    candidate_revision: number;
+    selection_revision: number;
+    selected_candidate_ids: string[];
+    excluded_candidate_ids: string[];
+    acknowledged_omissions: string[];
+  } | null;
   run_id?: string | null;
   candidate_revision?: number;
   source_outcomes?: Record<string, SourceOutcome>;

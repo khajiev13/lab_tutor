@@ -121,6 +121,6 @@ export function SkillSelectionCard({controller, onConfirm, onInspect, disabled, 
         </div>
       </details>
     </div>}
-    {!browse && <Button size="sm" className="sticky bottom-0 z-10 w-full shrink-0" disabled={locked || confirmDisabled || !selected.size || unsupported.length > 0} onClick={onConfirm}>Confirm Selection{selected.size > 0 ? ` (${selected.size})` : ""}</Button>}
+    <Button size="sm" className="w-full shrink-0" disabled={locked || confirmDisabled || !selected.size || unsupported.length > 0} onClick={onConfirm}>Confirm Selection{selected.size > 0 ? ` (${selected.size})` : ""}</Button>
   </section>;
 }
